@@ -1308,12 +1308,14 @@ module Util =
                     //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
                     not varAttrs.MultipleUsages
         varAttrs, isOnlyReference
+
     let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e.Type None e
         if shouldBePassByRefForParam com e.Type then
             expr |> mkAddrOfExpr
         else if isCloneable com e.Type && not isOnlyReference then makeClone expr else expr
+
     let transformLeaveContextByValue (com: IRustCompiler) ctx t (name: string option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx t name e
@@ -1659,7 +1661,6 @@ module Util =
                                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
                     let thenExpr =
                         mkGenericPathExpr [fieldName] None
-
 
                     let arms = [
                         mkArm [] pat None thenExpr

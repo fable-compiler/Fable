@@ -47,11 +47,10 @@ let ``Union fn call works`` () =
 
 type WrappedUnion =
     | AString of string
-    // | BString of string
 
 let ``Union with wrapped type works`` () =
     let a = AString "hello"
-    let b = match a with AString s -> s + " world" //| _ -> ""
+    let b = match a with AString s -> s + " world"
     b |> equal "hello world"
 
 type DeepRecord = {Value: string}
@@ -76,3 +75,9 @@ let ``Deep union with wrapped type works`` () =
     b |> matchStrings |> equal "world"
     c |> matchStrings |> equal "nothing"
    // d |> matchStrings |> equal "hello"
+
+// // this tests is breaking if uncommented
+// let ``Multi-case Union with wrapped type works`` () =
+//     let b = DeepWrappedB "hello"
+//     let res = match b with DeepWrappedB s -> s + " world" | _ -> ""
+//     res |> equal "hello world"
