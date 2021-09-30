@@ -571,8 +571,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile.NormalizedFullPath
                     // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                     let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
-                    // Pass also the file name as argument, as when calling the script directly
-                    "node", ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath] @ runProc.Args
+                    "node", lastFilePath::runProc.Args
                 | exeFile ->
                     File.tryNodeModulesBin workingDir exeFile
                     |> Option.defaultValue exeFile, runProc.Args

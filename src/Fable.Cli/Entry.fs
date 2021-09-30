@@ -65,7 +65,7 @@ Arguments:
   --runFast         The command after the argument will be executed BEFORE compilation
   --runWatch        Like run, but will execute after each watch compilation
   --runScript       Runs the generated script for last file with node
-                    (Requires "esm" npm package)
+                    (Requires `"type": "module"` in package.sjon)
 
   --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`

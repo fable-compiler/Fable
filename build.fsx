@@ -62,7 +62,7 @@ module Util =
         runFableWithArgs projectDir []
 
     let runMocha testDir =
-        runNpmScript "mocha" [$"{testDir} -r esm --reporter dot -t 10000"]
+        runNpmScript "mocha" [$"{testDir} --reporter dot -t 10000"]
 
     let resolveDir dir =
         __SOURCE_DIRECTORY__ </> dir
@@ -131,8 +131,7 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
     runInDir baseDir "npm install"
     makeDirRecursive buildDir
 
-    // package.json is causing issues so disable it for now #2549
-    // copyFile (projectDir </> "package.json") buildDir
+    copyFile (projectDir </> "package.json") buildDir
 
     if opts.watch then
         Async.Parallel [
@@ -191,7 +190,7 @@ let testJsFast() =
     let fableJs = "./src/fable-compiler-js/src/app.fs.js"
     let testProj = "tests/Main/Fable.Tests.fsproj"
     let buildDir = "build/tests-js"
-    run $"node --eval \"require('esm')(module)('{fableJs}')\" {fableJs} {testProj} {buildDir}"
+    run $"node {fableJs} {testProj} {buildDir}"
     runMocha buildDir
 
 
@@ -414,7 +413,7 @@ let testRepos() =
     let repos = [
         "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3", "npm i && npm test"
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
-        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha -r esm tests/bin"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha tests/bin"
         "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"

@@ -27,8 +27,6 @@
         {
             "args": [
                 "${workspaceFolder}/build/tests",
-                "-r",
-                "esm",
                 "--reporter",
                 "dot",
                 "--timeout",
@@ -64,7 +62,7 @@
             "request": "launch",
             "name": "Run bench-compiler JS tests",
             "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "args": ["out-tests", "-r", "esm"],
+            "args": ["out-tests"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
