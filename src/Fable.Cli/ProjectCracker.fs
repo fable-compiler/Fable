@@ -239,11 +239,22 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
-let getSourcesFromFsproj (projFile: string) =
+let getSourcesFromFablePkg (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
+
     let xmlDoc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile)
+
+    Log.showFemtoMsg (fun () ->
+        xmlDoc.Root.Elements()
+        |> withName "PropertyGroup"
+        |> Seq.exists (fun propGroup ->
+            propGroup.Elements()
+            |> withName "NpmDependencies"
+            |> Seq.isEmpty
+            |> not))
+
     xmlDoc.Root.Elements()
     |> withName "ItemGroup"
     |> Seq.map (fun item ->
@@ -518,7 +529,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     let pkgRefs =
         pkgRefs |> List.map (fun pkg ->
-            { pkg with SourcePaths = getSourcesFromFsproj pkg.FsprojPath })
+            { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
 
     let projOpts =
         let sourceFiles =

@@ -52,14 +52,15 @@ module Log =
     let makeVerbose() =
         verbosity <- Fable.Verbosity.Verbose
 
+    let alwaysWithColor color (msg: string) =
+        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+            Console.ForegroundColor <- color
+            Console.Out.WriteLine(msg)
+            Console.ResetColor()
+
     let always (msg: string) =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
             Console.Out.WriteLine(msg)
-
-    let alwaysInSameLine (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
-            Console.Out.Write("\r" + String(' ', Console.WindowWidth) + "\r")
-            Console.Out.Write(msg)
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
@@ -78,6 +79,15 @@ module Log =
         Console.ForegroundColor <- ConsoleColor.DarkRed
         Console.Error.WriteLine(msg)
         Console.ResetColor()
+
+    let mutable private femtoMsgShown = false
+
+    let showFemtoMsg (show: unit -> bool): unit =
+        if not femtoMsgShown then
+            if show() then
+                femtoMsgShown <- true
+                "Some Nuget packages contain Femto metada. Learn more at https://github.com/Zaid-Ajaj/Femto/"
+                |> alwaysWithColor ConsoleColor.Blue
 
 module File =
     open System.IO
