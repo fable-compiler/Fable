@@ -1149,50 +1149,6 @@ module Util =
         let callee = mkGenericPathExpr [cellTy;"from"] None
         mkCallExpr callee [value]
 
-    // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
-    let transformExprCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
-        let expr = com.TransformAsExpr (ctx, e)
-        let isOnlyReference =
-            match e with
-            | Fable.Call _ ->
-                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-                true
-            | Fable.CurriedApply _ -> true
-            | Fable.Value(kind, r) ->
-                //an inline value kind is also never bound, so can assume this is the only reference also
-                true
-            | Fable.Lambda _ -> true
-            | _ ->
-                //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
-                false
-
-         // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
-        if (shouldBeRefCountWrapped com e.Type || isCloneable com e.Type) && not isOnlyReference then
-            makeClone expr
-        else expr
-
-    // // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
-    // let transformMaybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
-    //     let expr = com.TransformAsExpr (ctx, e)
-    //     let isOnlyReference =
-    //         match e with
-    //         | Fable.Call _ ->
-    //             //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-    //             true
-    //         | Fable.CurriedApply _ -> true
-    //         | Fable.Value(kind, r) ->
-    //             //an inline value kind is also never bound, so can assume this is the only reference also
-    //             true
-    //         | Fable.Lambda _ -> true
-    //         | _ ->
-    //             //would need to track all usages to work out if this is actually referenced more than once, so for safety assume false
-    //             false
-
-    //      // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
-    //     if (shouldBeRefCountWrapped com e.Type || isCloneable com e.Type) && not isOnlyReference then
-    //         makeClone expr
-    //     else expr
-
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
@@ -2774,7 +2730,7 @@ module Util =
                                             }
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
-        let fnBody = transformExprCloneRef com ctx body
+        let fnBody = transformLeaveContextByValue com ctx body.Type None body
         fnDecl, fnBody, newTypeParams
 
     let transformLambda (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
@@ -2799,7 +2755,7 @@ module Util =
                         }
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
-        let fnBody = transformExprCloneRef com ctx body
+        let fnBody = transformLeaveContextByValue com ctx body.Type None body
         let closedOverCloneableNames =
             let paramNamesToExclude = args |> List.map (fun arg -> arg.Name) |> Set.ofList
             let mutable names:ResizeArray<string> = ResizeArray()
