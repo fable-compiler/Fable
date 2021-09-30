@@ -37,9 +37,11 @@ let ``Array set element works`` () =
 
 [<Fact>]
 let ``Array pass by reference works`` () =
-    let inc (a: _[]) i =
+    let inc_elem (a: _[]) i =
         a.[i] <- a.[i] + 1
         a
     let arr = [|1;2;3|]
-    inc arr 2 |> equal [|1;2;4|]
+    inc_elem arr 2 |> equal [|1;2;4|]
     arr |> equal [|1;2;4|]
+    let _ = inc_elem arr 1
+    arr |> equal [|1;3;4|]

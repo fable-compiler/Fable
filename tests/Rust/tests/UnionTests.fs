@@ -47,10 +47,11 @@ let ``Union fn call works`` () =
 
 type WrappedUnion =
     | AString of string
+    // | BString of string
 
 let ``Union with wrapped type works`` () =
     let a = AString "hello"
-    let b = match a with AString s -> s + " world"
+    let b = match a with AString s -> s + " world" //| _ -> ""
     b |> equal "hello world"
 
 type DeepRecord = {Value: string}

@@ -284,8 +284,9 @@ module Patterns =
         PatKind.TupleStruct(path, mkVec fields)
         |> mkPat
 
-    let mkRefPat pat =
-        PatKind.Ref(pat, Mutability.Not) |> mkPat
+    let mkRefPat pat: Pat =
+        PatKind.Ref(pat, Mutability.Not)
+        |> mkPat
 
 [<AutoOpen>]
 module Visibilities =
@@ -564,7 +565,7 @@ module Exprs =
         ExprKind.Unary(op, arg)
         |> mkExpr
 
-    let mkDerefExpr expr =
+    let mkDerefExpr expr: Expr =
         mkUnaryExpr UnOp.Deref expr
 
     let mkBinaryExpr op left right: Expr =
