@@ -22,6 +22,14 @@ type MyClass() =
     static member foo(): string = jsNative
     static member foo(i: int): int = jsNative
 
+[<ImportMember("./js/1foo.js")>]
+type MyJsClassWithOptionArgs
+    [<ParamObject>]
+    (?foo: int, ?bar: string, ?baz: float) =
+    [<ParamObject(2)>]
+    member _.method(foo: int, bar: string, baz: float, ?lol: int) = jsNative
+    member _.value: string = jsNative
+
 type FooOptional =
     abstract Foo1: x: int * ?y: string -> int
     abstract Foo2: x: int * y: string option -> int
@@ -99,6 +107,15 @@ let tests =
 
     testCase "Static members of imported classes work" <| fun () ->
         MyJsClass.fuzzyMultiply(5, 4) |> equal 15
+
+    testCase "ParamObject works with constructors" <| fun () ->
+        let c = MyJsClassWithOptionArgs(4, baz=5.6)
+        c.value |> equal "4undefined5.6"
+
+    testCase "ParamObject works with fromIndex arg" <| fun () ->
+        let c = MyJsClassWithOptionArgs()
+        c.method(5, baz=4., lol=10, bar="b")
+        |> equal "5b410"
     #endif
 
     testCase "Import with relative paths from project subdirectory works" <| fun () ->
