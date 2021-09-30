@@ -100,3 +100,21 @@ let ``Pattern matching works`` () =
     let resB = recordPatternMatchFn { a=2; b="fail"; c=3.0 }
     resA |> equal 1
     resB |> equal -1
+
+[<Struct>]
+type StructRecord = {
+    i: int
+    s: string
+}
+
+let processStructByValue (s: StructRecord) =
+    s, s.i + 1
+
+let ``Struct record works`` () =
+    let r1 = { i=1; s="hello" }
+    let r2 = { i=1; s="world" }
+    let (sres1, ires1) = r1 |> processStructByValue
+    let (sres2, ires2) = r1 |> processStructByValue
+    let (sres3, ires3) = r2 |> processStructByValue //cannot actually test this, but since this is the only reference, the output should not .clone()
+    ires2 |> equal 2
+    sres3.s |> equal "world"
