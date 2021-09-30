@@ -67,12 +67,3 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-[<Global>]
-type MyJsClass [<ParamObject>] (?foo: int, ?bar: string, ?baz: float) =
-    [<ParamObject(2)>]
-    member _.Foo(foo: int, bar: string, ?baz: float) = jsNative
-
-let test() =
-    let c = MyJsClass(4, baz=56.)
-    c.Foo(5, baz=4., bar="b")

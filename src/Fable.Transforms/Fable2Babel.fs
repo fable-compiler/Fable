@@ -1115,9 +1115,9 @@ module Util =
                 let objKeys = List.take (List.length objValues) objKeys
                 let objArg =
                     List.zip objKeys objValues
-                    |> List.filter (function
-                        | _, Fable.Value(Fable.NewOption(None,_),_) -> false
-                        | _ -> true)
+                    |> List.choose (function
+                        | k, Fable.Value(Fable.NewOption(value,_),_) -> value |> Option.map (fun v -> k, v)
+                        | k, v -> Some(k, v))
                     |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
                     |> makeJsObject
                 args, Some objArg
@@ -1175,33 +1175,34 @@ module Util =
             // Check only members with multiple non-curried arguments
             | [parameters], Some ent when not (List.isEmpty parameters) ->
                 let ent = com.GetEntity(ent)
-                ent.MembersFunctionsAndValues
-                |> Seq.tryFind (fun m ->
-                    m.IsInstance = memberInfo.IsInstance
-                    && m.CompiledName = memberInfo.CompiledName
-                    && match m.CurriedParameterGroups with
-                        | [parameters2] when List.sameLength parameters parameters2 ->
-                            List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                        | _ -> false)
-                |> Option.bind (fun m ->
-                    m.Attributes |> Seq.tryPick (fun a ->
-                        if a.Entity.FullName = Atts.paramObject then
-                            let index =
-                                match a.ConstructorArgs with
-                                | (:? int as index)::_ -> index
-                                | _ -> 0
-                            match tryGetParamNames parameters with
-                            | None ->
-                                "ParamObj cannot be used with unnamed parameters"
-                                |> addWarning com [] range
-                                None
-                            | Some paramNames ->
-                                Some { Index = index
-                                       Parameters = paramNames }
-                        else None
-                    )
-                )
-            | _ -> None
+                if ent.IsInterface || FSharp2Fable.Util.isGlobalOrImportedEntity ent then
+                    ent.MembersFunctionsAndValues
+                    |> Seq.tryFind (fun m ->
+                        m.IsInstance = memberInfo.IsInstance
+                        && m.CompiledName = memberInfo.CompiledName
+                        && match m.CurriedParameterGroups with
+                            | [parameters2] when List.sameLength parameters parameters2 ->
+                                List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
+                            | _ -> false)
+                    |> Option.bind (fun m ->
+                        m.Attributes |> Seq.tryPick (fun a ->
+                            if a.Entity.FullName = Atts.paramObject then
+                                let index =
+                                    match a.ConstructorArgs with
+                                    | (:? int as index)::_ -> index
+                                    | _ -> 0
+                                match tryGetParamNames parameters with
+                                | None ->
+                                    "ParamObj cannot be used with unnamed parameters"
+                                    |> addWarning com [] range
+                                    None
+                                | Some paramNames ->
+                                    Some { Index = index
+                                           Parameters = paramNames }
+                            else None
+                        ))
+                    else None
+                | _ -> None
 
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
         let macro = info.Macro

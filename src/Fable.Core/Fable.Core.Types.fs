@@ -91,9 +91,10 @@ type ParamListAttribute() =
 
 type ParamSeqAttribute = ParamListAttribute
 
-/// Used to convert arguments from specified index into an object
+/// Converts arguments from the specified index on (0 by default) into an object.
+/// IMPORTANT: This should be used only with native bindings.
 [<AttributeUsage(AttributeTargets.Constructor ||| AttributeTargets.Method)>]
-type ParamObjectAttribute(int: int) =
+type ParamObjectAttribute(fromIndex: int) =
     inherit Attribute()
     new () = ParamObjectAttribute(0)
 
