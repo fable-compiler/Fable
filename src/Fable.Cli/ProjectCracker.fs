@@ -463,7 +463,14 @@ let createFableDir (opts: CrackerOptions) =
 
     fableDir
 
-let copyDirIfDoesNotExist (source: string) (target: string) =
+// Replace the .fsproj extension with .fableproj for files in fable_modules
+// We do this to avoid conflicts with other F# tooling that scan for .fsproj files
+let changeFsprojToFableproj (path: string) =
+    if path.EndsWith(".fsproj") then
+        IO.Path.ChangeExtension(path, Naming.fableProjExt)
+    else path
+
+let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
     if isDirectoryEmpty target then
         IO.Directory.CreateDirectory(target) |> ignore
         if IO.Directory.Exists source |> not then
@@ -472,8 +479,10 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
         let target = target.TrimEnd('/', '\\')
         for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
             IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
-        for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
-            IO.File.Copy(newPath, newPath.Replace(source, target), true)
+        for fromPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
+            let toPath = fromPath.Replace(source, target)
+            let toPath = if replaceFsprojExt then changeFsprojToFableproj toPath else toPath
+            IO.File.Copy(fromPath, toPath, true)
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
     let fableLibDir = createFableDir opts
@@ -501,15 +510,16 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
             fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist sourceDir targetDir
-            { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
+            copyDirIfDoesNotExist true sourceDir targetDir
+            let fsprojFile = IO.Path.GetFileName(pkg.FsprojPath) |> changeFsprojToFableproj
+            { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) })
 
     fableLibraryPath, pkgRefs
 
