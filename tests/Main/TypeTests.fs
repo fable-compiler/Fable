@@ -427,6 +427,10 @@ type MeasureTest4 = { Y: float<d> }
 type MeasureTest5 = { Y: MeasureTest<c> }
 type MeasureTest6 = { Y: MeasureTest<d> }
 
+type EnumFoo =
+  | Foo = 0
+  | Bar = 1
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -930,15 +934,17 @@ let tests =
         typeof<MyUnion1>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal true
         typeof<MyUnion2>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal false
 
-    testCase "IsInstanceOfType works with anonymous records" <| fun () ->
-        typeof<{| foo: string; bar: int |}>.IsInstanceOfType({| foo = "hi"; bar = 5 |}) |> equal true
-        typeof<{| foo: string; bar: int |}>.IsInstanceOfType({| foo = "hi"; bar = "oh" |}) |> equal false
+    // Expected to always return true for any numeric type, just like :? operator
+    testCase "IsInstanceOfType works with enums" <| fun () ->
+        typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Foo) |> equal true
+        typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Bar) |> equal true
 
+    // Expected to always return true for any function and function type, just like :? operator
     testCase "IsInstanceOfType works with functions" <| fun () ->
         typeof<unit -> unit>.IsInstanceOfType(fun () -> ()) |> equal true
-        typeof<unit -> int>.IsInstanceOfType(fun () -> ()) |> equal false
+        //typeof<unit -> int>.IsInstanceOfType(fun () -> ()) |> equal false
         typeof<string -> int>.IsInstanceOfType(String.length) |> equal true
-        typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
+        //typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
 
     testCase "IsInstanceOfType works with primitives" <| fun () ->
         typeof<string>.IsInstanceOfType("hello") |> equal true

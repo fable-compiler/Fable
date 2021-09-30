@@ -195,7 +195,27 @@ export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
 }
 
 export function isInstanceOfType(t: TypeInfo, o: any) {
-  return t.construct != null && o instanceof t.construct
+  switch (typeof o) {
+    case "boolean":
+      return t.fullname === bool_type.fullname;
+    case "string":
+      return t.fullname === string_type.fullname;
+    case "function":
+      return isFunction(t);
+    case "number":
+      return isEnum(t) || [
+        int8_type.fullname,
+        uint8_type.fullname,
+        int16_type.fullname,
+        uint16_type.fullname,
+        int32_type.fullname,
+        uint32_type.fullname,
+        float32_type.fullname,
+        float64_type.fullname,
+      ].includes(t.fullname);
+    default:
+      return t.construct != null && o instanceof t.construct;
+  }
 }
 
 /**
