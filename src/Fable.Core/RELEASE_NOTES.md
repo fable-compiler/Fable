@@ -1,3 +1,7 @@
+### 3.4.0
+
+* ParamObject attribute
+
 ### 3.3.1
 
 * JS.Decorator/ReflectedDecorator attributes

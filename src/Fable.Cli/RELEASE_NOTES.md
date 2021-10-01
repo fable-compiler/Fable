@@ -1,3 +1,11 @@
+### 3.4.0
+
+* ParamObject attribute
+* Rename .fable folder to fable_modules
+* Print log about Femto
+* Add Type.IsInstanceOfType @chkn
+* Fix #2229: Parsing succeeded for some invalid dates @njlr
+
 ### 3.3.1
 
 * Fix #2097: Async.StartChild does not apply timeout @njlr
