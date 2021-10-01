@@ -86,7 +86,7 @@ module Log =
         if not femtoMsgShown then
             if show() then
                 femtoMsgShown <- true
-                "Some Nuget packages contain metadata about the required NPM packages. You can use Femto (https://github.com/Zaid-Ajaj/Femto) to automatically install these NPM packages"
+                "Some Nuget packages contain information about NPM dependencies that can be managed by Femto: https://github.com/Zaid-Ajaj/Femto"
                 |> alwaysWithColor ConsoleColor.Blue
 
 module File =
