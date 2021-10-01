@@ -1083,11 +1083,7 @@ module Util =
         |]
 *)
     let transformImport (com: IRustCompiler) ctx r (selector: string) (path: string) =
-        // let selector, parts =
-        //     let parts = Array.toList(selector.Split('.'))
-        //     parts.Head, parts.Tail
         com.GetImportExpr(ctx, selector, path, r)
-        // |> getParts parts
 
     let transformCast (com: IRustCompiler) (ctx: Context) typ (expr: Fable.Expr): Rust.Expr =
         let fromType, toType = expr.Type, typ
@@ -1835,8 +1831,7 @@ module Util =
         let startExpr = com.TransformAsExpr(ctx, start)
         let limitExpr = com.TransformAsExpr(ctx, limit)
         let bodyExpr = com.TransformAsExpr(ctx, body)
-        let varName = if var.Name = "forLoopVar" then "_" + var.Name else var.Name
-        let varPat = mkIdentPat varName false false
+        let varPat = mkIdentPat var.Name false false
         let rangeExpr =
             if isUp then
                 mkRangeExpr (Some startExpr) (Some limitExpr) true
@@ -3084,24 +3079,22 @@ module Util =
         imports
         |> List.ofSeq
         |> List.sort
-        |> List.collect (fun (i: string) ->
-            match i.Split('|') with
-            | [| path; moduleNamespace; selector |] ->
-                let hashedPath = hash path
-                let name = System.String.Format("import_{0:x}", hashedPath, moduleNamespace)
-                let useName = System.String.Format("import_{0:x}::{1:x}", hashedPath, moduleNamespace)
-                let attrs = [mkEqAttr "path" (path.Replace(".js", ".rs") |> sprintf "\"%s\"")] // TODO: relative path
-                let item1 = mkUnloadedModItem attrs name
-                let item2 =
-                    match selector with
-                    | "" | "*" | "default" ->
-                        mkGlobUseItem [] [useName]
-                    | _ ->
-                        let parts = selector.Split('.') |> List.ofSeq
-                        mkSimpleUseItem [] (useName::parts) None
-                [item1; item2]
-            | _ -> []
-            )
+        |> List.collect (fun (importPath: string) ->
+            let hashedPath = hash importPath
+            let modName = System.String.Format("import_{0:x}", hashedPath)
+            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")] // TODO: relative path
+            let item1 = mkUnloadedModItem attrs modName
+            let item2 = mkGlobUseItem [] [modName]
+            // TODO: use non-glob selectors while still avoiding name clashing at crate level
+            // let item2 =
+            //     match selector with
+            //     | "" | "*" | "default" ->
+            //         mkGlobUseItem [] [useName]
+            //     | _ ->
+            //         let parts = selector.Split('.') |> List.ofArray
+            //         mkSimpleUseItem [] (useName::parts) None
+            [item1; item2]
+        )
 
 (*
     let transformImports (imports: Import seq): ModuleDeclaration list =
@@ -3161,7 +3154,6 @@ module Compiler =
 
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        // let imports = Dictionary<string, Import>()
         let imports = HashSet<string>()
 
         interface IRustCompiler with
@@ -3170,36 +3162,14 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, selector, path, r) =
+                let importPath, importFullName =
+                    match path.Split('|') with
+                    | [| path; namesp |] ->
+                        path, (namesp + "::" + selector)
+                    | _ -> path, selector
+                imports.Add(importPath) |> ignore
+                mkFullNamePathExpr importFullName None
 
-                let mnamespace =
-                    //Todo - somehow we need to get out the NAMESPACE of the requested input, which seems not to be available in the Type, ImportKind, or SourceLocation.
-                    //the below is a fudge that will only work when the module is the same as the file name, with no namespace prefix
-                    path.Replace(".js", "").Split('/') |> Seq.rev |> Seq.tryHead
-                    |> Option.map(fun n -> n + "|")
-                    |> Option.defaultValue ""
-                let import = path + "|" + mnamespace + selector
-                imports.Add(import) |> ignore
-                mkFullNamePathExpr selector None
-        //         let cachedName = path + "::" + selector
-        //         match imports.TryGetValue(cachedName) with
-        //         | true, i ->
-        //             match i.LocalIdent with
-        //             | Some localIdent -> Expression.identifier(localIdent)
-        //             | None -> Expression.nullLiteral()
-        //         | false, _ ->
-        //             let localId = getIdentForImport ctx path selector
-        //             let i =
-        //               { Selector =
-        //                     if selector = Naming.placeholder then
-        //                              "`importMember` must be assigned to a variable"
-        //                              |> addError com [] r; selector
-        //                     else selector
-        //                 Path = path
-        //                 LocalIdent = localId }
-        //             imports.Add(cachedName, i)
-        //             match localId with
-        //             | Some localId -> Expression.identifier(localId)
-        //             | None -> Expression.nullLiteral()
             member _.GetAllImports() = imports :> seq<_>
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
         //     member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
@@ -3248,6 +3218,7 @@ module Compiler =
 
         let topAttrs = [
             mkInnerAttr "allow" ["unused_imports"] // TODO: remove later?
+            mkInnerAttr "allow" ["unused_variables"] // TODO: remove later?
             mkInnerAttr "allow" ["non_snake_case"]
             mkInnerAttr "allow" ["non_camel_case_types"]
             mkInnerAttr "feature" ["stmt_expr_attributes"]

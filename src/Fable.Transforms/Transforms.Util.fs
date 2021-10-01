@@ -418,7 +418,9 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
     let getLibPath (com: Compiler) moduleName =
-        com.LibraryDir + "/" + moduleName + ".js"
+        match com.Options.Language with
+        | Rust -> com.LibraryDir + "/" + moduleName + ".rs" + "|" + moduleName
+        | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()

@@ -244,8 +244,8 @@ module Paths =
         |> mkPath
 
     let mkFullNamePath (fullName: Symbol) genArgs: Path =
-        let idents = fullName.Split('.') |> Seq.map mkIdent
-        let idents = Seq.append [mkUnsanitizedIdent "crate"] idents
+        let names = fullName.Split([|"."; "::"|], System.StringSplitOptions.RemoveEmptyEntries)
+        let idents = names |> Seq.map mkIdent |> Seq.append [mkUnsanitizedIdent "crate"]
         mkGenericPath idents genArgs
 
 [<AutoOpen>]
