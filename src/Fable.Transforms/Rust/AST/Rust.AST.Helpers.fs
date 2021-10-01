@@ -466,11 +466,11 @@ module Exprs =
           attrs = mkVec []
           tokens = None }
 
-    let mkExprField attrs ident expr is_shorthand is_placeholder: ExprField =
+    let mkExprField attrs name expr is_shorthand is_placeholder: ExprField =
         { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
-          ident = ident
+          ident = mkIdent name
           expr = expr
           is_shorthand = is_shorthand
           is_placeholder = is_placeholder }
@@ -656,8 +656,8 @@ module Exprs =
         ExprKind.Let(pat, expr)
         |> mkExpr
 
-    let mkFieldExpr expr ident: Expr =
-        ExprKind.Field(expr, ident)
+    let mkFieldExpr expr name: Expr =
+        ExprKind.Field(expr, mkIdent name)
         |> mkExpr
 
     let mkIndexExpr expr index: Expr =
@@ -771,26 +771,26 @@ module Types =
         TyKind.BareFn(mkBareFnTy genParams fnDecl)
         |> mkTy
 
-    let mkFnTraitGenericBound inputs output: GenericBound =
-        let ptref: Types.PolyTraitRef = {
+    let mkTraitGenericBound path: GenericBound =
+        let ptref: PolyTraitRef = {
             bound_generic_params = mkVec []
             span = DUMMY_SP
             trait_ref = {
-                path = {
-                    segments = mkVec [
-                        {
-                            ident = mkIdent "Fn"
-                            id = DUMMY_NODE_ID
-                            args = mkParenArgs inputs output |> Some
-                        }
-                    ]
-                    span = DUMMY_SP
-                    tokens = None
-                }
+                path = path
                 ref_id = DUMMY_NODE_ID
             }
         }
         GenericBound.Trait(ptref, TraitBoundModifier.None)
+
+    let mkFnTraitGenericBound inputs output: GenericBound =
+        let args = mkParenArgs inputs output |> Some
+        let path = mkGenericPath [mkIdent "Fn"] args
+        mkTraitGenericBound path
+
+    let mkTypeTraitGenericBound names: GenericBound =
+        let idents = names |> Seq.map mkIdent
+        let path = mkGenericPath idents None
+        mkTraitGenericBound path
 
     let mkTraitsTy traits: Ty =
         TyKind.TraitObject(mkVec traits, TraitObjectSyntax.None)
@@ -867,17 +867,15 @@ module Params =
         let ty = TyKind.Infer |> mkTy
         mkParamFromType name ty isRef isMut
 
-    let mkGenericParamFromName name: GenericParam =
+    let mkGenericParamFromName attrs name bounds: GenericParam =
         let ident = mkIdent name
-        let attrs = []
-        let bounds = []
         let is_placeholder = false
         let kind = GenericParamKind.Type None
         mkGenericParam attrs ident bounds is_placeholder kind
 
-    let mkGenericParams (names: Symbol seq): Generics =
+    let mkGenericParams (names: Symbol seq) bounds: Generics =
         names
-        |> Seq.map mkGenericParamFromName
+        |> Seq.map (fun name -> mkGenericParamFromName [] name bounds)
         |> mkGenerics
 
 [<AutoOpen>]

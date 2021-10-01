@@ -28,7 +28,7 @@ let ``Option matching works`` () =
     z |> equal 6
 
 [<Fact>]
-let ``Option with reference type works`` () =
+let ``Option matching with reference type works`` () =
     let p = { Point.x = 1; y = 2 }
     let a = Some p
     let b =
@@ -43,3 +43,13 @@ let ``Option with reference type works`` () =
     a |> equal (Some p)
     b |> equal (Some 1)
     c |> equal 1
+
+let getValue opt = Option.get opt
+
+[<Fact>]
+let ``Option Get with reference type works`` () =
+    let o = Some { Point.x = 1; y = 2 }
+    let p = Option.get o
+    let p2 = getValue o
+    p.x |> equal 1
+    p2.y |> equal 2

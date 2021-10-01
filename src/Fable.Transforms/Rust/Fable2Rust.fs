@@ -298,8 +298,9 @@ module TypeInfo =
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType ([], t)
                 if ctx.Typegen.FavourClosureTraitOverFunctionPointer then
-                    let bounds =
-                        [mkFnTraitGenericBound (inputTypes |> List.map (transformParamType com ctx)) (returnType |> transformType com ctx |> Rust.FnRetTy.Ty)]
+                    let inputs = inputTypes |> List.map (transformParamType com ctx)
+                    let output = returnType |> transformType com ctx |> Rust.FnRetTy.Ty
+                    let bounds = [mkFnTraitGenericBound inputs output]
                     if ctx.Typegen.IsParamType then
                         mkImplTraitsTy bounds
                     else
@@ -842,8 +843,7 @@ module Util =
         | e -> com.TransformAsExpr(ctx, e), true
 *)
     let getField r (expr: Rust.Expr) (fieldName: string) =
-        let ident = mkIdent fieldName
-        mkFieldExpr expr ident // ?loc=r)
+        mkFieldExpr expr fieldName // ?loc=r)
 
     let getExpr r (expr: Rust.Expr) (index: Rust.Expr) =
         mkIndexExpr expr index // ?loc=r)
@@ -1253,7 +1253,6 @@ module Util =
                 Seq.zip ent.FSharpFields values
                 |> Seq.map (fun (fi, value) ->
                     let attrs = []
-                    let ident = mkIdent fi.Name
                     let expr =
                         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true}}
                         if fi.IsMutable then
@@ -1261,7 +1260,7 @@ module Util =
                             |> makeMutValue com ctx fi.FieldType
                         else
                             transformLeaveContextByValue com ctx fi.FieldType None value
-                    mkExprField attrs ident expr false false)
+                    mkExprField attrs fi.Name expr false false)
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let path = mkFullNamePath ent.FullName genArgs
             let expr = mkStructExpr path fields // TODO: range
@@ -1621,7 +1620,7 @@ module Util =
 
         | Fable.TupleIndex index ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            mkFieldExpr expr (mkIdent (index.ToString()))
+            mkFieldExpr expr (index.ToString())
 
         | Fable.OptionValue ->
             // let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -2799,18 +2798,8 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics =
-            //it does not seem like the current AST gives access to the actual generic params, so this is inferring them from useage,
-            //which is a hack/temporary solution that only works for trivial cases.
-            let parameters =
-                fnGenericNames
-                |> Set.toList
-                |> List.map(fun name ->
-                    //todo map constraints
-                    mkGenericParam [] (mkIdent (name)) [] false (Rust.AST.Types.GenericParamKind.Type None)
-                    )
-            //todo map return type if encoded as generic param
-            parameters |> mkGenerics
+        let bounds = [mkTypeTraitGenericBound ["Clone"]]
+        let generics = mkGenericParams fnGenericNames bounds
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             info.Attributes
@@ -2862,10 +2851,12 @@ module Util =
                 yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
         |]
 *)
+    let getEntityGenParams (ent: Fable.Entity) =
+        let genNames = ent.GenericParameters |> List.map (fun x -> x.Name)
+        mkGenericParams genNames []
+
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let generics =
-            ent.GenericParameters |> List.map (fun x -> x.Name)
-            |> mkGenericParams
+        let generics = getEntityGenParams ent
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
@@ -2880,9 +2871,7 @@ module Util =
         [enumItem] // TODO: add traits for attached members
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let generics =
-            ent.GenericParameters |> List.map (fun x -> x.Name)
-            |> mkGenericParams
+        let generics = getEntityGenParams ent
         let fields =
             ent.FSharpFields |> Seq.map (fun fi ->
                 let ty = transformType com ctx fi.FieldType
