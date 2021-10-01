@@ -108,7 +108,7 @@ module Helpers =
     let error msg =
         Helper.JsConstructorCall(makeIdentExpr "Exception", Any, [msg])
 
-    let s txt = Value(StringConstant txt, None)
+    let str txt = Value(StringConstant txt, None)
 
     let genArg (com: ICompiler) (ctx: Context) r i (genArgs: (string * Type) list) =
         List.tryItem i genArgs
@@ -119,7 +119,6 @@ module Helpers =
             Any)
 
 open Helpers
-open Fable.Transforms
 
 type BuiltinType =
     | BclGuid
@@ -1496,7 +1495,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "FailWith", [msg] | "InvalidOp", [msg] ->
         makeThrow r t (error msg) |> Some
     | "InvalidArg", [argName; msg] ->
-        let msg = add (add msg (s "\\nParameter name: ")) argName
+        let msg = add (add msg (str "\\nParameter name: ")) argName
         makeThrow r t (error msg) |> Some
     | "Raise", [arg] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
@@ -1505,7 +1504,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | None ->
             "`reraise` used in context where caught exception is not available, please report"
             |> addError com ctx.InlinePath r
-            makeThrow r t (error (s "")) |> Some
+            makeThrow r t (error (str "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
@@ -1774,7 +1773,7 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
     | "Cast", [arg] -> Some arg // Erase
     | "CreateEvent", [addHandler; removeHandler; createHandler] ->
         Helper.LibCall(com, "event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+    | "Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth, args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1880,7 +1879,7 @@ let nativeArrayFunctions =
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
         | Value(NewTuple(args, _), r)::_ -> Value(NewTuple(args, isStruct), r) |> Some
-        | (ExprType(Tuple(genArgs, _)) as e)::_ -> TypeCast(e, Tuple(genArgs, isStruct)) |> Some
+        | ExprType(Tuple(genArgs, _)) as e::_ -> TypeCast(e, Tuple(genArgs, isStruct)) |> Some
         | _ -> None
     match i.CompiledName, thisArg with
     | (".ctor"|"Create"), _ ->
@@ -1928,7 +1927,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
             Helper.LibCall(com, "array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
-        | _ -> sprintf "Expecting an array type but got %A" t
+        | _ -> $"Expecting an array type but got {t}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
@@ -2236,9 +2235,9 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
 let errorStrings = function
-    | "InputArrayEmptyString" -> s "The input array was empty" |> Some
-    | "InputSequenceEmptyString" -> s "The input sequence was empty" |> Some
-    | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
+    | "InputArrayEmptyString" -> str "The input array was empty" |> Some
+    | "InputSequenceEmptyString" -> str "The input sequence was empty" |> Some
+    | "InputMustBeNonNegativeString" -> str "The input must be non-negative" |> Some
     | _ -> None
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2665,8 +2664,8 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, None)])
-            let ms = Helper.LibCall(com, "Long", "toNumber", Number(Float64, None), [ms], [ms.Type])
+            let ms = Helper.LibCall(com, "long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, None)])
+            let ms = Helper.LibCall(com, "long", "toNumber", Number(Float64, None), [ms], [ms.Type])
             Helper.LibCall(com, moduleName, "addMilliseconds", Number(Float64, None), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
@@ -2701,7 +2700,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> Helper.LibCall(com, "Timer", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor", _, _ -> Helper.LibCall(com, "timer", "Timer", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
     | Naming.StartsWith "get_" meth, Some x, _ -> getAttachedMemberWith r t x meth |> Some
     | Naming.StartsWith "set_" meth, Some x, [value] -> setExpr r x (makeStrConst meth) value |> Some
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2732,7 +2731,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [max] -> makeIntConst 0, max
             | [min; max] -> min, max
             | _ -> failwith "Unexpected arg count for Random.Next"
-        Helper.LibCall(com, "Util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
     | "NextDouble" ->
         Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
     | "NextBytes" ->
@@ -2740,7 +2739,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             match args with
             | [b] -> b
             | _ -> failwith "Unexpected arg count for Random.NextBytes"
-        Helper.LibCall(com, "Util", "randomBytes", t, [byteArray], [byteArray.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "util", "randomBytes", t, [byteArray], [byteArray.Type], ?loc=r) |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

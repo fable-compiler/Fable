@@ -393,19 +393,6 @@ module Reflection =
                         warnAndEvalToFalse ent.FullName, []
 
 module Helpers =
-    let (|ParseModule|_|) (pattern: string) (moduleName: string) =
-        let _reFableLib =
-            Regex($".*(\/{pattern}.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
-
-        let m = _reFableLib.Match(moduleName)
-        if m.Groups.Count > 1 then
-            let pyModule =
-                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
-                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-            Some pyModule
-        else
-            None
-
     let index = (Seq.initInfinite id).GetEnumerator()
 
     let getUniqueIdentifier (name: string): Python.Identifier =
@@ -453,14 +440,14 @@ module Helpers =
                 let path = name.Replace("../", "..").Replace("/", ".")
                 $"{path}.{moduleName}"
             else
-                let path = name.Replace("../", ".fable.").Replace("/", ".")
+                let path = name.Replace("../", $".{Naming.fableModulesDir}.").Replace("/", ".")
                 $"{path}.{moduleName}"
         // Modules in Fable library
-        | name when name.StartsWith(com.LibraryDir) || name.StartsWith("../fable-library-py/fable") ->
+        | name when name.StartsWith(com.LibraryDir) || name.StartsWith($"../fable-library-py/{Naming.fableModulesDir}") ->
             if relative then
                 $".{moduleName}"
             else              
-                $"fable.fable_library.{moduleName}"
+                $"{Naming.fableModulesDir}.fable_library.{moduleName}"
         | name when name.EndsWith(".fs") ->
             if relative then
                 $".{moduleName}"

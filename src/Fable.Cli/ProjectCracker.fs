@@ -433,7 +433,7 @@ let createFableDir (opts: CrackerOptions) =
         let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
         let dirName =
             match opts.FableOptions.Language with
-            | Python -> PY.Naming.fableUnhiddenDir
+            | Python -> PY.Naming.fableModulesDir
             | _ -> Naming.fableHiddenDir
         IO.Path.Combine(baseDir, dirName)
 

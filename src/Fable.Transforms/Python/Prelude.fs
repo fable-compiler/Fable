@@ -7,10 +7,10 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
-    let [<Literal>] fableUnhiddenDir = "fable"
+    let [<Literal>] fableModulesDir = "fable_modules"
     
-    let isInFableUniddenDir (file: string) =
-        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableUnhiddenDir)
+    let isInFableModulesDir (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableModulesDir)
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
