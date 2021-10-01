@@ -48,6 +48,7 @@ let ``Union fn call works`` () =
 type WrappedUnion =
     | AString of string
 
+[<Fact>]
 let ``Union with wrapped type works`` () =
     let a = AString "hello"
     let b = match a with AString s -> s + " world"
@@ -55,29 +56,68 @@ let ``Union with wrapped type works`` () =
 
 type DeepRecord = {Value: string}
 type DeepWrappedUnion =
-    //| DeepWrappedA of string * DeepRecord
+    | DeepWrappedA of string * DeepRecord
     | DeepWrappedB of string
     | DeepWrappedC of int
-    //| DeepWrappedD of DeepRecord    //does not yet work
-
+    | DeepWrappedD of DeepRecord
+    | DeepWrappedE of int * int
+    | DeepWrappedF of WrappedUnion
+    | DeepWrappedG of {| X: DeepRecord; Y: int|}
 let matchStrings = function
-    //| DeepWrappedA (s, d) -> d.Value + s //todo - not working
+    | DeepWrappedA (s, d) -> d.Value + s
     | DeepWrappedB s -> s
     | DeepWrappedC c -> "nothing"
-    //| DeepWrappedD d -> d.Value //todo - not working
+    | DeepWrappedD d -> d.Value
+    | DeepWrappedE(a, b) -> "nothing2"
+    | DeepWrappedF (AString s) -> s
+    | DeepWrappedG x -> x.X.Value
 
+let matchNumbers = function
+    | DeepWrappedA (s, d) -> 0
+    | DeepWrappedB s -> 0
+    | DeepWrappedC c -> c
+    | DeepWrappedD d -> 0
+    | DeepWrappedE(a, b) -> a + b
+    | DeepWrappedF _ -> 0
+    | DeepWrappedG x -> x.Y
+
+[<Fact>]
 let ``Deep union with wrapped type works`` () =
-    //let a = DeepWrappedA (" world", {Value = "hello"})
+    let a = DeepWrappedA (" world", {Value = "hello"})
     let b = DeepWrappedB "world"
-    let c = DeepWrappedC 42//todo to string!
-    //let d = DeepWrappedD { Value = "hello" }//todo to string!
-    //a |> matchStrings |> equal "hello world"
+    let c = DeepWrappedC 42
+    let d = DeepWrappedD { Value = "hello" }
+    let f = DeepWrappedF (AString "doublewrapped")
+    let g = DeepWrappedG {|X={Value="G"}; Y=365|}
+    a |> matchStrings |> equal "hello world"
     b |> matchStrings |> equal "world"
     c |> matchStrings |> equal "nothing"
-   // d |> matchStrings |> equal "hello"
+    d |> matchStrings |> equal "hello"
+    f |> matchStrings |> equal "doublewrapped"
+    g |> matchStrings |> equal "G"
 
-// // this tests is breaking if uncommented
-// let ``Multi-case Union with wrapped type works`` () =
-//     let b = DeepWrappedB "hello"
-//     let res = match b with DeepWrappedB s -> s + " world" | _ -> ""
-//     res |> equal "hello world"
+[<Fact>]
+let ``Deep union with tuped prim type works`` () =
+    let e = DeepWrappedE (3, 2)
+    let c = DeepWrappedC 42//todo to string!
+    let g = DeepWrappedG {|X={Value="G"}; Y=365|}
+    e |> matchNumbers |> equal 5
+    c |> matchNumbers |> equal 42
+    g |> matchNumbers |> equal 365
+
+[<Fact>]
+let ``Multi-case Union with wrapped type works`` () =
+    let b = DeepWrappedB "hello"
+    let res = match b with DeepWrappedB s -> s + " world" | _ -> ""
+    res |> equal "hello world"
+
+let matchStringWhenStringNotHello = function
+    | DeepWrappedB s when s = "hello" -> s //todo - not operator <> seems to not work
+    | _ -> "not hello"
+
+[<Fact>]
+let ``Match with condition works`` () =
+    let b1 = DeepWrappedB "hello"
+    let b2 = DeepWrappedB "not"
+    b1 |> matchStringWhenStringNotHello |> equal "hello"
+    b2 |> matchStringWhenStringNotHello |> equal "not hello"

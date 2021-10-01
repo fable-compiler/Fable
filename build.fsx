@@ -474,7 +474,10 @@ let testRust() =
     runInDir testAstDir "dotnet test"
     runInDir projectDir "dotnet test"
 
-    cleanDirs [buildDir]
+    //reduce io churn, speed up rebuilds, and save the ssd (target folder can get huge)
+    cleanDirs [buildDir + "/src"]
+    cleanDirs [buildDir + "/tests"]
+    cleanDirs [buildDir + "/.fable"]
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"

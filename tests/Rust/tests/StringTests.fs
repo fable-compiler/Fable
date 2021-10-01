@@ -24,3 +24,4 @@ let ``String equality works`` () =
     s1 |> equal s2
     (s1 = s2) |> equal true
     (s1 = s3) |> equal false
+    //(s1 <> s3) |> equal true

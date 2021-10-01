@@ -110,6 +110,7 @@ type StructRecord = {
 let processStructByValue (s: StructRecord) =
     s, s.i + 1
 
+[<Fact>]
 let ``Struct record works`` () =
     let r1 = { i=1; s="hello" }
     let r2 = { i=1; s="world" }
