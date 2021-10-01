@@ -112,8 +112,8 @@ let ``Multi-case Union with wrapped type works`` () =
     res |> equal "hello world"
 
 let matchStringWhenStringNotHello = function
-    | DeepWrappedB s when s = "hello" -> s //todo - not operator <> seems to not work
-    | _ -> "not hello"
+    | DeepWrappedB s when s <> "hello" -> "not hello"
+    | _ -> "hello"
 
 [<Fact>]
 let ``Match with condition works`` () =

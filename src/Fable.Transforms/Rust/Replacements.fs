@@ -763,7 +763,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     // let is equal expr =
     //     if equal then expr
     //     else makeUnOp None Boolean expr UnaryNot
-    match left.Type with
+    // match left.Type with
     // | Builtin (BclGuid|BclTimeSpan)
     // | Boolean | Char | String | Number _ | Enum _ ->
     //     let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
@@ -785,9 +785,9 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Tuple _ ->
     //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
-    | _ ->
-        // Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-        makeEqOp r left right BinaryEqualStrict
+    // | _ ->
+    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    makeEqOp r left right (if equal then BinaryEqual else BinaryUnequal)
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
