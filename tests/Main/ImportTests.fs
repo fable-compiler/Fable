@@ -24,11 +24,13 @@ type MyClass() =
 
 [<ImportMember("./js/1foo.js")>]
 type MyJsClassWithOptionArgs
-    [<ParamObject>]
-    (?foo: int, ?bar: string, ?baz: float) =
-    [<ParamObject(2)>]
-    member _.method(foo: int, bar: string, baz: float, ?lol: int) = jsNative
+    [<ParamObject>] (?foo: int, ?bar: string, ?baz: float) =
+
     member _.value: string = jsNative
+
+    [<ParamObject(2)>] member _.method(foo: int, bar: string, baz: float, ?lol: int) = jsNative
+
+    [<ImportMember("./js/1foo.js"); ParamObject(2)>] static member myJsMethodWithOptionArgs(foo: int, bar: string, baz: float, ?lol: int) = jsNative
 
 type FooOptional =
     abstract Foo1: x: int * ?y: string -> int
@@ -115,6 +117,10 @@ let tests =
     testCase "ParamObject works with fromIndex arg" <| fun () ->
         let c = MyJsClassWithOptionArgs()
         c.method(5, baz=4., lol=10, bar="b")
+        |> equal "5b410"
+
+    testCase "ParamObject works with imported members" <| fun () ->
+        MyJsClassWithOptionArgs.myJsMethodWithOptionArgs(5, baz=4., lol=10, bar="b")
         |> equal "5b410"
     #endif
 
