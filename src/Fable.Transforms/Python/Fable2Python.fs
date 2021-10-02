@@ -443,7 +443,7 @@ module Helpers =
                 let path = name.Replace("../", $".{Naming.fableModulesDir}.").Replace("/", ".")
                 $"{path}.{moduleName}"
         // Modules in Fable library
-        | name when name.StartsWith(com.LibraryDir) || name.StartsWith($"../fable-library-py/{Naming.fableModulesDir}") ->
+        | name when name.StartsWith(com.LibraryDir) || name.StartsWith($"../fable-library-py/fable_library") ->
             if relative then
                 $".{moduleName}"
             else              
@@ -703,7 +703,7 @@ module Util =
         Expression.starred(var)
 
     let callSuper (args: Expression list) =
-        let super = Expression.name (Python.Identifier("super().__init__"))
+        let super = Expression.name ("super().__init__")
         Expression.call(super, args)
 
     let callSuperAsStatement (args: Expression list) =
@@ -1095,7 +1095,7 @@ module Util =
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
             expr, stmts
         | Fable.Unary(UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
-            let func = Expression.name (Python.Identifier("type"))
+            let func = Expression.name("type")
             let args = [ expr ]
             Expression.call (func, args), stmts
 
@@ -1109,7 +1109,7 @@ module Util =
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
         | Fable.Binary(BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            let func = Expression.name (Python.Identifier("isinstance"))
+            let func = Expression.name("isinstance")
             let args = [ left; right ]
             Expression.call (func, args), stmts' @ stmts
 
@@ -1187,7 +1187,7 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
-            Expression.none(), Statement.assign([Expression.subscript (value, right)], arg) :: stmts @ stmts' @ stmts''
+            Expression.none(), Statement.assign([Expression.subscript(value, right)], arg) :: stmts @ stmts' @ stmts''
         | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
             callFunction range callee' [], stmts @ stmts'
 

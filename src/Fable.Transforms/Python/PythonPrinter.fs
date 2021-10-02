@@ -782,7 +782,6 @@ let run writer map (program: Module): Async<unit> =
         printer.Print(decl)
 
         if printer.Column > 0 then
-            //printer.Print(";")
             printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()

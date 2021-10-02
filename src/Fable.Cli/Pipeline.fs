@@ -85,6 +85,15 @@ module Python =
                         member _.AddMapping(_,_,_,_,_) = () }
         let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
         do! PythonPrinter.run writer map python
+        match com.OutputType with
+        | OutputType.Library ->
+            // Make sure we include an empty `__init__.py` in every directory of a library
+            let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
+            if not (IO.File.Exists(outPath)) then
+                let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
+                do! PythonPrinter.run writer map { Body = [] }
+            
+        | _ -> ()
     }
 
 module Php =

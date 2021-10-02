@@ -175,7 +175,7 @@ let buildLibraryTs() =
 
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
-    let projectDir = libraryDir </> "fable"
+    let projectDir = libraryDir </> "fable_library"
     let buildDirPy = "build/fable-library-py"
 
     // TODO: move to PublishUtils.fs ?
