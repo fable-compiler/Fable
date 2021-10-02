@@ -5,17 +5,23 @@ open Util.Testing
 let map f x =
     f x
 
+let staticFnPassthrough x = x   //uniform parameters
+
 let staticFnAdd1 x = x + 1
 
 [<Fact>]
 let ``fn as param should also accept static functions`` () =
     let a = 3
     let b = 2
+    let w = {|X = 1|}
 
     a |> equal 3
     b |> equal 2
     a |> map staticFnAdd1 |> equal 4
     b |> map staticFnAdd1 |> equal 3
+    a |> map staticFnPassthrough |> equal 3
+    let wRes = w |> map staticFnPassthrough
+    wRes.X |> equal 1
 
 
 [<Fact>]

@@ -1330,11 +1330,11 @@ module Util =
         let expr = com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e.Type None e
         if shouldBePassByRefForParam com e.Type then
-            expr |> mkAddrOfExpr
-        elif isCloneable com e.Type && not isOnlyReference then
-            makeClone expr
+            if not varAttrs.IsRef then
+                expr |> mkAddrOfExpr
+            else expr
         else
-            expr
+            expr |> mkDerefExpr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
