@@ -55,3 +55,12 @@ let ``Option Get with reference type works`` () =
     let p2 = getValue o
     p.x |> equal 1
     p2.y |> equal 2
+
+let getX<'T> (opt: Point<'T> option): 'T =
+    (Option.get opt).x
+
+[<Fact>]
+let ``Option return value works`` () =
+    let o = Some { Point.x = 1; y = 2 }
+    let x = getX o
+    x |> equal 1

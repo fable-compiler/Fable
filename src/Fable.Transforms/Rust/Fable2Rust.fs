@@ -175,7 +175,8 @@ module TypeInfo =
         [ty] |> mkGenericTy [cellTy]
 
     let isCloneable (com: IRustCompiler) = function
-        | Fable.String -> true
+        | Fable.String
+        | Fable.GenericParam _
         | Fable.LambdaType _
         | Fable.DelegateType _ -> true
         | Fable.DeclaredType(eref, _) ->
