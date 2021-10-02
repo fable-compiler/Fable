@@ -3,7 +3,7 @@ module Fable.Tests.Array
 open Util.Testing
 
 [<Fact>]
-let ``Array create works`` () =
+let ``Array expressions works`` () =
     let a1: int[] = [||]
     a1 |> equal [||]
     a1.Length |> equal 0
@@ -51,3 +51,20 @@ let ``Array pass by reference works`` () =
     arr |> equal [|1;3;4|]
     let _ = inc_elem2 arr 0
     arr |> equal [|2;3;4|]
+
+// [<Fact>]
+// let ``Array.create works`` () =
+//     let arr = 2 |> Array.create 3
+//     arr |> equal [|2;2;2|]
+
+// [<Fact>]
+// let ``Array.rev works`` () =
+//     let arr = [|1;2;3|] |> Array.rev
+//     arr |> equal [|3;2;1|]
+
+// [<Fact>]
+// let ``Array.copy works`` () =
+//     let xs = [|1;2;3|]
+//     let ys = xs |> Array.copy
+//     xs.[1] <- xs.[1] + 1
+//     ys |> equal [|1;2;3|]

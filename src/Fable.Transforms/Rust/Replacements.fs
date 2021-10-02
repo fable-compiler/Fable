@@ -1899,17 +1899,17 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let newArray size t =
-        Value(NewArrayFrom(size, t), None)
-    let createArray size value =
-        match t, value with
-        | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
-        | Array t2, value ->
-            let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
-            // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-            Helper.LibCall(com, "Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
-        | _ -> sprintf "Expecting an array type but got %A" t
-               |> addErrorAndReturnNull com ctx.InlinePath r
+    // let newArray size t =
+    //     Value(NewArrayFrom(size, t), None)
+    // let createArray size value =
+    //     match t, value with
+    //     | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
+    //     | Array t2, value ->
+    //         let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
+    //         // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
+    //         Helper.LibCall(com, "Array", "create", t, [newArray size t2; makeIntConst 0; size; value])
+    //     | _ -> sprintf "Expecting an array type but got %A" t
+    //            |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray r t arg |> Some
@@ -1921,11 +1921,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
-    | "ZeroCreate", [count] -> createArray count None |> Some
-    | "Create", [count; value] -> createArray count (Some value) |> Some
-    | "Empty", _ ->
-        let t = match t with Array t -> t | _ -> Any
-        newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (getLength r t ar) (makeIntConst 0) |> Some
     | "CopyTo", args ->

@@ -365,13 +365,16 @@ module Helpers =
             match memb.DeclaringEntity with
             | Some ent ->
                 let entFullName = FsEnt.Ref ent
+                let entName = getEntityMangledName com trimRootModule entFullName
                 if ent.IsFSharpModule then
-                    match getEntityMangledName com trimRootModule entFullName with
-                    | "" -> memb.CompiledName, Naming.NoMemberPart
-                    | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
+                    match com.Options.Language, entName with
+                    | Rust , _ // no module prefix for Rust
+                    | _ , "" ->
+                        memb.CompiledName, Naming.NoMemberPart
+                    | _, moduleName ->
+                        moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
-                    let entName = getEntityMangledName com trimRootModule entFullName
                     if memb.IsInstanceMember
                     then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
                     else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)

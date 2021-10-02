@@ -32,7 +32,8 @@ let ``Option matching with reference type works`` () =
     let p = { Point.x = 1; y = 2 }
     let a = Some p
     let b =
-        // a |> Option.map (fun v -> v.x)
+        a |> Option.map (fun p -> p.x)
+    let b' =
         match a with
         | Some p -> Some p.x
         | None -> None
@@ -40,6 +41,7 @@ let ``Option matching with reference type works`` () =
         match b with
         | Some n -> n
         | None -> 0
+    b |> equal b'
     a |> equal (Some p)
     b |> equal (Some 1)
     c |> equal 1

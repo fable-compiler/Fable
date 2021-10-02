@@ -118,6 +118,17 @@
             "stopAtEntry": false,
             "console": "internalConsole"
         },
+        {
+            "name": "Run Fable.Cli on fable-library-rust",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "cwd": "${workspaceRoot}/src/fable-library-rust/fable",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
 
     ]
 }

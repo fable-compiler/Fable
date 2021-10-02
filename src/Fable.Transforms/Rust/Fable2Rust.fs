@@ -157,7 +157,7 @@ module TypeInfo =
         | Fable.Enum _
         | Fable.Number _ -> true
         // TODO: should we consider some dotnet value types?
-        // | Fable.Type.DeclaredType (entRef, gargs) ->
+        // | Fable.DeclaredType (entRef, gargs) ->
         //     let ent = com.GetEntity entRef
         //     ent.IsValueType && not (ent.IsFSharpRecord)
         | _ -> false
@@ -176,9 +176,9 @@ module TypeInfo =
 
     let isCloneable (com: IRustCompiler) = function
         | Fable.String -> true
-        | Fable.Type.LambdaType _
-        | Fable.Type.DelegateType _ -> true
-        | Fable.Type.DeclaredType(eref, _) ->
+        | Fable.LambdaType _
+        | Fable.DelegateType _ -> true
+        | Fable.DeclaredType(eref, _) ->
             let ety = com.GetEntity eref
             ety.IsValueType && ety.IsFSharpRecord
         | _ -> false
@@ -190,26 +190,28 @@ module TypeInfo =
         | Fable.String -> true
         | Fable.Array _ -> true
         | Fable.Option _ -> true
-        | Fable.Type.Tuple (types, isStruct) ->
+        | Fable.Tuple (types, isStruct) ->
             not isStruct
-        | Fable.Type.AnonymousRecordType _ -> true
-        | Fable.Type.DeclaredType(entRef, _) ->
+        | Fable.AnonymousRecordType _ -> true
+        | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
             (ent.IsFSharpRecord || ent.IsFSharpUnion)
             && not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
         | _ -> false
 
-    let shouldBePassByRefForParam (com: IRustCompiler) t=
-        let isPassByRefTy =
-            match t with
-            | Fable.Type.LambdaType _
-            | Fable.Type.DelegateType _ -> true
-            | Fable.Type.DeclaredType(eref, _) ->
-                let ety = com.GetEntity eref
-                not ety.IsValueType
-            | _ -> false
-        shouldBeRefCountWrapped com t || isPassByRefTy
+    let shouldBePassByRefForParam (com: IRustCompiler) t =
+        // let isPassByRefTy =
+        //     match t with
+        //     | Fable.GenericParam _
+        //     | Fable.LambdaType _
+        //     | Fable.DelegateType _ -> true
+        //     | Fable.DeclaredType(eref, _) ->
+        //         let ety = com.GetEntity eref
+        //         not ety.IsValueType
+        //     | _ -> false
+        // shouldBeRefCountWrapped com t || isPassByRefTy
+        true
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
@@ -800,8 +802,22 @@ module Util =
     let ident (id: Fable.Ident) =
         Identifier.identifier(id.Name, ?loc=id.Range)
 *)
-    let transformIdent _com _ctx _r (ident: Fable.Ident) =
+    let transformIdent com ctx r (ident: Fable.Ident) =
         mkGenericPathExpr [ident.Name] None
+        // let isRef =
+        //     ctx.ScopedSymbols
+        //     |> Map.tryFind ident.Name
+        //     |> Option.map (fun s -> s.IsRef)
+        //     |> Option.defaultValue false
+        // let expr =
+        //     let expr = mkGenericPathExpr [ident.Name] None
+        //     expr
+        //     // if shouldBeRefCountWrapped com ident.Type
+        //     // then mkDerefExpr expr
+        //     // else expr
+        // if isRef
+        // then mkDerefExpr expr |> mkParenExpr
+        // else expr
 
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
@@ -1164,17 +1180,18 @@ module Util =
             else
                 args |> List.map (transformLeaveContextByPreferredBorrow com ctx)
 
-    let maybeUnwrapRef com ctx typ name expr =
-        let name = name |> Option.defaultValue ""
-        let isRef = ctx.ScopedSymbols |> Map.tryFind name |> Option.map(fun s -> s.IsRef) |> Option.defaultValue false
+    let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
+        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let name = tryGetIdent fableExpr |> Option.defaultValue ""
+        let isRef = ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
         let expr =
-            if shouldBeRefCountWrapped com typ
+            if shouldBeRefCountWrapped com fableExpr.Type
             then mkDerefExpr expr
             else expr
         if isRef then mkDerefExpr expr |> mkParenExpr else expr
 
     let prepareRefForPatternMatch com ctx typ name expr =
-        let isRef = ctx.ScopedSymbols |> Map.tryFind name |> Option.map(fun s -> s.IsRef) |> Option.defaultValue false
+        let isRef = ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
         if shouldBeRefCountWrapped com typ
         then makeAsRef expr
         else
@@ -1277,7 +1294,7 @@ module Util =
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
 
-    let calcVarAttrsAndOnlyRef com ctx t name e=
+    let calcVarAttrsAndOnlyRef com ctx t name e =
         let name = name |> Option.defaultValue(tryGetIdent e |> Option.defaultValue "")
         let varAttrs =
             ctx.ScopedSymbols   // todo - cover more than just root level idents
@@ -1314,7 +1331,10 @@ module Util =
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e.Type None e
         if shouldBePassByRefForParam com e.Type then
             expr |> mkAddrOfExpr
-        else if isCloneable com e.Type && not isOnlyReference then makeClone expr else expr
+        elif isCloneable com e.Type && not isOnlyReference then
+            makeClone expr
+        else
+            expr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
@@ -1323,9 +1343,12 @@ module Util =
 
         if varAttrs.IsRefCountWrapped && not isOnlyReference then
             makeClone expr
-        else if isCloneable com t && not isOnlyReference then makeClone expr //shouldn't really be using a rchelper as this is NOT an rc
-        else if varAttrs.IsRef then mkDerefExpr expr
-        else expr
+        elif isCloneable com t && not isOnlyReference then
+            makeClone expr // shouldn't really be using a rchelper as this is NOT an rc
+        elif varAttrs.IsRef then
+            makeClone expr
+        else
+            expr
 (*
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1445,7 +1468,7 @@ module Util =
             | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
             | UnaryOperator.UnaryVoid -> failwith "Should not happen"
 
-        | Fable.Binary(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+        | Fable.Binary(op, left, right) ->
             let kind =
                 match op with
                 | BinaryOperator.BinaryEqual -> Rust.BinOpKind.Eq
@@ -1470,15 +1493,12 @@ module Util =
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
                 | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
                 | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
-            let leftIdentName, rightIdentName =
-                match opKind with
-                | Fable.Binary(op, left, right) ->
-                    tryGetIdent left, tryGetIdent right
-                | _ -> None, None
-            let left = maybeUnwrapRef com ctx t leftIdentName left
-            let right = maybeUnwrapRef com ctx t rightIdentName right
+
+            let left = transformExprMaybeUnwrapRef com ctx left
+            let right = transformExprMaybeUnwrapRef com ctx right
+
             match t, kind with
-            | Fable.Type.String, Rust.BinOpKind.Add ->
+            | Fable.String, Rust.BinOpKind.Add ->
                 //proprietary string concatenation - String + &String = String
                 let left = mkMethodCallExpr "to_string" None left []
                 let strTy = primitiveType "str" |> makeRefTy
@@ -1506,7 +1526,7 @@ module Util =
         |> mkMacroExpr macro
 
     let transformCall (com: IRustCompiler) ctx range calleeExpr (callInfo: Fable.CallInfo) =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false}}
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
         let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
@@ -1514,7 +1534,13 @@ module Util =
             let callee = com.TransformAsExpr(ctx, callee)
             mkMethodCallExpr membName None callee args
         | _ ->
-            let callee = com.TransformAsExpr(ctx, calleeExpr)
+            let callee =
+                match callInfo.CallMemberInfo with
+                | Some callMemberInfo ->
+                    // TODO: perhaps only use full path for non-local calls
+                    mkFullNamePathExpr callMemberInfo.FullName None
+                | _ ->
+                    com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
             | Some(TransformExpr com ctx thisArg) ->
                 mkCallExpr callee (thisArg::args)
@@ -1586,13 +1612,13 @@ module Util =
             mkMethodCallExpr "get" None expr []
         else
             mkMethodCallExpr "borrow" None expr []
-            |> mkUnaryExpr Rust.UnOp.Deref
+            |> mkDerefExpr
 
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
         | Fable.ExprGet idx ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            let prop = com.TransformAsExpr(ctx, idx)
+            let prop = transformExprMaybeUnwrapRef com ctx idx
             // if indexing an array, cast index to usize
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
@@ -1632,7 +1658,7 @@ module Util =
         | Fable.OptionValue ->
             // let expr = com.TransformAsExpr(ctx, fableExpr)
             // mkMethodCallExpr "unwrap" None expr []
-            libCall com ctx range "Option" "get" [fableExpr]
+            libCall com ctx range "Option" "getValue" [fableExpr]
 
         | Fable.UnionTag ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1696,7 +1722,7 @@ module Util =
         else
             let mutableField =
                 mkMethodCallExpr "borrow_mut" None expr []
-                |> mkUnaryExpr Rust.UnOp.Deref
+                |> mkDerefExpr
             mkAssignExpr mutableField value //?loc=range)
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
@@ -1710,7 +1736,7 @@ module Util =
             | _ ->
                 mkAssignExpr expr value
         | Fable.ExprSet idx ->
-            let prop = com.TransformAsExpr(ctx, idx)
+            let prop = transformExprMaybeUnwrapRef com ctx idx
             // if indexing an array, cast index to usize
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
@@ -1778,11 +1804,12 @@ module Util =
                 else init
             let local = mkLocal [] pat tyOpt (Some expr)
             // TODO : traverse body and follow references to decide on if this should be wrapped or not]
-            let scopedVarAttrs = {  IsRef = isRef
-                                    IsMutable = isMut
-                                    IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
-                                    MultipleUsages = UseageTracking.hasMultipleUsages ident.Name usages
-                                     }
+            let scopedVarAttrs = {
+                IsRef = isRef
+                IsMutable = isMut
+                IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
+                MultipleUsages = UseageTracking.hasMultipleUsages ident.Name usages
+            }
             let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
             mkLocalStmt local, ctxNext
         let ctx, letStmtsRev = //Context needs to be threaded through all lets, appending itself to ScopedSymbols each time
@@ -1809,27 +1836,24 @@ module Util =
         |> mkBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
-        let guardExpr = com.TransformAsExpr(ctx, guard)
-                        |> maybeUnwrapRef com ctx guard.Type (tryGetIdent guard)
-        let thenExpr =
-            transformLeaveContextByValue com ctx None None thenBody
+        let guardExpr = transformExprMaybeUnwrapRef com ctx guard
+        let thenExpr = transformLeaveContextByValue com ctx None None thenBody
         match elseBody with
         | Fable.Value(Fable.UnitConstant, _) ->
             mkIfThenExpr guardExpr thenExpr //?loc=range)
         | _ ->
-            let elseExpr =
-                transformLeaveContextByValue com ctx None None elseBody
+            let elseExpr = transformLeaveContextByValue com ctx None None elseBody
             mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range label guard body =
         // TODO: loop label
-        let guardExpr = com.TransformAsExpr(ctx, guard)
+        let guardExpr = transformExprMaybeUnwrapRef com ctx guard
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkWhileExpr guardExpr bodyExpr //?loc=range)
 
     let transformForLoop (com: IRustCompiler) ctx range isUp (var: Fable.Ident) start limit body =
-        let startExpr = com.TransformAsExpr(ctx, start)
-        let limitExpr = com.TransformAsExpr(ctx, limit)
+        let startExpr = transformExprMaybeUnwrapRef com ctx start
+        let limitExpr = transformExprMaybeUnwrapRef com ctx limit
         let bodyExpr = com.TransformAsExpr(ctx, body)
         let varPat = mkIdentPat var.Name false false
         let rangeExpr =
@@ -2125,6 +2149,10 @@ module Util =
         let (|Equals|_|) = function
             | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
                 Some(expr, right)
+            // | Fable.Test(expr, Fable.OptionTest nonEmpty, _) ->
+            //     let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+            //     let right = makeIntConst (if nonEmpty then 0 else 1)
+            //     Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
                 let right = makeIntConst tag
@@ -2374,8 +2402,8 @@ module Util =
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range body catch finalizer
 
-        | Fable.Extended(Fable.Throw(expr, _typ), _range) ->
-            mkMacroExpr "panic" [transformAsExpr com ctx expr]
+        | Fable.Extended(Fable.Throw(Fable.Value(Fable.StringConstant msg, _), _), _) ->
+            mkMacroExpr "panic" [mkStrLitExpr msg]
 
         // | Fable.Extended(kind, _) ->
         //     match kind with
@@ -2734,16 +2762,15 @@ module Util =
         let ctx =
             let scopedSymbols =
                 let usages = UseageTracking.calcIdentUsages body
-
                 (ctx.ScopedSymbols, args)
                 ||> List.fold (fun acc arg ->
                     //todo optimizations go here
-                    let scopedVarAttrs = {  IsRef = shouldBePassByRefForParam com arg.Type
-                                            IsMutable = arg.IsMutable
-                                            IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
-                                            MultipleUsages = UseageTracking.hasMultipleUsages arg.Name usages
-
-                                            }
+                    let scopedVarAttrs = {
+                        IsRef = shouldBePassByRefForParam com arg.Type
+                        IsMutable = arg.IsMutable
+                        IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
+                        MultipleUsages = UseageTracking.hasMultipleUsages arg.Name usages
+                    }
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
         let fnBody = transformLeaveContextByValue com ctx None None body
@@ -2781,8 +2808,8 @@ module Util =
                                     names.Add(ident.Name)
                                 else
                                     match ident.Type with
-                                    | Fable.Type.LambdaType _
-                                    | Fable.Type.DelegateType _ ->
+                                    | Fable.LambdaType _
+                                    | Fable.DelegateType _ ->
                                         //Closures may capture Ref counted vars, so by cloning the actual closure, you inadvertently clone all attached ref counted vars
                                         names.Add(ident.Name)
                                     | _ -> ()
@@ -3217,12 +3244,13 @@ module Compiler =
                         TakingOwnership = false } }
 
         let topAttrs = [
-            mkInnerAttr "allow" ["unused_imports"] // TODO: remove later?
+            mkInnerAttr "allow" ["unused_parens"]
+            mkInnerAttr "allow" ["unused_imports"]   // TODO: remove later?
             mkInnerAttr "allow" ["unused_variables"] // TODO: remove later?
             mkInnerAttr "allow" ["non_snake_case"]
             mkInnerAttr "allow" ["non_camel_case_types"]
-            mkInnerAttr "feature" ["stmt_expr_attributes"]
-            mkInnerAttr "feature" ["destructuring_assignment"]
+            // mkInnerAttr "feature" ["stmt_expr_attributes"]
+            // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
         let useDecls = preludeDecls
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
