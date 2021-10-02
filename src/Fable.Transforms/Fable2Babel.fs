@@ -1116,15 +1116,16 @@ module Util =
             match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
             // Check only members with multiple non-curried arguments
             | [parameters], Some ent when not (List.isEmpty parameters) ->
-                let ent = com.GetEntity(ent)
-                ent.MembersFunctionsAndValues
-                |> Seq.tryFind (fun m ->
-                    m.IsInstance = memberInfo.IsInstance
-                    && m.CompiledName = memberInfo.CompiledName
-                    && match m.CurriedParameterGroups with
-                        | [parameters2] when List.sameLength parameters parameters2 ->
-                            List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                        | _ -> false)
+                com.TryGetNonCoreAssemblyEntity(ent)
+                |> Option.bind (fun ent ->
+                    ent.MembersFunctionsAndValues
+                    |> Seq.tryFind (fun m ->
+                        m.IsInstance = memberInfo.IsInstance
+                        && m.CompiledName = memberInfo.CompiledName
+                        && match m.CurriedParameterGroups with
+                            | [parameters2] when List.sameLength parameters parameters2 ->
+                                List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
+                            | _ -> false))
                 |> Option.bind (fun m ->
                     m.Attributes |> Seq.tryPick (fun a ->
                         if a.Entity.FullName = Atts.paramObject then
@@ -2239,6 +2240,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.ProjectFile = com.ProjectFile
             member _.GetEntity(fullName) = com.GetEntity(fullName)
+            member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)

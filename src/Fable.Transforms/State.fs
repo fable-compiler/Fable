@@ -31,6 +31,18 @@ type ConcurrentDictionary<'TKey, 'TValue> with
         ConcurrentDictionary(kvs)
 #endif
 
+type IDictionary<'Key, 'Value> with
+    member this.TryValue(key: 'Key) =
+        match this.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
+type IReadOnlyDictionary<'Key, 'Value> with
+    member this.TryValue(key: 'Key) =
+        match this.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
 type Package =
     { Id: string
       Version: string
@@ -93,6 +105,13 @@ type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
         | true, asm -> Some asm
         | false, _ -> None
         |> findEntityByPath asmPath entityRef
+
+    member _.TryGetEntityByAssemblyPath(asmPath, entityRef: Fable.EntityRef) =
+        assemblies.TryValue(asmPath)
+        |> Option.bind (fun asm ->
+            let entPath = List.ofArray (entityRef.FullName.Split('.'))
+            asm.Contents.FindEntityByPath(entPath))
+        |> Option.map (fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
 
     member _.GetEntityByCoreAssemblyName(asmName, entityRef: Fable.EntityRef) =
         match coreAssemblies.TryGetValue(asmName) with
@@ -222,6 +241,16 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                     | true, e -> e
                     | false, _ -> failwithf "Cannot find entity %s in %s" entityRef.FullName fileName
                 | false, _ -> failwith ("Cannot find implementation file " + fileName)
+
+        member _.TryGetNonCoreAssemblyEntity(entityRef: Fable.EntityRef) =
+            match entityRef.Path with
+            | Fable.CoreAssemblyName _ -> None
+            | Fable.PrecompiledLib(_, path)
+            | Fable.AssemblyPath path ->
+                project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef)
+            | Fable.SourcePath fileName ->
+                project.ImplementationFiles.TryValue(fileName)
+                |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
 
         member _.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())

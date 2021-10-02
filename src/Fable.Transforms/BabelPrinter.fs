@@ -531,6 +531,11 @@ module PrinterExtensions =
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
                     let m = matches.[i]
+                    let isSurroundedWithParens =
+                        m.Index > 0
+                        && m.Index + m.Length < value.Length
+                        && value.[m.Index - 1] = '('
+                        && value.[m.Index + m.Length] = ')'
 
                     let segmentStart =
                         if i > 0 then matches.[i-1].Index + matches.[i-1].Length
@@ -540,6 +545,7 @@ module PrinterExtensions =
 
                     let argIndex = int m.Value.[1..]
                     match Array.tryItem argIndex args with
+                    | Some e when isSurroundedWithParens -> printer.Print(e)
                     | Some e -> printer.ComplexExpressionWithParens(e)
                     | None -> printer.Print("undefined")
 
