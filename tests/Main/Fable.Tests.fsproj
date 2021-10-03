@@ -9,19 +9,6 @@
     <FableDefinesQueue>True</FableDefinesQueue>
  </PropertyGroup>
 
- <Choose>
-    <When Condition=" '$(FableDefinesQueue)'=='True' ">
-      <PropertyGroup>
-        <DefineConstants>$(DefineConstants);FABLE_DEFINES_QUEUE</DefineConstants>
-      </PropertyGroup>
-    </When>
-    <When Condition=" '$(FableDefinesQueue)'=='False' ">
-    <ItemGroup>
-        <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.3" />
-    </ItemGroup>
-    </When>
- </Choose>
-
  <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
@@ -43,12 +30,12 @@
     <Compile Include="Util/b.fs" />
     <Compile Include="Util/Thoth.Json.Decode.fs" />
     <Compile Include="Util/Aether.fs" />
+    <Compile Include="Util/Util.Testing.fs" />
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="Util/UtilTests.fs" />
-    <Compile Include="AdaptiveTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />

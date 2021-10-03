@@ -82,7 +82,7 @@ module Compiler =
 
 
   module Assert =
-    open Fable.Tests.Util.Testing
+    open Util.Testing
 
     type private ExpectedMsg = ExpectedMsg of string
       with

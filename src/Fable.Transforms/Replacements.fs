@@ -3394,21 +3394,19 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
     | Types.stack ->
-        let args =
-            match argTypes.Value, args with
-            | [], _ ->
-                []
-            | _ -> failwith "Unexpected stack constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
-        Some(makeImportLib com Any entityName "Stack", args)
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
+            Some(makeImportLib com Any entityName "Stack", args)
+        | _ -> None
     | Types.queue ->
-        let args =
-            match argTypes.Value, args with
-            | [], _ ->
-                []
-            | _ -> failwith "Unexpected queue constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Queue"
-        Some(makeImportLib com Any entityName "Queue", args)
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Queue"
+            Some(makeImportLib com Any entityName "Queue", args)
+        | _ -> None
     | _ -> None
 
 let tryType = function

@@ -338,16 +338,15 @@ let testReact() =
     runFableWithArgs "tests/React" []
     runInDir "tests/React" "npm i && npm test"
 
-
 let testCompiler() =
     runInDir "tests/Compiler" "dotnet run -c Release"
 
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
-let testMocha() =
-    let projectDir = "tests/Main"
-    let buildDir = "build/tests"
+let compileAndRunTestsWithMocha projectDir buildDir =
+    let projectDir = "tests/" + projectDir
+    let buildDir = "build/" + buildDir
 
     cleanDirs [buildDir]
     runFableWithArgs projectDir [
@@ -356,6 +355,9 @@ let testMocha() =
     ]
 
     runMocha buildDir
+
+let testMocha() =
+    compileAndRunTestsWithMocha "Main" "tests"
 
 let testDefineConstants() =
     [ "tests/DefineConstants/DebugWithExtraDefines", "Debug"
@@ -378,13 +380,16 @@ let testDefineConstants() =
 let test() =
     buildLibraryIfNotExists()
 
-    testDefineConstants()
-
     testMocha()
 
     runInDir "tests/Main" "dotnet run"
 
+    // Adaptive tests must go in a different project to avoid conflitcts with Queue shim, see #2559
+    compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
+
     testReact()
+
+    testDefineConstants()
 
     testCompiler()
 

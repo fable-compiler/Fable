@@ -1,21 +1,7 @@
-
 module Fable.Tests.Adaptive
 
 open System
 open Util.Testing
-
-// Moved from ApplicativeTests to isolate dependency on FSharp.Data.Adaptive.
-// FSharp.Data.Adaptive includes FableHelpers.fs, which has an implementation
-// for Queue which now collides with Fable's own native implementation.
-
-// When we can patch FSharp.Data.Adaptive to conditionally compile its own
-// Queue implementation, we can re-enable these tests (see also Fable.Tests.fsproj)
-
-#if FABLE_DEFINES_QUEUE
-let tests = testList "Adaptive" [
-    testCase "Adaptive tests disabled - see AdaptiveTests.fs" <| fun() -> ()
-]
-#else
 open FSharp.Data.Adaptive
 
 let simple () =
@@ -36,4 +22,3 @@ let tests = testList "Adaptive" [
         equal 4 first.[0]
         equal 1 second.[0]
 ]
-#endif
