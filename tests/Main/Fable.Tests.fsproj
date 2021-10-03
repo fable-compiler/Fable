@@ -6,21 +6,37 @@
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <LangVersion>preview</LangVersion>
-  </PropertyGroup>
-  <ItemGroup>
+    <FableDefinesQueue>True</FableDefinesQueue>
+ </PropertyGroup>
+
+ <Choose>
+    <When Condition=" '$(FableDefinesQueue)'=='True' ">
+      <PropertyGroup>
+        <DefineConstants>$(DefineConstants);FABLE_DEFINES_QUEUE</DefineConstants>
+      </PropertyGroup>
+    </When>
+    <When Condition=" '$(FableDefinesQueue)'=='False' ">
+    <ItemGroup>
+        <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.3" />
+    </ItemGroup>
+    </When>
+ </Choose>
+
+ <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
     <PackageReference Include="FSharp.Core" Version="5.0.1" />
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.3" />
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../DllRef/Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Include="Globs/*.fs" />
     <Compile Include="DllRef/Lib2.fs" />
@@ -32,6 +48,7 @@
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="Util/UtilTests.fs" />
+    <Compile Include="AdaptiveTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
@@ -56,6 +73,7 @@
     <Compile Include="MiscTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
+    <Compile Include="QueueTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
