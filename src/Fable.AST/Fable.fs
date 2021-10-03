@@ -79,6 +79,7 @@ type Entity =
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
     abstract IsPublic: bool
+    abstract IsFSharpModule: bool
     abstract IsFSharpUnion: bool
     abstract IsFSharpRecord: bool
     abstract IsValueType: bool

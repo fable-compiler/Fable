@@ -198,6 +198,7 @@ type FsEnt(ent: FSharpEntity) =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
         member _.IsPublic = FsEnt.IsPublic ent
+        member _.IsFSharpModule = ent.IsFSharpModule
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration

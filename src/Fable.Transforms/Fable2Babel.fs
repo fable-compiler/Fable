@@ -1118,14 +1118,16 @@ module Util =
             | [parameters], Some ent when not (List.isEmpty parameters) ->
                 com.TryGetNonCoreAssemblyEntity(ent)
                 |> Option.bind (fun ent ->
-                    ent.MembersFunctionsAndValues
-                    |> Seq.tryFind (fun m ->
-                        m.IsInstance = memberInfo.IsInstance
-                        && m.CompiledName = memberInfo.CompiledName
-                        && match m.CurriedParameterGroups with
-                            | [parameters2] when List.sameLength parameters parameters2 ->
-                                List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                            | _ -> false))
+                    if ent.IsFSharpModule then None
+                    else
+                        ent.MembersFunctionsAndValues
+                        |> Seq.tryFind (fun m ->
+                            m.IsInstance = memberInfo.IsInstance
+                            && m.CompiledName = memberInfo.CompiledName
+                            && match m.CurriedParameterGroups with
+                                | [parameters2] when List.sameLength parameters parameters2 ->
+                                    List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
+                                | _ -> false))
                 |> Option.bind (fun m ->
                     m.Attributes |> Seq.tryPick (fun a ->
                         if a.Entity.FullName = Atts.paramObject then
