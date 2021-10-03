@@ -4,6 +4,7 @@ open System
 let allTests =
   [|
     UtilTests.tests
+    Adaptive.tests
     Applicative.tests
     Arithmetic.tests
     Arrays.tests
@@ -29,6 +30,7 @@ let allTests =
     Misc.tests
     Observable.tests
     Option.tests
+    Queue.tests
     RecordTypes.tests
     Reflection.tests
     Regex.tests
