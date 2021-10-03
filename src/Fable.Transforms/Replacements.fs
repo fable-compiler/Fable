@@ -3230,7 +3230,6 @@ let private replacedModules =
     Types.icollection, resizeArrays
     Types.hashset, hashSets
     Types.stack, bclType
-    Types.queue, bclType
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
@@ -3395,14 +3394,6 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected stack constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
         Some(makeImportLib com Any entityName "Stack", args)
-    | Types.queue ->
-        let args =
-            match argTypes.Value, args with
-            | [], _ ->
-                []
-            | _ -> failwith "Unexpected queue constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Queue"
-        Some(makeImportLib com Any entityName "Queue", args)
     | _ -> None
 
 let tryType = function
