@@ -21,6 +21,8 @@ class CancellationToken:
     def is_cancelled(self):
         return self.cancelled
 
+    is_cancellation_requested = is_cancelled
+
     def cancel(self):
         # print("CancellationToken:cancel")
         cancel = False

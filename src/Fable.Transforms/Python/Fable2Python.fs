@@ -415,44 +415,43 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) modulePath =
-        // printfn "ModulePath: %s" modulePath
-       
+        printfn "ModulePath: %s" modulePath
         let relative =
             match com.OutputType with
             | OutputType.Exe -> false
             | _ -> true
         
-        // printfn $"OutputDir: {com.OutputDir}"
-        // printfn $"LibraryDir: {com.LibraryDir}"
+        //printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
         
         let moduleName =
             let lower =
                 Path.GetFileNameWithoutExtension(modulePath)
                 |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-        let path = Path.GetDirectoryName(modulePath)
+        
+        let path =
+            match relative, Path.GetDirectoryName(modulePath) with
+            | true, "." -> "."
+            | true, path ->
+                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+            | false, "." -> ""
+            | false, _ ->
+                Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
         // printfn $"Path: {path}"
         
-        match path with
+        match modulePath with
         // Other libraries importing (relative) Fable library modules
         | name when name.StartsWith("../fable_library") ->
-            if relative then
-                let path = name.Replace("../", "..").Replace("/", ".")
-                $"{path}.{moduleName}"
-            else
-                let path = name.Replace("../", $".{Naming.fableModulesDir}.").Replace("/", ".")
-                $"{path}.{moduleName}"
+            $"{path}{moduleName}"
         // Modules in Fable library
-        | name when name.StartsWith(com.LibraryDir) || name.StartsWith($"../fable-library-py/fable_library") ->
+        | name when name.StartsWith(com.LibraryDir) || name.StartsWith("../fable-library-py/fable_library") ->
             if relative then
                 $".{moduleName}"
             else              
                 $"{Naming.fableModulesDir}.fable_library.{moduleName}"
         | name when name.EndsWith(".fs") ->
-            if relative then
-                $".{moduleName}"
-            else
-                $"{moduleName}"
+            $"{path}{moduleName}"
         // Local module references in the same package
         | name when name = "." ->
             if relative then

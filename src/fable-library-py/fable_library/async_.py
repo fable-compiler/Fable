@@ -24,9 +24,9 @@ default_cancellation_token = CancellationToken()
 
 def create_cancellation_token(arg=None):
     print("createCancellationToken()", arg)
-    cancelled, number = (arg, False) if isinstance(arg, bool) else (False, True)
+    cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
-    if number:
+    if isinstance(arg, int):
         timer = Timer(arg / 1000.0, token.cancel)  # type: ignore
         timer.start()
 
