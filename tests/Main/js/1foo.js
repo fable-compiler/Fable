@@ -92,3 +92,7 @@ export class MyJsClassWithOptionArgs {
         return String(foo) + String(bar) + String(opts.baz) + String(opts.lol);
     }
 }
+
+export function myJsMethodWithOptionArgs(foo, bar, opts) {
+    return String(foo) + String(bar) + String(opts.baz) + String(opts.lol);
+}

@@ -11,9 +11,9 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
-type ParamObjInfo =
-    { Index: int
-      Parameters: string list }
+type ArgsInfo =
+    | CallInfo of Fable.CallInfo
+    | NoCallInfo of args: Fable.Expr list
 
 type Import =
   { Selector: string
@@ -1014,8 +1014,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
                 | _ -> transformAsExpr com ctx baseRef
-            let paramObjInfo = tryGetParamObjInfo com None info
-            let args = transformCallArgs com ctx None paramObjInfo info.HasSpread info.Args
+            let args = transformCallArgs com ctx None (CallInfo info)
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1100,14 +1099,62 @@ module Util =
             let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
-    let transformCallArgs (com: IBabelCompiler) ctx r (paramObjInfo: ParamObjInfo option) hasSpread args =
+    let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
+        let tryGetParamObjInfo (memberInfo: Fable.CallMemberInfo) =
+            let tryGetParamNames (parameters: Fable.Parameter list) =
+                (Some [], parameters) ||> List.fold (fun acc p ->
+                    match acc, p.Name with
+                    | Some acc, Some name -> Some(name::acc)
+                    | _ -> None)
+                |> function
+                    | Some names -> List.rev names |> Some
+                    | None ->
+                        "ParamObj cannot be used with unnamed parameters"
+                        |> addWarning com [] r
+                        None
+
+            match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
+            // Check only members with multiple non-curried arguments
+            | [parameters], Some ent when not (List.isEmpty parameters) ->
+                com.TryGetNonCoreAssemblyEntity(ent)
+                |> Option.bind (fun ent ->
+                    if ent.IsFSharpModule then None
+                    else
+                        ent.MembersFunctionsAndValues
+                        |> Seq.tryFind (fun m ->
+                            m.IsInstance = memberInfo.IsInstance
+                            && m.CompiledName = memberInfo.CompiledName
+                            && match m.CurriedParameterGroups with
+                                | [parameters2] when List.sameLength parameters parameters2 ->
+                                    List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
+                                | _ -> false))
+                |> Option.bind (fun m ->
+                    m.Attributes |> Seq.tryPick (fun a ->
+                        if a.Entity.FullName = Atts.paramObject then
+                            let index =
+                                match a.ConstructorArgs with
+                                | (:? int as index)::_ -> index
+                                | _ -> 0
+                            tryGetParamNames parameters |> Option.map (fun paramNames ->
+                                {| Index = index; Parameters = paramNames |})
+                        else None
+                    ))
+                | _ -> None
+
+        let paramObjInfo, hasSpread, args =
+            match info with
+            | CallInfo i ->
+                let paramObjInfo =
+                    match i.CallMemberInfo with
+                    // ParamObject is not compatible with arg spread
+                    | Some mi when not i.HasSpread -> tryGetParamObjInfo mi
+                    | _ -> None
+                paramObjInfo, i.HasSpread, i.Args
+            | NoCallInfo args -> None, false, args
+
         let args, objArg =
             match paramObjInfo with
             | None -> args, None
-            | Some _ when hasSpread ->
-                "ParamObject is not compatible with ParamArray"
-                |> addWarning com [] r
-                args, None
             | Some i when i.Index > List.length args -> args, None
             | Some i ->
                 let args, objValues = List.splitAt i.Index args
@@ -1160,69 +1207,24 @@ module Util =
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             Expression.logicalExpression(left, op, right, ?loc=range)
 
-    let tryGetParamObjInfo (com: IBabelCompiler) range (callInfo: Fable.CallInfo): ParamObjInfo option =
-        let tryGetParamNames (parameters: Fable.Parameter list) =
-            (Some [], parameters) ||> List.fold (fun acc p ->
-                match acc, p.Name with
-                | Some acc, Some name -> Some(name::acc)
-                | _ -> None)
-            |> Option.map List.rev
-
-        match callInfo.CallMemberInfo with
-        | None -> None
-        | Some memberInfo ->
-            match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
-            // Check only members with multiple non-curried arguments
-            | [parameters], Some ent when not (List.isEmpty parameters) ->
-                let ent = com.GetEntity(ent)
-                if ent.IsInterface || FSharp2Fable.Util.isGlobalOrImportedEntity ent then
-                    ent.MembersFunctionsAndValues
-                    |> Seq.tryFind (fun m ->
-                        m.IsInstance = memberInfo.IsInstance
-                        && m.CompiledName = memberInfo.CompiledName
-                        && match m.CurriedParameterGroups with
-                            | [parameters2] when List.sameLength parameters parameters2 ->
-                                List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                            | _ -> false)
-                    |> Option.bind (fun m ->
-                        m.Attributes |> Seq.tryPick (fun a ->
-                            if a.Entity.FullName = Atts.paramObject then
-                                let index =
-                                    match a.ConstructorArgs with
-                                    | (:? int as index)::_ -> index
-                                    | _ -> 0
-                                match tryGetParamNames parameters with
-                                | None ->
-                                    "ParamObj cannot be used with unnamed parameters"
-                                    |> addWarning com [] range
-                                    None
-                                | Some paramNames ->
-                                    Some { Index = index
-                                           Parameters = paramNames }
-                            else None
-                        ))
-                    else None
-                | _ -> None
-
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
         let macro = info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        transformCallArgs com ctx range None info.HasSpread info.Args
+        transformCallArgs com ctx range (CallInfo info)
         |> List.append thisArg
         |> emitExpression range macro
 
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         let callee = com.TransformAsExpr(ctx, callee)
-        let paramObjInfo = tryGetParamObjInfo com range callInfo
-        let args = transformCallArgs com ctx range paramObjInfo callInfo.HasSpread callInfo.Args
+        let args = transformCallArgs com ctx range (CallInfo callInfo)
         match callInfo.ThisArg with
         | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
         | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
         | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx range None false args with
+        match transformCallArgs com ctx range (NoCallInfo args) with
         | [] -> callFunction range applied []
         | args -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg])
 
@@ -2240,6 +2242,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.ProjectFile = com.ProjectFile
             member _.GetEntity(fullName) = com.GetEntity(fullName)
+            member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)

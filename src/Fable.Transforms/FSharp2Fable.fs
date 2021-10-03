@@ -1491,6 +1491,7 @@ type FableCompiler(com: Compiler) =
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.GetEntity(fullName) = com.GetEntity(fullName)
+        member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
         member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
