@@ -1744,7 +1744,7 @@ module Util =
                     let expr, stmts = com.TransformAsExpr(ctx, e)
                     // Return the last expression
                     if i = exprs.Length - 1 then
-                        Statement.return' (expr) :: stmts
+                        stmts @ [ Statement.return' (expr)]
                     else
                         exprAsStatement ctx expr @ stmts)
              |> transformBody com ctx None
@@ -1756,11 +1756,11 @@ module Util =
         // expr, []
         //printfn "transformSequenceExpr, body: %A" body
 
-        let name = Helpers.getUniqueIdentifier ("expr")
+        let name = Helpers.getUniqueIdentifier "expr"
         let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
-        let name = Expression.name (name)
-        Expression.call (name), [ func ]
+        let name = Expression.name(name)
+        Expression.call(name), [ func ]
 
     let transformSequenceExpr' (com: IPythonCompiler) ctx (exprs: Expression list) (stmts: Statement list) : Expression * Statement list =
         // printfn "transformSequenceExpr2', exprs: %A" exprs.Length

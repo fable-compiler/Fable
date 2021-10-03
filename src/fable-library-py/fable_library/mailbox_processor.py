@@ -21,7 +21,6 @@ class MailboxProcessor:
     def __init__(self, body, cancellation_token=None):
         self.messages = SimpleQueue()
         self.token = cancellation_token or CancellationToken.none()
-        self.loop = asyncio.get_event_loop()
         self.lock = RLock()
         self.body = body
 
@@ -43,7 +42,7 @@ class MailboxProcessor:
         """
         print("post")
         self.messages.put(msg)
-        self.loop.call_soon_threadsafe(self.__process_events)
+        self.__process_events()
 
     def post_and_async_reply(self, build_message):
         """Post a message asynchronously to the mailbox processor and

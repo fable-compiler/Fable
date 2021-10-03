@@ -40,7 +40,7 @@ class CancellationToken:
         with self.lock:
             id = self.idx
             self.idx = self.idx + 1
-            self.listeners[self.idx] = f
+            self.listeners[id] = f
 
         return id
 

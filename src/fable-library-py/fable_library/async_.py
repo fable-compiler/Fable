@@ -57,6 +57,7 @@ def sleep(millisecondsDueTime: int):
             ctx.on_success()
 
         timer = Timer(millisecondsDueTime / 1000.0, timeout)
+        timer.start()
 
     return protected_cont(cont)
 
