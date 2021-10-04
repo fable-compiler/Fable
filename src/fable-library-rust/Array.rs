@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(non_snake_case)]
 pub mod Array {
     use std::rc::Rc;
 

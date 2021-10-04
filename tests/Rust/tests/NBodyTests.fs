@@ -1,4 +1,4 @@
-module Fable.Tests.NBody
+module Fable.Tests.NBodyTests
 
 open Util.Testing
 

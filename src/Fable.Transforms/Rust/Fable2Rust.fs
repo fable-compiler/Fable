@@ -63,7 +63,7 @@ type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> seq<string>
-    abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Rust.Expr
+    abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
     // abstract TransformImport: Context * selector:string * path:string -> Rust.Expr
@@ -148,7 +148,37 @@ module Reflection =
         |> libReflectionCall com ctx None "union"
 *)
 
+module UseageTracking =
+    let calcIdentUsages expr =
+        let mutable usages = Map.empty
+        let something =
+            FableTransforms.deepExists
+                (function
+                    | Fable.Expr.IdentExpr ident ->
+                        let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
+                        usages <- usages |> Map.add ident.Name (count + 1)
+                        false
+                    | _ -> false) expr
+            |> ignore
+        usages
+
+    let hasMultipleUsages (name: string) =
+        Map.tryFind name >> Option.map(fun x -> x > 1) >> Option.defaultValue false
+        //fun _ -> true
+
 module TypeInfo =
+
+    let makeFullNamePath fullName genArgs =
+        let parts = splitFullName fullName
+        mkGenericPath parts genArgs
+
+    let makeFullNamePathExpr fullName genArgs =
+        makeFullNamePath fullName genArgs
+        |> mkPathExpr
+
+    let makeFullNamePathTy fullName genArgs =
+        makeFullNamePath fullName genArgs
+        |> mkPathTy
 
     let isCopyType (_com: IRustCompiler) t =
         match t with
@@ -184,22 +214,33 @@ module TypeInfo =
             ety.IsValueType && ety.IsFSharpRecord
         | _ -> false
 
-
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
+        | Fable.Measure _ -> false
+        | Fable.MetaType -> false
+        | Fable.Any -> false
+        | Fable.Unit -> false
+        | Fable.Boolean -> false
+        | Fable.Char -> false
+        | Fable.Number _ -> false
+        | Fable.Enum _ -> false
+        | Fable.LambdaType _ -> false
+        | Fable.DelegateType _ -> false
+        | Fable.GenericParam _ -> false
+
         | Fable.String -> true
-        | Fable.Array _ -> true
+        | Fable.Regex -> true
         | Fable.Option _ -> true
-        | Fable.Tuple (types, isStruct) ->
-            not isStruct
+        | Fable.Array _ -> true
+        | Fable.List _ -> true
+        | Fable.Tuple(_, isStruct) -> not isStruct
         | Fable.AnonymousRecordType _ -> true
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
             (ent.IsFSharpRecord || ent.IsFSharpUnion)
             && not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
-        | _ -> false
 
     let shouldBePassByRefForParam (com: IRustCompiler) t =
         // let isPassByRefTy =
@@ -219,23 +260,68 @@ module TypeInfo =
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
         | _ -> None
 
-    module UseageTracking =
-        let calcIdentUsages expr =
-            let mutable usages = Map.empty
-            let something = FableTransforms.deepExists
-                                (function | Fable.Expr.IdentExpr ident ->
-                                            let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
-                                            usages <- usages |> Map.add ident.Name (count + 1)
-                                            false
-                                          | _ -> false) expr
-                                |> ignore
-            usages
+    let getImportName (com: IRustCompiler) ctx moduleName typeName =
+        let libPath = getLibPath com moduleName
+        com.GetImportName(ctx, typeName, libPath, None)
 
-        let hasMultipleUsages (name: string) =
-            Map.tryFind name >> Option.map(fun x -> x > 1) >> Option.defaultValue false
-            //fun _ -> true
+    let transformGenArgs com ctx genArgs =
+        genArgs
+        |> List.map (transformType com ctx)
+        |> mkGenericArgs
+
+    let transformArrayType com ctx genArg: Rust.Ty =
+        genArg
+        |> transformType com ctx
+        |> makeMutTy com genArg
+        |> mkSliceTy
+
+    let transformTupleType com ctx genArgs: Rust.Ty =
+        genArgs
+        |> List.map (transformType com ctx)
+        |> mkTupleTy
+
+    let transformGenericType com ctx genArgs typeName: Rust.Ty =
+        genArgs
+        |> List.map (transformType com ctx)
+        |> mkGenericTy (splitFullName typeName)
+
+    let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
+        let importName = getImportName com ctx moduleName typeName
+        importName |> transformGenericType com ctx genArgs
+
+    let transformParamType com ctx typ: Rust.Ty =
+        let ty = transformType com ctx typ
+        if shouldBePassByRefForParam com typ
+        then ty |> mkRefTy
+        else ty
+
+    let rec uncurryLambdaType = function
+        | xs, Fable.LambdaType(argType, returnType) ->
+            uncurryLambdaType (xs @ [argType], returnType)
+        | xs, returnType -> xs, returnType
+
+    let transformLambdaType com ctx inputTypes returnType: Rust.Ty =
+        let fnRetTy =
+            if returnType = Fable.Unit then VOID_RETURN_TY
+            else transformType com ctx returnType |> mkFnRetTy
+        let pat = mkIdentPat "a" false false
+        let inputs = inputTypes |> List.map (fun tInput ->
+            mkParam [] (transformParamType com ctx tInput) pat false)
+        let fnDecl = mkFnDecl inputs fnRetTy
+        let genParams = [] // TODO:
+        mkFnTy genParams fnDecl
+
+    let transformClosureType com ctx inputTypes returnType: Rust.Ty =
+        let inputs = inputTypes |> List.map (transformParamType com ctx)
+        let output = returnType |> transformType com ctx |> mkFnRetTy
+        let bounds = [mkFnTraitGenericBound inputs output]
+        if ctx.Typegen.IsParamType then
+            mkImplTraitsTy bounds
+        else
+            mkTraitsTy bounds
 
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
+    // TODO: use a genMap?
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
         let numberType kind =
             match kind with
@@ -300,41 +386,26 @@ module TypeInfo =
                 numberType kind
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType ([], t)
-                if ctx.Typegen.FavourClosureTraitOverFunctionPointer then
-                    let inputs = inputTypes |> List.map (transformParamType com ctx)
-                    let output = returnType |> transformType com ctx |> Rust.FnRetTy.Ty
-                    let bounds = [mkFnTraitGenericBound inputs output]
-                    if ctx.Typegen.IsParamType then
-                        mkImplTraitsTy bounds
-                    else
-                        mkTraitsTy bounds
-                else
-                    transformLambdaType com ctx inputTypes returnType
+                if ctx.Typegen.FavourClosureTraitOverFunctionPointer
+                then transformClosureType com ctx inputTypes returnType
+                else transformLambdaType com ctx inputTypes returnType
             // | Fable.DelegateType(argTypes, returnType) ->
             //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-            | Fable.Tuple(genArgs, _) ->
-                genArgs |> List.map (transformType com ctx)
-                |> mkTupleTy
-            | Fable.Option(genArg, _) ->
-                [genArg] |> List.map (transformType com ctx)
-                |> mkGenericTy ["Option"]
-            | Fable.Array genArg ->
-                genArg |> transformType com ctx
-                |> makeMutTy com genArg
-                |> mkSliceTy
-            // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
+            | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
+            | Fable.Option(genArg, _) -> transformGenericType com ctx [genArg] (rawIdent "Option")
+            | Fable.Array genArg -> transformArrayType com ctx genArg
+            | Fable.List genArg -> transformImportType com ctx [genArg] "List" "List`1"
             // | Fable.Regex           -> nonGenericTypeInfo Types.regex
             // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
             | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-                genArgs |> List.map (transformType com ctx) //temporary - just use tuples for now!
-                |> mkTupleTy
-            //     let genArgs = resolveGenerics (List.toArray genArgs)
-            //     Array.zip fieldNames genArgs
-            //     |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
-            //     |> libReflectionCall com ctx None "anonRecord"
-            | Fable.DeclaredType(entRef, generics) ->
+                transformTupleType com ctx genArgs //TODO: temporary - uses tuples for now!
+                // let genArgs = resolveGenerics (List.toArray genArgs)
+                // Array.zip fieldNames genArgs
+                // |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
+                // |> libReflectionCall com ctx None "anonRecord"
+            | Fable.DeclaredType(entRef, genArgs) ->
                 let fullName = entRef.FullName
-                match fullName, generics with
+                match fullName, genArgs with
                 // | Replacements.BuiltinEntity kind ->
                 //     match kind with
                 //     | Replacements.BclGuid
@@ -372,8 +443,9 @@ module TypeInfo =
                 //         |> transformRecordReflectionInfo com ctx r ent
                 | _ ->
                     let ent = com.GetEntity(entRef)
-                    let genArgs = generics |> List.map (transformType com ctx) |> mkGenericArgs
-                    mkFullNamePathTy ent.FullName genArgs
+                    let genArgs = transformGenArgs com ctx genArgs
+                    makeFullNamePathTy ent.FullName genArgs
+
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                     // /// Check if the entity is actually declared in JS code
                     // if ent.IsInterface
@@ -388,27 +460,10 @@ module TypeInfo =
 
             // TODO: remove this catch-all
             | _ -> TODO_TYPE (sprintf "%A" t)
-        if shouldBeRefCountWrapped com t then makeRefTy ty else ty
 
-    let transformParamType com ctx t =
-        let ty = transformType com ctx t
-        if shouldBePassByRefForParam com t then ty |> mkRefTy else ty
-
-    let uncurryLambdaType = function
-        | lst, Fable.LambdaType(u, returnType) ->
-            uncurryLambdaType (lst @ [u], returnType)
-        | lst, treturn -> lst, treturn
-
-    let transformLambdaType com ctx tInputs tRes =
-        let fnRetTy =
-            if tRes = Fable.Unit then VOID_RETURN_TY
-            else transformType com ctx tRes |> Rust.FnRetTy.Ty
-        let pat = mkIdentPat "a" false false
-        let inputs = tInputs |> List.map (fun tInput ->
-            mkParam [] (transformParamType com ctx tInput) pat false)
-        let fnDecl = mkFnDecl inputs fnRetTy
-        let genParams = [] // TODO:
-        mkFnTy genParams fnDecl
+        if shouldBeRefCountWrapped com t
+        then makeRefTy ty
+        else ty
 
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -956,6 +1011,7 @@ module Util =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false}}
         let trArgs = transformCallArgs com ctx false args []
         mkCallExpr callee trArgs //?loc=range)
+
     let callFunctionTakingOwnership com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true}}
         let trArgs = transformCallArgs com ctx false args []
@@ -1100,7 +1156,8 @@ module Util =
         |]
 *)
     let transformImport (com: IRustCompiler) ctx r (selector: string) (path: string) =
-        com.GetImportExpr(ctx, selector, path, r)
+        let importName = com.GetImportName(ctx, selector, path, r)
+        makeFullNamePathExpr importName None
 
     let transformCast (com: IRustCompiler) (ctx: Context) typ (expr: Fable.Expr): Rust.Expr =
         let fromType, toType = expr.Type, typ
@@ -1226,7 +1283,7 @@ module Util =
                 | UInt8 | UInt16 | UInt32 -> mkIntLitExpr (uint64 (abs x)) //, ?loc=r)
             // if negative, wrap in unary minus
             if x < 0.0
-            then expr |> mkUnaryExpr Rust.UnOp.Neg
+            then expr |> mkNegExpr
             else expr
         // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx typ values
@@ -1234,31 +1291,40 @@ module Util =
         | Fable.NewTuple (values, isStruct) ->
             let tuple = makeTuple com ctx values
             if isStruct then tuple else makeRefValue com ctx tuple
-        // | Fable.NewList (headAndTail, _typ) ->
-        //     let rec getItems acc = function
-        //         | None -> List.rev acc, None
-        //         | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
-        //         | Some(head, tail) -> List.rev (head::acc), Some tail
-        //     match getItems [] headAndTail with
-        //     | [], None ->
-        //         libCall com ctx r "List" "empty" [||]
-        //     | [TransformExpr com ctx expr], None ->
-        //         libCall com ctx r "List" "singleton" [|expr|]
-        //     | exprs, None ->
-        //         [|makeArray com ctx exprs|]
-        //         |> libCall com ctx r "List" "ofArray"
-        //     | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
-        //         libCall com ctx r "List" "cons" [|head; tail|]
-        //     | exprs, Some(TransformExpr com ctx tail) ->
-        //         [|makeArray com ctx exprs; tail|]
-        //         |> libCall com ctx r "List" "ofArrayWithTail"
+        | Fable.NewList (headAndTail, _typ) ->
+            match headAndTail with
+            | None ->
+                libCall com ctx r "List" "empty" []
+            | Some(head, Fable.Value(Fable.NewList(None, _),_)) ->
+                libCall com ctx r "List" "singleton" [head]
+            |  Some(head, tail) ->
+                libCall com ctx r "List" "cons" [head; tail]
+
+            // let rec getItems acc = function
+            //     | None -> List.rev acc, None
+            //     | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
+            //     | Some(head, tail) -> List.rev (head::acc), Some tail
+            // match getItems [] headAndTail with
+            // | [], None ->
+            //     libCall com ctx r "List" "empty" []
+            // | [expr], None ->
+            //     libCall com ctx r "List" "singleton" [expr]
+            // // | exprs, None ->
+            // //     [makeArray com ctx exprs]
+            // //     |> libCall com ctx r "List" "ofArray"
+            // | [head], Some tail ->
+            //     libCall com ctx r "List" "cons" [head; tail]
+            // // | exprs, Some tail ->
+            // //     [makeArray com ctx exprs; tail]
+            // //     |> libCall com ctx r "List" "ofArrayWithTail"
+
         | Fable.NewOption (value, t, _) ->
             match value with
             | Some arg ->
-                let callee = mkGenericPathExpr ["Some"] None
+                let callee = mkGenericPathExpr [rawIdent "Some"] None
                 callFunctionTakingOwnership com ctx r callee [arg]
             | None ->
-                mkGenericPathExpr ["None"] None
+                mkGenericPathExpr [rawIdent "None"] None
             |> makeRefValue com ctx
         // | Fable.EnumConstant (x, _) ->
         //     com.TransformAsExpr(ctx, x)
@@ -1276,8 +1342,8 @@ module Util =
                         else
                             transformLeaveContextByValue com ctx (Some fi.FieldType) None value
                     mkExprField attrs fi.Name expr false false)
-            let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
-            let path = mkFullNamePath ent.FullName genArgs
+            let genArgs = transformGenArgs com ctx genArgs
+            let path = makeFullNamePath ent.FullName genArgs
             let expr = mkStructExpr path fields // TODO: range
             if ent.IsValueType then expr else expr |> makeRefValue com ctx
         | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
@@ -1286,9 +1352,9 @@ module Util =
         //     Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion (values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
+            let genArgs = transformGenArgs com ctx genArgs
             let unionCase = ent.UnionCases |> List.item tag
-            let callee = mkFullNamePathExpr unionCase.FullName genArgs
+            let callee = makeFullNamePathExpr unionCase.FullName genArgs
             callFunctionTakingOwnership com ctx r callee values
             |> makeRefValue com ctx
 
@@ -1461,10 +1527,10 @@ module Util =
         match opKind with
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
-            | UnaryOperator.UnaryMinus -> mkUnaryExpr Rust.UnOp.Neg expr //?loc=range)
+            | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
-            | UnaryOperator.UnaryNot -> mkUnaryExpr Rust.UnOp.Not expr //?loc=range)
-            | UnaryOperator.UnaryNotBitwise -> mkUnaryExpr Rust.UnOp.Not expr //?loc=range)
+            | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
+            | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
             | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
             | UnaryOperator.UnaryVoid -> failwith "Should not happen"
@@ -1539,7 +1605,7 @@ module Util =
                 match callInfo.CallMemberInfo with
                 | Some callMemberInfo ->
                     // TODO: perhaps only use full path for non-local calls
-                    mkFullNamePathExpr callMemberInfo.FullName None
+                    makeFullNamePathExpr callMemberInfo.FullName None
                 | _ ->
                     com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
@@ -1644,13 +1710,13 @@ module Util =
                 then mutableGet com ctx range typ field
                 else field
 
-        // | Fable.ListHead ->
-        //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
-        //     libCall com ctx range "List" "head" [|com.TransformAsExpr(ctx, fableExpr)|]
+        | Fable.ListHead ->
+            // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
+            libCall com ctx range "List" "head" [fableExpr]
 
-        // | Fable.ListTail ->
-        //     // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
-        //     libCall com ctx range "List" "tail" [|com.TransformAsExpr(ctx, fableExpr)|]
+        | Fable.ListTail ->
+            // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
+            libCall com ctx range "List" "tail" [fableExpr]
 
         | Fable.TupleIndex index ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1679,7 +1745,7 @@ module Util =
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
                     assert(ent.IsFSharpUnion)
-                    // let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs // TODO:
+                    // let genArgs = transformGenArgs com ctx genArgs // TODO:
                     let unionCase = ent.UnionCases |> List.item caseIndex
                     let fieldName = "x"
                     let fields =
@@ -1688,7 +1754,7 @@ module Util =
                             if i = fieldIndex then
                                 mkIdentPat fieldName false false
                             else WILD_PAT)
-                    let path = mkFullNamePath unionCase.FullName None
+                    let path = makeFullNamePath unionCase.FullName None
                     let pat = mkTupleStructPat path fields
                     let expr = com.TransformAsExpr(ctx, fableExpr)
                                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
@@ -1713,9 +1779,6 @@ module Util =
                     // mkIfThenElseExpr ifExpr thenExpr elseExpr
                 | _ ->
                     failwith "Should not happen"
-
-        // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "kind: %A" kind)
 
     let mutableSet (com: IRustCompiler) ctx range typ expr value =
         if isCopyType com typ then
@@ -1922,18 +1985,17 @@ module Util =
             let test = if nonEmpty then "is_some" else "is_none"
             let expr = com.TransformAsExpr(ctx, expr)
             mkMethodCallExpr test None expr []
-        // | Fable.ListTest nonEmpty ->
-        //     let expr = com.TransformAsExpr(ctx, expr)
-        //     let expr = libCall com ctx range "List" "isEmpty" [|expr|]
-        //     if nonEmpty then mkUnaryExpr Rust.UnOp.Not expr else expr //, ?loc=range
+        | Fable.ListTest nonEmpty ->
+            let expr = libCall com ctx range "List" "isEmpty" [expr]
+            if nonEmpty then mkNotExpr expr else expr //, ?loc=range
         | Fable.UnionCaseTest tag ->
             match expr.Type with
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
                 assert(ent.IsFSharpUnion)
-                // let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs // TODO:
+                // let genArgs = transformGenArgs com ctx genArgs // TODO:
                 let unionCase = ent.UnionCases |> List.item tag
-                let path = mkFullNamePath unionCase.FullName None
+                let path = makeFullNamePath unionCase.FullName None
                 let fields =
                     match expr with
                     | Fable.IdentExpr id ->
@@ -2009,7 +2071,7 @@ module Util =
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
                 if ent.IsFSharpUnion then
-                    let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
+                    let genArgs = transformGenArgs com ctx genArgs
                     let unionCase = ent.UnionCases |> List.item caseIndex
                     let fields =
                         match evalName with
@@ -2022,7 +2084,7 @@ module Util =
                             |> Seq.toList
                         | _ ->
                             [WILD_PAT]
-                    let path = mkFullNamePath unionCase.FullName None
+                    let path = makeFullNamePath unionCase.FullName None
                     Some (mkTupleStructPat path fields)
                 else
                     None
@@ -2754,7 +2816,7 @@ module Util =
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
         let fnRetTy =
             if body.Type = Fable.Unit then VOID_RETURN_TY
-            else transformType com ctx body.Type |> Rust.FnRetTy.Ty
+            else transformType com ctx body.Type |> mkFnRetTy
         let inputs =
             args
             |> List.filter (fun id -> id.Type <> Fable.Unit)
@@ -2938,7 +3000,7 @@ module Util =
             let ctorItem =
                 match decl.Constructor with
                 | Some ctor ->
-                    transformDeclaration com ctx (Fable.MemberDeclaration ctor) |> Some
+                    transformDecl com ctx (Fable.MemberDeclaration ctor) |> Some
                 | _ ->
                     // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
                     None
@@ -3042,13 +3104,8 @@ module Util =
             yield declareModuleMember cons.Info.IsPublic cons.Name false exposedCons
         ]
 *)
-    let preludeDecls = [
-        mkSimpleUseItem [] ["std"; "rc"; "Rc"] None
-        mkSimpleUseItem [] ["core"; "cell"; "Cell"] None
-        mkSimpleUseItem [] ["core"; "cell"; "RefCell"] None
-        ]
 
-    let rec transformDeclaration (com: IRustCompiler) ctx decl =
+    let rec transformDecl (com: IRustCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -3057,11 +3114,11 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            // TODO: collect use decls from usage in body
-            let useDecls = []
-            let memberDecls = decl.Members |> List.collect (transformDeclaration com ctx)
+            // TODO: perhaps collect other use decls from usage in body
+            let useDecls = [mkNonPublicUseItem ["super"; "*"]]
+            let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
             let attrs =  []
-            let modDecls = preludeDecls @ useDecls @ memberDecls
+            let modDecls = useDecls @ memberDecls
             let modItem = modDecls |> mkModItem attrs decl.Name
             [modItem]
 
@@ -3108,20 +3165,19 @@ module Util =
         |> List.ofSeq
         |> List.sort
         |> List.collect (fun (importPath: string) ->
-            let hashedPath = hash importPath
-            let modName = System.String.Format("import_{0:x}", hashedPath)
-            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")] // TODO: relative path
-            let item1 = mkUnloadedModItem attrs modName
-            let item2 = mkGlobUseItem [] [modName]
-            // TODO: use non-glob selectors while still avoiding name clashing at crate level
-            // let item2 =
+            let modName = System.String.Format("import_{0:x}", hash importPath)
+            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
+            let modItem = mkUnloadedModItem attrs modName |> mkNonPublicItem
+            let useItem = mkGlobUseItem [] [modName] |> mkNonPublicItem
+            // TODO: less verbose imports while still avoiding name clashing
+            // let useItem =
             //     match selector with
             //     | "" | "*" | "default" ->
             //         mkGlobUseItem [] [useName]
             //     | _ ->
-            //         let parts = selector.Split('.') |> List.ofArray
+            //         let parts = splitFullName selector
             //         mkSimpleUseItem [] (useName::parts) None
-            [item1; item2]
+            [modItem; useItem]
         )
 
 (*
@@ -3189,14 +3245,17 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, selector, path, r) =
-                let importPath, importFullName =
+            member _.GetImportName(ctx, selector, path, r) =
+                let importPath, importName =
                     match path.Split('|') with
                     | [| path; namesp |] ->
-                        path, (namesp + "::" + selector)
-                    | _ -> path, selector
+                        // let modName = System.String.Format("import_{0:x}", hash path)
+                        // let fullName = [modName; namesp; selector] |> String.concat "::"
+                        path, (namesp +  "::" + selector)
+                    | _ ->
+                        path, selector
                 imports.Add(importPath) |> ignore
-                mkFullNamePathExpr importFullName None
+                importName
 
             member _.GetAllImports() = imports :> seq<_>
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
@@ -3245,19 +3304,25 @@ module Compiler =
                         TakingOwnership = false } }
 
         let topAttrs = [
+            // TODO: make some of those conditional on compiler options
+            mkInnerAttr "allow" ["dead_code"]
             mkInnerAttr "allow" ["unused_parens"]
-            mkInnerAttr "allow" ["unused_imports"]   // TODO: remove later?
-            mkInnerAttr "allow" ["unused_variables"] // TODO: remove later?
+            mkInnerAttr "allow" ["unused_imports"]
+            mkInnerAttr "allow" ["unused_variables"]
             mkInnerAttr "allow" ["non_snake_case"]
             mkInnerAttr "allow" ["non_camel_case_types"]
             // mkInnerAttr "feature" ["stmt_expr_attributes"]
             // mkInnerAttr "feature" ["destructuring_assignment"]
-        ]
-        let useDecls = preludeDecls
-        let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
+            ]
+        let useDecls = [
+            mkNonPublicUseItem ["std"; "rc"; "Rc"]
+            mkNonPublicUseItem ["core"; "cell"; "Cell"]
+            mkNonPublicUseItem ["core"; "cell"; "RefCell"]
+            ]
+        let rootDecls = List.collect (transformDecl com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports ctx
         let entryPointDecls = getEntryPointDecls file.Declarations
-        let items = importDecls @ useDecls @ rootDecls @ entryPointDecls
+        let items = useDecls @ importDecls @ rootDecls @ entryPointDecls
 
         let crate = mkCrate topAttrs items
         crate

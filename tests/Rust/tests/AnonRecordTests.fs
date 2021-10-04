@@ -1,4 +1,4 @@
-module Fable.Tests.AnonRecord
+module Fable.Tests.AnonRecordTests
 
 open Util.Testing
 

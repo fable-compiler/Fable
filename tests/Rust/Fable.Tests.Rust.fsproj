@@ -24,6 +24,7 @@
     <Compile Include="tests/ControlFlowTests.fs" />
     <Compile Include="tests/OptionTests.fs" />
     <Compile Include="tests/ArrayTests.fs" />
+    <Compile Include="tests/ListTests.fs" />
     <Compile Include="tests/UnionTests.fs" />
     <Compile Include="tests/TupleTests.fs" />
     <Compile Include="tests/RecordTests.fs" />

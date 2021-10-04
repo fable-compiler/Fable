@@ -1,4 +1,6 @@
-pub mod Option {
+#![allow(dead_code)]
+#![allow(non_snake_case)]
+pub mod Option_ {
     use std::rc::Rc;
 
     pub fn getValue<T: Clone>(opt: &Rc<Option<T>>) -> T {

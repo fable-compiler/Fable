@@ -22,6 +22,9 @@ module Util =
         for dir in dirs do
             removeDirRecursive dir
 
+    let resolveDir dir =
+        __SOURCE_DIRECTORY__ </> dir
+
     let updateVersionInFableTransforms version =
         let filePath = "src/Fable.Transforms/Global/Compiler.fs"
         // printfn "VERSION %s" version
@@ -46,6 +49,12 @@ module Util =
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
+    let runFableWithArgsInDir projectDir args =
+        let cliDir = resolveDir "src/Fable.Cli"
+        let cliArgs = (resolveDir projectDir)::args |> String.concat " "
+        let cliCmd = $"dotnet run -c Release -p {cliDir} -- {cliArgs}"
+        runInDir projectDir cliCmd
+
     let runFableWithArgsAsync projectDir args =
         runAsync ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
@@ -63,9 +72,6 @@ module Util =
 
     let runMocha testDir =
         runNpmScript "mocha" [$"{testDir} -r esm --reporter dot -t 10000"]
-
-    let resolveDir dir =
-        __SOURCE_DIRECTORY__ </> dir
 
 open Util
 
@@ -209,12 +215,13 @@ let buildLibraryRust() =
     let libraryDir = "src/fable-library-rust"
     let projectDir = libraryDir + "/fable"
     let buildDir = "build/fable-library-rust"
+    let fableLib = "."
 
     cleanDirs [buildDir]
 
-    runFableWithArgs projectDir [
-        "--outDir " + buildDir
-        "--fableLib " + buildDir
+    runFableWithArgsInDir projectDir [
+        "--outDir " + resolveDir buildDir
+        "--fableLib " + fableLib
         "--lang Rust"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
@@ -471,16 +478,17 @@ let testRust() =
     let projectDir = "tests/Rust"
     let buildDir = "build/tests/Rust"
 
-    // .NET tests
-    runInDir testAstDir "dotnet test"
-    runInDir projectDir "dotnet test"
-
     // limited cleanup to reduce IO churn, speed up rebuilds,
     // and save the ssd (target folder can get huge)
     cleanDirs [buildDir + "/src"]
     cleanDirs [buildDir + "/tests"]
     cleanDirs [buildDir + "/.fable"]
 
+    // run .NET tests
+    runInDir testAstDir "dotnet test"
+    runInDir projectDir "dotnet test"
+
+    // build Fable Rust tests
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
@@ -488,6 +496,7 @@ let testRust() =
         "--fableLib " + "fable-library-rust"
     ]
 
+    // run Fable Rust tests
     copyFile (projectDir </> "Cargo.toml") buildDir
     runInDir buildDir "cargo test"
 

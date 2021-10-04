@@ -1,4 +1,4 @@
-module Fable.Tests.Array
+module Fable.Tests.ArrayTests
 
 open Util.Testing
 

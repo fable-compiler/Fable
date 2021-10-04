@@ -1,4 +1,4 @@
-module Fable.Tests.Closure
+module Fable.Tests.ClosureTests
 
 open Util.Testing
 

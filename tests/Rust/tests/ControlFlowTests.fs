@@ -1,4 +1,4 @@
-module Fable.Tests.ControlFlow
+module Fable.Tests.ControlFlowTests
 
 open Util.Testing
 

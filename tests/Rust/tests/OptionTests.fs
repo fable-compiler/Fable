@@ -1,4 +1,4 @@
-module Fable.Tests.Option
+module Fable.Tests.OptionTests
 
 open Util.Testing
 

@@ -16,12 +16,29 @@ module Naming =
 
     let allKeywords = HashSet(kw.RustKeywords)
     let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
+    let preludeSymbols = HashSet(["Option"; "Some"; "None"])
+
+    let rawIdent (ident: string) =
+        if ident.StartsWith("r#")
+        then ident
+        else "r#" + ident
+
+    let stripRawIdent (ident: string) =
+        if ident.StartsWith("r#")
+        then ident.Substring("r#".Length)
+        else ident
 
     let sanitizeIdent (ident: string) =
+        // raw idents can be used to bypass the sanitization
         let ident = ident.Replace("$", "_").Replace("`", "_")
         if topKeywords.Contains(ident) then ident + "_"
-        elif allKeywords.Contains(ident) then "r#" + ident
-        else ident
+        elif allKeywords.Contains(ident) then rawIdent ident
+        elif preludeSymbols.Contains(ident) then ident + "_"
+        else stripRawIdent ident // no need to stay raw here
+
+    let splitFullName (name: string) =
+        name.Split([|"."; "::"|], System.StringSplitOptions.RemoveEmptyEntries)
+        |> List.ofArray
 
 [<AutoOpen>]
 module Idents =
@@ -32,6 +49,13 @@ module Idents =
 
     let mkUnsanitizedIdent (symbol: Symbol): Ident =
         Ident.from_str(symbol)
+
+    let mkPathIdents (symbols: Symbol seq): Ident seq =
+        symbols
+        |> Seq.mapi (fun i name ->
+            if i = 0 && topKeywords.Contains(name)
+            then mkUnsanitizedIdent name
+            else mkIdent name)
 
 [<AutoOpen>]
 module Vectors =
@@ -236,17 +260,13 @@ module Paths =
           segments = mkVec segments
           tokens = None }
 
-    let mkGenericPath (idents: Ident seq) genArgs: Path =
-        let len = Seq.length idents
+    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option): Path =
+        let len = Seq.length names
+        let idents = mkPathIdents names
         let args i = if i < len - 1 then None else genArgs
         idents
         |> Seq.mapi (fun i ident -> mkPathSegment ident (args i))
         |> mkPath
-
-    let mkFullNamePath (fullName: Symbol) genArgs: Path =
-        let names = fullName.Split([|"."; "::"|], System.StringSplitOptions.RemoveEmptyEntries)
-        let idents = names |> Seq.map mkIdent |> Seq.append [mkUnsanitizedIdent "crate"]
-        mkGenericPath idents genArgs
 
 [<AutoOpen>]
 module Patterns =
@@ -403,7 +423,7 @@ module MacroArgs =
 module MacCalls =
 
     let mkMacCall symbol delim kind (tokens: token.Token seq): MacCall =
-        { path = mkGenericPath [mkIdent symbol] None
+        { path = mkGenericPath [symbol] None
           args = mkDelimitedMacArgs delim kind tokens
           prior_type_ascription = None }
 
@@ -432,7 +452,7 @@ module Attrs =
           tokens = None }
 
     let mkAttrKind (name: Symbol) args: AttrKind =
-        let path = mkGenericPath [mkIdent name] None
+        let path = mkGenericPath [name] None
         let item = mkAttrItem path args
         let kind = AttrKind.Normal(item, None)
         kind
@@ -534,12 +554,7 @@ module Exprs =
         |> mkExpr
 
     let mkGenericPathExpr names genArgs: Expr =
-        let idents = names |> Seq.map mkIdent
-        mkGenericPath idents genArgs
-        |> mkPathExpr
-
-    let mkFullNamePathExpr fullName genArgs: Expr =
-        mkFullNamePath fullName genArgs
+        mkGenericPath names genArgs
         |> mkPathExpr
 
     let mkStructExpr path fields: Expr =
@@ -567,6 +582,12 @@ module Exprs =
 
     let mkDerefExpr expr: Expr =
         mkUnaryExpr UnOp.Deref expr
+
+    let mkNotExpr expr: Expr =
+        mkUnaryExpr UnOp.Not expr
+
+    let mkNegExpr expr: Expr =
+        mkUnaryExpr UnOp.Neg expr
 
     let mkBinaryExpr op left right: Expr =
         ExprKind.Binary(op, left, right)
@@ -784,12 +805,11 @@ module Types =
 
     let mkFnTraitGenericBound inputs output: GenericBound =
         let args = mkParenArgs inputs output |> Some
-        let path = mkGenericPath [mkIdent "Fn"] args
+        let path = mkGenericPath ["Fn"] args
         mkTraitGenericBound path
 
     let mkTypeTraitGenericBound names: GenericBound =
-        let idents = names |> Seq.map mkIdent
-        let path = mkGenericPath idents None
+        let path = mkGenericPath names None
         mkTraitGenericBound path
 
     let mkTraitsTy traits: Ty =
@@ -808,16 +828,13 @@ module Types =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Mut })
         |> mkTy
 
-    let mkGenericPathTy (names: Symbol seq) (genArgs: GenericArgs option): Ty =
-        let idents = names |> Seq.map mkIdent
-        let path = mkGenericPath idents genArgs
+    let mkPathTy path: Ty =
         TyKind.Path(None, path)
         |> mkTy
 
-    let mkFullNamePathTy (fullName: Symbol) (genArgs: GenericArgs option): Ty =
-        let path = mkFullNamePath fullName genArgs
-        TyKind.Path(None, path)
-        |> mkTy
+    let mkGenericPathTy names genArgs: Ty =
+        mkGenericPath names genArgs
+        |> mkPathTy
 
     let mkArrayTy ty (size: Expr): Ty =
         TyKind.Array(ty, mkAnonConst size)
@@ -892,6 +909,9 @@ module Funcs =
 
     let VOID_RETURN_TY: FnRetTy =
         FnRetTy.Default(DUMMY_SP)
+
+    let mkFnRetTy ty: FnRetTy =
+        FnRetTy.Ty(ty)
 
     let mkFnSig header decl: FnSig =
         { header = header
@@ -976,17 +996,19 @@ module Items =
             { prefix = prefix
               kind = kind
               span = DUMMY_SP }
-        let idents = names |> Seq.map mkIdent
-        let prefix = mkGenericPath idents None
+        let prefix = mkGenericPath names None
         let useTree = mkUseTree prefix kind
         let ident = mkIdent ""
         ItemKind.Use(useTree)
         |> mkItem attrs ident
-        |> mkNonPublicItem
 
     let mkSimpleUseItem attrs names (alias: Ident option): Item =
         UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
         |> mkUseItem attrs names
+
+    let mkNonPublicUseItem names =
+        mkSimpleUseItem [] names None
+        |> mkNonPublicItem
 
     let mkNestedUseItem attrs names useTrees: Item =
         let useTrees = useTrees |> Seq.map (fun x -> x, DUMMY_NODE_ID)

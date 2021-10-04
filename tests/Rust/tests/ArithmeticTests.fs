@@ -1,4 +1,4 @@
-module Fable.Tests.Arithmetic
+module Fable.Tests.ArithmeticTests
 
 open Util.Testing
 
