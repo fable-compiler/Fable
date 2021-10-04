@@ -1,11 +1,12 @@
+import builtins
 import functools
 import math
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
-from typing import Callable, Iterable, List, Optional, TypeVar, Any
-from urllib.parse import unquote, quote
+from typing import Any, Callable, Iterable, List, Optional, TypeVar
+from urllib.parse import quote, unquote
 
 T = TypeVar("T")
 
@@ -443,11 +444,11 @@ def physical_hash(x):
 
 def round(value, digits=0):
     m = pow(10, digits)
-    n = +(value * m if digits else value).toFixed(8)
+    n = +(value * m if digits else value)
     i = math.floor(n)
     f = n - i
     e = 1e-8
-    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else __builtins__.round(n)
+    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
     return r / m if digits else r
 
 

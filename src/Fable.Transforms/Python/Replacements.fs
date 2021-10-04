@@ -2678,8 +2678,12 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" ->
         let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
         Helper.LibCall(com, "time_span", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
-    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
+    | "FromMilliseconds" ->
+        //TypeCast(args.Head, t) |> Some
+        Helper.LibCall(com, "time_span", "from_milliseconds", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "get_TotalMilliseconds" ->
+        //TypeCast(thisArg.Value, t) |> Some
+        Helper.LibCall(com, "time_span", "to_milliseconds", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r

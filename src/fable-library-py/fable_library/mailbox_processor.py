@@ -40,7 +40,6 @@ class MailboxProcessor:
         Returns:
             None
         """
-        print("post")
         self.messages.put(msg)
         self.__process_events()
 
@@ -119,8 +118,8 @@ class MailboxProcessor:
             msg = self.messages.get()
             self.continuation, cont = None, self.continuation
 
-            if cont is not None:
-                cont[0](msg)
+        if cont is not None:
+            cont[0](msg)
 
     @staticmethod
     def start(body, cancellation_token=None):
@@ -134,7 +133,7 @@ def receive(mbox):
 
 
 def post(mbox, msg):
-    print("post: ", msg)
+    #print("post: ", msg)
     return mbox.post(msg)
 
 

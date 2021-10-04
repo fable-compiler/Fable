@@ -1746,7 +1746,7 @@ module Util =
                     if i = exprs.Length - 1 then
                         stmts @ [ Statement.return' (expr)]
                     else
-                        exprAsStatement ctx expr @ stmts)
+                        stmts @ exprAsStatement ctx expr)
              |> transformBody com ctx None
 
         // let expr =
