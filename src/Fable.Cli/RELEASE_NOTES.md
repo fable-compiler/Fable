@@ -1,3 +1,10 @@
+### 3.4.1
+
+* Support System.Collections.Generic.Queue @davedawkins
+* Fix custom array equality
+* Remove class restriction for ParamObject
+* Skip parens in emit if placeholder is already surrounded by parens
+
 ### 3.4.0
 
 * ParamObject attribute
