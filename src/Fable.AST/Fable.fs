@@ -181,6 +181,7 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of Type
     | BaseValue of boundIdent: Ident option * Type
+    // TODO: Add `allowGeneric` field
     | TypeInfo of Type
     | Null of Type
     | UnitConstant

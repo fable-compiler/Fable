@@ -83,7 +83,7 @@ module Reflection =
         let fullnameExpr = Expression.stringLiteral(fullname)
         let genMap =
             let genParamNames = ent.GenericParameters |> List.mapToArray (fun x -> x.Name) |> Seq.toArray
-            Array.zip genParamNames generics |> Map
+            Array.zip genParamNames generics |> Map |> Some
         let fields =
             ent.FSharpFields |> Seq.map (fun fi ->
                 let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
@@ -98,7 +98,7 @@ module Reflection =
         let fullnameExpr = Expression.stringLiteral(fullname)
         let genMap =
             let genParamNames = ent.GenericParameters |> List.map (fun x -> x.Name) |> Seq.toArray
-            Array.zip genParamNames generics |> Map
+            Array.zip genParamNames generics |> Map |> Some
         let cases =
             ent.UnionCases |> Seq.map (fun uci ->
                 uci.UnionCaseFields |> List.mapToArray (fun fi ->
@@ -112,7 +112,7 @@ module Reflection =
         [|fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases|]
         |> libReflectionCall com ctx None "union"
 
-    let transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
+    let transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression> option) t: Expression =
         let primitiveTypeInfo name =
            libValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
@@ -135,11 +135,14 @@ module Reflection =
         match t with
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam name ->
-            match Map.tryFind name genMap with
-            | Some t -> t
-            | None ->
-                Replacements.genericTypeInfoError name |> addError com [] r
-                Expression.nullLiteral()
+            match genMap with
+            | None -> [| Expression.stringLiteral(name) |] |> libReflectionCall com ctx None "generic"
+            | Some genMap ->
+                match Map.tryFind name genMap with
+                | Some t -> t
+                | None ->
+                    Replacements.genericTypeInfoError name |> addError com [] r
+                    Expression.nullLiteral()
         | Fable.Unit    -> primitiveTypeInfo "unit"
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
@@ -258,6 +261,7 @@ module Reflection =
                         Seq.zip ent.GenericParameters generics
                         |> Seq.map (fun (p, e) -> p.Name, e)
                         |> Map
+                        |> Some
                     yield Fable.DeclaredType(d.Entity, d.GenericArgs)
                           |> transformTypeInfo com ctx r genMap
                 | None -> ()
@@ -887,9 +891,13 @@ module Util =
         |> getParts parts
 
     let transformCast (com: IBabelCompiler) (ctx: Context) t tag e: Expression =
-        // HACK: Try to optimize some patterns after FableTransforms
+        // HACK: Try to optimize some patterns after FableTransforms and fill some gaps in Fable.AST
         let optimized =
             match tag with
+            | Some "generic" ->
+                match e with
+                | Fable.Value(Fable.TypeInfo t, r) -> transformTypeInfo com ctx r None t |> Some
+                | _ -> None
             | Some (Naming.StartsWith "optimizable:" optimization) ->
                 match optimization, e with
                 | "array", Fable.Call(_,info,_,_) ->
@@ -933,7 +941,7 @@ module Util =
         | Fable.BaseValue(None,_) -> Super(None)
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent
         | Fable.ThisValue _ -> Expression.thisExpression()
-        | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
+        | Fable.TypeInfo t -> transformTypeInfo com ctx r (Some Map.empty) t
         | Fable.Null _t ->
             // if com.Options.typescript
             //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some

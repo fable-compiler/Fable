@@ -48,6 +48,12 @@ export class TypeInfo implements IEquatable<TypeInfo> {
   }
 }
 
+export class GenericParameter extends TypeInfo {
+    constructor(name: string) {
+      super(name);
+    }
+}
+
 export function getGenerics(t: TypeInfo): TypeInfo[] {
   return t.generics != null ? t.generics : [];
 }
@@ -134,6 +140,10 @@ export function measure_type(fullname: string): TypeInfo {
   return new TypeInfo(fullname);
 }
 
+export function generic_type(name: string): TypeInfo {
+  return new GenericParameter(name);
+}
+
 export const obj_type: TypeInfo = new TypeInfo("System.Object");
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
 export const char_type: TypeInfo = new TypeInfo("System.Char");
@@ -184,6 +194,10 @@ export function getElementType(t: TypeInfo): TypeInfo | undefined {
 
 export function isGenericType(t: TypeInfo) {
   return t.generics != null && t.generics.length > 0;
+}
+
+export function isGenericParameter(t: TypeInfo) {
+  return t instanceof GenericParameter;
 }
 
 export function isEnum(t: TypeInfo) {

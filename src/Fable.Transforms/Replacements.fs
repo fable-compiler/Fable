@@ -369,6 +369,11 @@ let makeTypeConst com r (typ: Type) (value: obj) =
 let makeTypeInfo r t =
     TypeInfo t |> makeValue r
 
+// HACK: We canot alter the AST so we wrap type infos like this when generics are allowed
+let makeGenericTypeInfo r t =
+    let info = makeTypeInfo r t
+    TypeCast(info, info.Type, Some("generic"))
+
 let makeTypeDefinitionInfo r t =
     let t =
         match t with
@@ -3151,9 +3156,9 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
     let args = [
         makeStrConst name
         parameters
-            |> List.map (fun (name, t) -> makeTuple [makeStrConst name; makeTypeInfo None t])
+            |> List.map (fun (name, t) -> makeTuple [makeStrConst name; makeGenericTypeInfo None t])
             |> makeArray Any
-        makeTypeInfo None returnType
+        makeGenericTypeInfo None returnType
     ]
     Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isJsConstructor=true, ?loc=r)
 
