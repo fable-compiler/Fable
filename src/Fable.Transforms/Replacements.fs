@@ -1429,7 +1429,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let template =
             match str with
             | StringConst str ->
-                (Some [], Regex.Matches(str, "((?<!%)%[^%\s]+?)?%P\(\)") |> Seq.cast<Match>)
+                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
                 ||> Seq.fold (fun acc m ->
                     match acc with
                     | None -> None
@@ -2828,7 +2828,23 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
-    | ".ctor"   -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor" ->
+        let (|RegexFlags|_|) e =
+            let rec getFlags = function
+                | NumberOrEnumConst(1., _) -> Some [RegexFlag.RegexIgnoreCase]
+                | NumberOrEnumConst(2., _) -> Some [RegexFlag.RegexMultiline]
+                // TODO: We're missing RegexFlag.Singleline in the AST
+                // | NumberOrEnumConst(16., _) -> Some [RegexFlag.Singleline]
+                | Fable.Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+                    match getFlags flags1, getFlags flags2 with
+                    | Some flags1, Some flags2 -> Some(flags1 @ flags2)
+                    | _ -> None
+                | _ -> None
+            getFlags e
+        match args with
+        | [StringConst pattern] -> RegexConstant(pattern, [RegexFlag.RegexGlobal]) |> makeValue r |> Some
+        | StringConst pattern::(RegexFlags flags)::_ -> RegexConstant(pattern, RegexFlag.RegexGlobal::flags) |> makeValue r |> Some
+        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
     | "get_Index" ->

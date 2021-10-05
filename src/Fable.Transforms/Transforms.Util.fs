@@ -327,6 +327,11 @@ module AST =
         | MaybeCasted(Value(BoolConstant v, _)) -> Some v
         | _ -> None
 
+    let (|NumberOrEnumConst|_|) = function
+        | MaybeCasted(Value(NumberConstant(value, kind), _)) -> Some(value, kind)
+        | MaybeCasted(Value(EnumConstant(Value(NumberConstant(value, kind), _),_),_)) -> Some(value, kind)
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
