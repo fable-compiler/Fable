@@ -4,8 +4,7 @@ import asyncio
 from queue import SimpleQueue
 from threading import RLock
 
-from expression.system import CancellationToken, OperationCanceledError
-
+from .async_builder import CancellationToken, OperationCanceledError
 from .async_ import from_continuations, start_immediate
 
 
@@ -20,7 +19,8 @@ class AsyncReplyChannel:
 class MailboxProcessor:
     def __init__(self, body, cancellation_token=None):
         self.messages = SimpleQueue()
-        self.token = cancellation_token or CancellationToken.none()
+        self.token = cancellation_token or CancellationToken()
+        self.cancel = False
         self.lock = RLock()
         self.body = body
 

@@ -4,6 +4,7 @@ from .async_builder import (
     IAsyncContext,
     OperationCanceledError,
     Trampoline,
+    empty_continuation,
     protected_bind,
     protected_cont,
     protected_return,
@@ -15,15 +16,11 @@ class Async:
     pass
 
 
-def empty_continuation(x=None):
-    pass
-
 
 default_cancellation_token = CancellationToken()
 
 
 def create_cancellation_token(arg=None):
-    print("createCancellationToken()", arg)
     cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
     if isinstance(arg, int):
@@ -34,12 +31,10 @@ def create_cancellation_token(arg=None):
 
 
 def cancel(token: CancellationToken):
-    print("cancel()")
     token.cancel()
 
 
 def cancel_after(token: CancellationToken, ms: int):
-    print("cancelAfter()", ms / 1000.0)
     timer = Timer(ms / 1000.0, token.cancel)
     timer.start()
 

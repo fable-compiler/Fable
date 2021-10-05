@@ -87,12 +87,14 @@ class IAsyncContext:
     def create(on_success, on_error, on_cancel, trampoline, cancel_token):
         return AnonymousAsyncContext(on_success, on_error, on_cancel, trampoline, cancel_token)
 
+def empty_continuation(x=None):
+    pass
 
 class AnonymousAsyncContext:
     def __init__(self, on_success=None, on_error=None, on_cancel=None, trampoline=None, cancel_token=None):
-        self._on_success = on_success
-        self._on_error = on_error
-        self._on_cancel = on_cancel
+        self._on_success = on_success or empty_continuation
+        self._on_error = on_error or empty_continuation
+        self._on_cancel = on_cancel or empty_continuation
 
         self.cancel_token = cancel_token
         self.trampoline = trampoline
@@ -111,7 +113,7 @@ class AnonymousAsyncContext:
 
 
 class Trampoline:
-    MaxTrampolineCallCount = 900  # Max recursion depth: 1000
+    MaxTrampolineCallCount = 150  # Max recursion depth: 1000
 
     def __init__(self):
         self.call_count = 0
@@ -192,7 +194,6 @@ def protected_bind(computation, binder):
 
 
 def protected_return(value=None):
-    # print("protected_return:", value)
     return protected_cont(lambda ctx: ctx.on_success(value))
 
 
@@ -204,12 +205,9 @@ class AsyncBuilder:
         return self.Bind(computation1, lambda _=None: computation2)
 
     def Delay(self, generator):
-        # print("Delay", generator)
         return protected_cont(lambda ctx: generator()(ctx))
 
     def For(self, sequence, body):
-        print("For", sequence)
-
         done = False
         it = iter(sequence)
         try:
@@ -218,23 +216,17 @@ class AsyncBuilder:
             done = True
 
         def delay():
-            # print("For:delay")
             nonlocal cur, done
-            # print("cur", cur)
             res = body(cur)
-            # print("For:delay:res", res)
             try:
                 cur = next(it)
-                # print("For:delay:next", cur)
             except StopIteration:
-                print("For:delay:stopIteration")
                 done = True
             return res
 
         return self.While(lambda: not done, self.Delay(delay))
 
     def Return(self, value=None):
-        # print("Return: ", value)
         return protected_return(value)
 
     def ReturnFrom(self, computation):
@@ -285,12 +277,9 @@ class AsyncBuilder:
         return self.TryFinally(binder(resource), lambda _=None: resource.Dispose())
 
     def While(self, guard, computation):
-        # print("while")
         if guard():
-            # print("gard()")
             return self.Bind(computation, lambda _=None: self.While(guard, computation))
         else:
-            # print("While:return")
             return self.Return()
 
     def Zero(self):

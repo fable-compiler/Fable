@@ -415,7 +415,7 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) modulePath =
-        printfn "ModulePath: %s" modulePath
+        //printfn "ModulePath: %s" modulePath
         let relative =
             match com.OutputType with
             | OutputType.Exe -> false
