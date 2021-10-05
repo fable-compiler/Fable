@@ -348,3 +348,13 @@ module Observable =
                     timer.Start()))
                 { new IDisposable with
                     member _.Dispose() = disp.Dispose() } }
+
+[<AutoOpen>]
+module ResultCE =
+    type ResultBuilder() =
+        member _.Zero = Ok()
+        member _.Bind(v,f) = Result.bind f v
+        member _.Return v = Ok v
+        member _.ReturnFrom v = v
+
+    let result = ResultBuilder()
