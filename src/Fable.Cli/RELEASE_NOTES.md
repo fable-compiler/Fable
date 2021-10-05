@@ -1,3 +1,8 @@
+### 3.4.2
+
+* Fix #2561: Case insensitive args and check
+* Fix generic parameters with JS.ReflectedDecorator
+
 ### 3.4.1
 
 * Support System.Collections.Generic.Queue @davedawkins

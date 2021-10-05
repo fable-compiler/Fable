@@ -3,12 +3,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.4.1</Version>
-    <PackageVersion>3.4.1</PackageVersion>
-    <PackageReleaseNotes>* Support System.Collections.Generic.Queue @davedawkins
-* Fix custom array equality
-* Remove class restriction for ParamObject
-* Skip parens in emit if placeholder is already surrounded by parens</PackageReleaseNotes>
+    <Version>3.4.2</Version>
+    <PackageVersion>3.4.2</PackageVersion>
+    <PackageReleaseNotes>* Fix #2561: Case insensitive args and check
+* Fix generic parameters with JS.ReflectedDecorator</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>

@@ -327,14 +327,17 @@ let main argv =
             | None -> IO.Directory.GetCurrentDirectory()
 
         do
-            Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-            Log.always("Thanks to the contributor! @" + Contributors.getRandom())
-            if args.FlagEnabled "--verbose" then
-                Log.makeVerbose()
+            match commands with
+            | ["--version"] -> ()
+            | _ ->
+                Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+                Log.always("Thanks to the contributor! @" + Contributors.getRandom())
+                if args.FlagEnabled "--verbose" then
+                    Log.makeVerbose()
 
         match commands with
         | ["--help"] -> return printHelp()
-        | ["--version"]-> return Log.always Literals.VERSION
+        | ["--version"] -> return Log.always Literals.VERSION
         | ["clean"; dir] -> return clean args dir
         | ["clean"] -> return clean args rootDir
         | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
