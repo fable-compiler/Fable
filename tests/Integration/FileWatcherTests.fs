@@ -1,6 +1,5 @@
 module Fable.Tests.FileWatcher
 
-open Util.Testing
 open System
 open System.IO
 open System.Threading
@@ -20,6 +19,8 @@ open Expecto
 let defaultTimeout = TimeSpan.FromMilliseconds(5000.0) // Might be a bit generous...
 let negativeTimeout = TimeSpan.FromMilliseconds(2000.0) // Might be a bit tight...
 let oneSecond = TimeSpan.FromSeconds(1.0)
+
+let equal expected actual = Expect.equal actual expected "are equal"
 
 let usingTempDirectoryAsync f =
     async {
@@ -126,7 +127,7 @@ let tests =
             | ex -> failtest $"Expected TimeoutException but got {ex}"
         }
 
-    ftestList "getCommonBaseDir" [
+    testList "getCommonBaseDir" [
         let root =
             if RuntimeInformation.IsOSPlatform OSPlatform.Windows then
                 "C:\\"
