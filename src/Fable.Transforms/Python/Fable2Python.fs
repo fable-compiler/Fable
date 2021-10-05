@@ -460,7 +460,7 @@ module Helpers =
                 $"{moduleName}" // TODO: how can me make the path for this one?
         | _ ->
             // Cannot dashify / clean here since Python modules are separated by dots
-            moduleName
+            modulePath
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
