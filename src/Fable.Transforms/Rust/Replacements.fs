@@ -1619,6 +1619,14 @@ let implementedStringFunctions =
 let getEnumerator com r t expr =
     Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
+let emitFormat (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) macro =
+    let args =
+        match args with
+        | (StringConst _)::restArgs -> args
+        | [] -> (makeStrConst "") :: args
+        | _ -> (makeStrConst "{0}") :: args
+    macro |> emitJsExpr r t args
+
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, fstArg::_ ->
@@ -1712,6 +1720,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "concat", t, args, hasSpread=true, ?loc=r) |> Some
     | "CompareOrdinal", None, _ ->
         Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc=r) |> Some
+    | "Format", None, _ ->
+        "format" |> emitFormat com r t i thisArg args |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes,
                         hasSpread=i.HasSpread, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2491,15 +2501,6 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
 
-let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let args =
-        match args with
-        | [] -> []
-        | [v] -> [v]
-        | (StringConst _)::_ -> [Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes)]
-        | _ -> [args.Head]
-    Helper.GlobalCall("console", t, args, memb="log", ?loc=r)
-
 let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "GetBytes" ->
@@ -2545,18 +2546,14 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_Out" -> typedObjExpr t [] |> Some // empty object
-    | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
-        log com r t i thisArg args |> Some
-    | "WriteLine" -> log com r t i thisArg args |> Some
+    | "Write" -> "print" |> emitFormat com r t i thisArg args |> Some
+    | "WriteLine" -> "println" |> emitFormat com r t i thisArg args |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
-        log com r t i thisArg args |> Some
-    | "WriteLine" -> log com r t i thisArg args |> Some
+    | "Write" -> "print" |> emitFormat com r t i thisArg args |> Some
+    | "WriteLine" -> "println" |> emitFormat com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
         let unit = Value(Null Unit, None)

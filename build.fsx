@@ -51,7 +51,7 @@ module Util =
 
     let runFableWithArgsInDir projectDir args =
         let cliDir = resolveDir "src/Fable.Cli"
-        let cliArgs = (resolveDir projectDir)::args |> String.concat " "
+        let cliArgs = args |> String.concat " "
         let cliCmd = $"dotnet run -c Release -p {cliDir} -- {cliArgs}"
         runInDir projectDir cliCmd
 

@@ -23,7 +23,7 @@ module Naming =
         then ident
         else "r#" + ident
 
-    let stripRawIdent (ident: string) =
+    let stripRaw (ident: string) =
         if ident.StartsWith("r#")
         then ident.Substring("r#".Length)
         else ident
@@ -34,7 +34,7 @@ module Naming =
         if topKeywords.Contains(ident) then ident + "_"
         elif allKeywords.Contains(ident) then rawIdent ident
         elif preludeSymbols.Contains(ident) then ident + "_"
-        else stripRawIdent ident // no need to stay raw here
+        else stripRaw ident // no need to keep it raw here
 
     let splitFullName (name: string) =
         name.Split([|"."; "::"|], System.StringSplitOptions.RemoveEmptyEntries)

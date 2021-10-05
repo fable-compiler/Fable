@@ -97,18 +97,18 @@
             "stopOnEntry": true
         },
         {
-            "name": "Run Rust.AST.Tests",
+            "name": "Run Fable.Cli on fable-test",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build Rust.AST.Tests",
-            "program": "${workspaceFolder}/src/Fable.Transforms/Rust/AST/Tests/bin/Debug/net5.0/Rust.AST.Tests.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/../fable-test/out", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "cwd": "${workspaceRoot}/../fable-test",
             "stopAtEntry": false,
             "console": "internalConsole"
         },
         {
-            "name": "Run Fable.Cli on Rust Tests",
+            "name": "Run Fable.Cli on tests/Rust",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
@@ -119,7 +119,7 @@
             "console": "internalConsole"
         },
         {
-            "name": "Run Fable.Cli on fable-library-rust",
+            "name": "Run Fable.Cli on library-rust",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
