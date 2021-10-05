@@ -4,8 +4,7 @@ import asyncio
 from queue import SimpleQueue
 from threading import RLock
 
-from expression.system import CancellationToken, OperationCanceledError
-
+from .async_builder import CancellationToken, OperationCanceledError
 from .async_ import from_continuations, start_immediate
 
 
@@ -20,8 +19,8 @@ class AsyncReplyChannel:
 class MailboxProcessor:
     def __init__(self, body, cancellation_token=None):
         self.messages = SimpleQueue()
-        self.token = cancellation_token or CancellationToken.none()
-        self.loop = asyncio.get_event_loop()
+        self.token = cancellation_token or CancellationToken()
+        self.cancel = False
         self.lock = RLock()
         self.body = body
 
@@ -41,9 +40,8 @@ class MailboxProcessor:
         Returns:
             None
         """
-        print("post")
         self.messages.put(msg)
-        self.loop.call_soon_threadsafe(self.__process_events)
+        self.__process_events()
 
     def post_and_async_reply(self, build_message):
         """Post a message asynchronously to the mailbox processor and
@@ -120,8 +118,8 @@ class MailboxProcessor:
             msg = self.messages.get()
             self.continuation, cont = None, self.continuation
 
-            if cont is not None:
-                cont[0](msg)
+        if cont is not None:
+            cont[0](msg)
 
     @staticmethod
     def start(body, cancellation_token=None):
@@ -135,7 +133,7 @@ def receive(mbox):
 
 
 def post(mbox, msg):
-    print("post: ", msg)
+    #print("post: ", msg)
     return mbox.post(msg)
 
 

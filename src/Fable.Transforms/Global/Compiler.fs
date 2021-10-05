@@ -31,6 +31,13 @@ type Severity =
     | Error
     | Info
 
+[<RequireQualifiedAccess>]
+type OutputType =
+    | Library
+    | Exe
+    | Module
+    | Winexe
+
 open FSharp.Compiler.Symbols
 open Fable.AST
 
@@ -46,6 +53,7 @@ type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
     abstract OutputDir: string option
+    abstract OutputType: OutputType
     abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins

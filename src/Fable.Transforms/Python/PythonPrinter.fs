@@ -17,7 +17,6 @@ type SourceMapGenerator =
 
 type Writer =
     inherit IDisposable
-    abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 
 type Printer =
@@ -89,9 +88,7 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
         member this.PrintNewLine() =
             this.PrintNewLine()
 
-        member this.MakeImportPath(path) =
-            writer.MakeImportPath(path)
-
+        member this.MakeImportPath(path) = path
 
 
 module PrinterExtensions =
@@ -281,7 +278,7 @@ module PrinterExtensions =
             let (Identifier path) = im.Module |> Option.defaultValue (Identifier ".")
 
             printer.Print("from ")
-            printer.Print(printer.MakeImportPath(path))
+            printer.Print(path)
             printer.Print(" import ")
 
             if not (List.isEmpty im.Names) then
@@ -785,7 +782,6 @@ let run writer map (program: Module): Async<unit> =
         printer.Print(decl)
 
         if printer.Column > 0 then
-            //printer.Print(";")
             printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()

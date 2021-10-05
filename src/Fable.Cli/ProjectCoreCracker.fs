@@ -1,4 +1,4 @@
-﻿/// Adapted from https://github.com/fsharp/FsAutoComplete/blob/45bf4a7255f8856b0164f722a82a17108ae64981/src/FsAutoComplete.Core/ProjectCoreCracker.fs
+/// Adapted from https://github.com/fsharp/FsAutoComplete/blob/45bf4a7255f8856b0164f722a82a17108ae64981/src/FsAutoComplete.Core/ProjectCoreCracker.fs
 module Fable.Cli.ProjectCoreCracker
 
 open System
@@ -64,7 +64,7 @@ let rec private projInfo additionalMSBuildProps (file: string) =
 
   let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
   let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
-  let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"; "TargetFramework"])
+  let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"; "TargetFramework"; "OutputType"])
 
   let results =
       let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
