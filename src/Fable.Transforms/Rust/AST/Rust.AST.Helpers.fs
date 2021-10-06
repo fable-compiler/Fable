@@ -982,6 +982,22 @@ module Items =
           ident = ident
           kind = kind
           tokens = None }
+    let mkItemInh attrs ident kind: Item =
+        { attrs = mkVec attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          vis = INHERITED_VIS
+          ident = ident
+          kind = kind
+          tokens = None }
+    let mkAssocItem attrs ident kind: Item<AssocItemKind> =
+        { attrs = mkVec attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          vis = PUBLIC_VIS
+          ident = ident
+          kind = kind
+          tokens = None }
 
     let mkNonPublicItem item: Item =
         { item with vis = INHERITED_VIS }
@@ -990,6 +1006,10 @@ module Items =
         let ident = mkIdent name
         ItemKind.Fn kind
         |> mkItem attrs ident
+    let mkAssocFnItem attrs name kind: AssocItem =
+        let ident = mkIdent name
+        AssocItemKind.Fn kind
+        |> mkAssocItem attrs ident
 
     let mkUseItem attrs names kind: Item =
         let mkUseTree prefix kind: UseTree =
@@ -1059,6 +1079,20 @@ module Items =
         let def = Defaultness.Final
         ItemKind.Const(def, ty, exprOpt)
         |> mkItem attrs ident
+
+    let mkImplItem attrs name ty genericParams items: Item =
+        let ident = mkIdent name
+        ItemKind.Impl({
+            unsafety = Unsafety.No
+            polarity = ImplPolarity.Positive
+            defaultness = Defaultness.Final
+            constness = Constness.No
+            generics = mkGenerics genericParams
+            of_trait = None
+            self_ty = ty
+            items = mkVec items
+        })
+        |> mkItemInh attrs ident
 
     let TODO_ITEM (name: string): Item =
         let attrs = []

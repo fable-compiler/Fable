@@ -133,14 +133,3 @@ let ``Capture works with type with interior mutability`` () =
     x.MutValue |> equal 2
     incrementX()
     x.MutValue |> equal 3
-
-// type CTest(x: int, y: string) =
-//     let a = x + x
-//     let y = y
-//     member this.Add m = a + m
-
-// [<Fact>]
-// let ``Class hellp`` () =
-//     let a = CTest(1, "hello")
-//     let r = a.Add(1)
-//     r |> equal 3

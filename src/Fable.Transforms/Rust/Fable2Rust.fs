@@ -38,6 +38,7 @@ type TypegenContext = {
     FavourClosureTraitOverFunctionPointer: bool
     IsParamType: bool
     TakingOwnership: bool
+    IsRawType: bool //do not ref wrap
     // optimization todo - IsAssigningUnwrapped/IsAssigningWrapped - if only ref allow a T rather than a Rc<T>. Can be determined in let where HasMultipleUses is calculated
 }
 
@@ -251,8 +252,7 @@ module TypeInfo =
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
-            (ent.IsFSharpRecord || ent.IsFSharpUnion)
-            && not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
+            not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
 
     let shouldBePassByRefForParam (com: IRustCompiler) t =
         // let isPassByRefTy =
@@ -477,7 +477,7 @@ module TypeInfo =
             // TODO: remove this catch-all
             | _ -> TODO_TYPE (sprintf "%A" t)
 
-        if shouldBeRefCountWrapped com t
+        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType
         then makeRefTy ty
         else ty
 
@@ -917,15 +917,15 @@ module Util =
     let ofString s =
         mkStrLitExpr s
         // Expression.stringLiteral(s)
-
+*)
     let memberFromName (memberName: string): Rust.Expr * bool =
         match memberName with
-        | "ToString" -> Expression.identifier("toString"), false
-        | n when n.StartsWith("Symbol.") ->
-            Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
-        | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
-        | n -> Expression.identifier(n), false
-
+        | "ToString" -> (mkGenericPathExpr ["ToString"] None), false
+        // | n when n.StartsWith("Symbol.") ->
+        //     Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
+        // | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
+        | n -> (mkGenericPathExpr [n] None), false
+(*
     let memberFromExpr (com: IRustCompiler) ctx memberExpr: Rust.Expr * bool =
         match memberExpr with
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
@@ -1378,7 +1378,8 @@ module Util =
             let callee = makeFullNamePathExpr unionCase.FullName genArgs
             callFunctionTakingOwnership com ctx r callee values
             |> makeRefValue com ctx
-
+        | Fable.ThisValue t ->
+            mkGenericPathExpr [rawIdent "self"] None
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
 
@@ -1423,7 +1424,9 @@ module Util =
                 expr |> mkAddrOfExpr
             else expr
         else
-            expr |> mkDerefExpr
+            if varAttrs.IsRef then
+                expr |> mkDerefExpr
+            else expr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
@@ -1468,73 +1471,38 @@ module Util =
             None
         | None, _ ->
             None
-
+*)
     let transformObjectExpr (com: IRustCompiler) ctx (members: Fable.MemberDecl list) baseCall: Rust.Expr =
-        let compileAsClass =
-            Option.isSome baseCall || members |> List.exists (fun m ->
-                // Optimization: Object literals with getters and setters are very slow in V8
-                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
-                m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects m.Body))
-
-        let makeMethod kind prop computed hasSpread args body =
-            let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
-            ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl)
+        // let makeMethod kind prop computed hasSpread args body =
+        //     let args, body, returnType, typeParamDecl =
+        //         getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
+        //     ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
+        //         ?returnType=returnType, ?typeParameters=typeParamDecl)
 
         let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Name
-                // If compileAsClass is false, it means getters don't have side effects
-                // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
-                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
-                elif info.IsGetter then
-                    [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
-                elif info.IsSetter then
-                    [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
-                elif info.IsEnumerator then
-                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
-                    let iterator =
-                        let prop, computed = memberFromName "Symbol.iterator"
-                        let body = enumerator2iterator com ctx
-                        ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
-                    [method; iterator]
-                else
-                    [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
+                [prop, computed]
+                // if info.IsValue || (info.IsGetter) then
+                //     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
+                // elif info.IsGetter then
+                //     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
+                // elif info.IsSetter then
+                //     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
+                // elif info.IsEnumerator then
+                //     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
+                //     let iterator =
+                //         let prop, computed = memberFromName "Symbol.iterator"
+                //         let body = enumerator2iterator com ctx
+                //         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
+                //     [method; iterator]
+                // else
+                //     [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
             )
 
-        if not compileAsClass then
-            Expression.objectExpression(List.toArray  members)
-        else
-            let classMembers =
-                members |> List.choose (function
-                    | ObjectProperty(key, value, computed) ->
-                        ClassMember.classProperty(key, value, computed_=computed) |> Some
-                    | ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, _) ->
-                        let kind =
-                            match kind with
-                            | "get" -> ClassGetter
-                            | "set" -> ClassSetter
-                            | _ -> ClassFunction
-                        ClassMember.classMethod(kind, key, ``params``, body, computed_=computed,
-                            ?returnType=returnType, ?typeParameters=typeParameters) |> Some)
-
-            let baseExpr, classMembers =
-                baseCall
-                |> extractBaseExprFromBaseCall com ctx None
-                |> Option.map (fun (baseExpr, baseArgs) ->
-                    let consBody = BlockStatement([|callSuperAsStatement baseArgs|])
-                    let cons = makeClassConstructor [||]  consBody
-                    Some baseExpr, cons::classMembers
-                )
-                |> Option.defaultValue (None, classMembers)
-
-            let classBody = ClassBody.classBody(List.toArray classMembers)
-            let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
-            Expression.newExpression(classExpr, [||])
-*)
+        //Expression.objectExpression(List.toArray  members)
+        TODO_EXPR (sprintf "%A" members)
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -1634,7 +1602,8 @@ module Util =
                 match callInfo.CallMemberInfo with
                 | Some callMemberInfo ->
                     // TODO: perhaps only use full path for non-local calls
-                    makeFullNamePathExpr callMemberInfo.FullName None
+                    let path = callMemberInfo.FullName.Replace(".( .ctor )", "::new")
+                    makeFullNamePathExpr path None
                 | _ ->
                     com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
@@ -1883,7 +1852,8 @@ module Util =
                 | _ ->
                     let typegen = { FavourClosureTraitOverFunctionPointer = true
                                     IsParamType = false
-                                    TakingOwnership = true }
+                                    TakingOwnership = true
+                                    IsRawType = false }
                     let ctx = { ctx with Typegen = typegen }
                     transformType com ctx ident.Type
                     |> Some
@@ -2472,8 +2442,8 @@ module Util =
             // |> makeArrowFunctionExpression name
             transformLambda com ctx args body
 
-        // | Fable.ObjectExpr (members, _, baseCall) ->
-        //    transformObjectExpr com ctx members baseCall
+        | Fable.ObjectExpr (members, _, baseCall) ->
+           transformObjectExpr com ctx members baseCall
 
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info
@@ -2800,16 +2770,16 @@ module Util =
         let tagId = makeTypedIdent (Fable.Number Int32) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
-
+*)
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+            let name = field.Name //|> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
         |> Seq.toArray
-
+(*
     let getEntityFieldsAsProps (com: IRustCompiler) ctx (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             getUnionFieldsAsIdents com ctx ent
@@ -2866,7 +2836,8 @@ module Util =
     let typedParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
         let typegen = { FavourClosureTraitOverFunctionPointer = true
                         IsParamType = true
-                        TakingOwnership = false }
+                        TakingOwnership = false
+                        IsRawType = false }
         let ctx = { ctx with Typegen = typegen }
         let ty = transformParamType com ctx ident.Type
         let isRef = false
@@ -2985,6 +2956,23 @@ module Util =
         let fnItem = mkFnItem attrs membName kind
         [fnItem]
 
+    let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
+        let fnDecl, fnBody, fnGenericNames = transformFunction com ctx args body
+        let fnBodyBlock =
+            if body.Type = Fable.Unit
+            then mkSemiBlock fnBody
+            else mkExprBlock fnBody
+        let header = DEFAULT_FN_HEADER
+        let bounds = [mkTypeTraitGenericBound ["Clone"]]
+        let generics = mkGenericParams fnGenericNames bounds
+        let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
+        let attrs =
+            info.Attributes
+            |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
+            |> Seq.map (fun _ -> mkAttr "test" [])
+        let fnItem = mkAssocFnItem attrs membName kind
+        [fnItem]
+
 (*
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
@@ -3062,6 +3050,20 @@ module Util =
         let structItem = mkStructItem attrs entName fields generics
         [structItem]// TODO: add traits for attached members
 
+    let transformGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl)=
+        // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
+        // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
+        let fields = getEntityFieldsAsIdents com ent |> Array.toList
+        //let exprs = ent.FSharpFields |> List.map(fun f -> f.)
+        //ctor |> Option.map (fun x -> transformModuleFunction com ctx x. )
+        // let fields = ent.FSharpFields
+        //                 |> List.map(fun f -> makeIdent f.Name, f.FieldType)
+        // let fieldIdents = fields |> List.map (fst)
+        let body =
+            Fable.Value(Fable.NewRecord (
+                (fields |> List.map Fable.IdentExpr), ent.Ref, fields |> List.map (fun ident -> ident.Type)), None)
+        transformAssocMemberFunction com ctx (FSharp2Fable.MemberInfo()) (decl.Name + "new") fields body
+
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)
         let classMembers = [] // TODO:
@@ -3071,14 +3073,38 @@ module Util =
             let ctorItem =
                 match decl.Constructor with
                 | Some ctor ->
-                    transformDecl com ctx (Fable.MemberDeclaration ctor) |> Some
+                    let body =
+                        match ctor.Body with
+                        | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential s] ->
+                            let idents = getEntityFieldsAsIdents com ent |> Array.toList
+                            let assignments =
+                                s
+                                |> List.choose (function    | Fable.Set (structFieldExpr, Fable.SetKind.FieldSet name, t, assignExpr ,_) ->
+                                                                (name, assignExpr) |> Some
+                                                            | _ -> None)
+                                |> Map.ofList
+                            let assignmentsIn =
+                                idents |> List.map(fun id -> assignments |> Map.tryFind id.Name |> Option.defaultValue(makeNull()))
+                            Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, []), None)
+                        | y -> y
+                    let ctor = { ctor with Body = body; Name="new" }
+                    transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
                 | _ ->
                     // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
-                    None
-                |> Option.toList |> List.collect id
-            transformClass com ctx ent decl.Name classMembers
-            @ ctorItem
+                    if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                        []
+                    else
+                        transformGeneratedConstructor com ctx ent (decl: Fable.ClassDecl)
+            let implBlock =
+                let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
+                let ty = Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
 
+                if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                    []
+                else
+                    [mkImplItem [] "" ty [] ctorItem]
+            transformClass com ctx ent decl.Name classMembers
+            @ implBlock
 (*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
@@ -3373,7 +3399,8 @@ module Compiler =
             ScopedSymbols = Map.empty
             Typegen = { FavourClosureTraitOverFunctionPointer = false
                         IsParamType = false
-                        TakingOwnership = false } }
+                        TakingOwnership = false
+                        IsRawType = false} }
 
         let topAttrs = [
             // TODO: make some of those conditional on compiler options

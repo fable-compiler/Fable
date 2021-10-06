@@ -31,6 +31,7 @@
     <Compile Include="tests/AnonRecordTests.fs" />
     <Compile Include="tests/StringTests.fs" />
     <Compile Include="tests/ClosureTests.fs" />
+    <Compile Include="tests/ClassTests.fs" />
     <Compile Include="tests/NBodyTests.fs" />
     <Compile Include="src/main.fs" />
   </ItemGroup>
