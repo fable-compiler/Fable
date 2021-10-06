@@ -2188,18 +2188,15 @@ module Util =
                 let rec getUnionPat expr =
                     match expr with
                     | Fable.Get (Fable.IdentExpr id, Fable.OptionValue, _, _)
-                        when Some id.Name = evalName && id.Type = evalType->
+                        when Some id.Name = evalName && id.Type = evalType ->
                         makeUnionCasePat evalType evalName 0
                     | Fable.Get (Fable.IdentExpr id, Fable.UnionField(caseIndex, _), _, _)
-                        when Some id.Name = evalName && id.Type = evalType->
+                        when Some id.Name = evalName && id.Type = evalType ->
                         makeUnionCasePat evalType evalName caseIndex
                     | _ ->
                         //need to recurse or this only works for trivial expressions
                         let subExprs = FableTransforms.getSubExpressions expr
-                        subExprs
-                        |> List.map getUnionPat
-                        |> List.tryHead
-                        |> Option.flatten
+                        subExprs |> List.tryPick getUnionPat
                 getUnionPat bodyExpr
             let pat = patOpt |> Option.defaultValue WILD_PAT
             let extraVals = namesForIndex evalType evalName targetIndex
