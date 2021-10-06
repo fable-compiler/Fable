@@ -1440,6 +1440,20 @@ type FableCompiler(com: Compiler) =
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
+let rec attachClassMembers (com: FableCompiler) = function
+    | Fable.ModuleDeclaration decl ->
+        { decl with Members = decl.Members |> List.map (attachClassMembers com) }
+        |> Fable.ModuleDeclaration
+    | Fable.ClassDeclaration decl as classDecl ->
+        com.TryGetAttachedMembers(decl.Entity.FullName)
+        |> Option.map (fun members ->
+            { decl with Constructor = members.Cons
+                        BaseCall = members.BaseCall
+                        AttachedMembers = members.Members.ToArray() |> List.ofArray }
+            |> Fable.ClassDeclaration)
+        |> Option.defaultValue classDecl
+    | decl -> decl
+
 let transformFile (com: Compiler) =
     let file = com.GetImplementationFile(com.CurrentFile)
     let usedRootNames = getUsedRootNames com Set.empty file.Declarations
@@ -1447,14 +1461,5 @@ let transformFile (com: Compiler) =
     let com = FableCompiler(com)
     let rootDecls =
         transformDeclarations com ctx file.Declarations
-        |> List.map (function
-            | Fable.ClassDeclaration decl as classDecl ->
-                com.TryGetAttachedMembers(decl.Entity.FullName)
-                |> Option.map (fun members ->
-                    { decl with Constructor = members.Cons
-                                BaseCall = members.BaseCall
-                                AttachedMembers = members.Members.ToArray() |> List.ofArray }
-                    |> Fable.ClassDeclaration)
-                |> Option.defaultValue classDecl
-            | decl -> decl)
+        |> List.map (attachClassMembers com)
     Fable.File(rootDecls, usedRootNames)
