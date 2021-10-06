@@ -1097,10 +1097,9 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
                    isMutable=memb.IsMutable) :> _
 
 // JS-only feature, in Fable 4 it should be abstracted
-let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
     let methodInfo =
         lazy
-            let name = memb.DisplayName
             let returnType = makeType Map.empty memb.ReturnParameter.Type
             let parameters =
                 memb.CurriedParameterGroups
@@ -1174,7 +1173,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
             let args, body, isValue =
-                match applyDecorators com ctx memb args body with
+                match applyDecorators com ctx name memb args body with
                 | None -> args, body, false
                 | Some body -> [], body, true
             [Fable.MemberDeclaration
