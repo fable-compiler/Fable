@@ -62,23 +62,17 @@ module Python =
         let fileExt = ".py"
         let targetDir = Path.GetDirectoryName(targetPath)
         // PEP8: Modules should have short, all-lowercase names
-        let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
+        let fileName =
+            Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
+                .Replace(".", "_")
         let fileName = Naming.applyCaseRule Core.CaseRules.SnakeCase fileName
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let targetPath = Path.Combine(targetDir, fileName + fileExt)
-
         let stream = new IO.StreamWriter(targetPath)
 
         interface PythonPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    File.changeFsExtension isInFableHiddenDir path "" // Remove file extension
-                else path
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
@@ -91,6 +85,15 @@ module Python =
                         member _.AddMapping(_,_,_,_,_) = () }
         let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
         do! PythonPrinter.run writer map python
+        match com.OutputType with
+        | OutputType.Library ->
+            // Make sure we include an empty `__init__.py` in every directory of a library
+            let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
+            if not (IO.File.Exists(outPath)) then
+                let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
+                do! PythonPrinter.run writer map { Body = [] }
+            
+        | _ -> ()
     }
 
 module Php =

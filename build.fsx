@@ -181,30 +181,34 @@ let buildLibraryTs() =
 
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
-    let projectDir = libraryDir + "/fable"
+    let projectDir = libraryDir </> "fable_library"
     let buildDirPy = "build/fable-library-py"
+
+    // TODO: move to PublishUtils.fs ?
+    let copyFiles sourceDir searchPattern destDir =
+        for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
+            let fileName = IO.Path.GetFileName(source)
+            let target = destDir </> fileName
+            IO.File.Copy(source, target, true)
 
     cleanDirs [buildDirPy]
 
     runFableWithArgs projectDir [
-        "--outDir " + buildDirPy </> "fable"
-        "--fableLib " + buildDirPy </> "fable"
+        "--outDir " + buildDirPy </> "fable_library"
+        "--fableLib " + buildDirPy </> "fable_library"
         "--lang Python"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
     ]
-    // Copy *.py from projectDir to buildDir
-    copyDirRecursive libraryDir buildDirPy
-    copyDirNonRecursive (buildDirPy </> "fable/fable-library") (buildDirPy </> "fable")
-    //copyFile (buildDirPy </> "fable/fable-library/*.py") (buildDirPy </> "fable")
-    copyFile (buildDirPy </> "fable/system.text.py") (buildDirPy </> "fable/system_text.py")
-    copyFile (buildDirPy </> "fable/fsharp.core.py") (buildDirPy </> "fable/fsharp_core.py")
-    copyFile (buildDirPy </> "fable/fsharp.collections.py") (buildDirPy </> "fable/fsharp_collections.py")
-    copyFile (buildDirPy </> "fable/system.collections.generic.py") (buildDirPy </> "fable/system_collections_generic.py")
-    removeFile (buildDirPy </> "fable/system.text.py")
 
-    runInDir buildDirPy ("python3 --version")
-    runInDir buildDirPy ("python3 ./setup.py develop")
+    // Copy python related files from projectDir to buildDir
+    copyFiles libraryDir "*" buildDirPy
+    copyFiles projectDir "*.py" (buildDirPy </> "fable_library")
+
+    // Fix issues with Fable .fsproj not supporting links
+    copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
+    removeDirRecursive (buildDirPy </> "fable_library/fable-library")
+
 
 let buildPyLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
@@ -467,7 +471,7 @@ let testPython() =
         "--lang Python"
     ]
 
-    runInDir buildDir "touch __init__.py" // So relative imports works.
+    //runInDir buildDir "touch __init__.py" // So relative imports works.
     runInDir buildDir "pytest"
 
 let testRust() =

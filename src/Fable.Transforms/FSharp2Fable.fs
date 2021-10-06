@@ -1431,6 +1431,7 @@ type FableCompiler(com: Compiler) =
         member _.LibraryDir = com.LibraryDir
         member _.CurrentFile = com.CurrentFile
         member _.OutputDir = com.OutputDir
+        member _.OutputType = com.OutputType
         member _.ProjectFile = com.ProjectFile
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)

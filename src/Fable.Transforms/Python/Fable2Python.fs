@@ -115,7 +115,7 @@ module Reflection =
     open Lib
 
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
-        libCall com ctx r "Reflection" (memberName + "_type") args
+        libCall com ctx r "reflection" (memberName + "_type") args
 
     let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -347,7 +347,7 @@ module Reflection =
         | Fable.LambdaType _ | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
         | Fable.Array _ | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            libCall com ctx None "Util" "isArrayLike" [ expr ], stmts
+            libCall com ctx None "util" "isArrayLike" [ expr ], stmts
         | Fable.List _ ->
             jsInstanceof (libValue com ctx "List" "FSharpList") expr
         | Fable.AnonymousRecordType _ ->
@@ -365,19 +365,19 @@ module Reflection =
                     Expression.constant(true), []
                 | _ ->
                     let expr, stmts = com.TransformAsExpr(ctx, expr)
-                    libCall com ctx None "Util" "isDisposable" [ expr ], stmts
+                    libCall com ctx None "util" "isDisposable" [ expr ], stmts
             | Types.ienumerable ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
                 [ expr ]
-                |> libCall com ctx None "Util" "isIterable", stmts
+                |> libCall com ctx None "util" "isIterable", stmts
             | Types.array ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
                 [ expr ]
-                |> libCall com ctx None "Util" "isArrayLike", stmts
+                |> libCall com ctx None "util" "isArrayLike", stmts
             | Types.exception_ ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
                 [ expr ]
-                |> libCall com ctx None "Types" "isException", stmts
+                |> libCall com ctx None "types" "isException", stmts
             | _ ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
@@ -414,39 +414,51 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let rewriteFableImport moduleName =
-        //printfn "ModuleName: %s" moduleName
-        let _reFableLib =
-            Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
-
-        let m = _reFableLib.Match(moduleName)
-        if m.Groups.Count > 1 then
-            let pymodule =
-                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
-                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-
-            let moduleName = $"fable.{pymodule}"
-
-            // printfn "-> Module: %A" moduleName
-            moduleName
-        elif moduleName.Contains(".fs") then
-            // PEP-8: Modules should have short, all-lowercase names.
-            let moduleName =
-                let path =
-                    moduleName.Split [| Path.DirectorySeparatorChar |]
-                    |> Array.choose (function
-                        | name when name.Contains(".fs") ->
-                            let lower = Path.GetFileNameWithoutExtension(name) |> Naming.applyCaseRule CaseRules.SnakeCase
-                            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-                            |> Some
-                        | name when name = "" || name = "." || name = ".." -> None
-                        | name -> Some name )
-                    |> (fun path -> String.Join(".", path))
-                $".{path}"
-
-            //printfn "-> Module: %A" moduleName
-            moduleName
-        else
+    let rewriteFableImport (com: IPythonCompiler) modulePath =
+        //printfn "ModulePath: %s" modulePath
+        let relative =
+            match com.OutputType with
+            | OutputType.Exe -> false
+            | _ -> true
+        
+        //printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
+        
+        let moduleName =
+            let lower =
+                Path.GetFileNameWithoutExtension(modulePath)
+                |> Naming.applyCaseRule CaseRules.SnakeCase
+            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+        
+        let path =
+            match relative, Path.GetDirectoryName(modulePath) with
+            | true, "." -> "."
+            | true, path ->
+                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+            | false, "." -> ""
+            | false, _ ->
+                Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
+        // printfn $"Path: {path}"
+        
+        match modulePath with
+        // Other libraries importing (relative) Fable library modules
+        | name when name.StartsWith("../fable_library") ->
+            $"{path}{moduleName}"
+        // Modules in Fable library
+        | name when name.StartsWith(com.LibraryDir) || name.StartsWith("../fable-library-py/fable_library") ->
+            if relative then
+                $".{moduleName}"
+            else              
+                $"{Naming.fableModulesDir}.fable_library.{moduleName}"
+        | name when name.EndsWith(".fs") ->
+            $"{path}{moduleName}"
+        // Local module references in the same package
+        | name when name = "." ->
+            if relative then
+                $".{moduleName}"
+            else
+                $"{moduleName}" // TODO: how can me make the path for this one?
+        | _ ->
             // Cannot dashify / clean here since Python modules are separated by dots
             moduleName
 
@@ -690,7 +702,7 @@ module Util =
         Expression.starred(var)
 
     let callSuper (args: Expression list) =
-        let super = Expression.name (Python.Identifier("super().__init__"))
+        let super = Expression.name ("super().__init__")
         Expression.call(super, args)
 
     let callSuperAsStatement (args: Expression list) =
@@ -844,7 +856,6 @@ module Util =
         ]
 
     let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
-        //printfn "transformImport: %A" (name, moduleName)
         let name, parts =
             let parts = Array.toList(name.Split('.'))
             parts.Head, parts.Tail
@@ -909,24 +920,24 @@ module Util =
                 | Some(head, tail) -> List.rev (head::acc), Some tail
             match getItems [] headAndTail with
             | [], None ->
-                libCall com ctx r "List" "empty" [], []
+                libCall com ctx r "list" "empty" [], []
             | [TransformExpr com ctx (expr, stmts)], None ->
-                libCall com ctx r "List" "singleton" [ expr ], stmts
+                libCall com ctx r "list" "singleton" [ expr ], stmts
             | exprs, None ->
                 let expr, stmts = makeArray com ctx exprs
                 [ expr ]
-                |> libCall com ctx r "List" "ofArray", stmts
+                |> libCall com ctx r "list" "ofArray", stmts
             | [TransformExpr com ctx (head, stmts)], Some(TransformExpr com ctx (tail, stmts')) ->
-                libCall com ctx r "List" "cons" [ head; tail], stmts @ stmts'
+                libCall com ctx r "list" "cons" [ head; tail], stmts @ stmts'
             | exprs, Some(TransformExpr com ctx (tail, stmts)) ->
                 let expr, stmts' = makeArray com ctx exprs
                 [ expr; tail ]
-                |> libCall com ctx r "List" "ofArrayWithTail", stmts @ stmts'
+                |> libCall com ctx r "list" "ofArrayWithTail", stmts @ stmts'
         | Fable.NewOption (value, t, _) ->
             match value with
             | Some (TransformExpr com ctx (e, stmts)) ->
                 if mustWrapOption t
-                then libCall com ctx r "Option" "some" [ e ], stmts
+                then libCall com ctx r "option" "some" [ e ], stmts
                 else e, stmts
             | None -> undefined r, []
         | Fable.EnumConstant(x,_) ->
@@ -950,7 +961,7 @@ module Util =
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.call(get com ctx None (Expression.identifier("self")) "GetEnumerator" false, [])
-        [ Statement.return'(libCall com ctx None "Util" "toIterator" [ enumerator ]) ]
+        [ Statement.return'(libCall com ctx None "util" "toIterator" [ enumerator ]) ]
 
     let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
         match baseCall, baseType with
@@ -1083,7 +1094,7 @@ module Util =
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
             expr, stmts
         | Fable.Unary(UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
-            let func = Expression.name (Python.Identifier("type"))
+            let func = Expression.name("type")
             let args = [ expr ]
             Expression.call (func, args), stmts
 
@@ -1097,7 +1108,7 @@ module Util =
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
         | Fable.Binary(BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            let func = Expression.name (Python.Identifier("isinstance"))
+            let func = Expression.name("isinstance")
             let args = [ left; right ]
             Expression.call (func, args), stmts' @ stmts
 
@@ -1166,7 +1177,7 @@ module Util =
         emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
-        // printfn "transformCall: %A" (callee, callInfo.Args)
+        // printfn "transformCall: %A" (callee, callInfo)
         let callee', stmts = com.TransformAsExpr(ctx, callee)
         let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
         match callee, callInfo.ThisArg with
@@ -1175,7 +1186,7 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
-            Expression.none(), Statement.assign([Expression.subscript (value, right)], arg) :: stmts @ stmts' @ stmts''
+            Expression.none(), Statement.assign([Expression.subscript(value, right)], arg) :: stmts @ stmts' @ stmts''
         | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
             callFunction range callee' [], stmts @ stmts'
 
@@ -1344,12 +1355,12 @@ module Util =
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-            libCall com ctx range "List" "head" [ expr ], stmts
+            libCall com ctx range "list" "head" [ expr ], stmts
 
         | Fable.ListTail ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-            libCall com ctx range "List" "tail" [ expr ], stmts
+            libCall com ctx range "list" "tail" [ expr ], stmts
 
         | Fable.TupleIndex index ->
             match fableExpr with
@@ -1363,7 +1374,7 @@ module Util =
         | Fable.OptionValue ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             if mustWrapOption typ || com.Options.Language = TypeScript
-            then libCall com ctx None "Option" "value" [ expr ], stmts
+            then libCall com ctx None "option" "value" [ expr ], stmts
             else expr, stmts
 
         | Fable.UnionTag ->
@@ -1432,7 +1443,7 @@ module Util =
             // let op = if nonEmpty then BinaryUnequal else BinaryEqual
             // Expression.binaryExpression(op, get None expr "tail", Expression.none(), ?loc=range)
             let expr =
-                let expr = libCall com ctx range "List" "isEmpty" [ expr ]
+                let expr = libCall com ctx range "list" "isEmpty" [ expr ]
                 if nonEmpty then Expression.unaryOp(UnaryNot, expr, ?loc=range) else expr
             expr, stmts
         | Fable.UnionCaseTest tag ->
@@ -1733,9 +1744,9 @@ module Util =
                     let expr, stmts = com.TransformAsExpr(ctx, e)
                     // Return the last expression
                     if i = exprs.Length - 1 then
-                        Statement.return' (expr) :: stmts
+                        stmts @ [ Statement.return' (expr)]
                     else
-                        exprAsStatement ctx expr @ stmts)
+                        stmts @ exprAsStatement ctx expr)
              |> transformBody com ctx None
 
         // let expr =
@@ -1745,11 +1756,11 @@ module Util =
         // expr, []
         //printfn "transformSequenceExpr, body: %A" body
 
-        let name = Helpers.getUniqueIdentifier ("expr")
+        let name = Helpers.getUniqueIdentifier "expr"
         let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
-        let name = Expression.name (name)
-        Expression.call (name), [ func ]
+        let name = Expression.name(name)
+        Expression.call(name), [ func ]
 
     let transformSequenceExpr' (com: IPythonCompiler) ctx (exprs: Expression list) (stmts: Statement list) : Expression * Statement list =
         // printfn "transformSequenceExpr2', exprs: %A" exprs.Length
@@ -1781,7 +1792,7 @@ module Util =
 
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
-        | Fable.Import({ Selector = selector; Path = path }, _, r) ->
+        | Fable.Import({ Selector = selector; Path = path; Kind=kind }, _, r) ->
             transformImport com ctx r selector path, []
 
         | Fable.Test(expr, kind, range) ->
@@ -1843,10 +1854,6 @@ module Util =
 
         | Fable.Operation(kind, _, range) ->
             transformOperation com ctx range kind
-
-        | Fable.Get(Fable.IdentExpr({Name = "String"}), Fable.FieldGet(fieldName="fromCharCode"), _, _) ->
-            let func = Expression.name("chr")
-            func, []
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
@@ -1929,7 +1936,7 @@ module Util =
         | Fable.IdentExpr id ->
             identAsExpr com ctx id |> resolveExpr ctx id.Type returnStrategy
 
-        | Fable.Import({ Selector = selector; Path = path }, t, r) ->
+        | Fable.Import({ Selector = selector; Path = path; Kind=kind }, t, r) ->
             transformImport com ctx r selector path |> resolveExpr ctx t returnStrategy
 
         | Fable.Test(expr, kind, range) ->
@@ -2203,7 +2210,6 @@ module Util =
         //printfn "ClassMembers: %A" classMembers
         let classBody =
             let body = [ yield! classFields; yield! classMembers ]
-            //printfn "Body: %A" body
             match body with
             | [] -> [ Pass ]
             | _ -> body
@@ -2339,7 +2345,6 @@ module Util =
                         | _ -> identAsExpr com ctx id
 
                     Statement.assign([left], right))
-                    //assign None left right |> Statement.expr)
             ]
         let cases =
             let expr, stmts =
@@ -2468,12 +2473,13 @@ module Util =
                 else
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformImports (imports: Import list) : Statement list =
+    let transformImports (com: IPythonCompiler) (imports: Import list) : Statement list =
         //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
-                let moduleName = im.Module |> Helpers.rewriteFableImport
+                //printfn "Import: %A" im
+                let moduleName = im.Module |> Helpers.rewriteFableImport com
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
@@ -2509,9 +2515,6 @@ module Util =
             Path.GetFileNameWithoutExtension(moduleName)
             |> Python.Identifier
             |> Some
-        // | Some "*" ->
-        //     name
-        //     |> Option.map Python.Identifier
         | Some name ->
             match name with
             | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
@@ -2581,6 +2584,7 @@ module Compiler =
             member _.LibraryDir = com.LibraryDir
             member _.CurrentFile = com.CurrentFile
             member _.OutputDir = com.OutputDir
+            member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.GetEntity(fullName) = com.GetEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
@@ -2615,6 +2619,6 @@ module Compiler =
             ScopedTypeParams = Set.empty }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> transformImports
+        let importDecls = com.GetAllImports() |> transformImports com
         let body = importDecls @ rootDecls
         Module.module' (body)

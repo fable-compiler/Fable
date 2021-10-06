@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from tkinter import E
 from typing import Any, Callable, List, Optional, Type, Union
 
 from .types import Union as FsUnion, FSharpRef, Record

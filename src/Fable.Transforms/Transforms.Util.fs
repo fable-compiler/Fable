@@ -417,9 +417,15 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
-    let getLibPath (com: Compiler) moduleName =
+    let getLibPath (com: Compiler) (moduleName: string) =
         match com.Options.Language with
-        | Rust -> com.LibraryDir + "/" + moduleName + ".rs" + "|" + moduleName
+        | Python ->
+            // Python modules should be all lower case without any dots (PEP8)
+            let moduleName = moduleName.ToLower().Replace(".", "_")
+            com.LibraryDir + "/" + moduleName + ".py"
+        | Rust ->
+            // Rust imports can have a namespace after the path, separated by "|"
+            com.LibraryDir + "/" + moduleName + ".rs" + "|" + moduleName
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =

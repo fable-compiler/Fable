@@ -1,4 +1,4 @@
-# Fable to Python
+# Fable Python
 
 This experimental support for Python in Fable. Transforming the Fable AST into a Python AST, then printing to untyped
 Python source code.
@@ -86,3 +86,15 @@ TypeVar "TSource" appears only once in generic function signature Pylance(report
 (type variable) TSource
 
 But I expect that Python will eventually get things right, so we should start generating type annotations.
+
+## Program vs Library
+
+Fable projects compiling to Python should set `OutputType` to `Exe` for projects having the main `EntryPoint`.
+
+```xml
+<OutputType>Exe</OutputType>
+```
+
+Such projects will then be compiled with absolute imports. Python programs are not allowed to do relative imports. If
+the project is compiled as a `Library` (default) it will use relative imports. This is important since the library
+modules do not know the path where they are mounted by the application using them.
