@@ -1541,11 +1541,15 @@ module Util =
             | _ -> false)
 
     let isAttachMembersEntity (com: Fable.Compiler) (ent: FSharpEntity) =
-        not ent.IsFSharpModule && ((*com.Options.Language = Php ||*) ent.Attributes |> Seq.exists (fun att ->
-            // Should we make sure the attribute is not an alias?
-            match att.AttributeType.TryFullName with
-            | Some Atts.attachMembers -> true
-            | _ -> false))
+        not ent.IsFSharpModule && (
+            // com.Options.Language = Php ||
+            com.Options.Language = Rust ||
+            ent.Attributes |> Seq.exists (fun att ->
+                // Should we make sure the attribute is not an alias?
+                match att.AttributeType.TryFullName with
+                | Some Atts.attachMembers -> true
+                | _ -> false)
+        )
 
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.exists (fun att ->
@@ -1789,7 +1793,8 @@ module Util =
                 match tryGlobalOrImportedEntity com fableEnt with
                 | Some expr -> Some expr
                 // AttachMembers classes behave the same as global/imported classes
-                | None when isAttachMembersEntity com e -> Some(entityRef com fableEnt)
+                | None when com.Options.Language <> Rust && isAttachMembersEntity com e ->
+                    Some(entityRef com fableEnt)
                 | None -> None
             match moduleOrClassExpr, callInfo.ThisArg with
             | Some _, Some _thisArg ->

@@ -2970,7 +2970,7 @@ module Util =
             info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test" [])
-        let fnItem = mkAssocFnItem attrs membName kind
+        let fnItem = mkFnAssocItem attrs membName kind
         [fnItem]
 
 (*
@@ -3060,8 +3060,12 @@ module Util =
         //                 |> List.map(fun f -> makeIdent f.Name, f.FieldType)
         // let fieldIdents = fields |> List.map (fst)
         let body =
-            Fable.Value(Fable.NewRecord (
-                (fields |> List.map Fable.IdentExpr), ent.Ref, fields |> List.map (fun ident -> ident.Type)), None)
+            Fable.Value(
+                Fable.NewRecord(
+                    fields |> List.map Fable.IdentExpr,
+                    ent.Ref,
+                    fields |> List.map (fun ident -> ident.Type)
+                ), None)
         transformAssocMemberFunction com ctx (FSharp2Fable.MemberInfo()) (decl.Name + "new") fields body
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =

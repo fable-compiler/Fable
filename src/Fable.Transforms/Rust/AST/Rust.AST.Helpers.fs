@@ -982,15 +982,8 @@ module Items =
           ident = ident
           kind = kind
           tokens = None }
-    let mkItemInh attrs ident kind: Item =
-        { attrs = mkVec attrs
-          id = DUMMY_NODE_ID
-          span = DUMMY_SP
-          vis = INHERITED_VIS
-          ident = ident
-          kind = kind
-          tokens = None }
-    let mkAssocItem attrs ident kind: Item<AssocItemKind> =
+
+    let mkAssocItem attrs ident kind: AssocItem =
         { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
@@ -1006,7 +999,8 @@ module Items =
         let ident = mkIdent name
         ItemKind.Fn kind
         |> mkItem attrs ident
-    let mkAssocFnItem attrs name kind: AssocItem =
+
+    let mkFnAssocItem attrs name kind: AssocItem =
         let ident = mkIdent name
         AssocItemKind.Fn kind
         |> mkAssocItem attrs ident
@@ -1092,7 +1086,8 @@ module Items =
             self_ty = ty
             items = mkVec items
         })
-        |> mkItemInh attrs ident
+        |> mkItem attrs ident
+        |> mkNonPublicItem
 
     let TODO_ITEM (name: string): Item =
         let attrs = []
