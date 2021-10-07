@@ -1,4 +1,4 @@
-#load "src/fable-publish-utils/PublishUtils.fs"
+#load "src/Fable.PublishUtils/PublishUtils.fs"
 
 open PublishUtils
 open System
@@ -518,8 +518,8 @@ let packages =
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
         buildLibrary())
+     "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
-     "fable-publish-utils", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
      "fable-compiler-js", fun () -> buildCompilerJs true
     ]
