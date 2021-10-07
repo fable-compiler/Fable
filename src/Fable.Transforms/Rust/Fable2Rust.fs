@@ -154,14 +154,36 @@ module UsageTracking =
 
     let calcIdentUsages expr =
         let mutable usages = Map.empty
-        let something =
-            FableTransforms.deepExists
-                (function
-                    | Fable.Expr.IdentExpr ident ->
+        let mutable shadowed = Set.empty
+        do FableTransforms.deepExists
+            (function
+                //Leaving this trivial nonshadowing impl here for debugging purposes!
+                // | Fable.Expr.IdentExpr ident ->
+                //         let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
+                //         usages <- usages |> Map.add ident.Name (count + 1)
+                //         false
+                | Fable.Expr.IdentExpr ident ->
+                    if not (shadowed |> Set.contains ident.Name) then //if something is shadowed, no longer track it
                         let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
                         usages <- usages |> Map.add ident.Name (count + 1)
-                        false
-                    | _ -> false) expr
+                    false
+                | Fable.Expr.Let(identPotentiallyShadowing, _, body) ->
+                    //need to also count a shadowed
+                    match body with
+                    | Fable.Expr.IdentExpr ident when ident.Name = identPotentiallyShadowing.Name ->
+                        //if an ident is shadowed by a self-binding (a = a), it will not be counted above, so need to explicitly handle here
+                        //Why ever would we do this? This is a Rust scoping trick to foce cloning when taking ownership within a scope
+                        let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
+                        usages <- usages |> Map.add ident.Name (count + 1)
+                    | _ -> ()
+                    if usages |> Map.containsKey identPotentiallyShadowing.Name then
+                        shadowed <- shadowed |> Set.add identPotentiallyShadowing.Name
+                    false
+                | Fable.Expr.DecisionTree _
+                | Fable.Expr.IfThenElse _ ->
+                    shadowed <- Set.empty //for all conditional control flow, cannot reason about branches in shadow so just be conservative and assume no shadowing
+                    false
+                | _ -> false) expr
             |> ignore
         usages
 
@@ -1412,6 +1434,7 @@ module Util =
                 | Fable.IfThenElse _
                 | Fable.DecisionTree _ ->
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
+                //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
                     not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
@@ -1607,7 +1630,8 @@ module Util =
                 | _ ->
                     com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
-            | Some(TransformExpr com ctx thisArg) ->
+            | Some(thisArg) ->
+                let thisArg = transformLeaveContextByPreferredBorrow com ctx thisArg
                 mkCallExpr callee (thisArg::args)
             // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
             | None ->
@@ -1849,6 +1873,7 @@ module Util =
                 match ident.Type with
                 | Fable.LambdaType _
                 | Fable.DelegateType _ -> None
+                | Fable.Any -> None
                 | _ ->
                     let typegen = { FavourClosureTraitOverFunctionPointer = true
                                     IsParamType = false
@@ -2442,8 +2467,8 @@ module Util =
             // |> makeArrowFunctionExpression name
             transformLambda com ctx args body
 
-        | Fable.ObjectExpr (members, _, baseCall) ->
-           transformObjectExpr com ctx members baseCall
+        // | Fable.ObjectExpr (members, _, baseCall) ->
+        //    transformObjectExpr com ctx members baseCall
 
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info
@@ -3079,18 +3104,22 @@ module Util =
                 | Some ctor ->
                     let body =
                         match ctor.Body with
-                        | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential s] ->
+                        | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential _] ->
+                            let exprs = flattenSequential ctor.Body
                             let idents = getEntityFieldsAsIdents com ent |> Array.toList
-                            let assignments =
-                                s
-                                |> List.choose (function    | Fable.Set (structFieldExpr, Fable.SetKind.FieldSet name, t, assignExpr ,_) ->
-                                                                (name, assignExpr) |> Some
-                                                            | _ -> None)
-                                |> Map.ofList
-                            let assignmentsIn =
-                                idents |> List.map(fun id -> assignments |> Map.tryFind id.Name |> Option.defaultValue(makeNull()))
-                            Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, []), None)
+                            let assignmentsIn = idents |> List.map(Fable.IdentExpr)
+                            let exprs = //fold back over ctor body, seeding with a create record statement for return, throwing out object exprs and converting `this.param` mutations to `let param = param.Clone()`
+                                let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, []), None)
+                                (returnVal, exprs |> List.rev)
+                                ||> List.fold(fun acc ->
+                                        function| Fable.Set (structFieldExpr, Fable.SetKind.FieldSet name, t, assignExpr ,_) ->
+                                                    Fable.Let(makeIdent name, assignExpr, acc)
+                                                | Fable.Value(Fable.ValueKind.UnitConstant, _)
+                                                | Fable.ObjectExpr _ -> acc
+                                                | x -> Fable.Sequential [acc; x])
+                            exprs
                         | y -> y
+                        //todo - get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
                     let ctor = { ctor with Body = body; Name="new" }
                     transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
                 | _ ->
@@ -3100,13 +3129,29 @@ module Util =
                     else
                         transformGeneratedConstructor com ctx ent (decl: Fable.ClassDecl)
             let implBlock =
-                let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
-                let ty = Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
+                let ty =
+                    let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
+                    Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
 
+                let decs = //copied from below. Do we need this? If so refactor to common or something
+                    let withCurrentScope ctx (usedNames: Set<string>) f =
+                        let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+                        let result = f ctx
+                        ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+                        result
+
+                    let makeDecl (decl: Fable.MemberDecl) =
+                        withCurrentScope ctx decl.UsedNames <| fun ctx ->
+                            let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
+                            transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+
+                    decl.AttachedMembers
+                    |> List.map makeDecl
+                    |> List.collect id
                 if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                    []
+                    []  //todo - decs need to work with everything, but at the moment this breaks with randomly added generic params
                 else
-                    [mkImplItem [] "" ty [] ctorItem]
+                    [mkImplItem [] "" ty [] (ctorItem @ decs)]
             transformClass com ctx ent decl.Name classMembers
             @ implBlock
 (*
