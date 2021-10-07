@@ -1,3 +1,7 @@
+### 2.4.0
+
+* Remove node compatibility and async methods
+
 ### 2.3.0
 
 * Publish as Nuget package

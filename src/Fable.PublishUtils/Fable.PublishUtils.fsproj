@@ -4,8 +4,8 @@
     <TargetFramework>net5.0</TargetFramework>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>2.3.0</Version>
-    <PackageVersion>2.3.0</PackageVersion>
+    <Version>2.4.0</Version>
+    <PackageVersion>2.4.0</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PublishUtils.fs" />
