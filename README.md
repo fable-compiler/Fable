@@ -6,8 +6,6 @@
 
 Fable is an F# to JavaScript compiler powered by [FSharp Compiler Services](https://fsharp.github.io/FSharp.Compiler.Service/), designed to make F# a first-class citizen of the JavaScript ecosystem. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
 
-**ATTENTION:** Documentation is currently being updated to Fable 3
-
 ## Getting started
 
 Check [this page](https://fable.io/docs/2-steps/setup.html).
