@@ -107,7 +107,13 @@ let argLanguage args =
     | "py" | "python" | "Python" -> Python
     | "php" | "Php" | "PHP" -> Php
     | "dart" -> Dart
-    | _ -> JavaScript)
+    | _ ->
+        // Set language based on name of executing process (fable tool).
+        let proc = System.Reflection.Assembly.GetEntryAssembly().Location
+        let fileName = Path.GetFileNameWithoutExtension(proc)
+        match fileName with
+        | "fable-py" -> Python
+        | _ -> JavaScript)
 
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) =
