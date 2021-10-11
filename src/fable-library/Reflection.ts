@@ -147,20 +147,20 @@ export function generic_type(name: string): TypeInfo {
 }
 
 // Constructors follow logic from Fable/src/Fable.Transforms/Replacements.fs, let rec defaultof (com: ICompiler) ctx (t: Type) =
-export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, (..._: any[]) => ({}) as any);
+export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, (..args: any[]) => ({}) as any);
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
-export const char_type: TypeInfo = new TypeInfo("System.Char", undefined, (..._: any[]) => null as any);
+export const char_type: TypeInfo = new TypeInfo("System.Char", undefined, (..._args: any[]) => null as any);
 export const string_type: TypeInfo = new TypeInfo("System.String");
-export const bool_type: TypeInfo = new TypeInfo("System.Boolean", undefined, (..._: any[]) => false as any);
-export const int8_type: TypeInfo = new TypeInfo("System.SByte", undefined, (..._: any[]) => 0 as any);
-export const uint8_type: TypeInfo = new TypeInfo("System.Byte", undefined, (..._: any[]) => 0 as any);
-export const int16_type: TypeInfo = new TypeInfo("System.Int16", undefined, (..._: any[]) => 0 as any);
-export const uint16_type: TypeInfo = new TypeInfo("System.UInt16", undefined, (..._: any[]) => 0 as any);
-export const int32_type: TypeInfo = new TypeInfo("System.Int32", undefined, (..._: any[]) => 0 as any);
-export const uint32_type: TypeInfo = new TypeInfo("System.UInt32", undefined, (..._: any[]) => 0 as any);
-export const float32_type: TypeInfo = new TypeInfo("System.Single", undefined, (..._: any[]) => 0 as any);
-export const float64_type: TypeInfo = new TypeInfo("System.Double", undefined, (..._: any[]) => 0 as any);
-export const decimal_type: TypeInfo = new TypeInfo("System.Decimal", undefined, (..._: any[]) => new Decimal(0) as any);
+export const bool_type: TypeInfo = new TypeInfo("System.Boolean", undefined, (...args: any[]) => false as any);
+export const int8_type: TypeInfo = new TypeInfo("System.SByte", undefined, (..args: any[]) => 0 as any);
+export const uint8_type: TypeInfo = new TypeInfo("System.Byte", undefined, (...args: any[]) => 0 as any);
+export const int16_type: TypeInfo = new TypeInfo("System.Int16", undefined, (...args: any[]) => 0 as any);
+export const uint16_type: TypeInfo = new TypeInfo("System.UInt16", undefined, (...args: any[]) => 0 as any);
+export const int32_type: TypeInfo = new TypeInfo("System.Int32", undefined, (...args: any[]) => 0 as any);
+export const uint32_type: TypeInfo = new TypeInfo("System.UInt32", undefined, (...args: any[]) => 0 as any);
+export const float32_type: TypeInfo = new TypeInfo("System.Single", undefined, (...args: any[]) => 0 as any);
+export const float64_type: TypeInfo = new TypeInfo("System.Double", undefined, (...args: any[]) => 0 as any);
+export const decimal_type: TypeInfo = new TypeInfo("System.Decimal", undefined, (...args: any[]) => new Decimal(0) as any);
 
 export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string {
   if (Array.isArray(info)) {
