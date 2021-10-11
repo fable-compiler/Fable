@@ -1,5 +1,7 @@
 import { FSharpRef, Record, Union } from "./Types.js";
 import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
+import Decimal from "./Decimal.js";
+import { fromInt } from "./Long.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -144,20 +146,21 @@ export function generic_type(name: string): TypeInfo {
   return new GenericParameter(name);
 }
 
-export const obj_type: TypeInfo = new TypeInfo("System.Object");
+// Constructors follow logic from Fable/src/Fable.Transforms/Replacements.fs, let rec defaultof (com: ICompiler) ctx (t: Type) =
+export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, () => {});
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
-export const char_type: TypeInfo = new TypeInfo("System.Char");
+export const char_type: TypeInfo = new TypeInfo("System.Char", undefined, () => null);
 export const string_type: TypeInfo = new TypeInfo("System.String");
-export const bool_type: TypeInfo = new TypeInfo("System.Boolean");
-export const int8_type: TypeInfo = new TypeInfo("System.SByte");
-export const uint8_type: TypeInfo = new TypeInfo("System.Byte");
-export const int16_type: TypeInfo = new TypeInfo("System.Int16");
-export const uint16_type: TypeInfo = new TypeInfo("System.UInt16");
-export const int32_type: TypeInfo = new TypeInfo("System.Int32");
-export const uint32_type: TypeInfo = new TypeInfo("System.UInt32");
-export const float32_type: TypeInfo = new TypeInfo("System.Single");
-export const float64_type: TypeInfo = new TypeInfo("System.Double");
-export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
+export const bool_type: TypeInfo = new TypeInfo("System.Boolean", undefined, () => false);
+export const int8_type: TypeInfo = new TypeInfo("System.SByte", undefined, () => 0);
+export const uint8_type: TypeInfo = new TypeInfo("System.Byte", undefined, () => 0);
+export const int16_type: TypeInfo = new TypeInfo("System.Int16", undefined, () => 0);
+export const uint16_type: TypeInfo = new TypeInfo("System.UInt16", undefined, () => 0);
+export const int32_type: TypeInfo = new TypeInfo("System.Int32", undefined, () => 0);
+export const uint32_type: TypeInfo = new TypeInfo("System.UInt32", undefined, () => 0);
+export const float32_type: TypeInfo = new TypeInfo("System.Single", undefined, () => 0);
+export const float64_type: TypeInfo = new TypeInfo("System.Double", undefined, () => 0);
+export const decimal_type: TypeInfo = new TypeInfo("System.Decimal", undefined, () => new Decimal(0));
 
 export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string {
   if (Array.isArray(info)) {
@@ -440,7 +443,11 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
   // (Arg types can still be different)
   if (typeof t.construct === "function") {
     return new t.construct(...(consArgs ?? []));
-  } else {
+  } else if (t.fullname === "System.Int64" || t.fullname === "System.UInt64") {
+    // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64") and class_type("System.UInt64") respectively. Test for the name of the primitive type.
+    return fromInt(0);
+  }
+  else {
     throw new Error(`Cannot access constructor of ${t.fullname}`);
   }
 }
