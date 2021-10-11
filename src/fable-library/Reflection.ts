@@ -147,12 +147,12 @@ export function generic_type(name: string): TypeInfo {
 }
 
 // Constructors follow logic from Fable/src/Fable.Transforms/Replacements.fs, let rec defaultof (com: ICompiler) ctx (t: Type) =
-export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, (..args: any[]) => ({}) as any);
+export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, (...args: any[]) => ({}) as any);
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
 export const char_type: TypeInfo = new TypeInfo("System.Char", undefined, (..._args: any[]) => null as any);
 export const string_type: TypeInfo = new TypeInfo("System.String");
 export const bool_type: TypeInfo = new TypeInfo("System.Boolean", undefined, (...args: any[]) => false as any);
-export const int8_type: TypeInfo = new TypeInfo("System.SByte", undefined, (..args: any[]) => 0 as any);
+export const int8_type: TypeInfo = new TypeInfo("System.SByte", undefined, (...args: any[]) => 0 as any);
 export const uint8_type: TypeInfo = new TypeInfo("System.Byte", undefined, (...args: any[]) => 0 as any);
 export const int16_type: TypeInfo = new TypeInfo("System.Int16", undefined, (...args: any[]) => 0 as any);
 export const uint16_type: TypeInfo = new TypeInfo("System.UInt16", undefined, (...args: any[]) => 0 as any);
