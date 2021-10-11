@@ -152,23 +152,23 @@ let typeNameTests = [
 //     (create2<TestType4> [||]).Value2 |> equal "Bye"
 //     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
 
-   testCase "Create primitive types with System.Activator" <| fun () ->
-     (create2<obj> [||]) |> equal (obj()) // Remember that obj() is erased to {} so two obj()s compare equal
-     // Value types should zero-init
-     (create2<char> [||]) |> equal Unchecked.defaultof<char>
-     (create2<bool> [||]) |> equal Unchecked.defaultof<bool>
-     (create2<int8> [||]) |> equal Unchecked.defaultof<int8>
-     (create2<uint8> [||]) |> equal Unchecked.defaultof<uint8>
-     (create2<int16> [||]) |> equal Unchecked.defaultof<int16>
-     (create2<uint16> [||]) |> equal Unchecked.defaultof<uint16>
-     (create2<int32> [||]) |> equal Unchecked.defaultof<int32>
-     (create2<uint32> [||]) |> equal Unchecked.defaultof<uint32>
-     (create2<int64> [||]) |> equal Unchecked.defaultof<int64>
-     (create2<uint64> [||]) |> equal Unchecked.defaultof<uint64>
-     (create2<single> [||]) |> equal Unchecked.defaultof<single>
-     (create2<double> [||]) |> equal Unchecked.defaultof<double>
-     (create2<decimal> [||]) |> equal Unchecked.defaultof<decimal>
-     (create2<MyEnum> [||]) |> equal Unchecked.defaultof<MyEnum>
+  testCase "Create primitive types with System.Activator" <| fun () ->
+    create2<obj> [||] |> equal (obj()) // Remember that obj() is erased to {} so two obj()s compare equal
+    // Value types should zero-init
+    create2<char> [||] |> equal Unchecked.defaultof<char>
+    create2<bool> [||] |> equal Unchecked.defaultof<bool>
+    create2<int8> [||] |> equal Unchecked.defaultof<int8>
+    create2<uint8> [||] |> equal Unchecked.defaultof<uint8>
+    create2<int16> [||] |> equal Unchecked.defaultof<int16>
+    create2<uint16> [||] |> equal Unchecked.defaultof<uint16>
+    create2<int32> [||] |> equal Unchecked.defaultof<int32>
+    create2<uint32> [||] |> equal Unchecked.defaultof<uint32>
+    create2<int64> [||] |> equal Unchecked.defaultof<int64>
+    create2<uint64> [||] |> equal Unchecked.defaultof<uint64>
+    create2<single> [||] |> equal Unchecked.defaultof<single>
+    create2<double> [||] |> equal Unchecked.defaultof<double>
+    create2<decimal> [||] |> equal Unchecked.defaultof<decimal>
+    create2<MyEnum> [||] |> equal Unchecked.defaultof<MyEnum>
 
   testCase "Type name is accessible" <| fun () ->
     let x = { name = "" }
