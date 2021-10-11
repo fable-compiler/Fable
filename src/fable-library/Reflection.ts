@@ -147,7 +147,7 @@ export function generic_type(name: string): TypeInfo {
 }
 
 // Constructors follow logic from Fable/src/Fable.Transforms/Replacements.fs, let rec defaultof (com: ICompiler) ctx (t: Type) =
-export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, () => {});
+export const obj_type: TypeInfo = new TypeInfo("System.Object", undefined, () => ({}));
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
 export const char_type: TypeInfo = new TypeInfo("System.Char", undefined, () => null);
 export const string_type: TypeInfo = new TypeInfo("System.String");
