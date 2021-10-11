@@ -2,7 +2,6 @@ import { FSharpRef, Record, Union } from "./Types.js";
 import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
 import Decimal from "./Decimal.js";
 import { fromInt as int64FromInt } from "./Long.js";
-import { fromZero as bigIntFromZero } from "./BigInt.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -462,8 +461,6 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
   } else if (t.fullname === char_type.fullname) {
     // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
     return null;
-  } else if (t.fullname === "System.Numerics.BigInteger") {
-    return bigIntFromZero();
   } else {
     throw new Error(`Cannot access constructor of ${t.fullname}`);
   }

@@ -168,7 +168,7 @@ let typeNameTests = [
      (create2<single> [||]) |> equal Unchecked.defaultof<single>
      (create2<double> [||]) |> equal Unchecked.defaultof<double>
      (create2<decimal> [||]) |> equal Unchecked.defaultof<decimal>
-     (create2<bigint> [||]) |> equal Unchecked.defaultof<bigint>
+     (create2<MyEnum> [||]) |> equal Unchecked.defaultof<MyEnum>
 
   testCase "Type name is accessible" <| fun () ->
     let x = { name = "" }
