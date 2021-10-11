@@ -153,7 +153,7 @@ let typeNameTests = [
 //     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
 
    testCase "Create primitive types with System.Activator" <| fun () ->
-     (create2<obj> [||]) |> equal (obj()) // Remember that obj() is erased to {} to compares equal
+     (create2<obj> [||]) |> equal (obj()) // Remember that obj() is erased to {} so two obj()s compare equal
      // Value types should zero-init
      (create2<char> [||]) |> equal Unchecked.defaultof<char>
      (create2<bool> [||]) |> equal Unchecked.defaultof<bool>
