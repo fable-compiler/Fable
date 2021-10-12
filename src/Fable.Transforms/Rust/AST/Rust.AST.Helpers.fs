@@ -288,17 +288,6 @@ module Patterns =
         PatKind.Ident(binding, ident, None)
         |> mkPat
 
-    let mkRawIdentPat (name: Symbol) isRef isMut: Pat =
-        let ident = mkUnsanitizedIdent name
-        let mut =
-            if isMut then Mutability.Mut else Mutability.Not
-        let binding =
-            if isRef
-            then BindingMode.ByRef(mut)
-            else BindingMode.ByValue(mut)
-        PatKind.Ident(binding, ident, None)
-        |> mkPat
-
     let mkLitPat expr: Pat =
         PatKind.Lit(expr)
         |> mkPat
@@ -832,15 +821,17 @@ module Types =
         TyKind.BareFn(mkBareFnTy genParams fnDecl)
         |> mkTy
 
+    let mkTraitRef path: TraitRef =
+        { path = path
+          ref_id = DUMMY_NODE_ID }
+
+    let mkPolyTraitRef path: PolyTraitRef =
+        { bound_generic_params = mkVec []
+          span = DUMMY_SP
+          trait_ref = mkTraitRef path }
+
     let mkTraitGenericBound path: GenericBound =
-        let ptref: PolyTraitRef = {
-            bound_generic_params = mkVec []
-            span = DUMMY_SP
-            trait_ref = {
-                path = path
-                ref_id = DUMMY_NODE_ID
-            }
-        }
+        let ptref = mkPolyTraitRef path
         GenericBound.Trait(ptref, TraitBoundModifier.None)
 
     let mkFnTraitGenericBound inputs output: GenericBound =
@@ -927,11 +918,12 @@ module Params =
     let mkInferredParam name isRef isMut: Param =
         let ty = TyKind.Infer |> mkTy
         mkParamFromType name ty isRef isMut
-    let mkImplSelf isRef isMut: Param =
-        let ty = TyKind.ImplicitSelf |> mkTy |> mkRefTy //parameterise this? if shouldBePassByRefForParam com typ...
+
+    let mkImplSelfParam isRef isMut: Param =
+        let ty = TyKind.ImplicitSelf |> mkTy |> mkRefTy
         let attrs = []
         let is_placeholder = false
-        let pat = mkRawIdentPat "self" isRef isMut
+        let pat = mkIdentPat (rawIdent "self") isRef isMut
         mkParam attrs ty pat is_placeholder
 
     let mkGenericParamFromName attrs name bounds: GenericParam =
@@ -1027,14 +1019,6 @@ module Items =
           ident = ident
           kind = kind
           tokens = None }
-    let mkInhItem attrs ident kind: Item =
-        { attrs = mkVec attrs
-          id = DUMMY_NODE_ID
-          span = DUMMY_SP
-          vis = INHERITED_VIS
-          ident = ident
-          kind = kind
-          tokens = None }
 
     let mkAssocItem attrs ident kind: AssocItem =
         { attrs = mkVec attrs
@@ -1053,11 +1037,9 @@ module Items =
         ItemKind.Fn kind
         |> mkItem attrs ident
 
-    let mkFnAssocItemKind kind=
-        AssocItemKind.Fn kind
     let mkFnAssocItem attrs name kind: AssocItem =
         let ident = mkIdent name
-        mkFnAssocItemKind kind
+        AssocItemKind.Fn kind
         |> mkAssocItem attrs ident
 
     let mkUseItem attrs names kind: Item =
@@ -1102,7 +1084,8 @@ module Items =
     let mkTraitItem attrs name fields bounds generics: Item =
         let ident = mkIdent name
         ItemKind.Trait(IsAuto.No, Unsafety.No, mkGenerics generics, mkVec bounds, mkVec fields)
-        |> mkInhItem attrs ident
+        |> mkItem attrs ident
+        |> mkNonPublicItem
 
     let mkEnumItem attrs name variants generics: Item =
         let ident = mkIdent name
@@ -1134,8 +1117,6 @@ module Items =
         ItemKind.Const(def, ty, exprOpt)
         |> mkItem attrs ident
 
-    let mkTraitRef segments generics: TraitRef =
-        { path = mkGenericPath segments generics ; ref_id = DUMMY_NODE_ID}
     let mkImplItem attrs name ty genericParams items ofTrait: Item =
         let ident = mkIdent name
         ItemKind.Impl({

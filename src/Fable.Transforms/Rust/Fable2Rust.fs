@@ -2917,7 +2917,8 @@ module Util =
         let isRef = false
         let isMut = false
         if ident.IsThisArgument then
-            mkImplSelf isRef isMut
+            // TODO: parameterise this? if shouldBePassByRefForParam com typ...
+            mkImplSelfParam isRef isMut
         else mkParamFromType ident.Name ty isRef isMut //?loc=id.Range)
 
     let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
@@ -3245,7 +3246,7 @@ module Util =
                                 let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
                                 let generics = makeGenerics m.Args m.Body.Type (Set.ofList ["abc"])
                                 let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                                mkAssocItem [] (mkIdent m.Name) (mkFnAssocItemKind fnKind)
+                                mkFnAssocItem [] m.Name fnKind
                         ]
                         //let genBound = [mkPathSegment (mkIdent decl.Name) None] |> mkPath |> mkTraitGenericBound
                         mkTraitItem [] (decl.Name + "Methods") fields [] []
@@ -3271,8 +3272,9 @@ module Util =
                             |> makeRefTy com
                         // let genericConstraint =
                         //     mkGenericParamFromName [] "abc" []
-                        let tref = mkTraitRef [decl.Name + "Methods"] (mkGenericArgs []) //mkTraitRef ["Rc"] (mkGenericArgs [makeRefTy (makeFullNamePathTy "xfd" None) ])
-                        mkImplItem [] "" ty [] decs (Some tref)
+                        let path = mkGenericPath [decl.Name + "Methods"] (mkGenericArgs [])
+                        // let path = mkGenericPath ["Rc"] (mkGenericArgs [makeRefTy (makeFullNamePathTy "xfd" None) ])
+                        mkImplItem [] "" ty [] decs (mkTraitRef path |> Some)
                     [classImplBlock; complMethodsTrait; complMethodsTraitImpl]
             transformClass com ctx ent decl.Name classMembers
             @ classImpls
