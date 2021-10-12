@@ -288,6 +288,17 @@ module Patterns =
         PatKind.Ident(binding, ident, None)
         |> mkPat
 
+    let mkRawIdentPat (name: Symbol) isRef isMut: Pat =
+        let ident = mkUnsanitizedIdent name
+        let mut =
+            if isMut then Mutability.Mut else Mutability.Not
+        let binding =
+            if isRef
+            then BindingMode.ByRef(mut)
+            else BindingMode.ByValue(mut)
+        PatKind.Ident(binding, ident, None)
+        |> mkPat
+
     let mkLitPat expr: Pat =
         PatKind.Lit(expr)
         |> mkPat
@@ -916,6 +927,12 @@ module Params =
     let mkInferredParam name isRef isMut: Param =
         let ty = TyKind.Infer |> mkTy
         mkParamFromType name ty isRef isMut
+    let mkImplSelf isRef isMut: Param =
+        let ty = TyKind.ImplicitSelf |> mkTy |> mkRefTy //parameterise this? if shouldBePassByRefForParam com typ...
+        let attrs = []
+        let is_placeholder = false
+        let pat = mkRawIdentPat "self" isRef isMut
+        mkParam attrs ty pat is_placeholder
 
     let mkGenericParamFromName attrs name bounds: GenericParam =
         let ident = mkIdent name
@@ -1010,12 +1027,20 @@ module Items =
           ident = ident
           kind = kind
           tokens = None }
+    let mkInhItem attrs ident kind: Item =
+        { attrs = mkVec attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          vis = INHERITED_VIS
+          ident = ident
+          kind = kind
+          tokens = None }
 
     let mkAssocItem attrs ident kind: AssocItem =
         { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
-          vis = PUBLIC_VIS
+          vis = INHERITED_VIS
           ident = ident
           kind = kind
           tokens = None }
@@ -1028,9 +1053,11 @@ module Items =
         ItemKind.Fn kind
         |> mkItem attrs ident
 
+    let mkFnAssocItemKind kind=
+        AssocItemKind.Fn kind
     let mkFnAssocItem attrs name kind: AssocItem =
         let ident = mkIdent name
-        AssocItemKind.Fn kind
+        mkFnAssocItemKind kind
         |> mkAssocItem attrs ident
 
     let mkUseItem attrs names kind: Item =
@@ -1072,6 +1099,11 @@ module Items =
         ItemKind.Mod(Unsafety.No, ModKind.Unloaded)
         |> mkItem attrs ident
 
+    let mkTraitItem attrs name fields bounds generics: Item =
+        let ident = mkIdent name
+        ItemKind.Trait(IsAuto.No, Unsafety.No, mkGenerics generics, mkVec bounds, mkVec fields)
+        |> mkInhItem attrs ident
+
     let mkEnumItem attrs name variants generics: Item =
         let ident = mkIdent name
         let enumDef: EnumDef = { variants = mkVec variants }
@@ -1102,7 +1134,9 @@ module Items =
         ItemKind.Const(def, ty, exprOpt)
         |> mkItem attrs ident
 
-    let mkImplItem attrs name ty genericParams items: Item =
+    let mkTraitRef segments generics: TraitRef =
+        { path = mkGenericPath segments generics ; ref_id = DUMMY_NODE_ID}
+    let mkImplItem attrs name ty genericParams items ofTrait: Item =
         let ident = mkIdent name
         ItemKind.Impl({
             unsafety = Unsafety.No
@@ -1110,7 +1144,7 @@ module Items =
             defaultness = Defaultness.Final
             constness = Constness.No
             generics = mkGenerics genericParams
-            of_trait = None
+            of_trait = ofTrait
             self_ty = ty
             items = mkVec items
         })

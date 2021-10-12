@@ -53,3 +53,47 @@ let ``Class taking other classes as params should work`` () =
     let a = SWrapper(STest("a"), STest("b"), NTest(1, 2))
     a.AddStrings "c" |> equal "abc"
     a.AddNum 2 |> equal 5
+
+type FluentA(x: int) =
+    member this.X = x
+
+type FluentB(a: FluentA) =
+    member this.DoFluentAndReturnSelf (x: int) =
+        this
+    member this.DoFluentAndReturnInner (x: int) =
+        a
+
+[<Fact>]
+let ``Class fluent/builder internal clone pattern should work`` () =
+    let a = FluentA(42)
+    let b = FluentB(a)
+    let res = b.DoFluentAndReturnSelf(1).DoFluentAndReturnSelf(2).DoFluentAndReturnInner(3).X
+    res |> equal 42
+
+//PROBLEM - Interfaces are not on the AST - this is erased
+type IHasAdd =
+    abstract Add: x: int -> y: int -> int
+
+type WithInterface(m: int) =
+    interface IHasAdd with
+      member this.Add x y = x + y + m
+
+[<Fact>]
+let ``Class interface impl works trivial`` () =
+    let a = WithInterface(1)
+    let aCasted = (a :> IHasAdd)
+    let res = aCasted.Add 2 1
+    res |> equal 4
+
+// This will therefore not compile - Interface does not exist as is erased
+// let doAddWithInterface (i: IHasAdd) =
+//     i.Add 3 4
+
+// [<Fact>]
+// let ``Class interface with callout works`` () =
+//     let a = WithInterface(1)
+//     let aCasted = (a :> IHasAdd)
+//     let res = doAddWithInterface aCasted
+//     let res2 = doAddWithInterface a
+//     res |> equal 8
+//     res2 |> equal 8

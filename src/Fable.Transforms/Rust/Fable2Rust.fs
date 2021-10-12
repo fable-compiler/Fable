@@ -913,7 +913,11 @@ module Util =
         Identifier.identifier(id.Name, ?loc=id.Range)
 *)
     let transformIdent com ctx r (ident: Fable.Ident) =
-        mkGenericPathExpr [ident.Name] None
+        if ident.IsThisArgument || ident.Name = "this$" then //for some reason IsThisArgument is false
+            let ident = mkUnsanitizedIdent "self"
+            let pathSeg = mkPathSegment ident None
+            mkPathExpr (mkPath [pathSeg])
+        else mkGenericPathExpr [ident.Name] None
 
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
@@ -1323,7 +1327,7 @@ module Util =
         match value with
         // | Fable.BaseValue (None, _) -> Super(None)
         // | Fable.BaseValue (Some boundIdent, _) -> identAsExpr boundIdent
-        // | Fable.ThisValue _ -> Expression.thisExpression()
+        // | Fable.ThisValue _ -> makeFullNamePathExpr (rawIdent "self") None
         // | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
         // | Fable.Null _t ->
         //     // if com.Options.typescript
@@ -1640,23 +1644,28 @@ module Util =
             let callee = com.TransformAsExpr(ctx, callee)
             let expr = mkMethodCallExpr membName None callee args
             if shouldBeRefCountWrapped com typ
-            then makeRefValue com expr
+            then makeRefValue com expr //todo - not convinced this is right. Normally the returned value is already wrapped
             else expr
         | _ ->
-            let callee =
-                match callInfo.CallMemberInfo with
-                | Some callMemberInfo ->
-                    // TODO: perhaps only use full path for non-local calls
-                    let path = callMemberInfo.FullName.Replace(".( .ctor )", "::new")
-                    makeFullNamePathExpr path None
-                | _ ->
-                    com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
             | Some(thisArg) ->
-                let thisArg = transformLeaveContextByPreferredBorrow com ctx thisArg
-                mkCallExpr callee (thisArg::args)
+                match callInfo.CallMemberInfo with
+                | Some mi ->
+                    let nameWithoutPath = mi.FullName.Split('.') |> Seq.toList |> List.rev |> List.head
+                    let callee = com.TransformAsExpr(ctx, thisArg)
+                    mkMethodCallExpr nameWithoutPath None callee args
+                | _ ->
+                    com.TransformAsExpr(ctx, calleeExpr)
             // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
             | None ->
+                let callee =
+                    match callInfo.CallMemberInfo with
+                    | Some callMemberInfo ->
+                        // TODO: perhaps only use full path for non-local calls
+                        let path = callMemberInfo.FullName.Replace(".( .ctor )", "::new")
+                        makeFullNamePathExpr path None
+                    | _ ->
+                        com.TransformAsExpr(ctx, calleeExpr)
                 mkCallExpr callee args
 (*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
@@ -2907,27 +2916,32 @@ module Util =
         let ty = transformParamType com ctx ident.Type
         let isRef = false
         let isMut = false
-        mkParamFromType ident.Name ty isRef isMut //?loc=id.Range)
+        if ident.IsThisArgument then
+            mkImplSelf isRef isMut
+        else mkParamFromType ident.Name ty isRef isMut //?loc=id.Range)
 
     let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
         let isRef = false
         let isMut = false
         mkInferredParam ident.Name isRef isMut //?loc=id.Range)
 
+    let transformFunctionDecl (com: IRustCompiler) ctx args retType =
+        let fnRetTy =
+            let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = true } }
+            if retType = Fable.Unit then VOID_RETURN_TY
+            else transformType com ctx retType |> mkFnRetTy
+        let inputs =
+            args
+            |> List.filter (fun (id: Fable.Ident) -> id.Type <> Fable.Unit)
+            |> List.map (typedParam com ctx)
+        mkFnDecl inputs fnRetTy
+
     let transformFunction (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genTypeParams = getGenericTypeParams (argTypes @ [body.Type])
         let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
-        let fnRetTy =
-            let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = true } }
-            if body.Type = Fable.Unit then VOID_RETURN_TY
-            else transformType com ctx body.Type |> mkFnRetTy
-        let inputs =
-            args
-            |> List.filter (fun id -> id.Type <> Fable.Unit)
-            |> List.map (typedParam com ctx)
-        let fnDecl = mkFnDecl inputs fnRetTy
+        let fnDecl = transformFunctionDecl com ctx args body.Type
         let ctx =
             let scopedSymbols =
                 let usages = calcIdentUsages body
@@ -2947,13 +2961,7 @@ module Util =
         fnDecl, fnBody, newTypeParams
 
     let transformLambda (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
-        let fnRetTy = VOID_RETURN_TY
-        let inputs =
-            let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = true } }
-            args
-            |> List.filter (fun id -> id.Type <> Fable.Unit)
-            |> List.map (fun i -> mkParamFromType i.Name (transformParamType com ctx i.Type) false false)
-        let fnDecl = mkFnDecl inputs fnRetTy
+        let fnDecl = transformFunctionDecl com ctx args Fable.Unit
         let ctx =
             let usages = calcIdentUsages body
             let scopedSymbols =
@@ -3030,9 +3038,8 @@ module Util =
             [mkTypeTraitGenericBound ["Mutable"] genArgs]
         else []
 
-    let makeGenerics (args: Fable.Ident list) (body: Fable.Expr) genTypeParams =
+    let makeGenerics (args: Fable.Ident list) (returnType) genTypeParams =
         let argTypes = args |> List.map (fun arg -> arg.Type)
-        let returnType = body.Type
         let isConstrained =
             // ugly work-around for some return types //TODO: make it smarter
             match returnType with
@@ -3059,7 +3066,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics decl.Args decl.Body fnGenTypeParams
+        let generics = makeGenerics decl.Args decl.Body.Type fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             // map attributes for test methods
@@ -3080,7 +3087,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics args body fnGenTypeParams
+        let generics = makeGenerics args body.Type fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             info.Attributes
@@ -3222,32 +3229,53 @@ module Util =
                         []
                     else
                         transformGeneratedConstructor com ctx ent (decl: Fable.ClassDecl)
-            let implBlock =
-                let ty =
-                    let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
-                    Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
-
-                let decs = //copied from below. Do we need this? If so refactor to common or something
-                    let withCurrentScope ctx (usedNames: Set<string>) f =
-                        let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
-                        let result = f ctx
-                        ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
-                        result
-
-                    let makeDecl (decl: Fable.MemberDecl) =
-                        withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                            let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
-                            transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
-
-                    decl.AttachedMembers
-                    |> List.map makeDecl
-                    |> List.collect id
-                if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                    []  //todo - decs need to work with everything, but at the moment this breaks with randomly added generic params
+            let classImpls =
+                if ent.IsFSharpUnion || ent.IsFSharpRecord then //todo - generics break stuff at the moment, but this should work for all
+                    []
                 else
-                    [mkImplItem [] "" ty [] (ctorItem @ decs)]
+                    let classImplBlock =
+                        let ty =
+                            let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
+                            Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
+
+                        mkImplItem [] "" ty [] (ctorItem) None
+                    let complMethodsTrait =
+                        let fields = [
+                            for m in decl.AttachedMembers ->
+                                let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                                let generics = makeGenerics m.Args m.Body.Type (Set.ofList ["abc"])
+                                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                                mkAssocItem [] (mkIdent m.Name) (mkFnAssocItemKind fnKind)
+                        ]
+                        //let genBound = [mkPathSegment (mkIdent decl.Name) None] |> mkPath |> mkTraitGenericBound
+                        mkTraitItem [] (decl.Name + "Methods") fields [] []
+                    let complMethodsTraitImpl =
+                        let decs = //copied from below. Do we need this? If so refactor to common or something
+                            let withCurrentScope ctx (usedNames: Set<string>) f =
+                                let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+                                let result = f ctx
+                                ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+                                result
+
+                            let makeDecl (decl: Fable.MemberDecl) =
+                                withCurrentScope ctx decl.UsedNames <| fun ctx ->
+                                    let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
+                                    transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+
+                            decl.AttachedMembers
+                            |> List.map makeDecl
+                            |> List.collect id
+                        let ty =
+                            let bounds = mkTypeTraitGenericBound [decl.Name] None
+                            mkTraitTy [bounds]
+                            |> makeRefTy com
+                        // let genericConstraint =
+                        //     mkGenericParamFromName [] "abc" []
+                        let tref = mkTraitRef [decl.Name + "Methods"] (mkGenericArgs []) //mkTraitRef ["Rc"] (mkGenericArgs [makeRefTy (makeFullNamePathTy "xfd" None) ])
+                        mkImplItem [] "" ty [] decs (Some tref)
+                    [classImplBlock; complMethodsTrait; complMethodsTraitImpl]
             transformClass com ctx ent decl.Name classMembers
-            @ implBlock
+            @ classImpls
 (*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
