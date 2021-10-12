@@ -427,15 +427,23 @@ module MacCalls =
           args = mkDelimitedMacArgs delim kind tokens
           prior_type_ascription = None }
 
-    let mkCommaDelimitedMacCall symbol delim (tokens: token.Token seq): MacCall =
-        let kind = token.TokenKind.Comma
-        mkMacCall symbol delim kind tokens
+    let mkBraceCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkMacCall symbol MacDelimiter.Brace token.TokenKind.Comma tokens
+
+    let mkBraceSemiDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkMacCall symbol MacDelimiter.Brace token.TokenKind.Semi tokens
 
     let mkBracketCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
-        mkCommaDelimitedMacCall symbol MacDelimiter.Bracket tokens
+        mkMacCall symbol MacDelimiter.Bracket token.TokenKind.Comma tokens
+
+    let mkBracketSemiDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkMacCall symbol MacDelimiter.Bracket token.TokenKind.Semi tokens
 
     let mkParensCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
-        mkCommaDelimitedMacCall symbol MacDelimiter.Parenthesis tokens
+        mkMacCall symbol MacDelimiter.Parenthesis token.TokenKind.Comma tokens
+
+    let mkParensSemiDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkMacCall symbol MacDelimiter.Parenthesis token.TokenKind.Semi tokens
 
 [<AutoOpen>]
 module Attrs =
@@ -669,6 +677,11 @@ module Exprs =
         mkParensCommaDelimitedMacCall name tokens
         |> mkMacCallExpr
 
+    let mkMacroSemiExpr (name: string) args: Expr =
+        let tokens = args |> Seq.map mkExprToken
+        mkBracketSemiDelimitedMacCall name tokens
+        |> mkMacCallExpr
+
     let mkMatchExpr expr (arms: Arm seq): Expr =
         ExprKind.Match(expr, mkVec arms)
         |> mkExpr
@@ -753,16 +766,32 @@ module Generic =
     let NO_GENERICS =
         mkGenerics []
 
-    let mkGenericArgs (tys: Ty seq): GenericArgs option =
-        if Seq.isEmpty tys then
+    let mkAngleBracketedArgs args: AngleBracketedArgs =
+        { span = DUMMY_SP
+          args = mkVec args }
+
+    let mkAssocTyConstraintArg name ty genArgs: AngleBracketedArg =
+        let tyConstraint: AssocTyConstraint = {
+            id = DUMMY_NODE_ID
+            ident = mkIdent name
+            gen_args = genArgs
+            kind = AssocTyConstraintKind.Equality(ty)
+            span = DUMMY_SP
+        }
+        AngleBracketedArg.Constraint(tyConstraint)
+
+    let mkGenericArgs (args: AngleBracketedArg seq): GenericArgs option =
+        if Seq.isEmpty args then
             None
         else
-            let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
-            let genArgs: AngleBracketedArgs = {
-                span = DUMMY_SP
-                args = mkVec args
-            }
-            genArgs |> GenericArgs.AngleBracketed |> Some
+            args
+            |> mkAngleBracketedArgs
+            |> GenericArgs.AngleBracketed
+            |> Some
+
+    let mkGenericTypeArgs (tys: Ty seq): GenericArgs option =
+        let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
+        mkGenericArgs args
 
     let mkParenArgs inputs output: GenericArgs =
         let genArgs: ParenthesizedArgs = {
@@ -808,16 +837,20 @@ module Types =
         let path = mkGenericPath ["Fn"] args
         mkTraitGenericBound path
 
-    let mkTypeTraitGenericBound names: GenericBound =
-        let path = mkGenericPath names None
+    let mkTypeTraitGenericBound names genArgs: GenericBound =
+        let path = mkGenericPath names genArgs
         mkTraitGenericBound path
 
-    let mkTraitsTy traits: Ty =
-        TyKind.TraitObject(mkVec traits, TraitObjectSyntax.None)
+    let mkTraitTy bounds: Ty =
+        TyKind.TraitObject(mkVec bounds, TraitObjectSyntax.None)
         |> mkTy
 
-    let mkImplTraitsTy traits: Ty =
-        TyKind.ImplTrait(DUMMY_NODE_ID, mkVec traits)
+    let mkDynTraitTy bounds: Ty =
+        TyKind.TraitObject(mkVec bounds, TraitObjectSyntax.Dyn)
+        |> mkTy
+
+    let mkImplTraitTy bounds: Ty =
+        TyKind.ImplTrait(DUMMY_NODE_ID, mkVec bounds)
         |> mkTy
 
     let mkRefTy ty: Ty =
@@ -849,7 +882,7 @@ module Types =
         |> mkTy
 
     let mkGenericTy path tys: Ty =
-        mkGenericArgs tys
+        mkGenericTypeArgs tys
         |> mkGenericPathTy path
 
     let TODO_TYPE name: Ty =
@@ -889,11 +922,6 @@ module Params =
         let is_placeholder = false
         let kind = GenericParamKind.Type None
         mkGenericParam attrs ident bounds is_placeholder kind
-
-    let mkGenericParams (names: Symbol seq) bounds: Generics =
-        names
-        |> Seq.map (fun name -> mkGenericParamFromName [] name bounds)
-        |> mkGenerics
 
 [<AutoOpen>]
 module Funcs =

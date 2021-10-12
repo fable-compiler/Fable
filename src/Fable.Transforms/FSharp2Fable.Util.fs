@@ -368,7 +368,8 @@ module Helpers =
                 let entName = getEntityMangledName com trimRootModule entFullName
                 if ent.IsFSharpModule then
                     match com.Options.Language, entName with
-                    | Rust , _ // no module prefix for Rust
+                    | Rust, _ -> // no module prefix for Rust
+                        memb.CompiledName, Naming.NoMemberPart
                     | _ , "" ->
                         memb.CompiledName, Naming.NoMemberPart
                     | _, moduleName ->
@@ -1934,7 +1935,7 @@ module Util =
                 || memb.IsDispatchSlot ->
             callInstanceMember com r typ callInfo entity memb
 
-        | _, Some entity when isModuleValueForCalls entity memb ->
+        | _, Some entity when isModuleValueForCalls entity memb && com.Options.Language <> Rust ->
             let typ = makeReturnType memb.FullType
             memberRefTyped com ctx r typ memb
 

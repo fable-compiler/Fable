@@ -1854,16 +1854,16 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
     | _ -> None
 
-let nativeArrayFunctions =
-    dict [| "Exists", "some"
-            "Filter", "filter"
-            "Find", "find"
-            "FindIndex", "findIndex"
-            "ForAll", "every"
-            "Iterate", "forEach"
-            "Reduce", "reduce"
-            "ReduceBack", "reduceRight"
-            "SortInPlaceWith", "sort" |]
+// let nativeArrayFunctions =
+//     dict [| "Exists", "some"
+//             "Filter", "filter"
+//             "Find", "find"
+//             "FindIndex", "findIndex"
+//             "ForAll", "every"
+//             "Iterate", "forEach"
+//             "Reduce", "reduce"
+//             "ReduceBack", "reduceRight"
+//             "SortInPlaceWith", "sort" |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
@@ -1887,6 +1887,17 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "ToTuple", _ -> changeKind false args
     | _ -> None
 
+let createArray (com: ICompiler) ctx r t size value =
+    match t, value with
+    | Array typ, None ->
+        let value = getZero com ctx typ
+        Value(NewArrayFrom(makeTuple None [value; size], t), r)
+    | Array _, Some value ->
+        Value(NewArrayFrom(makeTuple None [value; size], t), r)
+    | _ ->
+        sprintf "Expecting an array type but got %A" t
+        |> addErrorAndReturnNull com ctx.InlinePath r
+
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
     let method =
         match args with
@@ -1899,6 +1910,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Length", Some arg, _ -> getLength r t arg |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
+    | "Clone", Some callee, _ ->
+        Helper.InstanceCall(callee, "to_vec", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "ConvertAll", None, [source; mapping] ->
@@ -1906,20 +1919,11 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "IndexOf", None, args ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
+    | "Reverse", None, [arg] ->
+        Helper.InstanceCall(arg, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    // let newArray size t =
-    //     Value(NewArrayFrom(size, t), None)
-    // let createArray size value =
-    //     match t, value with
-    //     | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
-    //     | Array t2, value ->
-    //         let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
-    //         // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-    //         Helper.LibCall(com, "Array", "create", t, [newArray size t2; makeIntConst 0; size; value])
-    //     | _ -> sprintf "Expecting an array type but got %A" t
-    //            |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray r t arg |> Some
@@ -1931,14 +1935,20 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
+    | "ZeroCreate", [count] -> createArray com ctx r t count None |> Some
+    | "Create", [count; value] -> createArray com ctx r t count (Some value) |> Some
+    | "Empty", [] -> createArray com ctx r t (makeIntConst 0) None |> Some
+    | "Singleton", [value] -> createArray com ctx r t (makeIntConst 1) (Some value) |> Some
     | "IsEmpty", [ar] ->
-        eq (getLength r t ar) (makeIntConst 0) |> Some
+        Helper.InstanceCall(ar, "is_empty", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Copy", [ar] ->
+        Helper.InstanceCall(ar, "to_vec", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
-    | Patterns.DicContains nativeArrayFunctions meth, _ ->
-        let args, thisArg = List.splitLast args
-        let argTypes = List.take (List.length args) i.SignatureArgTypes
-        Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
+    // | Patterns.DicContains nativeArrayFunctions meth, _ ->
+    //     let args, thisArg = List.splitLast args
+    //     let argTypes = List.take (List.length args) i.SignatureArgTypes
+    //     Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args

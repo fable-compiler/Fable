@@ -52,19 +52,48 @@ let ``Array pass by reference works`` () =
     let _ = inc_elem2 arr 0
     arr |> equal [|2;3;4|]
 
-// [<Fact>]
-// let ``Array.create works`` () =
-//     let arr = 2 |> Array.create 3
-//     arr |> equal [|2;2;2|]
+[<Fact>]
+let ``Array.empty works`` () =
+    let xs = Array.empty<int>
+    xs |> equal [||]
+
+[<Fact>]
+let ``Array.create works`` () =
+    let xs = Array.create 3 2
+    xs |> equal [|2;2;2|]
+
+[<Fact>]
+let ``Array.zeroCreate works`` () =
+    let xs = Array.zeroCreate<int> 3
+    xs |> equal [|0;0;0|]
+
+[<Fact>]
+let ``Array.length works`` () =
+    let xs = [|1;2;3|]
+    Array.length xs |> equal 3
+
+[<Fact>]
+let ``Array.copy works`` () =
+    let xs = [|1;2;3|]
+    let ys = Array.copy xs
+    xs.[1] <- xs.[1] + 1
+    ys |> equal [|1;2;3|]
+
+[<Fact>]
+let ``Array.reverse works`` () =
+    let xs = [|1;2;3|]
+    Array.rev xs |> equal [|3;2;1|]
+
+// ------------------------------------------
+// these are not working yet, wrong signature
+// ------------------------------------------
 
 // [<Fact>]
-// let ``Array.rev works`` () =
-//     let arr = [|1;2;3|] |> Array.rev
-//     arr |> equal [|3;2;1|]
-
-// [<Fact>]
-// let ``Array.copy works`` () =
+// let ``Array.head works`` () =
 //     let xs = [|1;2;3|]
-//     let ys = xs |> Array.copy
-//     xs.[1] <- xs.[1] + 1
-//     ys |> equal [|1;2;3|]
+//     Array.head xs |> equal 1
+
+// [<Fact>]
+// let ``Array.last works`` () =
+//     let xs = [|1;2;3|]
+//     Array.last xs |> equal 3
