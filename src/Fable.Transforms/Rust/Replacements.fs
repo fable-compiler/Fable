@@ -876,8 +876,10 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
 let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
-    | Char | String -> makeStrConst "" // TODO: Use null for string?
-    | Number _ | Builtin BclTimeSpan -> makeIntConst 0
+    | Number (kind, uom) -> NumberConstant (0.0, kind, uom) |> makeValue None
+    | Char -> CharConstant '\u0000' |> makeValue None
+    | String -> makeStrConst "" // TODO: Use null for string?
+    | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
@@ -888,7 +890,9 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
         makeTuple None [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
-    | _ -> Value(Null Any, None) // null
+    | _ ->
+        // Value(Null Any, None) // null
+        Helper.LibCall(com, "Native", "defaultOf", t, [])
 
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with

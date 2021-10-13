@@ -9,58 +9,32 @@ module SR =
     let indexNotFound = "An index satisfying the predicate was not found in the collection."
     let differentLengths = "Arrays had different lengths"
 
-module Native =
-
-    let inline create<'T> (count: int) (value: 'T): 'T[] =
-        Array.create count value
-
-    let inline zeroCreate<'T> (count: int): 'T[] =
-        Array.zeroCreate count
-
-    let inline empty<'T> (): 'T[] =
-        Array.zeroCreate 0
-
-    let inline singleton<'T> (value: 'T): 'T[] =
-        Array.create 1 value
-
-    let inline isEmpty<'T> (array: 'T[]): bool =
-        Array.isEmpty array
-
-    let inline length<'T> (array: 'T[]): int =
-        Array.length array
-
-    let inline item<'T> (index: int) (array: _[]): 'T =
-        array.[index]
+// module NativeImpl =
+//     let inline empty<'T> (): 'T[] = Array.empty
+//     let inline create<'T> (count: int) (value: 'T): 'T[] = Array.create count value
+//     let inline zeroCreate<'T> (count: int): 'T[] = Array.zeroCreate count
+//     let inline singleton<'T> (value: 'T): 'T[] = Array.singleton value
+//     let inline isEmpty<'T> (array: 'T[]): bool = Array.isEmpty array
+//     let inline length<'T> (array: 'T[]): int = Array.length array
+//     let inline item<'T> (index: int) (array: _[]): 'T = array.[index]
 
 let tryItem<'T> (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
 let copy<'T> (array: 'T[]): 'T[] =
-    if Array.isEmpty array then
-        // [||]
-        array // work-around until Array.empty works with generic types
-    else
-        // let res = Array.zeroCreate array.Length
-        // work-around until Array.zeroCreate works with generic types
-        let res = Array.create array.Length array.[0]
-        let len = array.Length - 1
-        for i = 0 to len do
-            res.[i] <- array.[i]
-        res
+    let res = Array.zeroCreate array.Length
+    let len = array.Length - 1
+    for i = 0 to len do
+        res.[i] <- array.[i]
+    res
 
 let reverse<'T> (array: 'T[]): 'T[] =
-    if Array.isEmpty array then
-        // [||]
-        array // work-around until Array.empty works with generic types
-    else
-        // let res = Array.zeroCreate array.Length
-        // work-around until Array.zeroCreate works with generic types
-        let res = Array.create array.Length array.[0]
-        let len = array.Length - 1
-        for i = 0 to len do
-            res.[len - i] <- array.[i]
-        res
+    let res = Array.zeroCreate array.Length
+    let len = array.Length - 1
+    for i = 0 to len do
+        res.[len - i] <- array.[i]
+    res
 
 // let filter (predicate: 'T -> bool) (array: 'T[]) =
 //     filterImpl predicate array

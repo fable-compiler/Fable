@@ -3,7 +3,7 @@ module Fable.Tests.ListTests
 open Util.Testing
 
 [<Fact>]
-let ``List empty works`` () =
+let ``List.Empty works`` () =
     // Using mutable to suppress inlining which is not supported yet,
     // as it prevents the generic type being instantiated, and breaks.
     // WRONG: let actual: bool = List::isEmpty(&List::empty())
@@ -14,7 +14,7 @@ let ``List empty works`` () =
     List.isEmpty xs |> equal true
 
 [<Fact>]
-let ``List cons works`` () =
+let ``List.Cons works`` () =
     let xs = 1::2::3::[]
     List.head xs |> equal 1
     let xs = List.tail xs
@@ -23,3 +23,8 @@ let ``List cons works`` () =
     List.head xs |> equal 3
     let xs = List.tail xs
     List.isEmpty xs |> equal true
+
+// [<Fact>]
+// let ``List.length works`` () =
+//     let xs = 1::2::3::[]
+//     List.length xs |> equal 3
