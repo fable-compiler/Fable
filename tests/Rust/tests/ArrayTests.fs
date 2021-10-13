@@ -84,16 +84,12 @@ let ``Array.reverse works`` () =
     let xs = [|1;2;3|]
     Array.rev xs |> equal [|3;2;1|]
 
-// ------------------------------------------
-// these are not working yet, wrong signature
-// ------------------------------------------
+[<Fact>]
+let ``Array.head works`` () =
+    let xs = [|1;2;3|]
+    Array.head xs |> equal 1
 
-// [<Fact>]
-// let ``Array.head works`` () =
-//     let xs = [|1;2;3|]
-//     Array.head xs |> equal 1
-
-// [<Fact>]
-// let ``Array.last works`` () =
-//     let xs = [|1;2;3|]
-//     Array.last xs |> equal 3
+[<Fact>]
+let ``Array.last works`` () =
+    let xs = [|1;2;3|]
+    Array.last xs |> equal 3

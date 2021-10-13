@@ -29,9 +29,6 @@ module Native =
     let inline length<'T> (array: 'T[]): int =
         Array.length array
 
-    let inline copy<'T> (array: 'T[]): 'T[] =
-        Array.copy array
-
     let inline item<'T> (index: int) (array: _[]): 'T =
         array.[index]
 
@@ -39,13 +36,31 @@ let tryItem<'T> (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
+let copy<'T> (array: 'T[]): 'T[] =
+    if Array.isEmpty array then
+        // [||]
+        array // work-around until Array.empty works with generic types
+    else
+        // let res = Array.zeroCreate array.Length
+        // work-around until Array.zeroCreate works with generic types
+        let res = Array.create array.Length array.[0]
+        let len = array.Length - 1
+        for i = 0 to len do
+            res.[i] <- array.[i]
+        res
+
 let reverse<'T> (array: 'T[]): 'T[] =
-    let res = Array.copy array
-    // System.Array.Reverse(array) // TODO: use native reverse
-    let len = array.Length - 1
-    for i = 0 to len do
-        res.[len - i] <- array.[i]
-    res
+    if Array.isEmpty array then
+        // [||]
+        array // work-around until Array.empty works with generic types
+    else
+        // let res = Array.zeroCreate array.Length
+        // work-around until Array.zeroCreate works with generic types
+        let res = Array.create array.Length array.[0]
+        let len = array.Length - 1
+        for i = 0 to len do
+            res.[len - i] <- array.[i]
+        res
 
 // let filter (predicate: 'T -> bool) (array: 'T[]) =
 //     filterImpl predicate array
@@ -63,7 +78,7 @@ let exactlyOne<'T> (array: 'T[]): 'T =
     then invalidArg "array" SR.inputArrayWasEmpty
     else invalidArg "array" SR.inputArrayWasTooLong
 
-let tryExactlyOne (array: 'T[]): 'T option =
+let tryExactlyOne<'T> (array: 'T[]): 'T option =
     if array.Length = 1
     then Some (array.[0])
     else None

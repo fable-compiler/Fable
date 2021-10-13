@@ -484,9 +484,9 @@ let testRust() =
 
     // limited cleanup to reduce IO churn, speed up rebuilds,
     // and save the ssd (target folder can get huge)
-    cleanDirs [buildDir + "/src"]
-    cleanDirs [buildDir + "/tests"]
-    cleanDirs [buildDir + "/.fable"]
+    cleanDirs [buildDir </> "src"]
+    cleanDirs [buildDir </> "tests"]
+    cleanDirs [buildDir </> ".fable"]
 
     // run .NET tests
     runInDir testAstDir "dotnet test"

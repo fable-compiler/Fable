@@ -1942,7 +1942,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ar] ->
         Helper.InstanceCall(ar, "is_empty", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", [ar] ->
-        Helper.InstanceCall(ar, "to_vec", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", "copy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
