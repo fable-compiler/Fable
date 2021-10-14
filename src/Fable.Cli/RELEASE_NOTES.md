@@ -1,3 +1,12 @@
+### 3.4.3
+
+* Add support of System.Activator for primitive types @Happypig375
+* Fix #2566: HashSet.IntersectWith does not respect custom comparer
+* Fix calling super from an override when the method was declared in grandparent
+* Compile to RegexConstant when possible
+* Pass Fable compiled name to ReflectedDecorator
+* Remove void wrapper in expression statements
+
 ### 3.4.2
 
 * Fix #2561: Case insensitive args and check
