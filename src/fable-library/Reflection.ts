@@ -446,22 +446,27 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
   // (Arg types can still be different)
   if (typeof t.construct === "function") {
     return new t.construct(...(consArgs ?? []));
-  } else if (t.fullname === obj_type.fullname) {
-    return {};
-  } else if (t.fullname === bool_type.fullname) {
-    return false;
   } else if (isErasedToNumber(t)) {
     return 0;
-  } else if (t.fullname === "System.Int64" || t.fullname === "System.UInt64") {
-    // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64") and class_type("System.UInt64") respectively. Test for the name of the primitive type.
-    return int64FromInt(0);
-  } else if (t.fullname === decimal_type.fullname) {
-    return new Decimal(0);
-  } else if (t.fullname === char_type.fullname) {
-    // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
-    return null;
   } else {
-    throw new Error(`Cannot access constructor of ${t.fullname}`);
+    switch (t.fullname) {
+      case obj_type.fullname:
+        return {};
+      case bool_type.fullname:
+        return false;
+      case "System.Int64":
+      case "System.UInt64":
+        // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64")
+        // and class_type("System.UInt64") respectively. Test for the name of the primitive type.
+        return int64FromInt(0);
+      case decimal_type.fullname:
+        return new Decimal(0);
+      case char_type.fullname:
+        // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
+        return null;
+      default:
+        throw new Error(`Cannot access constructor of ${t.fullname}`);
+    }
   }
 }
 

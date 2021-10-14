@@ -592,7 +592,7 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
-[<Fable.Core.NoOverloadSuffix>]
+[<NoOverloadSuffix>]
 // [<CompiledName("FSharpSet`1")>]
 // [<DebuggerTypeProxy(typedefof<SetDebugView<_>>)>]
 // [<DebuggerDisplay("Count = {Count}")>]
@@ -773,7 +773,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
             SetTree.compare this.Comparer this.Tree that.Tree = 0
         | _ -> false
 
-    interface Fable.Core.Symbol_wellknown with
+    interface Symbol_wellknown with
         member _.``Symbol.toStringTag`` = "FSharpSet"
 
     interface IJsonSerializable with
@@ -801,9 +801,9 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     interface System.Collections.IEnumerable with
         member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree :> System.Collections.IEnumerator
 
-    interface Fable.Core.JS.Set<'T> with
+    interface JS.Set<'T> with
         member s.size = s.Count
-        member s.add(k) = failwith "Set cannot be mutated"; s :> Fable.Core.JS.Set<'T>
+        member s.add(k) = failwith "Set cannot be mutated"; s :> JS.Set<'T>
         member s.clear() = failwith "Set cannot be mutated"; ()
         member s.delete(k) = failwith "Set cannot be mutated"; false
         member s.has(k) = s.Contains(k)
@@ -934,27 +934,37 @@ let maxElement (set: Set<'T>) = set.MaximumElement
 
 // Helpers to replicate HashSet methods
 
-let unionWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
+let unionWith (s1: JS.Set<'T>) (s2: 'T seq) =
     (s1, s2) ||> Seq.fold (fun acc x -> acc.add x)
 
-let intersectWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    let s2 = ofSeq s2 comparer
-    for x in s1.keys() do
-        if not (s2.Contains x) then
-            s1.delete x |> ignore
+// If s1 is a Fable MutableSet, use the comparer. See #2566
+let newMutableSetWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    match s1 with
+    | :? Fable.Collections.MutableSet<'T> as s1 ->
+        Fable.Collections.MutableSet(s2, s1.Comparer) :> JS.Set<'T>
+    | _ -> JS.Constructors.Set.Create(s2)
 
-let exceptWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
-    for x in s2 do
-        s1.delete x |> ignore
+let intersectWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.values() |> Seq.iter (fun x ->
+        if not (s2.has(x)) then
+            s1.delete x |> ignore)
 
-let isSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let exceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    s2 |> Seq.iter (fun x ->
+        s1.delete x |> ignore)
 
-let isSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.values() |> Seq.forall s2.has
 
-let isProperSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isProperSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    s2 |> Seq.forall s1.has
 
-let isProperSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isProperSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s2.size > s1.size && s1.values() |> Seq.forall s2.has
+
+let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = Seq.cache s2
+    s2 |> Seq.exists (s1.has >> not) && s2 |> Seq.forall s1.has
