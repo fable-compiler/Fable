@@ -912,6 +912,11 @@ module TypeHelpers =
             Some(baseEnt, baseType.GenericArguments)
         | _ -> None
 
+    let rec tryFindBaseEntity (filter: FSharpEntity -> bool) (tdef: FSharpEntity) =
+        getBaseEntity tdef |> Option.bind (fun (baseEnt,_) ->
+            if filter baseEnt then Some baseEnt
+            else tryFindBaseEntity filter baseEnt)
+
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
         yield! tdef.TryGetMembersFunctionsAndValues()
         match getBaseEntity tdef with
@@ -1881,6 +1886,34 @@ module Util =
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
+
+            // When calling `super` in an override, it may happen the method is not originally declared
+            // by the immediate parent, so we need to go through the hierarchy until we find the original declaration
+            // (this is important to get the correct mangled name)
+            let entity =
+                match memb.IsOverrideOrExplicitInterfaceImplementation, callInfo.ThisArg with
+                | true, Some(Fable.Value(Fable.BaseValue _, _)) ->
+                    // Only compare args for overloads (single curried parameter group)
+                    let compareArgs =
+                        if memb.CurriedParameterGroups.Count <> 1 then None
+                        else memb.CurriedParameterGroups.[0] |> Seq.toArray |> Some
+                    entity |> tryFindBaseEntity (fun ent ->
+                        ent.TryGetMembersFunctionsAndValues() |> Seq.exists (fun m ->
+                            m.IsInstanceMember
+                            && m.CompiledName = memb.CompiledName
+                            && m.IsDispatchSlot
+                            && (
+                                match compareArgs with
+                                | Some compareArgs when m.CurriedParameterGroups.Count = 1 && m.CurriedParameterGroups.[0].Count = compareArgs.Length ->
+                                    let compareArgs2 = m.CurriedParameterGroups.[0] |> Seq.toArray
+                                    Array.zip compareArgs compareArgs2
+                                    |> Array.forall (fun (p1, p2) -> p1.Type.Equals(p2.Type))
+                                | _ -> true
+                            )
+                        ))
+                    |> Option.defaultValue entity
+                | _ -> entity
+
             callInstanceMember com r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls entity memb ->

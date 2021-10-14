@@ -431,6 +431,33 @@ type EnumFoo =
   | Foo = 0
   | Bar = 1
 
+[<AbstractClass>]
+type MangledAbstractClass1() =
+    class end
+
+[<AbstractClass>]
+type MangledAbstractClass2(v: int) =
+    inherit MangledAbstractClass1()
+    abstract MyMethod: int -> int
+    default _.MyMethod(x: int) = x * v
+
+[<AbstractClass>]
+type MangledAbstractClass3(v) =
+    inherit MangledAbstractClass2(v + 3)
+
+[<AbstractClass>]
+type MangledAbstractClass4(v) =
+    inherit MangledAbstractClass3(v + 4)
+    override _.MyMethod(x: int) = base.MyMethod(x) - v
+
+[<AbstractClass>]
+type MangledAbstractClass5(v) =
+    inherit MangledAbstractClass4(v + 5)
+    override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
+
+type ConcreteClass1() =
+    inherit MangledAbstractClass5(2)
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -957,4 +984,8 @@ let tests =
         Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
         Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
 #endif
+
+    testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
+        let c = ConcreteClass1()
+        c.MyMethod(4) |> equal 58
   ]
