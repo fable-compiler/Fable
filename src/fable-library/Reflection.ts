@@ -1,5 +1,7 @@
 import { FSharpRef, Record, Union } from "./Types.js";
 import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
+import Decimal from "./Decimal.js";
+import { fromInt as int64FromInt } from "./Long.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -208,6 +210,19 @@ export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
   return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
 }
 
+function isErasedToNumber(t: TypeInfo) {
+  return isEnum(t) || [
+    int8_type.fullname,
+    uint8_type.fullname,
+    int16_type.fullname,
+    uint16_type.fullname,
+    int32_type.fullname,
+    uint32_type.fullname,
+    float32_type.fullname,
+    float64_type.fullname,
+  ].includes(t.fullname);
+}
+
 export function isInstanceOfType(t: TypeInfo, o: any) {
   switch (typeof o) {
     case "boolean":
@@ -217,16 +232,7 @@ export function isInstanceOfType(t: TypeInfo, o: any) {
     case "function":
       return isFunction(t);
     case "number":
-      return isEnum(t) || [
-        int8_type.fullname,
-        uint8_type.fullname,
-        int16_type.fullname,
-        uint16_type.fullname,
-        int32_type.fullname,
-        uint32_type.fullname,
-        float32_type.fullname,
-        float64_type.fullname,
-      ].includes(t.fullname);
+      return isErasedToNumber(t);
     default:
       return t.construct != null && o instanceof t.construct;
   }
@@ -440,6 +446,20 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
   // (Arg types can still be different)
   if (typeof t.construct === "function") {
     return new t.construct(...(consArgs ?? []));
+  } else if (t.fullname === obj_type.fullname) {
+    return {};
+  } else if (t.fullname === bool_type.fullname) {
+    return false;
+  } else if (isErasedToNumber(t)) {
+    return 0;
+  } else if (t.fullname === "System.Int64" || t.fullname === "System.UInt64") {
+    // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64") and class_type("System.UInt64") respectively. Test for the name of the primitive type.
+    return int64FromInt(0);
+  } else if (t.fullname === decimal_type.fullname) {
+    return new Decimal(0);
+  } else if (t.fullname === char_type.fullname) {
+    // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
+    return null;
   } else {
     throw new Error(`Cannot access constructor of ${t.fullname}`);
   }
