@@ -288,3 +288,126 @@ let ``test Array.choose with ints works`` () =
         if i % 2 = 1 then Some i
         else None)
     result.Length |> equal 5
+
+[<Fact>]
+let ``test Array.choose with longs works`` () =
+    let xs = [|1L; 2L; 3L; 4L|]
+    let result = xs |> Array.choose (fun x ->
+       if x > 2L then Some x
+       else None)
+    result.[0] + result.[1]
+    |> equal 7L
+
+[<Fact>]
+let ``test Array.choose must construct array of output type`` () =
+    let source = [|1; 3; 5; 7|]
+    let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
+    target.[3].MainThing |> equal 7
+
+[<Fact>]
+let ``test Array.collect works`` () =
+    let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
+    let ys = xs |> Array.collect id
+    ys.[0] + ys.[1]
+    |> equal 3
+
+    let xs1 = [|[|1.; 2.|]; [|3.|]; [|4.; 5.; 6.;|]; [|7.|]|]
+    let ys1 = xs1 |> Array.collect id
+    ys1.[0] + ys1.[1] + ys1.[2] + ys1.[3] + ys1.[4]
+    |> equal 15.
+
+[<Fact>]
+let ``test Array.concat works`` () =
+    let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
+    let ys = xs |> Array.concat
+    ys.[0] + ys.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.concat works with strings`` () =
+    [| [| "One" |]; [| "Two" |] |]
+    |> Array.concat
+    |> List.ofArray
+    |> equal [ "One"; "Two" ]
+
+[<Fact>]
+let ``Array.exists works`` () =
+    let xs = [|1u; 2u; 3u; 4u|]
+    xs |> Array.exists (fun x -> x = 2u)
+    |> equal true
+
+[<Fact>]
+let ``Array.exists2 works`` () =
+    let xs = [|1UL; 2UL; 3UL; 4UL|]
+    let ys = [|1UL; 2UL; 3UL; 4UL|]
+    Array.exists2 (fun x y -> x * y = 16UL) xs ys
+    |> equal true
+
+[<Fact>]
+let ``Array.filter works`` () =
+    let xs = [|1s; 2s; 3s; 4s|]
+    let ys = xs |> Array.filter (fun x -> x > 2s)
+    ys.Length |> equal 2
+
+[<Fact>]
+let ``Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter Char.IsLetter
+    ys.Length |> equal 3
+
+[<Fact>]
+let ``Array.find works`` () =
+    let xs = [|1us; 2us; 3us; 4us|]
+    xs |> Array.find ((=) 2us)
+    |> equal 2us
+
+// [<Fact>]
+// let ``test Array.findIndex works`` () =
+//     let xs = [|1.f; 2.f; 3.f; 4.f|]
+//     xs |> Array.findIndex ((=) 2.f)
+//     |> equal 1
+
+// [<Fact>]
+// let ``test Array.findBack works`` () =
+//     let xs = [|1.; 2.; 3.; 4.|]
+//     xs |> Array.find ((>) 4.) |> equal 1.
+//     xs |> Array.findBack ((>) 4.) |> equal 3.
+
+// [<Fact>]
+// let ``test Array.findIndexBack works`` () =
+//     let xs = [|1.; 2.; 3.; 4.|]
+//     xs |> Array.findIndex ((>) 4.) |> equal 0
+//     xs |> Array.findIndexBack ((>) 4.) |> equal 2
+
+// [<Fact>]
+// let ``test Array.tryFindBack works`` () =
+//     let xs = [|1.; 2.; 3.; 4.|]
+//     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
+//     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+//     xs |> Array.tryFindBack ((=) 5.) |> equal None
+
+// [<Fact>]
+// let ``test Array.tryFindIndexBack works`` () =
+//     let xs = [|1.; 2.; 3.; 4.|]
+//     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
+//     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+//     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
+
+[<Fact>]
+let ``test Array.fold works`` () =
+    let xs = [|1y; 2y; 3y; 4y|]
+    let total = xs |> Array.fold (+) 0y
+    total |> equal 10y
+
+[<Fact>]
+let ``test Array.fold2 works`` () =
+    let xs = [|1uy; 2uy; 3uy; 4uy|]
+    let ys = [|1uy; 2uy; 3uy; 4uy|]
+    let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
+    total |> equal 20uy
+
+[<Fact>]
+let ``test Array.foldBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = Array.foldBack (fun x acc -> acc - x) xs 0.
+    total |> equal -10.

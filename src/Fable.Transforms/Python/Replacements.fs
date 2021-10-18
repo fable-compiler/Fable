@@ -15,7 +15,7 @@ type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
 type Helper =
-    static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?loc: SourceLocation) =
+    static member PyConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?loc: SourceLocation) =
         let info = defaultArg argTypes [] |> makeCallInfo None args
         Call(consExpr, { info with IsConstructor = true }, returnType, loc)
 
@@ -53,6 +53,17 @@ type Helper =
         getAttachedMemberWith loc typ (makeIdentExpr ident) memb
 
 module Helpers =
+    let getTypedArrayName (com: Compiler) numberKind =
+        match numberKind with
+        | Int8 -> "list"
+        | UInt8 -> "list"
+        | Int16 -> "list"
+        | UInt16 -> "list"
+        | Int32 -> "list"
+        | UInt32 -> "list"
+        | Float32 -> "list"
+        | Float64 -> "list"
+
     let getIdentUniqueName (ctx: Context) name =
         // printfn "getIdentUniqueName: %A" name
         let name =
@@ -106,7 +117,7 @@ module Helpers =
         Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
 
     let error msg =
-        Helper.JsConstructorCall(makeIdentExpr "Exception", Any, [msg])
+        Helper.PyConstructorCall(makeIdentExpr "Exception", Any, [msg])
 
     let str txt = Value(StringConstant txt, None)
 
@@ -1016,7 +1027,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (s
             | Types.arrayCons ->
                 match genArg with
                 | Number(numberKind,_) when com.Options.TypedArrays ->
-                    args @ [getTypedArrayName com numberKind |> makeIdentExpr]
+                    args @ [Helpers.getTypedArrayName com numberKind |> makeIdentExpr]
                 // Python will complain if we miss an argument
                 | _ when com.Options.Language = Python ->
                     args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
@@ -1096,7 +1107,7 @@ let defaultof (com: ICompiler) ctx (t: Type) =
         if ent.IsValueType
         then tryJsConstructor com ent
         else None
-        |> Option.map (fun e -> Helper.JsConstructorCall(e, t, []))
+        |> Option.map (fun e -> Helper.PyConstructorCall(e, t, []))
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
@@ -1807,7 +1818,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveAll", Some ar, [arg] ->
         Helper.LibCall(com, "array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
     | "FindIndex", Some ar, [arg] ->
-        Helper.InstanceCall(ar, "findIndex", t, [arg], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "index", t, [arg], ?loc=r) |> Some
     | "FindLastIndex", Some ar, [arg] ->
         Helper.LibCall(com, "array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "ForEach", Some ar, [arg] ->
@@ -1826,7 +1837,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         let opt = Helper.LibCall(com, "array", "tryFind", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
-        let left = Helper.InstanceCall(ar, "findIndex", Number(Int32, None), [arg], ?loc=r)
+        let left = Helper.InstanceCall(ar, "index", Number(Int32, None), [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "array", "tryFindBack", t, [arg; ar], ?loc=r)
@@ -1870,11 +1881,12 @@ let nativeArrayFunctions =
     dict [| "Exists", "some"
             "Filter", "filter"
             "Find", "find"
-            "FindIndex", "find"
+            "FindIndex", "index"
             //"ForAll", "all"
             "Iterate", "forEach"
             "Reduce", "reduce"
-            "ReduceBack", "reduceRight" |]
+            //"ReduceBack", "reduceRight"
+          |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
@@ -2332,7 +2344,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.JsConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
+            Helper.PyConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2464,7 +2476,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.PyConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> getAttachedMemberWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
     | _ -> None

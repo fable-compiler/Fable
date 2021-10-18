@@ -50,7 +50,7 @@ and https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/basic-type
 ## Arrow Functions
 
 Python do not support multi-line lambdas. Currently we transform any arrow function into a separate function that is
-lifted up into the nearest statement block. TODO: translate single line arrow functions to Python lambda.
+lifted up into the nearest statement block.
 
 ## Object Expressions
 
