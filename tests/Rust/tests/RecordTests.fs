@@ -119,3 +119,32 @@ let ``Struct record works`` () =
     let (sres3, ires3) = r2 |> processStructByValue //cannot actually test this, but since this is the only reference, the output should not .clone()
     ires2 |> equal 2
     sres3.s |> equal "world"
+
+type MutableRecord = {
+    mutable MutValue: int
+}
+
+[<Fact>]
+let ``Records with value-type interior mutability`` () =
+    let x = { MutValue = 1 }
+    x.MutValue |> equal 1
+    x.MutValue <- x.MutValue + 1
+    x.MutValue |> equal 2
+    x.MutValue <- x.MutValue + 1
+    x.MutValue |> equal 3
+
+// // TODO: mutable reference-type fields not working yet
+// // (may need a custom cell type with Clone and PartialEq)
+
+// type MutableRefRecord = {
+//     mutable MutRefValue: string
+// }
+
+// [<Fact>]
+// let ``Records with ref-type interior mutability`` () =
+//     let x = { MutRefValue = "a" }
+//     x.MutRefValue |> equal "a"
+//     x.MutRefValue <- x.MutRefValue + "b"
+//     x.MutRefValue |> equal "ab"
+//     x.MutRefValue <- x.MutRefValue + "c"
+//     x.MutRefValue |> equal "abc"
