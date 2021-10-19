@@ -278,18 +278,17 @@ module TypeInfo =
             // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
             not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
 
-    let shouldBePassByRefForParam (com: IRustCompiler) t =
-        // let isPassByRefTy =
-        //     match t with
-        //     | Fable.GenericParam _
-        //     | Fable.LambdaType _
-        //     | Fable.DelegateType _ -> true
-        //     | Fable.DeclaredType(eref, _) ->
-        //         let ety = com.GetEntity eref
-        //         not ety.IsValueType
-        //     | _ -> false
-        // shouldBeRefCountWrapped com t || isPassByRefTy
-        true
+    // let shouldBePassByRefForParam (com: IRustCompiler) t =
+    //     let isPassByRefTy =
+    //         match t with
+    //         | Fable.GenericParam _
+    //         | Fable.LambdaType _
+    //         | Fable.DelegateType _ -> true
+    //         | Fable.DeclaredType(eref, _) ->
+    //             let ety = com.GetEntity eref
+    //             not ety.IsValueType
+    //         | _ -> false
+    //     shouldBeRefCountWrapped com t || isPassByRefTy
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
@@ -345,9 +344,10 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        if shouldBePassByRefForParam com typ
-        then ty |> mkRefTy
-        else ty
+        // if shouldBePassByRefForParam com typ
+        // then ty |> mkRefTy
+        // else ty
+        ty |> mkRefTy
 
     let rec uncurryLambdaType = function
         | xs, Fable.LambdaType(argType, returnType) ->
@@ -1266,18 +1266,18 @@ module Util =
     /// Calling this on an rc guarantees a &T, regardless of if the Rc is a ref or not
     let makeAsRef expr = mkMethodCallExpr "as_ref" None expr []
 
-    let makeCallExpr pathNames (args: Rust.Expr list) =
+    let makeCall pathNames (args: Rust.Expr list) =
         let callee = mkGenericPathExpr pathNames None
         mkCallExpr callee args
 
     let makeRefValue (value: Rust.Expr) =
-        makeCallExpr ["Rc";"from"] [value]
+        makeCall ["Rc";"from"] [value]
 
     let makeMutValue (value: Rust.Expr) =
-        makeCallExpr ["Cell";"from"] [value]
+        makeCall ["Cell";"from"] [value]
 
     let makeLazyValue (value: Rust.Expr) =
-        makeCallExpr ["Lazy";"new"] [value]
+        makeCall ["Lazy";"new"] [value]
 
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
@@ -1455,14 +1455,14 @@ module Util =
     let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e.Type None e
-        if shouldBePassByRefForParam com e.Type then
-            if not varAttrs.IsRef then
-                expr |> mkAddrOfExpr
-            else expr
-        else
-            if varAttrs.IsRef then
-                makeClone expr // expr |> mkDerefExpr
-            else expr
+        // if shouldBePassByRefForParam com e.Type then
+        if not varAttrs.IsRef
+        then expr |> mkAddrOfExpr
+        else expr
+        // else
+        //     if varAttrs.IsRef then
+        //         makeClone expr // expr |> mkDerefExpr
+        //     else expr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
@@ -1880,7 +1880,7 @@ module Util =
             List.collect flattenSequential exprs
         | _ -> [expr]
 
-    let transformLet (com: IRustCompiler) ctx bindings body =
+    let transformLet (com: IRustCompiler) ctx isLetRec bindings body =
         let usages =
             let bodyUsages = calcIdentUsages body
             let bindingsUsages = bindings |> List.map (snd >> calcIdentUsages)
@@ -2519,13 +2519,14 @@ module Util =
         | Fable.Let(ident, value, body) ->
             // flatten nested let binding expressions
             let bindings, body = flattenLet [] fableExpr
-            transformLet com ctx bindings body
+            transformLet com ctx false bindings body
             // if ctx.HoistVars [ident] then
             //     let assignment = transformBindingAsExpr com ctx ident value
             //     Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
             // else iife com ctx expr
 
-        // | Fable.LetRec(bindings, body) ->
+        | Fable.LetRec(bindings, body) ->
+            transformLet com ctx true bindings body
         //     let idents = List.map fst bindings
         //     if ctx.HoistVars(idents) then
         //         let values = bindings |> List.mapToArray (fun (id, value) ->
@@ -2906,9 +2907,9 @@ module Util =
         let ty = transformParamType com ctx ident.Type
         let isRef = false
         let isMut = false
-        if ident.IsThisArgument then
-            // TODO: parameterise this? if shouldBePassByRefForParam com typ...
-            mkImplSelfParam isRef isMut
+        // TODO: parameterise this? if shouldBePassByRefForParam com typ...
+        if ident.IsThisArgument
+        then mkImplSelfParam isRef isMut
         else mkParamFromType ident.Name ty isRef isMut //?loc=id.Range)
 
     let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
@@ -2941,7 +2942,7 @@ module Util =
                     //todo optimizations go here
                     let scopedVarAttrs = {
                         IsArm = false
-                        IsRef = shouldBePassByRefForParam com arg.Type
+                        IsRef = true //shouldBePassByRefForParam com arg.Type
                         // IsMutable = arg.IsMutable
                         // IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
                         HasMultipleUses = hasMultipleUses arg.Name usages
@@ -2988,7 +2989,7 @@ module Util =
                     //todo optimizations go here
                     let scopedVarAttrs = {
                         IsArm = false
-                        IsRef = shouldBePassByRefForParam com arg.Type
+                        IsRef = true //shouldBePassByRefForParam com arg.Type
                         // IsMutable = arg.IsMutable
                         // IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
                         HasMultipleUses = hasMultipleUses arg.Name usages

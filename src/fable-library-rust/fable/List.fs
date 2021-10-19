@@ -24,7 +24,7 @@ module SR =
 // type List<'T> with
 // TODO: there will be some class members here when those are supported
 
-let empty () = //List.Empty
+let empty (): 'T list = //List.Empty
     { root = None }
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)

@@ -10,26 +10,26 @@ module SR =
     let differentLengths = "Arrays had different lengths"
 
 // module NativeImpl =
-//     let inline empty<'T> (): 'T[] = Array.empty
-//     let inline create<'T> (count: int) (value: 'T): 'T[] = Array.create count value
-//     let inline zeroCreate<'T> (count: int): 'T[] = Array.zeroCreate count
-//     let inline singleton<'T> (value: 'T): 'T[] = Array.singleton value
-//     let inline isEmpty<'T> (array: 'T[]): bool = Array.isEmpty array
-//     let inline length<'T> (array: 'T[]): int = Array.length array
-//     let inline item<'T> (index: int) (array: _[]): 'T = array.[index]
+//     let inline empty (): 'T[] = Array.empty
+//     let inline create (count: int) (value: 'T): 'T[] = Array.create count value
+//     let inline zeroCreate (count: int): 'T[] = Array.zeroCreate count
+//     let inline singleton (value: 'T): 'T[] = Array.singleton value
+//     let inline isEmpty (array: 'T[]): bool = Array.isEmpty array
+//     let inline length (array: 'T[]): int = Array.length array
+//     let inline item (index: int) (array: _[]): 'T = array.[index]
 
-let tryItem<'T> (index: int) (array: 'T[]): 'T option =
+let tryItem (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
-let copy<'T> (array: 'T[]): 'T[] =
+let copy (array: 'T[]): 'T[] =
     let res = Array.zeroCreate array.Length
     let len = array.Length - 1
     for i = 0 to len do
         res.[i] <- array.[i]
     res
 
-let reverse<'T> (array: 'T[]): 'T[] =
+let reverse (array: 'T[]): 'T[] =
     let res = Array.zeroCreate array.Length
     let len = array.Length - 1
     for i = 0 to len do
@@ -46,38 +46,38 @@ let reverse<'T> (array: 'T[]): 'T[] =
 // let getSubArray (array: 'T[]) (start: int) (count: int): 'T[] =
 //     subArrayImpl array start count
 
-let exactlyOne<'T> (array: 'T[]): 'T =
+let exactlyOne (array: 'T[]): 'T =
     if array.Length = 1 then array.[0]
     elif Array.isEmpty array
     then invalidArg "array" SR.inputArrayWasEmpty
     else invalidArg "array" SR.inputArrayWasTooLong
 
-let tryExactlyOne<'T> (array: 'T[]): 'T option =
+let tryExactlyOne (array: 'T[]): 'T option =
     if array.Length = 1
     then Some (array.[0])
     else None
 
-let head<'T> (array: 'T[]): 'T =
+let head (array: 'T[]): 'T =
     if Array.isEmpty array
     then invalidArg "array" SR.inputArrayWasEmpty
     else array.[0]
 
-let tryHead<'T> (array: 'T[]): 'T option =
+let tryHead (array: 'T[]): 'T option =
     if Array.isEmpty array
     then None
     else Some array.[0]
 
-let last<'T> (array: 'T[]): 'T =
+let last (array: 'T[]): 'T =
     if Array.isEmpty array
     then invalidArg "array" SR.inputArrayWasEmpty
     else array.[array.Length - 1]
 
-let tryLast<'T> (array: 'T[]): 'T option =
+let tryLast (array: 'T[]): 'T option =
     if Array.isEmpty array
     then None
     else Some array.[array.Length - 1]
 
-// let tail<'T> (array: 'T[]): 'T[] =
+// let tail (array: 'T[]): 'T[] =
 //     if Array.isEmpty array
 //     then invalidArg "array" SR.inputArrayWasTooShort
 //     skipImpl array 1
@@ -195,7 +195,7 @@ let tryLast<'T> (array: 'T[]): 'T option =
 
 // let where predicate (array: _[]) = filterImpl predicate array
 
-// let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+// let contains (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
 //     let rec loop i =
 //         if i >= array.Length
 //         then false
