@@ -160,13 +160,11 @@ let ``Closure with multiple return types works`` () =
     let dec = returnMultipleClosureTypes false
     dec 2 |> equal 1
 
-// // TODO: capturing value-type function parameters is broken
+let incrementWith i =
+    let f x = x + i
+    f
 
-// let incrementWith i =
-//     let f x = x + i
-//     f
-
-// [<Fact>]
-// let ``Closure that captures value-type args works`` () =
-//     let inc3 = incrementWith 3
-//     inc3 2 |> equal 5
+[<Fact>]
+let ``Closure that captures value-type args works`` () =
+    let inc3 = incrementWith 3
+    inc3 2 |> equal 5

@@ -1302,7 +1302,7 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         let name = getIdentName fableExpr
         if isRefScoped ctx name
-        then mkDerefExpr expr |> mkParenExpr
+        then makeClone expr // mkDerefExpr expr |> mkParenExpr
         else expr
 
     let prepareRefForPatternMatch com ctx typ name expr =
@@ -1461,7 +1461,7 @@ module Util =
             else expr
         else
             if varAttrs.IsRef then
-                expr |> mkDerefExpr
+                makeClone expr // expr |> mkDerefExpr
             else expr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
@@ -2957,8 +2957,11 @@ module Util =
         let addClosedOverIdent expr =
             match expr with
             | Fable.Expr.IdentExpr ident ->
-                if not (Set.contains ident.Name argumentNames) &&
-                    (ident.IsMutable || (shouldBeRefCountWrapped com ident.Type)) then
+                if not (Set.contains ident.Name argumentNames)
+                    && (ident.IsMutable ||
+                        (isRefScoped ctx ident.Name) ||
+                        (shouldBeRefCountWrapped com ident.Type))
+                then
                     capturedNames.Add(ident.Name)
                 else
                     match ident.Type with
