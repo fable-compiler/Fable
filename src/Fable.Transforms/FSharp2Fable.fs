@@ -707,7 +707,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
                 let errorMessage = "Match failure"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
-                let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                let errorExpr =
+                    match com.Options.Language with
+                    | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                    | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                 makeThrow rangeOfElseExpr Fable.Any errorExpr
             | _ ->
                 fableElseExpr
@@ -908,7 +911,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | FSharpExprPatterns.IfThenElse(FSharpExprPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
                     let errorMessage = "Match failure: " + unionType.TypeDefinition.FullName
-                    let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                    let errorExpr =
+                        match com.Options.Language with
+                        | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                        | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr
 

@@ -52,3 +52,7 @@ def to_string(x):
 
 def compare(a, b):
     return 0 if a == b else -1 if a < b else 1
+
+
+def equals(a, b):
+    return a == b

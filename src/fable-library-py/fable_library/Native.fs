@@ -47,8 +47,8 @@ module Helpers =
     let inline foldIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T []) : 'State =
         !! array?reduce (System.Func<'State, 'T, int, 'State>(folder), state)
 
-    let inline foldBackImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State =
-        !! array?reduceRight (System.Func<'State, 'T, 'State>(folder), state)
+    [<Emit("functools.reduce($0, $2[::-1], $1)")>]
+    let foldBackImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State = nativeOnly
 
     let inline foldBackIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T []) : 'State =
         !! array?reduceRight (System.Func<'State, 'T, int, 'State>(folder), state)
