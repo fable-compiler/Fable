@@ -883,7 +883,7 @@ let makeDictionary (com: ICompiler) ctx r t sourceSeq =
         // makeComparer com ctx key
         makeEqualityComparer com ctx key
         |> makeDictionaryWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+    | _ -> Helper.GlobalCall("dict", t, [sourceSeq], isJsConstructor=true, ?loc=r)
 
 let makeHashSetWithComparer com r t sourceSeq comparer =
     Helper.LibCall(com, "mutable_set", "HashSet", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
@@ -894,7 +894,7 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
         // makeComparer com ctx key
         makeEqualityComparer com ctx key
         |> makeHashSetWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+    | _ -> Helper.GlobalCall("set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
 
 let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with

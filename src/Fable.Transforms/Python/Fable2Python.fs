@@ -407,8 +407,6 @@ module Helpers =
         // printfn $"clean: {name}"
         match name with
         | "Math" -> "math"
-        | "Map" -> "dict"
-        | "Set" -> "set"
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
@@ -420,16 +418,16 @@ module Helpers =
             match com.OutputType with
             | OutputType.Exe -> false
             | _ -> true
-        
+
         //printfn $"OutputDir: {com.OutputDir}"
         //printfn $"LibraryDir: {com.LibraryDir}"
-        
+
         let moduleName =
             let lower =
                 Path.GetFileNameWithoutExtension(modulePath)
                 |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-        
+
         let path =
             match relative, Path.GetDirectoryName(modulePath) with
             | true, "." -> "."
@@ -439,7 +437,7 @@ module Helpers =
             | false, _ ->
                 Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
         // printfn $"Path: {path}"
-        
+
         match modulePath with
         // Other libraries importing (relative) Fable library modules
         | name when name.StartsWith("../fable_library") ->
@@ -448,7 +446,7 @@ module Helpers =
         | name when name.StartsWith(com.LibraryDir) || name.StartsWith("../fable-library-py/fable_library") ->
             if relative then
                 $".{moduleName}"
-            else              
+            else
                 $"{Naming.fableModulesDir}.fable_library.{moduleName}"
         | name when name.EndsWith(".fs") ->
             $"{path}{moduleName}"
@@ -651,6 +649,9 @@ module Util =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
         expr |> Expression.list, stmts
 
+    let makeTuple (com: IPythonCompiler) ctx exprs =
+        let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+        expr |> Expression.tuple, stmts
     let makeStringArray strings =
         strings
         |> List.map (fun x -> Expression.constant(x))
@@ -911,7 +912,7 @@ module Util =
                     let name = Expression.name("list")
                     Expression.call(name, [arg]), stmts
 
-        | Fable.NewTuple(vals,_) -> makeArray com ctx vals
+        | Fable.NewTuple(vals,_) -> makeTuple com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
             let rec getItems acc = function

@@ -5,17 +5,20 @@ Python source code.
 
 ## Current Design
 
-| F#       |   Python   | Comment                                           |
-|----------|:----------:|---------------------------------------------------|
-| List     |  List.fs   | F# immutable list                                 |
-| Map      |   Map.fs   | F# immutable map                                  |
-| Array    |   `list`   | TODO: Python has arrays for numeric types         |
-| Option   |   Erased   | F# `None` will be translated to Python `None`     |
-| dict     |    dict    |                                                   |
-| Decimal  | `decimal`  | A call to `ToString` will be translated to `str`. |
-| DateTime | `datetime` |                                                   |
-| string   |  `string`  |                                                   |
-| char     |  `string`  |                                                   |
+| F#         |   Python   | Comment                                       |
+|------------|:----------:|-----------------------------------------------|
+| List       |  List.fs   | F# immutable list                             |
+| Map        |   Map.fs   | F# immutable map                              |
+| Array      |   `list`   | TODO: Python has arrays for numeric types     |
+| Record     |  types.py  | Custom Record class. Replace with `dict`?     |
+| An. Record |   `dict`   |                                               |
+| Option     |   Erased   | F# `None` will be translated to Python `None` |
+| dict       |   `dict`   | Also used for Dictionary                      |
+| tuple      |  `tuple`   |                                               |
+| Decimal    | `decimal`  |                                               |
+| DateTime   | `datetime` |                                               |
+| string     |  `string`  |                                               |
+| char       |  `string`  |                                               |
 
 ## Numerics
 
@@ -45,7 +48,7 @@ and https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/basic-type
 | `IEnumerator` |     `__next__`     |                                                                                                   |
 | `IEnumerable` |     `__iter__`     |                                                                                                   |
 | `IComparable` | `__lt__`+ `__eq__` | Method `CompareTo` returns 0, 1 or -1 and is implemented for types that can be ordered or sorted. |
-| `ToString`    |     `__str__`      | Calls to `x.ToString` will be translated to `str(x)`.                                                 |
+| `ToString`    |     `__str__`      | Calls to `x.ToString` will be translated to `str(x)`.                                             |
 
 ## Arrow Functions
 
