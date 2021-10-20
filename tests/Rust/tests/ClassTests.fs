@@ -85,15 +85,14 @@ let ``Class interface impl works trivial`` () =
     let res = aCasted.Add 2 1
     res |> equal 4
 
-// This will therefore not compile - Interface does not exist as is erased
-// let doAddWithInterface (i: IHasAdd) =
-//     i.Add 3 4
+let doAddWithInterface (i: IHasAdd) =
+    i.Add 3 4
 
-// [<Fact>]
-// let ``Class interface with callout works`` () =
-//     let a = WithInterface(1)
-//     let aCasted = (a :> IHasAdd)
-//     let res = doAddWithInterface aCasted
-//     let res2 = doAddWithInterface a
-//     res |> equal 8
-//     res2 |> equal 8
+[<Fact>]
+let ``Class interface with callout works`` () =
+    let a = WithInterface(1)
+    let aCasted = (a :> IHasAdd)
+    let res = doAddWithInterface aCasted
+    let res2 = doAddWithInterface a
+    res |> equal 8
+    res2 |> equal 8

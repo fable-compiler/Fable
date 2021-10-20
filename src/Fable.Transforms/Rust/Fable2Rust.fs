@@ -226,7 +226,7 @@ module TypeInfo =
     let makeLazyTy com (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy ["Lazy"]
 
-    let makeImplTy com ctx (path: string seq) genArgs (ty: Rust.Ty): Rust.Ty =
+    let makeImplOrDynTraitTy com ctx (path: string seq) genArgs: Rust.Ty =
         let genArgs = transformGenArgs com ctx genArgs
         let bounds = [mkTypeTraitGenericBound path genArgs]
         if ctx.Typegen.IsParamType
@@ -497,8 +497,10 @@ module TypeInfo =
                 //         |> transformRecordReflectionInfo com ctx r ent
                 | _ ->
                     let ent = com.GetEntity(entRef)
-                    let genArgs = transformGenArgs com ctx genArgs
-                    makeFullNamePathTy ent.FullName genArgs
+                    let genArgsTr = transformGenArgs com ctx genArgs
+                    if ent.IsInterface then
+                        makeImplOrDynTraitTy com ctx (splitFullName ent.FullName) genArgs
+                    else makeFullNamePathTy ent.FullName genArgsTr
 
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                     // /// Check if the entity is actually declared in JS code
@@ -515,7 +517,14 @@ module TypeInfo =
             // TODO: remove this catch-all
             | _ -> TODO_TYPE (sprintf "%A" t)
 
-        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType
+        let isInterface =
+            //Interfaces are already implemented against an Rc so they are already wrapped
+            match t with
+            | Fable.DeclaredType(entRef, genArgs) ->
+                let ent = com.GetEntity(entRef)
+                ent.IsInterface
+            | _ -> false
+        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType && not isInterface
         then makeRefTy com ty
         else ty
 
@@ -3200,12 +3209,37 @@ module Util =
                 ), None)
         transformAssocMemberFunction com ctx (FSharp2Fable.MemberInfo()) (decl.Name + "new") fields body
 
+    let interfacesToIgnore =
+        Set.ofList [
+            "IComparable"
+            "IStructuralComparable"
+            "IEquatable"
+            "IStructuralEquatable"
+        ]
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)
         let classMembers = [] // TODO:
         if ent.IsFSharpUnion
         then transformUnion com ctx ent decl.Name classMembers
         else
+            let dependentInterfaceTraits =
+                [
+                    let notYetSeenInterfaces = ent.AllInterfaces //|> Seq.filter(stuffNotYetRegistered)
+                    for iface in notYetSeenInterfaces do
+                        let ifaceEnt = com.GetEntity iface.Entity
+                        let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
+                        let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
+                        let fields = [
+                            for m in filteredMembers ->
+                                let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                                let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
+                                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                                mkFnAssocItem [] m.Name fnKind
+                        ]
+
+                        if interfacesToIgnore |> Set.contains ifaceEnt.DisplayName |> not then
+                            yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] []
+                ]
             let ctorItem =
                 match decl.Constructor with
                 | Some ctor ->
@@ -3245,9 +3279,25 @@ module Util =
                             Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
 
                         mkImplItem [] "" ty [] (ctorItem) None
+
+                    let ifaces =
+                        ent.AllInterfaces
+                        |> Seq.map(fun i ->
+                            let ifaceEnt = com.GetEntity i.Entity
+                            let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
+                            ifaceEnt.DisplayName, members
+                            )
+                        |> Seq.filter(fun (dn, m) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
+                        |> Seq.toList
+                    let membersNotDefinedInInterfaces =
+                            let allIfaceMembers = ifaces |> Seq.map (snd) |> Seq.fold Set.union Set.empty
+                            ent.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
+                            |> Seq.except allIfaceMembers
+                            |> Set.ofSeq
                     let complMethodsTrait =
                         let fields = [
-                            for m in decl.AttachedMembers ->
+                            let membersNotDeclared = decl.AttachedMembers |> List.filter(fun m -> membersNotDefinedInInterfaces |> Set.contains m.Name)
+                            for m in membersNotDeclared ->
                                 let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
                                 let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
                                 let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
@@ -3255,32 +3305,39 @@ module Util =
                         ]
                         //let genBound = [mkPathSegment (mkIdent decl.Name) None] |> mkPath |> mkTraitGenericBound
                         mkTraitItem [] (decl.Name + "Methods") fields [] []
-                    let complMethodsTraitImpl =
-                        let decs = //copied from below. Do we need this? If so refactor to common or something
-                            let withCurrentScope ctx (usedNames: Set<string>) f =
-                                let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
-                                let result = f ctx
-                                ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
-                                result
 
-                            let makeDecl (decl: Fable.MemberDecl) =
-                                withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                                    let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
-                                    transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+                    let traitsToRender =
+                        let complTrait =
+                            decl.Name + "Methods", membersNotDefinedInInterfaces
+                        ifaces @ [complTrait]
 
-                            decl.AttachedMembers
-                            |> List.map makeDecl
-                            |> List.collect id
-                        let ty =
-                            let bounds = mkTypeTraitGenericBound [decl.Name] None
-                            mkTraitTy [bounds]
-                            |> makeRefTy com
-                        // let genericConstraint =
-                        //     mkGenericParamFromName [] "abc" []
-                        let path = mkGenericPath [decl.Name + "Methods"] (mkGenericArgs [])
-                        // let path = mkGenericPath ["Rc"] (mkGenericArgs [makeRefTy (makeFullNamePathTy "xfd" None) ])
-                        mkImplItem [] "" ty [] decs (mkTraitRef path |> Some)
-                    [classImplBlock; complMethodsTrait; complMethodsTraitImpl]
+                    let complMethodsTraitImpl = [
+                        for tname, tmethods in traitsToRender ->
+                            let decs = //copied from below. Do we need this? If so refactor to common or something
+                                let withCurrentScope ctx (usedNames: Set<string>) f =
+                                    let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+                                    let result = f ctx
+                                    ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+                                    result
+
+                                let makeDecl (decl: Fable.MemberDecl) =
+                                    withCurrentScope ctx decl.UsedNames <| fun ctx ->
+                                        let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
+                                        transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+
+                                decl.AttachedMembers
+                                |> List.filter(fun m -> tmethods |> Set.contains m.Name)
+                                |> List.map makeDecl
+                                |> List.collect id
+                            let ty =
+                                let bounds = mkTypeTraitGenericBound [decl.Name] None
+                                mkTraitTy [bounds]
+                                |> makeRefTy com
+                            let path = mkGenericPath [tname] (mkGenericArgs [])
+                            mkImplItem [] "" ty [] decs (mkTraitRef path |> Some)
+                        ]
+                    [classImplBlock; complMethodsTrait] @ complMethodsTraitImpl
+            dependentInterfaceTraits @
             transformClass com ctx ent decl.Name classMembers
             @ classImpls
 (*

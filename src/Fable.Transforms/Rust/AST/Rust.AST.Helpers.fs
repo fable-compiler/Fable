@@ -1031,6 +1031,8 @@ module Items =
 
     let mkNonPublicItem item: Item =
         { item with vis = INHERITED_VIS }
+    let mkPublicItem item: Item =
+        { item with vis = PUBLIC_VIS }
 
     let mkFnItem attrs name kind: Item =
         let ident = mkIdent name
@@ -1085,7 +1087,7 @@ module Items =
         let ident = mkIdent name
         ItemKind.Trait(IsAuto.No, Unsafety.No, mkGenerics generics, mkVec bounds, mkVec fields)
         |> mkItem attrs ident
-        |> mkNonPublicItem
+        |> mkPublicItem
 
     let mkEnumItem attrs name variants generics: Item =
         let ident = mkIdent name
