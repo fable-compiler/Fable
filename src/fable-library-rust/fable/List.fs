@@ -2,11 +2,11 @@ module List
 
 type Node<'T> = {
     elem: 'T
-    next: Option<Node<'T>>
+    next: Node<'T> option
 }
 
 type List<'T> = {
-    root: Option<Node<'T>>
+    root: Node<'T> option
 }
 
 type 'T list = List<'T>
@@ -45,60 +45,60 @@ let tryHead (xs: 'T list) = //xs.TryHead
 let tail (xs: 'T list) = //xs.Tail
     { root = xs.root |> Option.bind (fun node -> node.next) }
 
-// let length (xs: 'T list) = //xs.Length
-//     let rec loop i next =
-//         match next with
-//         | None -> i
-//         | Some node -> loop (i + 1) node.next
-//     loop 0 xs.root
+let length (xs: 'T list) = //xs.Length
+    let rec loop i (next: Node<'T> option) =
+        match next with
+        | None -> i
+        | Some node -> loop (i + 1) node.next
+    loop 0 xs.root
 
 // let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
 //     let rec loop (xs: 'T list) (ys: 'T list) =
-//         match xs.IsEmpty, ys.IsEmpty with
+//         match (isEmpty xs), (isEmpty ys) with
 //         | true, true -> 0
 //         | true, false -> -1
 //         | false, true -> 1
 //         | false, false ->
-//             let c = comparer xs.Head ys.Head
-//             if c = 0 then loop xs.Tail ys.Tail else c
+//             let c = comparer (head xs) (head ys)
+//             if c = 0 then loop (tail xs) (tail ys) else c
 //     loop xs ys
 
-// let rec tryLast (xs: 'T list) =
-//     if xs.IsEmpty then None
-//     else
-//         let t = xs.Tail
-//         if t.IsEmpty then Some xs.Head
-//         else tryLast t
+let rec tryLast (xs: 'T list) =
+    if (isEmpty xs) then None
+    else
+        let t = (tail xs)
+        if (isEmpty t) then Some (head xs)
+        else tryLast t
 
-// let last (xs: 'T list) =
-//     match tryLast xs with
-//     | Some x -> x
-//     | None -> failwith SR.inputListWasEmpty
+let last (xs: 'T list) =
+    match tryLast xs with
+    | Some x -> x
+    | None -> failwith SR.inputListWasEmpty
 
-// let toArray (xs: 'T list) =
-//     let len = xs.Length
-//     let res = Array.zeroCreate len
-//     let rec loop i (xs: 'T list) =
-//         if not xs.IsEmpty then
-//             res.[i] <- xs.Head
-//             loop (i + 1) xs.Tail
-//     loop 0 xs
-//     res
+let toArray (xs: 'T list) =
+    let len = length xs
+    let res = Array.zeroCreate len
+    let rec loop i (xs: 'T list) =
+        if not (isEmpty xs) then
+            res.[i] <- (head xs)
+            loop (i + 1) (tail xs)
+    loop 0 xs
+    res
 
 // // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-// //     if xs.IsEmpty then state
-// //     else fold folder (folder state xs.Head) xs.Tail
+// //     if (isEmpty xs) then state
+// //     else fold folder (folder state (head xs)) (tail xs)
 
 // let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 //     let mutable acc = state
 //     let mutable xs = xs
-//     while not xs.IsEmpty do
-//         acc <- folder acc xs.Head
-//         xs <- xs.Tail
+//     while not (isEmpty xs) do
+//         acc <- folder acc (head xs)
+//         xs <- (tail xs)
 //     acc
 
 // let reverse (xs: 'T list) =
-//     fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
+//     fold (fun acc x -> cons x acc) (empty()) xs
 
 // let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
 //     // fold (fun acc x -> folder x acc) state (reverse xs)
@@ -106,22 +106,22 @@ let tail (xs: 'T list) = //xs.Tail
 
 // let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 //     let rec loop i acc (xs: 'T list) =
-//         if xs.IsEmpty then acc
-//         else loop (i + 1) (folder i acc xs.Head) xs.Tail
+//         if (isEmpty xs) then acc
+//         else loop (i + 1) (folder i acc (head xs)) (tail xs)
 //     loop 0 state xs
 
 // // let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
-// //     if xs.IsEmpty || ys.IsEmpty then state
-// //     else fold2 folder (folder state xs.Head ys.Head) xs.Tail ys.Tail
+// //     if (isEmpty xs) || (isEmpty ys) then state
+// //     else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
 
 // let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
 //     let mutable acc = state
 //     let mutable xs = xs
 //     let mutable ys = ys
-//     while not xs.IsEmpty && not ys.IsEmpty do
-//         acc <- folder acc xs.Head ys.Head
-//         xs <- xs.Tail
-//         ys <- ys.Tail
+//     while not (isEmpty xs) && not (isEmpty ys) do
+//         acc <- folder acc (head xs) (head ys)
+//         xs <- (tail xs)
+//         ys <- (tail ys)
 //     acc
 
 // let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
@@ -133,9 +133,9 @@ let tail (xs: 'T list) = //xs.Tail
 //         match gen acc with
 //         | None -> node
 //         | Some (x, acc) -> loop acc (node.AppendConsNoTail x)
-//     let root = List.Empty
+//     let root = (empty())
 //     let node = loop state root
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let iterate action xs =
@@ -155,46 +155,47 @@ let tail (xs: 'T list) = //xs.Tail
 
 // let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 //     let mutable res = tail
-//     for i = xs.Length - 1 downto 0 do
-//         res <- List.Cons(xs.[i], res)
+//     let len = length xs
+//     for i = len - 1 downto 0 do
+//         res <- cons xs.[i] res
 //     res
 
 // let ofArray (xs: 'T[]) =
-//     ofArrayWithTail xs List.Empty
+//     ofArrayWithTail xs (empty())
 
 // let ofSeq (xs: seq<'T>): 'T list =
 //     match xs with
 //     | :? array<'T> as xs -> ofArray xs
 //     | :? list<'T> as xs -> xs
 //     | _ ->
-//         let root = List.Empty
+//         let root = (empty())
 //         let mutable node = root
 //         for x in xs do
 //             node <- node.AppendConsNoTail x
-//         node.SetConsTail List.Empty
+//         node.SetConsTail (empty())
 //         root.Tail
 
 // let concat (lists: seq<'T list>) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let mutable node = root
 //     let action xs = node <- fold (fun acc x -> acc.AppendConsNoTail x) node xs
 //     match lists with
 //     | :? array<'T list> as xs -> Array.iter action xs
 //     | :? list<'T list> as xs -> iterate action xs
 //     | _ -> for xs in lists do action xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let mutable node = root.AppendConsNoTail state
 //     let mutable acc = state
 //     let mutable xs = xs
-//     while not xs.IsEmpty do
-//         acc <- folder acc xs.Head
+//     while not (isEmpty xs) do
+//         acc <- folder acc (head xs)
 //         node <- node.AppendConsNoTail acc
-//         xs <- xs.Tail
-//     node.SetConsTail List.Empty
+//         xs <- (tail xs)
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
@@ -202,74 +203,74 @@ let tail (xs: 'T list) = //xs.Tail
 //     |> ofArray
 
 // let append (xs: 'T list) (ys: 'T list) =
-//     fold (fun acc x -> List.Cons(x, acc)) ys (reverse xs)
+//     fold (fun acc x -> cons x acc) ys (reverse xs)
 
 // let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let mutable node = root
 //     let mutable ys = xs
-//     while not ys.IsEmpty do
-//         let mutable zs = mapping ys.Head
-//         while not zs.IsEmpty do
-//             node <- node.AppendConsNoTail zs.Head
-//             zs <- zs.Tail
-//         ys <- ys.Tail
-//     node.SetConsTail List.Empty
+//     while not (isEmpty ys) do
+//         let mutable zs = mapping (head ys)
+//         while not (isEmpty zs) do
+//             node <- node.AppendConsNoTail (head zs)
+//             zs <- (tail zs)
+//         ys <- (tail ys)
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let folder i (acc: 'U list) x = acc.AppendConsNoTail (mapping i x)
 //     let node = foldIndexed folder root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let map (mapping: 'T -> 'U) (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let folder (acc: 'U list) x = acc.AppendConsNoTail (mapping x)
 //     let node = fold folder root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let indexed xs =
 //     mapIndexed (fun i x -> (i, x)) xs
 
 // let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let folder (acc: 'U list) x y = acc.AppendConsNoTail (mapping x y)
 //     let node = fold2 folder root xs ys
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
 //     let rec loop i (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) =
-//         if xs.IsEmpty || ys.IsEmpty then acc
+//         if (isEmpty xs) || (isEmpty ys) then acc
 //         else
-//             let node = acc.AppendConsNoTail (mapping i xs.Head ys.Head)
-//             loop (i + 1) node xs.Tail ys.Tail
-//     let root = List.Empty
+//             let node = acc.AppendConsNoTail (mapping i (head xs) (head ys))
+//             loop (i + 1) node (tail xs) (tail ys)
+//     let root = (empty())
 //     let node = loop 0 root xs ys
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
 //     let rec loop (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
-//         if xs.IsEmpty || ys.IsEmpty || zs.IsEmpty then acc
+//         if (isEmpty xs) || (isEmpty ys) || (isEmpty zs) then acc
 //         else
-//             let node = acc.AppendConsNoTail (mapping xs.Head ys.Head zs.Head)
-//             loop node xs.Tail ys.Tail zs.Tail
-//     let root = List.Empty
+//             let node = acc.AppendConsNoTail (mapping (head xs) (head ys) (head zs))
+//             loop node (tail xs) (tail ys) (tail zs)
+//     let root = (empty())
 //     let node = loop root xs ys zs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T list) =
 //     let folder (node: 'Result list, st) x =
 //         let r, st = mapping st x
 //         node.AppendConsNoTail r, st
-//     let root = List.Empty
+//     let root = (empty())
 //     let node, state = fold folder (root, state) xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail, state
 
 // let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
@@ -277,11 +278,11 @@ let tail (xs: 'T list) = //xs.Tail
 
 // let tryPick f xs =
 //     let rec loop (xs: 'T list) =
-//         if xs.IsEmpty then None
+//         if (isEmpty xs) then None
 //         else
-//             match f xs.Head with
+//             match f (head xs) with
 //             | Some _  as res -> res
-//             | None -> loop xs.Tail
+//             | None -> loop (tail xs)
 //     loop xs
 
 // let pick f xs =
@@ -307,11 +308,11 @@ let tail (xs: 'T list) = //xs.Tail
 
 // let tryFindIndex f xs: int option =
 //     let rec loop i (xs: 'T list) =
-//         if xs.IsEmpty then None
+//         if (isEmpty xs) then None
 //         else
-//             if f xs.Head
+//             if f (head xs)
 //             then Some i
-//             else loop (i + 1) xs.Tail
+//             else loop (i + 1) (tail xs)
 //     loop 0 xs
 
 // let findIndex f xs: int =
@@ -329,41 +330,41 @@ let tail (xs: 'T list) = //xs.Tail
 
 // let tryItem n (xs: 'T list) =
 //     let rec loop i (xs: 'T list) =
-//         if xs.IsEmpty then None
+//         if (isEmpty xs) then None
 //         else
-//             if i = n then Some xs.Head
-//             else loop (i + 1) xs.Tail
+//             if i = n then Some (head xs)
+//             else loop (i + 1) (tail xs)
 //     loop 0 xs
 
 // let item n (xs: 'T list) = xs.Item(n)
 
 // let filter f (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let folder (acc: 'T list) x =
 //         if f x then acc.AppendConsNoTail x else acc
 //     let node = fold folder root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let partition f (xs: 'T list) =
-//     let root1, root2 = List.Empty, List.Empty
+//     let root1, root2 = (empty()), (empty())
 //     let folder (lacc: 'T list, racc: 'T list) x =
 //         if f x
 //         then lacc.AppendConsNoTail x, racc
 //         else lacc, racc.AppendConsNoTail x
 //     let node1, node2 = fold folder (root1, root2) xs
-//     node1.SetConsTail List.Empty
-//     node2.SetConsTail List.Empty
+//     node1.SetConsTail (empty())
+//     node2.SetConsTail (empty())
 //     root1.Tail, root2.Tail
 
 // let choose f (xs: 'T list) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let folder (acc: 'T list) x =
 //         match f x with
 //         | Some y -> acc.AppendConsNoTail y
 //         | None -> acc
 //     let node = fold folder root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
@@ -371,22 +372,22 @@ let tail (xs: 'T list) = //xs.Tail
 //     |> Option.isSome
 
 // let initialize n (f: int -> 'T) =
-//     let root = List.Empty
+//     let root = (empty())
 //     let mutable node = root
 //     for i = 0 to n - 1 do
 //         node <- node.AppendConsNoTail (f i)
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let replicate n x =
 //     initialize n (fun _ -> x)
 
 // let reduce f (xs: 'T list) =
-//     if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+//     if (isEmpty xs) then invalidOp SR.inputListWasEmpty
 //     else fold f (head xs) (tail xs)
 
 // let reduceBack f (xs: 'T list) =
-//     if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+//     if (isEmpty xs) then invalidOp SR.inputListWasEmpty
 //     else foldBack f (tail xs) (head xs)
 
 // let forAll f xs =
@@ -399,16 +400,16 @@ let tail (xs: 'T list) = //xs.Tail
 //     tryFindIndex f xs |> Option.isSome
 
 // let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
-//     match xs.IsEmpty, ys.IsEmpty with
+//     match (isEmpty xs), (isEmpty ys) with
 //     | true, true -> false
-//     | false, false -> f xs.Head ys.Head || exists2 f xs.Tail ys.Tail
+//     | false, false -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
 //     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
 // let unzip xs =
-//     foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
+//     foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty()), (empty()))
 
 // let unzip3 xs =
-//     foldBack (fun (x, y, z) (lacc, macc, racc) -> List.Cons(x, lacc), List.Cons(y, macc), List.Cons(z, racc)) xs (List.Empty, List.Empty, List.Empty)
+//     foldBack (fun (x, y, z) (lacc, macc, racc) -> cons x lacc, cons y macc, cons z racc) xs ((empty()), (empty()), (empty()))
 
 // let zip xs ys =
 //     map2 (fun x y -> x, y) xs ys
@@ -475,54 +476,54 @@ let tail (xs: 'T list) = //xs.Tail
 //     |> ofArray
 
 // let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
-//     let root = List.Empty
+//     let root = (empty())
 //     let mutable node = root
 //     iterate (fun x ->
 //         iterate (fun y ->
 //             node <- node.AppendConsNoTail (x, y)
 //         ) ys) xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let rec skip count (xs: 'T list) =
 //     if count <= 0 then xs
-//     elif xs.IsEmpty then invalidArg "list" SR.notEnoughElements
-//     else skip (count - 1) xs.Tail
+//     elif (isEmpty xs) then invalidArg "list" SR.notEnoughElements
+//     else skip (count - 1) (tail xs)
 
 // let rec skipWhile predicate (xs: 'T list) =
-//     if xs.IsEmpty then xs
-//     elif not (predicate xs.Head) then xs
-//     else skipWhile predicate xs.Tail
+//     if (isEmpty xs) then xs
+//     elif not (predicate (head xs)) then xs
+//     else skipWhile predicate (tail xs)
 
 // let take count (xs: 'T list) =
 //     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
 //     let rec loop i (acc: 'T list) (xs: 'T list) =
 //         if i <= 0 then acc
-//         elif xs.IsEmpty then invalidArg "list" SR.notEnoughElements
-//         else loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
-//     let root = List.Empty
+//         elif (isEmpty xs) then invalidArg "list" SR.notEnoughElements
+//         else loop (i - 1) (acc.AppendConsNoTail (head xs)) (tail xs)
+//     let root = (empty())
 //     let node = loop count root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let takeWhile predicate (xs: 'T list) =
 //     let rec loop (acc: 'T list) (xs: 'T list) =
-//         if xs.IsEmpty then acc
-//         elif not (predicate xs.Head) then acc
-//         else loop (acc.AppendConsNoTail xs.Head) xs.Tail
-//     let root = List.Empty
+//         if (isEmpty xs) then acc
+//         elif not (predicate (head xs)) then acc
+//         else loop (acc.AppendConsNoTail (head xs)) (tail xs)
+//     let root = (empty())
 //     let node = loop root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let truncate count (xs: 'T list) =
 //     let rec loop i (acc: 'T list) (xs: 'T list) =
 //         if i <= 0 then acc
-//         elif xs.IsEmpty then acc
-//         else loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
-//     let root = List.Empty
+//         elif (isEmpty xs) then acc
+//         else loop (i - 1) (acc.AppendConsNoTail (head xs)) (tail xs)
+//     let root = (empty())
 //     let node = loop count root xs
-//     node.SetConsTail List.Empty
+//     node.SetConsTail (empty())
 //     root.Tail
 
 // let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
@@ -531,24 +532,24 @@ let tail (xs: 'T list) = //xs.Tail
 //     let endIndex = defaultArg endIndex (len - 1)
 //     if startIndex < 0 then invalidArg "startIndex" SR.indexOutOfBounds
 //     elif endIndex >= len then invalidArg "endIndex" SR.indexOutOfBounds
-//     elif endIndex < startIndex then List.Empty
+//     elif endIndex < startIndex then (empty())
 //     else xs |> skip startIndex |> take (endIndex - startIndex + 1)
 
 // let splitAt index (xs: 'T list) =
 //     if index < 0 then invalidArg "index" SR.inputMustBeNonNegative
-//     if index > xs.Length then invalidArg "index" SR.notEnoughElements
+//     if index > length xs then invalidArg "index" SR.notEnoughElements
 //     take index xs, skip index xs
 
 // let exactlyOne (xs: 'T list) =
-//     if xs.IsEmpty
+//     if (isEmpty xs)
 //     then invalidArg "list" SR.inputSequenceEmpty
 //     else
-//         if xs.Tail.IsEmpty then xs.Head
+//         if isEmpty (tail xs) then (head xs)
 //         else invalidArg "list" SR.inputSequenceTooLong
 
 // let tryExactlyOne (xs: 'T list) =
-//     if not (xs.IsEmpty) && xs.Tail.IsEmpty
-//     then Some (xs.Head)
+//     if not (isEmpty xs) && isEmpty (tail xs)
+//     then Some (head xs)
 //     else None
 
 // let where predicate (xs: 'T list) =

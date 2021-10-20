@@ -803,23 +803,7 @@ module Generic =
         genArgs |> GenericArgs.Parenthesized
 
 [<AutoOpen>]
-module Types =
-
-    let mkTy kind: Ty =
-        { id = DUMMY_NODE_ID
-          kind = kind
-          span = DUMMY_SP
-          tokens = None }
-
-    let mkBareFnTy genParams fnDecl: BareFnTy =
-        { unsafety = Unsafety.No
-          ext = Extern.None
-          generic_params = mkVec genParams
-          decl = fnDecl }
-
-    let mkFnTy genParams fnDecl: Ty =
-        TyKind.BareFn(mkBareFnTy genParams fnDecl)
-        |> mkTy
+module Bounds =
 
     let mkTraitRef path: TraitRef =
         { path = path
@@ -842,6 +826,33 @@ module Types =
     let mkTypeTraitGenericBound names genArgs: GenericBound =
         let path = mkGenericPath names genArgs
         mkTraitGenericBound path
+
+[<AutoOpen>]
+module Types =
+
+    let mkTy kind: Ty =
+        { id = DUMMY_NODE_ID
+          kind = kind
+          span = DUMMY_SP
+          tokens = None }
+
+    let mkBareFnTy genParams fnDecl: BareFnTy =
+        { unsafety = Unsafety.No
+          ext = Extern.None
+          generic_params = mkVec genParams
+          decl = fnDecl }
+
+    let mkFnTy genParams fnDecl: Ty =
+        TyKind.BareFn(mkBareFnTy genParams fnDecl)
+        |> mkTy
+
+    let mkInferTy (): Ty =
+        TyKind.Infer
+        |> mkTy
+
+    let mkImplSelfTy (): Ty =
+        TyKind.ImplicitSelf
+        |> mkTy
 
     let mkTraitTy bounds: Ty =
         TyKind.TraitObject(mkVec bounds, TraitObjectSyntax.None)
@@ -916,11 +927,11 @@ module Params =
         mkParam attrs ty pat is_placeholder
 
     let mkInferredParam name isRef isMut: Param =
-        let ty = TyKind.Infer |> mkTy
+        let ty = mkInferTy ()
         mkParamFromType name ty isRef isMut
 
     let mkImplSelfParam isRef isMut: Param =
-        let ty = TyKind.ImplicitSelf |> mkTy |> mkRefTy
+        let ty = mkImplSelfTy () |> mkRefTy
         let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat (rawIdent "self") isRef isMut
@@ -1029,10 +1040,11 @@ module Items =
           kind = kind
           tokens = None }
 
-    let mkNonPublicItem item: Item =
-        { item with vis = INHERITED_VIS }
     let mkPublicItem item: Item =
         { item with vis = PUBLIC_VIS }
+
+    let mkNonPublicItem item: Item =
+        { item with vis = INHERITED_VIS }
 
     let mkFnItem attrs name kind: Item =
         let ident = mkIdent name
@@ -1087,7 +1099,6 @@ module Items =
         let ident = mkIdent name
         ItemKind.Trait(IsAuto.No, Unsafety.No, mkGenerics generics, mkVec bounds, mkVec fields)
         |> mkItem attrs ident
-        |> mkPublicItem
 
     let mkEnumItem attrs name variants generics: Item =
         let ident = mkIdent name
