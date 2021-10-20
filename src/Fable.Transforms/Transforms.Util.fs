@@ -407,9 +407,6 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType) |> makeValue None
 
-    let makeTuple tupleExprs =
-        NewTuple tupleExprs |> makeValue None
-
     let makeDelegate args body =
         Delegate(args, body, None)
 

@@ -369,7 +369,7 @@ type Expr =
     /// Lambdas are curried, they always have a single argument (which can be unit)
     | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * name: string option
+    | Delegate of args: Ident list * body: Expr * name: string option * isArrow: bool
     | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
@@ -430,7 +430,7 @@ type Expr =
         | IfThenElse (_, expr, _, _)
         | DecisionTree (expr, _) -> expr.Type
         | Lambda(arg, body, _) -> LambdaType(arg.Type, body.Type)
-        | Delegate(args, body, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
+        | Delegate(args, body, _, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
 
     member this.Range: SourceLocation option =
         match this with
@@ -441,7 +441,7 @@ type Expr =
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)
-        | Delegate (_, e, _)
+        | Delegate (_, e, _, _)
         | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
         | Extended(_,r)

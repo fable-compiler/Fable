@@ -1108,7 +1108,7 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpM
                 let typ = makeType Map.empty typ
                 Replacements.makeTypeConst com None typ value)
             |> Seq.toList
-        let callInfo = { makeCallInfo None args [] with IsJsConstructor = true }
+        let callInfo = { makeCallInfo None args [] with IsConstructor = true }
         FsEnt(ent) |> entityRef com
         |> makeCall None Fable.Any callInfo
 
@@ -1139,10 +1139,7 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpM
     |> function
         | [] -> None
         | decorators ->
-            let body = Fable.Delegate(args, body, None)
-            // Hack to tell the compiler this must be compiled as function (not arrow)
-            // so we don't have issues with bound this
-            let body = Fable.TypeCast(body, body.Type, Some("optimizable:function"))
+            let body = Fable.Delegate(args, body, None, false)
             List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =

@@ -921,8 +921,8 @@ module TypeHelpers =
             | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, None)
             | DicContains numbersWithMeasure kind -> Fable.Number(kind, getMeasureFullName genArgs |> Some)
-            | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
-            | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
+            | "Microsoft.FSharp.Core.int64`1" -> makeRuntimeTypeWithMeasure genArgs Types.int64
+            | "Microsoft.FSharp.Core.decimal`1" -> makeRuntimeTypeWithMeasure genArgs Types.decimal
             | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with

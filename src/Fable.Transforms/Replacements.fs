@@ -641,7 +641,7 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
-let rec findInScope scope identName =
+let rec findInScope (scope: FSharp2Fable.Scope) identName =
     match scope with
     | [] -> None
     | (_,ident2,expr)::prevScope ->
@@ -1098,8 +1098,8 @@ let rec defaultof (com: ICompiler) ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
-    // TODO: Non-struct tuples should default to null
-    | Tuple args -> args |> List.map (defaultof com ctx) |> NewTuple |> makeValue None
+    // Non-struct tuples default to null
+    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
     | Builtin BclTimeSpan
     | Builtin BclDateTime
     | Builtin BclDateTimeOffset
@@ -1200,7 +1200,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
-    | _, "FormattableString.GetStrings" -> get r t thisArg.Value "strs" |> Some
+    | _, "FormattableString.GetStrings" -> getAttachedMemberWith r t thisArg.Value "strs" |> Some
 
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
@@ -3154,7 +3154,7 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
     let args = [
         makeStrConst name
         parameters
-            |> List.map (fun (name, t) -> makeTuple [makeStrConst name; makeTypeInfo None t])
+            |> List.map (fun (name, t) -> makeTuple None [makeStrConst name; makeTypeInfo None t])
             |> makeArray Any
         makeTypeInfo None returnType
     ]

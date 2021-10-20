@@ -548,7 +548,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _) -> Some(args, body)
+        | Fable.Delegate(args, body, _, _) -> Some(args, body)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -1126,9 +1126,6 @@ module Util =
             | Some "array" , [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), range) |> Some
             | Some "pojo", keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
             | Some "pojo", keyValueList::_ -> Replacements.makePojo com None keyValueList
-            // | Some "function", Fable.Delegate(args, body, name) ->
-            //     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
-            //     Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
             | _ -> None
 
         match optimized with
@@ -1543,7 +1540,12 @@ module Util =
             transformFunctionWithAnnotations com ctx name [arg] body
             |> makeArrowFunctionExpression name
 
-        | Fable.Delegate(args, body, name) ->
+        | Fable.Delegate(args, body, name, isArrow) ->
+            // | Some "function", Fable.Delegate(args, body, name) ->
+            //     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
+            //     Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
+
+
             transformFunctionWithAnnotations com ctx name args body
             |> makeArrowFunctionExpression name
 
