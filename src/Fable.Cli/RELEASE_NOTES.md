@@ -1,3 +1,7 @@
+### 3.4.4
+
+* Use relative paths for source maps
+
 ### 3.4.3
 
 * Add support of System.Activator for primitive types @Happypig375
