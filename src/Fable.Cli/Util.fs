@@ -299,6 +299,10 @@ module Imports =
             let importPath = Path.Combine(outDir, importPath)
             let targetDir = Path.GetDirectoryName(targetPath)
             getRelativePath targetDir importPath
+        | Some "entryDir", _ ->
+            let importPath = Path.Combine(projDir, importPath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            getRelativePath targetDir importPath
         | Some macro, _ ->
             failwith $"Unknown import macro: {macro}"
         | None, None -> importPath
