@@ -1,3 +1,7 @@
+### 3.4.5
+
+* Accept ${entryDir} macro in imports
+
 ### 3.4.4
 
 * Use relative paths for source maps
