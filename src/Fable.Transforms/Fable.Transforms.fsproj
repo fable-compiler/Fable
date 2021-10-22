@@ -24,11 +24,9 @@
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.1" /> -->
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.0-preview.21472.3" />
   </ItemGroup>
 </Project>

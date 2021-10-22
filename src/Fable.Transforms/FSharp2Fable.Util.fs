@@ -441,7 +441,10 @@ module Helpers =
         | FSharpInlineAnnotation.NeverInline
         // TODO: Add compiler option to inline also `OptionalInline`
         | FSharpInlineAnnotation.OptionalInline -> false
+// TODO: Remove when fcs-fable is updated
+#if FABLE_COMPILER
         | FSharpInlineAnnotation.PseudoValue
+#endif
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 

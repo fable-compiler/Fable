@@ -2,7 +2,6 @@ module Fable.Cli.Main
 
 open System
 open System.Collections.Generic
-open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 
@@ -58,7 +57,6 @@ module private Util =
     //                 failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
     //             // else printfn "Fable.Core version matches"
 
-    // Some conditions assume that if FableCompilationMs is 0 compilation didn't happen, so make sure it's at least 1L
     let measureTime (f: unit -> 'a) =
         let sw = Diagnostics.Stopwatch.StartNew()
         let res = f()
@@ -322,7 +320,7 @@ type ProjectCracked(projFile: string,
         ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
-        let res =
+        let res, ms = measureTime <| fun () ->
             CrackerOptions(fableOpts = cliArgs.CompilerOptions,
                            fableLib = cliArgs.FableLibraryPath,
                            outDir = cliArgs.OutDir,
@@ -334,6 +332,7 @@ type ProjectCracked(projFile: string,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
 
+        Log.always $"Parsing/Restoring finished in %i{ms}ms"
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
             let opts = res.ProjectOptions.OtherOptions |> String.concat "\n   "
@@ -342,41 +341,39 @@ type ProjectCracked(projFile: string,
         let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
         ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs.CompilerOptions, res)
 
-type ProjectParsed(project: Project, checker: InteractiveChecker) =
+type ProjectParsed(project: Project, checker: FSharpChecker) =
 
-    static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) =
+    static let checkProject (config: ProjectCracked) (checker: FSharpChecker) = async {
         Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectOptions.ProjectFileName + "...")
-        let result, ms = measureTime <| fun () ->
-            let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
-            let sourceReader f = fileDic.[f].ReadSource()
-            let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
-            checker.ParseAndCheckProject(config.ProjectOptions.ProjectFileName, filePaths, sourceReader)
+        let! result, ms = measureTimeAsync <| fun () ->
+            checker.ParseAndCheckProject(config.ProjectOptions)
         Log.always $"F# compilation finished in %i{ms}ms"
-        result
+        return result
+    }
 
     member _.Project = project
     member _.Checker = checker
 
-    static member Init(config: ProjectCracked, ?checker) =
+    static member Init(config: ProjectCracked, ?checker) = async {
         let checker =
             match checker with
             | Some checker -> checker
-            | None ->
-                Log.always("Initializing F# compiler...")
-                InteractiveChecker.Create(config.ProjectOptions)
+            | None -> FSharpChecker.Create(keepAssemblyContents=true)
 
-        let checkResults = checkProject config checker
+        let! checkResults = checkProject config checker
         let proj = Project(config.ProjectFile,
                            checkResults,
                            getPlugin=loadType,
                            optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst,
                            rootModule=config.FableOptions.RootModule)
-        ProjectParsed(proj, checker)
+        return ProjectParsed(proj, checker)
+    }
 
-    member this.Update(config: ProjectCracked) =
-        let checkResults = checkProject config this.Checker
+    member this.Update(config: ProjectCracked) = async {
+        let! checkResults = checkProject config this.Checker
         let proj = this.Project.Update(checkResults)
-        ProjectParsed(proj, checker)
+        return ProjectParsed(proj, checker)
+    }
 
 type State =
     { CliArgs: CliArgs
@@ -418,7 +415,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         | _ -> state
 
     // TODO: Use Result here to fail more gracefully if FCS crashes
-    let cracked, parsed, filesToCompile =
+    let! cracked, parsed, filesToCompile = async {
         match state.ProjectCrackedAndParsed with
         | Some(cracked, parsed) ->
             let fsprojChanged, oldFiles, cracked =
@@ -447,14 +444,14 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         else None)
 
             if Array.isEmpty dirtyFiles then
-                cracked, parsed, [||]
+                return cracked, parsed, [||]
             else
                 let dirtyFiles = set dirtyFiles
                 let cracked = cracked.MapSourceFiles(fun file ->
                     if Set.contains file.NormalizedFullPath dirtyFiles then
                         File(file.NormalizedFullPath) // Clear the cached source hash
                     else file)
-                let parsed =
+                let! parsed =
                     if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
                     else parsed.Update(cracked)
                 let filesToCompile =
@@ -464,10 +461,10 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         if Set.contains path dirtyFiles
                             || hasWatchDependency path dirtyFiles state.WatchDependencies then Some path
                         else None)
-                cracked, parsed, filesToCompile
+                return cracked, parsed, filesToCompile
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
-            let parsed = ProjectParsed.Init(cracked)
+            let! parsed = ProjectParsed.Init(cracked)
             let filesToCompile =
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
@@ -484,7 +481,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         if skipped.Length < files.Length then
                             Log.always("Skipping Fable compilation of up-to-date JS files")
                         skipped
-            cracked, parsed, filesToCompile
+            return cracked, parsed, filesToCompile
+        }
 
     let filesToCompile =
         filesToCompile
