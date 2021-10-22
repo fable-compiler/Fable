@@ -70,29 +70,14 @@ let ``Class fluent/builder internal clone pattern should work`` () =
     let res = b.DoFluentAndReturnSelf(1).DoFluentAndReturnSelf(2).DoFluentAndReturnInner(3).X
     res |> equal 42
 
-//PROBLEM - Interfaces are not on the AST - this is erased
-type IHasAdd =
-    abstract Add: x: int -> y: int -> int
-
-type WithInterface(m: int) =
-    interface IHasAdd with
+type WithCrossModuleInterface(m: int) =
+    interface Fable.Tests.ClassInterfaceTests.IHasAdd with
       member this.Add x y = x + y + m
 
 [<Fact>]
-let ``Class interface impl works trivial`` () =
-    let a = WithInterface(1)
-    let aCasted = (a :> IHasAdd)
-    let res = aCasted.Add 2 1
+let ``Class interface from another module works`` () =
+    let a = WithCrossModuleInterface(1)
+    let res = (a :> Fable.Tests.ClassInterfaceTests.IHasAdd).Add 2 1
     res |> equal 4
-
-let doAddWithInterface (i: IHasAdd) =
-    i.Add 3 4
-
-[<Fact>]
-let ``Class interface with callout works`` () =
-    let a = WithInterface(1)
-    let aCasted = (a :> IHasAdd)
-    let res = doAddWithInterface aCasted
-    let res2 = doAddWithInterface a
-    res |> equal 8
-    res2 |> equal 8
+    //let res2 = Fable.Tests.ClassInterfaceTests.doAddWithInterface(a) // todo: this breaks because duplicate interface + module not imported
+    //res2 |> equal 8

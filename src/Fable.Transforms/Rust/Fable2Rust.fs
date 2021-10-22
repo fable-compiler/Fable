@@ -66,7 +66,8 @@ type IRustCompiler =
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
     // abstract TransformImport: Context * selector:string * path:string -> Rust.Expr
     // abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
-
+    abstract TryRegisterInterface: rustNs: string * dotnetNs: string -> bool
+    abstract GetInterfaceNs: dotnetNs: string -> string
 // TODO : Centralise and find a home for this
 module Helpers =
     module Map =
@@ -500,7 +501,7 @@ module TypeInfo =
                     let ent = com.GetEntity(entRef)
                     let genArgsTr = transformGenArgs com ctx genArgs
                     if ent.IsInterface then
-                        makeImplOrDynTraitTy com ctx (splitFullName ent.FullName) genArgs
+                        makeImplOrDynTraitTy com ctx (splitFullName (com.GetInterfaceNs ent.FullName)) genArgs
                     else makeFullNamePathTy ent.FullName genArgsTr
 
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
@@ -3279,21 +3280,23 @@ module Util =
         else
             let dependentInterfaceTraits =
                 [
-                    let notYetSeenInterfaces = ent.AllInterfaces //|> Seq.filter(stuffNotYetRegistered)
-                    for iface in notYetSeenInterfaces do
+                    for iface in ent.AllInterfaces do
                         let ifaceEnt = com.GetEntity iface.Entity
-                        let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                        let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
-                        let fields = [
-                            for m in filteredMembers ->
-                                let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                                let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
-                                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                                mkFnAssocItem [] m.Name fnKind
-                        ]
+                        let nspace = (ent.FullName |> splitFullName |> List.rev |> List.tail |> List.rev |> List.reduce (fun acc item -> acc + "." + item ))
+                        let isNew = com.TryRegisterInterface (ifaceEnt.FullName, nspace + "." + ifaceEnt.DisplayName)
+                        if isNew then
+                            let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
+                            let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
+                            let fields = [
+                                for m in filteredMembers ->
+                                    let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                                    let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
+                                    let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                                    mkFnAssocItem [] m.Name fnKind
+                            ]
 
-                        if interfacesToIgnore |> Set.contains ifaceEnt.DisplayName |> not then
-                            yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] []
+                            if interfacesToIgnore |> Set.contains ifaceEnt.DisplayName |> not then
+                                yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] []
                 ]
             let ctorItem =
                 match decl.Constructor with
@@ -3340,7 +3343,7 @@ module Util =
                         |> Seq.map(fun i ->
                             let ifaceEnt = com.GetEntity i.Entity
                             let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            ifaceEnt.DisplayName, members
+                            com.GetInterfaceNs ifaceEnt.FullName, members
                             )
                         |> Seq.filter(fun (dn, m) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
                         |> Seq.toList
@@ -3367,7 +3370,7 @@ module Util =
                         ifaces @ [complTrait]
 
                     let complMethodsTraitImpl = [
-                        for tname, tmethods in traitsToRender ->
+                        for tFullName, tmethods in traitsToRender ->
                             let decs = //copied from below. Do we need this? If so refactor to common or something
                                 let withCurrentScope ctx (usedNames: Set<string>) f =
                                     let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -3377,7 +3380,7 @@ module Util =
 
                                 let makeDecl (decl: Fable.MemberDecl) =
                                     withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                                        let name = decl.FullDisplayName.Split('.') |> Array.toList |> List.rev |> List.head
+                                        let name = decl.FullDisplayName |> splitFullName |> List.rev |> List.head
                                         transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
 
                                 decl.AttachedMembers
@@ -3388,7 +3391,7 @@ module Util =
                                 let bounds = mkTypeTraitGenericBound [decl.Name] None
                                 mkTraitTy [bounds]
                                 |> makeRefTy com
-                            let path = mkGenericPath [tname] (mkGenericArgs [])
+                            let path = mkGenericPath (splitFullName tFullName) (mkGenericArgs [])
                             mkImplItem [] "" ty [] decs (mkTraitRef path |> Some)
                         ]
                     [classImplBlock; complMethodsTrait] @ complMethodsTraitImpl
@@ -3625,6 +3628,7 @@ module Compiler =
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = HashSet<string>()
+        let mutable ifaces = Map.empty
 
         interface IRustCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
@@ -3648,6 +3652,14 @@ module Compiler =
         //     member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
         //     member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
         //     member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
+            member _.TryRegisterInterface (dotnetNs, rustNs) =
+                match ifaces |> Map.tryFind dotnetNs with
+                | None ->
+                    ifaces <- ifaces |> Map.add dotnetNs rustNs
+                    true
+                | Some _ -> false
+            member _.GetInterfaceNs dotnetNs =
+                ifaces |> Map.tryFind dotnetNs |> Option.defaultValue dotnetNs
 
         interface Fable.Compiler with
             member _.Options = com.Options
