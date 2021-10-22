@@ -3,16 +3,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <RollForward>Major</RollForward>
-    <LangVersion>preview</LangVersion>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 </Project>

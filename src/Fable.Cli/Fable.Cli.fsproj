@@ -11,7 +11,6 @@
 * Print paths relative to --cwd if set</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PackageId>Fable</PackageId>
     <AssemblyName>fable</AssemblyName>
@@ -34,16 +33,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
-    <!-- <ProjectReference Include="../../../fsharp/src/fsharp/FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj" /> -->
-  </ItemGroup>
-  <ItemGroup>
-    <!-- <Reference Include="../../lib/fcs/FSharp.Core.dll" /> -->
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="source-map-sharp" Version="1.0.7" />
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 </Project>
