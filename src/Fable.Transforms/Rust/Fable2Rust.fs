@@ -354,16 +354,16 @@ module TypeInfo =
             uncurryLambdaType (xs @ [argType], returnType)
         | xs, returnType -> xs, returnType
 
-    let transformLambdaType com ctx inputTypes returnType: Rust.Ty =
-        let fnRetTy =
-            if returnType = Fable.Unit then VOID_RETURN_TY
-            else transformType com ctx returnType |> mkFnRetTy
-        let pat = mkIdentPat "a" false false
-        let inputs = inputTypes |> List.map (fun tInput ->
-            mkParam [] (transformParamType com ctx tInput) pat false)
-        let fnDecl = mkFnDecl inputs fnRetTy
-        let genParams = [] // TODO:
-        mkFnTy genParams fnDecl
+    // let transformLambdaType com ctx inputTypes returnType: Rust.Ty =
+    //     let fnRetTy =
+    //         if returnType = Fable.Unit then VOID_RETURN_TY
+    //         else transformType com ctx returnType |> mkFnRetTy
+    //     let pat = mkIdentPat "a" false false
+    //     let inputs = inputTypes |> List.map (fun tInput ->
+    //         mkParam [] (transformParamType com ctx tInput) pat false)
+    //     let fnDecl = mkFnDecl inputs fnRetTy
+    //     let genParams = [] // TODO:
+    //     mkFnTy genParams fnDecl
 
     let transformClosureType com ctx inputTypes returnType: Rust.Ty =
         let inputs = inputTypes |> List.map (transformParamType com ctx)
@@ -440,9 +440,10 @@ module TypeInfo =
                 numberType kind
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType ([], t)
-                if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
-                then transformClosureType com ctx inputTypes returnType
-                else transformLambdaType com ctx inputTypes returnType
+                transformClosureType com ctx inputTypes returnType
+                // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
+                // then transformClosureType com ctx inputTypes returnType
+                // else transformLambdaType com ctx inputTypes returnType
             // | Fable.DelegateType(argTypes, returnType) ->
             //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
             | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
@@ -839,12 +840,12 @@ module Util =
 
     let (|TransformExpr|) (com: IRustCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
-(*
-    let (|Function|_|) = function
-        | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _) -> Some(args, body)
-        | _ -> None
 
+    let (|Function|_|) = function
+        | Fable.Lambda(arg, body, name) -> Some([arg], body, name)
+        | Fable.Delegate(args, body, name) -> Some(args, body, name)
+        | _ -> None
+(*
     let (|Lets|_|) = function
         | Fable.Let(ident, value, body) -> Some([ident, value], body)
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
@@ -1889,6 +1890,53 @@ module Util =
             List.collect flattenSequential exprs
         | _ -> [expr]
 
+    let makeLetStmt com ctx usages (ident: Fable.Ident) (value: Fable.Expr) =
+        let isRef = false
+        let isMut = false
+        let pat = mkIdentPat ident.Name isRef isMut
+        let tyOpt =
+            match ident.Type with
+            | Fable.LambdaType _
+            | Fable.DelegateType _ -> None
+            | Fable.Any -> None
+            | _ ->
+                let typegen =
+                    { ctx.Typegen with
+                        // FavourClosureTraitOverFunctionPointer = true
+                        IsParamType = false
+                        TakingOwnership = true
+                        IsRawType = false }
+                let ctx = { ctx with Typegen = typegen }
+                transformType com ctx ident.Type
+                |> Some
+        let tyOpt =
+            tyOpt |> Option.map (fun ty ->
+                if ident.IsMutable
+                then ty |> makeMutTy com ctx ident.Type |> makeRefTy com
+                else ty)
+        let init =
+            match value with
+            | Function (args, body, _name) ->
+                let name = Some (ident.Name)
+                transformLambda com ctx name args body
+            | _ ->
+                transformLeaveContextByValue com ctx (Some ident.Type) (Some ident.Name) value
+        let expr =
+            if ident.IsMutable
+            then init |> makeMutValue |> makeRefValue
+            else init
+        let local = mkLocal [] pat tyOpt (Some expr)
+        // TODO : traverse body and follow references to decide on if this should be wrapped or not]
+        let scopedVarAttrs = {
+            IsArm = false
+            IsRef = isRef
+            // IsMutable = isMut
+            // IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
+            HasMultipleUses = hasMultipleUses ident.Name usages
+        }
+        let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
+        mkLocalStmt local, ctxNext
+
     let transformLet (com: IRustCompiler) ctx bindings body =
         let usages =
             let bodyUsages = calcIdentUsages body
@@ -1896,61 +1944,20 @@ module Util =
             (Map.empty, bodyUsages::bindingsUsages)
             ||> List.fold (Helpers.Map.mergeAndAggregate (+))
 
-        let makeLetStmt ctx (ident: Fable.Ident, value: Fable.Expr) =
-            let isRef = false
-            let isMut = false
-            let pat = mkIdentPat ident.Name isRef isMut
-            let tyOpt =
-                match ident.Type with
-                | Fable.LambdaType _
-                | Fable.DelegateType _ -> None
-                | Fable.Any -> None
-                | _ ->
-                    let typegen =
-                        { ctx.Typegen with
-                            // FavourClosureTraitOverFunctionPointer = true
-                            IsParamType = false
-                            TakingOwnership = true
-                            IsRawType = false }
-                    let ctx = { ctx with Typegen = typegen }
-                    transformType com ctx ident.Type
-                    |> Some
-            let tyOpt =
-                tyOpt |> Option.map (fun ty ->
-                    if ident.IsMutable
-                    then ty |> makeMutTy com ctx ident.Type |> makeRefTy com
-                    else ty)
-            let init =
-                let name = Some (ident.Name)
-                match value with
-                | Fable.Lambda(arg, body, _name) ->
-                    transformLambda com ctx name [arg] body
-                | Fable.Delegate(args, body, _name) ->
-                    transformLambda com ctx name args body
-                | _ ->
-                    transformLeaveContextByValue com ctx (Some ident.Type) (Some ident.Name) value
-            let expr =
-                if ident.IsMutable
-                then init |> makeMutValue |> makeRefValue
-                else init
-            let local = mkLocal [] pat tyOpt (Some expr)
-            // TODO : traverse body and follow references to decide on if this should be wrapped or not]
-            let scopedVarAttrs = {
-                IsArm = false
-                IsRef = isRef
-                // IsMutable = isMut
-                // IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
-                HasMultipleUses = hasMultipleUses ident.Name usages
-            }
-            let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
-            mkLocalStmt local, ctxNext
-
         let ctx, letStmtsRev = //Context needs to be threaded through all lets, appending itself to ScopedSymbols each time
             ((ctx, []), bindings)
-            ||> List.fold (fun (ctx, lst) (ident, expr) ->
-                let (stmt, ctxNext) = makeLetStmt ctx (ident, expr)
-                (ctxNext, stmt::lst)
-                )
+            ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, expr) ->
+                let (stmt, ctxNext) =
+                    match expr with
+                    | Function (args, body, _name) ->
+                        let name = Some (ident.Name)
+                        let isCapturing = hasCapturedNames com ctx name args body
+                        if isCapturing then makeLetStmt com ctx usages ident expr
+                        else transformInnerFunction com ctx name args body
+                    | _ ->
+                        makeLetStmt com ctx usages ident expr
+                (ctxNext, stmt::lst) )
+
         let letStmts = letStmtsRev |> List.rev
 
         let bodyStmts =
@@ -2949,8 +2956,8 @@ module Util =
     let transformFunction (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genTypeParams = getGenericTypeParams (argTypes @ [body.Type])
-        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
-        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+        // let genTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+        // let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
         let fnDecl = transformFunctionDecl com ctx args body.Type
         let ctx =
             let scopedSymbols =
@@ -2968,30 +2975,43 @@ module Util =
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
         let fnBody = transformLeaveContextByValue com ctx None None body
-        fnDecl, fnBody, newTypeParams
+        fnDecl, fnBody, genTypeParams
 
-    let getCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let isClosedOverIdent com ctx ignoredNames expr =
+        match expr with
+        | Fable.Expr.IdentExpr ident ->
+            if not (Set.contains ident.Name ignoredNames)
+                && (ident.IsMutable ||
+                    (isRefScoped ctx ident.Name) ||
+                    (shouldBeRefCountWrapped com ident.Type) ||
+                    // Closures may capture Ref counted vars, so by cloning
+                    // the actual closure, all attached ref counted var are cloned too
+                    (match ident.Type with
+                        | Fable.LambdaType _
+                        | Fable.DelegateType _ -> true
+                        | _ -> false)
+                )
+            then Some ident
+            else None
+        | _ -> None
+
+    let getIgnoredNames (name: string option) (args: Fable.Ident list) =
         let argNames = args |> List.map (fun arg -> arg.Name)
         let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
-        let ignoredNames = allNames |> Set.ofList
+        allNames |> Set.ofList
+
+    let hasCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let ignoredNames = getIgnoredNames name args
+        let isClosedOver expr =
+            isClosedOverIdent com ctx ignoredNames expr |> Option.isSome
+        FableTransforms.deepExists isClosedOver body
+
+    let getCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let ignoredNames = getIgnoredNames name args
         let capturedNames = ResizeArray<string>()
         let addClosedOverIdent expr =
-            match expr with
-            | Fable.Expr.IdentExpr ident ->
-                if not (Set.contains ident.Name ignoredNames)
-                    && (ident.IsMutable ||
-                        (isRefScoped ctx ident.Name) ||
-                        (shouldBeRefCountWrapped com ident.Type) ||
-                        // Closures may capture Ref counted vars, so by cloning
-                        // the actual closure, all attached ref counted var are cloned too
-                        (match ident.Type with
-                            | Fable.LambdaType _
-                            | Fable.DelegateType _ -> true
-                            | _ -> false)
-                    )
-                then
-                    capturedNames.Add(ident.Name)
-            | _ -> ()
+            isClosedOverIdent com ctx ignoredNames expr
+            |> Option.iter (fun ident -> capturedNames.Add(ident.Name))
             false
         // collect all closed over names that are not arguments
         FableTransforms.deepExists addClosedOverIdent body |> ignore
@@ -3092,6 +3112,21 @@ module Util =
         |> Seq.map (fun name -> mkGenericParamFromName [] name bounds)
         |> mkGenerics
 
+    let transformInnerFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let fnDecl, fnBody, fnGenTypeParams =
+            transformFunction com ctx args body
+        let fnBodyBlock =
+            if body.Type = Fable.Unit
+            then mkSemiBlock fnBody
+            else mkExprBlock fnBody
+        let header = DEFAULT_FN_HEADER
+        let generics = makeGenerics args body.Type fnGenTypeParams
+        let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
+        let attrs = []
+        let name = name |> Option.defaultValue "__"
+        let fnItem = mkFnItem attrs name kind |> mkNonPublicItem
+        mkItemStmt fnItem, ctx
+
     let transformModuleFunction (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
         let fnDecl, fnBody, fnGenTypeParams =
             transformFunction com ctx decl.Args decl.Body
@@ -3103,7 +3138,8 @@ module Util =
         let generics = makeGenerics decl.Args decl.Body.Type fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
-            // map attributes for test methods
+            // translate test methods attributes
+            // TODO: support more test frameworks
             decl.Info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test" [])

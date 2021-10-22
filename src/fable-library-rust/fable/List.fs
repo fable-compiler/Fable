@@ -46,7 +46,7 @@ let tail (xs: 'T list) = //xs.Tail
     { root = xs.root |> Option.bind (fun node -> node.next) }
 
 let length (xs: 'T list) = //xs.Length
-    let rec loop i (next: Node<'T> option) =
+    let rec loop i next =
         match next with
         | None -> i
         | Some node -> loop (i + 1) node.next
@@ -78,11 +78,11 @@ let last (xs: 'T list) =
 let toArray (xs: 'T list) =
     let len = length xs
     let res = Array.zeroCreate len
-    let rec loop i (xs: 'T list) =
+    let rec loop (arr: 'T[]) i xs =
         if not (isEmpty xs) then
-            res.[i] <- (head xs)
-            loop (i + 1) (tail xs)
-    loop 0 xs
+            arr.[i] <- (head xs)
+            loop arr (i + 1) (tail xs)
+    loop res 0 xs
     res
 
 // // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
