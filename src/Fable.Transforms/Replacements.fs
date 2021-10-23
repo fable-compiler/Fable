@@ -2094,6 +2094,12 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
+    | "IsPositiveInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isPositiveInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsNegativeInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isNegativeInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,

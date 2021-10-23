@@ -22,6 +22,14 @@ export function parse(str: string): number {
 }
 
 // JS Number.isFinite function evals false for NaN
+export function isPositiveInfinity(x: number) {
+  return x === Number.POSITIVE_INFINITY;
+}
+
+export function isNegativeInfinity(x: number) {
+  return x === Number.NEGATIVE_INFINITY;
+}
+
 export function isInfinity(x: number) {
   return x === Number.POSITIVE_INFINITY || x === Number.NEGATIVE_INFINITY;
 }
