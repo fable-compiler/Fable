@@ -268,13 +268,13 @@ let printBabelAst (babel: BabelResult) (writer: IWriter) =
 
 let printRustAst (rust: RustResult) (writer: IWriter) =
     let writer =
-        { new RustPrinter.Writer with
+        { new Rust.RustPrinter.Writer with
             member _.Dispose() = writer.Dispose()
             member _.MakeImportPath(path) = writer.MakeImportPath(path)
             member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
             member _.Write(str) = writer.Write(str) }
 
-    RustPrinter.run writer rust.Crate
+    Rust.RustPrinter.run writer rust.Crate
 
 let getLanguage (language: string) =
     match language.ToLowerInvariant() with
