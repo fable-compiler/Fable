@@ -1,6 +1,8 @@
-module rec Fable.Transforms.Fable2Rust
+module rec Fable.Transforms.Rust.Fable2Rust
 
 open Fable.AST
+open Fable.Transforms
+open Fable.Transforms.Rust
 open Fable.Transforms.Rust.AST.Adapters
 open Fable.Transforms.Rust.AST.Spans
 open Fable.Transforms.Rust.AST.Helpers
@@ -439,6 +441,10 @@ module TypeInfo =
             //     |> libReflectionCall com ctx None "enum"
             | Fable.Number(kind, _) ->
                 numberType kind
+            | Replacements.Builtin Replacements.BclInt64 ->
+                primitiveType "i64"
+            | Replacements.Builtin Replacements.BclUInt64 ->
+                primitiveType "u64"
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType ([], t)
                 transformClosureType com ctx inputTypes returnType
@@ -460,8 +466,7 @@ module TypeInfo =
                 // |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
                 // |> libReflectionCall com ctx None "anonRecord"
             | Fable.DeclaredType(entRef, genArgs) ->
-                let fullName = entRef.FullName
-                match fullName, genArgs with
+                match entRef.FullName, genArgs with
                 // | Replacements.BuiltinEntity kind ->
                 //     match kind with
                 //     | Replacements.BclGuid
@@ -472,14 +477,14 @@ module TypeInfo =
                 //     | Replacements.BclInt64
                 //     | Replacements.BclUInt64
                 //     | Replacements.BclDecimal
-                //     | Replacements.BclBigInt -> genericEntity fullName [||]
+                //     | Replacements.BclBigInt -> genericEntity entRef.FullName [||]
                 //     | Replacements.BclHashSet gen
                 //     | Replacements.FSharpSet gen ->
-                //         genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
+                //         genericEntity entRef.FullName [|transformTypeInfo com ctx r genMap gen|]
                 //     | Replacements.BclDictionary(key, value)
                 //     | Replacements.BclKeyValuePair(key, value)
                 //     | Replacements.FSharpMap(key, value) ->
-                //         genericEntity fullName [|
+                //         genericEntity entRef.FullName [|
                 //             transformTypeInfo com ctx r genMap key
                 //             transformTypeInfo com ctx r genMap value
                 //         |]
@@ -1324,11 +1329,53 @@ module Util =
             then expr
             else mkAddrOfExpr expr
 
+    let makeNumber kind (x: float) =
+        match kind with
+        | Int8 ->
+            let expr = mkInt8LitExpr (uint64 (abs x))
+            if x < 0.0 then expr |> mkNegExpr else expr
+        | Int16 ->
+            let expr = mkInt16LitExpr (uint64 (abs x))
+            if x < 0.0 then expr |> mkNegExpr else expr
+        | Int32 ->
+            let expr = mkInt32LitExpr (uint64 (abs x))
+            if x < 0.0 then expr |> mkNegExpr else expr
+        | UInt8 -> mkUInt8LitExpr (uint64 (abs x))
+        | UInt16 -> mkUInt16LitExpr (uint64 (abs x))
+        | UInt32 -> mkUInt32LitExpr (uint64 (abs x))
+        | Float32 when System.Double.IsNaN(x) ->
+            mkGenericPathExpr ["f32";"NAN"] None
+        | Float64 when System.Double.IsNaN(x) ->
+            mkGenericPathExpr ["f64";"NAN"] None
+        | Float32 when System.Double.IsPositiveInfinity(x) ->
+            mkGenericPathExpr ["f32";"INFINITY"] None
+        | Float64 when System.Double.IsPositiveInfinity(x) ->
+            mkGenericPathExpr ["f64";"INFINITY"] None
+        | Float32 when System.Double.IsNegativeInfinity(x) ->
+            mkGenericPathExpr ["f32";"NEG_INFINITY"] None
+        | Float64 when System.Double.IsNegativeInfinity(x) ->
+            mkGenericPathExpr ["f64";"NEG_INFINITY"] None
+        | Float32 ->
+            let expr = mkFloat32LitExpr (abs x)
+            if x < 0.0 then expr |> mkNegExpr else expr
+        | Float64 ->
+            let expr = mkFloat64LitExpr (abs x)
+            if x < 0.0 then expr |> mkNegExpr else expr
+
+    let makeLongInt signed (x: float) =
+        let i = System.BitConverter.DoubleToInt64Bits(x)
+        if signed then
+            let abs_i = if i < 0L then i * (-1L) else i
+            let expr = mkInt64LitExpr (uint64 (abs_i))
+            if i < 0L then expr |> mkNegExpr else expr
+        else
+            mkUInt64LitExpr (uint64 i)
+
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         match value with
         // | Fable.BaseValue (None, _) -> Super(None)
         // | Fable.BaseValue (Some boundIdent, _) -> identAsExpr boundIdent
-        // | Fable.ThisValue _ -> makeFullNamePathExpr (rawIdent "self") None
+        | Fable.ThisValue _ -> mkGenericPathExpr [rawIdent "self"] None
         // | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
         // | Fable.Null _t ->
         //     // if com.Options.typescript
@@ -1340,24 +1387,18 @@ module Util =
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
-        | Fable.NumberConstant (x, kind, _) ->
-            let expr =
-                match kind with
-                | Float32 | Float64 -> mkFloatLitExpr (abs x) //, ?loc=r)
-                | Int8 | Int16 | Int32 -> mkIntLitExpr (uint64 (abs x)) //, ?loc=r)
-                | UInt8 | UInt16 | UInt32 -> mkIntLitExpr (uint64 (abs x)) //, ?loc=r)
-            // if negative, wrap in unary minus
-            if x < 0.0
-            then expr |> mkNegExpr
-            else expr
+        | Fable.NumberConstant (x, kind, _) -> makeNumber kind x
         // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
+
         | Fable.NewArray (values, typ) ->
             makeArray com ctx typ values
         | Fable.NewArrayFrom (expr, typ) ->
             makeArrayFrom com ctx typ expr
+
         | Fable.NewTuple (values, isStruct) ->
             let tuple = makeTuple com ctx values
             if isStruct then tuple else makeRefValue tuple
+
         | Fable.NewList (headAndTail, _typ) ->
             match headAndTail with
             | None ->
@@ -1393,10 +1434,18 @@ module Util =
             | None ->
                 mkGenericPathExpr [rawIdent "None"] None
             |> makeRefValue
-        // | Fable.EnumConstant (x, _) ->
-        //     com.TransformAsExpr(ctx, x)
-        | Fable.NewRecord (values, ent, genArgs) ->
-            let ent = com.GetEntity(ent)
+
+        | Fable.EnumConstant (value, entRef) ->
+            match entRef.FullName, value with
+            | Replacements.BuiltinDefinition(Replacements.BclInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
+                makeLongInt true x
+            | Replacements.BuiltinDefinition(Replacements.BclUInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
+                makeLongInt false x
+            | _ ->
+                com.TransformAsExpr(ctx, value)
+
+        | Fable.NewRecord (values, entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
             let fields =
                 Seq.zip ent.FSharpFields values
                 |> Seq.map (fun (fi, value) ->
@@ -1413,10 +1462,12 @@ module Util =
             let path = makeFullNamePath ent.FullName genArgs
             let expr = mkStructExpr path fields // TODO: range
             if ent.IsValueType then expr else expr |> makeRefValue
+
         | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
             Fable.NewTuple (values, false) |> transformValue com ctx None   //temporary, use tuples!
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     Array.zip fieldNames values |> makeJsObject
+
         | Fable.NewUnion (values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let genArgs = transformGenArgs com ctx genArgs
@@ -1424,8 +1475,6 @@ module Util =
             let callee = makeFullNamePathExpr unionCase.FullName genArgs
             callFunctionTakingOwnership com ctx r callee values
             |> makeRefValue
-        | Fable.ThisValue t ->
-            mkGenericPathExpr [rawIdent "self"] None
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
 
@@ -1740,13 +1789,7 @@ module Util =
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
                 // when indexing an array, cast index to usize
-                let prop =
-                    match idx with
-                    | Fable.Value (Fable.NumberConstant _, _) ->
-                        prop // no need to cast
-                    | _ ->
-                        let uintTy = primitiveType "usize"
-                        mkCastExpr uintTy prop
+                let prop = mkCastExpr (primitiveType "usize") prop
                 getExpr range expr prop
                 |> mutableGet com ctx range t
             | _ ->
@@ -1857,13 +1900,7 @@ module Util =
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
                 // when indexing an array, cast index to usize
-                let prop =
-                    match idx with
-                    | Fable.Value (Fable.NumberConstant _, _) ->
-                        prop // no need to cast
-                    | _ ->
-                        let uintTy = primitiveType "usize"
-                        mkCastExpr uintTy prop
+                let prop = mkCastExpr (primitiveType "usize") prop
                 let left = getExpr range expr prop
                 mutableSet com ctx range typ left value
             | _ ->

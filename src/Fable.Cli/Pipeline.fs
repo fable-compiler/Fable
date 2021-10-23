@@ -92,7 +92,7 @@ module Python =
             if not (IO.File.Exists(outPath)) then
                 let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
                 do! PythonPrinter.run writer map { Body = [] }
-            
+
         | _ -> ()
     }
 
@@ -145,13 +145,14 @@ module Dart =
     }
 
 module Rust =
+    open Fable.Transforms.Rust
 
     type RustWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        interface Rust.Printer.Writer with
+        interface RustPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =
@@ -168,7 +169,7 @@ module Rust =
             |> Fable2Rust.Compiler.transformFile com
 
         use writer = new RustWriter(com, cliArgs, dedupTargetDir, outPath)
-        do! Rust.Printer.run writer crate
+        do! RustPrinter.run writer crate
     }
 
 let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) =

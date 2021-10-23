@@ -2,6 +2,34 @@ module Fable.Tests.ClosureTests
 
 open Util.Testing
 
+let private addFn a b = a + b
+
+[<Fact>]
+let testAddThroughTrivialFn () =
+    addFn 2 2 |> equal 4
+
+[<Fact>]
+let testLocalsWithFcalls () =
+    let a = addFn 1 0
+    let b = 2
+    let c = addFn 3 0
+    a + b + c |> equal 6
+
+[<Fact>]
+let testLocalFunction () =
+    let locAdd1 a =
+        addFn 1 a
+    locAdd1 2 |> equal 3
+
+[<Fact>]
+let testInlineLambda () =
+    1 |> fun x -> x + 1 |> fun x -> x - 3 |> equal (-1)
+
+// let add42 = addFn 42
+// [<Fact>]
+// let testPartialApply () =
+//     add42 3 |> equal 45
+
 let map f x =
     f x
 

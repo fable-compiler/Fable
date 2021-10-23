@@ -115,7 +115,11 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         | args, argTypes -> None, args, argTypes
 
     sourceTypes |> Seq.tryPick (fun t ->
-        match Replacements.tryType t with
+        let typeOpt =
+            match com.Options.Language with
+            | Rust -> Rust.Replacements.tryType t
+            | _ -> Replacements.tryType t
+        match typeOpt with
         | Some(entityFullName, makeCall, genArgs) ->
             let info = makeCallInfo traitName entityFullName argTypes genArgs
             makeCall com ctx r typ info thisArg args
@@ -490,7 +494,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Const(value, typ) ->
         let typ = makeType ctx.GenericArgs typ
-        return Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        let expr =
+            match com.Options.Language with
+            | Rust -> Rust.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+            | _ -> Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        return expr
 
     | FSharpExprPatterns.BaseValue typ ->
         let r = makeRangeFrom fsExpr

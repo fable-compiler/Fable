@@ -66,31 +66,31 @@ module Vectors =
 [<AutoOpen>]
 module TokenLiterals =
 
-    let mkTokenLit kind symbol: token.Lit =
+    let mkTokenLit kind symbol suffix: token.Lit =
         { kind = kind
           symbol = symbol
-          suffix = None }
+          suffix = suffix }
 
     let mkBoolTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Bool symbol
+        mkTokenLit token.LitKind.Bool symbol None
 
     let mkCharTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Char symbol
+        mkTokenLit token.LitKind.Char symbol None
 
-    let mkIntTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Integer symbol
+    let mkIntTokenLit symbol suffix: token.Lit =
+        mkTokenLit token.LitKind.Integer symbol suffix
 
-    let mkFloatTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Float symbol
+    let mkFloatTokenLit symbol suffix: token.Lit =
+        mkTokenLit token.LitKind.Float symbol suffix
 
     let mkStrTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Str symbol
+        mkTokenLit token.LitKind.Str symbol None
 
     let mkRawStrTokenLit raw symbol: token.Lit =
-        mkTokenLit (token.LitKind.StrRaw raw) symbol
+        mkTokenLit (token.LitKind.StrRaw raw) symbol None
 
     let mkErrTokenLit symbol: token.Lit =
-        mkTokenLit token.LitKind.Err symbol
+        mkTokenLit token.LitKind.Err symbol None
 
 [<AutoOpen>]
 module Tokens =
@@ -113,38 +113,31 @@ module Tokens =
         |> mkToken
 
     let mkBoolToken symbol: token.Token =
-        symbol
-        |> mkBoolTokenLit
+        mkBoolTokenLit symbol
         |> mkLiteralToken
 
     let mkCharToken symbol: token.Token =
-        symbol
-        |> mkCharTokenLit
+        mkCharTokenLit symbol
         |> mkLiteralToken
 
     let mkIntToken symbol: token.Token =
-        symbol
-        |> mkIntTokenLit
+        mkIntTokenLit symbol None
         |> mkLiteralToken
 
     let mkFloatToken symbol: token.Token =
-        symbol
-        |> mkFloatTokenLit
+        mkFloatTokenLit symbol None
         |> mkLiteralToken
 
     let mkStrToken symbol: token.Token =
-        symbol
-        |> mkStrTokenLit
+        mkStrTokenLit symbol
         |> mkLiteralToken
 
     let mkRawStrToken raw symbol: token.Token =
-        symbol
-        |> mkRawStrTokenLit raw
+        mkRawStrTokenLit raw symbol
         |> mkLiteralToken
 
     let mkErrToken symbol: token.Token =
-        symbol
-        |> mkErrTokenLit
+        mkErrTokenLit symbol
         |> mkLiteralToken
 
     let mkExprToken expr: token.Token =
@@ -219,17 +212,73 @@ module Literals =
           kind = LitKind.Char(value)
           span = DUMMY_SP }
 
-    let mkIntLit (value: u128): Lit =
-        { token = mkIntTokenLit (string value)
+    let mkIntLit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value) None
           kind = LitKind.Int(value, LitIntType.Unsuffixed)
           span = DUMMY_SP }
 
-    let mkFloatLit (value: f64): Lit =
-        let strValue =
+    let mkInt8Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "i8")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.I8))
+          span = DUMMY_SP }
+
+    let mkInt16Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "i16")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.I16))
+          span = DUMMY_SP }
+
+    let mkInt32Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "i32")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.I32))
+          span = DUMMY_SP }
+
+    let mkInt64Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "i64")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.I64))
+          span = DUMMY_SP }
+
+    let mkUInt8Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "u8")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U8))
+          span = DUMMY_SP }
+
+    let mkUInt16Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "u16")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U16))
+          span = DUMMY_SP }
+
+    let mkUInt32Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "u32")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U32))
+          span = DUMMY_SP }
+
+    let mkUInt64Lit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value + "_") (Some "u64")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U64))
+          span = DUMMY_SP }
+
+    let mkFloatLit (value: float): Lit =
+        let strValueWithDot =
             let s = string value
-            if s.Contains(".") then s else s + "."
-        { token = mkFloatTokenLit strValue
+            if s.Contains(".") then s else s + ".0"
+        { token = mkFloatTokenLit strValueWithDot None
           kind = LitKind.Float(string value, LitFloatType.Unsuffixed)
+          span = DUMMY_SP }
+
+    let mkFloat32Lit (value: float): Lit =
+        let strValueWithDot =
+            let s = string value
+            if s.Contains(".") then s else s + ".0"
+        { token = mkFloatTokenLit (strValueWithDot + "_") (Some "f32")
+          kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F32))
+          span = DUMMY_SP }
+
+    let mkFloat64Lit (value: float): Lit =
+        let strValueWithDot =
+            let s = string value
+            if s.Contains(".") then s else s + ".0"
+        { token = mkFloatTokenLit (strValueWithDot + "_") (Some "f64")
+          kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F64))
           span = DUMMY_SP }
 
     let mkStrLit (value: Symbol): Lit =
@@ -521,9 +570,69 @@ module Exprs =
         |> ExprKind.Lit
         |> mkExpr
 
+    let mkInt8LitExpr value: Expr =
+        value
+        |> mkInt8Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkInt16LitExpr value: Expr =
+        value
+        |> mkInt16Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkInt32LitExpr value: Expr =
+        value
+        |> mkInt32Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkInt64LitExpr value: Expr =
+        value
+        |> mkInt64Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkUInt8LitExpr value: Expr =
+        value
+        |> mkUInt8Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkUInt16LitExpr value: Expr =
+        value
+        |> mkUInt16Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkUInt32LitExpr value: Expr =
+        value
+        |> mkUInt32Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkUInt64LitExpr value: Expr =
+        value
+        |> mkUInt64Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
     let mkFloatLitExpr value: Expr =
         value
         |> mkFloatLit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkFloat32LitExpr value: Expr =
+        value
+        |> mkFloat32Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkFloat64LitExpr value: Expr =
+        value
+        |> mkFloat64Lit
         |> ExprKind.Lit
         |> mkExpr
 

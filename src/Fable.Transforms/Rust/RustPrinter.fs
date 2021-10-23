@@ -1,4 +1,4 @@
-module Fable.Transforms.Rust.Printer
+module Fable.Transforms.Rust.RustPrinter
 
 module Rust = Fable.Transforms.Rust.AST.Types
 open Fable.Transforms.Rust.AST.State
