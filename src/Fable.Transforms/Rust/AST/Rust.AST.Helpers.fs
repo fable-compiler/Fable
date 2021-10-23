@@ -218,42 +218,42 @@ module Literals =
           span = DUMMY_SP }
 
     let mkInt8Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "i8")
+        { token = mkIntTokenLit (string value) (Some "i8")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I8))
           span = DUMMY_SP }
 
     let mkInt16Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "i16")
+        { token = mkIntTokenLit (string value) (Some "i16")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I16))
           span = DUMMY_SP }
 
     let mkInt32Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "i32")
+        { token = mkIntTokenLit (string value) (Some "i32")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I32))
           span = DUMMY_SP }
 
     let mkInt64Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "i64")
+        { token = mkIntTokenLit (string value) (Some "i64")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I64))
           span = DUMMY_SP }
 
     let mkUInt8Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "u8")
+        { token = mkIntTokenLit (string value) (Some "u8")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U8))
           span = DUMMY_SP }
 
     let mkUInt16Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "u16")
+        { token = mkIntTokenLit (string value) (Some "u16")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U16))
           span = DUMMY_SP }
 
     let mkUInt32Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "u32")
+        { token = mkIntTokenLit (string value) (Some "u32")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U32))
           span = DUMMY_SP }
 
     let mkUInt64Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value + "_") (Some "u64")
+        { token = mkIntTokenLit (string value) (Some "u64")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U64))
           span = DUMMY_SP }
 
@@ -269,7 +269,7 @@ module Literals =
         let strValueWithDot =
             let s = string value
             if s.Contains(".") then s else s + ".0"
-        { token = mkFloatTokenLit (strValueWithDot + "_") (Some "f32")
+        { token = mkFloatTokenLit strValueWithDot (Some "f32")
           kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F32))
           span = DUMMY_SP }
 
@@ -277,7 +277,7 @@ module Literals =
         let strValueWithDot =
             let s = string value
             if s.Contains(".") then s else s + ".0"
-        { token = mkFloatTokenLit (strValueWithDot + "_") (Some "f64")
+        { token = mkFloatTokenLit strValueWithDot (Some "f64")
           kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F64))
           span = DUMMY_SP }
 

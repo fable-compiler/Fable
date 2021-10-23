@@ -336,7 +336,7 @@ let init () =
                 let babelAst = fableAst |> Fable2Babel.Compiler.transformFile com
                 upcast BabelResult(babelAst, errors)
             | Rust ->
-                let rustAst = fableAst |> Fable2Rust.Compiler.transformFile com
+                let rustAst = fableAst |> Rust.Fable2Rust.Compiler.transformFile com
                 upcast RustResult(rustAst, errors)
             // TODO: add other languages
             | _ -> failwithf "Unsupported language: %A" language

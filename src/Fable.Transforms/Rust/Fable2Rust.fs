@@ -1330,19 +1330,47 @@ module Util =
             else mkAddrOfExpr expr
 
     let makeNumber kind (x: float) =
+        let u = uint64 (abs x)
         match kind with
+        | Int8 when int8 x = System.SByte.MinValue ->
+            mkGenericPathExpr ["i8";"MIN"] None
+        | Int8 when int8 x = System.SByte.MaxValue ->
+            mkGenericPathExpr ["i8";"MAX"] None
+        | Int16 when int16 x = System.Int16.MinValue ->
+            mkGenericPathExpr ["i16";"MIN"] None
+        | Int16 when int16 x = System.Int16.MaxValue ->
+            mkGenericPathExpr ["i16";"MAX"] None
+        | Int32 when int32 x = System.Int32.MinValue ->
+            mkGenericPathExpr ["i32";"MIN"] None
+        | Int32 when int32 x = System.Int32.MaxValue ->
+            mkGenericPathExpr ["i32";"MAX"] None
         | Int8 ->
-            let expr = mkInt8LitExpr (uint64 (abs x))
+            let expr = mkInt8LitExpr u
             if x < 0.0 then expr |> mkNegExpr else expr
         | Int16 ->
-            let expr = mkInt16LitExpr (uint64 (abs x))
+            let expr = mkInt16LitExpr u
             if x < 0.0 then expr |> mkNegExpr else expr
         | Int32 ->
-            let expr = mkInt32LitExpr (uint64 (abs x))
+            let expr = mkInt32LitExpr u
             if x < 0.0 then expr |> mkNegExpr else expr
-        | UInt8 -> mkUInt8LitExpr (uint64 (abs x))
-        | UInt16 -> mkUInt16LitExpr (uint64 (abs x))
-        | UInt32 -> mkUInt32LitExpr (uint64 (abs x))
+        // | UInt8 when uint8 x = System.Byte.MinValue ->
+        //     mkGenericPathExpr ["u8";"MIN"] None
+        | UInt8 when uint8 x = System.Byte.MaxValue ->
+            mkGenericPathExpr ["u8";"MAX"] None
+        // | UInt16 when uint16 x = System.UInt16.MinValue ->
+        //     mkGenericPathExpr ["u16";"MIN"] None
+        | UInt16 when uint16 x = System.UInt16.MaxValue ->
+            mkGenericPathExpr ["u16";"MAX"] None
+        // | UInt32 when uint32 x = System.UInt32.MinValue ->
+        //     mkGenericPathExpr ["u32";"MIN"] None
+        | UInt32 when uint32 x = System.UInt32.MaxValue ->
+            mkGenericPathExpr ["u32";"MAX"] None
+        | UInt8 ->
+            mkUInt8LitExpr u
+        | UInt16 ->
+            mkUInt16LitExpr u
+        | UInt32 ->
+            mkUInt32LitExpr u
         | Float32 when System.Double.IsNaN(x) ->
             mkGenericPathExpr ["f32";"NAN"] None
         | Float64 when System.Double.IsNaN(x) ->
@@ -1364,12 +1392,23 @@ module Util =
 
     let makeLongInt signed (x: float) =
         let i = System.BitConverter.DoubleToInt64Bits(x)
+        let u = uint64 i
         if signed then
-            let abs_i = if i < 0L then i * (-1L) else i
-            let expr = mkInt64LitExpr (uint64 (abs_i))
-            if i < 0L then expr |> mkNegExpr else expr
+            if i = System.Int64.MinValue then
+                mkGenericPathExpr ["i64";"MIN"] None
+            elif i = System.Int64.MaxValue then
+                mkGenericPathExpr ["i64";"MAX"] None
+            else
+                let abs_i = if i < 0L then i * (-1L) else i
+                let expr = mkInt64LitExpr (uint64 (abs_i))
+                if i < 0L then expr |> mkNegExpr else expr
         else
-            mkUInt64LitExpr (uint64 i)
+            // if u = System.UInt64.MinValue then
+            //     mkGenericPathExpr ["u64";"MIN"] None
+            if u = System.UInt64.MaxValue then
+                mkGenericPathExpr ["u64";"MAX"] None
+            else
+                mkUInt64LitExpr u
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         match value with
