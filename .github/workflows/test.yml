@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ main, fcs-nuget ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -17,7 +17,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '5.0.x'
         include-prerelease: true
 
     - name: Setup Node.js environment
