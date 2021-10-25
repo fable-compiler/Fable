@@ -1,4 +1,4 @@
-module Fable.Tests.Tuple
+module Fable.Tests.TupleTests
 
 open Util.Testing
 

@@ -900,7 +900,8 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ ->
         // Value(Null Any, None) // null
-        Helper.LibCall(com, "Native", "defaultOf", t, [])
+        Helper.GlobalCall("Native::defaultOf", t, [])
+        // Helper.LibCall(com, "Native", "defaultOf", t, [])
 
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with

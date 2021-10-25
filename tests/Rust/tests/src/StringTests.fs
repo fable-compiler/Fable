@@ -1,4 +1,4 @@
-module Fable.Tests.String
+module Fable.Tests.StringTests
 
 open Util.Testing
 

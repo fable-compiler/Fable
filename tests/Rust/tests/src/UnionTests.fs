@@ -1,4 +1,4 @@
-module Fable.Tests.Union
+module Fable.Tests.UnionTests
 
 open Util.Testing
 

@@ -1,4 +1,4 @@
-module Fable.Tests.ClassInterfaceTests
+module Fable.Tests.InterfaceTests
 
 open Util.Testing
 

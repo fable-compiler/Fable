@@ -1,4 +1,4 @@
-module Fable.Tests.Record
+module Fable.Tests.RecordTests
 
 open Util.Testing
 
@@ -133,18 +133,15 @@ let ``Records with value-type interior mutability`` () =
     x.MutValue <- x.MutValue + 1
     x.MutValue |> equal 3
 
-// // TODO: mutable reference-type fields not working yet
-// // (may need a custom cell type with Clone and PartialEq)
+type MutableRefRecord = {
+    mutable MutRefValue: string
+}
 
-// type MutableRefRecord = {
-//     mutable MutRefValue: string
-// }
-
-// [<Fact>]
-// let ``Records with ref-type interior mutability`` () =
-//     let x = { MutRefValue = "a" }
-//     x.MutRefValue |> equal "a"
-//     x.MutRefValue <- x.MutRefValue + "b"
-//     x.MutRefValue |> equal "ab"
-//     x.MutRefValue <- x.MutRefValue + "c"
-//     x.MutRefValue |> equal "abc"
+[<Fact>]
+let ``Records with ref-type interior mutability`` () =
+    let x = { MutRefValue = "a" }
+    x.MutRefValue |> equal "a"
+    x.MutRefValue <- x.MutRefValue + "b"
+    x.MutRefValue |> equal "ab"
+    x.MutRefValue <- x.MutRefValue + "c"
+    x.MutRefValue |> equal "abc"

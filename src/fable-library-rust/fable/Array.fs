@@ -23,17 +23,17 @@ let tryItem (index: int) (array: 'T[]): 'T option =
     else Some array.[index]
 
 let copy (array: 'T[]): 'T[] =
-    let res = Array.zeroCreate array.Length
-    let len = array.Length - 1
-    for i = 0 to len do
+    let len = array.Length
+    let res = Array.zeroCreate len
+    for i = 0 to len - 1 do
         res.[i] <- array.[i]
     res
 
 let reverse (array: 'T[]): 'T[] =
-    let res = Array.zeroCreate array.Length
-    let len = array.Length - 1
-    for i = 0 to len do
-        res.[len - i] <- array.[i]
+    let len = array.Length
+    let res = Array.zeroCreate len
+    for i = 0 to len - 1 do
+        res.[len - 1 - i] <- array.[i]
     res
 
 // let filter (predicate: 'T -> bool) (array: 'T[]) =
@@ -82,29 +82,29 @@ let tryLast (array: 'T[]): 'T option =
 //     then invalidArg "array" SR.inputArrayWasTooShort
 //     skipImpl array 1
 
-// let append (array1: 'T[]) (array2: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
-//     let len1 = array1.Length
-//     let len2 = array2.Length
-//     let newArray = allocateArrayFromCons cons (len1 + len2)
-//     for i = 0 to len1 - 1 do
-//         newArray.[i] <- array1.[i]
-//     for i = 0 to len2 - 1 do
-//         newArray.[i + len1] <- array2.[i]
-//     newArray
+let append (array1: 'T[]) (array2: 'T[]): 'T[] =
+    let len1 = array1.Length
+    let len2 = array2.Length
+    let res = Array.zeroCreate (len1 + len2)
+    for i = 0 to len1 - 1 do
+        res.[i] <- array1.[i]
+    for i = 0 to len2 - 1 do
+        res.[i + len1] <- array2.[i]
+    res
 
-// let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
-//     let len = source.Length
-//     let target = allocateArrayFromCons cons len
-//     for i = 0 to (len - 1) do
-//         target.[i] <- f i source.[i]
-//     target
+let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]): 'U[] =
+    let len = source.Length
+    let target = Array.zeroCreate len
+    for i = 0 to len - 1 do
+        target.[i] <- f i source.[i]
+    target
 
-// let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
-//     let len = source.Length
-//     let target = allocateArrayFromCons cons len
-//     for i = 0 to (len - 1) do
-//         target.[i] <- f source.[i]
-//     target
+let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
+    let len = source.Length
+    let target = Array.zeroCreate len
+    for i = 0 to len - 1 do
+        target.[i] <- f source.[i]
+    target
 
 // let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: Cons<'U>): 'U[] =
 //     if source1.Length <> source2.Length then failwith "Arrays had different lengths"

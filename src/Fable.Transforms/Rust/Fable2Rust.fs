@@ -238,7 +238,7 @@ module TypeInfo =
 
     // TODO: emit Cell or RwLock depending on threading.
     let makeMutTy com ctx (t: Fable.Type) (ty: Rust.Ty): Rust.Ty =
-        [ty] |> mkGenericTy ["Cell"]
+        [ty] |> mkGenericTy ["MutCell"]
 
     let isCloneable (com: IRustCompiler) t e =
         match e with
@@ -308,7 +308,9 @@ module TypeInfo =
 
     let makeImport (com: IRustCompiler) ctx r (selector: string) (path: string) =
         let importName = com.GetImportName(ctx, selector, path, r)
-        makeFullNamePathExpr importName None
+        if importName = "*"
+        then mkTupleExpr [] // unit
+        else makeFullNamePathExpr importName None
 
     let makeLibCall com ctx moduleName memberName (args: Rust.Expr list) =
         let _ = getImportName com ctx moduleName memberName // just to get the import
@@ -415,7 +417,7 @@ module TypeInfo =
                 // | None ->
                 //     Replacements.genericTypeInfoError name |> addError com [] r
                 //     Expression.nullLiteral()
-            // | Fable.Unit    -> primitiveType "unit"
+            | Fable.Unit    -> mkTupleTy [] // empty tuple
             | Fable.Boolean -> primitiveType "bool"
             | Fable.Char    -> primitiveType "char"
             | Fable.String  -> primitiveType "str"
@@ -988,7 +990,8 @@ module Util =
 *)
 
     let makeString com ctx (value: Rust.Expr) =
-        makeLibCall com ctx "Native" "asString" [mkAddrOfExpr value]
+        // makeLibCall com ctx "Native" "asString" [mkAddrOfExpr value]
+        makeCall ["Native";"asString"] [mkAddrOfExpr value]
 
     let makeArray (com: IRustCompiler) ctx typ (exprs: Fable.Expr list) =
         let array =
@@ -996,19 +999,22 @@ module Util =
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             |> mkArrayExpr
             |> mkAddrOfExpr
-        makeLibCall com ctx "Native" "ofArray" [array]
+        // makeLibCall com ctx "Native" "ofArray" [array]
+        makeCall ["Native";"ofArray"] [array]
 
     let makeArrayFrom (com: IRustCompiler) ctx typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
             let size = com.TransformAsExpr(ctx, sizeExpr) |> mkAddrOfExpr
             let value = com.TransformAsExpr(ctx, valueExpr) |> mkAddrOfExpr
-            makeLibCall com ctx "Native" "newArray" [size; value]
+            // makeLibCall com ctx "Native" "newArray" [size; value]
+            makeCall ["Native";"newArray"] [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = com.TransformAsExpr(ctx, expr) |> mkAddrOfExpr
-            makeLibCall com ctx "Native" "ofArray" [sequence]
+            // makeLibCall com ctx "Native" "ofArray" [sequence]
+            makeCall ["Native";"ofArray"] [sequence]
 
     let makeTuple (com: IRustCompiler) ctx (exprs: (Fable.Expr) list) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true}}
@@ -1290,7 +1296,7 @@ module Util =
         makeCall ["Rc";"from"] [value]
 
     let makeMutValue (value: Rust.Expr) =
-        makeCall ["Cell";"from"] [value]
+        makeCall ["MutCell";"from"] [value]
 
     let makeLazyValue (value: Rust.Expr) =
         makeCall ["Lazy";"new"] [value]
@@ -1422,7 +1428,7 @@ module Util =
         //     //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
         //     // else
         //         Expression.nullLiteral(?loc=r)
-        // | Fable.UnitConstant -> undefined r
+        | Fable.UnitConstant -> mkTupleExpr [] // empty tuple
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
@@ -1817,8 +1823,10 @@ module Util =
             |> Array.singleton
 *)
     let mutableGet (com: IRustCompiler) ctx range typ expr =
-        // mkMethodCallExpr "get" None expr [] // only works on copy types
-        makeLibCall com ctx "Native" "cellGet" [mkAddrOfExpr expr]
+        mkMethodCallExpr "get" None expr []
+
+    let mutableSet (com: IRustCompiler) ctx range typ expr value =
+        mkMethodCallExpr "set" None expr [value]
 
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
@@ -1920,9 +1928,6 @@ module Util =
                     // mkIfThenElseExpr ifExpr thenExpr elseExpr
                 | _ ->
                     failwith "Should not happen"
-
-    let mutableSet (com: IRustCompiler) ctx range typ expr value =
-        mkMethodCallExpr "set" None expr [value]
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -3699,7 +3704,6 @@ module Util =
 *)
 
 module Compiler =
-    open Util
 
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
@@ -3724,7 +3728,7 @@ module Compiler =
                 importName
 
             member _.GetAllImports() = imports :> seq<_>
-            member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
+            member bcom.TransformAsExpr(ctx, e) = Util.transformAsExpr bcom ctx e
         //     member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
         //     member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
         //     member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
@@ -3795,16 +3799,18 @@ module Compiler =
             // mkInnerAttr "feature" ["stmt_expr_attributes"]
             // mkInnerAttr "feature" ["destructuring_assignment"]
             ]
-        let useDecls = [
+
+        let preludeDecls = [
             mkNonPublicUseItem ["std"; "rc"; "Rc"]
-            mkNonPublicUseItem ["core"; "cell"; "Cell"]
+            mkNonPublicUseItem ["crate"; "Native"]
+            mkNonPublicUseItem ["crate"; "Mutable"; "*"]
             // mkNonPublicUseItem ["core"; "lazy"; "Lazy"]
             ]
 
-        let entryPointDecls = getEntryPointDecls com ctx file.Declarations
-        let rootDecls = List.collect (transformDecl com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> transformImports ctx
-        let items = useDecls @ importDecls @ rootDecls @ entryPointDecls
+        let entryPointDecls = Util.getEntryPointDecls com ctx file.Declarations
+        let rootDecls = List.collect (Util.transformDecl com ctx) file.Declarations
+        let importDecls = com.GetAllImports() |> Util.transformImports ctx
+        let items = importDecls @ preludeDecls @ rootDecls @ entryPointDecls
 
         let crate = mkCrate topAttrs items
         crate
