@@ -290,16 +290,8 @@ type FsWatcher() =
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
-    let mutable sourceHash = None
     member _.NormalizedFullPath = normalizedFullPath
-    member _.ReadSource() =
-        match sourceHash with
-        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
-        | None ->
-            let source = File.readAllTextNonBlocking normalizedFullPath
-            let h = hash source
-            sourceHash <- Some h
-            h, lazy source
+    member _.ReadSource() = File.readAllTextNonBlocking normalizedFullPath
 
 type ProjectCracked(projFile: string,
                     sourceFiles: File array,
@@ -332,7 +324,7 @@ type ProjectCracked(projFile: string,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
 
-        Log.always $"Parsing/Restoring finished in %i{ms}ms"
+        Log.always $"Project parsed in %i{ms}ms"
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
             let opts = res.ProjectOptions.OtherOptions |> String.concat "\n   "
@@ -343,7 +335,25 @@ type ProjectCracked(projFile: string,
 
 type ProjectParsed(project: Project, checker: FSharpChecker) =
 
-    static let checkProject (config: ProjectCracked) (checker: FSharpChecker) = async {
+    // TODO: Pass version
+    static let parseAndCheckFile (file: File) (config: ProjectCracked) (checker: FSharpChecker) = async {
+        //Log.always("Compiling file " + File.getRelativePathFromCwd file.NormalizedFullPath + "...")
+        let! result, ms = measureTimeAsync <| fun () -> async {
+            let! sourceText = file.ReadSource()
+            let sourceText = FSharp.Compiler.Text.SourceText.ofString sourceText
+            let! _parseResult, checkResult =
+                checker.ParseAndCheckFileInProject(
+                    file.NormalizedFullPath, 0, sourceText, config.ProjectOptions)
+            return
+                match checkResult with
+                | FSharpCheckFileAnswer.Succeeded results -> results
+                | FSharpCheckFileAnswer.Aborted -> failwith "Aborted!" // TODO: Return error
+        }
+        //Log.always $"F# compilation finished in %i{ms}ms: {file.NormalizedFullPath}"
+        return result
+    }
+
+    static let parseAndCheckProject (config: ProjectCracked) (checker: FSharpChecker) = async {
         Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectOptions.ProjectFileName + "...")
         let! result, ms = measureTimeAsync <| fun () ->
             checker.ParseAndCheckProject(config.ProjectOptions)
@@ -354,29 +364,98 @@ type ProjectParsed(project: Project, checker: FSharpChecker) =
     member _.Project = project
     member _.Checker = checker
 
-    static member Init(config: ProjectCracked, ?checker) = async {
-        let checker =
-            match checker with
-            | Some checker -> checker
-            | None -> FSharpChecker.Create(keepAssemblyContents=true)
+    static member Chunks(config: ProjectCracked, checker: FSharpChecker) = async {
+        let chunks = config.SourceFiles |> Array.chunkBySize 8 |> Array.filter (fun c -> c.Length = 8)
+        let! _, ms = measureTimeAsync <| fun () -> async {
+            for chunk in chunks do
+                let! _, ms = measureTimeAsync <| fun () -> async {
+                    let! _ = parseAndCheckFile chunk.[0] config checker
+                    let! _ = parseAndCheckFile chunk.[1] config checker
+                    let! _ = parseAndCheckFile chunk.[2] config checker
+                    let! _ = parseAndCheckFile chunk.[3] config checker
+                    let! _ = parseAndCheckFile chunk.[4] config checker
+                    let! _ = parseAndCheckFile chunk.[5] config checker
+                    let! _ = parseAndCheckFile chunk.[6] config checker
+                    let! _ = parseAndCheckFile chunk.[7] config checker
+                    return ()
+                }
+                Log.always $"Chunk compilation finished in %i{ms}ms"
+        }
+        Log.always $"FULL Chunk compilation finished in %i{ms}ms"
+        Log.always $"MEMORY %i{GC.GetTotalMemory(true) / 1000000L}MB"
+    }
 
-        let! checkResults = checkProject config checker
+    static member StressMem(durationMs: int) =
+        let duration = TimeSpan.FromMilliseconds(float durationMs)
+        let bgnTm = DateTime.Now   
+        let data = new List<byte[]>()
+        let mutable difTm = DateTime.Now - bgnTm
+        while difTm < duration do
+            let arr = Array.zeroCreate<byte> 1024
+            data.Add(arr)
+            difTm <- DateTime.Now - bgnTm
+
+
+    static member GetChecker(config: ProjectCracked) = async {
+        let checker = FSharpChecker.Create(
+                        keepAssemblyContents=false,
+                        keepAllBackgroundResolutions=false,
+                        keepAllBackgroundSymbolUses=false)
+
+        let! checkResults = checker.ParseAndCheckProject(config.ProjectOptions)
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+        GC.Collect()
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+        return checker    
+    }
+        
+    static member Init(config: ProjectCracked) = async {
+        GC.Collect()
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+
+        //ProjectParsed.StressMem(100)
+        
+        let! checker = ProjectParsed.GetChecker(config)
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+        GC.Collect()
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+        checker.ClearAssemblyContents(config.ProjectOptions)
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true)
+        Log.always $"MEMORY %i{GC.GetTotalMemory(false) / 1000000L}MB"
+
+        //let checker = FSharpChecker.Create(
+        //                keepAssemblyContents=true,
+        //                keepAllBackgroundResolutions=false,
+        //                keepAllBackgroundSymbolUses=false)
+
+        let! checkResults = parseAndCheckProject config checker
+        let implementationFiles =
+            if config.FableOptions.OptimizeFSharpAst then
+                checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+            else checkResults.AssemblyContents.ImplementationFiles
+        
+        // Release memory
+        checker.ClearAssemblyContents(config.ProjectOptions)
+
         let proj = Project(config.ProjectFile,
-                           checkResults,
+                           implementationFiles,
+                           checkResults.ProjectContext.GetReferencedAssemblies(),
+                           checkResults.Diagnostics,
                            getPlugin=loadType,
-                           optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst,
                            rootModule=config.FableOptions.RootModule)
+
         return ProjectParsed(proj, checker)
     }
 
-    member this.Update(config: ProjectCracked) = async {
-        let! checkResults = checkProject config this.Checker
-        let proj = this.Project.Update(checkResults)
-        return ProjectParsed(proj, checker)
-    }
+    //member this.Update(config: ProjectCracked) = async {
+    //    let! checkResults = parseAndCheckProject config this.Checker
+    //    let proj = this.Project.Update(checkResults)
+    //    return ProjectParsed(proj, checker)
+    //}
 
 type State =
-    { CliArgs: CliArgs
+    { Iteration: int
+      CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       WatchDependencies: Map<string, string[]>
       PendingFilesToCompile: string[]
@@ -393,7 +472,8 @@ type State =
             |> addTargetDir)
 
     static member Create(cliArgs, isWatch: bool) =
-        { CliArgs = cliArgs
+        { Iteration = 0
+          CliArgs = cliArgs
           ProjectCrackedAndParsed = None
           WatchDependencies = Map.empty
           Watcher = if isWatch then Some(FsWatcher()) else None
@@ -452,8 +532,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         File(file.NormalizedFullPath) // Clear the cached source hash
                     else file)
                 let! parsed =
-                    if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
-                    else parsed.Update(cracked)
+                    if fsprojChanged then ProjectParsed.Init(cracked)
+                    else failwith "todo" //parsed.Update(cracked)
                 let filesToCompile =
                     cracked.SourceFiles
                     |> Array.choose (fun file ->
@@ -472,15 +552,15 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     if Option.isNone state.Watcher || state.CliArgs.NoCache then files
                     else
                         // Skip files that have a more recent JS version
-                        let skipped =
+                        let filesAfterFirstUpdate =
                             files |> Array.skipWhile (fun file ->
                                 try
                                     let jsFile = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir file
                                     IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
                                 with _ -> false)
-                        if skipped.Length < files.Length then
+                        if filesAfterFirstUpdate.Length < files.Length then
                             Log.always("Skipping Fable compilation of up-to-date JS files")
-                        skipped
+                        filesAfterFirstUpdate
             return cracked, parsed, filesToCompile
         }
 
@@ -509,6 +589,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 |> Async.Parallel
 
             Log.always $"Fable compilation finished in %i{ms}ms"
+            parsed.Project.ClearAssemblyContents()
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)
@@ -581,6 +662,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 let runProc = if runProc.IsWatch then Some runProc else None
                 None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
             else
+                // TODO: When not in watch mode, we should run the process out of this scope
+                // to free the memory used by Fable/F# compiler
                 let exitCode = Process.runSync workingDir exeFile args
                 (if exitCode = 0 then None else Some "Run process failed"), state
 
@@ -602,7 +685,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
             |> Async.AwaitObservable
 
         return!
-            { state with ProjectCrackedAndParsed = Some(cracked, parsed)
+            { state with Iteration = state.Iteration + 1
+                         ProjectCrackedAndParsed = Some(cracked, parsed)
                          ErroredFiles = Set.union oldErrors newErrors }
             |> startCompilation changes
 

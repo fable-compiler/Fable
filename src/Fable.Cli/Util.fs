@@ -93,14 +93,16 @@ module File =
     open System.IO
 
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) =
+    let readAllTextNonBlocking (path: string) = async {
         if File.Exists(path) then
             use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
             use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
+            let! text = textReader.ReadToEndAsync() |> Async.AwaitTask
+            return text
         else
             Log.always("File does not exist: " + path)
-            ""
+            return ""
+        }
 
     let getRelativePathFromCwd (path: string) =
         Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
@@ -146,6 +148,21 @@ module Process =
     let isWindows() =
         InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
+    // Adapted from https://stackoverflow.com/a/22210859
+    let tryFindInPath (exec: string) =
+        let isWindows = isWindows()
+        let exec = if isWindows then exec + ".exe" else exec
+        Environment.GetEnvironmentVariable("PATH")
+            .Split(if isWindows then ';' else ':')
+        |> Array.tryPick (fun dir ->
+            let execPath = IO.Path.Combine(dir, exec)
+            if IO.File.Exists execPath then Some execPath else None)
+
+    let findInPath (exec: string) =
+        match tryFindInPath exec with
+        | Some exec -> exec
+        | None -> failwith $"Cannot find {exec} in PATH"
+
     let getCurrentAssembly() =
         typeof<TypeInThisAssembly>.Assembly
 
@@ -154,10 +171,14 @@ module Process =
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess workingDir exePath args =
+    let private startProcess workingDir (exePath: string) args =
         let args = String.concat " " args
         let exePath, args =
-            if isWindows() then "cmd", ("/C " + exePath + " " + args)
+            if isWindows() then
+                let exePath =
+                    if exePath.Contains(" ") then "\"" + exePath + "\""
+                    else exePath
+                "cmd", ("/C " + exePath + " " + args)
             else exePath, args
 
         Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)

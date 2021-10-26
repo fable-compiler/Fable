@@ -5,6 +5,7 @@ open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Diagnostics
 // TODO: Remove when fcs-fable is updated
 #if FABLE_COMPILER
 open FSharp.Compiler.SourceCodeServices
@@ -29,6 +30,7 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #else
 open System.Collections.Concurrent
+
 type ConcurrentDictionary<'TKey, 'TValue> with
     static member From(kvs: KeyValuePair<'TKey, 'TValue> seq) =
         ConcurrentDictionary(kvs)
@@ -58,7 +60,7 @@ type PluginRef =
     { DllPath: string
       TypeFullName: string }
 
-type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
+type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
 
@@ -66,7 +68,7 @@ type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
         let coreAssemblyNames = HashSet Metadata.coreAssemblies
 
-        for asm in checkResults.ProjectContext.GetReferencedAssemblies() do
+        for asm in fsharpAssemblies do
             match asm.FileName with
             | Some path ->
                 let path = Path.normalizePath path
@@ -132,26 +134,22 @@ type ImplFile =
     }
 
 type Project(projFile: string,
-             checkResults: FSharpCheckProjectResults,
+             implementationFiles: FSharpImplementationFileContents list,
+             assemblies: FSharpAssembly list,
+             diagnostics: FSharpDiagnostic array,
              ?getPlugin: PluginRef -> System.Type,
-             ?optimizeFSharpAst,
-             ?assemblies,
-             ?rootModule) =
+             ?rootModule: bool) =
 
     let rootModule = defaultArg rootModule true
-    let optimizeFSharpAst = defaultArg optimizeFSharpAst false
     let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
-    let assemblies =
-        match assemblies with
-        | Some assemblies -> assemblies
-        | None -> Assemblies(getPlugin, checkResults)
+    let assemblies = Assemblies(getPlugin, assemblies)
 //    do printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
 
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
 
-    let implFiles =
-        (if optimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-         else checkResults.AssemblyContents.ImplementationFiles)
+    // TODO: Scan for inlined functions at this stage
+    let mutable implementationFiles =
+        implementationFiles
         |> Seq.map (fun file ->
             let entities = Dictionary()
             let rec loop (ents: FSharpEntity seq) =
@@ -167,17 +165,17 @@ type Project(projFile: string,
             key, { Ast = file; RootModule = rootModule; Entities = entities })
         |> dict
 
-    member this.Update(checkResults: FSharpCheckProjectResults) =
-        Project(this.ProjectFile, checkResults,
-                optimizeFSharpAst=optimizeFSharpAst,
-                rootModule=rootModule,
-                assemblies=assemblies)
+    member _.ClearAssemblyContents() =
+        implementationFiles <-
+            implementationFiles
+            |> Seq.map (fun kv -> kv.Key, { kv.Value with Ast = Unchecked.defaultof<_> }) 
+            |> dict
 
     member _.ProjectFile = projFile
-    member _.ImplementationFiles = implFiles
+    member _.ImplementationFiles = implementationFiles
     member _.Assemblies = assemblies
     member _.InlineExprs = inlineExprs
-    member _.Errors = checkResults.Diagnostics
+    member _.Errors = diagnostics
 
 type Log =
     { Message: string
