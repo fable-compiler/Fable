@@ -141,13 +141,12 @@ function parallel2<T, U>(a: IAsync<T>, b: IAsync<U>): IAsync<[T, U]> {
 
 export function sequential<T>(computations: Iterable<IAsync<T>>) {
 
-  async function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
-    const results: T[] = [];
+  function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
+    let pr: Promise<T[]> = Promise.resolve([]);
     for (const c of computations) {
-      const result = await startAsPromise(c);
-      results.push(result);
+      pr = pr.then(results => startAsPromise(c).then(r => results.concat([r])))
     }
-    return results;
+    return pr;
   }
 
   return delay(() => awaitPromise<T[]>(_sequential<T>(computations)));
@@ -165,6 +164,10 @@ export function sleep(millisecondsDueTime: number) {
       ctx.onCancel(new OperationCanceledError());
     });
   });
+}
+
+export function runSynchronously(): never {
+  throw new Error("Asynchronous code cannot be run synchronously in JS");
 }
 
 export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
