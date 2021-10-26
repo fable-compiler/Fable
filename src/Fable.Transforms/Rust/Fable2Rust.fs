@@ -421,26 +421,23 @@ module TypeInfo =
             | Fable.Boolean -> primitiveType "bool"
             | Fable.Char    -> primitiveType "char"
             | Fable.String  -> primitiveType "str"
-            // | Fable.Enum entRef ->
-            //     let ent = com.GetEntity(entRef)
-
-            //     let mutable numberKind = Int32
-            //     let cases =
-            //         ent.FSharpFields |> Seq.choose (fun fi ->
-            //             // F# seems to include a field with this name in the underlying type
-            //             match fi.Name with
-            //             | "value__" ->
-            //                 match fi.FieldType with
-            //                 | Fable.Number kind -> numberKind <- kind
-            //                 | _ -> ()
-            //                 None
-            //             | name ->
-            //                 let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-            //                 Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-            //         |> Seq.toArray
-            //         |> Expression.arrayExpression
-            //     [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
-            //     |> libReflectionCall com ctx None "enum"
+            | Fable.Enum entRef ->
+                let ent = com.GetEntity(entRef)
+                let mutable numberKind = Int32
+                let cases =
+                    ent.FSharpFields |> Seq.iter (fun fi ->
+                        // F# seems to include a field with this name in the underlying type
+                        match fi.Name, fi.FieldType with
+                        | "value__", Fable.Number (kind, _) -> numberKind <- kind
+                        | _ -> ())
+                numberType numberKind
+                //         | name ->
+                //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+                //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+                //         |> Seq.toArray
+                //     |> Expression.arrayExpression
+                // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
+                // |> libReflectionCall com ctx None "enum"
             | Fable.Number(kind, _) ->
                 numberType kind
             | Replacements.Builtin Replacements.BclInt64 ->

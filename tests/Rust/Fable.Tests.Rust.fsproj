@@ -20,20 +20,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="tests/common/Utils.fs" />
-    <Compile Include="tests/src/ArithmeticTests.fs" />
-    <Compile Include="tests/src/ControlFlowTests.fs" />
-    <Compile Include="tests/src/OptionTests.fs" />
-    <Compile Include="tests/src/ArrayTests.fs" />
-    <Compile Include="tests/src/ListTests.fs" />
-    <Compile Include="tests/src/UnionTests.fs" />
-    <Compile Include="tests/src/TupleTests.fs" />
-    <Compile Include="tests/src/RecordTests.fs" />
     <Compile Include="tests/src/AnonRecordTests.fs" />
-    <Compile Include="tests/src/StringTests.fs" />
-    <Compile Include="tests/src/ClosureTests.fs" />
+    <Compile Include="tests/src/ArithmeticTests.fs" />
+    <Compile Include="tests/src/ArrayTests.fs" />
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/ClassTests.fs" />
+    <Compile Include="tests/src/ClosureTests.fs" />
+    <Compile Include="tests/src/ControlFlowTests.fs" />
+    <Compile Include="tests/src/EnumTests.fs" />
+    <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
+    <Compile Include="tests/src/OptionTests.fs" />
+    <Compile Include="tests/src/RecordTests.fs" />
+    <Compile Include="tests/src/StringTests.fs" />
+    <Compile Include="tests/src/TupleTests.fs" />
+    <Compile Include="tests/src/UnionTests.fs" />
     <Compile Include="tests/src/main.fs" />
   </ItemGroup>
 </Project>
