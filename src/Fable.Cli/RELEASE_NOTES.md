@@ -1,3 +1,7 @@
+### 3.4.6
+
+* Small improvements in Async.ts
+
 ### 3.4.5
 
 * Accept ${entryDir} macro in imports
