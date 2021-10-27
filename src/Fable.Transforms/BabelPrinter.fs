@@ -2,6 +2,7 @@
 module Fable.Transforms.BabelPrinter
 
 open System
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Babel
@@ -566,7 +567,7 @@ module PrinterExtensions =
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
-            printer.Print(pattern)
+            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\n", @"\n"))
             printer.Print("/")
             printer.Print(flags)
 

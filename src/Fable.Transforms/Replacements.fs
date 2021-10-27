@@ -2827,8 +2827,11 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | _ -> false
 
     match i.CompiledName with
-    // TODO: Use RegexConst if no options have been passed?
     | ".ctor" ->
+        let makeRegexConst r (pattern: string) flags =
+            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
+            RegexConstant(pattern, flags) |> makeValue r
+
         let (|RegexFlags|_|) e =
             let rec getFlags = function
                 | NumberOrEnumConst(1., _) -> Some [RegexFlag.RegexIgnoreCase]
@@ -2842,8 +2845,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
                 | _ -> None
             getFlags e
         match args with
-        | [StringConst pattern] -> RegexConstant(pattern, [RegexFlag.RegexGlobal]) |> makeValue r |> Some
-        | StringConst pattern::(RegexFlags flags)::_ -> RegexConstant(pattern, RegexFlag.RegexGlobal::flags) |> makeValue r |> Some
+        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
+        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
         | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture

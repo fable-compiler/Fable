@@ -5,6 +5,20 @@ open System.Text.RegularExpressions
 
 let tests =
   testList "Regex" [
+    testCase "Regex literals work with forward slashes" <| fun _ ->
+        let str = "<a>foo</a><b>bar</b>"
+        let reg = Regex(@"(<a>)\w+(</a>)")
+        reg.Replace(str, "$1bar$2")
+        |> equal "<a>bar</a><b>bar</b>"
+
+    testCase "Regex literals work with new lines" <| fun _ ->
+        let str = """<a>`   foo `</a>
+<b>bar</b>"""
+        let reg = Regex("""(<a>)`   \w+ `(</a>)
+(<b>)\w+(</b>)""")
+        reg.Replace(str, "$1bar$2$3ham$4")
+        |> equal "<a>bar</a><b>ham</b>"
+
     testCase "Regex.Options works" <| fun _ ->
         let option1 = int RegexOptions.IgnoreCase
         let option2 = int RegexOptions.ECMAScript
