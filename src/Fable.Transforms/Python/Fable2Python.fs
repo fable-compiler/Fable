@@ -2096,7 +2096,7 @@ module Util =
                 | _ -> false)
             |> Option.defaultValue false
 
-        let args, body =
+        let args, defaults, body =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
                 // Replace args, see NamedTailCallOpportunity constructor
@@ -2112,9 +2112,19 @@ module Util =
                 let body = varDecls @ body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
-                args', Statement.while'(Expression.constant(true), body)
+                args', [], Statement.while'(Expression.constant(true), body)
                 |> List.singleton
-            | _ -> args |> List.map (ident com ctx), body
+            | _ ->
+                // Make sure all of the last optional arguments will accept None as their default value
+                let defaults =
+                    args
+                    |> List.rev
+                    |> List.takeWhile (fun arg ->
+                        match arg.Type with
+                        | Fable.Option _ -> true
+                        | _ -> false)
+                    |> List.map(fun _ -> Expression.none())
+                args |> List.map (ident com ctx), defaults, body
 
         let arguments =
             let args = args |> List.map Arg.arg
@@ -2123,7 +2133,7 @@ module Util =
             | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
             // So we can also receive unit
             | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
-            | _ -> Arguments.arguments(args @ tcArgs, defaults=tcDefaults)
+            | _ -> Arguments.arguments(args @ tcArgs, defaults=defaults @ tcDefaults)
 
         arguments, body
 
