@@ -3,9 +3,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.4.6</Version>
-    <PackageVersion>3.4.6</PackageVersion>
-    <PackageReleaseNotes>* Small improvements in Async.ts</PackageReleaseNotes>
+    <Version>3.4.7</Version>
+    <PackageVersion>3.4.7</PackageVersion>
+    <PackageReleaseNotes>* Fix #2571: Forward slash not escaped when creating regex</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>

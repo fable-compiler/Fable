@@ -1,3 +1,7 @@
+### 3.4.7
+
+* Fix #2571: Forward slash not escaped when creating regex
+
 ### 3.4.6
 
 * Small improvements in Async.ts
