@@ -143,6 +143,21 @@ module Process =
     let isWindows() =
         InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
+    // Adapted from https://stackoverflow.com/a/22210859
+    let tryFindInPath (exec: string) =
+        let isWindows = isWindows()
+        let exec = if isWindows then exec + ".exe" else exec
+        Environment.GetEnvironmentVariable("PATH")
+            .Split(if isWindows then ';' else ':')
+        |> Array.tryPick (fun dir ->
+            let execPath = IO.Path.Combine(dir, exec)
+            if IO.File.Exists execPath then Some execPath else None)
+
+    let findInPath (exec: string) =
+        match tryFindInPath exec with
+        | Some exec -> exec
+        | None -> failwith $"Cannot find {exec} in PATH"
+
     let getCurrentAssembly() =
         typeof<TypeInThisAssembly>.Assembly
 
