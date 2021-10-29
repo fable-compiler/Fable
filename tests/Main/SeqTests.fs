@@ -679,6 +679,27 @@ let tests =
 
         xs |> equal ys
 
+    // See https://github.com/demystifyfp/FsToolkit.ErrorHandling/pull/146
+    testCase "Seq.cache works when enumerating partially" <| fun () ->
+        let xs = seq {
+          yield 1
+          yield 1
+          yield 99
+        }
+
+        let rec loop xs ts =
+          match Seq.tryHead xs with
+          | Some x ->
+            if x < 10 then
+              loop (Seq.tail xs) (x :: ts)
+            else
+              Error x
+          | None ->
+            Ok (List.rev ts)
+
+        loop (Seq.cache xs) [] |> equal (Error 99)
+        loop xs [] |> equal (Error 99)
+
     testCase "Seq.cast works" <| fun () ->
         let xs = [box 1; box 2; box 3]
         let ys = Seq.cast<int> xs
