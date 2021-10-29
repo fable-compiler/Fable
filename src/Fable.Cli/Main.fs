@@ -311,7 +311,6 @@ type ProjectCracked(projFile: string,
     member _.ProjectFile = projFile
     member _.FableOptions = fableCompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
-    member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
     member _.MakeCompiler(currentFile, project, outDir) =

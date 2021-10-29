@@ -138,6 +138,10 @@ module File =
                     di.Name.ToUpper()
         Path.GetFullPath(pathName) |> getExactPath
 
+    /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
+    let isDirectoryEmpty dir =
+        not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Runtime
