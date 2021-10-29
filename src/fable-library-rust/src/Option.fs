@@ -78,23 +78,23 @@ let map<'T, 'U> (mapping: 'T -> 'U) (opt: 'T option): 'U option =
 let map2<'T1, 'T2, 'U> (mapping: 'T1 -> 'T2 -> 'U)
         (opt1: 'T1 option) (opt2: 'T2 option): 'U option =
     match opt1 with
+    | None -> None
     | Some x ->
         match opt2 with
-        | Some y -> Some (mapping x y)
         | None -> None
-    | None -> None
+        | Some y -> Some (mapping x y)
 
 let map3<'T1, 'T2, 'T3, 'U> (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
         (opt1: 'T1 option) (opt2: 'T2 option) (opt3: 'T3 option): 'U option =
     match opt1 with
+    | None -> None
     | Some x ->
         match opt2 with
+        | None -> None
         | Some y ->
             match opt3 with
-            | Some z -> Some (mapping x y z)
             | None -> None
-        | None -> None
-    | None -> None
+            | Some z -> Some (mapping x y z)
 
 let orElse<'T> (ifNone: 'T option) (opt: 'T option): 'T option =
     match opt with

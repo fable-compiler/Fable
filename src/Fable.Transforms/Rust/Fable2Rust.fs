@@ -2156,8 +2156,8 @@ module Util =
         match kind with
         // | Fable.TypeTest t ->
         //     transformTypeTest com ctx range expr t
-        | Fable.OptionTest nonEmpty ->
-            let test = if nonEmpty then "is_some" else "is_none"
+        | Fable.OptionTest isSome ->
+            let test = if isSome then "is_some" else "is_none"
             let expr = com.TransformAsExpr(ctx, expr)
             mkMethodCallExpr test None expr []
         | Fable.ListTest nonEmpty ->
@@ -2199,11 +2199,8 @@ module Util =
             | Fable.Option(genArg, _) ->
                 match evalName with
                 | Some idName ->
-                    match caseIndex with
-                    | 0 ->
-                        let fieldName = $"{idName}_{caseIndex}_{0}"
-                        [(fieldName, idName, genArg)]
-                    | _ -> []
+                    let fieldName = $"{idName}_{caseIndex}_{0}"
+                    [(fieldName, idName, genArg)]
                 | _ -> []
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
@@ -2423,9 +2420,9 @@ module Util =
         let (|Equals|_|) = function
             | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
                 Some(expr, right)
-            | Fable.Test(expr, Fable.OptionTest nonEmpty, _) ->
+            | Fable.Test(expr, Fable.OptionTest isSome, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
-                let right = makeIntConst (if nonEmpty then 0 else 1)
+                let right = makeIntConst (if isSome then 0 else 1)
                 Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
