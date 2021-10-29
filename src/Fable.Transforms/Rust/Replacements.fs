@@ -998,41 +998,41 @@ let makePojo (com: Compiler) caseRule keyValueList =
             | _ -> None))
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
 
-let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
-    let injectArgInner args (injectType, injectGenArgIndex) =
-        let fail () =
-            sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
-                moduleName methName (List.map fst genArgs) injectGenArgIndex
-            |> addError com ctx.InlinePath r
-            args
+// let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
+//     let injectArgInner args (injectType, injectGenArgIndex) =
+//         let fail () =
+//             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
+//                 moduleName methName (List.map fst genArgs) injectGenArgIndex
+//             |> addError com ctx.InlinePath r
+//             args
 
-        match List.tryItem injectGenArgIndex genArgs with
-        | None -> fail()
-        | Some (_,genArg) ->
-            match injectType with
-            | Types.comparer ->
-                args @ [makeComparer com ctx genArg]
-            | Types.equalityComparer ->
-                args @ [makeEqualityComparer com ctx genArg]
-            | Types.arrayCons ->
-                match genArg with
-                | Number(numberKind,_) when com.Options.TypedArrays ->
-                    args @ [getTypedArrayName com numberKind |> makeIdentExpr]
-                // Python will complain if we miss an argument
-                | _ when com.Options.Language = Python ->
-                    args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
-                | _ -> args
-            | Types.adder ->
-                args @ [makeGenericAdder com ctx genArg]
-            | Types.averager ->
-                args @ [makeGenericAverager com ctx genArg]
-            | _ -> fail()
+//         match List.tryItem injectGenArgIndex genArgs with
+//         | None -> fail()
+//         | Some (_,genArg) ->
+//             match injectType with
+//             | Types.comparer ->
+//                 args @ [makeComparer com ctx genArg]
+//             | Types.equalityComparer ->
+//                 args @ [makeEqualityComparer com ctx genArg]
+//             | Types.arrayCons ->
+//                 match genArg with
+//                 | Number(numberKind,_) when com.Options.TypedArrays ->
+//                     args @ [getTypedArrayName com numberKind |> makeIdentExpr]
+//                 // Python will complain if we miss an argument
+//                 | _ when com.Options.Language = Python ->
+//                     args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
+//                 | _ -> args
+//             | Types.adder ->
+//                 args @ [makeGenericAdder com ctx genArg]
+//             | Types.averager ->
+//                 args @ [makeGenericAverager com ctx genArg]
+//             | _ -> fail()
 
-    Map.tryFind moduleName ReplacementsInject.fableReplacementsModules
-    |> Option.bind (Map.tryFind methName)
-    |> function
-        | None -> args
-        | Some injectInfo -> injectArgInner args injectInfo
+//     Map.tryFind moduleName ReplacementsInject.fableReplacementsModules
+//     |> Option.bind (Map.tryFind methName)
+//     |> function
+//         | None -> args
+//         | Some injectInfo -> injectArgInner args injectInfo
 
 let tryEntityRef (com: Compiler) entFullName =
     match entFullName with
@@ -1781,11 +1781,11 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "Seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Seq" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Seq" meth i.GenericArgs args
         Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1962,7 +1962,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ar] ->
         Helper.InstanceCall(ar, "is_empty", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", [ar] ->
-        Helper.LibCall(com, "Array", "copy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.InstanceCall(ar, "to_vec", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+        // Helper.LibCall(com, "Array", "copy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
@@ -1971,11 +1972,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     //     Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Array" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Array" meth i.GenericArgs args
         Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2007,11 +2008,11 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     | "ToSeq", [x] -> toSeq t x |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "Seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "List" meth i.GenericArgs args
+        // let args = injectArg com ctx r "List" meth i.GenericArgs args
         Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2020,12 +2021,12 @@ let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
-        let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
+        // let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
         Helper.LibCall(com, "Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
-    let args = injectArg com ctx r "Set" meth i.GenericArgs args
+    // let args = injectArg com ctx r "Set" meth i.GenericArgs args
     Helper.LibCall(com, "Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2034,12 +2035,12 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
-        let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
+        // let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
         Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
-    let args = injectArg com ctx r "Map" meth i.GenericArgs args
+    // let args = injectArg com ctx r "Map" meth i.GenericArgs args
     Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2073,30 +2074,33 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
     | ("OfObj" | "OfNullable"), _ ->
-        Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
+        // Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
+        None // TODO:
     | ("ToObj" | "ToNullable"), _ ->
-        Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
+        // Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
+        None // TODO:
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    // | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    //     Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | "ToArray", [arg] ->
+    //     toArray r t arg |> Some
+    // | "ToList", [arg] ->
+    //     let args = args |> List.replaceLast (toArray None t)
+    //     Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
+    // | "FoldBack", [folder; opt; state] ->
+    //     Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
+    // | ("DefaultValue" | "OrElse"), _ ->
+    //     Helper.LibCall(com, "Option", "defaultValue", t, args, ?loc=r) |> Some
+    // | ("DefaultWith" | "OrElseWith"), _ ->
+    //     Helper.LibCall(com, "Option", "defaultWith", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
+    //     let meth = Naming.lowerFirst meth
+    //     let args = args |> List.replaceLast (toArray None t)
+    //     let args = injectArg com ctx r "Seq" meth i.GenericArgs args
+    //     Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToArray", [arg] ->
-        toArray r t arg |> Some
-    | "ToList", [arg] ->
-        let args = args |> List.replaceLast (toArray None t)
-        Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
-    | "FoldBack", [folder; opt; state] ->
-        Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("DefaultValue" | "OrElse"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
-    | ("DefaultWith" | "OrElseWith"), _ ->
-        Helper.LibCall(com, "Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
-        let meth = Naming.lowerFirst meth
-        let args = args |> List.replaceLast (toArray None t)
-        let args = injectArg com ctx r "Seq" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -2468,7 +2472,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
         "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Set" meth i.GenericArgs args
+        // let args = injectArg com ctx r "Set" meth i.GenericArgs args
         Helper.LibCall(com, "Set", meth, t, c::args, ?loc=r) |> Some
     // | "CopyTo" // TODO!!!
     // | "SetEquals"

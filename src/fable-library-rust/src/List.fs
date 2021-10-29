@@ -328,15 +328,18 @@ let toArray (xs: 'T list) =
 //     | Some x -> x
 //     | None -> indexNotFound()
 
-// let tryItem n (xs: 'T list) =
-//     let rec loop i (xs: 'T list) =
-//         if (isEmpty xs) then None
-//         else
-//             if i = n then Some (head xs)
-//             else loop (i + 1) (tail xs)
-//     loop 0 xs
+let tryItem n (xs: 'T list) =
+    let rec loop i (xs: 'T list) =
+        if (isEmpty xs) then None
+        else
+            if i = n then Some (head xs)
+            else loop (i + 1) (tail xs)
+    loop 0 xs
 
-// let item n (xs: 'T list) = xs.Item(n)
+let item n (xs: 'T list) = // xs.Item(n)
+    match tryItem n xs with
+    | Some t -> t
+    | None -> invalidArg "index" SR.indexOutOfBounds
 
 // let filter f (xs: 'T list) =
 //     let root = (empty())

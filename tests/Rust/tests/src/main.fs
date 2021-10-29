@@ -16,6 +16,8 @@ let tests: unit[] = [|
     importAll "NBodyTests.rs"
     importAll "OptionTests.rs"
     importAll "RecordTests.rs"
+    importAll "ResizeArrayTests.rs"
+    importAll "SeqTests.rs"
     importAll "StringTests.rs"
     importAll "TupleTests.rs"
     importAll "UnionTests.rs"

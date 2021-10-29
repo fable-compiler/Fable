@@ -217,7 +217,7 @@ let buildPyLibraryIfNotExists() =
 
 let buildLibraryRust() =
     let libraryDir = "src/fable-library-rust"
-    let projectDir = libraryDir + "/fable"
+    let projectDir = libraryDir + "/src"
     let buildDir = "build/fable-library-rust"
     let fableLib = "."
 

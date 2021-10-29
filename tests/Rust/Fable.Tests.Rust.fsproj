@@ -32,6 +32,8 @@
     <Compile Include="tests/src/NBodyTests.fs" />
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
+    <Compile Include="tests/src/ResizeArrayTests.fs" />
+    <Compile Include="tests/src/SeqTests.fs" />
     <Compile Include="tests/src/StringTests.fs" />
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />

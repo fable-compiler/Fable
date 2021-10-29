@@ -17,17 +17,18 @@ module SR =
 //     let inline isEmpty (array: 'T[]): bool = Array.isEmpty array
 //     let inline length (array: 'T[]): int = Array.length array
 //     let inline item (index: int) (array: _[]): 'T = array.[index]
+//     let inline copy (array: 'T[]): 'T[] = Array.copy array
 
 let tryItem (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
-let copy (array: 'T[]): 'T[] =
-    let len = array.Length
-    let res = Array.zeroCreate len
-    for i = 0 to len - 1 do
-        res.[i] <- array.[i]
-    res
+// let copy (array: 'T[]): 'T[] =
+//     let len = array.Length
+//     let res = Array.zeroCreate len
+//     for i = 0 to len - 1 do
+//         res.[i] <- array.[i]
+//     res
 
 let reverse (array: 'T[]): 'T[] =
     let len = array.Length
@@ -160,7 +161,7 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 
 // let indexed (source: 'T[]) =
 //     let len = source.Length
-//     let target = allocateArray len
+//     let target = Array.zeroCreate len
 //     for i = 0 to (len - 1) do
 //         target.[i] <- i, source.[i]
 //     target
@@ -573,8 +574,8 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 // // TODO: We should pass Cons<'T> here (and unzip3) but 'a and 'b may differ
 // let unzip (array: _[]) =
 //     let len = array.Length
-//     let res1 = allocateArray len
-//     let res2 = allocateArray len
+//     let res1 = Array.zeroCreate len
+//     let res2 = Array.zeroCreate len
 //     iterateIndexed (fun i (item1, item2) ->
 //         res1.[i] <- item1
 //         res2.[i] <- item2
@@ -583,9 +584,9 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 
 // let unzip3 (array: _[]) =
 //     let len = array.Length
-//     let res1 = allocateArray len
-//     let res2 = allocateArray len
-//     let res3 = allocateArray len
+//     let res1 = Array.zeroCreate len
+//     let res2 = Array.zeroCreate len
+//     let res3 = Array.zeroCreate len
 //     iterateIndexed (fun i (item1, item2, item3) ->
 //         res1.[i] <- item1
 //         res2.[i] <- item2
@@ -795,7 +796,7 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 //         let lenInner = firstArray.Length
 //         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
 //             differentLengths()
-//         let result: 'T[][] = allocateArray lenInner
+//         let result: 'T[][] = Array.zeroCreate lenInner
 //         for i in 0..lenInner-1 do
 //             result.[i] <- allocateArrayFromCons cons len
 //             for j in 0..len-1 do

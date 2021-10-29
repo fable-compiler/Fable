@@ -1,9 +1,16 @@
 use core::cell::UnsafeCell;
-use std::cmp::Ordering;
+use core::cmp::Ordering;
+use core::fmt;
 
-#[derive(Debug)]
+#[repr(transparent)]
 pub struct MutCell<T: ?Sized> {
     value: UnsafeCell<T>,
+}
+
+impl<T: fmt::Debug + Clone> fmt::Debug for MutCell<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MutCell").field(&self.get()).finish()
+    }
 }
 
 impl<T: Clone> Clone for MutCell<T> {
@@ -83,10 +90,21 @@ impl<T> MutCell<T> {
     }
 
     #[inline]
-    pub fn set(&self, val: T) {
+    pub fn replace(&self, val: T) -> T {
         // SAFETY: This can cause data races if called from a separate thread,
         // but `UnsafeCell` is `!Sync` so this won't happen.
-        let old = std::mem::replace(unsafe { &mut *self.value.get() }, val);
+        std::mem::replace(unsafe { &mut *self.value.get() }, val)
+    }
+
+    #[inline]
+    pub fn set(&self, val: T) {
+        let old = self.replace(val);
         drop(old);
+    }
+}
+
+impl<T: Default> MutCell<T> {
+    pub fn take(&self) -> T {
+        self.replace(Default::default())
     }
 }

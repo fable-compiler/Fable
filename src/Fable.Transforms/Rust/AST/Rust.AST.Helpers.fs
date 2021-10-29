@@ -16,7 +16,7 @@ module Naming =
 
     let allKeywords = HashSet(kw.RustKeywords)
     let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
-    let preludeSymbols = HashSet(["Option"; "Some"; "None"])
+    let preludeSymbols = HashSet(["Option"; "Some"; "None"; "String"])
 
     let rawIdent (ident: string) =
         if ident.StartsWith("r#")
@@ -689,6 +689,9 @@ module Exprs =
         ExprKind.Tup(mkVec elements)
         |> mkExpr
 
+    let mkUnitExpr (): Expr =
+       mkTupleExpr []
+
     let mkCastExpr ty expr: Expr =
         ExprKind.Cast(expr, ty)
         |> mkExpr
@@ -902,14 +905,16 @@ module Generic =
         let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
         mkGenericArgs args
 
-    let mkParenArgs inputs output: GenericArgs =
+    let mkParenArgs inputs output: GenericArgs option =
         let genArgs: ParenthesizedArgs = {
             span = DUMMY_SP
             inputs_span = DUMMY_SP
             inputs = mkVec inputs
             output = output
         }
-        genArgs |> GenericArgs.Parenthesized
+        genArgs
+        |> GenericArgs.Parenthesized
+        |> Some
 
 [<AutoOpen>]
 module Bounds =
@@ -928,7 +933,7 @@ module Bounds =
         GenericBound.Trait(ptref, TraitBoundModifier.None)
 
     let mkFnTraitGenericBound inputs output: GenericBound =
-        let args = mkParenArgs inputs output |> Some
+        let args = mkParenArgs inputs output
         let path = mkGenericPath ["Fn"] args
         mkTraitGenericBound path
 
@@ -1002,6 +1007,9 @@ module Types =
     let mkTupleTy tys: Ty =
         TyKind.Tup(mkVec tys)
         |> mkTy
+
+    let mkUnitTy (): Ty =
+        mkTupleTy []
 
     let mkGenericTy path tys: Ty =
         mkGenericTypeArgs tys

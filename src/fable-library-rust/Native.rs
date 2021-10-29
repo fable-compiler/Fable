@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 pub mod Mutable;
+use crate::Mutable::*;
 
-use Mutable::*;
 use std::rc::Rc;
 
 pub mod Native {
