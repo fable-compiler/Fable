@@ -435,8 +435,13 @@ module Helpers =
                 path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
             | false, "." -> ""
             | false, _ ->
-                Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
-        // printfn $"Path: {path}"
+                let prefix =
+                    if Naming.isInFableModulesDir modulePath then
+                         Naming.fableModulesDir
+                    else
+                        ""
+                Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
+        //printfn $"Path: {path}"
 
         match modulePath with
         // Other libraries importing (relative) Fable library modules
@@ -1018,7 +1023,7 @@ module Util =
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    let decorators = [ Expression.name ($"{memb.Name}.setter") ]
+                    let decorators = [ Expression.name $"{memb.Name}.setter" ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
@@ -1062,7 +1067,7 @@ module Util =
             | _ -> classMembers
         let name = Helpers.getUniqueIdentifier "ObjectExpr"
         let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
-        Expression.call(Expression.name (name)), [ stmt ]
+        Expression.call(Expression.name name), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx hasSpread args : Expression list * Statement list =
         match args with
@@ -1325,10 +1330,10 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.FieldGet(fieldName="findIndex") ->
-            let attr = Python.Identifier("index")
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        // | Fable.FieldGet(fieldName="findIndex") ->
+        //     let attr = Python.Identifier("index")
+        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -2364,10 +2369,10 @@ module Util =
                 |> Seq.toList
                 |> makeArray com ctx
 
-            let body = stmts @ [ Statement.return'(expr) ]
             let name = Identifier("cases")
-            let self = Arg.arg("self")
-            FunctionDef.Create(name, Arguments.arguments [ self ], body = body)
+            let body = stmts @ [ Statement.return'(expr) ]
+            let decorators = [ Expression.name("staticmethod") ]
+            FunctionDef.Create(name, Arguments.arguments [ ], body = body, decoratorList=decorators)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = List.append [ cases ] classMembers

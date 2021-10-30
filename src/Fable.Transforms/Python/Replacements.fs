@@ -603,12 +603,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     let targetType = transformEnumType targetType
     let emitCast typeTo arg =
         match typeTo with
-        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "(int($0) + 0x80 & 0xFF) - 0x80"
+        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
         | JsNumber Int32 -> fastIntFloor arg
-        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "$0 & 0xFF"
-        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "$0 & 0xFFFF"
-        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
+        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "int($0) & 0xFF"
+        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "int($0) & 0xFFFF"
+        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "int($0)"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
@@ -1880,10 +1880,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 let nativeArrayFunctions =
     dict [| "Exists", "some"
             "Filter", "filter"
-            "Find", "find"
-            "FindIndex", "index"
+            //"Find", "find"
+            //"FindIndex", "index"
             //"ForAll", "all"
-            "Iterate", "forEach"
+            //"Iterate", "forEach"
             "Reduce", "reduce"
             //"ReduceBack", "reduceRight"
           |]

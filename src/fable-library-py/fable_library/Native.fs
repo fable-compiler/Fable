@@ -78,7 +78,8 @@ module Helpers =
 
     let inline findImpl (predicate: 'T -> bool) (array: 'T []) : 'T option = !! array?find (predicate)
 
-    let inline findIndexImpl (predicate: 'T -> bool) (array: 'T []) : int = !! array?findIndex (predicate)
+    [<Emit("next((i for i, x in enumerate($1) if ($0)(x)), -1)")>]
+    let findIndexImpl (predicate: 'T -> bool) (array: 'T []) : int = nativeOnly
 
     let inline collectImpl (mapping: 'T -> 'U []) (array: 'T []) : 'U [] = !! array?flatMap (mapping)
 

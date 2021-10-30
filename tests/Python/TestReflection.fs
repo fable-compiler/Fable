@@ -219,6 +219,41 @@ let ``test Reflection Array`` () =
     liType.GetElementType() |> equal null
 
 [<Fact>]
+let ``test FSharp.Reflection Union`` () =
+    let typ = typeof<MyUnion>
+    let unionCase1 = StringCase("a", "b")
+    let unionCase2 = IntCase 1
+    let unionTypeFields = FSharpType.GetUnionCases typ
+    unionTypeFields |> Array.map (fun x -> x.Name) |> equal [| "StringCase"; "IntCase" |]
+    let unionCase1Info, unionCase1ValueFields = FSharpValue.GetUnionFields(unionCase1, typ)
+    let unionCase2Info, unionCase2ValueFields = FSharpValue.GetUnionFields(unionCase2, typ)
+    let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
+    let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
+
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| "SomeString"; "Item2" |], [| box "a"; box "b" |]
+    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| "SomeInt" |], [| box 1 |]
+    let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
+
+    let unionFields =
+        Array.zip unionCaseInfos unionCaseValueFields
+        |> Array.map (fun (info, values) ->
+            let types =
+                info.GetFields()
+                |> Array.map (fun field -> field.PropertyType)
+            let names =
+                info.GetFields()
+                |> Array.map (fun field -> field.Name)
+            info.Tag, info.Name, types, names, values)
+
+    let canMakeSameUnionCases =
+        unbox<MyUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1
+        && unbox<MyUnion> (FSharpValue.MakeUnion(unionCase2Info, unionCase2ValueFields)) = unionCase2
+
+    FSharpType.IsUnion typ |> equal true
+    unionFields |> equal expectedUnionFields
+    canMakeSameUnionCases |> equal true
+
+[<Fact>]
 let ``test FSharp.Reflection Record`` () =
     let typ = typeof<MyRecord>
     let record = { String = "a"; Int = 1 }
