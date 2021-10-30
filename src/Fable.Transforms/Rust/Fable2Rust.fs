@@ -62,8 +62,8 @@ type Context =
 type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
-    abstract GetAllImports: unit -> seq<string>
-    abstract TryAddImportPath: string -> bool
+    abstract GetAllImports: unit -> seq<string*string>
+    abstract TryAddImport: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
@@ -310,7 +310,7 @@ module TypeInfo =
 
     let makeImport (com: IRustCompiler) ctx r (selector: string) (path: string) genArgs =
         let importName = com.GetImportName(ctx, selector, path, r)
-        if importName = "*"
+        if selector = "*"
         then mkUnitExpr ()
         else makeFullNamePathExpr importName genArgs
 
@@ -3657,13 +3657,13 @@ module Util =
             Fable.Path.Combine(currentDir, path)
             |> Fable.Path.normalizeFullPath
 
-    let transformImports com ctx (imports: string seq): Rust.Item list =
+    let transformImports (com: IRustCompiler) ctx (imports: (string * string) seq): Rust.Item list =
         imports
         |> List.ofSeq
         |> List.sort
-        |> List.collect (fun (importPath: string) ->
-            let fullPath = getImportFullPath com importPath
-            let modName = System.String.Format("import_{0:x}", hash fullPath)
+        |> List.collect (fun (importPath, modName) ->
+            // let fullPath = getImportFullPath com importPath
+            // let modName = System.String.Format("import_{0:x}", hash fullPath)
             let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
             let modItem = mkUnloadedModItem attrs modName |> mkNonPublicItem
             let useItem = mkGlobUseItem [] [modName] |> mkNonPublicItem
@@ -3675,7 +3675,7 @@ module Util =
             //     | _ ->
             //         let parts = splitFullName selector
             //         mkSimpleUseItem [] (useName::parts) None
-            if com.TryAddImportPath(fullPath)
+            if com.TryAddImport(modName)
             then [modItem; useItem]
             else [useItem] // modItem already added somewhere else
         )
@@ -3736,12 +3736,12 @@ module Util =
 module Compiler =
 
     // global storage (across files)
-    let importPaths = HashSet<string>()
+    let importModules = HashSet<string>()
 
     // per file
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = HashSet<string>()
+        let imports = System.Collections.Generic.Dictionary<string, string>()
         let interfaces = System.Collections.Generic.Dictionary<string, string>()
 
         interface IRustCompiler with
@@ -3749,10 +3749,10 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.TryAddImportPath(path) =
-                importPaths.Add(path)
+            member _.TryAddImport(modName) =
+                importModules.Add(modName)
 
-            member _.GetImportName(ctx, selector, path, r) =
+            member self.GetImportName(ctx, selector, path, r) =
                 let importPath, importName =
                     match path.Split('|') with
                     | [| path; namesp |] ->
@@ -3761,10 +3761,20 @@ module Compiler =
                         path, (namesp +  "::" + selector)
                     | _ ->
                         path, selector
-                imports.Add(importPath) |> ignore
-                importName
 
-            member _.GetAllImports() = imports :> seq<_>
+                let modName =
+                    match imports.TryGetValue(importPath) with
+                    | true, modName -> modName
+                    | false, _ ->
+                        let fullPath = Util.getImportFullPath self importPath
+                        let modName = System.String.Format("import_{0:x}", hash fullPath)
+                        imports.Add(importPath, modName)
+                        modName
+
+                // $"crate::{modName}::{importName}"
+                $"{importName}"
+
+            member _.GetAllImports() = imports |> Seq.map (fun pair -> pair.Key, pair.Value)
             member self.TransformAsExpr(ctx, e) = Util.transformAsExpr self ctx e
         //     member self.TransformAsStatements(ctx, ret, e) = transformAsStatements self ctx ret e
         //     member self.TransformFunction(ctx, name, args, body) = transformFunction self ctx name args body
