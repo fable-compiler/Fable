@@ -234,7 +234,7 @@ let ``Option.toArray works`` () =
 
 // [<Fact>]
 // let ``Option.toList works`` () =
-//     None |> Option.toList |> equal []
+//     None |> Option.toList<int> |> equal []
 //     Some 42 |> Option.toList |> equal [42]
 
 // [<Fact>]

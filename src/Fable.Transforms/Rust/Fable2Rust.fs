@@ -63,12 +63,13 @@ type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> seq<string>
+    abstract TryAddImportPath: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
     // abstract TransformImport: Context * selector:string * path:string -> Rust.Expr
     // abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
-    abstract TryRegisterInterface: rustNs: string * dotnetNs: string -> bool
+    abstract TryAddInterface: rustNs: string * dotnetNs: string -> bool
     abstract GetInterfaceNs: dotnetNs: string -> string
 
 // TODO : Centralise and find a home for this
@@ -3377,8 +3378,8 @@ module Util =
                 [
                     for iface in ent.AllInterfaces do
                         let ifaceEnt = com.GetEntity iface.Entity
-                        let nspace = (ent.FullName |> splitFullName |> List.rev |> List.tail |> List.rev |> List.reduce (fun acc item -> acc + "." + item ))
-                        let isNew = com.TryRegisterInterface (ifaceEnt.FullName, nspace + "." + ifaceEnt.DisplayName)
+                        let namesp = (ent.FullName |> splitFullName |> List.rev |> List.tail |> List.rev |> List.reduce (fun acc item -> acc + "." + item ))
+                        let isNew = com.TryAddInterface (ifaceEnt.FullName, namesp + "." + ifaceEnt.DisplayName)
                         if isNew then
                             let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
                             let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
@@ -3644,12 +3645,25 @@ module Util =
             //     if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
             //     else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformImports ctx (imports: string seq): Rust.Item list =
+    let getImportFullPath (com: IRustCompiler) (path: string) =
+        let isAbsolutePath =
+            path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(":") = 1
+        let isLibraryPath =
+            path.StartsWith(com.LibraryDir)
+        if isAbsolutePath || isLibraryPath then
+            Fable.Path.normalizePath path
+        else
+            let currentDir = Fable.Path.GetDirectoryName(com.CurrentFile)
+            Fable.Path.Combine(currentDir, path)
+            |> Fable.Path.normalizeFullPath
+
+    let transformImports com ctx (imports: string seq): Rust.Item list =
         imports
         |> List.ofSeq
         |> List.sort
         |> List.collect (fun (importPath: string) ->
-            let modName = System.String.Format("import_{0:x}", hash importPath)
+            let fullPath = getImportFullPath com importPath
+            let modName = System.String.Format("import_{0:x}", hash fullPath)
             let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
             let modItem = mkUnloadedModItem attrs modName |> mkNonPublicItem
             let useItem = mkGlobUseItem [] [modName] |> mkNonPublicItem
@@ -3661,7 +3675,9 @@ module Util =
             //     | _ ->
             //         let parts = splitFullName selector
             //         mkSimpleUseItem [] (useName::parts) None
-            [modItem; useItem]
+            if com.TryAddImportPath(fullPath)
+            then [modItem; useItem]
+            else [useItem] // modItem already added somewhere else
         )
 
 (*
@@ -3670,7 +3686,7 @@ module Util =
         imports |> Seq.map (fun import ->
             let specifier =
                 import.LocalIdent
-                |> Option.map (fun localId ->
+                |> Option.map (fun localId ->`
                     let localId = Identifier.identifier(localId)
                     match import.Selector with
                     | "*" -> ImportNamespaceSpecifier(localId)
@@ -3719,15 +3735,22 @@ module Util =
 
 module Compiler =
 
+    // global storage (across files)
+    let importPaths = HashSet<string>()
+
+    // per file
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = HashSet<string>()
-        let mutable ifaces = Map.empty
+        let interfaces = System.Collections.Generic.Dictionary<string, string>()
 
         interface IRustCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
+
+            member _.TryAddImportPath(path) =
+                importPaths.Add(path)
 
             member _.GetImportName(ctx, selector, path, r) =
                 let importPath, importName =
@@ -3742,18 +3765,23 @@ module Compiler =
                 importName
 
             member _.GetAllImports() = imports :> seq<_>
-            member bcom.TransformAsExpr(ctx, e) = Util.transformAsExpr bcom ctx e
-        //     member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
-        //     member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-        //     member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
-            member _.TryRegisterInterface (dotnetNs, rustNs) =
-                match ifaces |> Map.tryFind dotnetNs with
-                | None ->
-                    ifaces <- ifaces |> Map.add dotnetNs rustNs
+            member self.TransformAsExpr(ctx, e) = Util.transformAsExpr self ctx e
+        //     member self.TransformAsStatements(ctx, ret, e) = transformAsStatements self ctx ret e
+        //     member self.TransformFunction(ctx, name, args, body) = transformFunction self ctx name args body
+        //     member self.TransformImport(ctx, selector, path) = transformImport self ctx None selector path
+
+            member _.TryAddInterface (dotnetNs, rustNs) =
+                // interfaces.TryAdd(dotnetNs, rustNs) // netstandard2.1 only
+                if interfaces.ContainsKey(dotnetNs) then
+                    false // already added
+                else
+                    interfaces.Add(dotnetNs, rustNs)
                     true
-                | Some _ -> false
+
             member _.GetInterfaceNs dotnetNs =
-                ifaces |> Map.tryFind dotnetNs |> Option.defaultValue dotnetNs
+                match interfaces.TryGetValue(dotnetNs) with
+                | true, v -> v
+                | false, _ -> dotnetNs
 
         interface Fable.Compiler with
             member _.Options = com.Options
@@ -3823,7 +3851,7 @@ module Compiler =
 
         let entryPointDecls = Util.getEntryPointDecls com ctx file.Declarations
         let rootDecls = List.collect (Util.transformDecl com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> Util.transformImports ctx
+        let importDecls = com.GetAllImports() |> Util.transformImports com ctx
         let items = importDecls @ preludeDecls @ rootDecls @ entryPointDecls
 
         let crate = mkCrate topAttrs items
