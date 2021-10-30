@@ -435,8 +435,13 @@ module Helpers =
                 path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
             | false, "." -> ""
             | false, _ ->
-                Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
-        // printfn $"Path: {path}"
+                let prefix =
+                    if Naming.isInFableModulesDir modulePath then
+                         Naming.fableModulesDir
+                    else
+                        ""
+                Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
+        //printfn $"Path: {path}"
 
         match modulePath with
         // Other libraries importing (relative) Fable library modules
@@ -1325,10 +1330,10 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.FieldGet(fieldName="findIndex") ->
-            let attr = Python.Identifier("index")
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        // | Fable.FieldGet(fieldName="findIndex") ->
+        //     let attr = Python.Identifier("index")
+        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)

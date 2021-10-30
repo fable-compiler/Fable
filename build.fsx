@@ -441,8 +441,7 @@ let testPython() =
         "--lang Python"
     ]
 
-    //runInDir buildDir "touch __init__.py" // So relative imports works.
-    runInDir buildDir "pytest"
+    runInDir buildDir "pytest -x"
 
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =

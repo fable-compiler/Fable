@@ -153,7 +153,7 @@ let ``test Array setter works`` () =
     equal 10. x.[3]
 
 [<Fact>]
-let ``test Array.Length works`` () =
+let ``test xs.Length works`` () =
     let xs = [| 1.; 2.; 3.; 4. |]
     xs.Length |> equal 4
 
@@ -361,17 +361,17 @@ let ``Array.find works`` () =
     xs |> Array.find ((=) 2us)
     |> equal 2us
 
-// [<Fact>]
-// let ``test Array.findIndex works`` () =
-//     let xs = [|1.f; 2.f; 3.f; 4.f|]
-//     xs |> Array.findIndex ((=) 2.f)
-//     |> equal 1
+[<Fact>]
+let ``test Array.findIndex works`` () =
+    let xs = [|1.f; 2.f; 3.f; 4.f|]
+    xs |> Array.findIndex ((=) 2.f)
+    |> equal 1
 
-// [<Fact>]
-// let ``test Array.findBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.find ((>) 4.) |> equal 1.
-//     xs |> Array.findBack ((>) 4.) |> equal 3.
+//[<Fact>]
+//let ``test Array.findBack works`` () =
+//    let xs = [|1.; 2.; 3.; 4.|]
+//    xs |> Array.find ((>) 4.) |> equal 1.
+//    xs |> Array.findBack ((>) 4.) |> equal 3.
 
 // [<Fact>]
 // let ``test Array.findIndexBack works`` () =
@@ -411,3 +411,92 @@ let ``test Array.foldBack works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = Array.foldBack (fun x acc -> acc - x) xs 0.
     total |> equal -10.
+
+[<Fact>]
+let ``test Array.foldBack2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
+
+[<Fact>]
+let ``test Array.forall works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.forall ((>) 5.) xs
+    |> equal true
+
+[<Fact>]
+let ``test Array.forall2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = [|1.; 2.; 3.; 5.|]
+    Array.forall2 (=) xs ys
+    |> equal false
+    Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
+    |> equal true
+
+[<Fact>]
+let ``test Array.init works`` () =
+    let xs = Array.init 4 (float >> sqrt)
+    xs.[0] + xs.[1]
+    |> equal 1.
+    (xs.[2] > 1. && xs.[3] < 2.)
+    |> equal true
+
+[<Fact>]
+let ``test Array.isEmpty works`` () =
+    Array.isEmpty [|"a"|] |> equal false
+    Array.isEmpty [||] |> equal true
+
+(*
+[<Fact>]
+let ``test Array.iter works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    xs |> Array.iter (fun x ->
+       total := !total + x
+    )
+    !total |> equal 10.
+
+[<Fact>]
+let ``test Array.iter2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let mutable total = 0
+    Array.iter2 (fun x y ->
+       total <- total - x - y
+    ) xs xs
+    total |> equal -20
+
+[<Fact>]
+let ``test Array.iteri works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    xs |> Array.iteri (fun i x ->
+       total := !total + (float i) * x
+    )
+    !total |> equal 20.
+
+[<Fact>]
+let ``test Array.iteri2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    Array.iteri2 (fun i x y ->
+       total := !total + (float i) * x + (float i) * y
+    ) xs xs
+    !total |> equal 40.
+*)
+[<Fact>]
+let ``test Array.length works`` () =
+    let xs = [|"a"; "a"; "a"; "a"|]
+    Array.length xs |> equal 4
+
+// [<Fact>]
+// let ``test Array.countBy works`` () =
+//     let xs = [|1; 2; 3; 4|]
+//     xs |> Array.countBy (fun x -> x % 2)
+//     |> Array.length |> equal 2
+
+[<Fact>]
+let ``test Array.map works`` () =
+    let xs = [|1.|]
+    let ys = xs |> Array.map (fun x -> x * 2.)
+    ys.[0] |> equal 2.
