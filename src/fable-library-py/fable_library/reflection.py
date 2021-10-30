@@ -5,8 +5,6 @@ import functools
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Type, Union
 
-from expression import Case
-
 from .types import Union as FsUnion, FSharpRef, Record
 
 Constructor = Callable[..., Any]
