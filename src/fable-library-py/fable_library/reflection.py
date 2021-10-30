@@ -1,8 +1,11 @@
 from __future__ import annotations
+from argparse import ArgumentError
 
 import functools
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Type, Union
+
+from expression import Case
 
 from .types import Union as FsUnion, FSharpRef, Record
 
@@ -270,7 +273,7 @@ def get_tuple_field(v: Any, i: int) -> Any:
 def make_record(t: TypeInfo, values: List) -> Any:
     fields = get_record_elements(t)
     if len(fields) != len(values):
-        raise ValueError(f"Expected an array of length ${len(fields)} but got ${len(values)}")
+        raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
 
     if t.construct is not None:
         return t.construct(*values)
@@ -286,3 +289,26 @@ def make_record(t: TypeInfo, values: List) -> Any:
 
 def make_tuple(values: List, _t: TypeInfo) -> Any:
     return values
+
+def make_union(uci: CaseInfo, values: List) -> Any:
+
+    expectedLength = len(uci.fields or [])
+    if (len(values) != expectedLength):
+        raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
+
+    return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
+
+def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
+    if t.cases:
+        return t.cases()
+    else:
+        raise ValueError(f"{t.fullname} is not an F# union type")
+
+
+def get_union_fields(v: Any, t: TypeInfo) -> List[CaseInfo]:
+    cases = get_union_cases(t)
+    case_ = cases[v.tag]
+    if not case_:
+        raise ValueError(f"Cannot find case {v.name} in union type")
+
+    return [case_, v.fields];
