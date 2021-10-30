@@ -56,8 +56,6 @@ def union_type(
     cases: Callable[[], List[List[FieldInfo]]],
 ) -> TypeInfo:
     def fn() -> List[CaseInfo]:
-        nonlocal construct
-
         caseNames: List[str] = construct.cases()
         mapper: Callable[[int, List[FieldInfo]], CaseInfo] = lambda i, fields: CaseInfo(t, i, caseNames[i], fields)
         return [mapper(i, x) for i, x in enumerate(cases())]
@@ -170,6 +168,10 @@ def is_record(t: Any) -> bool:
 def is_tuple(t: TypeInfo) -> bool:
     return t.fullname.startswith("System.Tuple") and not is_array(t)
 
+def is_union(t: Any) -> bool:
+    if isinstance(t, TypeInfo):
+        return t.cases is not None
+    return isinstance(t, FsUnion)
 
 # In .NET this is false for delegates
 def is_function(t: TypeInfo) -> bool:
@@ -312,3 +314,6 @@ def get_union_fields(v: Any, t: TypeInfo) -> List[CaseInfo]:
         raise ValueError(f"Cannot find case {v.name} in union type")
 
     return [case_, v.fields];
+
+def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
+    return uci.fields if uci.fields else []
