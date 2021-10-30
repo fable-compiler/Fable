@@ -307,13 +307,13 @@ def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Any, t: TypeInfo) -> List[CaseInfo]:
+def get_union_fields(v: Any, t: TypeInfo) -> List:
     cases = get_union_cases(t)
     case_ = cases[v.tag]
     if not case_:
         raise ValueError(f"Cannot find case {v.name} in union type")
 
-    return [case_, v.fields];
+    return [case_, list(v.fields)];
 
 def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
     return uci.fields if uci.fields else []
