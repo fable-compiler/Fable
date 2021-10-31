@@ -17,10 +17,11 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 //     | Assign of Rust.Expr
 //     | Target of Ident
 
-// type Import =
-//   { Selector: string
-//     LocalIdent: string option
-//     Path: string }
+type Import =
+  { Selector: string
+    LocalIdent: string
+    ModName: string
+    Path: string }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -62,7 +63,7 @@ type Context =
 type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
-    abstract GetAllImports: unit -> seq<string*string>
+    abstract GetAllImports: unit -> Import list
     abstract TryAddImport: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
@@ -304,24 +305,26 @@ module TypeInfo =
     let getIdentName expr =
         tryGetIdent expr |> Option.defaultValue ""
 
-    let getImportName (com: IRustCompiler) ctx moduleName typeName =
+    let getImportName (com: IRustCompiler) ctx moduleName selector =
         let libPath = getLibPath com moduleName
-        com.GetImportName(ctx, typeName, libPath, None)
+        com.GetImportName(ctx, selector, libPath, None)
 
-    let makeImport (com: IRustCompiler) ctx r (selector: string) (path: string) genArgs =
+    let transformImport (com: IRustCompiler) ctx r (selector: string) (path: string) genArgs =
         let importName = com.GetImportName(ctx, selector, path, r)
         if selector = "*"
         then mkUnitExpr ()
         else makeFullNamePathExpr importName genArgs
 
     let makeLibCall com ctx moduleName memberName genArgs (args: Rust.Expr list) =
-        let _ = getImportName com ctx moduleName memberName // just to get the import
-        let callee = mkGenericPathExpr [moduleName; memberName] genArgs
+        let selector = moduleName + "::" + memberName
+        let importName = getImportName com ctx moduleName selector
+        let callee = mkGenericPathExpr [importName] genArgs
         mkCallExpr callee args
 
     let libCall com ctx r moduleName memberName genArgs (args: Fable.Expr list) =
         let libPath = getLibPath com moduleName
-        let callee = makeImport com ctx None memberName libPath genArgs
+        let selector = moduleName + "::" + memberName
+        let callee = transformImport com ctx r selector libPath genArgs
         Util.callFunction com ctx r callee args
 
     let transformGenArgs com ctx genArgs =
@@ -334,6 +337,9 @@ module TypeInfo =
         |> transformType com ctx
         |> makeMutTy com
         |> mkSliceTy
+
+    let transformListType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "List" "List::List`1"
 
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
@@ -356,10 +362,12 @@ module TypeInfo =
         // else ty
         ty |> mkRefTy
 
-    let rec uncurryLambdaType = function
-        | xs, Fable.LambdaType(argType, returnType) ->
-            uncurryLambdaType (xs @ [argType], returnType)
-        | xs, returnType -> xs, returnType
+    let uncurryLambdaType t =
+        let rec uncurryLambdaArgs acc = function
+            | Fable.LambdaType(paramType, returnType) ->
+                uncurryLambdaArgs (paramType::acc) returnType
+            | returnType -> List.rev acc, returnType
+        uncurryLambdaArgs [] t
 
     // let transformLambdaType com ctx inputTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -386,20 +394,39 @@ module TypeInfo =
         else mkDynTraitTy bounds
         |> makeRefTy com
 
+    let numberType kind: Rust.Ty =
+        match kind with
+        | Int8 -> "i8"
+        | UInt8 -> "u8"
+        | Int16 -> "i16"
+        | UInt16 -> "u16"
+        | Int32 -> "i32"
+        | UInt32 -> "u32"
+        | Float32 -> "f32"
+        | Float64 -> "f64"
+        |> primitiveType
+
+    let transformEnumType (com: IRustCompiler) ctx entRef: Rust.Ty =
+        let ent = com.GetEntity(entRef)
+        let mutable numberKind = Int32
+        let cases =
+            ent.FSharpFields |> Seq.iter (fun fi ->
+                // F# seems to include a field with this name in the underlying type
+                match fi.Name, fi.FieldType with
+                | "value__", Fable.Number (kind, _) -> numberKind <- kind
+                | _ -> ())
+        numberType numberKind
+        //         | name ->
+        //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+        //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+        //         |> Seq.toArray
+        //     |> Expression.arrayExpression
+        // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
+        // |> libReflectionCall com ctx None "enum"
+
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     // TODO: use a genMap?
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
-        let numberType kind =
-            match kind with
-            | Int8 -> "i8"
-            | UInt8 -> "u8"
-            | Int16 -> "i16"
-            | UInt16 -> "u16"
-            | Int32 -> "i32"
-            | UInt32 -> "u32"
-            | Float32 -> "f32"
-            | Float64 -> "f64"
-            |> primitiveType
         // let nonGenericTypeInfo fullname =
         //     [| Expression.stringLiteral(fullname) |]
         //     |> libReflectionCall com ctx None "class"
@@ -428,31 +455,12 @@ module TypeInfo =
             | Fable.Boolean -> primitiveType "bool"
             | Fable.Char    -> primitiveType "char"
             | Fable.String  -> primitiveType "str"
-            | Fable.Enum entRef ->
-                let ent = com.GetEntity(entRef)
-                let mutable numberKind = Int32
-                let cases =
-                    ent.FSharpFields |> Seq.iter (fun fi ->
-                        // F# seems to include a field with this name in the underlying type
-                        match fi.Name, fi.FieldType with
-                        | "value__", Fable.Number (kind, _) -> numberKind <- kind
-                        | _ -> ())
-                numberType numberKind
-                //         | name ->
-                //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-                //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-                //         |> Seq.toArray
-                //     |> Expression.arrayExpression
-                // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
-                // |> libReflectionCall com ctx None "enum"
-            | Fable.Number(kind, _) ->
-                numberType kind
-            | Replacements.Builtin Replacements.BclInt64 ->
-                primitiveType "i64"
-            | Replacements.Builtin Replacements.BclUInt64 ->
-                primitiveType "u64"
+            | Fable.Enum entRef -> transformEnumType com ctx entRef
+            | Fable.Number(kind, _) -> numberType kind
+            | Replacements.Builtin Replacements.BclInt64 -> primitiveType "i64"
+            | Replacements.Builtin Replacements.BclUInt64 -> primitiveType "u64"
             | Fable.LambdaType(_, returnType) ->
-                let inputTypes, returnType = uncurryLambdaType ([], t)
+                let inputTypes, returnType = uncurryLambdaType t
                 transformClosureType com ctx inputTypes returnType
                 // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
                 // then transformClosureType com ctx inputTypes returnType
@@ -462,7 +470,7 @@ module TypeInfo =
             | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
             | Fable.Option(genArg, _) -> transformGenericType com ctx [genArg] (rawIdent "Option")
             | Fable.Array genArg -> transformArrayType com ctx genArg
-            | Fable.List genArg -> transformImportType com ctx [genArg] "List" "List`1"
+            | Fable.List genArg -> transformListType com ctx genArg
             // | Fable.Regex           -> nonGenericTypeInfo Types.regex
             // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
             | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -857,7 +865,7 @@ module Util =
         | Fable.Lambda(arg, body, name) -> Some([arg], body, name)
         | Fable.Delegate(args, body, name) -> Some(args, body, name)
         | _ -> None
-(*
+
     let (|Lets|_|) = function
         | Fable.Let(ident, value, body) -> Some([ident, value], body)
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
@@ -871,17 +879,17 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
-        let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
+        let name = (name, Fable.Naming.NoMemberPart) ||> Fable.Naming.sanitizeIdent (fun name ->
             ctx.UsedNames.RootScope.Contains(name) || ctx.UsedNames.DeclarationScopes.Contains(name))
         ctx.UsedNames.RootScope.Add(name) |> ignore
         name
 
     let getUniqueNameInDeclarationScope (ctx: Context) name =
-        let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
+        let name = (name, Fable.Naming.NoMemberPart) ||> Fable.Naming.sanitizeIdent (fun name ->
             ctx.UsedNames.RootScope.Contains(name) || ctx.UsedNames.CurrentDeclarationScope.Contains(name))
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
-
+(*
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
@@ -1100,14 +1108,8 @@ module Util =
         types
         |> List.collect getGenParams
         |> Set.ofList
-(*
-    let uncurryLambdaType t =
-        let rec uncurryLambdaArgs acc = function
-            | Fable.LambdaType(paramType, returnType) ->
-                uncurryLambdaArgs (paramType::acc) returnType
-            | t -> List.rev acc, t
-        uncurryLambdaArgs [] t
 
+(*
     type MemberKind =
         | ClassConstructor
         | NonAttached of funcName: string
@@ -1389,8 +1391,8 @@ module Util =
                 mkUInt64LitExpr u
 
     let makeString com ctx (value: Rust.Expr) =
-        // makeLibCall com ctx "Native" "asString" None [mkAddrOfExpr value]
-        makeCall ["Native";"asString"] None [mkAddrOfExpr value]
+        makeLibCall com ctx "Native" "asString" None [mkAddrOfExpr value]
+        // makeCall ["Native";"asString"] None [mkAddrOfExpr value]
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1413,22 +1415,22 @@ module Util =
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             |> mkArrayExpr
             |> mkAddrOfExpr
-        // makeLibCall com ctx "Native" "ofArray" None [array]
-        makeCall ["Native";"ofArray"] None [array]
+        makeLibCall com ctx "Native" "ofArray" None [array]
+        // makeCall ["Native";"ofArray"] None [array]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
             let size = com.TransformAsExpr(ctx, sizeExpr) |> mkAddrOfExpr
             let value = com.TransformAsExpr(ctx, valueExpr) |> mkAddrOfExpr
-            // makeLibCall com ctx "Native" "newArray" None [size; value]
-            makeCall ["Native";"newArray"] None [size; value]
+            makeLibCall com ctx "Native" "newArray" None [size; value]
+            // makeCall ["Native";"newArray"] None [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = com.TransformAsExpr(ctx, expr) |> mkAddrOfExpr
-            // makeLibCall com ctx "Native" "ofArray" None [sequence]
-            makeCall ["Native";"ofArray"] None [sequence]
+            makeLibCall com ctx "Native" "ofArray" None [sequence]
+            // makeCall ["Native";"ofArray"] None [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         match headAndTail with
@@ -2596,8 +2598,8 @@ module Util =
 
         | Fable.IdentExpr id -> transformIdentGet com ctx None id // TODO: range
 
-        | Fable.Import({ Selector = selector; Path = path }, _, r) ->
-            makeImport com ctx r selector path None
+        | Fable.Import({ Selector = selector; Path = path }, _t, r) ->
+            transformImport com ctx r selector path None
 
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range kind expr
@@ -2869,7 +2871,6 @@ module Util =
             decls |> List.tryPick tryFindEntryPoint
         match entryPoint with
         | Some path ->
-            let _ = getImportName com ctx "Native" "ofArray" // just to get the import
             let strBody = [
                 "let args: Vec<String> = std::env::args().collect()"
                 "let args: Vec<Rc<str>> = args[1..].iter().map(Native::ofString).collect()"
@@ -3657,83 +3658,52 @@ module Util =
             Fable.Path.Combine(currentDir, path)
             |> Fable.Path.normalizeFullPath
 
-    let transformImports (com: IRustCompiler) ctx (imports: (string * string) seq): Rust.Item list =
+    let isFableLibrary (com: IRustCompiler) =
+        List.contains "FABLE_LIBRARY" com.Options.Define
+
+    let isFableLibraryImport (com: IRustCompiler) (path: string) =
+        not (isFableLibrary com) && path.StartsWith(com.LibraryDir)
+
+    let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
         imports
-        |> List.ofSeq
-        |> List.sort
-        |> List.collect (fun (importPath, modName) ->
-            // let fullPath = getImportFullPath com importPath
-            // let modName = System.String.Format("import_{0:x}", hash fullPath)
+        |> List.groupBy (fun import -> import.Path, import.ModName)
+        |> List.collect (fun ((importPath, modName), moduleImports) ->
             let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
-            let modItem = mkUnloadedModItem attrs modName |> mkNonPublicItem
-            let useItem = mkGlobUseItem [] [modName] |> mkNonPublicItem
-            // TODO: less verbose imports while still avoiding name clashing
-            // let useItem =
-            //     match selector with
-            //     | "" | "*" | "default" ->
-            //         mkGlobUseItem [] [useName]
-            //     | _ ->
-            //         let parts = splitFullName selector
-            //         mkSimpleUseItem [] (useName::parts) None
-            if com.TryAddImport(modName)
-            then [modItem; useItem]
-            else [useItem] // modItem already added somewhere else
+            let modItems = [
+                mkUnloadedModItem attrs modName |> mkNonPublicItem
+                mkGlobUseItem [] [modName]
+                ]
+            let useItems =
+                // if com |> isFableLibrary then
+                    [mkGlobUseItem [] ["crate"; modName] |> mkNonPublicItem]
+                // else
+                //     moduleImports
+                //     |> List.map (fun import ->
+                //         match import.Selector with
+                //         | "" | "*" | "default" ->
+                //             mkGlobUseItem [] ["crate"; modName]
+                //         | _ ->
+                //             let parts = splitFullName import.Selector
+                //             mkSimpleUseItem [] ("crate"::modName::parts) None
+                //         |> mkNonPublicItem)
+
+            if importPath |> isFableLibraryImport com then
+                [] // fable_library_rust::* is already imported in prelude
+            else
+                if com.TryAddImport(modName)
+                then modItems
+                else useItems // modItems already added somewhere else
         )
 
-(*
-    let transformImports (imports: Import seq): ModuleDeclaration list =
-        let statefulImports = ResizeArray()
-        imports |> Seq.map (fun import ->
-            let specifier =
-                import.LocalIdent
-                |> Option.map (fun localId ->`
-                    let localId = Identifier.identifier(localId)
-                    match import.Selector with
-                    | "*" -> ImportNamespaceSpecifier(localId)
-                    | "default" | "" -> ImportDefaultSpecifier(localId)
-                    | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
-            import.Path, specifier)
-        |> Seq.groupBy fst
-        |> Seq.collect (fun (path, specifiers) ->
-            let mems, defs, alls =
-                (([], [], []), Seq.choose snd specifiers)
-                ||> Seq.fold (fun (mems, defs, alls) x ->
-                    match x with
-                    | ImportNamespaceSpecifier(_) -> mems, defs, x::alls
-                    | ImportDefaultSpecifier(_) -> mems, x::defs, alls
-                    | _ -> x::mems, defs, alls)
-            // We used to have trouble when mixing member, default and namespace imports,
-            // issue an import statement for each kind just in case
-            [mems; defs; alls] |> List.choose (function
-                | [] -> None
-                | specifiers ->
-                    ImportDeclaration(List.toArray specifiers, StringLiteral.stringLiteral(path))
-                    |> Some)
-            |> function
-                | [] ->
-                    // If there are no specifiers, this is just an import for side effects,
-                    // put it after the other ones to match standard JS practices, see #2228
-                    ImportDeclaration([||], StringLiteral.stringLiteral(path))
-                    |> statefulImports.Add
-                    []
-                | decls -> decls
-            )
-        |> fun staticImports -> [
-            yield! staticImports
-            yield! statefulImports
-        ]
-
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
-        if System.String.IsNullOrEmpty selector then None
-        else
-            match selector with
-            | "" | "*" | "default" -> Fable.Path.GetFileNameWithoutExtension(path)
-            | _ -> selector
-            |> getUniqueNameInRootScope ctx
-            |> Some
-*)
+        match selector with
+        | "" | "*" | "default" -> Fable.Path.GetFileNameWithoutExtension(path)
+        | _ -> splitFullName selector |> List.last
+        |> getUniqueNameInRootScope ctx
 
 module Compiler =
+    open System.Collections.Generic
+    open Util
 
     // global storage (across files)
     let importModules = HashSet<string>()
@@ -3741,8 +3711,8 @@ module Compiler =
     // per file
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = System.Collections.Generic.Dictionary<string, string>()
-        let interfaces = System.Collections.Generic.Dictionary<string, string>()
+        let imports = Dictionary<string, Import>()
+        let interfaces = Dictionary<string, string>()
 
         interface IRustCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
@@ -3752,33 +3722,37 @@ module Compiler =
             member _.TryAddImport(modName) =
                 importModules.Add(modName)
 
-            member self.GetImportName(ctx, selector, path, r) =
-                let importPath, importName =
-                    match path.Split('|') with
-                    | [| path; namesp |] ->
-                        // let modName = System.String.Format("import_{0:x}", hash path)
-                        // let fullName = [modName; namesp; selector] |> String.concat "::"
-                        path, (namesp +  "::" + selector)
-                    | _ ->
-                        path, selector
-
-                let modName =
-                    match imports.TryGetValue(importPath) with
-                    | true, modName -> modName
+            member this.GetImportName(ctx, selector, path, r) =
+                if selector = Fable.Naming.placeholder then
+                    "`importMember` must be assigned to a variable"
+                    |> addError com [] r
+                let cacheKey = path + "::" + selector
+                let import =
+                    match imports.TryGetValue(cacheKey) with
+                    | true, import -> import
                     | false, _ ->
-                        let fullPath = Util.getImportFullPath self importPath
+                        let fullPath = getImportFullPath this path
                         let modName = System.String.Format("import_{0:x}", hash fullPath)
-                        imports.Add(importPath, modName)
-                        modName
+                        let localIdent = getIdentForImport ctx path selector
+                        let import = {
+                            Selector = selector
+                            LocalIdent = localIdent
+                            ModName = modName
+                            Path = path
+                        }
+                        imports.Add(cacheKey, import)
+                        import
 
-                // $"crate::{modName}::{importName}"
-                $"{importName}"
+                // if this |> isFableLibrary
+                // then $"{import.Selector}"
+                // else $"{import.LocalIdent}"
+                $"{import.Selector}"
 
-            member _.GetAllImports() = imports |> Seq.map (fun pair -> pair.Key, pair.Value)
-            member self.TransformAsExpr(ctx, e) = Util.transformAsExpr self ctx e
-        //     member self.TransformAsStatements(ctx, ret, e) = transformAsStatements self ctx ret e
-        //     member self.TransformFunction(ctx, name, args, body) = transformFunction self ctx name args body
-        //     member self.TransformImport(ctx, selector, path) = transformImport self ctx None selector path
+            member _.GetAllImports() = imports.Values |> List.ofSeq
+            member this.TransformAsExpr(ctx, e) = transformAsExpr this ctx e
+        //     member this.TransformAsStatements(ctx, ret, e) = transformAsStatements this ctx ret e
+        //     member this.TransformFunction(ctx, name, args, body) = transformFunction this ctx name args body
+        //     member this.TransformImport(ctx, selector, path) = transformImport this ctx None selector path
 
             member _.TryAddInterface (dotnetNs, rustNs) =
                 // interfaces.TryAdd(dotnetNs, rustNs) // netstandard2.1 only
@@ -3850,18 +3824,18 @@ module Compiler =
             // mkInnerAttr "feature" ["once_cell"]
             // mkInnerAttr "feature" ["stmt_expr_attributes"]
             // mkInnerAttr "feature" ["destructuring_assignment"]
-            ]
+        ]
 
         let preludeDecls = [
-            mkNonPublicUseItem ["std"; "rc"; "Rc"]
-            mkNonPublicUseItem ["crate"; "Native"]
-            mkNonPublicUseItem ["crate"; "Mutable"; "*"]
-            // mkNonPublicUseItem ["core"; "lazy"; "Lazy"]
-            ]
+            // mkNonPublicUseItem ["std"; "rc"; "Rc"]
+            // mkNonPublicUseItem ["crate"; "MutCell"]
+            if not (com |> isFableLibrary) then
+                mkNonPublicUseItem ["fable_library_rust"; "*"]
+        ]
 
-        let entryPointDecls = Util.getEntryPointDecls com ctx file.Declarations
-        let rootDecls = List.collect (Util.transformDecl com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> Util.transformImports com ctx
+        let entryPointDecls = getEntryPointDecls com ctx file.Declarations
+        let rootDecls = List.collect (transformDecl com ctx) file.Declarations
+        let importDecls = com.GetAllImports() |> transformImports com ctx
         let items = importDecls @ preludeDecls @ rootDecls @ entryPointDecls
 
         let crate = mkCrate topAttrs items

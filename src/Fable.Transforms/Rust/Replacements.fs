@@ -29,11 +29,11 @@ type Helper =
         Call(callee, info, returnType, loc)
 
     static member LibValue(com, coreModule: string, coreMember: string, returnType: Type) =
-        makeImportLib com returnType coreMember coreModule
+        makeImportLib com returnType (coreModule + "::" + coreMember) coreModule
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isJsConstructor: bool, ?loc: SourceLocation) =
-        let callee = makeImportLib com Any coreMember coreModule
+        let callee = makeImportLib com Any (coreModule + "::" + coreMember) coreModule
         let info = makeCallInfo thisArg args (defaultArg argTypes [])
         Call(callee, { info with HasSpread = defaultArg hasSpread false
                                  IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
@@ -899,9 +899,8 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ ->
-        // Value(Null Any, None) // null
-        Helper.GlobalCall("Native::defaultOf", t, [])
-        // Helper.LibCall(com, "Native", "defaultOf", t, [])
+        Helper.LibCall(com, "Native", "defaultOf", t, [])
+        // Helper.GlobalCall("Native::defaultOf", t, [])
 
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with

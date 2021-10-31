@@ -1,9 +1,12 @@
 #![allow(non_snake_case)]
 
-pub mod Mutable;
-use crate::Mutable::*;
+mod Mutable;
+mod Lazy;
 
-use std::rc::Rc;
+// re-export at crate root level
+pub use std::rc::Rc;
+pub use Mutable::*;
+pub use Lazy::*;
 
 pub mod Native {
     use super::*;

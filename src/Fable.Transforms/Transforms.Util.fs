@@ -424,8 +424,7 @@ module AST =
             let moduleName = moduleName.ToLower().Replace(".", "_")
             com.LibraryDir + "/" + moduleName + ".py"
         | Rust ->
-            // Rust imports can have a namespace after the path, separated by "|"
-            com.LibraryDir + "/" + moduleName + ".rs" + "|" + moduleName
+            com.LibraryDir + "/" + moduleName + ".rs"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =

@@ -179,17 +179,17 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
+// TODO: move to PublishUtils.fs ?
+let copyFiles sourceDir searchPattern destDir =
+    for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
+        let fileName = IO.Path.GetFileName(source)
+        let target = destDir </> fileName
+        IO.File.Copy(source, target, true)
+
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
     let projectDir = libraryDir </> "fable_library"
     let buildDirPy = "build/fable-library-py"
-
-    // TODO: move to PublishUtils.fs ?
-    let copyFiles sourceDir searchPattern destDir =
-        for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
-            let fileName = IO.Path.GetFileName(source)
-            let target = destDir </> fileName
-            IO.File.Copy(source, target, true)
 
     cleanDirs [buildDirPy]
 
@@ -217,11 +217,12 @@ let buildPyLibraryIfNotExists() =
 
 let buildLibraryRust() =
     let libraryDir = "src/fable-library-rust"
-    let projectDir = libraryDir + "/src"
-    let buildDir = "build/fable-library-rust"
+    let projectDir = libraryDir </> "src"
+    let targetDir = "build/fable-library-rust"
+    let buildDir = targetDir </> "src"
     let fableLib = "."
 
-    cleanDirs [buildDir]
+    cleanDirs [targetDir]
 
     runFableWithArgsInDir projectDir [
         "--outDir " + resolveDir buildDir
@@ -230,9 +231,11 @@ let buildLibraryRust() =
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
     ]
-    // copy *.rs from libraryDir to buildDir
-    copyDirNonRecursive libraryDir buildDir
-    // runInDir buildDir ("cargo build")
+
+    copyDirNonRecursive libraryDir targetDir
+    copyFiles projectDir "*.rs" buildDir
+
+    runInDir targetDir ("cargo build")
 
 // let buildLibraryRustIfNotExists() =
 //     let baseDir = __SOURCE_DIRECTORY__

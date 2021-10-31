@@ -38,6 +38,7 @@
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="lib.fs" />
   </ItemGroup>
 
   <ItemGroup>

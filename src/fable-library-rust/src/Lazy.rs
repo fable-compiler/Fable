@@ -1,8 +1,7 @@
 /// Lazy values and one-time initialization of static data.
 
 use core::fmt;
-use core::ops::Deref;
-use crate::Mutable::*;
+use crate::MutCell;
 
 pub struct Lazy<T, F = fn() -> T> {
     cell: MutCell<Option<T>>,
