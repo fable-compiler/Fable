@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from fable_library.types import FSharpRef
 
@@ -43,21 +43,37 @@ def op_unary_negation(value):
     return -value
 
 
-def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optional[int] = None):
-    return int(string)
-    # res = isValid(str, style, radix)
-    # if res:
-    #     def lessOrEqual(x: str, y: str):
-    #         length = max(len(x), len(y))
-    #         return x.padStart(len, "0") <= y.padStart(len, "0");
+def get_range(unsigned: bool) -> Tuple[int, int]:
+    if unsigned:
+        return (0, 18446744073709551615)
 
-    #     isNegative = res.sign == "-"
-    #     maxValue = getMaxValue(unsigned or res.radix != 10, res.radix, isNegative);
-    #     if (lessOrEqual(res.digits.upper(), maxValue)):
-    #         string = res.sign + res.digits if isNegative else res.digits
-    #         return LongLib.fromString(str, unsigned, res.radix);
+    return (-9223372036854775808, 9223372036854775807)
 
-    # raise Exception("Input string was not in a correct format.");
+
+AllowHexSpecifier = 0x00000200
+
+
+def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
+    # const res = isValid(str, style, radix);
+    if style & AllowHexSpecifier:
+        radix = 16
+
+    try:
+        v = int(string, base=radix)
+    except Exception:
+        raise ValueError("Input string was not in a correct format.")
+
+    (umin, umax) = get_range(True)
+    if not unsigned and radix != 10 and v >= umin and v <= umax:
+        mask = 1 << (bitsize - 1)
+        if v & mask:  # Test if negative
+            v = v - (mask << 1)
+
+    (min, max) = get_range(unsigned)
+    if v >= min and v <= max:
+        return v
+
+    raise ValueError("Input string was not in a correct format.")
 
 
 def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:

@@ -76,7 +76,8 @@ module Helpers =
 
     let inline indexOfImpl (array: 'T []) (item: 'T) (start: int) : int = !! array?indexOf (item, start)
 
-    let inline findImpl (predicate: 'T -> bool) (array: 'T []) : 'T option = !! array?find (predicate)
+    [<Emit("next((x for x in $1 if ($0)(x)), -1)")>]
+    let findImpl (predicate: 'T -> bool) (array: 'T []) : 'T option = nativeOnly
 
     [<Emit("next((i for i, x in enumerate($1) if ($0)(x)), -1)")>]
     let findIndexImpl (predicate: 'T -> bool) (array: 'T []) : int = nativeOnly

@@ -331,32 +331,32 @@ let ``test Array.concat works with strings`` () =
     |> equal [ "One"; "Two" ]
 
 [<Fact>]
-let ``Array.exists works`` () =
+let ``test Array.exists works`` () =
     let xs = [|1u; 2u; 3u; 4u|]
     xs |> Array.exists (fun x -> x = 2u)
     |> equal true
 
 [<Fact>]
-let ``Array.exists2 works`` () =
+let ``test Array.exists2 works`` () =
     let xs = [|1UL; 2UL; 3UL; 4UL|]
     let ys = [|1UL; 2UL; 3UL; 4UL|]
     Array.exists2 (fun x y -> x * y = 16UL) xs ys
     |> equal true
 
 [<Fact>]
-let ``Array.filter works`` () =
+let ``test Array.filter works`` () =
     let xs = [|1s; 2s; 3s; 4s|]
     let ys = xs |> Array.filter (fun x -> x > 2s)
     ys.Length |> equal 2
 
 [<Fact>]
-let ``Array.filter with chars works`` () =
+let ``test Array.filter with chars works`` () =
     let xs = [|'a'; '2'; 'b'; 'c'|]
     let ys = xs |> Array.filter Char.IsLetter
     ys.Length |> equal 3
 
 [<Fact>]
-let ``Array.find works`` () =
+let ``test Array.find works`` () =
     let xs = [|1us; 2us; 3us; 4us|]
     xs |> Array.find ((=) 2us)
     |> equal 2us

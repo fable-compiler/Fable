@@ -34,7 +34,8 @@ class UnicodeCategory(Enum):
     OtherNotAssigned = 29
 
 
-unicodeCategoryFunc = "not implemented"
+def unicodeCategoryFunc(cp):
+    raise NotImplementedError
 
 
 def char_code_at(s: str, index: int):
@@ -71,9 +72,9 @@ def is_digit2(s: str, index: int):
     return (test & is_digit_mask) != 0
 
 
-def is_digit(s):
-    return is_digit2(s, 0)
+def is_digit(s: str):
+    return s.isdigit()
 
 
-def is_letter(s):
-    return is_letter2(s, 0)
+def is_letter(s: str):
+    return s.isalpha()

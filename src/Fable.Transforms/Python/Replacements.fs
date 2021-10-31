@@ -1878,7 +1878,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | _ -> None
 
 let nativeArrayFunctions =
-    dict [| "Exists", "some"
+    dict [| //"Exists", "some"
             "Filter", "filter"
             //"Find", "find"
             //"FindIndex", "index"
