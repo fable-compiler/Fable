@@ -1,4 +1,5 @@
 from __future__ import annotations
+from argparse import ArgumentError
 
 import functools
 from dataclasses import dataclass
@@ -53,8 +54,6 @@ def union_type(
     cases: Callable[[], List[List[FieldInfo]]],
 ) -> TypeInfo:
     def fn() -> List[CaseInfo]:
-        nonlocal construct
-
         caseNames: List[str] = construct.cases()
         mapper: Callable[[int, List[FieldInfo]], CaseInfo] = lambda i, fields: CaseInfo(t, i, caseNames[i], fields)
         return [mapper(i, x) for i, x in enumerate(cases())]
@@ -167,6 +166,10 @@ def is_record(t: Any) -> bool:
 def is_tuple(t: TypeInfo) -> bool:
     return t.fullname.startswith("System.Tuple") and not is_array(t)
 
+def is_union(t: Any) -> bool:
+    if isinstance(t, TypeInfo):
+        return t.cases is not None
+    return isinstance(t, FsUnion)
 
 # In .NET this is false for delegates
 def is_function(t: TypeInfo) -> bool:
@@ -270,7 +273,7 @@ def get_tuple_field(v: Any, i: int) -> Any:
 def make_record(t: TypeInfo, values: List) -> Any:
     fields = get_record_elements(t)
     if len(fields) != len(values):
-        raise ValueError(f"Expected an array of length ${len(fields)} but got ${len(values)}")
+        raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
 
     if t.construct is not None:
         return t.construct(*values)
@@ -286,3 +289,29 @@ def make_record(t: TypeInfo, values: List) -> Any:
 
 def make_tuple(values: List, _t: TypeInfo) -> Any:
     return values
+
+def make_union(uci: CaseInfo, values: List) -> Any:
+
+    expectedLength = len(uci.fields or [])
+    if (len(values) != expectedLength):
+        raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
+
+    return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
+
+def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
+    if t.cases:
+        return t.cases()
+    else:
+        raise ValueError(f"{t.fullname} is not an F# union type")
+
+
+def get_union_fields(v: Any, t: TypeInfo) -> List:
+    cases = get_union_cases(t)
+    case_ = cases[v.tag]
+    if not case_:
+        raise ValueError(f"Cannot find case {v.name} in union type")
+
+    return [case_, list(v.fields)];
+
+def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
+    return uci.fields if uci.fields else []
