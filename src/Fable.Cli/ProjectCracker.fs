@@ -224,17 +224,15 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         // yield "--define:DEBUG"
         for constant in opts.FableOptions.Define do
             yield "--define:" + constant
-        yield "--optimize-"
+        yield "--optimize" + if opts.FableOptions.OptimizeFSharpAst then "+" else "-"
         // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
         // yield "--warnaserror:76"
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
-        yield "--target:library"
         yield "--langversion:preview" // Needed for witnesses
-#if !NETFX
-        yield "--targetprofile:netstandard"
-#endif
+        // Since net5.0 there's no difference between app/library
+        // yield "--target:library"
     |]
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
@@ -322,7 +320,6 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
@@ -566,7 +563,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
                 yield! getBasicCompilerArgs opts // options from compiler args
-                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
                         // Remove unneeded System dll references

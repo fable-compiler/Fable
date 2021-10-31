@@ -322,6 +322,7 @@ type ProjectCracked(projFile: string,
         ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
+        Log.always("Parsing " + File.getRelativePathFromCwd cliArgs.ProjectFile + "...")
         let result, ms = measureTime <| fun () ->
             CrackerOptions(fableOpts = cliArgs.CompilerOptions,
                            fableLib = cliArgs.FableLibraryPath,
@@ -334,7 +335,7 @@ type ProjectCracked(projFile: string,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
 
-        // We display "parsed" becaused "cracked" may not be undersood by users
+        // We display "parsed" becaused "cracked" may not be understood by users
         Log.always $"Project parsed in %i{ms}ms"
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
