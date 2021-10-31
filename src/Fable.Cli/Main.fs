@@ -241,7 +241,7 @@ let caseInsensitiveSet(items: string seq): ISet<string> =
     s :> _
 
 type FsWatcher() =
-    let globFilters = [ "*.fs"; "*.fsx"; "*.fsproj" ]
+    let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj" ]
     let createWatcher () =
         let usePolling =
             // This is the same variable used by dotnet watch
