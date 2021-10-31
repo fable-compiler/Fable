@@ -368,10 +368,12 @@ let compileAndRunTestsWithMocha projectDir buildDir =
 let testMocha() =
     compileAndRunTestsWithMocha "Main" "tests"
 
-let testDefineConstants() =
-    [ "tests/DefineConstants/DebugWithExtraDefines", "Debug"
-      "tests/DefineConstants/CustomConfiguration", "Test"
-      "tests/DefineConstants/ReleaseNoExtraDefines", String.Empty ]
+let testProjectConfigs() =
+    [ "tests/ProjectConfigs/DebugWithExtraDefines", "Debug"
+      "tests/ProjectConfigs/CustomConfiguration", "Test"
+      "tests/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
+      "tests/ProjectConfigs/ConsoleApp", String.Empty
+    ]
     |> List.iter (fun (projectDir, configuration) ->
         let buildDir = "build/"+ projectDir
 
@@ -398,7 +400,7 @@ let test() =
 
     testReact()
 
-    testDefineConstants()
+    testProjectConfigs()
 
     testCompiler()
 
@@ -555,7 +557,7 @@ match BUILD_ARGS_LOWER with
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
 | "test-mocha"::_ -> testMocha()
-| "test-define-constants"::_ -> testDefineConstants()
+| "test-configs"::_ -> testProjectConfigs()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
