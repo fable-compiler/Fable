@@ -28,7 +28,6 @@ def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: F
         return False
 
 
-
 def op_unary_negation_int8(x):
     return x if x == -128 else -x
 

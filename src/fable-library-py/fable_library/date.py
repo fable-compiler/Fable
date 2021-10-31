@@ -1,6 +1,9 @@
-from .util import DateKind
 from datetime import datetime, timezone, tzinfo
 import re
+
+from fable_library.types import FSharpRef
+
+from .util import DateKind
 
 formatRegExp = re.compile(r"(\w)\1*")
 
@@ -175,3 +178,17 @@ def min_value():
 
 def op_addition(x, y):
     return x + y
+
+
+def parse(string: str, detectUTC=False) -> datetime:
+    from dateutil import parser
+
+    return parser.parse(string)
+
+
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
+    try:
+        defValue.contents = parse(string)
+        return True
+    except Exception:
+        return False

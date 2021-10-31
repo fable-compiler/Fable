@@ -1,3 +1,6 @@
+from typing import Any
+
+
 def from_zero() -> int:
     return 0
 
@@ -21,9 +24,10 @@ def from_string(x: str) -> int:
 def op_addition(a: int, b: int) -> int:
     return a + b
 
+
 def parse(value: Any) -> int:
     return int(value)
 
 
 def to_string(value: int) -> str:
-    str(value)
+    return str(value)
