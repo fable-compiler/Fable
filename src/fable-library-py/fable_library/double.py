@@ -1,4 +1,4 @@
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 
 def parse(value):

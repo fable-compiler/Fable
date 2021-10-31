@@ -1,8 +1,7 @@
 from datetime import datetime, timezone, tzinfo
 import re
 
-from fable_library.types import FSharpRef
-
+from .types import FSharpRef
 from .util import DateKind
 
 formatRegExp = re.compile(r"(\w)\1*")

@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 
 def from_bits(lowBits: int, highBits: int, unsigned: bool):

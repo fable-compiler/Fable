@@ -1,6 +1,6 @@
 from decimal import Decimal, MAX_EMAX, MIN_EMIN
 
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 get_zero = Decimal(0)
 

@@ -1,5 +1,5 @@
 from typing import Tuple
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 
 def get_range(unsigned: bool, bitsize: int) -> Tuple[int, int]:
