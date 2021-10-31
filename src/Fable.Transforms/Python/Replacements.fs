@@ -1878,7 +1878,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | _ -> None
 
 let nativeArrayFunctions =
-    dict [| "Exists", "some"
+    dict [| //"Exists", "some"
             "Filter", "filter"
             //"Find", "find"
             //"FindIndex", "index"
@@ -2660,7 +2660,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             if i.CompiledName = "FromUnixTimeSeconds"
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
-        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, None)], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "datetime.fromtimestamp", t, [value; makeIntConst 0], [value.Type; Number(Int32, None)], ?loc=r) |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value

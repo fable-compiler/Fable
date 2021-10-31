@@ -1,4 +1,6 @@
-from typing import Optional
+from typing import Optional, Tuple
+
+from .types import FSharpRef
 
 
 def from_bits(lowBits: int, highBits: int, unsigned: bool):
@@ -9,8 +11,20 @@ def from_bits(lowBits: int, highBits: int, unsigned: bool):
     return ret
 
 
-def from_int(x):
-    return x
+def from_int(value: int, unsigned: bool = False):
+    return value
+
+
+def from_number(value, unsigned: bool):
+    return int(value)
+
+
+def to_number(value: int) -> float:
+    return float(value)
+
+
+def from_integer(value: int, unsigned: bool = None, kind: int = None) -> int:
+    return value
 
 
 def op_left_shift(self, numBits):
@@ -29,21 +43,45 @@ def op_unary_negation(value):
     return -value
 
 
-def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optional[int] = None):
-    return int(string)
-    # res = isValid(str, style, radix)
-    # if res:
-    #     def lessOrEqual(x: str, y: str):
-    #         length = max(len(x), len(y))
-    #         return x.padStart(len, "0") <= y.padStart(len, "0");
+def get_range(unsigned: bool) -> Tuple[int, int]:
+    if unsigned:
+        return (0, 18446744073709551615)
 
-    #     isNegative = res.sign == "-"
-    #     maxValue = getMaxValue(unsigned or res.radix != 10, res.radix, isNegative);
-    #     if (lessOrEqual(res.digits.upper(), maxValue)):
-    #         string = res.sign + res.digits if isNegative else res.digits
-    #         return LongLib.fromString(str, unsigned, res.radix);
+    return (-9223372036854775808, 9223372036854775807)
 
-    # raise Exception("Input string was not in a correct format.");
+
+AllowHexSpecifier = 0x00000200
+
+
+def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
+    # const res = isValid(str, style, radix);
+    if style & AllowHexSpecifier:
+        radix = 16
+
+    try:
+        v = int(string, base=radix)
+    except Exception:
+        raise ValueError("Input string was not in a correct format.")
+
+    (umin, umax) = get_range(True)
+    if not unsigned and radix != 10 and v >= umin and v <= umax:
+        mask = 1 << (bitsize - 1)
+        if v & mask:  # Test if negative
+            v = v - (mask << 1)
+
+    (min, max) = get_range(unsigned)
+    if v >= min and v <= max:
+        return v
+
+    raise ValueError("Input string was not in a correct format.")
+
+
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
+    try:
+        defValue.contents = parse(string, style, unsigned, bitsize)
+        return True
+    except Exception:
+        return False
 
 
 def to_string(x):

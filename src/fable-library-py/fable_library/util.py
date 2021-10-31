@@ -313,33 +313,71 @@ def uncurry(arity: int, f: Callable):
     return uncurriedFn
 
 
-def curry(arity: int, f: Callable) -> Callable:
-    if f is None or arity == 1:
-        return f
+def curry(arity: int, fn: Callable) -> Callable:
+    if fn is None or arity == 1:
+        return fn
 
-    if hasattr(f, CURRIED_KEY):
-        return getattr(f, CURRIED_KEY)
+    if hasattr(fn, CURRIED_KEY):
+        return getattr(fn, CURRIED_KEY)
 
     if arity == 2:
-        return lambda a1: lambda a2: f(a1, a2)
+        return lambda a1: lambda a2: fn(a1, a2)
     elif arity == 3:
-        return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
+        return lambda a1: lambda a2: lambda a3: fn(a1, a2, a3)
     elif arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
-    elif arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(a1, a2, a3, a4)
+    elif arity == 5:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(a1, a2, a3, a4, a5)
     elif arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(a1, a2, a3, a4, a5, a6)
     elif arity == 7:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             a1, a2, a3, a4, a5, a6, a7
         )
     elif arity == 8:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
             a1, a2, a3, a4, a5, a6, a7, a8
         )
     else:
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
+
+
+def partial_apply(arity: int, fn: Callable, args: List) -> Any:
+    if not fn:
+        return
+
+    if hasattr(fn, CURRIED_KEY):
+        fn = getattr(fn, CURRIED_KEY)
+
+        for arg in args:
+            fn = fn(arg)
+
+        return fn
+
+    if arity == 1:
+        # Wrap arguments to make sure .concat doesn't destruct arrays. Example
+        # [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
+        # [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
+        return lambda a1: fn(args + [a1])
+    if arity == 2:
+        return lambda a1: lambda a2: fn(args + [a1, a2])
+    if arity == 3:
+        return lambda a1: lambda a2: lambda a3: fn(args + [a1, a2, a3])
+    if arity == 4:
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(args + [a1, a2, a3, a4])
+    if arity == 5:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(args + [a1, a2, a3, a4, a5])
+    if arity == 6:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(args + [a1, a2, a3, a4, a5, a6])
+    if arity == 7:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
+            args + [a1, a2, a3, a4, a5, a6, a7]
+        )
+    if arity == 8:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
+            args + [a1, a2, a3, a4, a5, a6, a7, a8]
+        )
+    raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
 
 
 def is_array_like(x):
@@ -459,11 +497,6 @@ def unescape_data_string(s: str) -> str:
 
 def escape_data_string(s: str) -> str:
     return quote(s)
-    # .replace(/!/g, "%21")
-    # .replace(/'/g, "%27")
-    # .replace(/\(/g, "%28")
-    # .replace(/\)/g, "%29")
-    # .replace(/\*/g, "%2A");
 
 
 def escape_uri_string(s: str) -> str:
