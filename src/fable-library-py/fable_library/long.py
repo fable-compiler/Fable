@@ -1,5 +1,7 @@
 from typing import Optional
 
+from fable_library.types import FSharpRef
+
 
 def from_bits(lowBits: int, highBits: int, unsigned: bool):
     ret = lowBits + (highBits << 32)
@@ -9,8 +11,18 @@ def from_bits(lowBits: int, highBits: int, unsigned: bool):
     return ret
 
 
-def from_int(x):
-    return x
+def from_int(value: int, unsigned: bool):
+    return value
+
+def from_number(value, unsigned: bool):
+    return int(value)
+
+def to_number(value: int) -> float:
+    return float(value)
+
+
+def from_integer(value: int, unsigned: bool = None, kind: int=None) -> int:
+    return value
 
 
 def op_left_shift(self, numBits):
@@ -45,6 +57,12 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
 
     # raise Exception("Input string was not in a correct format.");
 
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
+    try:
+        defValue.contents = parse(string, style, unsigned, bitsize)
+        return True
+    except Exception:
+        return False
 
 def to_string(x):
     return str(x)
