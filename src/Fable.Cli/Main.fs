@@ -241,7 +241,7 @@ let caseInsensitiveSet(items: string seq): ISet<string> =
     s :> _
 
 type FsWatcher() =
-    let globFilters = [ "*.fs"; "*.fsx"; "*.fsproj" ]
+    let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj" ]
     let createWatcher () =
         let usePolling =
             // This is the same variable used by dotnet watch
@@ -311,6 +311,7 @@ type ProjectCracked(projFile: string,
     member _.ProjectFile = projFile
     member _.FableOptions = fableCompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
+    member _.References = crackerResponse.References
     member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
@@ -423,9 +424,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         match state.ProjectCrackedAndChecked with
         | Some(cracked, parsed) ->
             let fsprojChanged, oldFiles, cracked =
-                if changes.Contains(state.CliArgs.ProjectFile)
-                    // For performance reasons, don't crack .fsx scripts for every change
-                    && not(state.CliArgs.ProjectFile.EndsWith(".fsx")) then
+                // For performance reasons, don't crack .fsx scripts for every change
+                if changes |> Seq.exists (fun c -> c.EndsWith(".fsproj")) then
                     let oldFiles =
                         cracked.SourceFiles
                         |> Array.map (fun f -> f.NormalizedFullPath)
@@ -596,6 +596,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         let! changes =
             watcher.Observe [
                 cracked.ProjectOptions.ProjectFileName
+                yield! cracked.References
                 yield! cracked.SourceFiles
                     |> Array.choose (fun f ->
                         let path = f.NormalizedFullPath

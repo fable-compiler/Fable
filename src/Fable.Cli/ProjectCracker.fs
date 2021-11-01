@@ -38,6 +38,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       Packages: FablePackage list
+      References: string list
       ProjectOptions: FSharpProjectOptions }
 
 let isSystemPackage (pkgName: string) =
@@ -577,4 +578,5 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     { ProjectOptions = projOpts
       Packages = pkgRefs
+      References = projRefs |> List.map (fun p -> p.ProjectFile)
       FableLibDir = fableLibDir }
