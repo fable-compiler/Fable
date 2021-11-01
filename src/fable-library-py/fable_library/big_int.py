@@ -1,5 +1,7 @@
 from typing import Any
 
+from .types import FSharpRef
+
 
 def from_zero() -> int:
     return 0
@@ -31,3 +33,11 @@ def parse(value: Any) -> int:
 
 def to_string(value: int) -> str:
     return str(value)
+
+
+def try_parse(string: str, defValue: FSharpRef[int]) -> bool:
+    try:
+        defValue.contents = parse(string)
+        return True
+    except Exception:
+        return False

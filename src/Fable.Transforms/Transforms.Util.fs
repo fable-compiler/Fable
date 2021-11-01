@@ -421,10 +421,10 @@ module AST =
         match com.Options.Language with
         | Python ->
             // Python modules should be all lower case without any dots (PEP8)
-            let moduleName = moduleName.ToLower().Replace(".", "_")
-            com.LibraryDir + "/" + moduleName + ".py"
+            let moduleName' = moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase |> (fun str -> str.Replace(".", "_"))
+            com.LibraryDir + "/" + moduleName' + ".py"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
-    
+
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 
 def parse(string: str, detectUTC=False) -> datetime:

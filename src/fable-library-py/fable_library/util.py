@@ -5,7 +5,7 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
-from typing import Any, Callable, Iterable, List, Optional, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -169,6 +169,29 @@ def assert_equal(actual, expected, msg=None) -> None:
 def assert_not_equal(actual: T, expected: T, msg: Optional[str] = None) -> None:
     if actual == expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
+
+
+class Lazy(Generic[T]):
+    def __init__(self, factory: Callable[[], T]):
+        self.factory = factory
+        self.is_value_created = False
+        self.created_value = None
+
+    @property
+    def Value(self):
+        if not self.is_value_created:
+            self.created_value = self.factory()
+            self.is_value_created = True
+
+        return self.created_value
+
+    @property
+    def IsValueCreated(self):
+        return self.is_value_created
+
+
+def lazy_from_value(v: T) -> Lazy[T]:
+    return Lazy(lambda: v)
 
 
 def create_atom(value=None):
@@ -461,7 +484,6 @@ def combine_hash_codes(hashes):
 
 
 def structural_hash(x):
-    print("structural_hash: ", x)
     return hash(x)
 
 
