@@ -1,5 +1,4 @@
-import re
-from fable_library.types import FSharpRef
+from .types import FSharpRef
 
 
 def try_parse(string: str, defValue: FSharpRef[bool]) -> bool:

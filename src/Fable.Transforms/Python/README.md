@@ -7,13 +7,15 @@ Python source code.
 
 | F#         |   Python   | Comment                                       |
 |------------|:----------:|-----------------------------------------------|
-| List       |  List.fs   | F# immutable list                             |
-| Map        |   Map.fs   | F# immutable map                              |
+| List (F#)  |  List.fs   | F# immutable list                             |
+| List (C#)  |   `list`   | F# immutable list                             |
 | Array      |   `list`   | TODO: Python has arrays for numeric types     |
+| Map        |   Map.fs   | F# immutable map                              |
 | Record     |  types.py  | Custom Record class. Replace with `dict`?     |
-| An. Record |   `dict`   |                                               |
 | Option     |   Erased   | F# `None` will be translated to Python `None` |
-| dict       |   `dict`   | Also used for Dictionary                      |
+| An. Record |   `dict`   |                                               |
+| dict       |   `dict`   |                                               |
+| Dictionary |   `dict`   | MutableMap if comparer                        |
 | tuple      |  `tuple`   |                                               |
 | Decimal    | `decimal`  |                                               |
 | DateTime   | `datetime` |                                               |

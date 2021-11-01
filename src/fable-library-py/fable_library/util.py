@@ -219,24 +219,38 @@ def create_obj(fields):
     return obj
 
 
-def int16to_string(i, radix=10):
+def tohex(val, nbits=None):
+    if nbits:
+        val = (val + (1 << nbits)) % (1 << nbits)
+    return "{:x}".format(val)
+
+
+def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
-        return "{:x}".format(i)
+        return tohex(i, bitsize)
     if radix == 2:
         return "{:b}".format(i)
+    if radix == 8:
+        return "{:o}".format(i)
     return str(i)
 
 
-def int32to_string(i: int, radix: int = 10) -> str:
-    if radix == 10:
-        return "{:d}".format(i)
-    if radix == 16:
-        return "{:x}".format(i)
-    if radix == 2:
-        return "{:b}".format(i)
-    return str(i)
+def int8_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 8)
+
+
+def int16_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 16)
+
+
+def int32_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 32)
+
+
+def int64_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 64)
 
 
 def clear(col):

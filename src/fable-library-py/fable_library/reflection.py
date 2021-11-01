@@ -124,7 +124,7 @@ def get_generic_type_definition(t):
     return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
-def get_enerics(t: TypeInfo) -> List[TypeInfo]:
+def get_generics(t: TypeInfo) -> List[TypeInfo]:
     return t.generics if t.generics else []
 
 
