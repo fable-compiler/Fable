@@ -1235,8 +1235,8 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             transformExplicitlyAttachedMember com ctx ent memb args body; []
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
-let private addUsedRootName com name (usedRootNames: Set<string>) =
-    if Set.contains name usedRootNames then
+let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
+    if com.Options.Language <> Rust && Set.contains name usedRootNames then
         "Cannot have two module members with same name: " + name
         |> addError com [] None
     Set.add name usedRootNames
@@ -1291,19 +1291,19 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             match sub with
             | [] when isIgnoredLeafEntity ent -> []
             | [] ->
-                let entFullName = FsEnt.Ref ent
-                let ent = (com :> Compiler).GetEntity(entFullName)
+                let entRef = FsEnt.Ref ent
+                let ent = (com :> Compiler).GetEntity(entRef)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     []
                 else
                     // If the file is empty F# creates a class for the module, but Fable clears the name
                     // because it matches the root module so it becomes invalid JS, see #2350
-                    match getEntityDeclarationName com entFullName with
+                    match getEntityDeclarationName com entRef with
                     | "" -> []
                     | name ->
                         [Fable.ClassDeclaration
                             { Name = name
-                              Entity = entFullName
+                              Entity = entRef
                               Constructor = None
                               BaseCall = None
                               AttachedMembers = [] }]

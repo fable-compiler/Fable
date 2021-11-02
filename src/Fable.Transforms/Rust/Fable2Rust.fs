@@ -196,6 +196,11 @@ module UsageTracking =
 
 module TypeInfo =
 
+    let splitNameSpace (fullName: string) =
+        let i = fullName.LastIndexOf('.')
+        if i < 0 then "", fullName
+        else fullName.Substring(0, i), fullName.Substring(i + 1)
+
     let makeFullNamePath fullName genArgs =
         let parts = splitFullName fullName
         mkGenericPath parts genArgs
@@ -1756,8 +1761,9 @@ module Util =
         match calleeExpr with
         | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
             // this is an instance call
+            let namesp, name = splitNameSpace membName
             let callee = com.TransformAsExpr(ctx, callee)
-            let expr = mkMethodCallExpr membName None callee args
+            let expr = mkMethodCallExpr name None callee args
             if shouldBeRefCountWrapped com typ
             then makeRefValue expr //todo - not convinced this is right. Normally the returned value is already wrapped
             else expr
@@ -1766,9 +1772,9 @@ module Util =
             | Some(thisArg) ->
                 match callInfo.CallMemberInfo with
                 | Some mi ->
-                    let nameWithoutPath = mi.FullName.Split('.') |> Seq.toList |> List.rev |> List.head
+                    let namesp, name = splitNameSpace mi.FullName
                     let callee = com.TransformAsExpr(ctx, thisArg)
-                    mkMethodCallExpr nameWithoutPath None callee args
+                    mkMethodCallExpr name None callee args
                 | _ ->
                     com.TransformAsExpr(ctx, calleeExpr)
             // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
@@ -3368,19 +3374,23 @@ module Util =
             "IStructuralComparable"
             "IEquatable"
             "IStructuralEquatable"
+            "IEnumerable"
+            "IEnumerator"
         ]
+
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)
+        // let entNamesp, entName = splitNameSpace decl.Name
+        let entNamesp, entName = splitNameSpace ent.FullName
         let classMembers = [] // TODO:
         if ent.IsFSharpUnion
-        then transformUnion com ctx ent decl.Name classMembers
+        then transformUnion com ctx ent entName classMembers
         else
             let dependentInterfaceTraits =
                 [
                     for iface in ent.AllInterfaces do
                         let ifaceEnt = com.GetEntity iface.Entity
-                        let namesp = (ent.FullName |> splitFullName |> List.rev |> List.tail |> List.rev |> List.reduce (fun acc item -> acc + "." + item ))
-                        let isNew = com.TryAddInterface (ifaceEnt.FullName, namesp + "." + ifaceEnt.DisplayName)
+                        let isNew = com.TryAddInterface (ifaceEnt.FullName, entNamesp + "." + ifaceEnt.DisplayName)
                         if isNew then
                             let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
                             let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
@@ -3473,11 +3483,11 @@ module Util =
                                 let bounds = [mkTypeTraitGenericBound ["Clone"] None]
                                 ent.GenericParameters
                                 |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
-                        mkTraitItem [] (decl.Name + "Methods") fields [] generics
+                        mkTraitItem [] (entName + "Methods") fields [] generics
 
                     let traitsToRender =
                         let complTrait =
-                            decl.Name + "Methods", membersNotDefinedInInterfaces, ent.GenericParameters
+                            entName + "Methods", membersNotDefinedInInterfaces, ent.GenericParameters
                         ifaces @ [complTrait]
 
                     let complMethodsTraitImpl = [
@@ -3492,7 +3502,7 @@ module Util =
 
                                 let makeDecl (decl: Fable.MemberDecl) =
                                     withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                                        let name = decl.FullDisplayName |> splitFullName |> List.rev |> List.head
+                                        let namesp, name = splitNameSpace decl.FullDisplayName
                                         transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
 
                                 decl.AttachedMembers
@@ -3502,7 +3512,7 @@ module Util =
                             let ty =
                                 let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                                 let genArgs = transformGenArgs com ctx generics
-                                let bounds = mkTypeTraitGenericBound [decl.Name] genArgs
+                                let bounds = mkTypeTraitGenericBound [entName] genArgs
                                 mkTraitTy [bounds]
                                 |> makeRefTy com
                             let path =
@@ -3517,9 +3527,9 @@ module Util =
                             mkImplItem [] "" ty generics decs (mkTraitRef path |> Some)
                         ]
                     [classImplBlock; complMethodsTrait] @ complMethodsTraitImpl
-            dependentInterfaceTraits @
-            transformClass com ctx ent decl.Name classMembers
-            @ classImpls
+
+            let classItems = transformClass com ctx ent entName classMembers
+            dependentInterfaceTraits @ classItems @ classImpls
 (*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent

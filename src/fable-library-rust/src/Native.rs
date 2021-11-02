@@ -15,10 +15,6 @@ pub mod Native {
         unsafe { std::mem::zeroed() }
     }
 
-    // pub fn cellGet<T: Clone>(c: &Cell<T>) -> T {
-    //     unsafe { (*c.as_ptr()).clone() }
-    // }
-
     pub fn asString(s: &str) -> Rc<str> {
         Rc::from(s)
     }

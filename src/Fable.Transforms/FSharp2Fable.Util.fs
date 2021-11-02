@@ -332,9 +332,9 @@ module Helpers =
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-    let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.EntityRef) =
-        let fullName = ent.FullName
-        match trimRootModule, ent.SourcePath with
+    let private getEntityMangledName (com: Compiler) trimRootModule (entRef: Fable.EntityRef) =
+        let fullName = entRef.FullName
+        match trimRootModule, entRef.SourcePath with
         | true, Some sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
@@ -346,13 +346,16 @@ module Helpers =
         if name = ".ctor" then "$ctor"
         else name.Replace('.','_').Replace('`','$')
 
-    let getEntityDeclarationName (com: Compiler) (ent: Fable.EntityRef) =
-        let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
-        let name, part = (entityName, Naming.NoMemberPart)
+    let cleanNameAsRustIdentifier (name: string) =
+        name.Replace(' ','_').Replace('`','_')
+
+    let getEntityDeclarationName (com: Compiler) (entRef: Fable.EntityRef) =
+        let entityName = getEntityMangledName com true entRef
+        let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
-            | Rust -> Naming.sanitizeIdent (fun _ -> false) (name.Replace(" ", "_")) part
+            | Rust -> entityName |> cleanNameAsRustIdentifier
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName
 
@@ -364,8 +367,8 @@ module Helpers =
         else
             match memb.DeclaringEntity with
             | Some ent ->
-                let entFullName = FsEnt.Ref ent
-                let entName = getEntityMangledName com trimRootModule entFullName
+                let entRef = FsEnt.Ref ent
+                let entName = getEntityMangledName com trimRootModule entRef
                 if ent.IsFSharpModule then
                     match com.Options.Language, entName with
                     | Rust, _ -> // no module prefix for Rust
@@ -389,7 +392,7 @@ module Helpers =
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
-            | Rust -> Naming.sanitizeIdent (fun _ -> false) (name.Replace(" ", "_")) part
+            | Rust -> Naming.sanitizeIdent (fun _ -> false) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
@@ -1331,7 +1334,7 @@ module Identifiers =
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
-            | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name.Replace(" ", "_")) part
+            | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName

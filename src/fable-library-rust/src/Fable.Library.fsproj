@@ -39,10 +39,11 @@
     <Compile Include="List.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="lib.fs" />
+    <Compile Include="Seq.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Fable.Core\Fable.Core.fsproj" />
+    <ProjectReference Include="../../Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
 
 </Project>

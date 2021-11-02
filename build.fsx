@@ -217,25 +217,25 @@ let buildPyLibraryIfNotExists() =
 
 let buildLibraryRust() =
     let libraryDir = "src/fable-library-rust"
-    let projectDir = libraryDir </> "src"
-    let targetDir = "build/fable-library-rust"
-    let buildDir = targetDir </> "src"
+    let sourceDir = libraryDir </> "src"
+    let buildDir = "build/fable-library-rust"
+    let outDir = buildDir </> "src"
     let fableLib = "."
 
-    cleanDirs [targetDir]
+    cleanDirs [buildDir]
 
-    runFableWithArgsInDir projectDir [
-        "--outDir " + resolveDir buildDir
+    runFableWithArgsInDir sourceDir [
+        "--outDir " + resolveDir outDir
         "--fableLib " + fableLib
         "--lang Rust"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
     ]
 
-    copyDirNonRecursive libraryDir targetDir
-    copyFiles projectDir "*.rs" buildDir
+    copyFiles libraryDir "*.toml" buildDir
+    copyFiles sourceDir "*.rs" outDir
 
-    runInDir targetDir ("cargo build")
+    runInDir buildDir ("cargo build")
 
 // let buildLibraryRustIfNotExists() =
 //     let baseDir = __SOURCE_DIRECTORY__

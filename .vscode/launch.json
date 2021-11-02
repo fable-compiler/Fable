@@ -124,8 +124,8 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust"],
-            "cwd": "${workspaceRoot}/src/fable-library-rust/fable",
+            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "cwd": "${workspaceRoot}/src/fable-library-rust/src",
             "stopAtEntry": false,
             "console": "internalConsole"
         },
