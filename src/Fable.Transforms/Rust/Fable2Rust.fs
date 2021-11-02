@@ -3053,9 +3053,9 @@ module Util =
 
     let transformFunction (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun arg -> arg.Type)
-        let genTypeParams = getGenericTypeParams (argTypes @ [body.Type])
-        // let genTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
-        // let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
+        let genTypeParams =
+            let genParams = getGenericTypeParams (argTypes @ [body.Type])
+            Set.difference genParams ctx.ScopedTypeParams
         let fnDecl = transformFunctionDecl com ctx args body.Type
         let ctx =
             let scopedSymbols =
@@ -3393,7 +3393,11 @@ module Util =
                             ]
 
                             if interfacesToIgnore |> Set.contains ifaceEnt.DisplayName |> not then
-                                yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] []
+                                let generics =
+                                    let bounds = [mkTypeTraitGenericBound ["Clone"] None]
+                                    ifaceEnt.GenericParameters
+                                    |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
+                                yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] generics
                 ]
             let ctorItem =
                 match decl.Constructor with
@@ -3405,7 +3409,8 @@ module Util =
                             let idents = getEntityFieldsAsIdents com ent |> Array.toList
                             let assignmentsIn = idents |> List.map(Fable.IdentExpr)
                             let exprs = //fold back over ctor body, seeding with a create record statement for return, throwing out object exprs and converting `this.param` mutations to `let param = param.Clone()`
-                                let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, []), None)
+                                let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                                let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, generics), None)
                                 (returnVal, exprs |> List.rev)
                                 ||> List.fold(fun acc ->
                                         function| Fable.Set (structFieldExpr, Fable.SetKind.FieldSet name, t, assignExpr ,_) ->
@@ -3417,6 +3422,7 @@ module Util =
                         | y -> y
                         //todo - get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
                     let ctor = { ctor with Body = body; Name="new" }
+                    let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map(fun g -> g.Name) |> Set.ofList }
                     transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
                 | _ ->
                     // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
@@ -3431,21 +3437,25 @@ module Util =
                     let classImplBlock =
                         let ty =
                             let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
-                            Fable.Type.DeclaredType(ent.Ref, []) |> transformType com ctx
-
-                        mkImplItem [] "" ty [] (ctorItem) None
+                            let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                            Fable.Type.DeclaredType(ent.Ref, generics) |> transformType com ctx
+                        let generics =
+                            let bounds = [mkTypeTraitGenericBound ["Clone"] None]
+                            ent.GenericParameters
+                            |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
+                        mkImplItem [] "" ty generics (ctorItem) None
 
                     let ifaces =
                         ent.AllInterfaces
                         |> Seq.map(fun i ->
                             let ifaceEnt = com.GetEntity i.Entity
                             let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            com.GetInterfaceNs ifaceEnt.FullName, members
+                            com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt.GenericParameters
                             )
-                        |> Seq.filter(fun (dn, m) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
+                        |> Seq.filter(fun (dn, m, p) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
                         |> Seq.toList
                     let membersNotDefinedInInterfaces =
-                            let allIfaceMembers = ifaces |> Seq.map (snd) |> Seq.fold Set.union Set.empty
+                            let allIfaceMembers = ifaces |> Seq.map (fun (_, members, _) -> members) |> Seq.fold Set.union Set.empty
                             ent.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
                             |> Seq.except allIfaceMembers
                             |> Set.ofSeq
@@ -3459,15 +3469,20 @@ module Util =
                                 mkFnAssocItem [] m.Name fnKind
                         ]
                         //let genBound = [mkPathSegment (mkIdent decl.Name) None] |> mkPath |> mkTraitGenericBound
-                        mkTraitItem [] (decl.Name + "Methods") fields [] []
+                        let generics =
+                                let bounds = [mkTypeTraitGenericBound ["Clone"] None]
+                                ent.GenericParameters
+                                |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
+                        mkTraitItem [] (decl.Name + "Methods") fields [] generics
 
                     let traitsToRender =
                         let complTrait =
-                            decl.Name + "Methods", membersNotDefinedInInterfaces
+                            decl.Name + "Methods", membersNotDefinedInInterfaces, ent.GenericParameters
                         ifaces @ [complTrait]
 
                     let complMethodsTraitImpl = [
-                        for tFullName, tmethods in traitsToRender ->
+                        for tFullName, tmethods, pgenerics in traitsToRender ->
+                            let ctx = { ctx with ScopedTypeParams = pgenerics |> List.map(fun g -> g.Name) |> Set.ofList }
                             let decs = //copied from below. Do we need this? If so refactor to common or something
                                 let withCurrentScope ctx (usedNames: Set<string>) f =
                                     let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -3485,11 +3500,21 @@ module Util =
                                 |> List.map makeDecl
                                 |> List.collect id
                             let ty =
-                                let bounds = mkTypeTraitGenericBound [decl.Name] None
+                                let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                                let genArgs = transformGenArgs com ctx generics
+                                let bounds = mkTypeTraitGenericBound [decl.Name] genArgs
                                 mkTraitTy [bounds]
                                 |> makeRefTy com
-                            let path = mkGenericPath (splitFullName tFullName) (mkGenericArgs [])
-                            mkImplItem [] "" ty [] decs (mkTraitRef path |> Some)
+                            let path =
+                                let gargs = pgenerics
+                                            |> List.map(fun p -> Fable.Type.GenericParam(p.Name, []))
+                                            |> List.map (transformType com ctx)
+                                mkGenericPath (splitFullName tFullName) (mkGenericTypeArgs gargs)
+                            let generics =
+                                let bounds = [mkTypeTraitGenericBound ["Clone"] None]
+                                pgenerics
+                                |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
+                            mkImplItem [] "" ty generics decs (mkTraitRef path |> Some)
                         ]
                     [classImplBlock; complMethodsTrait] @ complMethodsTraitImpl
             dependentInterfaceTraits @

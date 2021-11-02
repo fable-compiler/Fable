@@ -38,3 +38,16 @@ let ``Second class implementing same interface also works`` () =
     let a = WithInterface2(1)
     let res = doAddWithInterface a
     res |> equal 6
+
+type ISomeContainer<'a> =
+    abstract SomeItem: int -> 'a
+
+type WithSomeComtainer<'a> (m: 'a) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
+    interface ISomeContainer<'a> with
+        member this.SomeItem x = m
+
+[<Fact>]
+let ``Generic container works`` () =
+    let a = WithSomeComtainer(1)
+    let res = (a :> ISomeContainer<_>).SomeItem 1
+    res |> equal 1
