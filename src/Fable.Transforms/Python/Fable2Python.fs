@@ -413,14 +413,15 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) modulePath =
-        //printfn "ModulePath: %s" modulePath
+        // printfn "ModulePath: %s" modulePath
         let relative =
             match com.OutputType with
             | OutputType.Exe -> false
             | _ -> true
 
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn $"Relative: {relative}"
+        // printfn $"OutputDir: {com.OutputDir}"
+        // printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
@@ -650,13 +651,39 @@ module Util =
         | [] -> expr
         | m::ms -> get com ctx None expr m false |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs =
+    let makeArray (com: IPythonCompiler) ctx exprs typ =
+        let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+
+        let letter =
+            match typ with
+            | Fable.Type.Number(UInt8, _) -> Some "B"
+            | Fable.Type.Number(Int8, _) -> Some "b"
+            | Fable.Type.Number(Int16, _) -> Some "h"
+            | Fable.Type.Number(UInt16, _) -> Some "H"
+            | Fable.Type.Number(Int32, _) -> Some "i"
+            | Fable.Type.Number(UInt32, _) -> Some "I"
+            | Fable.Type.Number(Float32, _) -> Some "f"
+            | Fable.Type.Number(Float64, _) -> Some "d"
+            | _ -> None
+
+        match letter with
+        | Some "B" ->
+            let bytearray = Expression.name "bytearray"
+            Expression.call(bytearray, [Expression.list(expr)]), stmts
+        | Some l ->
+            let array = com.GetImportExpr(ctx, "array", "array")
+            Expression.call(array, Expression.constant l :: [Expression.list(expr)]), stmts
+        | _ ->
+            expr |> Expression.list, stmts
+
+    let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
         expr |> Expression.list, stmts
 
     let makeTuple (com: IPythonCompiler) ctx exprs =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
         expr |> Expression.tuple, stmts
+
     let makeStringArray strings =
         strings
         |> List.map (fun x -> Expression.constant(x))
@@ -875,8 +902,8 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
-                makeArray com ctx exprs
+            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, typ) ->
+                makeArray com ctx exprs typ
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
@@ -900,7 +927,8 @@ module Util =
             | x when x = -infinity -> Expression.name("float('-inf')"), []
             | _ -> Expression.constant(x, ?loc=r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ) -> makeArray com ctx values
+        | Fable.NewArray (values, typ) ->
+            makeArray com ctx values typ
         | Fable.NewArrayFrom (size, typ) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
             let arg, stmts = com.TransformAsExpr(ctx, size)
@@ -910,7 +938,7 @@ module Util =
                 Expression.list [], []
             | _ ->
                 match size.Type with
-                | Fable.Type.Number(_) ->
+                | Fable.Type.Number _ ->
                     let array = Expression.list [ Expression.constant(0) ]
                     Expression.binOp(array, Mult, arg), stmts
                 | _ ->
@@ -930,13 +958,13 @@ module Util =
             | [TransformExpr com ctx (expr, stmts)], None ->
                 libCall com ctx r "list" "singleton" [ expr ], stmts
             | exprs, None ->
-                let expr, stmts = makeArray com ctx exprs
+                let expr, stmts = makeList com ctx exprs
                 [ expr ]
                 |> libCall com ctx r "list" "ofArray", stmts
             | [TransformExpr com ctx (head, stmts)], Some(TransformExpr com ctx (tail, stmts')) ->
                 libCall com ctx r "list" "cons" [ head; tail], stmts @ stmts'
             | exprs, Some(TransformExpr com ctx (tail, stmts)) ->
-                let expr, stmts' = makeArray com ctx exprs
+                let expr, stmts' = makeList com ctx exprs
                 [ expr; tail ]
                 |> libCall com ctx r "list" "ofArrayWithTail", stmts @ stmts'
         | Fable.NewOption (value, t, _) ->
@@ -1122,36 +1150,32 @@ module Util =
             match op with
             | BinaryEqualStrict ->
                 match left, right with
-                | Expression.Constant(_), _
-                | _, Expression.Constant(_) ->
-                    let op = BinaryEqual
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                | _, Expression.Name(_) ->
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | Expression.Constant _ , _
+                | _, Expression.Constant _ ->
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
+                | _, Expression.Name _ ->
+                    Expression.compare(left, BinaryEqualStrict, [right], ?loc=range), stmts @ stmts'
                 | _ ->
-                    let op = BinaryEqual // Use == for the rest
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                    // Use == for the rest
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequalStrict ->
                 match left, right with
-                 | Expression.Constant(_), _
-                 | _, Expression.Constant(_) ->
-                    let op = BinaryUnequal
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                 | Expression.Constant _, _
+                 | _, Expression.Constant _ ->
+                    Expression.compare(left, BinaryUnequal, [right], ?loc=range), stmts @ stmts'
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryEqual ->
                 match left, right with
-                | Expression.Constant(_), _  ->
-                    let op = BinaryEqual
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | Expression.Constant _, _  ->
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
                 | _, Expression.Name({Id=Identifier("None")})  ->
-                    let op = BinaryEqualStrict
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                    Expression.compare(left, BinaryEqualStrict, [right], ?loc=range), stmts @ stmts'
                 | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequal ->
                 match right with
-                | Expression.Name({Id=Identifier("None")})  ->
+                | Expression.Name({ Id=Identifier("None")} ) ->
                     let op = BinaryUnequalStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
                 | _ ->
@@ -1799,6 +1823,7 @@ module Util =
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
         | Fable.Import({ Selector = selector; Path = path; Kind=kind }, _, r) ->
+            // printfn "Fable.Import: %A" (selector, path)
             transformImport com ctx r selector path, []
 
         | Fable.Test(expr, kind, range) ->
@@ -2367,7 +2392,7 @@ module Util =
                 ent.UnionCases
                 |> Seq.map (getUnionCaseName >> makeStrConst)
                 |> Seq.toList
-                |> makeArray com ctx
+                |> makeList com ctx
 
             let name = Identifier("cases")
             let body = stmts @ [ Statement.return'(expr) ]
@@ -2525,7 +2550,7 @@ module Util =
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
-        //printfn "getIdentForImport: %A" (moduleName, name)
+        // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
@@ -2561,7 +2586,7 @@ module Compiler =
                     | None -> Expression.none()
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
-                    //printfn "localId: %A" localId
+                    // printfn "localId: %A" localId
                     match name with
                     | Some "*"
                     | None ->

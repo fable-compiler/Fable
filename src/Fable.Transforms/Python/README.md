@@ -5,22 +5,39 @@ Python source code.
 
 ## Current Design
 
-| F#         |   Python   | Comment                                       |
-|------------|:----------:|-----------------------------------------------|
-| List (F#)  |  List.fs   | F# immutable list                             |
-| List (C#)  |   `list`   | F# immutable list                             |
-| Array      |   `list`   | TODO: Python has arrays for numeric types     |
-| Map        |   Map.fs   | F# immutable map                              |
-| Record     |  types.py  | Custom Record class. Replace with `dict`?     |
-| Option     |   Erased   | F# `None` will be translated to Python `None` |
-| An. Record |   `dict`   |                                               |
-| dict       |   `dict`   |                                               |
-| Dictionary |   `dict`   | MutableMap if comparer                        |
-| tuple      |  `tuple`   |                                               |
-| Decimal    | `decimal`  |                                               |
-| DateTime   | `datetime` |                                               |
-| string     |  `string`  |                                               |
-| char       |  `string`  |                                               |
+| F#         |   Python   | Comment                                                                           |
+|------------|:----------:|-----------------------------------------------------------------------------------|
+| List (F#)  |  List.fs   | F# immutable list                                                                 |
+| List (C#)  |   `list`   | Python [list](https://docs.python.org/3/library/stdtypes.html#typesseq-list)      |
+| Array      |   `list`   | TODO: Python has arrays for numeric types                                         |
+| Map        |   Map.fs   | F# immutable map                                                                  |
+| Record     |  types.py  | Custom Record class. Replace with `dict`?                                         |
+| Option     |   Erased   | F# `None` will be translated to Python `None`                                     |
+| An. Record |   `dict`   | Python [dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) |
+| dict       |   `dict`   |                                                                                   |
+| Dictionary |   `dict`   | MutableMap if comparer                                                            |
+| tuple      |  `tuple`   | Python [tuple](https://docs.python.org/3/library/stdtypes.html#tuples)            |
+| Decimal    | `decimal`  |                                                                                   |
+| DateTime   | `datetime` |                                                                                   |
+| string     |  `string`  |                                                                                   |
+| char       |  `string`  |                                                                                   |
+
+
+## Proposed Changes
+
+| F#           |      Python      | Comment             |
+|--------------|:----------------:|---------------------|
+| `[]<byte>`   |   `bytearray`    | Python mutable str  |
+| `[]<sbyte>`  | `array("b", [])` | Python array module |
+| `[]<int16>`  | `array("h", [])` | Python array module |
+| `[]<uint16>` | `array("H", [])` | Python array module |
+| `[]<int>`    | `array("i", [])` | Python array module |
+| `[]<uint32>` | `array("I", [])` | Python array module |
+| `[]<long>`   | `array("l", [])` | Python array module |
+| `[]<uint64>` | `array("L", [])` | Python array module |
+| `[]<float>`  | `array("d", [])` | Python array module |
+| `[]<single>` | `array("f", [])` | Python array module |
+| `[]<'T>`     |      `list`      | Python list module  |
 
 ## Numerics
 

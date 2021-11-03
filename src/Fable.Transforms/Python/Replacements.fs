@@ -795,7 +795,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+        let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "date", "equals", Boolean, [left; right], ?loc=r) |> is equal
