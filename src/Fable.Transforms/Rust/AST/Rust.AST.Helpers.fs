@@ -1114,9 +1114,9 @@ module Variants =
           disr_expr = disr_expr
           is_placeholder = is_placeholder }
 
-    let mkField attrs name ty: FieldDef =
+    let mkField attrs name ty isPublic: FieldDef =
         let ident = mkIdent name
-        let vis = INHERITED_VIS
+        let vis = if isPublic then PUBLIC_VIS else INHERITED_VIS
         let is_placeholder = false
         mkFieldDef attrs (Some ident) ty vis is_placeholder
 

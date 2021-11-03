@@ -3,6 +3,8 @@
 pub mod System {
     pub mod Collections {
         pub mod Generic {
+            use std::rc::Rc;
+
             pub trait IEnumerator_1<T> {
                 fn get_Current(&self) -> T;
                 fn MoveNext(&self) -> bool;
@@ -10,15 +12,9 @@ pub mod System {
             }
 
             pub trait IEnumerable_1<T> {
-                fn GetEnumerator(&self) -> dyn IEnumerator_1<T>;
+                fn GetEnumerator(&self) -> Rc<dyn IEnumerator_1<T>>;
             }
 
-            impl<T> Iterator for dyn IEnumerator_1<T> {
-                type Item = T;
-                fn next(&mut self) -> Option<Self::Item> {
-                    if self.MoveNext() { Some(self.get_Current()) } else { None }
-                }
-            }
         }
     }
 }

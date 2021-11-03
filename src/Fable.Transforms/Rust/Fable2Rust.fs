@@ -3325,10 +3325,11 @@ module Util =
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
+                let isPublic = false
                 let fields =
                     uci.UnionCaseFields |> List.map (fun fi ->
                         let ty = transformType com ctx fi.FieldType
-                        mkField [] fi.Name ty)
+                        mkField [] fi.Name ty isPublic)
                 mkTupleVariant [] name fields
             )
         let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]]
@@ -3337,6 +3338,7 @@ module Util =
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let generics = getEntityGenParams ent
+        let isPublic = ent.IsFSharpRecord
         let fields =
             ent.FSharpFields |> Seq.map (fun fi ->
                 let ty = transformType com ctx fi.FieldType
@@ -3344,7 +3346,7 @@ module Util =
                     if fi.IsMutable
                     then ty |> makeMutTy com
                     else ty
-                mkField [] fi.Name ty
+                mkField [] fi.Name ty isPublic
             )
         let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]];
         let structItem = mkStructItem attrs entName fields generics
