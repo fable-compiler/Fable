@@ -23,5 +23,4 @@ module PY =
 
     [<RequireQualifiedAccess>]
     module Constructors =
-
         let [<Emit("list")>] Array: ArrayConstructor = nativeOnly

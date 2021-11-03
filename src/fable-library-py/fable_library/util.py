@@ -5,7 +5,7 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
-from typing import Any, Callable, Iterable, List, Optional, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -171,6 +171,29 @@ def assert_not_equal(actual: T, expected: T, msg: Optional[str] = None) -> None:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
+class Lazy(Generic[T]):
+    def __init__(self, factory: Callable[[], T]):
+        self.factory = factory
+        self.is_value_created = False
+        self.created_value = None
+
+    @property
+    def Value(self):
+        if not self.is_value_created:
+            self.created_value = self.factory()
+            self.is_value_created = True
+
+        return self.created_value
+
+    @property
+    def IsValueCreated(self):
+        return self.is_value_created
+
+
+def lazy_from_value(v: T) -> Lazy[T]:
+    return Lazy(lambda: v)
+
+
 def create_atom(value=None):
     atom = value
 
@@ -196,24 +219,38 @@ def create_obj(fields):
     return obj
 
 
-def int16to_string(i, radix=10):
+def tohex(val, nbits=None):
+    if nbits:
+        val = (val + (1 << nbits)) % (1 << nbits)
+    return "{:x}".format(val)
+
+
+def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
-        return "{:x}".format(i)
+        return tohex(i, bitsize)
     if radix == 2:
         return "{:b}".format(i)
+    if radix == 8:
+        return "{:o}".format(i)
     return str(i)
 
 
-def int32to_string(i: int, radix: int = 10) -> str:
-    if radix == 10:
-        return "{:d}".format(i)
-    if radix == 16:
-        return "{:x}".format(i)
-    if radix == 2:
-        return "{:b}".format(i)
-    return str(i)
+def int8_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 8)
+
+
+def int16_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 16)
+
+
+def int32_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 32)
+
+
+def int64_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 64)
 
 
 def clear(col):
@@ -461,7 +498,6 @@ def combine_hash_codes(hashes):
 
 
 def structural_hash(x):
-    print("structural_hash: ", x)
     return hash(x)
 
 

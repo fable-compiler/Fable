@@ -20,7 +20,7 @@
     <Compile Include="../../fable-library/Choice.fs" Link="Choice.fs" />
     <Compile Include="../../fable-library/Array.fs" Link="Arrayfs." />
     <Compile Include="../../fable-library/List.fs" Link="List.fs" />
-    <Compile Include="../../fable-library/Seq.fs" Link="Seq.fs" />
+    <Compile Include="Seq.fs" Link="Seq.fs" />
     <Compile Include="../../fable-library/Seq2.fs" Link="Seq2.fs" />
     <Compile Include="../../fable-library/Range.fs" Link="Range.fs" />
     <Compile Include="../../fable-library/Set.fs" Link="Set.fs" />

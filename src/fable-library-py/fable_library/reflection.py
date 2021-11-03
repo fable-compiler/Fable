@@ -124,6 +124,10 @@ def get_generic_type_definition(t):
     return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
+def get_generics(t: TypeInfo) -> List[TypeInfo]:
+    return t.generics if t.generics else []
+
+
 def name(info):
     if isinstance(info, list):
         return info[0]
@@ -166,10 +170,12 @@ def is_record(t: Any) -> bool:
 def is_tuple(t: TypeInfo) -> bool:
     return t.fullname.startswith("System.Tuple") and not is_array(t)
 
+
 def is_union(t: Any) -> bool:
     if isinstance(t, TypeInfo):
         return t.cases is not None
     return isinstance(t, FsUnion)
+
 
 # In .NET this is false for delegates
 def is_function(t: TypeInfo) -> bool:
@@ -178,6 +184,10 @@ def is_function(t: TypeInfo) -> bool:
 
 def get_element_type(t: TypeInfo) -> Optional[TypeInfo]:
     return (t.generics[0] if t.generics else None) if is_array(t) else None
+
+
+def get_enum_underlying_type(t: TypeInfo):
+    return t.generics[0] if t.generics else None
 
 
 def get_enum_values(t: TypeInfo) -> List[int]:
@@ -213,6 +223,21 @@ def get_enum_case(t: TypeInfo, v: Union[int, str]) -> EnumCase:
     return ["", v]
 
 
+def get_tuple_elements(t: TypeInfo) -> List[TypeInfo]:
+    if is_tuple(t) and t.generics is not None:
+        return t.generics
+    else:
+        raise ValueError(f"{t.fullname} is not a tuple type")
+
+
+def get_function_elements(t: TypeInfo) -> List[TypeInfo]:
+    if is_function(t) and t.generics is not None:
+        gen = t.generics
+        return [gen[0], gen[1]]
+    else:
+        raise ValueError(f"{t.fullname} is not an F# function type")
+
+
 def parse_enum(t: TypeInfo, string: str) -> int:
     try:
         value = int(string)
@@ -239,7 +264,7 @@ def is_enum_defined(t: TypeInfo, v: Union[str, int]) -> bool:
         kv = get_enum_case(t, v)
         return kv[0] is not None and kv[0] != ""
     except Exception:
-        # supress error
+        # Supress error
         pass
 
     return False
@@ -290,13 +315,15 @@ def make_record(t: TypeInfo, values: List) -> Any:
 def make_tuple(values: List, _t: TypeInfo) -> Any:
     return values
 
+
 def make_union(uci: CaseInfo, values: List) -> Any:
 
     expectedLength = len(uci.fields or [])
-    if (len(values) != expectedLength):
+    if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
 
     return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
+
 
 def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
     if t.cases:
@@ -311,7 +338,8 @@ def get_union_fields(v: Any, t: TypeInfo) -> List:
     if not case_:
         raise ValueError(f"Cannot find case {v.name} in union type")
 
-    return [case_, list(v.fields)];
+    return [case_, list(v.fields)]
+
 
 def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
     return uci.fields if uci.fields else []

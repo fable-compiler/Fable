@@ -457,11 +457,16 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | Char | String -> head
         | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+        | Builtin (BclGuid|BclTimeSpan|BclDecimal as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number(Int16,_) -> Helper.LibCall(com, "util", "int16ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "util", "int32ToString", String, args)
-        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        | Builtin (BclInt64|BclUInt64|BclBigInt) ->
+            Helper.LibCall(com, "util", "int64_to_string", String, args)
+        | Number(Int8,_)
+        | Number(UInt8,_) ->
+            Helper.LibCall(com, "util", "int8_to_string", String, args)
+        | Number(Int16,_) -> Helper.LibCall(com, "util", "int16_to_string", String, args)
+        | Number(Int32,_) -> Helper.LibCall(com, "util", "int32_to_string", String, args)
+        | Number _ -> Helper.LibCall(com, "types", "toString", String, [head], ?loc=r)
         | Array _ | List _ ->
             Helper.LibCall(com, "types", "seqToString", String, [head], ?loc=r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
@@ -606,9 +611,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "(int($0) + 0x80 & 0xFF) - 0x80"
         | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
         | JsNumber Int32 -> fastIntFloor arg
-        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "int($0) & 0xFF"
-        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "int($0) & 0xFFFF"
-        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "int($0)"
+        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "int($0+0x100 if $0 < 0 else $0) & 0xFF"
+        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "int($0+0x10000 if $0 < 0 else $0) & 0xFFFF"
+        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "int($0+0x100000000 if $0 < 0 else $0)"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
@@ -617,8 +622,8 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | NumberExt typeFrom, NumberExt typeTo  ->
         if needToCast typeFrom typeTo then
             match typeFrom with
-            | Long _ -> Helper.LibCall(com, "Long", "toInt", targetType, args)
-            | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
+            | Long _ -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
+            | Decimal -> Helper.LibCall(com, "Decimal", "to_number", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
         else TypeCast(args.Head, targetType)
@@ -790,7 +795,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+        let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "date", "equals", Boolean, [left; right], ?loc=r) |> is equal

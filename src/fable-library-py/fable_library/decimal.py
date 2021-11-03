@@ -40,8 +40,12 @@ def op_addition(x: Decimal, y: Decimal):
     return x + y
 
 
-def to_string(x):
+def to_string(x: Decimal):
     return str(x)
+
+
+def to_number(x: Decimal):
+    return float(x)
 
 
 def parse(string: str):

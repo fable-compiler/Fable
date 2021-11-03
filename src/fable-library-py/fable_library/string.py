@@ -175,7 +175,7 @@ def fs_format(str: str):
 
 
 def format(string: str, *args: Any) -> str:
-    print("format: ", string, args)
+    # print("format: ", string, args)
     # if (typeof str === "object" and args.length > 0):
     #     # Called with culture info
     #     str = args[0]
@@ -185,7 +185,11 @@ def format(string: str, *args: Any) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
         if isinstance(rep, (int, float)):
-            precision: Optional[int] = None if precision_ is None else int(precision_)
+            precision: Optional[int] = None
+            try:
+                precision: Optional[int] = int(precision_)
+            except Exception:
+                pass
 
             if format in ["f", "F"]:
                 precision = precision if precision is not None else 2
@@ -240,7 +244,7 @@ def format(string: str, *args: Any) -> str:
         return rep
 
     ret = format_regexp.sub(match, string)
-    print("ret: ", ret)
+    # print("ret: ", ret)
     return ret
 
 

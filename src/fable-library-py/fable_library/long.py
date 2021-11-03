@@ -1,17 +1,29 @@
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from .types import FSharpRef
 
 
 def from_bits(lowBits: int, highBits: int, unsigned: bool):
     ret = lowBits + (highBits << 32)
-    if ret > 0x7FFFFFFFFFFFFFFF:
+    if not unsigned and ret > 0x7FFFFFFFFFFFFFFF:
         return ret - 0x10000000000000000
 
     return ret
 
 
 def from_int(value: int, unsigned: bool = False):
+    if unsigned and value < 0:
+        return value + 0x10000000000000000
+    return value
+
+
+def from_value(value: Any, unsigned: bool = False):
+    value = int(value)
+    if unsigned and value < 0:
+        return value + 0x10000000000000000
+    elif not unsigned and value > 9223372036854775807:
+        return value - 0x10000000000000000
+
     return value
 
 
@@ -24,6 +36,10 @@ def to_number(value: int) -> float:
 
 
 def from_integer(value: int, unsigned: bool = None, kind: int = None) -> int:
+    if unsigned and value < 0:
+        return value + 0x10000000000000000
+    elif not unsigned and value > 9223372036854775807:
+        return value - 0x10000000000000000
     return value
 
 
@@ -44,10 +60,7 @@ def op_unary_negation(value):
 
 
 def get_range(unsigned: bool) -> Tuple[int, int]:
-    if unsigned:
-        return (0, 18446744073709551615)
-
-    return (-9223372036854775808, 9223372036854775807)
+    return (0, 18446744073709551615) if unsigned else (-9223372036854775808, 9223372036854775807)
 
 
 AllowHexSpecifier = 0x00000200
@@ -55,8 +68,12 @@ AllowHexSpecifier = 0x00000200
 
 def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
     # const res = isValid(str, style, radix);
-    if style & AllowHexSpecifier:
+    if style & AllowHexSpecifier or string.startswith("0x"):
         radix = 16
+    elif string.startswith("0b"):
+        radix = 2
+    elif string.startswith("0o"):
+        radix = 8
 
     try:
         v = int(string, base=radix)
@@ -84,8 +101,14 @@ def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: F
         return False
 
 
-def to_string(x):
+def to_string(x: int):
     return str(x)
+
+
+def to_int(value: int):
+    if value > 9223372036854775807:
+        return value - 0x10000000000000000
+    return value
 
 
 def compare(a, b):
