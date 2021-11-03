@@ -389,6 +389,15 @@ type State =
       DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
       Watcher: FsWatcher option
       HasCompiledOnce: bool }
+
+    member this.RunProcessEnv =
+        let nodeEnv =
+            match this.CliArgs.Configuration with
+            | "Release" -> "production"
+            // | "Debug"
+            | _ -> "development"
+        [ "NODE_ENV", nodeEnv ]
+
     member this.GetOrAddDeduplicateTargetDir (importDir: string) addTargetDir =
         // importDir must be trimmed and normalized by now, but lower it just in case
         // as some OS use case insensitive paths
@@ -415,7 +424,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
             let exeFile =
                 File.tryNodeModulesBin workingDir runProc.ExeFile
                 |> Option.defaultValue runProc.ExeFile
-            Process.start workingDir exeFile runProc.Args
+            Process.startWithEnv state.RunProcessEnv workingDir exeFile runProc.Args
             { state with CliArgs = { state.CliArgs with RunProcess = None } }
         | _ -> state
 
@@ -580,11 +589,11 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     |> Option.defaultValue exeFile, runProc.Args
 
             if Option.isSome state.Watcher then
-                Process.start workingDir exeFile args
+                Process.startWithEnv state.RunProcessEnv workingDir exeFile args
                 let runProc = if runProc.IsWatch then Some runProc else None
                 None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
             else
-                let exitCode = Process.runSync workingDir exeFile args
+                let exitCode = Process.runSyncWithEnv state.RunProcessEnv workingDir exeFile args
                 (if exitCode = 0 then None else Some "Run process failed"), state
 
     match state.Watcher with

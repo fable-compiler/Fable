@@ -154,7 +154,7 @@ module Process =
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess workingDir exePath args =
+    let private startProcess (envVars: (string * string) list) workingDir exePath args =
         let args = String.concat " " args
         let exePath, args =
             if isWindows() then "cmd", ("/C " + exePath + " " + args)
@@ -163,8 +163,8 @@ module Process =
         Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
 
         let psi = ProcessStartInfo()
-        // for envVar in envVars do
-        //     psi.EnvironmentVariables.[envVar.Key] <- envVar.Value
+        for (key, value) in envVars do
+            psi.EnvironmentVariables.[key] <- value
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
         psi.Arguments <- args
@@ -178,7 +178,7 @@ module Process =
         if not p.HasExited then
             p.Kill(entireProcessTree=true)
 
-    let start =
+    let startWithEnv envVars =
         let mutable runningProcess = None
 
         // In Windows, terminating the main process doesn't kill the spawned ones so we need
@@ -195,20 +195,26 @@ module Process =
         fun (workingDir: string) (exePath: string) (args: string list) ->
             try
                 runningProcess |> Option.iter kill
-                let p = startProcess workingDir exePath args
+                let p = startProcess envVars workingDir exePath args
                 runningProcess <- Some p
             with ex ->
                 Log.always("Cannot run: " + ex.Message)
 
-    let runSync (workingDir: string) (exePath: string) (args: string list) =
+    let start (workingDir: string) (exePath: string) (args: string list) =
+        startWithEnv [] workingDir exePath args
+
+    let runSyncWithEnv envVars (workingDir: string) (exePath: string) (args: string list) =
         try
-            let p = startProcess workingDir exePath args
+            let p = startProcess envVars workingDir exePath args
             p.WaitForExit()
             p.ExitCode
         with ex ->
             Log.always("Cannot run: " + ex.Message)
             Log.always(ex.StackTrace)
             -1
+
+    let runSync (workingDir: string) (exePath: string) (args: string list) =
+        runSyncWithEnv [] workingDir exePath args
 
 [<RequireQualifiedAccess>]
 module Async =
