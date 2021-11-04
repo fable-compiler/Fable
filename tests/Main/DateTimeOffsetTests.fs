@@ -224,6 +224,17 @@ let tests =
         d.Year + d.Month + d.Day |> equal 2014
         d.Offset |> equal (TimeSpan.FromHours(3.))
 
+    testCase "DateTimeOffset.Parse doesn't confuse day and offset" <| fun () ->
+        let d = DateTimeOffset.Parse("2021-11-15")
+        d.Year + d.Month + d.Day |> equal 2047
+        d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
+        d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
+        d.Offset = (TimeSpan.FromHours(15.)) |> equal false
+
+        let d = DateTimeOffset.Parse("2021-11-08-08")
+        d.Year + d.Month + d.Day |> equal 2040
+        d.Offset |> equal (TimeSpan.FromHours(-8.))
+
     testCase "DateTimeOffset.TryParse works" <| fun () ->
         let f (d: string) =
             match DateTimeOffset.TryParse(d) with
