@@ -1,3 +1,11 @@
+### 3.4.8
+
+* Fix #2572 #2579: Watch .fsi files and referenced .fsproj
+* Fix #2576: Last file can omit module declaration
+* Fix Seq.cache with partial enumeration
+* Fix DateTime Offset parsing with date only and hyphens
+* Set NODE_ENV when running a sub-process
+
 ### 3.4.7
 
 * Fix #2571: Forward slash not escaped when creating regex
