@@ -11,6 +11,7 @@ Constructor = Callable[..., Any]
 
 EnumCase = List[Union[str, int]]
 FieldInfo = List[Union[str, "TypeInfo"]]
+PropertyInfo = FieldInfo
 
 
 @dataclass
@@ -126,6 +127,10 @@ def get_generic_type_definition(t):
 
 def get_generics(t: TypeInfo) -> List[TypeInfo]:
     return t.generics if t.generics else []
+
+
+def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
+    return getattr(v, propertyInfo[0])
 
 
 def name(info):
