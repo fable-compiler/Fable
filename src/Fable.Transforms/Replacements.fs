@@ -201,22 +201,25 @@ let (|NumberExt|_|) = function
 let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
-let getTypeNameFromFullName (fullname: string) =
+let splitFulName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
         | i -> fullname.[..i - 1]
     match fullname.LastIndexOf(".") with
-    | -1 -> fullname
-    | i -> fullname.Substring(i + 1)
+    | -1 -> "", fullname
+    | i -> fullname.Substring(0, i), fullname.Substring(i + 1)
 
-let getTypeName com (ctx: Context) r t =
+let rec getTypeName com (ctx: Context) r t =
     match t with
     | GenericParam name ->
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
-    | _ -> ()
-    getTypeFullName false t |> getTypeNameFromFullName
+        name
+    | Array elemType ->
+        getTypeName com ctx r elemType + "[]"
+    | _ ->
+        getTypeFullName false t |> splitFulName |> snd
 
 let rec namesof com ctx acc e =
     match acc, e with
@@ -3080,7 +3083,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     let genMap = List.zip (e.GenericParameters |> List.map (fun p -> p.Name)) genArgs |> Map
                     let comp = if ignoreCase then System.StringComparison.OrdinalIgnoreCase else System.StringComparison.Ordinal
                     e.AllInterfaces |> Seq.tryPick (fun ifc ->
-                        let ifcName = getTypeNameFromFullName ifc.Entity.FullName
+                        let ifcName = splitFulName ifc.Entity.FullName |> snd
                         if ifcName.Equals(name, comp) then
                             let genArgs = ifc.GenericArgs |> List.map (function
                                 | GenericParam name as gen -> Map.tryFind name genMap |> Option.defaultValue gen
@@ -3091,11 +3094,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" ->
-                let fullname = getTypeFullName false exprType
-                match fullname.LastIndexOf(".") with
-                | -1 -> "" |> returnString r
-                | i -> fullname.Substring(0, i) |> returnString r
+            | "get_Namespace" -> getTypeFullName false exprType |> splitFulName |> fst |> returnString r
             | "get_IsArray" ->
                 match exprType with Array _ -> true | _ -> false
                 |> BoolConstant |> makeValue r |> Some

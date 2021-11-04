@@ -131,7 +131,7 @@ export function list_type(generic: TypeInfo): TypeInfo {
 }
 
 export function array_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo(generic.fullname + "[]", [generic]);
+  return new TypeInfo("[]", [generic]);
 }
 
 export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
@@ -165,33 +165,45 @@ export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string
   if (Array.isArray(info)) {
     return info[0];
   } else if (info instanceof TypeInfo) {
-    const i = info.fullname.lastIndexOf(".");
-    return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+    const elemType = getElementType(info);
+    if (elemType != null) {
+      return name(elemType) + "[]";
+    } else {
+      const i = info.fullname.lastIndexOf(".");
+      return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+    }
   } else {
     return info.name;
   }
 }
 
 export function fullName(t: TypeInfo): string {
-  const gen = t.generics != null && !isArray(t) ? t.generics : [];
-  if (gen.length > 0) {
-    return t.fullname + "[" + gen.map((x) => fullName(x)).join(",") + "]";
+  const elemType = getElementType(t);
+  if (elemType != null) {
+    return fullName(elemType) + "[]";
+  } else if (t.generics == null || t.generics.length === 0) {
+    return t.fullname
   } else {
-    return t.fullname;
+    return t.fullname + "[" + t.generics.map((x) => fullName(x)).join(",") + "]";
   }
 }
 
-export function namespace(t: TypeInfo) {
-  const i = t.fullname.lastIndexOf(".");
-  return i === -1 ? "" : t.fullname.substr(0, i);
+export function namespace(t: TypeInfo): string {
+  const elemType = getElementType(t);
+  if (elemType != null) {
+    return namespace(elemType);
+  } else {
+    const i = t.fullname.lastIndexOf(".");
+    return i === -1 ? "" : t.fullname.substr(0, i);
+  }
 }
 
 export function isArray(t: TypeInfo): boolean {
-  return t.fullname.endsWith("[]");
+  return getElementType(t) != null;
 }
 
 export function getElementType(t: TypeInfo): TypeInfo | undefined {
-  return isArray(t) ? t.generics?.[0] : undefined;
+  return t.fullname === "[]" && t.generics?.length === 1 ? t.generics[0] : undefined;
 }
 
 export function isGenericType(t: TypeInfo) {
@@ -362,7 +374,7 @@ export function isRecord(t: any): boolean {
 }
 
 export function isTuple(t: TypeInfo): boolean {
-  return t.fullname.startsWith("System.Tuple") && !isArray(t);
+  return t.fullname.startsWith("System.Tuple");
 }
 
 // In .NET this is false for delegates
