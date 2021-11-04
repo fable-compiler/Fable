@@ -456,7 +456,8 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
-        | Builtin BclGuid when tail.IsEmpty -> head
+        | Builtin BclGuid when tail.IsEmpty ->
+                Helper.GlobalCall("str", String, [ head ], ?loc=r)
         | Builtin (BclGuid|BclTimeSpan|BclDecimal as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Builtin (BclInt64|BclUInt64|BclBigInt) ->
@@ -2940,15 +2941,17 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
             e.Message |> addErrorAndReturnNull com ctx.InlinePath r
         |> Some
 
+    printfn "Guid: %A" i.CompiledName
     match i.CompiledName with
-    | "NewGuid"     -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "NewGuid"     -> Helper.LibCall(com, "Guid", "new_guid", t, []) |> Some
     | "Parse"       ->
         match args with
         | [StringConst literalGuid] -> parseGuid literalGuid
         | _-> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
     | "TryParse"    -> Helper.LibCall(com, "Guid", "tryParse", t, args, i.SignatureArgTypes) |> Some
     | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
-    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
+    | "ToString" when (args.Length = 0) ->
+        Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc=r) |> Some
     | "ToString" when (args.Length = 1) ->
         match args with
         | [StringConst literalFormat] ->

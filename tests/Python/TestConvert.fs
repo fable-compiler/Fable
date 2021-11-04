@@ -997,3 +997,270 @@ let ``test BitConverter.GetBytes UInt16 works`` () =
     let value = 0xFF02us
     let bytes = BitConverter.GetBytes(value)
     bytes |> equal [| 2uy; 255uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes UInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 255uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes UInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 255uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Single works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 128uy; 63uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Double works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
+
+[<Fact>]
+let ``test BitConverter.Int64BitsToDouble works`` () =
+    let f = BitConverter.Int64BitsToDouble(1L)
+    f |> equal 4.9406564584124654E-324
+
+[<Fact>]
+let ``test BitConverter.DoubleToInt64Bits works`` () =
+    let i = BitConverter.DoubleToInt64Bits(1.0)
+    i |> equal 4607182418800017408L
+
+[<Fact>]
+let ``test BitConverter.ToBoolean works`` () =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToBoolean(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToChar works`` () =
+    let value = 'A'
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToChar(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToInt16 works`` () =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt16(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToInt32 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt32(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt64(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToUInt16 works`` () =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt16(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt32(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt64(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToSingle works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToSingle(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToDouble works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToDouble(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToString works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes) |> equal "04-03-02-01"
+
+[<Fact>]
+let ``test BitConverter.ToString 2 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+
+[<Fact>]
+let ``test BitConverter.ToString 3 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
+
+//-------------------------------------
+// System.Numerics.BigInteger
+//-------------------------------------
+
+[<Fact>]
+let ``test BigInt from uint32 works`` () =
+    bigint System.UInt32.MaxValue |> equal 4294967295I
+
+[<Fact>]
+let ``test BigInt ToSByte works`` () =
+    let value = 0x02y
+    sbyte (bigint (int32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (bigint (int32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt ToInt32 works`` () =
+    let value = 0x01020304
+    int32 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    int64 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToByte works`` () =
+    let value = 0x02uy
+    byte (bigint (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (bigint (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt ToUInt32 works`` () =
+    //let value = 0xFF020304u //TODO: BigInt.FromUInt32 not implemented yet, so this will fail
+    let value = 0x1F020304u
+    uint32 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToSingle works`` () =
+    let value = 1.0f
+    single (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToDouble works`` () =
+    let value = -1.0
+    double (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToDecimal works`` () =
+    let value = 1.0m
+    decimal (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToString works`` () =
+    let value = 1234567890
+    string (bigint value) |> equal "1234567890"
+
+[<Fact>]
+let ``test Convert.ToBase64String works`` () =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes)
+    |> equal "AgQGCAoMDhASFA=="
+
+[<Fact>]
+let ``test Convert.FromBase64String works`` () =
+    Convert.FromBase64String("AgQGCAoMDhASFA==")
+    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+
+// id is prefixed for guid creation as we check at compile time (if able) to create a string const
+[<Fact>]
+let ``test Guid.Parse works`` () =
+    let guids = [
+        Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.Parse("96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.Parse(id "96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.Parse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid.Parse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid.Parse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid.Parse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid.Parse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        Guid.Parse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        Guid("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid("96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid(id "96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        Guid(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+    ]
+
+    guids
+    |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+
+[<Fact>]
+let ``test Guid.TryParse works`` () =
+    let successGuids = [
+        Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.TryParse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.TryParse("96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.TryParse(id "96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.TryParse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid.TryParse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        //Guid.TryParse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        //Guid.TryParse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        //Guid.TryParse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        //Guid.TryParse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+    ]
+
+    let failGuids = [
+        Guid.TryParse("96258006-c4ba-4a7f-80c4")
+        Guid.TryParse(id "96258006-c4ba-4a7f-80c4")
+        Guid.TryParse("96258007f80c4de7f2b2898c5")
+        Guid.TryParse(id "96258007f80c4de7f2b2898c5")
+        Guid.TryParse("{96258006-c4ba-4a7f-80c4}")
+        Guid.TryParse(id "{96258006-c4ba-4a7f-80c4}")
+        Guid.TryParse("(96258006-c4ba-80c4-de7f2b2898c5)")
+        Guid.TryParse(id "(96258006-c4ba-80c4-de7f2b2898c5)")
+        Guid.TryParse("{0x96258006,0xc4ba,{0x80,0xc4,0xde,0x7f,0x28,0x98,0xc5}}")
+        Guid.TryParse(id "{0x96258006,0xc4ba,{0x80,0xc4,0xde,0x7f,0x28,0x98,0xc5}}")
+    ]
+
+    successGuids
+    |> List.iter (fst >> (equal true))
+
+    failGuids
+    |> List.iter (fst >> (equal false))
+
+[<Fact>]
+let ``test Parsed guids with different case are considered the same`` () = // See #1718
+    let aGuid = Guid.NewGuid()
+
+    let lower = aGuid.ToString().ToLower()
+    let upper = aGuid.ToString().ToUpper()
+    lower = upper |> equal false
+
+    let lowerGuid = Guid.Parse lower
+    let upperGuid = Guid.Parse upper
+    lowerGuid = upperGuid |> equal true

@@ -239,7 +239,6 @@ let ofArray (arr: 'T[]) =
 
 let toArray (xs: seq<'T>): 'T[] =
     match xs with
-    | :? array<'T> as a -> a
     | :? list<'T> as a -> Array.ofList a
     | _ -> Array.ofSeq xs
 

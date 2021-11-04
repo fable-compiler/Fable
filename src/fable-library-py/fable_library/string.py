@@ -1,6 +1,7 @@
 from argparse import ArgumentError
 import re
 import locale
+from base64 import b64encode, b64decode
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
@@ -110,10 +111,10 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
         minusFlag = flags.find("-") >= 0  # Right padding
         ch = " " if minusFlag or not zeroFlag else "0"
         if ch == "0":
-            rep = padLeft(rep, padLength - len(sign), ch, minusFlag)
+            rep = pad_left(rep, padLength - len(sign), ch, minusFlag)
             rep = sign + rep
         else:
-            rep = padLeft(sign + rep, padLength, ch, minusFlag)
+            rep = pad_left(sign + rep, padLength, ch, minusFlag)
 
     else:
         rep = sign + rep
@@ -142,7 +143,7 @@ def interpolate(string: str, values: Any) -> str:
     return result
 
 
-def formatOnce(str2: str, rep: Any):
+def format_once(str2: str, rep: Any):
     def match(m: Match[str]):
         prefix, flags, padLength, precision, format = m.groups()
         once: str = format_replacement(rep, flags, padLength, precision, format)
@@ -156,7 +157,7 @@ def create_printer(string: str, cont: Callable[..., Any]):
     def _(*args: Any):
         strCopy: str = string
         for arg in args:
-            strCopy = formatOnce(strCopy, arg)
+            strCopy = format_once(strCopy, arg)
 
         if fsFormatRegExp.search(strCopy):
             return create_printer(strCopy, cont)
@@ -206,10 +207,10 @@ def format(string: str, *args: Any) -> str:
                 rep = to_fixed(multiply(rep, 100), precision) + " %"
 
             elif format in ["d", "D"]:
-                rep = padLeft(str(rep), precision, "0") if precision is not None else str(rep)
+                rep = pad_left(str(rep), precision, "0") if precision is not None else str(rep)
 
             elif format in ["x", "X"]:
-                rep = padLeft(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
+                rep = pad_left(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
                 if format == "X":
                     rep = rep.upper()
             elif pattern:
@@ -224,7 +225,7 @@ def format(string: str, *args: Any) -> str:
                         sign = "-"
 
                     rep = to_fixed(rep, len(decimalPart) - 1 if decimalPart else 0)
-                    return padLeft(rep, len(intPart or "") - len(sign) + (len(decimalPart) if decimalPart else 0), "0")
+                    return pad_left(rep, len(intPart or "") - len(sign) + (len(decimalPart) if decimalPart else 0), "0")
 
                 rep = re.sub(r"(0+)(\.0+)?", match, pattern)
                 rep = sign + rep
@@ -236,7 +237,7 @@ def format(string: str, *args: Any) -> str:
 
         try:
             padLength = int((padLength or " ")[1:])
-            rep = padLeft(str(rep), abs(padLength), " ", padLength < 0)
+            rep = pad_left(str(rep), abs(padLength), " ", padLength < 0)
         except ValueError:
             pass
 
@@ -290,29 +291,19 @@ def join_with_indices(delimiter: str, xs: List[str], startIndex: int, count: int
     return delimiter.join(xs[startIndex:endIndexPlusOne])
 
 
-def notSupported(name: str) -> NoReturn:
+def not_supported(name: str) -> NoReturn:
     raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
 
 
-# export function toBase64String(inArray: number[]) {
-#   let str = "";
-#   for (let i = 0; i < inArray.length; i++) {
-#     str += String.fromCharCode(inArray[i]);
-#   }
-#   return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
-# }
-
-# export function fromBase64String(b64Encoded: string) {
-#   const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
-#   const bytes = new Uint8Array(binary.length);
-#   for (let i = 0; i < binary.length; i++) {
-#     bytes[i] = binary.charCodeAt(i);
-#   }
-#   return bytes;
-# }
+def to_base64string(in_array: bytes) -> str:
+    return b64encode(in_array).decode("utf8")
 
 
-def padLeft(string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False) -> str:
+def from_base64string(b64encoded: str) -> bytes:
+    return b64decode(b64encoded)
+
+
+def pad_left(string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False) -> str:
     ch = ch or " "
     length = length - len(string)
     for i in range(length):
@@ -321,8 +312,8 @@ def padLeft(string: str, length: int, ch: Optional[str] = None, isRight: Optiona
     return string
 
 
-def padRight(string: str, len: int, ch: Optional[str] = None) -> str:
-    return padLeft(string, len, ch, True)
+def pad_right(string: str, len: int, ch: Optional[str] = None) -> str:
+    return pad_left(string, len, ch, True)
 
 
 def remove(string: str, startIndex: int, count: Optional[int] = None):
