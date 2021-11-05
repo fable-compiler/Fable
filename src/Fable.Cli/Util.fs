@@ -345,11 +345,11 @@ module Observable =
                 { new IDisposable with
                     member _.Dispose() = dispose() }
 
-    let throttle ms (obs: IObservable<'T>) =
+    let throttle (ms: int) (obs: IObservable<'T>) =
         { new IObservable<'T[]> with
             member _.Subscribe w =
                 let events = Collections.Concurrent.ConcurrentBag()
-                let timer = new Timers.Timer(ms, AutoReset=false)
+                let timer = new Timers.Timer(float ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
                     events.ToArray() |> w.OnNext
                     timer.Dispose())

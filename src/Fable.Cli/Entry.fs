@@ -54,6 +54,7 @@ let knownCliArgs() = [
   ["--verbose"],         ["Print more info during compilation"]
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
+  ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
   [], []
   ["--run"],             ["The command after the argument will be executed after compilation"]
   ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
@@ -242,8 +243,16 @@ type Runner =
           RunProcess = runProc
           CompilerOptions = compilerOptions }
 
+    let watchDelay =
+        if watch then
+            args.Value("--watchDelay")
+            |> Option.map int
+            |> Option.defaultValue 200
+            |> Some
+        else None
+
     return!
-        State.Create(cliArgs, isWatch=watch)
+        State.Create(cliArgs, ?watchDelay=watchDelay)
         |> startFirstCompilation
         |> Async.RunSynchronously
 }
@@ -331,7 +340,7 @@ let main argv =
             | ["--version"] -> ()
             | _ ->
                 Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-                Log.always("Thanks to the contributor! @" + Contributors.getRandom())
+                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
 

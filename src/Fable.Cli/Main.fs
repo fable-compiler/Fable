@@ -241,7 +241,7 @@ let caseInsensitiveSet(items: string seq): ISet<string> =
     for i in items do s.Add(i) |> ignore
     s :> _
 
-type FsWatcher() =
+type FsWatcher(delayMs: int) =
     let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj" ]
     let createWatcher () =
         let usePolling =
@@ -274,7 +274,7 @@ type FsWatcher() =
 
     member _.Observe(filesToWatch: string list) =
         let commonBaseDir = getCommonBaseDir filesToWatch
-        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
+        Log.verbose(lazy ("Watching " + File.getRelativePathFromCwd commonBaseDir))
 
         // It may happen we get the same path with different case in case-insensitive file systems
         // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
@@ -288,7 +288,7 @@ type FsWatcher() =
             if filePaths.Contains(fullPath)
             then Some fullPath
             else None)
-        |> Observable.throttle 200.
+        |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
 // TODO: Check the path is actually normalized?
@@ -338,7 +338,7 @@ type ProjectCracked(projFile: string,
             |> getFullProjectOpts
 
         // We display "parsed" becaused "cracked" may not be understood by users
-        Log.always $"Project parsed in %i{ms}ms"
+        Log.always $"Project parsed in %i{ms}ms\n"
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
             let opts = result.ProjectOptions.OtherOptions |> String.concat "\n   "
@@ -356,7 +356,7 @@ type ProjectChecked(project: Project, checker: InteractiveChecker) =
             let sourceReader f = fileDic.[f].ReadSource()
             let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
             checker.ParseAndCheckProject(config.ProjectOptions.ProjectFileName, filePaths, sourceReader)
-        Log.always $"F# compilation finished in %i{ms}ms"
+        Log.always $"F# compilation finished in %i{ms}ms\n"
         result
 
     member _.Project = project
@@ -407,11 +407,11 @@ type State =
             set this.DeduplicateDic.Values
             |> addTargetDir)
 
-    static member Create(cliArgs, isWatch: bool) =
+    static member Create(cliArgs, ?watchDelay) =
         { CliArgs = cliArgs
           ProjectCrackedAndChecked = None
           WatchDependencies = Map.empty
-          Watcher = if isWatch then Some(FsWatcher()) else None
+          Watcher = watchDelay |> Option.map FsWatcher
           DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
           PendingFilesToCompile = [||]
           ErroredFiles = Set.empty
@@ -521,7 +521,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     |> compileFile state.HasCompiledOnce state.CliArgs state.GetOrAddDeduplicateTargetDir)
                 |> Async.Parallel
 
-            Log.always $"Fable compilation finished in %i{ms}ms"
+            Log.always $"Fable compilation finished in %i{ms}ms\n"
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)
