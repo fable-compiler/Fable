@@ -1,3 +1,10 @@
+### 3.4.9
+
+* Add CLI arg --watchDelay
+* Show relative paths in logs
+* Fixed Seq.toArray @ncave
+* Fix FullName/Name/Namespace of complex array types
+
 ### 3.4.8
 
 * Fix #2572 #2579: Watch .fsi files and referenced .fsproj
