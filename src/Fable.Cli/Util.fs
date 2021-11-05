@@ -102,10 +102,6 @@ module File =
             Log.always("File does not exist: " + path)
             ""
 
-    // TODO: Should we do this relative to the --cwd arg if present?
-    let getRelativePathFromCwd (path: string) =
-        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
-
     let rec tryFindPackageJsonDir dir =
         if File.Exists(Path.Combine(dir, "package.json")) then Some dir
         else
@@ -161,7 +157,9 @@ module Process =
             if isWindows() then "cmd", ("/C " + exePath + " " + args)
             else exePath, args
 
-        Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
+        // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
+        // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
+        Log.always $"{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {args}"
 
         let psi = ProcessStartInfo()
         for (key, value) in envVars do

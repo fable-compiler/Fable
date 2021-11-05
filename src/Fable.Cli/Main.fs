@@ -13,7 +13,7 @@ open Fable.Transforms.State
 open ProjectCracker
 
 module private Util =
-    let loadType (r: PluginRef): Type =
+    let loadType (cliArgs: CliArgs) (r: PluginRef): Type =
         /// Prevent ReflectionTypeLoadException
         /// From http://stackoverflow.com/a/7889272
         let getTypes (asm: System.Reflection.Assembly) =
@@ -36,7 +36,7 @@ module private Util =
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
         |> function
             | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{File.getRelativePathFromCwd r.DllPath}"
+                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
                 |> Log.always; t
             | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
 
@@ -78,11 +78,11 @@ module private Util =
         let stack = innerStack ex
         $"[ERROR] %s{file}\n%s{ex.Message}\n%s{stack}"
 
-    let formatLog (log: Log) =
+    let formatLog (cliArgs: CliArgs) (log: Log) =
         match log.FileName with
         | None -> log.Message
         | Some file ->
-            let file = File.getRelativePathFromCwd file
+            let file = IO.Path.GetRelativePath(cliArgs.RootDir, file)
             let severity =
                 match log.Severity with
                 | Severity.Warning -> "warning"
@@ -198,7 +198,7 @@ module private Util =
                 do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
             | None -> ()
 
-            "Compiled " + File.getRelativePathFromCwd com.CurrentFile
+            $"Compiled {IO.Path.GetRelativePath(cliArgs.RootDir, com.CurrentFile)}"
             |> Log.verboseOrIf isRecompile
 
             return Ok {| File = com.CurrentFile
@@ -274,7 +274,6 @@ type FsWatcher(delayMs: int) =
 
     member _.Observe(filesToWatch: string list) =
         let commonBaseDir = getCommonBaseDir filesToWatch
-        Log.verbose(lazy ("Watching " + File.getRelativePathFromCwd commonBaseDir))
 
         // It may happen we get the same path with different case in case-insensitive file systems
         // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
@@ -306,11 +305,12 @@ type File(normalizedFullPath: string) =
 
 type ProjectCracked(projFile: string,
                     sourceFiles: File array,
-                    fableCompilerOptions: CompilerOptions,
+                    cliArgs: CliArgs,
                     crackerResponse: CrackerResponse) =
 
+    member _.CliArgs = cliArgs
     member _.ProjectFile = projFile
-    member _.FableOptions = fableCompilerOptions
+    member _.FableOptions = cliArgs.CompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
     member _.Packages = crackerResponse.Packages
@@ -318,13 +318,13 @@ type ProjectCracked(projFile: string,
 
     member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, ?outDir=outDir)
+        CompilerImpl(currentFile, project, cliArgs.CompilerOptions, fableLibDir, ?outDir=outDir)
 
     member _.MapSourceFiles(f) =
-        ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
+        ProjectCracked(projFile, Array.map f sourceFiles, cliArgs, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
-        Log.always("Parsing " + File.getRelativePathFromCwd cliArgs.ProjectFile + "...")
+        Log.always $"Parsing {IO.Path.GetRelativePath(cliArgs.RootDir, cliArgs.ProjectFile)}..."
         let result, ms = measureTime <| fun () ->
             CrackerOptions(fableOpts = cliArgs.CompilerOptions,
                            fableLib = cliArgs.FableLibraryPath,
@@ -340,17 +340,17 @@ type ProjectCracked(projFile: string,
         // We display "parsed" becaused "cracked" may not be understood by users
         Log.always $"Project parsed in %i{ms}ms\n"
         Log.verbose(lazy
-            let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
+            let proj = IO.Path.GetRelativePath(cliArgs.RootDir, cliArgs.ProjectFile)
             let opts = result.ProjectOptions.OtherOptions |> String.concat "\n   "
             $"F# PROJECT: %s{proj}\n   %s{opts}")
 
         let sourceFiles = getSourceFiles result.ProjectOptions |> Array.map File
-        ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs.CompilerOptions, result)
+        ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs, result)
 
 type ProjectChecked(project: Project, checker: InteractiveChecker) =
 
     static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) =
-        Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectOptions.ProjectFileName + "...")
+        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectOptions.ProjectFileName)}..."
         let result, ms = measureTime <| fun () ->
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
             let sourceReader f = fileDic.[f].ReadSource()
@@ -371,9 +371,9 @@ type ProjectChecked(project: Project, checker: InteractiveChecker) =
         let checkResults = checkProject config checker
         let proj = Project(config.ProjectFile,
                            checkResults,
-                           getPlugin=loadType,
-                           optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst,
-                           rootModule=config.FableOptions.RootModule)
+                           getPlugin = loadType config.CliArgs,
+                           optimizeFSharpAst = config.FableOptions.OptimizeFSharpAst,
+                           rootModule = config.FableOptions.RootModule)
         ProjectChecked(proj, checker)
 
     member this.Update(config: ProjectCracked) =
@@ -545,7 +545,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
 
     logs
     |> Array.filter (fun x -> x.Severity = Severity.Info)
-    |> Array.iter (formatLog >> Log.always)
+    |> Array.iter (formatLog state.CliArgs >> Log.always)
 
     logs
     |> Array.filter (fun log ->
@@ -554,12 +554,12 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
         | Severity.Warning, _ -> true
         | _ -> false)
-    |> Array.iter (formatLog >> Log.warning)
+    |> Array.iter (formatLog state.CliArgs >> Log.warning)
 
     let newErrors =
         (Set.empty, logs) ||> Array.fold (fun errors log ->
             if log.Severity = Severity.Error then
-                Log.error(formatLog log)
+                Log.error(formatLog state.CliArgs log)
                 match log.FileName with
                 | Some file -> Set.add file errors
                 | None -> errors

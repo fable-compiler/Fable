@@ -257,7 +257,7 @@ type Runner =
         |> Async.RunSynchronously
 }
 
-let clean (args: CliArgs) dir =
+let clean (args: CliArgs) rootDir =
     let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
@@ -265,13 +265,13 @@ let clean (args: CliArgs) dir =
         args.Value("-e", "--extension")
         |> Option.defaultValue (defaultFileExt language args)
 
-    let dir =
+    let cleanDir =
         args.Value("-o", "--outDir")
-        |> Option.defaultValue dir
+        |> Option.defaultValue rootDir
         |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
+    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, cleanDir)
     if not(args.FlagEnabled "--yes") then
         Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
         let keyInfo = Console.ReadKey()
@@ -297,10 +297,10 @@ let clean (args: CliArgs) dir =
         |> Array.iter (fun subdir ->
             if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
                 IO.Directory.Delete(subdir, true)
-                Log.always("Deleted " + File.getRelativePathFromCwd subdir)
+                Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
 
-    recClean dir
+    recClean cleanDir
     Log.always("Clean completed! Files deleted: " + string fileCount)
 
 [<EntryPoint>]
