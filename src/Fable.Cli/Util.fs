@@ -102,6 +102,7 @@ module File =
             Log.always("File does not exist: " + path)
             ""
 
+    // TODO: Should we do this relative to the --cwd arg if present?
     let getRelativePathFromCwd (path: string) =
         Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 

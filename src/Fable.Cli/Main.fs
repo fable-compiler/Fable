@@ -82,6 +82,7 @@ module private Util =
         match log.FileName with
         | None -> log.Message
         | Some file ->
+            let file = File.getRelativePathFromCwd file
             let severity =
                 match log.Severity with
                 | Severity.Warning -> "warning"
