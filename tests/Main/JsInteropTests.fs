@@ -53,9 +53,9 @@ type GenericInfoAttribute() =
         JS.spreadFunc(fun args ->
             genNames + fn.apply(null, args).ToString() |> box)
 
-type GenericType =
-    [<GenericInfo>]
-    static member GenericMethod(value1: 'X, value2: 'Y): string = "foo"
+// type GenericType =
+//     [<GenericInfo>]
+//     static member GenericMethod(value1: 'X, value2: 'Y): string = "foo"
 
 let inline getNameofLambda (f: 'T->'U) =
     nameofLambda f
@@ -267,8 +267,8 @@ let tests =
           "LOG2: called 2 time(s)!"
         ]
 
-    testCase "ReflectedDecorator works with generic parameters" <| fun _ ->
-        GenericType.GenericMethod(4, "bar") |> equal "XYfoo"
+    // testCase "ReflectedDecorator works with generic parameters" <| fun _ ->
+    //     GenericType.GenericMethod(4, "bar") |> equal "XYfoo"
 
     testCase "List can be JSON serialized" <| fun () ->
         let x = [3; 2; 1]
