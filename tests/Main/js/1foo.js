@@ -83,3 +83,16 @@ export function handleClass(constructor) {
     x.Times = 2;
     return x.SaySomethingTo("Narumi");
 }
+
+export class MyJsClassWithOptionArgs {
+    constructor(opts) {
+        this.value = String(opts.foo) + String(opts.bar) + String(opts.baz);
+    }
+    method(foo, bar, opts) {
+        return String(foo) + String(bar) + String(opts.baz) + String(opts.lol);
+    }
+}
+
+export function myJsMethodWithOptionArgs(foo, bar, opts) {
+    return String(foo) + String(bar) + String(opts.baz) + String(opts.lol);
+}

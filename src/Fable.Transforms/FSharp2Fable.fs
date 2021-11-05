@@ -827,7 +827,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeCall r Fable.Unit info valToSet
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
-            return Fable.Set(valToSet, Fable.ValueSet, valueExpr.Type, valueExpr, r)
+            // It can happen that we're assigning to a value of unit type
+            // and Fable replaces it with unit constant, see #2548
+            return
+                match valToSet.Type with
+                | Fable.Unit -> valueExpr
+                | _ -> Fable.Set(valToSet, Fable.ValueSet, valueExpr.Type, valueExpr, r)
 
     | FSharpExprPatterns.NewArray(FableType com ctx elTyp, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -1096,10 +1101,9 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
                    isMutable=memb.IsMutable) :> _
 
 // JS-only feature, in Fable 4 it should be abstracted
-let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
     let methodInfo =
         lazy
-            let name = memb.DisplayName
             let returnType = makeType Map.empty memb.ReturnParameter.Type
             let parameters =
                 memb.CurriedParameterGroups
@@ -1145,7 +1149,10 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpM
     |> function
         | [] -> None
         | decorators ->
-            let body = Fable.Delegate(args, body, None, false)
+            let body = Fable.Delegate(args, body, None)
+            // Hack to tell the compiler this must be compiled as function (not arrow)
+            // so we don't have issues with bound this
+            let body = Fable.TypeCast(body, body.Type) //, Some("optimizable:function"))
             List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1170,7 +1177,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
             let args, body, isValue =
-                match applyDecorators com ctx memb args body with
+                match applyDecorators com ctx name memb args body with
                 | None -> args, body, false
                 | Some body -> [], body, true
             [Fable.MemberDeclaration
@@ -1470,7 +1477,7 @@ type FableCompiler(com: Compiler) =
             | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
             | _ -> Replacements.tryCall this ctx r t info thisArg args
 
-        member this.GetInlineExpr(memb) =
+        member _.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
@@ -1478,7 +1485,7 @@ type FableCompiler(com: Compiler) =
                 // The entity name is not included in the member unique name for type extensions, see #1667
                 let entRef = FsEnt.Ref ent
                 match entRef.SourcePath with
-                | None -> failwith ("Cannot access source path of %s" + entRef.FullName)
+                | None -> failwith ("Cannot access source path of " + entRef.FullName)
                 | Some fileName ->
                     com.AddWatchDependency(fileName)
                     com.GetOrAddInlineExpr(membUniqueName, fun () ->
@@ -1500,6 +1507,7 @@ type FableCompiler(com: Compiler) =
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.GetEntity(fullName) = com.GetEntity(fullName)
+        member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
         member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

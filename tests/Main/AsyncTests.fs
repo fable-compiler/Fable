@@ -530,13 +530,36 @@ let tests =
             return "F"
         }
         let! result1Async = taskA |> Async.StartChild // start first request but do not wait
-        let! result2Async = taskB |> Async.StartChild  // start second request in parallel
+        let! result2Async = taskB |> Async.StartChild // start second request in parallel
         x <- x + "AB"
         let! result1 = result1Async
         let! result2 = result2Async
         x <- x + result1 + result2
         equal x "ABCDEF"
       }
+
+    testCaseAsync "Async.StartChild applys timeout" <| fun () ->
+        async {
+            let mutable x = ""
+
+            let task = async {
+                x <- x + "A"
+                do! Async.Sleep 1_000
+                x <- x + "X" // Never hit
+            }
+
+            try
+                let! childTask = Async.StartChild (task, 200)
+
+                do! childTask
+            with
+                | :? TimeoutException ->
+                    x <- x + "B"
+
+            x <- x + "C"
+
+            equal x "ABC"
+        }
 
     testCaseAsync "Unit arguments are erased" <| fun () -> // See #1832
         let mutable token = 0

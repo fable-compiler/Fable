@@ -427,6 +427,37 @@ type MeasureTest4 = { Y: float<d> }
 type MeasureTest5 = { Y: MeasureTest<c> }
 type MeasureTest6 = { Y: MeasureTest<d> }
 
+type EnumFoo =
+  | Foo = 0
+  | Bar = 1
+
+[<AbstractClass>]
+type MangledAbstractClass1() =
+    class end
+
+[<AbstractClass>]
+type MangledAbstractClass2(v: int) =
+    inherit MangledAbstractClass1()
+    abstract MyMethod: int -> int
+    default _.MyMethod(x: int) = x * v
+
+[<AbstractClass>]
+type MangledAbstractClass3(v) =
+    inherit MangledAbstractClass2(v + 3)
+
+[<AbstractClass>]
+type MangledAbstractClass4(v) =
+    inherit MangledAbstractClass3(v + 4)
+    override _.MyMethod(x: int) = base.MyMethod(x) - v
+
+[<AbstractClass>]
+type MangledAbstractClass5(v) =
+    inherit MangledAbstractClass4(v + 5)
+    override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
+
+type ConcreteClass1() =
+    inherit MangledAbstractClass5(2)
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -913,9 +944,48 @@ let tests =
         typeof<SubclassTest2>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
         typeof<SubclassTest3>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
 
+    testCase "IsInstanceOfType works with class types" <| fun () ->
+        let s1, s2 = SubclassTest1(), SubclassTest2()
+        typeof<SubclassTest1>.IsInstanceOfType(s1) |> equal true
+        typeof<SubclassTest2>.IsInstanceOfType(s1) |> equal false
+        typeof<SubclassTest3>.IsInstanceOfType(s1) |> equal false
+        typeof<SubclassTest1>.IsInstanceOfType(s2) |> equal true
+        typeof<SubclassTest2>.IsInstanceOfType(s2) |> equal true
+        typeof<SubclassTest3>.IsInstanceOfType(s2) |> equal false
+
+    testCase "IsInstanceOfType works with nominal records" <| fun () ->
+        typeof<MyRecord1>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal true
+        typeof<MyRecord2>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal false
+
+    testCase "IsInstanceOfType works with nominal unions" <| fun () ->
+        typeof<MyUnion1>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal true
+        typeof<MyUnion2>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal false
+
+    // Expected to always return true for any numeric type, just like :? operator
+    testCase "IsInstanceOfType works with enums" <| fun () ->
+        typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Foo) |> equal true
+        typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Bar) |> equal true
+
+    // Expected to always return true for any function and function type, just like :? operator
+    testCase "IsInstanceOfType works with functions" <| fun () ->
+        typeof<unit -> unit>.IsInstanceOfType(fun () -> ()) |> equal true
+        //typeof<unit -> int>.IsInstanceOfType(fun () -> ()) |> equal false
+        typeof<string -> int>.IsInstanceOfType(String.length) |> equal true
+        //typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
+
+    testCase "IsInstanceOfType works with primitives" <| fun () ->
+        typeof<string>.IsInstanceOfType("hello") |> equal true
+        typeof<string>.IsInstanceOfType(5) |> equal false
+        typeof<int>.IsInstanceOfType(5) |> equal true
+        typeof<int>.IsInstanceOfType("hello") |> equal false
+
 #if FABLE_COMPILER
     testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
         Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
         Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
 #endif
+
+    testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
+        let c = ConcreteClass1()
+        c.MyMethod(4) |> equal 58
   ]

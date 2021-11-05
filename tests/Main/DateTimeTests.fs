@@ -251,6 +251,11 @@ let tests =
         f "9/10/2014 1:50:34 PM" |> equal true
         f "1:50:34" |> equal true
 
+    testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
+        let invalidAmericanDate = "13/1/2020"
+        let r, _date = DateTime.TryParse invalidAmericanDate
+        r |> equal false
+
     testCase "DateTime.Today works" <| fun () ->
         let d = DateTime.Today
         equal 0 d.Hour

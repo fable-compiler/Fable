@@ -443,20 +443,20 @@ module JS =
         abstract clear: unit -> unit
         abstract count: ?countTitle: string -> unit
         abstract debug: ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract dir: ?value: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract dir: value: obj -> unit
         abstract dirxml: value: obj -> unit
-        abstract error: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract error: [<ParamArray>] optionalParams: obj[] -> unit
         abstract group: ?groupTitle: string -> unit
         abstract groupCollapsed: ?groupTitle: string -> unit
         abstract groupEnd: unit -> unit
-        abstract info: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract log: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract info: [<ParamArray>] optionalParams: obj[] -> unit
+        abstract log: [<ParamArray>] optionalParams: obj[] -> unit
         abstract profile: ?reportName: string -> unit
         abstract profileEnd: unit -> unit
         abstract time: ?timerName: string -> unit
         abstract timeEnd: ?timerName: string -> unit
-        abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract trace: [<ParamArray>] optionalParams: obj[] -> unit
+        abstract warn: [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
     let [<Global>] NaN: float = nativeOnly

@@ -1574,6 +1574,7 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.AddLog(msg,severity, rang, fileName, tag) = com.AddLog(msg,severity, ?range = rang, ?fileName= fileName, ?tag = tag)
         member this.AddWatchDependency(file) = com.AddWatchDependency(file)
         member this.GetEntity(e) = com.GetEntity(e)
+        member this.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
         member this.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member this.GetOrAddInlineExpr(name, p ) = com.GetOrAddInlineExpr(name, p)
         member this.LibraryDir = com.LibraryDir

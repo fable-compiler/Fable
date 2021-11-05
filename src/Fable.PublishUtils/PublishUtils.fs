@@ -4,11 +4,7 @@ open System
 open System.Text.RegularExpressions
 
 type JsonEl =
-#if FABLE_COMPILER
-    obj
-#else
     System.Text.Json.JsonElement
-#endif
 
 type IJson =
     abstract Parse: string -> JsonEl
@@ -22,7 +18,7 @@ type IFile =
     abstract Copy: source: string * target: string * overwrite: bool -> unit
     abstract WriteAllText: path: string * contents: string -> unit
     abstract ReadAllText: string -> string
-    abstract ReadLines: string -> IObservable<string>
+    abstract ReadLines: string -> string seq
 
 type IPath =
     abstract Combine: string * string -> string
@@ -42,67 +38,12 @@ type IDirectory =
 type IEnvironment =
     abstract GetEnvironmentVariable: string -> string
     abstract SetEnvironmentVariable: string * string -> unit
-    abstract GetScriptArgs: unit -> string[]
     abstract IsWindows: unit -> bool
 
 type IProcess =
     abstract Run: cwd: string * exe: string * args: string[] -> unit
     abstract RunAsync: cwd: string * exe: string * args: string[] -> Async<unit>
 
-type SingleObservable<'T>(?onDispose: unit->unit) =
-    let mutable disposed = false
-    let mutable listener: IObserver<'T> option = None
-    member __.IsDisposed = disposed
-    member __.Dispose() =
-        if not disposed then
-            onDispose |> Option.iter (fun d -> d())
-            listener |> Option.iter (fun l -> l.OnCompleted())
-            disposed <- true
-            listener <- None
-    member __.Trigger v =
-        listener |> Option.iter (fun l -> l.OnNext v)
-    interface IObservable<'T> with
-        member this.Subscribe w =
-            if disposed then failwith "Disposed"
-            if Option.isSome listener then failwith "Busy"
-            listener <- Some w
-            { new IDisposable with
-                member __.Dispose() = this.Dispose() }
-
-module Observable =
-    let subscribeWhile (f: 'T -> bool) (obs: IObservable<'T>) =
-        let mutable disp = Unchecked.defaultof<IDisposable>
-        disp <- obs |> Observable.subscribe (fun v ->
-            if not(f v) then disp.Dispose())
-
-type Async with
-    static member AwaitObservableWhile (f: 'T->bool) (s: IObservable<'T>) =
-        Async.FromContinuations <| fun (success, error, _) ->
-            let mutable disp = Unchecked.defaultof<IDisposable>
-            let observer =
-                { new IObserver<'T> with
-                    member __.OnNext v =
-                        if not(f v) then
-                            disp.Dispose()
-                            success()
-                    member __.OnError e = error e
-                    member x.OnCompleted() =
-                        success() }
-            disp <- s.Subscribe(observer)
-
-#if FABLE_COMPILER
-module private Platform =
-    open Fable.Core
-    open Fable.Core.JsInterop
-
-    module IO =
-        let File = importMember "./node.js"
-        let Path = importMember "./node.js"
-        let Directory = importMember "./node.js"
-
-    let Environment = importMember "./node.js"
-    let Json = importMember "./node.js"
-#else
 module Platform =
     open System.Runtime
     open System.Text.Json
@@ -128,16 +69,7 @@ module Platform =
                 System.IO.File.WriteAllText(p, contents)
 
             member _.ReadLines(p: string) =
-                let enum = System.IO.File.ReadLines(p).GetEnumerator()
-                let obs = SingleObservable(fun () -> enum.Dispose())
-                let timer = new Timers.Timer(100., AutoReset=false)
-                timer.Elapsed.Add(fun _ ->
-                    timer.Dispose()
-                    while enum.MoveNext() do
-                        obs.Trigger(enum.Current)
-                    obs.Dispose())
-                timer.Start()
-                obs :> _
+                System.IO.File.ReadLines(p)
         }
 
         let Path = { new IPath with
@@ -180,14 +112,6 @@ module Platform =
     let Environment = { new IEnvironment with
         member _.IsWindows() =
             InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
-
-        member _.GetScriptArgs() =
-    #if INTERACTIVE
-            fsi.CommandLineArgs
-            |> Array.skip 1
-    #else
-            [||]
-    #endif
 
         member _.GetEnvironmentVariable(varName) =
             System.Environment.GetEnvironmentVariable(varName)
@@ -262,20 +186,12 @@ module Platform =
             | c -> failwith $"Process exited with code %i{c}"
     }
 
-#endif
-
 open Platform
 
 type NugetInfo = { ApiKey: string; ReleaseVersion: string; ReleaseNotes: string[] }
 
 let (</>) (p1: string) (p2: string): string =
     IO.Path.Combine(p1, p2)
-
-let args: string list =
-    Environment.GetScriptArgs() |> List.ofArray
-
-let argsLower<'T> =
-    args |> List.map (fun x -> x.ToLower())
 
 let isWindows =
     Environment.IsWindows()
@@ -358,40 +274,6 @@ let writeFile (filePath: string) (txt: string): unit =
 let readFile (filePath: string): string =
     IO.File.ReadAllText(filePath)
 
-// let readLines (filePath: string): IObservable<string> =
-//     let rl = readline?createInterface (createObj [
-//         "input" ==> fs?createReadStream(filePath)
-//         // Note: we use the crlfDelay option to recognize all instances of CR LF
-//         // ('\r\n') in input.txt as a single line break.
-//         "crlfDelay" ==> System.Double.PositiveInfinity
-//     ])
-//     let obs = SingleObservable(fun () -> rl?close())
-//     rl?on("line", fun line ->
-//         obs.Trigger(line))
-//     rl?on("close", fun _line ->
-//         obs.Dispose())
-//     obs :> _
-
-let takeLines (numLines: int) (filePath: string) = async {
-    let mutable i = -1
-    let lines = ResizeArray()
-    do! IO.File.ReadLines(filePath)
-        |> Async.AwaitObservableWhile (fun line ->
-            i <- i + 1
-            if i < numLines then lines.Add(line); true
-            else false)
-    return lines.ToArray()
-}
-
-let takeLinesWhile (predicate: string->bool) (filePath: string) = async {
-    let lines = ResizeArray()
-    do! IO.File.ReadLines(filePath)
-        |> Async.AwaitObservableWhile (fun line ->
-            if predicate line then lines.Add(line); true
-            else false)
-    return lines.ToArray()
-}
-
 let private __getExeArgs (cmd: string) =
     if isWindows then "cmd", [|"/C " + cmd|]
     else "sh", [|"-c \"" + cmd.Replace("\"", "\\\"") + "\""|]
@@ -427,14 +309,7 @@ let runBashOrCmd cwd (scriptFileName: string) args =
     else runInDir cwd ("sh " + scriptFileName + ".sh " + args)
 
 let runAsyncWorkflow (workflow: Async<'T>): unit =
-#if FABLE_COMPILER
-    async {
-        let! _ = workflow
-        return ()
-    } |> Async.StartImmediate
-#else
     Async.RunSynchronously workflow |> ignore
-#endif
 
 let envVar (varName: string): string =
     Environment.GetEnvironmentVariable(varName)
@@ -491,25 +366,27 @@ module Publish =
         findFileUpwardsInner fileName dir
 
     let loadReleaseVersionAndNotes projFile =
-        Async.FromContinuations(fun (cont,_,_) ->
-            let projDir = if IO.Directory.Exists(projFile) then projFile else dirname projFile
-            let releaseNotes = findFileUpwards "RELEASE_NOTES.md" projDir
-            let mutable version = ""
-            let notes = ResizeArray()
-            IO.File.ReadLines releaseNotes
-            |> Observable.subscribeWhile (fun line ->
-                match line.Trim() with
-                | "" -> true
-                | Regex VERSION_HEADER [_;major;minor;patch;rest] ->
-                    match version with
-                    | "" ->
-                        version <- $"{major}.{minor}.{patch}{rest}"
-                        true
-                    | _ ->
-                        cont(version, notes.ToArray())
-                        // We reached next version section, stop reading
-                        false
-                | note -> notes.Add(note); true))
+        let projDir = if IO.Directory.Exists(projFile) then projFile else dirname projFile
+        let releaseNotes = findFileUpwards "RELEASE_NOTES.md" projDir
+
+        let mutable version = None
+        let mutable stop = false
+        let notes = ResizeArray()
+        let enum = IO.File.ReadLines(releaseNotes).GetEnumerator()
+
+        while not stop && enum.MoveNext() do
+            match enum.Current.Trim() with
+            | "" -> ()
+            | Regex VERSION_HEADER [_;major;minor;patch;rest] ->
+                match version with
+                | None -> version <- Some $"{major}.{minor}.{patch}{rest}"
+                // We reached next version section, stop reading
+                | Some _ -> stop <- true
+            | note -> notes.Add(note)
+
+        match version with
+        | Some version -> version, notes.ToArray()
+        | None -> failwith $"Cannot read lates version from {releaseNotes}"
 
     let loadReleaseVersion projFile =
         let projDir = if IO.Directory.Exists(projFile) then projFile else dirname projFile
@@ -662,11 +539,9 @@ let pushFableNuget projFile props buildAction =
             | None ->
                 failwith "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
 
-    async {
-        let! version, notes = Publish.loadReleaseVersionAndNotes projFile
-        { ApiKey = fableNugetKey; ReleaseVersion = version; ReleaseNotes = notes }
-        |> Publish.pushNugetWithInfo projFile props buildAction
-    }
+    let version, notes = Publish.loadReleaseVersionAndNotes projFile
+    { ApiKey = fableNugetKey; ReleaseVersion = version; ReleaseNotes = notes }
+    |> Publish.pushNugetWithInfo projFile props buildAction
 
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction

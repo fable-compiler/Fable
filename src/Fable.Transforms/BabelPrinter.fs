@@ -2,6 +2,7 @@
 module Fable.Transforms.BabelPrinter
 
 open System
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Babel
@@ -119,8 +120,8 @@ module PrinterExtensions =
             | Literal(BooleanLiteral(_))
             | Literal(NumericLiteral(_)) -> false
             // Constructors of classes deriving from System.Object add an empty object at the end
-            | ObjectExpression(properties, loc) -> properties.Length > 0
-            | UnaryExpression(prefix, argument, operator, loc) when operator = "void" -> this.HasSideEffects(argument)
+            | ObjectExpression(properties, _loc) -> properties.Length > 0
+            | UnaryExpression(argument, operator, _loc) when operator = "void" -> this.HasSideEffects(argument)
             // Some identifiers may be stranded as the result of imports
             // intended only for side effects, see #2228
             | Expression.Identifier(_) -> false
@@ -372,7 +373,7 @@ module PrinterExtensions =
             | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
                 printer.PrintClass(id, superClass, superTypeParameters, typeParameters, implements, body, loc)
             | Expression.ClassImplements(n) -> printer.Print(n)
-            | UnaryExpression(prefix, argument, operator, loc) -> printer.PrintUnaryExpression(prefix, argument, operator, loc)
+            | UnaryExpression(argument, operator, loc) -> printer.PrintUnaryExpression(argument, operator, loc)
             | UpdateExpression(prefix, argument, operator, loc) -> printer.PrintUpdateExpression(prefix, argument, operator, loc)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
             | BinaryExpression(left, right, operator, loc) ->  printer.PrintOperation(left, operator, right, loc)
@@ -438,7 +439,10 @@ module PrinterExtensions =
                 printer.Print("continue", ?loc=loc)
                 printer.PrintOptional(label, " ")
 
-            | ExpressionStatement(expr) -> printer.Print(expr)
+            | ExpressionStatement(expr) ->
+                match expr with
+                | UnaryExpression(argument, operator, _loc) when operator = "void" -> printer.Print(argument)
+                | _ -> printer.Print(expr)
 
         member printer.Print(decl: Declaration) =
             match decl with
@@ -531,6 +535,11 @@ module PrinterExtensions =
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
                     let m = matches.[i]
+                    let isSurroundedWithParens =
+                        m.Index > 0
+                        && m.Index + m.Length < value.Length
+                        && value.[m.Index - 1] = '('
+                        && value.[m.Index + m.Length] = ')'
 
                     let segmentStart =
                         if i > 0 then matches.[i-1].Index + matches.[i-1].Length
@@ -540,6 +549,7 @@ module PrinterExtensions =
 
                     let argIndex = int m.Value.[1..]
                     match Array.tryItem argIndex args with
+                    | Some e when isSurroundedWithParens -> printer.Print(e)
                     | Some e -> printer.ComplexExpressionWithParens(e)
                     | None -> printer.Print("undefined")
 
@@ -557,7 +567,7 @@ module PrinterExtensions =
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
-            printer.Print(pattern)
+            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\n", @"\n"))
             printer.Print("/")
             printer.Print(flags)
 
@@ -795,7 +805,7 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
-        member printer.PrintUnaryExpression(prefix, argument, operator, loc) =
+        member printer.PrintUnaryExpression(argument, operator, loc) =
             printer.AddLocation(loc)
             match operator with
             | "-" | "+" | "!" | "~" -> printer.Print(operator)

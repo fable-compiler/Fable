@@ -2,14 +2,14 @@ module Fable.Tests.Main
 open System
 
 let allTests =
-  [|
+  [
+    Cli.tests
     FileWatcher.tests
-  |]
+  ]
 
 open Expecto
 
 [<EntryPoint>]
 let main args =
-    Array.toList allTests
-    |> testList "All"
+    testList "All" allTests
     |> runTestsWithArgs defaultConfig args

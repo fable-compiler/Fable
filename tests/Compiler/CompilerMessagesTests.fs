@@ -1,7 +1,7 @@
 module Fable.Tests.Compiler.CompilerMessages
 
 open Fable.Core
-open Fable.Tests.Util.Testing
+open Util.Testing
 open Fable.Tests.Compiler.Util
 open Fable.Tests.Compiler.Util.Compiler
 

@@ -919,6 +919,11 @@ let tests =
       testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
           $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
+      testCase "interpolated string with consecutive holes work" <| fun () ->
+            $"""{"foo"}{5}""" |> equal "foo5"
+            $"""%s{"foo"}%i{5}""" |> equal "foo5"
+            $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
+
       testCase "Can create FormattableString" <| fun () ->
           let orderAmount = 100
           let convert (s: FormattableString) = s

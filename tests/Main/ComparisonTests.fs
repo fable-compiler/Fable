@@ -70,6 +70,21 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
+[<CustomEquality; NoComparison>]
+type FuzzyInt =
+    | FuzzyInt of int
+    override x.GetHashCode() =
+        let (FuzzyInt x) = x
+        x.GetHashCode()
+
+    override x.Equals(y: obj) =
+        match y with
+        | :? FuzzyInt as y ->
+            let (FuzzyInt x) = x
+            let (FuzzyInt y) = y
+            x - 2 <= y && y <= x + 2
+        | _ -> false
+
 let tests =
   testList "Comparison" [
     testCase "Typed array equality works" <| fun () ->
@@ -93,6 +108,13 @@ let tests =
         equal true (xs1 <> xs3)
         equal false (xs1 <> xs2)
         equal true (xs1 <> xs4)
+
+    testCase "Array custom equality works" <| fun () ->
+        let xs = [| FuzzyInt 3; FuzzyInt 5 |]
+        let ys = [| FuzzyInt 2; FuzzyInt 4 |]
+        let zs = [| FuzzyInt 2; FuzzyInt 8 |]
+        xs = ys |> equal true
+        xs = zs |> equal false
 
     testCase "Tuple equality works" <| fun () ->
         let xs1 = ( 1, 2, 3 )

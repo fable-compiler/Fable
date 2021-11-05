@@ -27,6 +27,7 @@ type SourceLocation =
 type NumberKind =
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
 
+// TODO: Add missing flags https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#advanced_searching_with_flags
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky
 

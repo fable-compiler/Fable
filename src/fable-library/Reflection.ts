@@ -1,5 +1,7 @@
 import { FSharpRef, Record, Union } from "./Types.js";
 import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
+import Decimal from "./Decimal.js";
+import { fromInt as int64FromInt } from "./Long.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -46,6 +48,12 @@ export class TypeInfo implements IEquatable<TypeInfo> {
   public Equals(other: TypeInfo) {
     return equals(this, other);
   }
+}
+
+export class GenericParameter extends TypeInfo {
+    constructor(name: string) {
+      super(name);
+    }
 }
 
 export function getGenerics(t: TypeInfo): TypeInfo[] {
@@ -123,7 +131,7 @@ export function list_type(generic: TypeInfo): TypeInfo {
 }
 
 export function array_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo(generic.fullname + "[]", [generic]);
+  return new TypeInfo("[]", [generic]);
 }
 
 export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
@@ -132,6 +140,10 @@ export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases:
 
 export function measure_type(fullname: string): TypeInfo {
   return new TypeInfo(fullname);
+}
+
+export function generic_type(name: string): TypeInfo {
+  return new GenericParameter(name);
 }
 
 export const obj_type: TypeInfo = new TypeInfo("System.Object");
@@ -153,37 +165,53 @@ export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string
   if (Array.isArray(info)) {
     return info[0];
   } else if (info instanceof TypeInfo) {
-    const i = info.fullname.lastIndexOf(".");
-    return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+    const elemType = getElementType(info);
+    if (elemType != null) {
+      return name(elemType) + "[]";
+    } else {
+      const i = info.fullname.lastIndexOf(".");
+      return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+    }
   } else {
     return info.name;
   }
 }
 
 export function fullName(t: TypeInfo): string {
-  const gen = t.generics != null && !isArray(t) ? t.generics : [];
-  if (gen.length > 0) {
-    return t.fullname + "[" + gen.map((x) => fullName(x)).join(",") + "]";
+  const elemType = getElementType(t);
+  if (elemType != null) {
+    return fullName(elemType) + "[]";
+  } else if (t.generics == null || t.generics.length === 0) {
+    return t.fullname
   } else {
-    return t.fullname;
+    return t.fullname + "[" + t.generics.map((x) => fullName(x)).join(",") + "]";
   }
 }
 
-export function namespace(t: TypeInfo) {
-  const i = t.fullname.lastIndexOf(".");
-  return i === -1 ? "" : t.fullname.substr(0, i);
+export function namespace(t: TypeInfo): string {
+  const elemType = getElementType(t);
+  if (elemType != null) {
+    return namespace(elemType);
+  } else {
+    const i = t.fullname.lastIndexOf(".");
+    return i === -1 ? "" : t.fullname.substr(0, i);
+  }
 }
 
 export function isArray(t: TypeInfo): boolean {
-  return t.fullname.endsWith("[]");
+  return getElementType(t) != null;
 }
 
 export function getElementType(t: TypeInfo): TypeInfo | undefined {
-  return isArray(t) ? t.generics?.[0] : undefined;
+  return t.fullname === "[]" && t.generics?.length === 1 ? t.generics[0] : undefined;
 }
 
 export function isGenericType(t: TypeInfo) {
   return t.generics != null && t.generics.length > 0;
+}
+
+export function isGenericParameter(t: TypeInfo) {
+  return t instanceof GenericParameter;
 }
 
 export function isEnum(t: TypeInfo) {
@@ -192,6 +220,34 @@ export function isEnum(t: TypeInfo) {
 
 export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
   return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
+}
+
+function isErasedToNumber(t: TypeInfo) {
+  return isEnum(t) || [
+    int8_type.fullname,
+    uint8_type.fullname,
+    int16_type.fullname,
+    uint16_type.fullname,
+    int32_type.fullname,
+    uint32_type.fullname,
+    float32_type.fullname,
+    float64_type.fullname,
+  ].includes(t.fullname);
+}
+
+export function isInstanceOfType(t: TypeInfo, o: any) {
+  switch (typeof o) {
+    case "boolean":
+      return t.fullname === bool_type.fullname;
+    case "string":
+      return t.fullname === string_type.fullname;
+    case "function":
+      return isFunction(t);
+    case "number":
+      return isErasedToNumber(t);
+    default:
+      return t.construct != null && o instanceof t.construct;
+  }
 }
 
 /**
@@ -318,7 +374,7 @@ export function isRecord(t: any): boolean {
 }
 
 export function isTuple(t: TypeInfo): boolean {
-  return t.fullname.startsWith("System.Tuple") && !isArray(t);
+  return t.fullname.startsWith("System.Tuple");
 }
 
 // In .NET this is false for delegates
@@ -402,8 +458,27 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
   // (Arg types can still be different)
   if (typeof t.construct === "function") {
     return new t.construct(...(consArgs ?? []));
+  } else if (isErasedToNumber(t)) {
+    return 0;
   } else {
-    throw new Error(`Cannot access constructor of ${t.fullname}`);
+    switch (t.fullname) {
+      case obj_type.fullname:
+        return {};
+      case bool_type.fullname:
+        return false;
+      case "System.Int64":
+      case "System.UInt64":
+        // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64")
+        // and class_type("System.UInt64") respectively. Test for the name of the primitive type.
+        return int64FromInt(0);
+      case decimal_type.fullname:
+        return new Decimal(0);
+      case char_type.fullname:
+        // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
+        return null;
+      default:
+        throw new Error(`Cannot access constructor of ${t.fullname}`);
+    }
   }
 }
 

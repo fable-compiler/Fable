@@ -149,7 +149,7 @@ let (|BuiltinDefinition|_|) = function
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric genArgs ->
+    | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
         List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
@@ -202,22 +202,25 @@ let (|NumberExt|_|) = function
 let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
-let getTypeNameFromFullName (fullname: string) =
+let splitFulName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
         | i -> fullname.[..i - 1]
     match fullname.LastIndexOf(".") with
-    | -1 -> fullname
-    | i -> fullname.Substring(i + 1)
+    | -1 -> "", fullname
+    | i -> fullname.Substring(0, i), fullname.Substring(i + 1)
 
-let getTypeName com (ctx: Context) r t =
+let rec getTypeName com (ctx: Context) r t =
     match t with
     | GenericParam(name,_) ->
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
-    | _ -> ()
-    getTypeFullName false t |> getTypeNameFromFullName
+        name
+    | Array elemType ->
+        getTypeName com ctx r elemType + "[]"
+    | _ ->
+        getTypeFullName false t |> splitFulName |> snd
 
 let rec namesof com ctx acc e =
     match acc, e with
@@ -369,6 +372,11 @@ let makeTypeConst com r (typ: Type) (value: obj) =
 
 let makeTypeInfo r t =
     TypeInfo t |> makeValue r
+
+// HACK: We canot alter the AST so we wrap type infos like this when generics are allowed
+let makeGenericTypeInfo r t =
+    let info = makeTypeInfo r t
+    TypeCast(info, info.Type) //, Some("generic"))
 
 let makeTypeDefinitionInfo r t =
     let t =
@@ -803,7 +811,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
-        let f = makeComparerFunction com ctx t
+        let f = makeEqualityFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -854,6 +862,12 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
 
 and makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
+
+and makeEqualityFunction (com: ICompiler) ctx typArg =
+    let x = makeUniqueIdent ctx typArg "x"
+    let y = makeUniqueIdent ctx typArg "y"
+    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
+    Delegate([x; y], body, None)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1069,6 +1083,8 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
+    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
@@ -1421,7 +1437,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let template =
             match str with
             | StringConst str ->
-                (Some [], Regex.Matches(str, "((?<!%)%[^%\s]+?)?%P\(\)") |> Seq.cast<Match>)
+                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
                 ||> Seq.fold (fun acc m ->
                     match acc with
                     | None -> None
@@ -2825,8 +2841,27 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | _ -> false
 
     match i.CompiledName with
-    // TODO: Use RegexConst if no options have been passed?
-    | ".ctor"   -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor" ->
+        let makeRegexConst r (pattern: string) flags =
+            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
+            RegexConstant(pattern, flags) |> makeValue r
+
+        let (|RegexFlags|_|) e =
+            let rec getFlags = function
+                | NumberOrEnumConst(1., _) -> Some [RegexFlag.RegexIgnoreCase]
+                | NumberOrEnumConst(2., _) -> Some [RegexFlag.RegexMultiline]
+                // TODO: We're missing RegexFlag.Singleline in the AST
+                // | NumberOrEnumConst(16., _) -> Some [RegexFlag.Singleline]
+                | Fable.Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+                    match getFlags flags1, getFlags flags2 with
+                    | Some flags1, Some flags2 -> Some(flags1 @ flags2)
+                    | _ -> None
+                | _ -> None
+            getFlags e
+        match args with
+        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
+        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
+        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
     | "get_Index" ->
@@ -3059,7 +3094,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     let genMap = List.zip (e.GenericParameters |> List.map (fun p -> p.Name)) genArgs |> Map
                     let comp = if ignoreCase then System.StringComparison.OrdinalIgnoreCase else System.StringComparison.Ordinal
                     e.AllInterfaces |> Seq.tryPick (fun ifc ->
-                        let ifcName = getTypeNameFromFullName ifc.Entity.FullName
+                        let ifcName = splitFulName ifc.Entity.FullName |> snd
                         if ifcName.Equals(name, comp) then
                             let genArgs = ifc.GenericArgs |> List.map (function
                                 | GenericParam(name,_) as gen -> Map.tryFind name genMap |> Option.defaultValue gen
@@ -3070,11 +3105,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" ->
-                let fullname = getTypeFullName false exprType
-                match fullname.LastIndexOf(".") with
-                | -1 -> "" |> returnString r
-                | i -> fullname.Substring(0, i) |> returnString r
+            | "get_Namespace" -> getTypeFullName false exprType |> splitFulName |> fst |> returnString r
             | "get_IsArray" ->
                 match exprType with Array _ -> true | _ -> false
                 |> BoolConstant |> makeValue r |> Some
@@ -3122,7 +3153,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" | "IsInstanceOfType" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.LibCall(com, "Reflection", meth, t, thisArg::args, ?loc=r) |> Some
         | _ -> None
@@ -3154,9 +3185,9 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
     let args = [
         makeStrConst name
         parameters
-            |> List.map (fun (name, t) -> makeTuple None [makeStrConst name; makeTypeInfo None t])
+            |> List.map (fun (name, t) -> makeTuple None [makeStrConst name; makeGenericTypeInfo None t])
             |> makeArray Any
-        makeTypeInfo None returnType
+        makeGenericTypeInfo None returnType
     ]
     Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isJsConstructor=true, ?loc=r)
 
@@ -3238,6 +3269,8 @@ let private replacedModules =
     Types.icollectionGeneric, resizeArrays
     Types.icollection, resizeArrays
     Types.hashset, hashSets
+    Types.stack, bclType
+    Types.queue, bclType
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
@@ -3394,6 +3427,20 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
+    | Types.stack ->
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
+            Some(makeImportLib com Any entityName "Stack", args)
+        | _ -> None
+    | Types.queue ->
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Queue"
+            Some(makeImportLib com Any entityName "Queue", args)
+        | _ -> None
     | _ -> None
 
 let tryType = function
