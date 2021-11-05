@@ -200,7 +200,7 @@ let tests =
     //         do! Async.Sleep 75
     //         equal true !res
     //     }
-
+    
     testCaseAsync "Async.Parallel works" <| fun () ->
         async {
             let makeWork i =
@@ -216,6 +216,75 @@ let tests =
             } |> Async.StartImmediate
             do! Async.Sleep 500
             !res |> Array.sum |> equal 6
+        }
+
+    testCaseAsync "Async.Parallel is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let add i =
+#if FABLE_COMPILER
+                x <- x + i
+#else
+                System.Threading.Interlocked.Add(&x, i) |> ignore<int>
+#endif
+
+            let a = Async.Parallel [
+                async { add 1 }
+                async { add 2 }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
+        }
+
+    testCaseAsync "Async.Sequential works" <| fun () ->
+        async {
+            let mutable _aggregate = 0
+
+            let makeWork i =
+                async {
+                    // check that the individual work items run sequentially and not interleaved
+                    _aggregate <- _aggregate + i
+                    let copyOfI = _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    return i
+                }
+            let works = [ for i in 1 .. 5 -> makeWork i ]
+            let now = DateTimeOffset.Now
+            let! result = Async.Sequential works
+            let ``then`` = DateTimeOffset.Now
+            let d = ``then`` - now
+            if d < TimeSpan.FromSeconds 1. then
+                failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
+            result |> equal [| 1 .. 5 |]
+            result |> Seq.sum |> equal _aggregate
+        }
+
+    testCaseAsync "Async.Sequential is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let a = Async.Sequential [
+                async { x <- x + 1 }
+                async { x <- x + 2 }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
         }
 
     #if FABLE_COMPILER

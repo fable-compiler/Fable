@@ -185,6 +185,12 @@ type FsEnt(ent: FSharpEntity) =
             // Find the actual assembly name from the entity qualified name
             | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
                 ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+#if FABLE_COMPILER
+            | Some asmPath when asmPath.EndsWith("Fable.Repl.Lib.dll") ->
+                let sourcePath = FsEnt.SourcePath ent
+                let sourcePath = "fable-repl-lib" + sourcePath.[sourcePath.IndexOf("Fable.Repl.Lib") + 14 ..]
+                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
+#endif
             | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
             | None -> FsEnt.SourcePath ent |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
@@ -228,6 +234,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
+        member _.IsMeasure = ent.IsMeasure
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
@@ -334,13 +341,15 @@ module Helpers =
 
     let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.EntityRef) =
         let fullName = ent.FullName
-        match trimRootModule, ent.SourcePath with
-        | true, Some sourcePath ->
+        match trimRootModule, ent.Path with
+        | true, Fable.SourcePath sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        | _ -> fullName
+        // Ignore Precompiled libs and other entities for which we don't have implementation file data
+        | true, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        | false, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
         if name = ".ctor" then "$ctor"
@@ -796,7 +805,9 @@ module TypeHelpers =
             Fable.GenericParam(name, constraints)
         | Some typ -> typ
 
-    let makeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+    // TODO: We need to filter the measure generic arguments
+    // But for that we need to pass the compiler here, which needs a bigger refactoring
+    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
         genArgs |> Seq.map (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam ctxTypeArgs genArg.GenericParameter
@@ -881,9 +892,15 @@ module TypeHelpers =
               Path = Fable.CoreAssemblyName "System.Runtime" }
         Fable.DeclaredType(r, genArgs)
 
+    let private makeFSharpCoreType fullName =
+            let r: Fable.EntityRef =
+                { FullName = fullName
+                  Path = Fable.CoreAssemblyName "FSharp.Core" }
+            Fable.DeclaredType(r, [])
+
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
-            makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
         elif tdef.IsDelegate then
             makeTypeFromDelegate ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
@@ -898,12 +915,15 @@ module TypeHelpers =
             | Types.string -> Fable.String
             | Types.regex -> Fable.Regex
             | Types.type_ -> Fable.MetaType
-            | Types.valueOption -> Fable.Option(makeGenArgs ctxTypeArgs genArgs |> List.head, true)
-            | Types.option -> Fable.Option(makeGenArgs ctxTypeArgs genArgs |> List.head, false)
-            | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
-            | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
+            | Types.valueOption -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, true)
+            | Types.option -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, false)
+            | Types.resizeArray -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, None)
             | DicContains numbersWithMeasure kind -> Fable.Number(kind, getMeasureFullName genArgs |> Some)
+            | "Microsoft.FSharp.Core.int64`1" -> makeRuntimeTypeWithMeasure genArgs Types.int64
+            | "Microsoft.FSharp.Core.decimal`1" -> makeRuntimeTypeWithMeasure genArgs Types.decimal
+            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
                 | Choice1Of2 t -> t
@@ -916,7 +936,7 @@ module TypeHelpers =
                 ]
                 // Rest of declared types
                 |> Option.defaultWith (fun () ->
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs))
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgs ctxTypeArgs genArgs))
 
     let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -924,7 +944,7 @@ module TypeHelpers =
             resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
         elif t.IsTupleType then
-            let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
+            let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
             Fable.Tuple(genArgs, t.IsStructTupleType)
         // Function
         elif t.IsFunctionType then
@@ -932,7 +952,7 @@ module TypeHelpers =
             let returnType = makeType ctxTypeArgs t.GenericArguments.[1]
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
-            let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
+            let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
             let fields = t.AnonRecordTypeDetails.SortedFieldNames
             Fable.AnonymousRecordType(fields, genArgs)
         elif t.HasTypeDefinition then
@@ -1357,15 +1377,6 @@ module Identifiers =
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
         tryGetIdentFromScopeIf ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
 
-    let rec tryGetBoundValueFromScope (ctx: Context) identName =
-        match ctx.Scope |> List.tryFind (fun (_,ident,_) -> ident.Name = identName) with
-        | Some(_,_,value) ->
-            match value with
-            | Some(Fable.IdentExpr ident) when not ident.IsMutable ->
-                tryGetBoundValueFromScope ctx ident.Name
-            | v -> v
-        | None -> None
-
 module Util =
     open Helpers
     open Patterns
@@ -1546,10 +1557,12 @@ module Util =
             | Some(Naming.StartsWith Atts.emit _ | Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false)
 
-    let isFromDllRef (ent: Fable.Entity) =
+    let private isFromDllRef (ent: Fable.Entity) =
         match ent.Ref.Path with
         | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
         | Fable.SourcePath _ -> false
+        // This helper is only used for replacement candidates, so we discard precompiled libs
+        | Fable.PrecompiledLib _ -> false
 
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
@@ -1598,7 +1611,7 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1619,9 +1632,6 @@ module Util =
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"
             |> addErrorAndReturnNull com ctx.InlinePath r
-
-    let memberRef (com: IFableCompiler) ctx r (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com ctx r Fable.Any memb
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
@@ -1658,6 +1668,8 @@ module Util =
             | Types.comparer
             | Types.equalityComparer -> false
             | _ -> true
+        // Don't mangle abstract classes in Fable.Core.JS namespace
+        | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
         // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
@@ -1924,13 +1936,12 @@ module Util =
 
         | _, Some entity when isModuleValueForCalls entity memb ->
             let typ = makeReturnType memb.FullType
-            memberRefTyped com ctx r typ memb
-
+            memberRef com ctx r typ memb
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
             let typ = makeReturnType memb.ReturnParameter.Type
             let callExpr =
-                memberRef com ctx r memb
+                memberRef com ctx r Fable.Any memb
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
@@ -1956,4 +1967,4 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com ctx r typ v
+        | _ -> memberRef com ctx r typ v

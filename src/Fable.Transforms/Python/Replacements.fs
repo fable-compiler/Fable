@@ -665,6 +665,16 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
+let rec findInScope (scope: FSharp2Fable.Scope) identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
+
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
         | DeclaredType(ent,_) ->
@@ -1117,16 +1127,6 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
-let rec findInScope (scope: FSharp2Fable.Scope) (identName: string) =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
-
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
@@ -1249,7 +1249,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    findInScope ctx.Scope ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with

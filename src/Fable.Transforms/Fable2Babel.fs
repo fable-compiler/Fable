@@ -224,6 +224,11 @@ module Reflection =
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
                     || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent.FullName generics
+                // TODO: Strictly measure types shouldn't appear in the runtime, but we support it for now
+                // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
+                elif ent.IsMeasure then
+                    [| Expression.stringLiteral(ent.FullName) |]
+                    |> libReflectionCall com ctx None "measure"
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
@@ -460,7 +465,9 @@ module Annotation =
         | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
         | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
         | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Fable.Core" "FSharpResult$2"
-        | Replacements.FSharpChoice genArgs -> makeImportTypeAnnotation com ctx genArgs "Fable.Core" "FSharpChoice$2"
+        | Replacements.FSharpChoice genArgs ->
+            $"FSharpChoice${List.length genArgs}"
+            |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
@@ -541,7 +548,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _) -> Some(args, body)
+        | Fable.Delegate(args, body, _, _) -> Some(args, body)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -1112,28 +1119,6 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
-    let transformAnnotation (com: IBabelCompiler) (ctx: Context) tag e: Expression =
-        // HACK: Try to optimize some patterns after FableTransforms
-        let optimized =
-            match tag with
-            | Naming.StartsWith "optimizable:" optimization ->
-                match optimization, e with
-                | "array", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
-                    | _ -> None
-                | "pojo", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
-                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
-                    | _ -> None
-                | _ -> None
-            | _ -> None
-
-        match optimized with
-        | Some e -> com.TransformAsExpr(ctx, e)
-        | None -> com.TransformAsExpr(ctx, e)
-
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
         let optimized =
@@ -1555,7 +1540,12 @@ module Util =
             transformFunctionWithAnnotations com ctx name [arg] body
             |> makeArrowFunctionExpression name
 
-        | Fable.Delegate(args, body, name) ->
+        | Fable.Delegate(args, body, name, isArrow) ->
+            // | Some "function", Fable.Delegate(args, body, name) ->
+            //     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
+            //     Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
+
+
             transformFunctionWithAnnotations com ctx name args body
             |> makeArrowFunctionExpression name
 

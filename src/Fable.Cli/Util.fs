@@ -255,6 +255,7 @@ module Async =
     }
 
 module Imports =
+    open System.Text.RegularExpressions
     open Fable
 
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
@@ -286,15 +287,22 @@ module Imports =
         if isRelativePath relPath then relPath else "./" + relPath
 
     let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
-        match outDir with
-        | None -> importPath.Replace("${outDir}", ".")
-        | Some outDir ->
-            let importPath =
-                if importPath.StartsWith("${outDir}")
-                // NOTE: Path.Combine in Fable Prelude trims / at the start
-                // of the 2nd argument, unlike .NET IO.Path.Combine
-                then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
-                else importPath
+        let macro, importPath =
+            let m = Regex.Match(importPath, @"^\${(\w+)}[\/\\]?")
+            if m.Success then Some m.Groups.[1].Value, importPath.[m.Length..]
+            else None, importPath
+        match macro, outDir with
+        | Some "outPath", _ -> "./" + importPath
+        // Not entirely correct but not sure what to do with outDir macro if there's no outDir
+        | Some "outDir", None -> "./" + importPath
+        | Some "outDir", Some outDir ->
+            let importPath = Path.Combine(outDir, importPath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            getRelativePath targetDir importPath
+        | Some macro, _ ->
+            failwith $"Unknown import macro: {macro}"
+        | None, None -> importPath
+        | None, Some outDir ->
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
             let importPath =

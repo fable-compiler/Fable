@@ -1,3 +1,38 @@
+### 3.3.0
+
+* JS.Decorator/ReflectedDecorator attributes
+* Fix isSubclassOf to walk up the inheritance chain @chkn
+* Fix #2520: Uri.OriginalString @njlr
+* Fix #2532: Measure products
+* Optimize interpolate strings without formatting into JS templates
+
+### 3.2.14
+
+* Fix #2480: Include package.json in fable-library
+* Fix #2522: Warn if user sets .fable as outDir
+* Fix #2525: Support infinite arity for currying/uncurrying
+* Fix plugin version check
+
+### 3.2.12
+
+* Fix #2505: Make String.Split match .NET with no or null separators
+* Add TimeSpan.Divide and Multiply @0x53A
+* Add Async.Sequential @0x53A
+* Compile `FormattableString` as JS Templates
+
+### 3.2.11
+
+* Add --rootModule CLI flag
+
+### 3.2.10
+
+* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator
+
 ### 3.2.9
 
 * Don't print JS files in watch mode if there're F# errors

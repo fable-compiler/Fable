@@ -12,7 +12,8 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 
 let log (o: obj) =
-   printfn "%A" o
+    JS.console.log(o)
+    // printfn "%A" o
 
 let equal expected actual =
    let areEqual = expected = actual
@@ -66,3 +67,30 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+module Flask =
+    type App() = class end
+
+    // [<AbstractClass>]
+    type RouteAttribute(app: Type, route: string) =
+        inherit JS.DecoratorAttribute()
+        // abstract App: App
+        override this.Decorate(fn) =
+            // let app = this.App // Access the app
+            // Do some initialization
+            fn // Return the function
+
+// User code
+
+let app = Flask.App() // Initialize the app
+
+type App() =
+    class end
+
+// User overrides the attribute to give it access to the app
+// type RouteAttribute(route: string) =
+//     inherit Flask.RouteAttribute(route)
+//     override _.App = app
+
+// Declare the routes
+[<Flask.Route(typeof<App>, "/foo")>]
+let foo() = ()

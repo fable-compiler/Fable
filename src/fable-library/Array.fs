@@ -5,6 +5,7 @@ module ArrayModule
 
 open System.Collections.Generic
 open Fable.Core
+open Fable.Core.JsInterop
 
 open Native
 open Native.Helpers

@@ -520,13 +520,12 @@ module PrinterExtensions =
                     | Some _ -> m.Groups.[1].Value
                     | None -> "")
 
-                // This is to emit string literals as JS, I think it's no really
-                // used and it shouldn't be necessary with the new emitJsExpr
-    //            |> replace @"\$(\d+)!" (fun m ->
-    //                let i = int m.Groups.[1].Value
-    //                match Array.tryItem i args with
-    //                | Some(:? StringLiteral as s) -> s.Value
-    //                | _ -> "")
+                // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
+                |> replace @"\$(\d+)!" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match Array.tryItem i args with
+                    | Some(Literal(Literal.StringLiteral(StringLiteral(value, _)))) -> value
+                    | _ -> "")
 
             let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
             if matches.Count > 0 then

@@ -3,6 +3,7 @@ import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Uti
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
+export type ParameterInfo = FieldInfo;
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -16,6 +17,15 @@ export class CaseInfo {
 }
 
 export type EnumCase = [string, number];
+
+export class MethodInfo {
+  constructor(
+    public name: string,
+    public parameters: ParameterInfo[],
+    public returnType: TypeInfo,
+  ) {
+  }
+}
 
 export class TypeInfo implements IEquatable<TypeInfo> {
   constructor(
@@ -120,6 +130,10 @@ export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases:
   return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, undefined, enumCases);
 }
 
+export function measure_type(fullname: string): TypeInfo {
+  return new TypeInfo(fullname);
+}
+
 export const obj_type: TypeInfo = new TypeInfo("System.Object");
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
 export const char_type: TypeInfo = new TypeInfo("System.Char");
@@ -135,14 +149,14 @@ export const float32_type: TypeInfo = new TypeInfo("System.Single");
 export const float64_type: TypeInfo = new TypeInfo("System.Double");
 export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
 
-export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
+export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string {
   if (Array.isArray(info)) {
     return info[0];
-  } else if (info instanceof CaseInfo) {
-    return info.name;
-  } else {
+  } else if (info instanceof TypeInfo) {
     const i = info.fullname.lastIndexOf(".");
     return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+  } else {
+    return info.name;
   }
 }
 
@@ -176,8 +190,8 @@ export function isEnum(t: TypeInfo) {
   return t.enumCases != null && t.enumCases.length > 0;
 }
 
-export function isSubclassOf(t1: TypeInfo, t2: TypeInfo) {
-  return t1.parent?.Equals(t2) ?? false;
+export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
+  return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
 }
 
 /**
