@@ -99,13 +99,13 @@ module Lib =
     let libValue (com: IPythonCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
-    let tryJsConstructor (com: IPythonCompiler) ctx ent =
-        match Replacements.tryJsConstructor com ent with
+    let tryPyConstructor (com: IPythonCompiler) ctx ent =
+        match PY.Replacements.tryPyConstructor com ent with
         | Some e -> com.TransformAsExpr(ctx, e) |> Some
         | None -> None
 
-    let jsConstructor (com: IPythonCompiler) ctx ent =
-        let entRef = Replacements.jsConstructor com ent
+    let pyConstructor (com: IPythonCompiler) ctx ent =
+        let entRef = PY.Replacements.pyConstructor com ent
         com.TransformAsExpr(ctx, entRef)
 
 // TODO: This is too implementation-dependent, ideally move it to Replacements
@@ -129,8 +129,8 @@ module Reflection =
             |> Seq.toList
             |> Helpers.unzipArgs
         let fields = Expression.lambda(Arguments.arguments [], Expression.list(fields))
-        let js, stmts' = jsConstructor com ctx ent
-        [ fullnameExpr; Expression.list(generics); js; fields ]
+        let py, stmts' = pyConstructor com ctx ent
+        [ fullnameExpr; Expression.list(generics); py; fields ]
         |> libReflectionCall com ctx None "record", stmts @ stmts'
 
     let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -150,8 +150,8 @@ module Reflection =
                 |> Expression.list
             ) |> Seq.toList
         let cases = Expression.lambda(Arguments.arguments [], Expression.list(cases))
-        let js, stmts = jsConstructor com ctx ent
-        [ fullnameExpr; Expression.list(generics); js; cases ]
+        let py, stmts = pyConstructor com ctx ent
+        [ fullnameExpr; Expression.list(generics); py; cases ]
         |> libReflectionCall com ctx None "union", stmts
 
     let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
@@ -293,7 +293,7 @@ module Reflection =
                     match generics with
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list(generics), []
-                    match tryJsConstructor com ctx ent with
+                    match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -381,7 +381,7 @@ module Reflection =
                 if ent.IsInterface then
                     warnAndEvalToFalse "interfaces", []
                 else
-                    match tryJsConstructor com ctx ent with
+                    match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) ->
                         if not(List.isEmpty genArgs) then
                             com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
@@ -977,7 +977,7 @@ module Util =
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
-            let consRef, stmts' = ent |> jsConstructor com ctx
+            let consRef, stmts' = ent |> pyConstructor com ctx
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values, stmts = values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
@@ -985,7 +985,7 @@ module Util =
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
-            let consRef, stmts' = ent |> jsConstructor com ctx
+            let consRef, stmts' = ent |> pyConstructor com ctx
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
             let values = (ofInt tag)::values
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'

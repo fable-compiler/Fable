@@ -144,6 +144,19 @@ def get_generics(t: TypeInfo) -> List[TypeInfo]:
     return t.generics if t.generics else []
 
 
+def make_generic_type(t: TypeInfo, generics: List[TypeInfo]) -> TypeInfo:
+    return TypeInfo(t.fullname, generics, t.construct, t.parent, t.fields, t.cases)
+
+
+def create_instance(t: TypeInfo, consArgs: List) -> Any:
+    # TODO: Check if consArgs length is same as t.construct?
+    # (Arg types can still be different)
+    if callable(t.construct):
+        return t.construct(*(consArgs or []))
+    else:
+        raise ValueError(f"Cannot access constructor of {t.fullname}")
+
+
 def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
     return getattr(v, str(propertyInfo[0]))
 
@@ -179,8 +192,8 @@ def is_array(t: TypeInfo) -> bool:
     return t.fullname.endswith("[]")
 
 
-def is_enum(t: TypeInfo):
-    return t.enum_cases is not None and len(t.enum_cases)
+def is_enum(t: TypeInfo) -> bool:
+    return t.enum_cases is not None and len(t.enum_cases) > 0
 
 
 def is_record(t: Any) -> bool:

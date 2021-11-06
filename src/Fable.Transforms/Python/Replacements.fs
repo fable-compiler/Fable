@@ -1061,9 +1061,10 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult_2" "Choice" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
         let membName = $"FSharpChoice${List.length genArgs}"
-        makeImportLib com Any membName "Choice" |> Some
+        makeImportLib com Any membName "choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1075,13 +1076,13 @@ let tryEntityRef (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | _ -> None
 
-let tryJsConstructor com (ent: Entity) =
+let tryPyConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent
     then tryEntityRef com ent.FullName
     else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
 
-let jsConstructor com ent =
-    match tryJsConstructor com ent with
+let pyConstructor com ent =
+    match tryPyConstructor com ent with
     | Some e -> e
     | None ->
         ent.FullName
@@ -1113,7 +1114,7 @@ let defaultof (com: ICompiler) ctx (t: Type) =
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
         if ent.IsValueType
-        then tryJsConstructor com ent
+        then tryPyConstructor com ent
         else None
         |> Option.map (fun e -> Helper.PyConstructorCall(e, t, []))
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
@@ -1333,7 +1334,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             emitJsExpr r t [] "self" |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some
+            | DeclaredType(ent, _) -> com.GetEntity(ent) |> pyConstructor com |> Some
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
@@ -1600,7 +1601,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     // Type info
-    | "TypeOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
+    | "TypeOf", _ ->
+        (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
     | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo r |> Some
     | _ -> None
 
@@ -2352,7 +2354,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.PyConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
+            Helper.PyConstructorCall(pyConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
