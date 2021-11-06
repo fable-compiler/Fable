@@ -57,7 +57,10 @@ def union_type(
 ) -> TypeInfo:
     def fn() -> List[CaseInfo]:
         caseNames: List[str] = construct.cases()
-        mapper: Callable[[int, List[FieldInfo]], CaseInfo] = lambda i, fields: CaseInfo(t, i, caseNames[i], fields)
+
+        def mapper(i: int, fields: List[FieldInfo]) -> CaseInfo:
+            return CaseInfo(t, i, caseNames[i], fields)
+
         return [mapper(i, x) for i, x in enumerate(cases())]
 
     t: TypeInfo = TypeInfo(fullname, generics, construct, None, None, fn, None)
@@ -161,7 +164,7 @@ def full_name(t: TypeInfo) -> str:
     gen = t.generics if t.generics and not is_array(t) else []
     if len(gen):
         gen = ",".join([full_name(x) for x in gen])
-        return f"${t.fullname}[{gen}]"
+        return f"{t.fullname}[{gen}]"
 
     else:
         return t.fullname
@@ -211,26 +214,26 @@ def get_enum_values(t: TypeInfo) -> List[int]:
     if is_enum(t) and t.enum_cases is not None:
         return [int(kv[1]) for kv in t.enum_cases]
     else:
-        raise ValueError(f"${t.fullname} is not an enum type")
+        raise ValueError(f"{t.fullname} is not an enum type")
 
 
 def get_enum_names(t: TypeInfo) -> List[str]:
     if is_enum(t) and t.enum_cases is not None:
         return [str(kv[0]) for kv in t.enum_cases]
     else:
-        raise ValueError(f"${t.fullname} is not an enum type")
+        raise ValueError(f"{t.fullname} is not an enum type")
 
 
 def get_enum_case(t: TypeInfo, v: Union[int, str]) -> EnumCase:
     if t.enum_cases is None:
-        raise ValueError(f"${t.fullname} is not an enum type")
+        raise ValueError(f"{t.fullname} is not an enum type")
 
     if isinstance(v, str):
         for kv in t.enum_cases:
             if kv[0] == v:
                 return kv
 
-        raise ValueError(f"${v}' was not found in ${t.fullname}")
+        raise ValueError(f"{v}' was not found in ${t.fullname}")
 
     for kv in t.enum_cases:
         if kv[1] == v:
@@ -291,7 +294,7 @@ def get_record_elements(t: TypeInfo) -> List[FieldInfo]:
     if t.fields is not None:
         return t.fields()
     else:
-        raise ValueError(f"${t.fullname} is not an F# record type")
+        raise ValueError(f"{t.fullname} is not an F# record type")
 
 
 def get_record_fields(v: Any) -> List:
@@ -334,7 +337,7 @@ def make_record(t: TypeInfo, values: List) -> Any:
 
 
 def make_tuple(values: List, _t: TypeInfo) -> Any:
-    return values
+    return tuple(values)
 
 
 def make_union(uci: CaseInfo, values: List) -> Any:

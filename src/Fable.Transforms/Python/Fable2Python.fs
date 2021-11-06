@@ -2,8 +2,6 @@ module rec Fable.Transforms.Fable2Python
 
 open System
 open System.Collections.Generic
-open System.IO
-open System.Text.RegularExpressions
 
 open Fable
 open Fable.AST
@@ -256,7 +254,7 @@ module Reflection =
                     let ent = com.GetEntity(entRef)
                     let ok', stmts = transformTypeInfo com ctx r genMap ok
                     let err', stmts' = transformTypeInfo com ctx r genMap err
-                    let expr, stmts'' =transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
+                    let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
                     expr, stmts @ stmts' @ stmts''
                 | Replacements.FSharpChoice gen ->
                     let ent = com.GetEntity(entRef)
