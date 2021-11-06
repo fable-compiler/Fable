@@ -58,3 +58,7 @@ def try_parse(string: str, defValue: FSharpRef[float]) -> bool:
         return True
     except Exception:
         return False
+
+
+def equals(a: Decimal, b: Decimal) -> bool:
+    return a == b
