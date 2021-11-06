@@ -80,6 +80,10 @@ def to_decimal(value: int) -> Decimal:
     return Decimal(value)
 
 
+def equals(a: int, b: int) -> bool:
+    return a == b
+
+
 def try_parse(string: str, defValue: FSharpRef[int]) -> bool:
     try:
         defValue.contents = parse(string)

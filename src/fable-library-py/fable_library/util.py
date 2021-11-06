@@ -516,6 +516,23 @@ def physical_hash(x):
     return number_hash(ObjectRef.id(x))
 
 
+def equal_arrays_with(xs: Iterable[T], ys: Iterable[T], eq: Callable[[T, T], bool]) -> bool:
+    if xs is None:
+        return ys is None
+
+    if ys is None:
+        return False
+
+    if len(xs) != len(ys):
+        return False
+
+    for i, x in enumerate(xs):
+        if not eq(x, ys[i]):
+            return False
+
+    return True
+
+
 def round(value, digits=0):
     m = pow(10, digits)
     n = +(value * m if digits else value)

@@ -176,13 +176,7 @@ def fs_format(str: str):
 
 
 def format(string: str, *args: Any) -> str:
-    # print("format: ", string, args)
-    # if (typeof str === "object" and args.length > 0):
-    #     # Called with culture info
-    #     str = args[0]
-    #     args.shift()
-
-    def match(m: Match[str]):
+    def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
         if isinstance(rep, (int, float)):
@@ -241,12 +235,9 @@ def format(string: str, *args: Any) -> str:
         except ValueError:
             pass
 
-        print("return rep: ", [rep])
-        return rep
+        return str(rep)
 
-    ret = format_regexp.sub(match, string)
-    # print("ret: ", ret)
-    return ret
+    return format_regexp.sub(match, string)
 
 
 def initialize(n: int, f: Callable[[int], str]) -> str:

@@ -2941,7 +2941,6 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
             e.Message |> addErrorAndReturnNull com ctx.InlinePath r
         |> Some
 
-    printfn "Guid: %A" i.CompiledName
     match i.CompiledName with
     | "NewGuid"     -> Helper.LibCall(com, "Guid", "new_guid", t, []) |> Some
     | "Parse"       ->

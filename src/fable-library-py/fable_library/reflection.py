@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Type, Union
 
 from .types import Union as FsUnion, FSharpRef, Record
+from .util import equal_arrays_with
 
 Constructor = Callable[..., Any]
 
@@ -36,7 +37,7 @@ class TypeInfo:
         return full_name(self)
 
     def __eq__(self, other: Any) -> bool:
-        return self.fullname == other.fullname and self.generics == other.generics
+        return equals(self, other)
 
 
 def class_type(
@@ -77,6 +78,10 @@ def record_type(
     return TypeInfo(fullname, generics, construct, fields=fields)
 
 
+def anon_record_type(*fields: FieldInfo) -> TypeInfo:
+    return TypeInfo("", None, None, None, lambda: list(fields))
+
+
 def option_type(generic: TypeInfo) -> TypeInfo:
     return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic])
 
@@ -114,7 +119,14 @@ decimal_type: TypeInfo = TypeInfo("System.Decimal")
 
 
 def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
-    return t1 == t2
+    if t1.fullname == "":
+        return t2.fullname == "" and equal_arrays_with(
+            get_record_elements(t1),
+            get_record_elements(t2),
+            lambda kv1, kv2: kv1[0] == kv2[0] and equals(kv1[1], kv2[1]),
+        )
+
+    return t1.fullname == t2.fullname and equal_arrays_with(t1.generics, t2.generics, equals)
 
 
 def is_generic_type(t):
@@ -130,7 +142,7 @@ def get_generics(t: TypeInfo) -> List[TypeInfo]:
 
 
 def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
-    return getattr(v, propertyInfo[0])
+    return getattr(v, str(propertyInfo[0]))
 
 
 def name(info):
@@ -283,11 +295,16 @@ def get_record_elements(t: TypeInfo) -> List[FieldInfo]:
 
 
 def get_record_fields(v: Any) -> List:
+    if isinstance(v, dict):
+        return list(v.values())
+
     return [getattr(v, k) for k in v.__dict__.keys()]
 
 
 def get_record_field(v: Any, field: FieldInfo) -> Any:
     if isinstance(field[0], str):
+        if isinstance(v, dict):
+            return v[field[0]]
         return getattr(v, field[0])
     raise ValueError("Field not a string.")
 
@@ -307,14 +324,13 @@ def make_record(t: TypeInfo, values: List) -> Any:
 
     if t.construct is not None:
         return t.construct(*values)
-    else:
 
-        def reducer(iobj, kv):
-            i, obj = iobj
-            obj[kv[0]] = values[i]
-            return obj
+    def reducer(obj, ifield):
+        i, field = ifield
+        obj[field[0]] = values[i]
+        return obj
 
-        return functools.reduce(reducer, enumerate(fields), {})
+    return functools.reduce(reducer, enumerate(fields), {})
 
 
 def make_tuple(values: List, _t: TypeInfo) -> Any:

@@ -178,10 +178,7 @@ def to_string(x, callStack=0):
         # if (typeof x.toString === "function") {
         #    return x.toString();
 
-        if isinstance(x, str):
-            return str(x)
-
-        if isinstance(x, Iterable):
+        if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
 
         # else: // TODO: Date?

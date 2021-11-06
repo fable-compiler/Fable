@@ -219,6 +219,99 @@ let ``test Reflection Array`` () =
     liType.GetElementType() |> equal null
 
 [<Fact>]
+let ``test FSharp.Reflection Record`` () =
+    let typ = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields =
+        [|
+            "String", box "a"
+            "Int", box 1
+        |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    let isRecord = FSharpType.IsRecord typ
+    let matchRecordFields = recordFields = expectedRecordFields
+    let matchIndividualRecordFields =
+        Array.zip recordTypeFields recordValueFields
+        |> Array.forall (fun (info, value) ->
+            FSharpValue.GetRecordField(record, info) = value
+        )
+    let canMakeSameRecord =
+        unbox<MyRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
+
+    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
+    all |> equal true
+
+[<Fact>]
+let ``test Comparing anonymous record types works`` () =
+  let x = {| numbers = [3; 4] |}
+  typeof<AnonRec1> = typeof<AnonRec2> |> equal false
+  typeof<AnonRec1> = typeof<AnonRec1> |> equal true
+  typeof<AnonRec2> = x.GetType() |> equal true
+  let generic = typeof<Result<AnonRec2, string>>
+  generic = typeof<Result<AnonRec1, string>> |> equal false
+  generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
+
+
+[<Fact>]
+let ``test FSharp.Reflection: Anonymous Record`` () =
+    let typ = typeof<{| String: string; Int: int |}>
+    let record = {| String = "a"; Int = 1 |}
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields = // Alphabetical order
+        [| "Int", box 1
+           "String", box "a" |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    FSharpType.IsRecord typ |> equal true
+    recordFields |> equal expectedRecordFields
+
+    Array.zip recordTypeFields recordValueFields
+    |> Array.forall (fun (info, value) ->
+        FSharpValue.GetRecordField(record, info) = value)
+    |> equal true
+
+    FSharpValue.MakeRecord(typ, recordValueFields)
+    |> unbox<{| String: string; Int: int |}>
+    |> equal record
+
+[<Fact>]
+let ``test PropertyInfo.GetValue works`` () =
+    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
+
+    let theType: System.Type = typeof<RecordGetValueType>
+
+    // now we want to print out the fields
+    let fieldNameToValue: Map<string, obj> =
+        match theType with
+        | t when FSharpType.IsRecord t ->
+            FSharpType.GetRecordFields(t)
+            |> Seq.fold
+                (fun acc field ->
+                    let fieldValue = field.GetValue value
+                    acc.Add (field.Name, fieldValue)
+                )
+                Map.empty
+        | _ -> Map.empty
+
+    let expected = "map [(Age, 12); (Firstname, Maxime)]"
+
+    equal expected (sprintf "%O" fieldNameToValue)
+
+[<Fact>]
 let ``test FSharp.Reflection Union`` () =
     let typ = typeof<MyUnion>
     let unionCase1 = StringCase("a", "b")
@@ -253,35 +346,5 @@ let ``test FSharp.Reflection Union`` () =
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
 
-[<Fact>]
-let ``test FSharp.Reflection Record`` () =
-    let typ = typeof<MyRecord>
-    let record = { String = "a"; Int = 1 }
-    let recordTypeFields = FSharpType.GetRecordFields typ
-    let recordValueFields = FSharpValue.GetRecordFields record
-
-    let expectedRecordFields =
-        [|
-            "String", box "a"
-            "Int", box 1
-        |]
-
-    let recordFields =
-        recordTypeFields
-        |> Array.map (fun field -> field.Name)
-        |> flip Array.zip recordValueFields
-
-    let isRecord = FSharpType.IsRecord typ
-    let matchRecordFields = recordFields = expectedRecordFields
-    let matchIndividualRecordFields =
-        Array.zip recordTypeFields recordValueFields
-        |> Array.forall (fun (info, value) ->
-            FSharpValue.GetRecordField(record, info) = value
-        )
-    let canMakeSameRecord =
-        unbox<MyRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
-
-    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
-    all |> equal true
 
 #endif
