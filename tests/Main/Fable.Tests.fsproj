@@ -6,27 +6,31 @@
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <LangVersion>preview</LangVersion>
-  </PropertyGroup>
-  <ItemGroup>
+    <FableDefinesQueue>True</FableDefinesQueue>
+ </PropertyGroup>
+
+ <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
     <PackageReference Include="FSharp.Core" Version="5.0.1" />
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.3" />
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../DllRef/Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Include="Globs/*.fs" />
     <Compile Include="DllRef/Lib2.fs" />
     <Compile Include="Util/b.fs" />
     <Compile Include="Util/Thoth.Json.Decode.fs" />
     <Compile Include="Util/Aether.fs" />
+    <Compile Include="Util/Util.Testing.fs" />
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
@@ -56,6 +60,7 @@
     <Compile Include="MiscTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
+    <Compile Include="QueueTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
@@ -64,6 +69,7 @@
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="SetTests.fs" />
+    <Compile Include="StackTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TailCallTests.fs" />

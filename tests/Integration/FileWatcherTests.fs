@@ -1,6 +1,5 @@
 module Fable.Tests.FileWatcher
 
-open Util.Testing
 open System
 open System.IO
 open System.Threading
@@ -11,7 +10,6 @@ open System.Runtime.InteropServices
 open Fable.Cli.FileWatcher
 open System.Runtime.CompilerServices
 open Expecto
-open Fable.Tests
 
 // Many of these tests are inspired from https://github.com/dotnet/aspnetcore/blob/1830f4f0ddc4aa3234e0dd7b08b31ab984e2b714/src/Tools/dotnet-watch/test/FileWatcherTests.cs
 
@@ -21,6 +19,8 @@ open Fable.Tests
 let defaultTimeout = TimeSpan.FromMilliseconds(5000.0) // Might be a bit generous...
 let negativeTimeout = TimeSpan.FromMilliseconds(2000.0) // Might be a bit tight...
 let oneSecond = TimeSpan.FromSeconds(1.0)
+
+let equal expected actual = Expect.equal actual expected "are equal"
 
 let usingTempDirectoryAsync f =
     async {
@@ -127,7 +127,7 @@ let tests =
             | ex -> failtest $"Expected TimeoutException but got {ex}"
         }
 
-    ftestList "getCommonBaseDir" [
+    testList "getCommonBaseDir" [
         let root =
             if RuntimeInformation.IsOSPlatform OSPlatform.Windows then
                 "C:\\"
@@ -151,27 +151,27 @@ let tests =
     ]
 
     yield! testFixtureForValuesAsync usingTempDirectoryAsync [ ("Polling", true); ("FSW", false) ] [
-        
+
         "New file",
         fun usePolling tempFolder ->
             async {
                 use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
-               
+
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
-               
+
                 let testFilePath = Path.Combine(tempFolder, "testFile")
                 File.WriteAllText(testFilePath, "")
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
-               
+
                 testFilePath |> equal <| filesChanged.Single()
             }
 
@@ -181,20 +181,20 @@ let tests =
                 use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
-               
+
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
-               
+
                 let testDirectoryPath = Path.Combine(tempFolder, "testDirectory")
                 Directory.CreateDirectory(testDirectoryPath) |> ignore
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
-               
+
                 testDirectoryPath |> equal <| filesChanged.Single()
             }
 
@@ -211,11 +211,11 @@ let tests =
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
-               
+
                 // On Unix the file write time is in 1s increments;
                 // if we don't wait, there's a chance that the polling
                 // watcher will not detect the change.
@@ -226,9 +226,9 @@ let tests =
                 System.Threading.Thread.Sleep(oneSecond)
 
                 File.WriteAllText(testFilePath, "changed content")
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
-               
+
                 testFilePath |> equal <| filesChanged.Single()
             }
 
@@ -245,15 +245,15 @@ let tests =
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
-               
+
                 File.Delete(testFilePath)
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
-               
+
                 testFilePath |> equal <| filesChanged.Single()
             }
 
@@ -273,15 +273,15 @@ let tests =
                     filesChanged.Add(path) |> ignore
                     if filesChanged.Count >= 2
                     then tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
-               
+
                 File.Move(srcFile, dstFile)
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
-               
+
                 Expect.containsAll filesChanged [ srcFile; dstFile ] ""
             }
 
@@ -317,7 +317,7 @@ let tests =
                     filesChanged.Add(path) |> ignore
                     if filesChanged.Count >= allExpectedChanges.Length
                     then tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
@@ -341,7 +341,7 @@ let tests =
                 with | :? TimeoutException as ex -> failtest $"Got {filesChanged.Count} of the expected {allExpectedChanges.Length} events. {ex.Message}"
 
                 // Note: the polling watcher currently returns changes for directories when
-                // their last write time is modified. This means we get a change for the sub-directory itself 
+                // their last write time is modified. This means we get a change for the sub-directory itself
                 // (creating a file inside a directory changes its last write time)
                 // This does not seem to be a problem...
                 Expect.containsAll filesChanged allExpectedChanges ""
@@ -363,18 +363,18 @@ let tests =
                 use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
-               
+
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Disable
                 watcher.EnableRaisingEvents <- false
-               
+
                 // On Unix the file write time is in 1s increments;
                 // if we don't wait, there's a chance that the polling
                 // watcher will not detect the change.
@@ -388,7 +388,7 @@ let tests =
                 File.WriteAllText(changedFilePath, "new content")
                 File.Delete(deletedFilePath)
                 File.Move(srcForRenamedFilePath, dstForRenamedFilePath)
-                
+
                 let mutable error = None
                 try
                     do! Async.TimeoutAfter(negativeTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
@@ -418,18 +418,18 @@ let tests =
                 use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
-               
+
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Dispose
                 watcher.Dispose()
-               
+
                 // On Unix the file write time is in 1s increments;
                 // if we don't wait, there's a chance that the polling
                 // watcher will not detect the change.
@@ -443,7 +443,7 @@ let tests =
                 File.WriteAllText(changedFilePath, "new content")
                 File.Delete(deletedFilePath)
                 File.Move(srcForRenamedFilePath, dstForRenamedFilePath)
-                
+
                 let mutable error = None
                 try
                     do! Async.TimeoutAfter(negativeTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
@@ -486,7 +486,7 @@ let tests =
                     filesChanged.Add(path) |> ignore
                     if filesChanged.Count >= allExpectedChanges.Length
                     then tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
@@ -516,12 +516,12 @@ let tests =
                 use watcher = createWatcher tempFolder usePolling filters
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
-               
+
                 let onFileChange = fun path ->
                     filesChanged.Add(path) |> ignore
                     if filesChanged.Count >= expectedChanges.Length
                     then tcs.TrySetResult(true) |> ignore
-               
+
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
                 watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
@@ -530,13 +530,13 @@ let tests =
                 File.WriteAllText(shouldMatchPath2, "")
                 File.WriteAllText(shouldIgnorePath1, "")
                 File.WriteAllText(shouldIgnorePath2, "")
-               
+
                 do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
 
                 Expect.containsAll filesChanged expectedChanges ""
 
                 let ignoredThatShouldNotBeThere =
-                    filesChanged 
+                    filesChanged
                     |> Seq.where(fun x -> ignoredChanges |> List.contains x)
 
                 Expect.isEmpty ignoredThatShouldNotBeThere
@@ -549,7 +549,7 @@ let tests =
                 let subdirPath1 = Path.Combine(tempFolder, "subdir1")
                 let subdirPath2 = Path.Combine(tempFolder, "subdir2")
                 let subdirPath3 = Path.Combine(tempFolder, "subdir3")
-                
+
                 let testFilePath1 = Path.Combine(subdirPath1, "testFile1")
                 let testFilePath2 = Path.Combine(subdirPath2, "testFile2")
                 let testFilePath3 = Path.Combine(subdirPath3, "testFile3")
@@ -571,21 +571,21 @@ let tests =
                     watcher.BasePath <- dir
 
                     let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
-               
+
                     let onFileChange = fun path ->
                         filesChanged.Add(path) |> ignore
                         tcs.TrySetResult(true) |> ignore
-               
+
                     let eventSubscription = watcher.OnFileChange.Subscribe(onFileChange)
                     watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                     watcher.EnableRaisingEvents <- true
 
                     File.WriteAllText(file, "")
-                    
+
                     do! Async.TimeoutAfter(defaultTimeout, tcs.Task) |> Async.AwaitTaskUnwrappingException |> Async.Ignore
 
                     eventSubscription.Dispose()
-            
+
                 Expect.sequenceEqual results.[0] [ testFilePath1 ] "Expected one change in the first directory"
                 Expect.sequenceEqual results.[1] [ testFilePath2 ] "Expected one change in the second directory"
                 Expect.sequenceEqual results.[2] [ testFilePath3 ] "Expected one change in the third directory"

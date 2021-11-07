@@ -3,10 +3,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.2.9</Version>
-    <PackageVersion>3.2.9</PackageVersion>
-    <PackageReleaseNotes>* Don't print JS files in watch mode if there're F# errors
-* Fix SRTP with local inline functions</PackageReleaseNotes>
+    <Version>3.4.9</Version>
+    <PackageVersion>3.4.9</PackageVersion>
+    <PackageReleaseNotes>* Add CLI arg --watchDelay
+* Show relative paths in logs
+* Fixed Seq.toArray @ncave
+* Fix FullName/Name/Namespace of complex array types</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -17,7 +19,7 @@
     <Description>F# to JS compiler</Description>
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
-    <Content Include="..\..\build\fable-library\**\*.js" PackagePath="fable-library\" />
+    <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
@@ -42,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="source-map-sharp" Version="1.0.7" />
   </ItemGroup>
 </Project>

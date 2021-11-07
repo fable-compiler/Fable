@@ -89,11 +89,6 @@ let fableReplacementsModules =
       "ofList", (Types.comparer, 0)
       "ofArray", (Types.comparer, 0)
       "ofSeq", (Types.comparer, 0)
-      "intersectWith", (Types.comparer, 0)
-      "isSubsetOf", (Types.comparer, 0)
-      "isSupersetOf", (Types.comparer, 0)
-      "isProperSubsetOf", (Types.comparer, 0)
-      "isProperSupersetOf", (Types.comparer, 0)
     ]
     "Map", Map [
       "empty", (Types.comparer, 0)
@@ -102,4 +97,3 @@ let fableReplacementsModules =
       "ofSeq", (Types.comparer, 0)
     ]
   ]
-

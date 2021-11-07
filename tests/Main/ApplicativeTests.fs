@@ -911,6 +911,10 @@ type BaseClass2 (f: string -> string -> string) =
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
+type IAddFn = int -> int -> int
+type IAdder =
+    abstract Add: IAddFn
+
 module private PseudoElmish =
     let justReturn2 (f: 'a->'b->'c) = f
     let justReturn3 (f: 'a->'b->'c->'d) = f
@@ -1308,6 +1312,18 @@ let tests7 = [
             | _ -> -1
         equal 7 x
 
+    // // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
+    // testCase "Functions passed to an object expression are uncurried" <| fun () ->
+    //     let mutable d = 0
+    //     let getAdder x =
+    //         d <- d + 1
+    //         fun y z -> x + y + z
+    //     let _ = getAdder 4
+    //     let f = getAdder 4
+    //     let adder = { new IAdder with member _.Add = f }
+    //     d |> equal 2
+    //     adder.Add 3 4 |> equal 11
+
     testCase "Iterating list of functions #2047" <| fun _ ->
         let mutable s = "X"
         for someFun in [fortyTwo] do
@@ -1325,27 +1341,6 @@ let tests7 = [
         equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
 ]
 
-module Adaptive =
-    open FSharp.Data.Adaptive
-
-    let simple () =
-        let x = AVal.init 3
-        let mappedX = x |> AVal.map (fun x' -> x' + 1)
-        let adaptiveList =
-            mappedX
-            |> AList.single
-            |> AList.mapA id
-        let firstForce = adaptiveList |> AList.force
-        transact (fun () -> x.Value <- 0)
-        let secondForce = adaptiveList |> AList.force
-        firstForce, secondForce
-
-    let tests = [
-        testCase "FSharp.Data.Adaptive works" <| fun () -> // See #2291
-            let first, second = simple ()
-            equal 4 first.[0]
-            equal 1 second.[0]
-    ]
 
 module FSharpPlus =
     module Option =
@@ -1403,6 +1398,146 @@ module FSharpPlus =
             sequence (seq [Some 1; Some 2]) |> equal expected
     ]
 
+module Curry =
+    let addString (value : string) (f : string -> 'T) =
+        f value
+
+    let addBool (value : bool) (f : bool -> 'T) =
+        f value
+
+    let tests =
+        [
+            // Test the smallest arity I managed to create
+            testCase "curried function of arity 2 works" <| fun _ ->
+                let res =
+
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool) ->
+
+                            (arg1, arg2)
+
+                    onSubmit
+                        |> addString "name"
+                        |> addBool true
+
+                equal ("name", true) res
+
+            // Test old maximum limit for curried functions
+            testCase "curried function of arity 8 works" <| fun _ ->
+                let actual =
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool)
+                            (arg3 : string)
+                            (arg4 : string)
+                            (arg5 : string)
+                            (arg6 : string)
+                            (arg7 : string)
+                            (arg8 : string) ->
+
+                            (arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+
+                    onSubmit
+                        |> addString "arg1"
+                        |> addBool true
+                        |> addString "arg3"
+                        |> addString "arg4"
+                        |> addString "arg5"
+                        |> addString "arg6"
+                        |> addString "arg7"
+                        |> addString "arg8"
+
+                let expected =
+                    ("arg1", true, "arg3", "arg4", "arg5", "arg6", "arg7", "arg8")
+
+                equal expected actual
+
+
+            // Test an arity which exceeds the old limit of 8
+            testCase "curried function of arity 10 works" <| fun _ ->
+                let actual =
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool)
+                            (arg3 : string)
+                            (arg4 : string)
+                            (arg5 : string)
+                            (arg6 : string)
+                            (arg7 : string)
+                            (arg8 : string)
+                            (arg9 : string)
+                            (arg10 : string) ->
+
+                            (arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+
+                    onSubmit
+                        |> addString "arg1"
+                        |> addBool true
+                        |> addString "arg3"
+                        |> addString "arg4"
+                        |> addString "arg5"
+                        |> addString "arg6"
+                        |> addString "arg7"
+                        |> addString "arg8"
+                        |> addString "arg9"
+                        |> addString "arg10"
+
+                let expected =
+                    ("arg1", true, "arg3", "arg4", "arg5", "arg6", "arg7", "arg8", "arg9", "arg10")
+
+                equal expected actual
+        ]
+
+module Uncurry =
+    // Wrap everything into a compiler directives because we are using JS interop
+    // to provoke the behavior we want
+    #if FABLE_COMPILER
+    open Fable.Core
+
+    let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
+        adder arg1 arg2
+
+    let add_2 =
+        add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
+
+    let private add10WithLambda
+        (adder: int->int->int->int->int->int->int->int->int->int->int)
+        (arg1: int)
+        (arg2: int)
+        (arg3: int)
+        (arg4: int)
+        (arg5: int)
+        (arg6: int)
+        (arg7: int)
+        (arg8: int)
+        (arg9: int)
+        (arg10: int)
+            : int =
+
+        adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+
+    let add_10 =
+        add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
+
+    let tests =
+        [
+            testCase "uncurry function of arity 2 works" <| fun _ ->
+                let actual =
+                    add_2 10 5
+
+                equal 15 actual
+
+            testCase "uncurry function of arity 10 works" <| fun _ ->
+                let actual =
+                    add_10 1 2 3 4 5 6 7 8 9 10
+
+                equal 55 actual
+        ]
+    #else
+    let tests = [ ]
+    #endif
+
 let tests =
     testList "Applicative" (
         tests1
@@ -1413,5 +1548,6 @@ let tests =
         @ tests6
         @ tests7
         @ CurriedApplicative.tests
-        @ Adaptive.tests
+        @ Curry.tests
+        @ Uncurry.tests
     )

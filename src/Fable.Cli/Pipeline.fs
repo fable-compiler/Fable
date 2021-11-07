@@ -32,6 +32,8 @@ module Js =
                 if cliArgs.SourceMaps then
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
                     let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
+                    let targetPath = Path.normalizeFullPath targetPath
+                    let sourcePath = Path.getRelativeFileOrDirPath false targetPath false sourcePath
                     mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
         member _.SourceMap =
             mapGenerator.Force().toJSON()
@@ -92,7 +94,7 @@ module Python =
             if not (IO.File.Exists(outPath)) then
                 let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
                 do! PythonPrinter.run writer map { Body = [] }
-            
+
         | _ -> ()
     }
 

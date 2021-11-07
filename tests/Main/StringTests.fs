@@ -3,6 +3,7 @@ module Fable.Tests.Strings
 open System
 open Util.Testing
 #if FABLE_COMPILER
+open Fable.Core
 open Fable.Core.JsInterop
 
 module M =
@@ -515,6 +516,20 @@ let tests =
             |> (=) [|"a";"b";"c";"";"d"|] |> equal true
             "a b c  d ".Split()
             |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
+            "a\tb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\nb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\rb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\u2003b".Split() // em space
+            |> (=) [|"a";"b"|] |> equal true
+            "a b c  d".Split(null)
+            |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+            "a\tb".Split(null)
+            |> (=) [|"a";"b"|] |> equal true
+            "a\u2003b".Split(null) // em space
+            |> (=) [|"a";"b"|] |> equal true
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
@@ -893,7 +908,21 @@ let tests =
             sprintf "%d%%" 100 |> equal "100%"
 
       testCase "interpolated string with double % should be unescaped" <| fun () ->
-            $"{100}%%" |> equal "100%"
+          $"{100}%%" |> equal "100%"
+
+      testCase "interpolated string with format and double % should be unescaped" <| fun () ->
+          $"%.2f{100.4566666}%%" |> equal "100.46%"
+
+      testCase "interpolated string with double braces should be unescaped" <| fun () ->
+          $"{{ {100} }}" |> equal "{ 100 }"
+
+      testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
+          $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
+
+      testCase "interpolated string with consecutive holes work" <| fun () ->
+            $"""{"foo"}{5}""" |> equal "foo5"
+            $"""%s{"foo"}%i{5}""" |> equal "foo5"
+            $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
       testCase "Can create FormattableString" <| fun () ->
           let orderAmount = 100
@@ -903,4 +932,26 @@ let tests =
           s.ArgumentCount |> equal 3
           s.GetArgument(2) |> equal (box true)
           s.GetArguments() |> equal [|100; 3; true|]
-  ]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.Format |> equal "{0}This is \"{1}\" awesome!"
+          s2.GetArguments() |> equal [|box 7; box "really"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.Format |> equal "I have no holes"
+          s3.GetArguments() |> equal [||]
+          let s4: FormattableString = $"I have `backticks`"
+          s4.Format |> equal "I have `backticks`"
+          let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
+          s5.Format |> equal "I have {escaped braces} and %percentage%"
+
+#if FABLE_COMPILER
+      testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
+          let orderAmount = 100
+          let convert (s: FormattableString) = s
+          let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+          s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.GetStrings() |> equal [|"I have no holes"|]
+#endif
+]

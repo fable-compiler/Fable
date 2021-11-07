@@ -938,24 +938,34 @@ let maxElement (set: Set<'T>) = set.MaximumElement
 let unionWith (s1: JS.Set<'T>) (s2: 'T seq) =
     (s1, s2) ||> Seq.fold (fun acc x -> acc.add x)
 
-let intersectWith (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    let s2 = ofSeq s2 comparer
-    for x in s1.keys() do
-        if not (s2.Contains x) then
-            s1.delete x |> ignore
+// If s1 is a Fable MutableSet, use the comparer. See #2566
+let newMutableSetWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    match s1 with
+    | :? Fable.Collections.MutableSet<'T> as s1 ->
+        Fable.Collections.MutableSet(s2, s1.Comparer) :> JS.Set<'T>
+    | _ -> JS.Constructors.Set.Create(s2)
+
+let intersectWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.values() |> Seq.iter (fun x ->
+        if not (s2.has(x)) then
+            s1.delete x |> ignore)
 
 let exceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
-    for x in s2 do
-        s1.delete x |> ignore
+    s2 |> Seq.iter (fun x ->
+        s1.delete x |> ignore)
 
-let isSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.values() |> Seq.forall s2.has
 
-let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    s2 |> Seq.forall s1.has
 
-let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isProperSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s2.size > s1.size && s1.values() |> Seq.forall s2.has
 
-let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
-    isProperSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
+let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = Seq.cache s2
+    s2 |> Seq.exists (s1.has >> not) && s2 |> Seq.forall s1.has

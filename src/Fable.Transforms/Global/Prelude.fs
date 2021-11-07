@@ -128,7 +128,8 @@ module Naming =
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] fableHiddenDir = ".fable"
+    let [<Literal>] fableHiddenDir = "fable_modules"
+    let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
 
     let isInFableHiddenDir (file: string) =

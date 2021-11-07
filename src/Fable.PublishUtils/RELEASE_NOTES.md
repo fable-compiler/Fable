@@ -1,7 +1,14 @@
+### 2.4.0
+
+* Remove node compatibility and async methods
+
+### 2.3.0
+
+* Publish as Nuget package
+
 ### 2.2.0
 
 * Add explicit `pushFableNuget` helper that uses FABLE_NUGET_KEY envVar @MangelMaxime
-
 
 ### 2.1.0
 

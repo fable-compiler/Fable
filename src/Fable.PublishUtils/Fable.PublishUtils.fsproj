@@ -2,11 +2,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Version>2.4.0</Version>
+    <PackageVersion>2.4.0</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PublishUtils.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="3.2.6" />
   </ItemGroup>
 </Project>

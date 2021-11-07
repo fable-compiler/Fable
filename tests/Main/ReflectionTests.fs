@@ -118,8 +118,8 @@ let normalize (x: string) =
 
 let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 // let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
-// let inline create2<'T> (args: obj[]) =
-//     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
+let inline create2<'T> (args: obj[]) =
+    System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
 
 let typeNameTests = [
   testCase "Type Namespace" <| fun () ->
@@ -142,6 +142,66 @@ let typeNameTests = [
     fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
     fullname<TestType4>() |> equal "Fable.Tests.Reflection.TestType4"
 
+  // See https://github.com/thoth-org/Thoth.Json/issues/123
+  testCase "FullName of complex array types is printed correctly " <| fun () ->
+      let fullName1 = typeof<(string * int)[]>.FullName
+      let fullName2 = typeof<(string * float)[]>.FullName
+      let fullName3 = typeof<string[]>.FullName
+      let fullName4 = typeof<string[][]>.FullName
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+      let t4 = typeof<string[][]>
+
+      equal fullName1 t1.FullName
+      equal fullName2 t2.FullName
+      equal fullName3 t3.FullName
+      equal fullName4 t4.FullName
+
+      t1.FullName = t2.FullName |> equal false
+      t1.FullName = t3.FullName |> equal false
+      t2.FullName = t3.FullName |> equal false
+      t3.FullName = t4.FullName |> equal false
+
+  testCase "Name of complex array types is printed correctly " <| fun () ->
+      let name1 = typeof<(string * int)[]>.Name
+      let name2 = typeof<(string * float)[]>.Name
+      let name3 = typeof<string[]>.Name
+      let name4 = typeof<string[][]>.Name
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+      let t4 = typeof<string[][]>
+
+      equal name1 t1.Name
+      equal name2 t2.Name
+      equal name3 t3.Name
+      equal name4 t4.Name
+
+      t1.Name = t2.Name |> equal true
+      t1.Name = t3.Name |> equal false
+      t2.Name = t3.Name |> equal false
+      t3.Name = t4.Name |> equal false
+
+  testCase "Namespace of complex array types is printed correctly " <| fun () ->
+      let namespace1 = typeof<(string * int)[]>.Namespace
+      let namespace2 = typeof<(string * float)[]>.Namespace
+      let namespace3 = typeof<string[]>.Namespace
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+
+      equal namespace1 t1.Namespace
+      equal namespace2 t2.Namespace
+      equal namespace3 t3.Namespace
+
+      t1.Namespace = t2.Namespace |> equal true
+      t1.Namespace = t3.Namespace |> equal true
+      t2.Namespace = t3.Namespace |> equal true
+
 //   testCase "Create new generic objects with inline function" <| fun () ->
 //     create<TestType3>().Value |> equal "Hi"
 //     create<TestType4>().Value2 |> equal "Bye"
@@ -151,6 +211,25 @@ let typeNameTests = [
 //     (create2<TestType3> [||]).Value |> equal "Hi"
 //     (create2<TestType4> [||]).Value2 |> equal "Bye"
 //     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
+
+  testCase "Create primitive types with System.Activator" <| fun () ->
+    create2<obj> [||] |> notEqual Unchecked.defaultof<obj> // It should not be null
+    // Value types should zero-init
+    create2<char> [||] |> equal Unchecked.defaultof<char>
+    create2<bool> [||] |> equal Unchecked.defaultof<bool>
+    create2<int8> [||] |> equal Unchecked.defaultof<int8>
+    create2<uint8> [||] |> equal Unchecked.defaultof<uint8>
+    create2<int16> [||] |> equal Unchecked.defaultof<int16>
+    create2<uint16> [||] |> equal Unchecked.defaultof<uint16>
+    create2<int32> [||] |> equal Unchecked.defaultof<int32>
+    create2<uint32> [||] |> equal Unchecked.defaultof<uint32>
+    create2<int64> [||] |> equal Unchecked.defaultof<int64>
+    create2<uint64> [||] |> equal Unchecked.defaultof<uint64>
+    create2<single> [||] |> equal Unchecked.defaultof<single>
+    create2<double> [||] |> equal Unchecked.defaultof<double>
+    create2<decimal> [||] |> equal Unchecked.defaultof<decimal>
+    // TODO: Fix Unchecked.defaultof<MyEnum> to be 0
+    create2<MyEnum> [||] |> equal (LanguagePrimitives.EnumOfValue 0y)
 
   testCase "Type name is accessible" <| fun () ->
     let x = { name = "" }

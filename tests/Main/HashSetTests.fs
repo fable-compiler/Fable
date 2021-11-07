@@ -87,6 +87,22 @@ let tests =
         xs.Contains 1 |> equal false
         xs.Contains 2 |> equal true
 
+    testCase "IntersectWith works with custom comparison" <| fun () -> // See #2566
+        let ignoreCase =
+            { new IEqualityComparer<string> with
+                member __.Equals(s1: string, s2: string) =
+                    s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+                member __.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
+        let set = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+        set.Contains("foo") |> equal true
+        set.Contains("Foo") |> equal true
+        set.Contains("bar") |> equal true
+        set.Contains("Bar") |> equal true
+        set.IntersectWith(["foo"; "bar"])
+        set.Count |> equal 2
+        set.IntersectWith(["Foo"; "Bar"])
+        set.Count |> equal 2
+
     testCase "HashSet.ExceptWith works" <| fun () ->
         let xs = set [1; 2]
         let ys = set [2; 4]

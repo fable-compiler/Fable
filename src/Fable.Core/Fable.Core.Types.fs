@@ -91,7 +91,14 @@ type ParamListAttribute() =
 
 type ParamSeqAttribute = ParamListAttribute
 
-/// Experimental: Currently only intended for fable library
+/// Converts arguments from the specified index on (0 by default) into an object.
+/// IMPORTANT: This should be used only with native bindings.
+[<AttributeUsage(AttributeTargets.Constructor ||| AttributeTargets.Method)>]
+type ParamObjectAttribute(fromIndex: int) =
+    inherit Attribute()
+    new () = ParamObjectAttribute(0)
+
+/// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
     inherit Attribute()

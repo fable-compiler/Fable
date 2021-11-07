@@ -50,7 +50,7 @@
     "build-tests-ts": "npm run build-tests -- --fableLib out-lib-ts --typescript",
     "build-tests-opt": "npm run build-tests -- --optimize",
     "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib --sourceMaps",
-    "tests": "npm run mocha -- out-tests -r esm --colors --reporter dot",
+    "tests": "npm run mocha -- out-tests --colors --reporter dot",
 
     "tsc": "node ../../../../node_modules/typescript/bin/tsc",
     "babel": "node ../../../../node_modules/@babel/cli/bin/babel",

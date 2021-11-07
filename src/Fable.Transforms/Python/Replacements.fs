@@ -667,6 +667,16 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
+let rec findInScope (scope: FSharp2Fable.Scope) identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
+
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
         | DeclaredType(ent,_) ->
@@ -808,7 +818,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
-        let f = makeComparerFunction com ctx t
+        let f = makeEqualityFunction com ctx t
         Helper.LibCall(com, "array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -859,6 +869,11 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
 
 and makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
+and makeEqualityFunction (com: ICompiler) ctx typArg =
+    let x = makeUniqueIdent ctx typArg "x"
+    let y = makeUniqueIdent ctx typArg "y"
+    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
+    Delegate([x; y], body, None)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1121,16 +1136,6 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
-let rec findInScope (scope: FSharp2Fable.Scope) (identName: string) =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
-
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
@@ -1253,7 +1258,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    findInScope ctx.Scope ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with

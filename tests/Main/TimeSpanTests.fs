@@ -135,6 +135,54 @@ let tests =
             test 1000. 1000. 0.
             test 0. 0. 0.
 
+        testList "TimeSpan Multiplication works" [
+            let test ms factor expected =
+                testCase (sprintf "(%f, %f) = %f" ms factor expected) <| fun () ->
+                    let t = TimeSpan.FromMilliseconds(ms)
+                    let res1 = t.Multiply(factor).TotalMilliseconds
+                    let res2 = (t * factor).TotalMilliseconds
+                    equal res1 res2
+                    equal true (res1 = res2)
+                    equal expected res1
+            test 1000. -1. -1000.
+            test 200. 11. 2200.
+            test -2000. 1.5 -3000.
+            test 0. 1000. 0.
+            test 1000. 0. 0.
+            test 0. 0. 0.
+        ]
+
+        testList "TimeSpan Division works" [
+            // Note: there are two overloads, one with TimeSpan, one with float
+            let test_ts ms1 ms2 expected =
+                testCase (sprintf "ts(%f, %f) = %f" ms1 ms2 expected) <| fun () ->
+                    let t1 = TimeSpan.FromMilliseconds(ms1)
+                    let t2 = TimeSpan.FromMilliseconds(ms2)
+                    let res1 = t1.Divide(t2)
+                    let res2 = (t1 / t2)
+                    equal res1 res2
+                    equal true (res1 = res2)
+                    equal expected res1
+            let test_float ms (factor: float) expected =
+                testCase (sprintf "float(%f, %f) = %f" ms factor expected) <| fun () ->
+                    let t = TimeSpan.FromMilliseconds(ms)
+                    let res1 = t.Divide(factor).TotalMilliseconds
+                    let res2 = (t / factor).TotalMilliseconds
+                    equal res1 res2
+                    equal true (res1 = res2)
+                    equal expected res1
+
+            test_ts 1000. -1. -1000.
+            test_ts 2200. 11. 200.
+            test_ts -3000. 1.5 -2000.
+            test_ts 0. 1000. 0.
+
+            test_float 1000. -1. -1000.
+            test_float 2200. 11. 200.
+            test_float -3000. 1.5 -2000.
+            test_float 0. 1000. 0.
+        ]
+
         testCase "TimeSpan Comparison works" <| fun () ->
             let test ms1 ms2 expected =
                 let t1 = TimeSpan.FromMilliseconds(ms1)
