@@ -190,10 +190,10 @@ let doc_comment_to_string  (comment_kind: token.CommentKind,
                             data: Symbol): string =
 
     match (comment_kind, attr_style) with
-        | (token.CommentKind.Line, ast.AttrStyle.Outer) -> format("///{}", data)
-        | (token.CommentKind.Line, ast.AttrStyle.Inner) -> format("//!{}", data)
-        | (token.CommentKind.Block, ast.AttrStyle.Outer) -> format("/**{}*/", data)
-        | (token.CommentKind.Block, ast.AttrStyle.Inner) -> format("/*!{}*/", data)
+        | (token.CommentKind.Line, ast.AttrStyle.Outer) -> format("///{0}", data)
+        | (token.CommentKind.Line, ast.AttrStyle.Inner) -> format("//!{0}", data)
+        | (token.CommentKind.Block, ast.AttrStyle.Outer) -> format("/**{0}*/", data)
+        | (token.CommentKind.Block, ast.AttrStyle.Inner) -> format("/*!{0}*/", data)
 
 let literal_to_string(lit: token.Lit): string =
     let {
@@ -203,16 +203,16 @@ let literal_to_string(lit: token.Lit): string =
         } = lit
     let out =
         match kind with
-        | token.LitKind.Byte -> format("b'{}'", symbol)
-        | token.LitKind.Char -> format("'{}'", symbol)
-        | token.LitKind.Str -> format("\"{}\"", symbol)
+        | token.LitKind.Byte -> format("b'{0}'", symbol)
+        | token.LitKind.Char -> format("'{0}'", symbol)
+        | token.LitKind.Str -> format("\"{0}\"", symbol)
         | token.LitKind.StrRaw(n) ->
             let delim = "#".repeat(n |> usize)
-            format("r{}\"{}\"{}", delim, symbol, delim)
-        | token.LitKind.ByteStr -> format("b\"{}\"", symbol)
+            format("r{0}\"{1}\"{2}", delim, symbol, delim)
+        | token.LitKind.ByteStr -> format("b\"{0}\"", symbol)
         | token.LitKind.ByteStrRaw(n) ->
             let delim = "#".repeat(n |> usize)
-            format("br{}\"{}\"{}", delim, symbol, delim)
+            format("br{0}\"{1}\"{2}", delim, symbol, delim)
         | token.LitKind.Integer
         | token.LitKind.Float
         | token.LitKind.Bool
@@ -225,7 +225,7 @@ let literal_to_string(lit: token.Lit): string =
 
 let visibility_qualified(vis: ast.Visibility, s: string): string =
     let vis_str = State.new_().to_string(fun (s) -> s.print_visibility(vis))
-    format("{}{}", vis_str, s)
+    format("{0}{1}", vis_str, s)
 
 // interface std.ops.Deref with // for State
 //     type Target = pp.Printer
@@ -338,10 +338,10 @@ type State with
     member self.print_string(st: string, style: ast.StrStyle) =
         let st =
             match style with
-            | ast.StrStyle.Cooked -> format("\"{}\"", st.escape_debug())
+            | ast.StrStyle.Cooked -> format("\"{0}\"", st.escape_debug())
             | ast.StrStyle.Raw(n) ->
                 let delim = "#".repeat(n |> usize)
-                format("r{}\"{}\"{}", delim, st, delim)
+                format("r{0}\"{1}\"{2}", delim, st, delim)
         self.s.word(st)
 
     member self.print_symbol(sym: Symbol, style: ast.StrStyle) =
@@ -609,7 +609,7 @@ type State with
             | token.TokenKind.OrOr -> "||"
             | token.TokenKind.AndAnd -> "&&"
             | token.TokenKind.BinOp(op) -> binop_to_string(op)
-            | token.TokenKind.BinOpEq(op) -> format("{}=", binop_to_string(op))
+            | token.TokenKind.BinOpEq(op) -> format("{0}=", binop_to_string(op))
 
             // Structural symbols
             | token.TokenKind.At -> "@"
@@ -1200,9 +1200,9 @@ type State with
             | ast.VisibilityKind.Restricted (path, _) ->
                 let path = self.to_string(fun (s) -> s.print_path(path, false, 0))
                 if path = "self" || path = "super" then
-                    self.s.word_nbsp(format("pub({})", path))
+                    self.s.word_nbsp(format("pub({0})", path))
                 else
-                    self.s.word_nbsp(format("pub(in {})", path))
+                    self.s.word_nbsp(format("pub(in {0})", path))
             | ast.VisibilityKind.Inherited -> ()
 
     member self.print_defaultness(defaultness: ast.Defaultness) =
@@ -1908,7 +1908,7 @@ type State with
                     let mutable ch = constraint_.chars()
                     match ch.next() with
                         | Some ch when ch = '=' && out.is_rw ->
-                            s.print_string(format("+{}", ch), ast.StrStyle.Cooked)
+                            s.print_string(format("+{0}", ch), ast.StrStyle.Cooked)
                         | _ -> s.print_string(constraint_, ast.StrStyle.Cooked)
                     s.s.popen()
                     s.print_expr(out.expr)

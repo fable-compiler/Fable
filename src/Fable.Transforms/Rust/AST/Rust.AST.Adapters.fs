@@ -175,13 +175,13 @@ module fmt =
     type Display =
         abstract fmt: Formatter -> Result
 
-// replace {} with {n}
-let fixFormat(fmt: string) =
-    let rec loop (str: string) i =
-        let pos = str.IndexOf("{}")
-        if pos < 0 then str
-        else loop (str.Insert(pos + 1, $"{i}")) (i + 1)
-    loop fmt 0
+// // replace {} with {n}
+// let fixFormat(fmt: string) =
+//     let rec loop (str: string) i =
+//         let pos = str.IndexOf("{}")
+//         if pos < 0 then str
+//         else loop (str.Insert(pos + 1, string i)) (i + 1)
+//     loop fmt 0
 
 type Macros =
     static member assert_eq(actual, expected) =
@@ -195,14 +195,14 @@ type Macros =
     static member panic(str: string) =
         failwith str
     static member format(fmt: string, [<System.ParamArray>] args) =
-        System.String.Format(fixFormat(fmt), args)
+        System.String.Format(fmt, args)
     static member write(buf: String, str: string) =
         buf.push_str(str)
     static member write(buf: String, fmt: string, [<System.ParamArray>] args) =
         buf.push_str(Macros.format(fmt, args))
 #if false //DEBUG
     static member debug(fmt: string, [<System.ParamArray>] args) =
-        System.Console.WriteLine(fixFormat(fmt), args)
+        System.Console.WriteLine(fmt, args)
 #else
     static member debug _ = ()
 #endif

@@ -166,6 +166,14 @@ type Token =
     | End
     | Eof
 
+    override self.ToString(): string =
+        match self with
+            | Token.String(s) -> format("STR({0},{1})", s, s.len())
+            | Token.Break(_) -> "BREAK"
+            | Token.Begin(_) -> "BEGIN"
+            | Token.End -> "END"
+            | Token.Eof -> "EOF"
+
 type Token with
     member self.is_eof(): bool =
         match self with
@@ -180,7 +188,7 @@ type Token with
 // interface fmt.Display with // for Token
     member self.fmt(f: fmt.Formatter): fmt.Result =
         match self with
-            | Token.String(s) -> f.write_str(format("STR({},{})", s, s.len()))
+            | Token.String(s) -> f.write_str(format("STR({0},{1})", s, s.len()))
             | Token.Break(_) -> f.write_str("BREAK")
             | Token.Begin(_) -> f.write_str("BEGIN")
             | Token.End -> f.write_str("END")
@@ -196,7 +204,7 @@ let buf_str(buf: Vec<BufEntry>, left: usize, right: usize, lim: usize): String =
         l <- l - 1
         if i <> left then
             s.push_str(", ")
-        s.push_str(format("{}={}", buf.[i].size, buf.[i].token))
+        s.push_str(format("{0}={1}", buf.[i].size, buf.[i].token))
         i <- i + 1
         i <- i % n
     s.push(']')
@@ -218,7 +226,7 @@ let mk_printer(): Printer =
     let linewidth = 78
     // Yes 55, it makes the ring buffers big enough to never fall behind.
     let n: usize = 55 * linewidth
-    debug("mk_printer {}", linewidth)
+    debug("mk_printer {0}", linewidth)
     {
         out = String.new_()
         buf_max_len = n
@@ -297,15 +305,15 @@ type Printer with
             self.right <- 0
         else
             self.advance_right()
-        debug("pp Begin({})/buffer Vec<{},{}>", b.offset, self.left, self.right)
+        debug("pp Begin({0})/buffer Vec<{1},{2}>", b.offset, self.left, self.right)
         self.scan_push({ token = Token.Begin(b); size = -self.right_total })
 
     member self.scan_end() =
         if self.scan_stack.is_empty() then
-            debug("pp End/print Vec<{},{}>", self.left, self.right)
+            debug("pp End/print Vec<{0},{1}>", self.left, self.right)
             self.print_end()
         else
-            debug("pp End/buffer Vec<{},{}>", self.left, self.right)
+            debug("pp End/buffer Vec<{0},{1}>", self.left, self.right)
             self.advance_right()
             self.scan_push({ token = Token.End; size = -1 })
 
@@ -317,17 +325,17 @@ type Printer with
             self.right <- 0
         else
             self.advance_right()
-        debug("pp Break({})/buffer Vec<{},{}>", b.offset, self.left, self.right)
+        debug("pp Break({0})/buffer Vec<{1},{2}>", b.offset, self.left, self.right)
         self.check_stack(0)
         self.scan_push({ token = Token.Break(b); size = -self.right_total })
         self.right_total <- self.right_total + b.blank_space
 
     member self.scan_string(s: string) =
         if self.scan_stack.is_empty() then
-            debug("pp String('{}')/print Vec<{},{}>", s, self.left, self.right)
+            debug("pp String('{0}')/print Vec<{1},{2}>", s, self.left, self.right)
             self.print_string(s)
         else
-            debug("pp String('{}')/buffer Vec<{},{}>", s, self.left, self.right)
+            debug("pp String('{0}')/buffer Vec<{1},{2}>", s, self.left, self.right)
             self.advance_right()
             let len = s.len()
             self.buf.[self.right] <- { token = Token.String(s); size = len }
@@ -336,17 +344,17 @@ type Printer with
 
     member self.check_stream() =
         debug(
-            "check_stream Vec<{}, {}> with left_total={}, right_total={}",
+            "check_stream Vec<{0}, {1}> with left_total={2}, right_total={3}",
             self.left, self.right, self.left_total, self.right_total
         )
         if self.right_total - self.left_total > self.space_left then
             debug(
-                "scan window is {}, longer than space on line ({})",
+                "scan window is {0}, longer than space on line ({1})",
                 self.right_total - self.left_total,
                 self.space_left
             )
             if Some(self.left) = self.scan_stack.back() then
-                debug("setting {} to infinity and popping", self.left)
+                debug("setting {0} to infinity and popping", self.left)
                 let scanned = self.scan_pop_bottom()
                 self.buf.[scanned].size <- _SIZE_INFINITY
             self.advance_left()
@@ -354,7 +362,7 @@ type Printer with
                 self.check_stream()
 
     member self.scan_push(entry: BufEntry) =
-        debug("scan_push {}", self.right)
+        debug("scan_push {0}", self.right)
         self.buf.[self.right] <- entry
         self.scan_stack.push_front(self.right)
 
@@ -377,7 +385,7 @@ type Printer with
 
     member self.advance_left() =
         debug(
-            "advance_left Vec<{},{}>, sizeof({})={}",
+            "advance_left Vec<{0},{1}>, sizeof({2})={3}",
             self.left, self.right, self.left, self.buf.[self.left].size
         )
 
@@ -428,13 +436,13 @@ type Printer with
                         self.check_stack(k)
 
     member self.print_newline(amount: isize) =
-        debug("NEWLINE {}", amount)
+        debug("NEWLINE {0}", amount)
         self.out.push('\n')
         self.pending_indentation <- 0
         self.indent(amount)
 
     member self.indent(amount: isize) =
-        debug("INDENT {}", amount)
+        debug("INDENT {0}", amount)
         self.pending_indentation <- self.pending_indentation + amount
 
     member self.get_top(): PrintStackElem =
@@ -445,7 +453,7 @@ type Printer with
     member self.print_begin(b: BeginToken, l: isize) =
         if l > self.space_left then
             let col = self.margin - self.space_left + b.offset
-            debug("print Begin -> push broken block at col {}", col)
+            debug("print Begin -> push broken block at col {0}", col)
             self.print_stack
                 .push({ offset = col; pbreak = PrintStackBreak.Broken(b.breaks) })
         else
@@ -460,26 +468,26 @@ type Printer with
         let top = self.get_top()
         match top.pbreak with
             | PrintStackBreak.Fits ->
-                debug("print Break({}) in fitting block", b.blank_space)
+                debug("print Break({0}) in fitting block", b.blank_space)
                 self.space_left <- self.space_left - b.blank_space
                 self.indent(b.blank_space)
             | PrintStackBreak.Broken(Breaks.Consistent) ->
-                debug("print Break({}+{}) in consistent block", top.offset, b.offset)
+                debug("print Break({0}+{1}) in consistent block", top.offset, b.offset)
                 self.print_newline(top.offset + b.offset)
                 self.space_left <- self.margin - (top.offset + b.offset)
             | PrintStackBreak.Broken(Breaks.Inconsistent) ->
                 if l > self.space_left then
-                    debug("print Break({}+{}) w/ newline in inconsistent", top.offset, b.offset)
+                    debug("print Break({0}+{1}) w/ newline in inconsistent", top.offset, b.offset)
                     self.print_newline(top.offset + b.offset)
                     self.space_left <- self.margin - (top.offset + b.offset)
                 else
-                    debug("print Break({}) w/o newline in inconsistent", b.blank_space)
+                    debug("print Break({0}) w/o newline in inconsistent", b.blank_space)
                     self.indent(b.blank_space)
                     self.space_left <- self.space_left - b.blank_space
 
     member self.print_string(s: string) =
         let len = s.len()
-        debug("print String({})", s)
+        debug("print String({0})", s)
         // assert(len <= space)
         self.space_left <- self.space_left - len
 
@@ -498,8 +506,8 @@ type Printer with
         self.out.push_str(s)
 
     member self.print(token: Token, l: isize) =
-        debug("print {} {} (remaining line space={})", token, l, self.space_left)
-        debug("{}", buf_str(self.buf, self.left, self.right, 6))
+        debug("print {0} {1} (remaining line space={2})", token, l, self.space_left)
+        debug("{0}", buf_str(self.buf, self.left, self.right, 6))
         match token with
             | Token.Begin(b) -> self.print_begin(b, l)
             | Token.End -> self.print_end()
