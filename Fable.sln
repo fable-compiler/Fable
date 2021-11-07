@@ -44,6 +44,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{978EFCED-5F0
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.PublishUtils", "src\Fable.PublishUtils\Fable.PublishUtils.fsproj", "{29F5D115-9475-43C2-B305-6D589FADD6DE}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{978EFCED-5F08-4495-B35D-0AF397FC2721}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.PublishUtils", "src\Fable.PublishUtils\Fable.PublishUtils.fsproj", "{29F5D115-9475-43C2-B305-6D589FADD6DE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

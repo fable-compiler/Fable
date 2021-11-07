@@ -513,32 +513,44 @@ let tests =
 
       testCase "String.Split works" <| fun () ->
             "a b c  d".Split(' ')
-            |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+            |> equal [|"a";"b";"c";"";"d"|]
             "a b c  d ".Split()
-            |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
+            |> equal [|"a";"b";"c";"";"d";""|]
+            "a-b-c".Split()
+            |> equal [|"a-b-c"|]
+            "a-b-c".Split("")
+            |> equal [|"a-b-c"|]
             "a\tb".Split()
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             "a\nb".Split()
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             "a\rb".Split()
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             "a\u2003b".Split() // em space
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             "a b c  d".Split(null)
-            |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+            |> equal [|"a";"b";"c";"";"d"|]
             "a\tb".Split(null)
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             "a\u2003b".Split(null) // em space
-            |> (=) [|"a";"b"|] |> equal true
+            |> equal [|"a";"b"|]
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
             "a--b-c".Split([|"--"|], StringSplitOptions.None)
-            |> (=) [|"a";"b-c"|] |> equal true
+            |> equal [|"a";"b-c"|]
+            " a-- b- c ".Split('-', 2, StringSplitOptions.None)
+            |> equal [|" a"; "- b- c "|]
+            "---o---o---".Split("--", StringSplitOptions.None)
+            |> equal [|""; "-o"; "-o"; "-"|];
 
       testCase "String.Split with remove empties works" <| fun () ->
             "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
             |> (=) [|"a";"b";"c";"d"|] |> equal true
+            " a-- b- c ".Split("-", 2, StringSplitOptions.RemoveEmptyEntries)
+            |> (=) [|" a"; " b- c "|] |> equal true
+            "---o---o---".Split("--", StringSplitOptions.RemoveEmptyEntries)
+            |> (=) [|"-o"; "-o"; "-"|] |> equal true
             let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
@@ -549,6 +561,34 @@ let tests =
             equal "b  c d" array.[1]
             "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
             |> (=) [|"a";"b";"c;d"|] |> equal true
+            "a-b-c".Split("", System.Int32.MaxValue)
+            |> (=) [|"a-b-c"|] |> equal true
+
+      testCase "String.Split with empty works" <| fun () ->
+            let array = "a b cd".Split()
+            array |> equal [| "a"; "b"; "cd" |]
+
+      testCase "String.Split with trim entries works" <| fun () ->
+            " a-- b- c ".Split('-', 2, StringSplitOptions.TrimEntries)
+            |> (=) [|"a"; "- b- c"|] |> equal true
+            " a-- b- c ".Split('-', 3, StringSplitOptions.TrimEntries)
+            |> (=) [|"a"; ""; "b- c"|] |> equal true
+
+      testCase "String.Split with trim and remove entries works" <| fun () ->
+            " a-- b- c ".Split([| "-" |], 2, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal [|"a"; "b- c"|]
+            " a-- b- c ".Split([| '-' |], 3, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal  [|"a"; "b"; "c"|]
+
+      testCase "String.Split with consecutive separators works" <| fun () ->
+            "       ".Split(" ", 4,  StringSplitOptions.None)
+            |> equal [|"";"";"";"    "|]
+            "       ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries)
+            |> equal [||]
+            "       ".Split(" ", 4,  StringSplitOptions.TrimEntries)
+            |> equal [|"";"";"";""|]
+            "       ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal [||]
 
       testCase "String.Replace works" <| fun () ->
             "abc abc abc".Replace("abc", "d") |> equal "d d d"

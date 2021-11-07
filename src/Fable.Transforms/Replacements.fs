@@ -1763,7 +1763,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Split", Some c, _ ->
         match args with
         // Optimization
-        | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
+        | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst " "]) |> Some
         | [Value(CharConstant _,_) as separator]
         | [StringConst _ as separator]
         | [Value(NewArray([separator],_),_)] ->
@@ -1775,8 +1775,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 | _ -> Value(NewArray([arg1], String), None)
             let args = [arg1; Value(Null Any, None); arg2]
             Helper.LibCall(com, "String", "split", t, c::args, ?loc=r) |> Some
-        | args ->
-            Helper.LibCall(com, "String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | arg1::args ->
+            let arg1 =
+                match arg1.Type with
+                | Array _ -> arg1
+                | _ -> Value(NewArray([arg1], String), None)
+            Helper.LibCall(com, "String", "split", t, arg1::args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
