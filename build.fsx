@@ -434,7 +434,8 @@ let test() =
     // Adaptive tests must go in a different project to avoid conflitcts with Queue shim, see #2559
     compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
 
-    testReact()
+    // TODO: Re-enable React tests after updating Feliz ReactComponent plugin
+    // testReact()
 
     testProjectConfigs()
 
