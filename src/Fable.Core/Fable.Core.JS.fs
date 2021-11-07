@@ -1,16 +1,33 @@
-namespace Fable.Import
-
-[<System.Obsolete("Use Fable.Core.JS")>]
-module JS =
-    /// Use Fable.Core.JS
-    let obsolete<'T> : 'T = failwith "Use Fable.Core.JS"
-
 namespace Fable.Core
 
 open System
 open System.Text.RegularExpressions
 
 module JS =
+    type [<AllowNullLiteral>] Function =
+        abstract name: string
+        abstract length: int
+        abstract apply: thisArg: obj * args: obj[] -> obj
+        abstract bind: thisArg: obj * [<ParamArray>] args: obj[] -> Function
+        abstract call: thisArg: obj * [<ParamArray>] args: obj[] -> obj
+        [<Emit "$0($1...)">] abstract Invoke: [<ParamArray>] args: obj[] -> obj
+        [<Emit "new $0($1...)">] abstract Create: [<ParamArray>] args: obj[] -> obj
+
+    [<AbstractClass>]
+    type DecoratorAttribute() =
+        inherit Attribute()
+        abstract Decorate: fn: Function -> Function
+
+    [<AbstractClass>]
+    type ReflectedDecoratorAttribute() =
+        inherit Attribute()
+        abstract Decorate: fn: Function * info: Reflection.MethodInfo -> Function
+
+    // Hack because currently Fable doesn't keep information about spread for anonymous function
+    // We also use function (instead of an arrow) to make sure `this` is bound correctly
+    [<Emit("function (...args) { return $0(args) }")>]
+    let spreadFunc (fn: obj[] -> obj): Function = jsNative
+
     type [<AllowNullLiteral>] PropertyDescriptor =
         abstract configurable: bool option with get, set
         abstract enumerable: bool option with get, set
@@ -426,20 +443,20 @@ module JS =
         abstract clear: unit -> unit
         abstract count: ?countTitle: string -> unit
         abstract debug: ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract dir: ?value: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract dir: value: obj -> unit
         abstract dirxml: value: obj -> unit
-        abstract error: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract error: [<ParamArray>] optionalParams: obj[] -> unit
         abstract group: ?groupTitle: string -> unit
         abstract groupCollapsed: ?groupTitle: string -> unit
         abstract groupEnd: unit -> unit
-        abstract info: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract log: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract info: [<ParamArray>] optionalParams: obj[] -> unit
+        abstract log: [<ParamArray>] optionalParams: obj[] -> unit
         abstract profile: ?reportName: string -> unit
         abstract profileEnd: unit -> unit
         abstract time: ?timerName: string -> unit
         abstract timeEnd: ?timerName: string -> unit
-        abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
-        abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract trace: [<ParamArray>] optionalParams: obj[] -> unit
+        abstract warn: [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
     let [<Global>] NaN: float = nativeOnly

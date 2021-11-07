@@ -1,3 +1,16 @@
+### 3.4.0
+
+* ParamObject attribute
+
+### 3.3.1
+
+* JS.Decorator/ReflectedDecorator attributes
+* JS.Function
+
+### 3.2.9
+
+* Add `FormattableString.GetStrings()` extension
+
 ### 3.2.8
 
 * Experimental.namesofLambda

@@ -169,7 +169,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric _ -> Some(FSharpChoice [])
+    | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
+        List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -456,12 +457,18 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
-        | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+        | Builtin BclGuid when tail.IsEmpty ->
+                Helper.GlobalCall("str", String, [ head ], ?loc=r)
+        | Builtin (BclGuid|BclTimeSpan|BclDecimal as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number(Int16,_) -> Helper.LibCall(com, "util", "int16ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "util", "int32ToString", String, args)
-        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        | Builtin (BclInt64|BclUInt64|BclBigInt) ->
+            Helper.LibCall(com, "util", "int64_to_string", String, args)
+        | Number(Int8,_)
+        | Number(UInt8,_) ->
+            Helper.LibCall(com, "util", "int8_to_string", String, args)
+        | Number(Int16,_) -> Helper.LibCall(com, "util", "int16_to_string", String, args)
+        | Number(Int32,_) -> Helper.LibCall(com, "util", "int32_to_string", String, args)
+        | Number _ -> Helper.LibCall(com, "types", "toString", String, [head], ?loc=r)
         | Array _ | List _ ->
             Helper.LibCall(com, "types", "seqToString", String, [head], ?loc=r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
@@ -603,12 +610,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     let targetType = transformEnumType targetType
     let emitCast typeTo arg =
         match typeTo with
-        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "(int($0) + 0x80 & 0xFF) - 0x80"
+        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
         | JsNumber Int32 -> fastIntFloor arg
-        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "$0 & 0xFF"
-        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "$0 & 0xFFFF"
-        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
+        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "int($0+0x100 if $0 < 0 else $0) & 0xFF"
+        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "int($0+0x10000 if $0 < 0 else $0) & 0xFFFF"
+        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "int($0+0x100000000 if $0 < 0 else $0)"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
@@ -617,8 +624,8 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | NumberExt typeFrom, NumberExt typeTo  ->
         if needToCast typeFrom typeTo then
             match typeFrom with
-            | Long _ -> Helper.LibCall(com, "Long", "toInt", targetType, args)
-            | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
+            | Long _ -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
+            | Decimal -> Helper.LibCall(com, "Decimal", "to_number", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
         else TypeCast(args.Head, targetType)
@@ -659,6 +666,16 @@ let toSeq t (e: Expr) =
     | _ -> TypeCast(e, t)
 
 let (|ListSingleton|) x = [x]
+
+let rec findInScope (scope: FSharp2Fable.Scope) identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
@@ -790,7 +807,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+        let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "date", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -801,7 +818,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
-        let f = makeComparerFunction com ctx t
+        let f = makeEqualityFunction com ctx t
         Helper.LibCall(com, "array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -852,6 +869,11 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
 
 and makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
+and makeEqualityFunction (com: ICompiler) ctx typArg =
+    let x = makeUniqueIdent ctx typArg "x"
+    let y = makeUniqueIdent ctx typArg "y"
+    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
+    Delegate([x; y], body, None)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1055,7 +1077,9 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult_2" "Choice" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice_2" "Choice" |> Some
+    | BuiltinDefinition(FSharpChoice genArgs) ->
+        let membName = $"FSharpChoice${List.length genArgs}"
+        makeImportLib com Any membName "choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1067,13 +1091,13 @@ let tryEntityRef (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | _ -> None
 
-let tryJsConstructor com (ent: Entity) =
+let tryPyConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent
     then tryEntityRef com ent.FullName
     else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
 
-let jsConstructor com ent =
-    match tryJsConstructor com ent with
+let pyConstructor com ent =
+    match tryPyConstructor com ent with
     | Some e -> e
     | None ->
         ent.FullName
@@ -1105,22 +1129,12 @@ let defaultof (com: ICompiler) ctx (t: Type) =
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
         if ent.IsValueType
-        then tryJsConstructor com ent
+        then tryPyConstructor com ent
         else None
         |> Option.map (fun e -> Helper.PyConstructorCall(e, t, []))
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
-
-let rec findInScope (scope: FSharp2Fable.Scope) (identName: string) =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
@@ -1244,7 +1258,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    findInScope ctx.Scope ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with
@@ -1325,7 +1339,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             emitJsExpr r t [] "self" |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some
+            | DeclaredType(ent, _) -> com.GetEntity(ent) |> pyConstructor com |> Some
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
@@ -1592,7 +1606,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     // Type info
-    | "TypeOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
+    | "TypeOf", _ ->
+        (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
     | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo r |> Some
     | _ -> None
 
@@ -1878,12 +1893,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | _ -> None
 
 let nativeArrayFunctions =
-    dict [| "Exists", "some"
+    dict [| //"Exists", "some"
             "Filter", "filter"
-            "Find", "find"
-            "FindIndex", "index"
+            //"Find", "find"
+            //"FindIndex", "index"
             //"ForAll", "all"
-            "Iterate", "forEach"
+            //"Iterate", "forEach"
             "Reduce", "reduce"
             //"ReduceBack", "reduceRight"
           |]
@@ -2344,7 +2359,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.PyConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
+            Helper.PyConstructorCall(pyConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2660,7 +2675,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             if i.CompiledName = "FromUnixTimeSeconds"
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
-        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, None)], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "datetime.fromtimestamp", t, [value; makeIntConst 0], [value.Type; Number(Int32, None)], ?loc=r) |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -2936,14 +2951,15 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
         |> Some
 
     match i.CompiledName with
-    | "NewGuid"     -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "NewGuid"     -> Helper.LibCall(com, "Guid", "new_guid", t, []) |> Some
     | "Parse"       ->
         match args with
         | [StringConst literalGuid] -> parseGuid literalGuid
         | _-> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
     | "TryParse"    -> Helper.LibCall(com, "Guid", "tryParse", t, args, i.SignatureArgTypes) |> Some
     | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
-    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
+    | "ToString" when (args.Length = 0) ->
+        Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc=r) |> Some
     | "ToString" when (args.Length = 1) ->
         match args with
         | [StringConst literalFormat] ->
@@ -3373,7 +3389,7 @@ let tryType = function
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [key; value])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
-        | FSharpChoice genArgs -> Some(Types.hashset, hashSets, genArgs)
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.reference, references, [genArg])
     | _ -> None

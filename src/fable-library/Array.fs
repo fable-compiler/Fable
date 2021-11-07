@@ -5,6 +5,7 @@ module ArrayModule
 
 open System.Collections.Generic
 open Fable.Core
+open Fable.Core.JsInterop
 
 open Native
 open Native.Helpers
@@ -629,8 +630,23 @@ let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
                 i <- i + 1
             result
 
-let equalsWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    compareWith compare array1 array2 = 0
+let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
+    if isNull array1 then
+        if isNull array2 then true else false
+    elif isNull array2 then
+        false
+    else
+        let mutable i = 0
+        let mutable result = true
+        let length1 = array1.Length
+        let length2 = array2.Length
+        if length1 > length2 then false
+        elif length1 < length2 then false
+        else
+            while i < length1 && result do
+                result <- equals array1.[i] array2.[i]
+                i <- i + 1
+            result
 
 let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]

@@ -17,7 +17,7 @@
     <ProjectReference Include="..\..\src\fable-standalone\src\Fable.Standalone.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../Main/Util/Util.fs" />
+    <Compile Include="../Main/Util/Util.Testing.fs" />
     <Compile Include="..\..\src\fable-standalone\test\bench\Platform.fs" />
     <Compile Include="Util/Compiler.fs" />
     <Compile Include="CompilerMessagesTests.fs" />

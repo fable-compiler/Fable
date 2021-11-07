@@ -606,6 +606,12 @@ let tests =
         ys.[0] + ys.[1]
         |> equal 3.
 
+    testCase "Seq.toArray works II" <| fun () ->
+        let xs = [|1.; 2.; 3.|]
+        let ys = xs |> Seq.toArray
+        xs.[0] = 2.
+        ys.[0] + ys.[1] |> equal 3.
+
     testCase "Seq.toList works" <| fun () ->
         let xs = [1.; 2.; 3.]
         let ys = xs |> Seq.toList
@@ -666,6 +672,39 @@ let tests =
          xs |> Seq.length |> ignore
          !count
          |> equal 11
+
+    testCase "Seq.cache works for infinite sequences" <| fun () ->
+        let guids =
+            Seq.initInfinite (fun _ -> System.Guid.NewGuid())
+            |> Seq.cache
+
+        let n = 10
+
+        let xs = guids |> Seq.truncate n |> Seq.toList
+        let ys = guids |> Seq.truncate n |> Seq.toList
+
+        xs |> equal ys
+
+    // See https://github.com/demystifyfp/FsToolkit.ErrorHandling/pull/146
+    testCase "Seq.cache works when enumerating partially" <| fun () ->
+        let xs = seq {
+          yield 1
+          yield 1
+          yield 99
+        }
+
+        let rec loop xs ts =
+          match Seq.tryHead xs with
+          | Some x ->
+            if x < 10 then
+              loop (Seq.tail xs) (x :: ts)
+            else
+              Error x
+          | None ->
+            Ok (List.rev ts)
+
+        loop (Seq.cache xs) [] |> equal (Error 99)
+        loop xs [] |> equal (Error 99)
 
     testCase "Seq.cast works" <| fun () ->
         let xs = [box 1; box 2; box 3]

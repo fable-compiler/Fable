@@ -58,7 +58,7 @@ type Expression =
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
     | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
-    | UnaryExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
+    | UnaryExpression of argument: Expression * operator: string * loc: SourceLocation option
     | UpdateExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
     | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
@@ -571,7 +571,6 @@ module Helpers =
                 | BinaryInstanceOf -> "instanceof"
             BinaryExpression(left, right, operator, loc)
         static member unaryExpression(operator_, argument, ?loc) =
-            let prefix = true
             let operator =
                 match operator_ with
                 | UnaryMinus -> "-"
@@ -581,15 +580,14 @@ module Helpers =
                 | UnaryTypeof -> "typeof"
                 | UnaryVoid -> "void"
                 | UnaryDelete -> "delete"
-
-            UnaryExpression(prefix, argument, operator, loc)
+            UnaryExpression(argument, operator, loc)
         static member updateExpression(operator_, prefix, argument, ?loc) : Expression =
             let operator =
                 match operator_ with
                 | UpdateMinus -> "--"
                 | UpdatePlus -> "++"
-
             UpdateExpression(prefix, argument, operator, loc)
+
     type Identifier with
         member this.Name =
             let (Identifier(name=name)) = this

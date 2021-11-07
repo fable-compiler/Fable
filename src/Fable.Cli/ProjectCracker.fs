@@ -4,6 +4,7 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
+open System.Text.Json
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
@@ -37,6 +38,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       Packages: FablePackage list
+      References: string list
       ProjectOptions: FSharpProjectOptions
       OutputType: string option }
 
@@ -226,26 +228,35 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         // yield "--define:DEBUG"
         for constant in opts.FableOptions.Define do
             yield "--define:" + constant
-        yield "--optimize-"
+        yield "--optimize" + if opts.FableOptions.OptimizeFSharpAst then "+" else "-"
         // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
         // yield "--warnaserror:76"
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
-        yield "--target:library"
         yield "--langversion:preview" // Needed for witnesses
-#if !NETFX
-        yield "--targetprofile:netstandard"
-#endif
+        // Since net5.0 there's no difference between app/library
+        // yield "--target:library"
     |]
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
-let getSourcesFromFsproj (projFile: string) =
+let getSourcesFromFablePkg (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
+
     let xmlDoc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile)
+
+    Log.showFemtoMsg (fun () ->
+        xmlDoc.Root.Elements()
+        |> withName "PropertyGroup"
+        |> Seq.exists (fun propGroup ->
+            propGroup.Elements()
+            |> withName "NpmDependencies"
+            |> Seq.isEmpty
+            |> not))
+
     xmlDoc.Root.Elements()
     |> withName "ItemGroup"
     |> Seq.map (fun item ->
@@ -313,7 +324,6 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
@@ -437,26 +447,18 @@ let createFableDir (opts: CrackerOptions) =
             | _ -> Naming.fableHiddenDir
         IO.Path.Combine(baseDir, dirName)
 
-    let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
-    let newInfo =
-        Map [
-            "version", Literals.VERSION
-            "define", opts.FableOptions.Define |> List.sort |> String.concat ","
-            "typedArrays", opts.FableOptions.TypedArrays.ToString()
-            "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
-            "optimize", opts.FableOptions.OptimizeFSharpAst.ToString()
-            "lang", opts.FableOptions.Language.ToString()
-        ]
+    let jsonOptions = JsonSerializerOptions()
+    jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
+    let compilerInfoPath = IO.Path.Combine(fableDir, "compiler_info.txt")
+    let newInfo = {| version = Literals.VERSION; options = opts.FableOptions |}
 
     let isEmptyOrOutdated =
         if opts.NoCache || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try
-                    IO.File.ReadLines(compilerInfo)
-                    |> Seq.map (fun line -> let parts = line.Split("=") in parts.[0], parts.[1])
-                    |> Map
-                    |> fun oldInfo -> oldInfo <> newInfo
+                    let oldInfo = IO.File.ReadAllText(compilerInfoPath)
+                    JsonSerializer.Deserialize(oldInfo, jsonOptions) <> newInfo
                 with _ -> true
             if isOutdated then
                 IO.Directory.Delete(fableDir, true)
@@ -466,25 +468,31 @@ let createFableDir (opts: CrackerOptions) =
         if IO.Directory.Exists(fableDir) then
             IO.Directory.Delete(fableDir, true)
         IO.Directory.CreateDirectory(fableDir) |> ignore
-        IO.File.WriteAllLines(compilerInfo, newInfo |> Seq.map (fun kv -> kv.Key + "=" + kv.Value))
+        IO.File.WriteAllText(compilerInfoPath, JsonSerializer.Serialize(newInfo, jsonOptions))
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
 
     fableDir
 
-let copyDir (source: string) (target: string) =
-    IO.Directory.CreateDirectory(target) |> ignore
-    if IO.Directory.Exists source |> not then
-        failwith ("Source directory is missing: " + source)
-    let source = source.TrimEnd('/', '\\')
-    let target = target.TrimEnd('/', '\\')
-    for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
-        IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
-    for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
-        IO.File.Copy(newPath, newPath.Replace(source, target), true)
+// Replace the .fsproj extension with .fableproj for files in fable_modules
+// We do this to avoid conflicts with other F# tooling that scan for .fsproj files
+let changeFsprojToFableproj (path: string) =
+    if path.EndsWith(".fsproj") then
+        IO.Path.ChangeExtension(path, Naming.fableProjExt)
+    else path
 
-let copyDirIfDoesNotExist (source: string) (target: string) =
+let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
     if isDirectoryEmpty target then
-        copyDir source target
+        IO.Directory.CreateDirectory(target) |> ignore
+        if IO.Directory.Exists source |> not then
+            failwith ("Source directory is missing: " + source)
+        let source = source.TrimEnd('/', '\\')
+        let target = target.TrimEnd('/', '\\')
+        for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
+            IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
+        for fromPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
+            let toPath = fromPath.Replace(source, target)
+            let toPath = if replaceFsprojExt then changeFsprojToFableproj toPath else toPath
+            IO.File.Copy(fromPath, toPath, true)
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
     let fableLibDir = createFableDir opts
@@ -512,15 +520,16 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
             fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist sourceDir targetDir
-            { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
+            copyDirIfDoesNotExist true sourceDir targetDir
+            let fsprojFile = IO.Path.GetFileName(pkg.FsprojPath) |> changeFsprojToFableproj
+            { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) })
 
     fableLibraryPath, pkgRefs
 
@@ -551,7 +560,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable_library")
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
             fableLibraryTarget
 
     let pkgRefs =
@@ -560,7 +569,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             let targetDir =
                 let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
                 IO.Path.Combine(fableLibDir, name.Replace(".", "_"))
-            copyDirIfDoesNotExist sourceDir targetDir
+            copyDirIfDoesNotExist false sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 
     fableLibraryPath, pkgRefs
@@ -585,7 +594,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     let pkgRefs =
         pkgRefs |> List.map (fun pkg ->
-            { pkg with SourcePaths = getSourcesFromFsproj pkg.FsprojPath })
+            { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
 
     let projOpts =
         let sourceFiles =
@@ -612,7 +621,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
                 yield! getBasicCompilerArgs opts // options from compiler args
-                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
                         // Remove unneeded System dll references
@@ -627,5 +635,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     { ProjectOptions = projOpts
       Packages = pkgRefs
+      References = projRefs |> List.map (fun p -> p.ProjectFile)
       FableLibDir = fableLibDir
       OutputType = mainProj.OutputType }

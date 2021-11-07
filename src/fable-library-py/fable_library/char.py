@@ -34,7 +34,8 @@ class UnicodeCategory(Enum):
     OtherNotAssigned = 29
 
 
-unicodeCategoryFunc = "not implemented"
+def unicodeCategoryFunc(cp):
+    raise NotImplementedError
 
 
 def char_code_at(s: str, index: int):
@@ -48,18 +49,22 @@ def getUnicodeCategory2(s: str, index: int):
     cp = char_code_at(s, index)
     return unicodeCategoryFunc(cp)
 
-is_letter_mask = (0
+
+is_letter_mask = (
+    0
     | 1 << UnicodeCategory.UppercaseLetter.value
     | 1 << UnicodeCategory.LowercaseLetter.value
     | 1 << UnicodeCategory.TitlecaseLetter.value
     | 1 << UnicodeCategory.ModifierLetter.value
-    | 1 << UnicodeCategory.OtherLetter.value)
+    | 1 << UnicodeCategory.OtherLetter.value
+)
 
 is_digit_mask = 1 << UnicodeCategory.DecimalDigitNumber.value
 
+
 def is_letter2(s: str, index: int):
-  test = 1 << getUnicodeCategory2(s, index)
-  return (test & is_letter_mask) != 0;
+    test = 1 << getUnicodeCategory2(s, index)
+    return (test & is_letter_mask) != 0
 
 
 def is_digit2(s: str, index: int):
@@ -67,8 +72,9 @@ def is_digit2(s: str, index: int):
     return (test & is_digit_mask) != 0
 
 
-def is_digit(s):
-    return is_digit2(s, 0)
+def is_digit(s: str):
+    return s.isdigit()
 
-def is_letter(s):
-    return is_letter2(s, 0)
+
+def is_letter(s: str):
+    return s.isalpha()

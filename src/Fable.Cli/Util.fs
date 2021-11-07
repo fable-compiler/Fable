@@ -52,14 +52,15 @@ module Log =
     let makeVerbose() =
         verbosity <- Fable.Verbosity.Verbose
 
+    let alwaysWithColor color (msg: string) =
+        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+            Console.ForegroundColor <- color
+            Console.Out.WriteLine(msg)
+            Console.ResetColor()
+
     let always (msg: string) =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
             Console.Out.WriteLine(msg)
-
-    let alwaysInSameLine (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
-            Console.Out.Write("\r" + String(' ', Console.WindowWidth) + "\r")
-            Console.Out.Write(msg)
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
@@ -78,6 +79,15 @@ module Log =
         Console.ForegroundColor <- ConsoleColor.DarkRed
         Console.Error.WriteLine(msg)
         Console.ResetColor()
+
+    let mutable private femtoMsgShown = false
+
+    let showFemtoMsg (show: unit -> bool): unit =
+        if not femtoMsgShown then
+            if show() then
+                femtoMsgShown <- true
+                "Some Nuget packages contain information about NPM dependencies that can be managed by Femto: https://github.com/Zaid-Ajaj/Femto"
+                |> alwaysWithColor ConsoleColor.Blue
 
 module File =
     open System.IO
@@ -101,9 +111,6 @@ module File =
         else
             Log.always("File does not exist: " + path)
             ""
-
-    let getRelativePathFromCwd (path: string) =
-        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
     let rec tryFindPackageJsonDir dir =
         if File.Exists(Path.Combine(dir, "package.json")) then Some dir
@@ -154,17 +161,19 @@ module Process =
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess workingDir exePath args =
+    let private startProcess (envVars: (string * string) list) workingDir exePath args =
         let args = String.concat " " args
         let exePath, args =
             if isWindows() then "cmd", ("/C " + exePath + " " + args)
             else exePath, args
 
-        Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
+        // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
+        // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
+        Log.always $"{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {args}"
 
         let psi = ProcessStartInfo()
-        // for envVar in envVars do
-        //     psi.EnvironmentVariables.[envVar.Key] <- envVar.Value
+        for (key, value) in envVars do
+            psi.EnvironmentVariables.[key] <- value
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
         psi.Arguments <- args
@@ -178,7 +187,7 @@ module Process =
         if not p.HasExited then
             p.Kill(entireProcessTree=true)
 
-    let start =
+    let startWithEnv envVars =
         let mutable runningProcess = None
 
         // In Windows, terminating the main process doesn't kill the spawned ones so we need
@@ -195,20 +204,26 @@ module Process =
         fun (workingDir: string) (exePath: string) (args: string list) ->
             try
                 runningProcess |> Option.iter kill
-                let p = startProcess workingDir exePath args
+                let p = startProcess envVars workingDir exePath args
                 runningProcess <- Some p
             with ex ->
                 Log.always("Cannot run: " + ex.Message)
 
-    let runSync (workingDir: string) (exePath: string) (args: string list) =
+    let start (workingDir: string) (exePath: string) (args: string list) =
+        startWithEnv [] workingDir exePath args
+
+    let runSyncWithEnv envVars (workingDir: string) (exePath: string) (args: string list) =
         try
-            let p = startProcess workingDir exePath args
+            let p = startProcess envVars workingDir exePath args
             p.WaitForExit()
             p.ExitCode
         with ex ->
             Log.always("Cannot run: " + ex.Message)
             Log.always(ex.StackTrace)
             -1
+
+    let runSync (workingDir: string) (exePath: string) (args: string list) =
+        runSyncWithEnv [] workingDir exePath args
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -255,6 +270,7 @@ module Async =
     }
 
 module Imports =
+    open System.Text.RegularExpressions
     open Fable
 
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
@@ -269,7 +285,7 @@ module Imports =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
-        // for example package sources in .fable folder
+        // for example package sources in fable_modules folder
         if importPath.StartsWith(outDir) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
@@ -286,15 +302,26 @@ module Imports =
         if isRelativePath relPath then relPath else "./" + relPath
 
     let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
-        match outDir with
-        | None -> importPath.Replace("${outDir}", ".")
-        | Some outDir ->
-            let importPath =
-                if importPath.StartsWith("${outDir}")
-                // NOTE: Path.Combine in Fable Prelude trims / at the start
-                // of the 2nd argument, unlike .NET IO.Path.Combine
-                then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
-                else importPath
+        let macro, importPath =
+            let m = Regex.Match(importPath, @"^\${(\w+)}[\/\\]?")
+            if m.Success then Some m.Groups.[1].Value, importPath.[m.Length..]
+            else None, importPath
+        match macro, outDir with
+        | Some "outPath", _ -> "./" + importPath
+        // Not entirely correct but not sure what to do with outDir macro if there's no outDir
+        | Some "outDir", None -> "./" + importPath
+        | Some "outDir", Some outDir ->
+            let importPath = Path.Combine(outDir, importPath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            getRelativePath targetDir importPath
+        | Some "entryDir", _ ->
+            let importPath = Path.Combine(projDir, importPath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            getRelativePath targetDir importPath
+        | Some macro, _ ->
+            failwith $"Unknown import macro: {macro}"
+        | None, None -> importPath
+        | None, Some outDir ->
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
             let importPath =
@@ -326,11 +353,11 @@ module Observable =
                 { new IDisposable with
                     member _.Dispose() = dispose() }
 
-    let throttle ms (obs: IObservable<'T>) =
+    let throttle (ms: int) (obs: IObservable<'T>) =
         { new IObservable<'T[]> with
             member _.Subscribe w =
                 let events = Collections.Concurrent.ConcurrentBag()
-                let timer = new Timers.Timer(ms, AutoReset=false)
+                let timer = new Timers.Timer(float ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
                     events.ToArray() |> w.OnNext
                     timer.Dispose())
@@ -340,3 +367,13 @@ module Observable =
                     timer.Start()))
                 { new IDisposable with
                     member _.Dispose() = disp.Dispose() } }
+
+[<AutoOpen>]
+module ResultCE =
+    type ResultBuilder() =
+        member _.Zero = Ok()
+        member _.Bind(v,f) = Result.bind f v
+        member _.Return v = Ok v
+        member _.ReturnFrom v = v
+
+    let result = ResultBuilder()

@@ -239,7 +239,7 @@ let ofArray (arr: 'T[]) =
 
 let toArray (xs: seq<'T>): 'T[] =
     match xs with
-    | :? array<'T> as a -> a
+    // | :? array<'T> as a -> Array.ofSeq a
     | :? list<'T> as a -> Array.ofList a
     | _ -> Array.ofSeq xs
 
@@ -578,16 +578,81 @@ let readOnly (xs: seq<'T>) =
     checkNonNull "source" xs
     map id xs
 
-let cache (xs: seq<'T>) =
-    let mutable cached = false
-    let xsCache = ResizeArray()
-    delay (fun () ->
-        if not cached then
-            cached <- true
-            xs |> map (fun x -> xsCache.Add(x); x)
-        else
-            xsCache :> seq<'T>
-    )
+type CachedSeq<'T>(cleanup,res:seq<'T>) =
+    interface System.IDisposable with
+        member _.Dispose() = cleanup()
+    interface System.Collections.Generic.IEnumerable<'T> with
+        member _.GetEnumerator() = res.GetEnumerator()
+    interface System.Collections.IEnumerable with
+        member _.GetEnumerator() = (res :> System.Collections.IEnumerable).GetEnumerator()
+    member _.Clear() = cleanup()
+
+// Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
+// TODO: lock is removed to compile to JS but it may be necessary for other languages
+let cache (source: seq<'T>) =
+    checkNonNull "source" source
+    // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
+    //
+    // This code is required to be thread safe.
+    // The necessary calls should be called at most once (include .MoveNext() = false).
+    // The enumerator should be disposed (and dropped) when no longer required.
+    //------
+    // The state is (prefix,enumerator) with invariants:
+    //   * the prefix followed by elts from the enumerator are the initial sequence.
+    //   * the prefix contains only as many elements as the longest enumeration so far.
+    let prefix      = ResizeArray<_>()
+
+    // None          = Unstarted.
+    // Some(Some e)  = Started.
+    // Some None     = Finished.
+    let mutable enumeratorR = None
+
+    let oneStepTo i =
+      // If possible, step the enumeration to prefix length i (at most one step).
+      // Be speculative, since this could have already happened via another thread.
+      if i >= prefix.Count then // is a step still required?
+          // If not yet started, start it (create enumerator).
+          let optEnumerator =
+              match enumeratorR with
+              | None ->
+                  let optEnumerator = Some (source.GetEnumerator())
+                  enumeratorR <- Some optEnumerator
+                  optEnumerator
+              | Some optEnumerator ->
+                  optEnumerator
+
+          match optEnumerator with
+          | Some enumerator ->
+              if enumerator.MoveNext() then
+                  prefix.Add(enumerator.Current)
+              else
+                  enumerator.Dispose()     // Move failed, dispose enumerator,
+                  enumeratorR <- Some None // drop it and record finished.
+          | None -> ()
+
+    let result =
+        unfold (fun i ->
+            // i being the next position to be returned
+            // A lock is needed over the reads to prefix.Count since the list may be being resized
+            // NOTE: we could change to a reader/writer lock here
+            // lock prefix <| fun () ->
+                if i < prefix.Count then
+                    Some (prefix.[i],i+1)
+                else
+                    oneStepTo i
+                    if i < prefix.Count then
+                        Some (prefix.[i],i+1)
+                    else
+                        None) 0
+    let cleanup() =
+    //    lock prefix <| fun () ->
+           prefix.Clear()
+           match enumeratorR with
+           | Some (Some e) -> e.Dispose()
+           | _ -> ()
+           enumeratorR <- None
+
+    (new CachedSeq<_>(cleanup, result) :> seq<_>)
 
 let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
     let ysCache = cache ys

@@ -3,6 +3,7 @@ module Fable.Transforms.Replacements
 
 #nowarn "1182"
 
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -148,7 +149,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric _ -> Some(FSharpChoice [])
+    | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
+        List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -200,22 +202,25 @@ let (|NumberExt|_|) = function
 let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
-let getTypeNameFromFullName (fullname: string) =
+let splitFulName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
         | i -> fullname.[..i - 1]
     match fullname.LastIndexOf(".") with
-    | -1 -> fullname
-    | i -> fullname.Substring(i + 1)
+    | -1 -> "", fullname
+    | i -> fullname.Substring(0, i), fullname.Substring(i + 1)
 
-let getTypeName com (ctx: Context) r t =
+let rec getTypeName com (ctx: Context) r t =
     match t with
     | GenericParam(name,_) ->
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
-    | _ -> ()
-    getTypeFullName false t |> getTypeNameFromFullName
+        name
+    | Array elemType ->
+        getTypeName com ctx r elemType + "[]"
+    | _ ->
+        getTypeFullName false t |> splitFulName |> snd
 
 let rec namesof com ctx acc e =
     match acc, e with
@@ -367,6 +372,11 @@ let makeTypeConst com r (typ: Type) (value: obj) =
 
 let makeTypeInfo r t =
     TypeInfo t |> makeValue r
+
+// HACK: We canot alter the AST so we wrap type infos like this when generics are allowed
+let makeGenericTypeInfo r t =
+    let info = makeTypeInfo r t
+    TypeCast(info, info.Type) //, Some("generic"))
 
 let makeTypeDefinitionInfo r t =
     let t =
@@ -639,6 +649,27 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
+let rec findInScope (scope: FSharp2Fable.Scope) identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
+
+let (|RequireStringConst|_|) com (ctx: Context) r e =
+    (match e with
+     | StringConst s -> Some s
+     | MaybeCasted(IdentExpr ident) ->
+        match findInScope ctx.Scope ident.Name with
+        | Some(StringConst s) -> Some s
+        | _ -> None
+     | _ -> None)
+    |> Option.orElseWith(fun () ->
+        addError com ctx.InlinePath r "Expecting string literal"; None)
+
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
         | DeclaredType(ent,_) ->
@@ -780,7 +811,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
-        let f = makeComparerFunction com ctx t
+        let f = makeEqualityFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -831,6 +862,12 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
 
 and makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
+
+and makeEqualityFunction (com: ICompiler) ctx typArg =
+    let x = makeUniqueIdent ctx typArg "x"
+    let y = makeUniqueIdent ctx typArg "y"
+    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
+    Delegate([x; y], body, None)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1034,7 +1071,9 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
+    | BuiltinDefinition(FSharpChoice genArgs) ->
+        let membName = $"FSharpChoice${List.length genArgs}"
+        makeImportLib com Any membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1044,6 +1083,8 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
+    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
@@ -1069,10 +1110,12 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let defaultof (com: ICompiler) ctx (t: Type) =
+let rec defaultof (com: ICompiler) ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
+    // Non-struct tuples default to null
+    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
     | Builtin BclTimeSpan
     | Builtin BclDateTime
     | Builtin BclDateTimeOffset
@@ -1090,16 +1133,6 @@ let defaultof (com: ICompiler) ctx (t: Type) =
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
-
-let rec findInScope (scope: FSharp2Fable.Scope) (identName: string) =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
@@ -1180,8 +1213,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         |> Option.map (fun (s, i) ->
             makeTuple r [makeStrConst s; makeIntConst i])
 
+    // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
+    | _, "FormattableString.GetStrings" -> getAttachedMemberWith r t thisArg.Value "strs" |> Some
+
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
         | "AreEqual" -> Helper.LibCall(com, "Util", "assertEqual", t, args, ?loc=r) |> Some
@@ -1223,7 +1259,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    findInScope ctx.Scope ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with
@@ -1237,22 +1273,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
-            let (|RequireStringConst|_|) e =
-                (match e with
-                 | StringConst s -> Some s
-                 | MaybeCasted(IdentExpr ident) ->
-                    match findInScope ctx.Scope ident.Name with
-                    | Some(StringConst s) -> Some s
-                    | _ -> None
-                 | _ -> None)
-                |> Option.orElseWith(fun () ->
-                    addError com ctx.InlinePath r "Import only accepts string literals"; None)
             match suffix, args with
-            | "Member", [RequireStringConst path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
-            | "Default", [RequireStringConst path]     -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [RequireStringConst path] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [RequireStringConst path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [RequireStringConst selector; RequireStringConst path] -> makeImportUserGenerated r t selector path |> Some
+            | "Member", [RequireStringConst com ctx r path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
+            | "Default", [RequireStringConst com ctx r path]     -> makeImportUserGenerated r t "default" path |> Some
+            | "SideEffects", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t "" path |> Some
+            | "All", [RequireStringConst com ctx r path]         -> makeImportUserGenerated r t "*" path |> Some
+            | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg
@@ -1282,11 +1308,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitJsExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | StringConst macro ->
+            | RequireStringConst com ctx r macro ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
-            | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
+            | _ -> None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r [name; value] |> Some
         | "createObj", _ ->
@@ -1355,6 +1381,25 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
+let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[]) (printHoleContent: int -> string) =
+    // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
+    // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
+    let escape (str: string) =
+        str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+
+    let sb = System.Text.StringBuilder("`")
+    let mutable prevIndex = 0
+
+    for i = 0 to holes.Length - 1 do
+        let m = holes.[i]
+        let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
+        sb.Append(strPart + "${" + (printHoleContent i) + "}") |> ignore
+        prevIndex <- m.Index + m.Length
+
+    sb.Append(str.Substring(prevIndex) |> escape) |> ignore
+    sb.Append("`") |> ignore
+    sb.ToString()
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
@@ -1365,7 +1410,9 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | [cont; fmt] -> Helper.InstanceCall(fmt, "cont", t, [cont]) |> Some
         | _ -> None
     | "PrintFormatToString", _, _ ->
-        Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        match args with
+        | [template] when template.Type = String -> Some template
+        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatLine", _, _ ->
         Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToError"|"PrintFormatLineToError"), _, _ ->
@@ -1384,8 +1431,36 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray _, _) as values)::_ ->
-        Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
+        // Optimization: try to convert f# interpolated string to JS template
+        // for better performance
+        let template =
+            match str with
+            | StringConst str ->
+                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
+                ||> Seq.fold (fun acc m ->
+                    match acc with
+                    | None -> None
+                    | Some acc ->
+                        let doesNotNeedFormat =
+                            not m.Groups.[1].Success
+                            || m.Groups.[1].Value = "%s"
+                            || m.Groups.[1].Value = "%i"
+                        if doesNotNeedFormat then
+                            {| Index = m.Index; Length = m.Length |}::acc |> Some
+                        else None)
+                |> Option.map (fun holes -> str, List.toArray holes |> Array.rev)
+            | _ -> None
+
+        match template with
+        | Some(str, holes) ->
+            // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
+            // (though it does resolve double braces {{ }})
+            let str = str.Replace("%%" , "%")
+            printJsTaggedTemplate str holes (fun i -> $"${i}")
+            |> emitJsExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
+        // TODO: We could still use a JS template for formatting to increase performance?
+        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -1498,9 +1573,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        let argTypes = resolveArgTypes i.SignatureArgTypes i.GenericArgs
+        match argTypes with
         | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | CustomOp com ctx "Pow" argTypes m ->
+            let genArgs = i.GenericArgs |> Seq.map snd
+            FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m |> Some
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), _ ->
         let meth = Naming.lowerFirst meth
@@ -1684,7 +1763,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Split", Some c, _ ->
         match args with
         // Optimization
-        | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
+        | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst " "]) |> Some
         | [Value(CharConstant _,_) as separator]
         | [StringConst _ as separator]
         | [Value(NewArray([separator],_),_)] ->
@@ -1696,8 +1775,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 | _ -> Value(NewArray([arg1], String), None)
             let args = [arg1; Value(Null Any, None); arg2]
             Helper.LibCall(com, "String", "split", t, c::args, ?loc=r) |> Some
-        | args ->
-            Helper.LibCall(com, "String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | arg1::args ->
+            let arg1 =
+                match arg1.Type with
+                | Array _ -> arg1
+                | _ -> Value(NewArray([arg1], String), None)
+            Helper.LibCall(com, "String", "split", t, arg1::args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
@@ -1735,10 +1818,32 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let formattableString (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "Create", None, [str; args] -> objExpr ["str", str; "args", args] |> Some
-    | "get_Format", Some x, _ -> getAttachedMemberWith r t x "str" |> Some
+    // Even if we're going to wrap it again to make it compatible with FormattableString API, we use a JS template string
+    // because the strings array will always have the same reference so it can be used as a key in a WeakMap
+    // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
+    // of the FormattableString.GetStrings extension in Fable.Core too
+    | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+        let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
+        let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
+        let callMacro, args, offset =
+            if not hasFormat then
+                let fnArg = Helper.LibValue(com, "String", "fmt", t)
+                "$0", fnArg::args, 1
+            else
+                let fnArg = Helper.LibValue(com, "String", "fmtWith", t)
+                let fmtArg =
+                    matches
+                    |> Array.map (fun m -> makeStrConst m.Groups.[1].Value)
+                    |> Array.toList
+                    |> makeArray String
+                "$0($1)", fnArg::fmtArg::args, 2
+        let jsTaggedTemplate =
+            let holes = matches |> Array.map (fun m -> {| Index = m.Index; Length = m.Length |})
+            printJsTaggedTemplate str holes (fun i -> "$" + string(i + offset))
+        emitJsExpr r t args (callMacro + jsTaggedTemplate) |> Some
+    | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> getAttachedMemberWith r t (getAttachedMember x "args") "length" |> Some
     | "GetArgument", Some x, [idx] -> getExpr r t (getAttachedMember x "args") idx |> Some
     | "GetArguments", Some x, [] -> getAttachedMemberWith r t x "args" |> Some
@@ -2750,8 +2855,27 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | _ -> false
 
     match i.CompiledName with
-    // TODO: Use RegexConst if no options have been passed?
-    | ".ctor"   -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor" ->
+        let makeRegexConst r (pattern: string) flags =
+            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
+            RegexConstant(pattern, flags) |> makeValue r
+
+        let (|RegexFlags|_|) e =
+            let rec getFlags = function
+                | NumberOrEnumConst(1., _) -> Some [RegexFlag.RegexIgnoreCase]
+                | NumberOrEnumConst(2., _) -> Some [RegexFlag.RegexMultiline]
+                // TODO: We're missing RegexFlag.Singleline in the AST
+                // | NumberOrEnumConst(16., _) -> Some [RegexFlag.Singleline]
+                | Fable.Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+                    match getFlags flags1, getFlags flags2 with
+                    | Some flags1, Some flags2 -> Some(flags1 @ flags2)
+                    | _ -> None
+                | _ -> None
+            getFlags e
+        match args with
+        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
+        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
+        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
     | "get_Index" ->
@@ -2925,25 +3049,20 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> Helper.LibCall(com, "Uri", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor" -> Helper.LibCall(com, "Uri", "Uri.create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "TryCreate" -> Helper.LibCall(com, "Uri", "Uri.tryCreate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "UnescapeDataString" -> Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeDataString"   -> Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeUriString"    -> Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes) |> Some
-    | "get_IsAbsoluteUri" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_Scheme" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_Host" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_AbsolutePath" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_AbsoluteUri" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_PathAndQuery" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_Query" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
-    | "get_Fragment" ->
+    | "get_IsAbsoluteUri"
+    | "get_Scheme"
+    | "get_Host"
+    | "get_AbsolutePath"
+    | "get_AbsoluteUri"
+    | "get_PathAndQuery"
+    | "get_Query"
+    | "get_Fragment"
+    | "get_OriginalString" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
     | _ -> None
 
@@ -2989,7 +3108,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     let genMap = List.zip (e.GenericParameters |> List.map (fun p -> p.Name)) genArgs |> Map
                     let comp = if ignoreCase then System.StringComparison.OrdinalIgnoreCase else System.StringComparison.Ordinal
                     e.AllInterfaces |> Seq.tryPick (fun ifc ->
-                        let ifcName = getTypeNameFromFullName ifc.Entity.FullName
+                        let ifcName = splitFulName ifc.Entity.FullName |> snd
                         if ifcName.Equals(name, comp) then
                             let genArgs = ifc.GenericArgs |> List.map (function
                                 | GenericParam(name,_) as gen -> Map.tryFind name genMap |> Option.defaultValue gen
@@ -3000,11 +3119,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" ->
-                let fullname = getTypeFullName false exprType
-                match fullname.LastIndexOf(".") with
-                | -1 -> "" |> returnString r
-                | i -> fullname.Substring(0, i) |> returnString r
+            | "get_Namespace" -> getTypeFullName false exprType |> splitFulName |> fst |> returnString r
             | "get_IsArray" ->
                 match exprType with Array _ -> true | _ -> false
                 |> BoolConstant |> makeValue r |> Some
@@ -3052,7 +3167,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" | "IsInstanceOfType" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.LibCall(com, "Reflection", meth, t, thisArg::args, ?loc=r) |> Some
         | _ -> None
@@ -3078,6 +3193,17 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
         Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
+
+let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (returnType: Type) =
+    let t = Any // TODO: Proper type
+    let args = [
+        makeStrConst name
+        parameters
+            |> List.map (fun (name, t) -> makeTuple None [makeStrConst name; makeGenericTypeInfo None t])
+            |> makeArray Any
+        makeGenericTypeInfo None returnType
+    ]
+    Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isJsConstructor=true, ?loc=r)
 
 let curryExprAtRuntime com arity (expr: Expr) =
     Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
@@ -3157,6 +3283,8 @@ let private replacedModules =
     Types.icollectionGeneric, resizeArrays
     Types.icollection, resizeArrays
     Types.hashset, hashSets
+    Types.stack, bclType
+    Types.queue, bclType
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
@@ -3257,10 +3385,15 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         else fsharpValue com methName r t info args
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.PropertyInfo"
+    | "System.Reflection.ParameterInfo"
+    | "System.Reflection.MethodBase"
+    | "System.Reflection.MethodInfo"
     | "System.Reflection.MemberInfo" ->
         match thisArg, info.CompiledName with
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
-        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
+        | Some c, "get_ReturnType" -> makeStrConst "returnType" |> getExpr r t c |> Some
+        | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
+        | Some c, ("get_PropertyType"|"get_ParameterType") -> makeIntConst 1 |> getExpr r t c |> Some
         | Some c, "GetFields" -> Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
         | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "getValue", t, c::args, ?loc=r) |> Some
         | Some c, "get_Name" ->
@@ -3277,6 +3410,8 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
     match ent.FullName with
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
+    | fullName when fullName.StartsWith("Fable.Core.") && fullName.EndsWith("Attribute") ->
+        Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =
             match argTypes.Value, args with
@@ -3306,6 +3441,20 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
+    | Types.stack ->
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
+            Some(makeImportLib com Any entityName "Stack", args)
+        | _ -> None
+    | Types.queue ->
+        match argTypes.Value, args with
+        | [], _ ->
+            let args = []
+            let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Queue"
+            Some(makeImportLib com Any entityName "Queue", args)
+        | _ -> None
     | _ -> None
 
 let tryType = function
@@ -3332,7 +3481,7 @@ let tryType = function
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [key; value])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
-        | FSharpChoice genArgs -> Some(Types.hashset, hashSets, genArgs)
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.reference, references, [genArg])
     | _ -> None

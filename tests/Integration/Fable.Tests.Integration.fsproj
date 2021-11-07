@@ -14,8 +14,8 @@
     <ProjectReference Include="..\..\src\Fable.Cli\Fable.Cli.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../Main/Util/Util.fs" />
     <Compile Include="FileWatcherTests.fs" />
+    <Compile Include="CliTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

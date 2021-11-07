@@ -5,7 +5,7 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
-from typing import Any, Callable, Iterable, List, Optional, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -171,6 +171,29 @@ def assert_not_equal(actual: T, expected: T, msg: Optional[str] = None) -> None:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
+class Lazy(Generic[T]):
+    def __init__(self, factory: Callable[[], T]):
+        self.factory = factory
+        self.is_value_created = False
+        self.created_value = None
+
+    @property
+    def Value(self):
+        if not self.is_value_created:
+            self.created_value = self.factory()
+            self.is_value_created = True
+
+        return self.created_value
+
+    @property
+    def IsValueCreated(self):
+        return self.is_value_created
+
+
+def lazy_from_value(v: T) -> Lazy[T]:
+    return Lazy(lambda: v)
+
+
 def create_atom(value=None):
     atom = value
 
@@ -196,24 +219,38 @@ def create_obj(fields):
     return obj
 
 
-def int16to_string(i, radix=10):
+def tohex(val, nbits=None):
+    if nbits:
+        val = (val + (1 << nbits)) % (1 << nbits)
+    return "{:x}".format(val)
+
+
+def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
-        return "{:x}".format(i)
+        return tohex(i, bitsize)
     if radix == 2:
         return "{:b}".format(i)
+    if radix == 8:
+        return "{:o}".format(i)
     return str(i)
 
 
-def int32to_string(i: int, radix: int = 10) -> str:
-    if radix == 10:
-        return "{:d}".format(i)
-    if radix == 16:
-        return "{:x}".format(i)
-    if radix == 2:
-        return "{:b}".format(i)
-    return str(i)
+def int8_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 8)
+
+
+def int16_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 16)
+
+
+def int32_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 32)
+
+
+def int64_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+    return int_to_string(i, radix, 64)
 
 
 def clear(col):
@@ -313,33 +350,71 @@ def uncurry(arity: int, f: Callable):
     return uncurriedFn
 
 
-def curry(arity: int, f: Callable) -> Callable:
-    if f is None or arity == 1:
-        return f
+def curry(arity: int, fn: Callable) -> Callable:
+    if fn is None or arity == 1:
+        return fn
 
-    if hasattr(f, CURRIED_KEY):
-        return getattr(f, CURRIED_KEY)
+    if hasattr(fn, CURRIED_KEY):
+        return getattr(fn, CURRIED_KEY)
 
     if arity == 2:
-        return lambda a1: lambda a2: f(a1, a2)
+        return lambda a1: lambda a2: fn(a1, a2)
     elif arity == 3:
-        return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
+        return lambda a1: lambda a2: lambda a3: fn(a1, a2, a3)
     elif arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
-    elif arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(a1, a2, a3, a4)
+    elif arity == 5:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(a1, a2, a3, a4, a5)
     elif arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(a1, a2, a3, a4, a5, a6)
     elif arity == 7:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             a1, a2, a3, a4, a5, a6, a7
         )
     elif arity == 8:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
             a1, a2, a3, a4, a5, a6, a7, a8
         )
     else:
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
+
+
+def partial_apply(arity: int, fn: Callable, args: List) -> Any:
+    if not fn:
+        return
+
+    if hasattr(fn, CURRIED_KEY):
+        fn = getattr(fn, CURRIED_KEY)
+
+        for arg in args:
+            fn = fn(arg)
+
+        return fn
+
+    if arity == 1:
+        # Wrap arguments to make sure .concat doesn't destruct arrays. Example
+        # [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
+        # [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
+        return lambda a1: fn(args + [a1])
+    if arity == 2:
+        return lambda a1: lambda a2: fn(args + [a1, a2])
+    if arity == 3:
+        return lambda a1: lambda a2: lambda a3: fn(args + [a1, a2, a3])
+    if arity == 4:
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(args + [a1, a2, a3, a4])
+    if arity == 5:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(args + [a1, a2, a3, a4, a5])
+    if arity == 6:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(args + [a1, a2, a3, a4, a5, a6])
+    if arity == 7:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
+            args + [a1, a2, a3, a4, a5, a6, a7]
+        )
+    if arity == 8:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
+            args + [a1, a2, a3, a4, a5, a6, a7, a8]
+        )
+    raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
 
 
 def is_array_like(x):
@@ -423,7 +498,6 @@ def combine_hash_codes(hashes):
 
 
 def structural_hash(x):
-    print("structural_hash: ", x)
     return hash(x)
 
 
@@ -440,6 +514,23 @@ def physical_hash(x):
         return hash(x)
 
     return number_hash(ObjectRef.id(x))
+
+
+def equal_arrays_with(xs: Iterable[T], ys: Iterable[T], eq: Callable[[T, T], bool]) -> bool:
+    if xs is None:
+        return ys is None
+
+    if ys is None:
+        return False
+
+    if len(xs) != len(ys):
+        return False
+
+    for i, x in enumerate(xs):
+        if not eq(x, ys[i]):
+            return False
+
+    return True
 
 
 def round(value, digits=0):
@@ -459,11 +550,6 @@ def unescape_data_string(s: str) -> str:
 
 def escape_data_string(s: str) -> str:
     return quote(s)
-    # .replace(/!/g, "%21")
-    # .replace(/'/g, "%27")
-    # .replace(/\(/g, "%28")
-    # .replace(/\)/g, "%29")
-    # .replace(/\*/g, "%2A");
 
 
 def escape_uri_string(s: str) -> str:

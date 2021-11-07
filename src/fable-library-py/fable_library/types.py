@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from abc import abstractstaticmethod
-from typing import Any, Generic, Iterable, List, Tuple, TypeVar, Union as Union_, Callable, Optional, cast
-from .util import equals
+from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Union as Union_
+from typing import cast
 
-from .util import IComparable
+from .util import IComparable, equals
 
 T = TypeVar("T")
 
@@ -49,7 +50,6 @@ class Union(IComparable):
 
     def to_JSON(self) -> str:
         raise NotImplementedError
-        # return str([self.name] + self.fields) if len(self.fields) else self.name
 
     def __str__(self) -> str:
         if not len(self.fields):
@@ -65,6 +65,9 @@ class Union(IComparable):
             fields = ", ".join(map(str, self.fields))
 
         return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def __hash__(self) -> int:
         hashes = map(hash, self.fields)
@@ -88,7 +91,7 @@ class Union(IComparable):
         return self.tag < other.tag
 
 
-def recordEquals(self, other):
+def record_equals(self, other):
     if self is other:
         return True
 
@@ -98,7 +101,7 @@ def recordEquals(self, other):
     return a == b
 
 
-def recordCompareTo(self, other):
+def record_compare_to(self, other):
     if self is other:
         return 0
 
@@ -112,7 +115,7 @@ def recordCompareTo(self, other):
         return 0
 
 
-def recordToString(self):
+def record_to_string(self):
     return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
@@ -121,20 +124,23 @@ def recordGetHashCode(self):
 
 
 class Record(IComparable):
-    def toJSON(self) -> str:
-        return record_to_JSON(self)
+    # def toJSON(self) -> str:
+    #    return record_to_JSON(self)
 
     def __str__(self) -> str:
-        return recordToString(self)
+        return record_to_string(self)
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def GetHashCode(self) -> int:
         return recordGetHashCode(self)
 
     def Equals(self, other: Record) -> bool:
-        return recordEquals(self, other)
+        return record_equals(self, other)
 
     def CompareTo(self, other: Record) -> int:
-        return recordCompareTo(self, other)
+        return record_compare_to(self, other)
 
     def __lt__(self, other: Any) -> bool:
         return True if self.CompareTo(other) == -1 else False
@@ -172,10 +178,7 @@ def to_string(x, callStack=0):
         # if (typeof x.toString === "function") {
         #    return x.toString();
 
-        if isinstance(x, str):
-            return str(x)
-
-        if isinstance(x, Iterable):
+        if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
 
         # else: // TODO: Date?
@@ -206,11 +209,14 @@ class FSharpException(Exception, IComparable):
     def __init__(self):
         self.Data0: Any = None
 
-    def toJSON(self):
-        return record_to_JSON(self)
+    # def toJSON(self):
+    #    return record_to_JSON(self)
 
     def __str__(self):
-        return recordToString(self)
+        return record_to_string(self)
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def __eq__(self, other):
         if self is other:
@@ -246,10 +252,10 @@ class FSharpException(Exception, IComparable):
         recordGetHashCode(self)
 
     def Equals(self, other: FSharpException):
-        return recordEquals(self, other)
+        return record_equals(self, other)
 
     def CompareTo(self, other: FSharpException):
-        return recordCompareTo(self, other)
+        return record_compare_to(self, other)
 
 
-__all__ = ["Attribute", "Exception", "FSharpRef", "to_string", "Union"]
+__all__ = ["Attribute", "Exception", "FSharpException", "FSharpRef", "Record", "seq_to_string", "to_string", "Union"]

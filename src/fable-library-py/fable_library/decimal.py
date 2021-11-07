@@ -1,5 +1,7 @@
 from decimal import Decimal, MAX_EMAX, MIN_EMIN
 
+from .types import FSharpRef
+
 get_zero = Decimal(0)
 
 get_one = Decimal(1)
@@ -38,5 +40,25 @@ def op_addition(x: Decimal, y: Decimal):
     return x + y
 
 
-def to_string(x):
+def to_string(x: Decimal):
     return str(x)
+
+
+def to_number(x: Decimal):
+    return float(x)
+
+
+def parse(string: str):
+    return Decimal(string)
+
+
+def try_parse(string: str, defValue: FSharpRef[float]) -> bool:
+    try:
+        defValue.contents = parse(string)
+        return True
+    except Exception:
+        return False
+
+
+def equals(a: Decimal, b: Decimal) -> bool:
+    return a == b

@@ -2,8 +2,6 @@ module rec Fable.Transforms.Fable2Python
 
 open System
 open System.Collections.Generic
-open System.IO
-open System.Text.RegularExpressions
 
 open Fable
 open Fable.AST
@@ -101,13 +99,13 @@ module Lib =
     let libValue (com: IPythonCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
-    let tryJsConstructor (com: IPythonCompiler) ctx ent =
-        match Replacements.tryJsConstructor com ent with
+    let tryPyConstructor (com: IPythonCompiler) ctx ent =
+        match PY.Replacements.tryPyConstructor com ent with
         | Some e -> com.TransformAsExpr(ctx, e) |> Some
         | None -> None
 
-    let jsConstructor (com: IPythonCompiler) ctx ent =
-        let entRef = Replacements.jsConstructor com ent
+    let pyConstructor (com: IPythonCompiler) ctx ent =
+        let entRef = PY.Replacements.pyConstructor com ent
         com.TransformAsExpr(ctx, entRef)
 
 // TODO: This is too implementation-dependent, ideally move it to Replacements
@@ -131,8 +129,8 @@ module Reflection =
             |> Seq.toList
             |> Helpers.unzipArgs
         let fields = Expression.lambda(Arguments.arguments [], Expression.list(fields))
-        let js, stmts' = jsConstructor com ctx ent
-        [ fullnameExpr; Expression.list(generics); js; fields ]
+        let py, stmts' = pyConstructor com ctx ent
+        [ fullnameExpr; Expression.list(generics); py; fields ]
         |> libReflectionCall com ctx None "record", stmts @ stmts'
 
     let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -152,8 +150,8 @@ module Reflection =
                 |> Expression.list
             ) |> Seq.toList
         let cases = Expression.lambda(Arguments.arguments [], Expression.list(cases))
-        let js, stmts = jsConstructor com ctx ent
-        [ fullnameExpr; Expression.list(generics); js; cases ]
+        let py, stmts = pyConstructor com ctx ent
+        [ fullnameExpr; Expression.list(generics); py; cases ]
         |> libReflectionCall com ctx None "union", stmts
 
     let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
@@ -256,7 +254,7 @@ module Reflection =
                     let ent = com.GetEntity(entRef)
                     let ok', stmts = transformTypeInfo com ctx r genMap ok
                     let err', stmts' = transformTypeInfo com ctx r genMap err
-                    let expr, stmts'' =transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
+                    let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
                     expr, stmts @ stmts' @ stmts''
                 | Replacements.FSharpChoice gen ->
                     let ent = com.GetEntity(entRef)
@@ -295,7 +293,7 @@ module Reflection =
                     match generics with
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list(generics), []
-                    match tryJsConstructor com ctx ent with
+                    match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -383,7 +381,7 @@ module Reflection =
                 if ent.IsInterface then
                     warnAndEvalToFalse "interfaces", []
                 else
-                    match tryJsConstructor com ctx ent with
+                    match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) ->
                         if not(List.isEmpty genArgs) then
                             com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
@@ -413,14 +411,15 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) modulePath =
-        //printfn "ModulePath: %s" modulePath
+        // printfn "ModulePath: %s" modulePath
         let relative =
             match com.OutputType with
             | OutputType.Exe -> false
             | _ -> true
 
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn $"Relative: {relative}"
+        // printfn $"OutputDir: {com.OutputDir}"
+        // printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
@@ -435,8 +434,13 @@ module Helpers =
                 path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
             | false, "." -> ""
             | false, _ ->
-                Path.GetDirectoryName(modulePath).Replace("../", Naming.fableModulesDir).Replace("./", "").Replace("/", ".") + "."
-        // printfn $"Path: {path}"
+                let prefix =
+                    if Naming.isInFableModulesDir modulePath then
+                         Naming.fableModulesDir
+                    else
+                        ""
+                Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
+        //printfn $"Path: {path}"
 
         match modulePath with
         // Other libraries importing (relative) Fable library modules
@@ -645,13 +649,39 @@ module Util =
         | [] -> expr
         | m::ms -> get com ctx None expr m false |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs =
+    let makeArray (com: IPythonCompiler) ctx exprs typ =
+        let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+
+        let letter =
+            match typ with
+            | Fable.Type.Number(UInt8, _) -> Some "B"
+            | Fable.Type.Number(Int8, _) -> Some "b"
+            | Fable.Type.Number(Int16, _) -> Some "h"
+            | Fable.Type.Number(UInt16, _) -> Some "H"
+            | Fable.Type.Number(Int32, _) -> Some "i"
+            | Fable.Type.Number(UInt32, _) -> Some "I"
+            | Fable.Type.Number(Float32, _) -> Some "f"
+            | Fable.Type.Number(Float64, _) -> Some "d"
+            | _ -> None
+
+        match letter with
+        | Some "B" ->
+            let bytearray = Expression.name "bytearray"
+            Expression.call(bytearray, [Expression.list(expr)]), stmts
+        | Some l ->
+            let array = com.GetImportExpr(ctx, "array", "array")
+            Expression.call(array, Expression.constant l :: [Expression.list(expr)]), stmts
+        | _ ->
+            expr |> Expression.list, stmts
+
+    let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
         expr |> Expression.list, stmts
 
     let makeTuple (com: IPythonCompiler) ctx exprs =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
         expr |> Expression.tuple, stmts
+
     let makeStringArray strings =
         strings
         |> List.map (fun x -> Expression.constant(x))
@@ -870,8 +900,8 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
-                makeArray com ctx exprs
+            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, typ) ->
+                makeArray com ctx exprs typ
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
@@ -895,7 +925,8 @@ module Util =
             | x when x = -infinity -> Expression.name("float('-inf')"), []
             | _ -> Expression.constant(x, ?loc=r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ) -> makeArray com ctx values
+        | Fable.NewArray (values, typ) ->
+            makeArray com ctx values typ
         | Fable.NewArrayFrom (size, typ) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
             let arg, stmts = com.TransformAsExpr(ctx, size)
@@ -905,7 +936,7 @@ module Util =
                 Expression.list [], []
             | _ ->
                 match size.Type with
-                | Fable.Type.Number(_) ->
+                | Fable.Type.Number _ ->
                     let array = Expression.list [ Expression.constant(0) ]
                     Expression.binOp(array, Mult, arg), stmts
                 | _ ->
@@ -925,13 +956,13 @@ module Util =
             | [TransformExpr com ctx (expr, stmts)], None ->
                 libCall com ctx r "list" "singleton" [ expr ], stmts
             | exprs, None ->
-                let expr, stmts = makeArray com ctx exprs
+                let expr, stmts = makeList com ctx exprs
                 [ expr ]
                 |> libCall com ctx r "list" "ofArray", stmts
             | [TransformExpr com ctx (head, stmts)], Some(TransformExpr com ctx (tail, stmts')) ->
                 libCall com ctx r "list" "cons" [ head; tail], stmts @ stmts'
             | exprs, Some(TransformExpr com ctx (tail, stmts)) ->
-                let expr, stmts' = makeArray com ctx exprs
+                let expr, stmts' = makeList com ctx exprs
                 [ expr; tail ]
                 |> libCall com ctx r "list" "ofArrayWithTail", stmts @ stmts'
         | Fable.NewOption (value, t, _) ->
@@ -946,7 +977,7 @@ module Util =
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
-            let consRef, stmts' = ent |> jsConstructor com ctx
+            let consRef, stmts' = ent |> pyConstructor com ctx
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values, stmts = values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
@@ -954,7 +985,7 @@ module Util =
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
-            let consRef, stmts' = ent |> jsConstructor com ctx
+            let consRef, stmts' = ent |> pyConstructor com ctx
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
             let values = (ofInt tag)::values
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
@@ -1018,7 +1049,7 @@ module Util =
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    let decorators = [ Expression.name ($"{memb.Name}.setter") ]
+                    let decorators = [ Expression.name $"{memb.Name}.setter" ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
@@ -1062,7 +1093,7 @@ module Util =
             | _ -> classMembers
         let name = Helpers.getUniqueIdentifier "ObjectExpr"
         let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
-        Expression.call(Expression.name (name)), [ stmt ]
+        Expression.call(Expression.name name), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx hasSpread args : Expression list * Statement list =
         match args with
@@ -1117,36 +1148,32 @@ module Util =
             match op with
             | BinaryEqualStrict ->
                 match left, right with
-                | Expression.Constant(_), _
-                | _, Expression.Constant(_) ->
-                    let op = BinaryEqual
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                | _, Expression.Name(_) ->
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | Expression.Constant _ , _
+                | _, Expression.Constant _ ->
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
+                | _, Expression.Name _ ->
+                    Expression.compare(left, BinaryEqualStrict, [right], ?loc=range), stmts @ stmts'
                 | _ ->
-                    let op = BinaryEqual // Use == for the rest
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                    // Use == for the rest
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequalStrict ->
                 match left, right with
-                 | Expression.Constant(_), _
-                 | _, Expression.Constant(_) ->
-                    let op = BinaryUnequal
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                 | Expression.Constant _, _
+                 | _, Expression.Constant _ ->
+                    Expression.compare(left, BinaryUnequal, [right], ?loc=range), stmts @ stmts'
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryEqual ->
                 match left, right with
-                | Expression.Constant(_), _  ->
-                    let op = BinaryEqual
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | Expression.Constant _, _  ->
+                    Expression.compare(left, BinaryEqual, [right], ?loc=range), stmts @ stmts'
                 | _, Expression.Name({Id=Identifier("None")})  ->
-                    let op = BinaryEqualStrict
-                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                    Expression.compare(left, BinaryEqualStrict, [right], ?loc=range), stmts @ stmts'
                 | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequal ->
                 match right with
-                | Expression.Name({Id=Identifier("None")})  ->
+                | Expression.Name({ Id=Identifier("None")} ) ->
                     let op = BinaryUnequalStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
                 | _ ->
@@ -1325,10 +1352,10 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.FieldGet(fieldName="findIndex") ->
-            let attr = Python.Identifier("index")
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        // | Fable.FieldGet(fieldName="findIndex") ->
+        //     let attr = Python.Identifier("index")
+        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -1794,6 +1821,7 @@ module Util =
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
         | Fable.Import({ Selector = selector; Path = path; Kind=kind }, _, r) ->
+            // printfn "Fable.Import: %A" (selector, path)
             transformImport com ctx r selector path, []
 
         | Fable.Test(expr, kind, range) ->
@@ -2096,7 +2124,7 @@ module Util =
                 | _ -> false)
             |> Option.defaultValue false
 
-        let args, body =
+        let args, defaults, body =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
                 // Replace args, see NamedTailCallOpportunity constructor
@@ -2112,9 +2140,19 @@ module Util =
                 let body = varDecls @ body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
-                args', Statement.while'(Expression.constant(true), body)
+                args', [], Statement.while'(Expression.constant(true), body)
                 |> List.singleton
-            | _ -> args |> List.map (ident com ctx), body
+            | _ ->
+                // Make sure all of the last optional arguments will accept None as their default value
+                let defaults =
+                    args
+                    |> List.rev
+                    |> List.takeWhile (fun arg ->
+                        match arg.Type with
+                        | Fable.Option _ -> true
+                        | _ -> false)
+                    |> List.map(fun _ -> Expression.none())
+                args |> List.map (ident com ctx), defaults, body
 
         let arguments =
             let args = args |> List.map Arg.arg
@@ -2123,7 +2161,7 @@ module Util =
             | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
             // So we can also receive unit
             | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
-            | _ -> Arguments.arguments(args @ tcArgs, defaults=tcDefaults)
+            | _ -> Arguments.arguments(args @ tcArgs, defaults=defaults @ tcDefaults)
 
         arguments, body
 
@@ -2352,12 +2390,12 @@ module Util =
                 ent.UnionCases
                 |> Seq.map (getUnionCaseName >> makeStrConst)
                 |> Seq.toList
-                |> makeArray com ctx
+                |> makeList com ctx
 
-            let body = stmts @ [ Statement.return'(expr) ]
             let name = Identifier("cases")
-            let self = Arg.arg("self")
-            FunctionDef.Create(name, Arguments.arguments [ self ], body = body)
+            let body = stmts @ [ Statement.return'(expr) ]
+            let decorators = [ Expression.name("staticmethod") ]
+            FunctionDef.Create(name, Arguments.arguments [ ], body = body, decoratorList=decorators)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = List.append [ cases ] classMembers
@@ -2510,7 +2548,7 @@ module Util =
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
-        //printfn "getIdentForImport: %A" (moduleName, name)
+        // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
@@ -2546,7 +2584,7 @@ module Compiler =
                     | None -> Expression.none()
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
-                    //printfn "localId: %A" localId
+                    // printfn "localId: %A" localId
                     match name with
                     | Some "*"
                     | None ->
@@ -2588,6 +2626,7 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.GetEntity(fullName) = com.GetEntity(fullName)
+            member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)

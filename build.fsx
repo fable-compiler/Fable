@@ -1,4 +1,4 @@
-#load "src/fable-publish-utils/PublishUtils.fs"
+#load "src/Fable.PublishUtils/PublishUtils.fs"
 
 open PublishUtils
 open System
@@ -16,6 +16,15 @@ let FCS_REPO = "https://github.com/ncave/fsharp"
 let FCS_REPO_LOCAL = "../fsharp_fable"
 let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
+
+let BUILD_ARGS =
+    fsi.CommandLineArgs
+    |> Array.skip 1
+    |> List.ofArray
+
+let BUILD_ARGS_LOWER =
+    BUILD_ARGS
+    |> List.map (fun x -> x.ToLower())
 
 module Util =
     let cleanDirs dirs =
@@ -71,7 +80,7 @@ module Util =
         runFableWithArgs projectDir []
 
     let runMocha testDir =
-        runNpmScript "mocha" [$"{testDir} -r esm --reporter dot -t 10000"]
+        runNpmScript "mocha" [$"{testDir} --reporter dot -t 10000"]
 
 open Util
 
@@ -103,7 +112,7 @@ module Unused =
             else "bin\\tools\\reportgenerator.exe"
 
         // if not (pathExists "build/fable-library") then
-        //     buildLibraryJs()
+        //     buildLibrary()
 
         cleanDirs ["build/tests"]
         runFable "tests"
@@ -119,7 +128,7 @@ module Unused =
 
 // TARGETS ---------------------------
 
-let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
+let buildLibraryWithOptions (opts: {| watch: bool |}) =
     let baseDir = __SOURCE_DIRECTORY__
 
     let projectDir = baseDir </> "src/fable-library"
@@ -136,6 +145,7 @@ let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
     cleanDirs [buildDir]
     runInDir baseDir "npm install"
     makeDirRecursive buildDir
+
     copyFile (projectDir </> "package.json") buildDir
 
     if opts.watch then
@@ -150,14 +160,15 @@ let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
         runTSLint projectDir
         runTypeScript projectDir
         runFableWithArgs projectDir fableOpts
+        removeDirRecursive (buildDir </> ".fable")
 
-let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
-let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
+let buildLibrary() = buildLibraryWithOptions {| watch = false |}
+let watchLibraryJs() = buildLibraryWithOptions {| watch = true |}
 
-let buildLibraryJsIfNotExists() =
+let buildLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library")) then
-        buildLibraryJs()
+        buildLibrary()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -257,12 +268,12 @@ let testJsFast() =
     let fableJs = "./src/fable-compiler-js/src/app.fs.js"
     let testProj = "tests/Main/Fable.Tests.fsproj"
     let buildDir = "build/tests-js"
-    run $"node --eval \"require('esm')(module)('{fableJs}')\" {fableJs} {testProj} {buildDir}"
+    run $"node {fableJs} {testProj} {buildDir}"
     runMocha buildDir
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryJsIfNotExists()
+    buildLibraryIfNotExists()
 
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
@@ -274,7 +285,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     let rollupTarget =
         match opts.watch, opts.minify with
         | true, _ ->
-            match args with
+            match BUILD_ARGS with
             | _::rollupTarget::_ -> rollupTarget
             | _ -> failwith "Pass the bundle output, e.g.: npm run build watch-standalone ../repl3/public/js/repl/bundle.min.js"
         | false, true -> buildDir </> "bundle.js"
@@ -405,16 +416,15 @@ let testReact() =
     runFableWithArgs "tests/React" []
     runInDir "tests/React" "npm i && npm test"
 
-
 let testCompiler() =
     runInDir "tests/Compiler" "dotnet run -c Release"
 
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
-let testMocha() =
-    let projectDir = "tests/Main"
-    let buildDir = "build/tests"
+let compileAndRunTestsWithMocha projectDir buildDir =
+    let projectDir = "tests/" + projectDir
+    let buildDir = "build/" + buildDir
 
     cleanDirs [buildDir]
     runFableWithArgs projectDir [
@@ -424,10 +434,15 @@ let testMocha() =
 
     runMocha buildDir
 
-let testDefineConstants() =
-    [ "tests/DefineConstants/DebugWithExtraDefines", "Debug"
-      "tests/DefineConstants/CustomConfiguration", "Test"
-      "tests/DefineConstants/ReleaseNoExtraDefines", String.Empty ]
+let testMocha() =
+    compileAndRunTestsWithMocha "Main" "tests"
+
+let testProjectConfigs() =
+    [ "tests/ProjectConfigs/DebugWithExtraDefines", "Debug"
+      "tests/ProjectConfigs/CustomConfiguration", "Test"
+      "tests/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
+      "tests/ProjectConfigs/ConsoleApp", String.Empty
+    ]
     |> List.iter (fun (projectDir, configuration) ->
         let buildDir = "build/"+ projectDir
 
@@ -443,15 +458,19 @@ let testDefineConstants() =
     )
 
 let test() =
-    buildLibraryJsIfNotExists()
-
-    testDefineConstants()
+    buildLibraryIfNotExists()
 
     testMocha()
 
     runInDir "tests/Main" "dotnet run"
 
+    // Adaptive tests must go in a different project to avoid conflitcts with Queue shim, see #2559
+    compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
+
+    // TODO: Re-enable React tests after updating Feliz ReactComponent plugin
     // testReact()
+
+    testProjectConfigs()
 
     testCompiler()
 
@@ -474,8 +493,7 @@ let testPython() =
         "--lang Python"
     ]
 
-    //runInDir buildDir "touch __init__.py" // So relative imports works.
-    runInDir buildDir "pytest"
+    runInDir buildDir "pytest -x"
 
 let testRust() =
     // buildLibraryRustIfNotExists()
@@ -520,14 +538,14 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibraryJs()
+            buildLibrary()
             updateVersionInFableTransforms version)
 
 let testRepos() =
     let repos = [
         "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3", "npm i && npm test"
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
-        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha -r esm tests/bin"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha tests/bin"
         "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
@@ -555,16 +573,14 @@ let testRepos() =
 let githubRelease() =
     match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
     | Some user, Some token ->
-        async {
-            try
-                let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
-                let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
-                run $"git commit -am \"Release {version}\" && git push"
-                runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
-                printfn "Github release %s created successfully" version
-            with ex ->
-                printfn "Github release failed: %s" ex.Message
-        } |> runAsyncWorkflow
+        try
+            let version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
+            let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
+            run $"git commit -am \"Release {version}\" && git push"
+            runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
+            printfn "Github release %s created successfully" version
+        with ex ->
+            printfn "Github release failed: %s" ex.Message
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let copyFcsRepo sourceDir =
@@ -626,9 +642,9 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibraryJs())
+        buildLibrary())
+     "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
-     "fable-publish-utils", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
      "fable-compiler-js", fun () -> buildCompilerJs true
     ]
@@ -638,19 +654,17 @@ let publishPackages restArgs =
         match List.tryHead restArgs with
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
-    async {
-        for (pkg, buildAction) in packages do
-            if System.Char.IsUpper pkg.[0] then
-                let projFile = "src" </> pkg </> pkg + ".fsproj"
-                do! pushFableNuget projFile ["Pack", "true"] buildAction
-            else
-                pushNpm ("src" </> pkg) buildAction
-    } |> runAsyncWorkflow
+    for (pkg, buildAction) in packages do
+        if System.Char.IsUpper pkg.[0] then
+            let projFile = "src" </> pkg </> pkg + ".fsproj"
+            pushFableNuget projFile ["Pack", "true"] buildAction
+        else
+            pushNpm ("src" </> pkg) buildAction
 
 let minify<'T> =
-    argsLower |> List.contains "--no-minify" |> not
+    BUILD_ARGS_LOWER |> List.contains "--no-minify" |> not
 
-match argsLower with
+match BUILD_ARGS_LOWER with
 // | "check-sourcemaps"::_ ->
 //     ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
 //     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
@@ -659,7 +673,7 @@ match argsLower with
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
 | "test-mocha"::_ -> testMocha()
-| "test-define-constants"::_ -> testDefineConstants()
+| "test-configs"::_ -> testProjectConfigs()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
@@ -668,15 +682,15 @@ match argsLower with
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
-    buildLibraryJsIfNotExists()
+    buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
 | "run"::_ ->
-    buildLibraryJsIfNotExists()
+    buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
-    let restArgs = args |> List.skip 1 |> String.concat " "
+    let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release -p {resolveDir "src/Fable.Cli"} -- {restArgs}"""
 
 | "package"::_ ->
@@ -688,7 +702,7 @@ match argsLower with
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibraryJs()
-| ("fable-library"|"library")::_ -> buildLibraryJs()
+| ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()

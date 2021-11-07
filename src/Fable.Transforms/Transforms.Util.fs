@@ -23,6 +23,10 @@ module Atts =
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
+    let [<Literal>] paramList = "Fable.Core.ParamListAttribute"// typeof<Fable.Core.ParamListAttribute>.FullName
+    let [<Literal>] paramObject = "Fable.Core.ParamObjectAttribute"// typeof<Fable.Core.ParamObjectAttribute>.FullName
+    let [<Literal>] decorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
+    let [<Literal>] reflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -32,6 +36,8 @@ module Types =
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
     let [<Literal>] exception_ = "System.Exception"
+    let [<Literal>] systemException = "System.SystemException"
+    let [<Literal>] timeoutException = "System.TimeoutException"
     let [<Literal>] bool = "System.Boolean"
     let [<Literal>] char = "System.Char"
     let [<Literal>] string = "System.String"
@@ -65,6 +71,8 @@ module Types =
     let [<Literal>] ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
     let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
     let [<Literal>] iset = "System.Collections.Generic.ISet`1"
+    let [<Literal>] stack = "System.Collections.Generic.Stack`1"
+    let [<Literal>] queue = "System.Collections.Generic.Queue`1"
     let [<Literal>] keyValuePair = "System.Collections.Generic.KeyValuePair`2"
     let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
@@ -318,6 +326,11 @@ module AST =
         | MaybeCasted(Value(BoolConstant v, _)) -> Some v
         | _ -> None
 
+    let (|NumberOrEnumConst|_|) = function
+        | MaybeCasted(Value(NumberConstant(value, kind, _), _)) -> Some(value, kind)
+        | MaybeCasted(Value(EnumConstant(Value(NumberConstant(value, kind, _), _),_),_)) -> Some(value, kind)
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
@@ -421,8 +434,8 @@ module AST =
         match com.Options.Language with
         | Python ->
             // Python modules should be all lower case without any dots (PEP8)
-            let moduleName = moduleName.ToLower().Replace(".", "_")
-            com.LibraryDir + "/" + moduleName + ".py"
+            let moduleName' = moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase |> (fun str -> str.Replace(".", "_"))
+            com.LibraryDir + "/" + moduleName' + ".py"
         | Rust ->
             com.LibraryDir + "/" + moduleName + ".rs"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"

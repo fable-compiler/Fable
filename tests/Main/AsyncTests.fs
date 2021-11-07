@@ -200,7 +200,7 @@ let tests =
     //         do! Async.Sleep 75
     //         equal true !res
     //     }
-
+    
     testCaseAsync "Async.Parallel works" <| fun () ->
         async {
             let makeWork i =
@@ -216,6 +216,75 @@ let tests =
             } |> Async.StartImmediate
             do! Async.Sleep 500
             !res |> Array.sum |> equal 6
+        }
+
+    testCaseAsync "Async.Parallel is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let add i =
+#if FABLE_COMPILER
+                x <- x + i
+#else
+                System.Threading.Interlocked.Add(&x, i) |> ignore<int>
+#endif
+
+            let a = Async.Parallel [
+                async { add 1 }
+                async { add 2 }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
+        }
+
+    testCaseAsync "Async.Sequential works" <| fun () ->
+        async {
+            let mutable _aggregate = 0
+
+            let makeWork i =
+                async {
+                    // check that the individual work items run sequentially and not interleaved
+                    _aggregate <- _aggregate + i
+                    let copyOfI = _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    return i
+                }
+            let works = [ for i in 1 .. 5 -> makeWork i ]
+            let now = DateTimeOffset.Now
+            let! result = Async.Sequential works
+            let ``then`` = DateTimeOffset.Now
+            let d = ``then`` - now
+            if d < TimeSpan.FromSeconds 1. then
+                failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
+            result |> equal [| 1 .. 5 |]
+            result |> Seq.sum |> equal _aggregate
+        }
+
+    testCaseAsync "Async.Sequential is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let a = Async.Sequential [
+                async { x <- x + 1 }
+                async { x <- x + 2 }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
         }
 
     #if FABLE_COMPILER
@@ -461,13 +530,36 @@ let tests =
             return "F"
         }
         let! result1Async = taskA |> Async.StartChild // start first request but do not wait
-        let! result2Async = taskB |> Async.StartChild  // start second request in parallel
+        let! result2Async = taskB |> Async.StartChild // start second request in parallel
         x <- x + "AB"
         let! result1 = result1Async
         let! result2 = result2Async
         x <- x + result1 + result2
         equal x "ABCDEF"
       }
+
+    testCaseAsync "Async.StartChild applys timeout" <| fun () ->
+        async {
+            let mutable x = ""
+
+            let task = async {
+                x <- x + "A"
+                do! Async.Sleep 1_000
+                x <- x + "X" // Never hit
+            }
+
+            try
+                let! childTask = Async.StartChild (task, 200)
+
+                do! childTask
+            with
+                | :? TimeoutException ->
+                    x <- x + "B"
+
+            x <- x + "C"
+
+            equal x "ABC"
+        }
 
     testCaseAsync "Unit arguments are erased" <| fun () -> // See #1832
         let mutable token = 0

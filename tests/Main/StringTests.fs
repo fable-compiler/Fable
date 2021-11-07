@@ -3,6 +3,7 @@ module Fable.Tests.Strings
 open System
 open Util.Testing
 #if FABLE_COMPILER
+open Fable.Core
 open Fable.Core.JsInterop
 
 module M =
@@ -512,18 +513,44 @@ let tests =
 
       testCase "String.Split works" <| fun () ->
             "a b c  d".Split(' ')
-            |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+            |> equal [|"a";"b";"c";"";"d"|]
             "a b c  d ".Split()
-            |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
+            |> equal [|"a";"b";"c";"";"d";""|]
+            "a-b-c".Split()
+            |> equal [|"a-b-c"|]
+            "a-b-c".Split("")
+            |> equal [|"a-b-c"|]
+            "a\tb".Split()
+            |> equal [|"a";"b"|]
+            "a\nb".Split()
+            |> equal [|"a";"b"|]
+            "a\rb".Split()
+            |> equal [|"a";"b"|]
+            "a\u2003b".Split() // em space
+            |> equal [|"a";"b"|]
+            "a b c  d".Split(null)
+            |> equal [|"a";"b";"c";"";"d"|]
+            "a\tb".Split(null)
+            |> equal [|"a";"b"|]
+            "a\u2003b".Split(null) // em space
+            |> equal [|"a";"b"|]
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
             "a--b-c".Split([|"--"|], StringSplitOptions.None)
-            |> (=) [|"a";"b-c"|] |> equal true
+            |> equal [|"a";"b-c"|]
+            " a-- b- c ".Split('-', 2, StringSplitOptions.None)
+            |> equal [|" a"; "- b- c "|]
+            "---o---o---".Split("--", StringSplitOptions.None)
+            |> equal [|""; "-o"; "-o"; "-"|];
 
       testCase "String.Split with remove empties works" <| fun () ->
             "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
             |> (=) [|"a";"b";"c";"d"|] |> equal true
+            " a-- b- c ".Split("-", 2, StringSplitOptions.RemoveEmptyEntries)
+            |> (=) [|" a"; " b- c "|] |> equal true
+            "---o---o---".Split("--", StringSplitOptions.RemoveEmptyEntries)
+            |> (=) [|"-o"; "-o"; "-"|] |> equal true
             let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
@@ -534,6 +561,34 @@ let tests =
             equal "b  c d" array.[1]
             "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
             |> (=) [|"a";"b";"c;d"|] |> equal true
+            "a-b-c".Split("", System.Int32.MaxValue)
+            |> (=) [|"a-b-c"|] |> equal true
+
+      testCase "String.Split with empty works" <| fun () ->
+            let array = "a b cd".Split()
+            array |> equal [| "a"; "b"; "cd" |]
+
+      testCase "String.Split with trim entries works" <| fun () ->
+            " a-- b- c ".Split('-', 2, StringSplitOptions.TrimEntries)
+            |> (=) [|"a"; "- b- c"|] |> equal true
+            " a-- b- c ".Split('-', 3, StringSplitOptions.TrimEntries)
+            |> (=) [|"a"; ""; "b- c"|] |> equal true
+
+      testCase "String.Split with trim and remove entries works" <| fun () ->
+            " a-- b- c ".Split([| "-" |], 2, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal [|"a"; "b- c"|]
+            " a-- b- c ".Split([| '-' |], 3, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal  [|"a"; "b"; "c"|]
+
+      testCase "String.Split with consecutive separators works" <| fun () ->
+            "       ".Split(" ", 4,  StringSplitOptions.None)
+            |> equal [|"";"";"";"    "|]
+            "       ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries)
+            |> equal [||]
+            "       ".Split(" ", 4,  StringSplitOptions.TrimEntries)
+            |> equal [|"";"";"";""|]
+            "       ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> equal [||]
 
       testCase "String.Replace works" <| fun () ->
             "abc abc abc".Replace("abc", "d") |> equal "d d d"
@@ -893,7 +948,21 @@ let tests =
             sprintf "%d%%" 100 |> equal "100%"
 
       testCase "interpolated string with double % should be unescaped" <| fun () ->
-            $"{100}%%" |> equal "100%"
+          $"{100}%%" |> equal "100%"
+
+      testCase "interpolated string with format and double % should be unescaped" <| fun () ->
+          $"%.2f{100.4566666}%%" |> equal "100.46%"
+
+      testCase "interpolated string with double braces should be unescaped" <| fun () ->
+          $"{{ {100} }}" |> equal "{ 100 }"
+
+      testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
+          $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
+
+      testCase "interpolated string with consecutive holes work" <| fun () ->
+            $"""{"foo"}{5}""" |> equal "foo5"
+            $"""%s{"foo"}%i{5}""" |> equal "foo5"
+            $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
       testCase "Can create FormattableString" <| fun () ->
           let orderAmount = 100
@@ -903,4 +972,26 @@ let tests =
           s.ArgumentCount |> equal 3
           s.GetArgument(2) |> equal (box true)
           s.GetArguments() |> equal [|100; 3; true|]
-  ]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.Format |> equal "{0}This is \"{1}\" awesome!"
+          s2.GetArguments() |> equal [|box 7; box "really"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.Format |> equal "I have no holes"
+          s3.GetArguments() |> equal [||]
+          let s4: FormattableString = $"I have `backticks`"
+          s4.Format |> equal "I have `backticks`"
+          let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
+          s5.Format |> equal "I have {escaped braces} and %percentage%"
+
+#if FABLE_COMPILER
+      testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
+          let orderAmount = 100
+          let convert (s: FormattableString) = s
+          let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+          s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.GetStrings() |> equal [|"I have no holes"|]
+#endif
+]

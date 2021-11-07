@@ -6,9 +6,15 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 #if LOCAL_TEST
-let [<Global>] __dirname = "__dirname"
-let getMetadataDir(): string = __dirname + "/../../fable-metadata/lib/"
-let getFableLibDir(): string = __dirname + "/../../../build/fable-library/"
+let [<Emit("import.meta.url")>] importMetaUrl(): string = jsNative
+let fileURLToPath (path: string): string = importMember "url"
+let dirname (path: string): string = importMember "path"
+let join (path1: string) (path2: string): string = importMember "path"
+let inline getCurrentFilePath() = fileURLToPath(importMetaUrl())
+
+let currentDirName = getCurrentFilePath() |> dirname
+let getMetadataDir(): string = join currentDirName "../../fable-metadata/lib/"
+let getFableLibDir(): string = join currentDirName "../../../build/fable-library/"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = import "init" "../../fable-standalone/src/Main.fs.js"
 #else
@@ -36,7 +42,7 @@ module Imports =
         let importPath = normalizePath importPath
         let outDir = normalizePath outDir
         // It may happen the importPath is already in outDir,
-        // for example package sources in .fable folder
+        // for example package sources in fable_modules folder
         if importPath.StartsWith(outDir) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)

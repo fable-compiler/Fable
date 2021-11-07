@@ -1,3 +1,106 @@
+### 3.4.9
+
+* Add CLI arg --watchDelay
+* Show relative paths in logs
+* Fixed Seq.toArray @ncave
+* Fix FullName/Name/Namespace of complex array types
+
+### 3.4.8
+
+* Fix #2572 #2579: Watch .fsi files and referenced .fsproj
+* Fix #2576: Last file can omit module declaration
+* Fix Seq.cache with partial enumeration
+* Fix DateTime Offset parsing with date only and hyphens
+* Set NODE_ENV when running a sub-process
+
+### 3.4.7
+
+* Fix #2571: Forward slash not escaped when creating regex
+
+### 3.4.6
+
+* Small improvements in Async.ts
+
+### 3.4.5
+
+* Accept ${entryDir} macro in imports
+
+### 3.4.4
+
+* Use relative paths for source maps
+
+### 3.4.3
+
+* Add support of System.Activator for primitive types @Happypig375
+* Fix #2566: HashSet.IntersectWith does not respect custom comparer
+* Fix calling super from an override when the method was declared in grandparent
+* Compile to RegexConstant when possible
+* Pass Fable compiled name to ReflectedDecorator
+* Remove void wrapper in expression statements
+
+### 3.4.2
+
+* Fix #2561: Case insensitive args and check
+* Fix generic parameters with JS.ReflectedDecorator
+
+### 3.4.1
+
+* Support System.Collections.Generic.Queue @davedawkins
+* Fix custom array equality
+* Remove class restriction for ParamObject
+* Skip parens in emit if placeholder is already surrounded by parens
+
+### 3.4.0
+
+* ParamObject attribute
+* Rename .fable folder to fable_modules
+* Print log about Femto
+* Add Type.IsInstanceOfType @chkn
+* Fix #2229: Parsing succeeded for some invalid dates @njlr
+
+### 3.3.1
+
+* Fix #2097: Async.StartChild does not apply timeout @njlr
+* Fix #2530: System.Collections.Generic.Stack @njlr
+* Fix #2548: Assigning to value of unit type
+* Fix #2549: Native ESM support
+* Serialize compiler_info as JSON
+
+### 3.3.0
+
+* JS.Decorator/ReflectedDecorator attributes
+* Fix isSubclassOf to walk up the inheritance chain @chkn
+* Fix #2520: Uri.OriginalString @njlr
+* Fix #2532: Measure products
+* Optimize interpolate strings without formatting into JS templates
+
+### 3.2.14
+
+* Fix #2480: Include package.json in fable-library
+* Fix #2522: Warn if user sets .fable as outDir
+* Fix #2525: Support infinite arity for currying/uncurrying
+* Fix plugin version check
+
+### 3.2.12
+
+* Fix #2505: Make String.Split match .NET with no or null separators
+* Add TimeSpan.Divide and Multiply @0x53A
+* Add Async.Sequential @0x53A
+* Compile `FormattableString` as JS Templates
+
+### 3.2.11
+
+* Add --rootModule CLI flag
+
+### 3.2.10
+
+* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator
+
 ### 3.2.9
 
 * Don't print JS files in watch mode if there're F# errors

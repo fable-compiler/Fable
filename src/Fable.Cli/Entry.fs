@@ -4,79 +4,120 @@ open System
 open Main
 open Fable
 
-let argValue key (args: string list) =
-    args
-    |> List.windowed 2
-    |> List.tryPick (function
-        | [key2; value] when not(value.StartsWith("-")) && key = key2 -> Some value
-        | _ -> None)
+type CliArgs(args: string list) =
+    let argsMap =
+        let even = List.length args % 2 = 0
+        // If arguments are odd, assume last has true value in case it's a flag
+        let args = if even then args else args @ ["true"]
+        (Map.empty, List.windowed 2 args) ||> List.fold (fun map pair ->
+            match pair with
+            | [key; value] when key.StartsWith("-") ->
+                let key = key.ToLower()
+                let value = if value.StartsWith("-") then "true" else value
+                match Map.tryFind key map with
+                | Some prev -> Map.add key (value::prev) map
+                | None -> Map.add key [value] map
+            | _ -> map)
 
-let argValueMulti keys (args: string list) =
-    args
-    |> List.windowed 2
-    |> List.tryPick (function
-        | [key2; value] when not(value.StartsWith("-")) && List.exists ((=) key2) keys -> Some value
-        | _ -> None)
+    member _.LoweredKeys = argsMap |> Map.toList |> List.map fst
 
-let tryFlag flag (args: string list) =
-    match argValue flag args with
-    | Some flag ->
-        match Boolean.TryParse(flag) with
-        | true, flag -> Some flag
-        | false, _ -> None
-    // Flags can be activated without an explicit value
-    | None when List.contains flag args -> Some true
-    | None -> None
+    member _.Values(key: string) =
+        Map.tryFind (key.ToLower()) argsMap
+        |> Option.defaultValue []
 
-let flagEnabled flag (args: string list) =
-    tryFlag flag args |> Option.defaultValue false
+    member _.Value([<ParamArray>] keys: string array) =
+        keys
+        |> Array.map (fun k -> k.ToLower())
+        |> Array.tryPick (fun k -> Map.tryFind k argsMap)
+        |> Option.bind List.tryHead
 
-let argValues key (args: string list) =
-    args
-    |> List.windowed 2
-    |> List.fold (fun acc window ->
-        match window with
-        | [key2; value] when key = key2 -> value::acc
-        | _ -> acc) []
-    |> List.rev
+    member this.FlagOr(flag: string, defaultValue: bool) =
+        this.Value(flag) |> Option.bind (fun flag ->
+            match Boolean.TryParse(flag) with
+            | true, flag -> Some flag
+            | false, _ -> None)
+        |> Option.defaultValue defaultValue
+
+    member this.FlagEnabled([<ParamArray>] flags: string array) =
+        flags |> Array.exists (fun flag -> this.FlagOr(flag, false))
+
+let knownCliArgs() = [
+  ["--cwd"],             ["Working directory"]
+  ["-o"; "--outDir"],    ["Redirect compilation output to a directory"]
+  ["-e"; "--extension"], ["Extension for generated JS files (default .fs.js)"]
+  ["-s"; "--sourceMaps"],["Enable source maps"]
+  ["--sourceMapsRoot"],  ["Set the value of the `sourceRoot` property in generated source maps"]
+  [], []
+  ["--define"],          ["Defines a symbol for use in conditional compilation"]
+  ["--configuration"],   ["The configuration to use when parsing .fsproj with MSBuild,"
+                          "default is 'Debug' in watch mode, or 'Release' otherwise"]
+  ["--verbose"],         ["Print more info during compilation"]
+  ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
+  ["--watch"],           ["Alias of watch command"]
+  ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
+  [], []
+  ["--run"],             ["The command after the argument will be executed after compilation"]
+  ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
+  ["--runWatch"],        ["Like run, but will execute after each watch compilation"]
+  ["--runScript"],       ["Runs the generated script for last file with node"
+                          """(Requires `"type": "module"` in package.json and at minimum Node.js 12.20, 14.14, or 16.0.0)"""]
+  [], []
+  ["--yes"],             ["Automatically reply 'yes' (e.g. with `clean` command)"]
+  ["--noRestore"],       ["Skip `dotnet restore`"]
+  ["--noCache"],         ["Recompile all files, including sources from packages"]
+  ["--exclude"],         ["Don't merge sources of referenced projects with specified pattern"
+                          "(Intended for plugin development)"]
+  [], []
+  ["--optimize"],        ["Compile with optimized F# AST (experimental)"]
+  ["--lang"; "--language"], ["Compile to JavaScript (default), TypeScript, Php or Python."
+                             "Support for TypeScript, Php and Python is experimental."]
+
+  // Hidden args
+  ["--typescript"], []
+  ["--rootModule"], []
+  ["--fableLib"], []
+  ["--replace"], []
+]
+
+let printKnownCliArgs() =
+    knownCliArgs() |> List.collect (function
+        | [], _ -> [""] // Empty line
+        | args, desc ->
+            let args = String.concat "|" args
+            match desc with
+            | [] -> [] // Args without description are hidden
+            | desc::extraLines -> [
+                $"  %-18s{args}{desc}"
+                yield! extraLines |> List.map (sprintf "%20s%s" "")
+            ])
+
+let sanitizeCliArgs (args: CliArgs) =
+    let knownCliArgs =
+        knownCliArgs()
+        |> List.collect fst
+        |> List.map (fun a -> a.ToLower())
+        |> set
+    (Ok args, args.LoweredKeys) ||> List.fold (fun res arg ->
+        match res with
+        | Error msg -> Error msg
+        | Ok args ->
+            if knownCliArgs.Contains(arg) then Ok args
+            else Error $"Unknown argument: {arg}")
+
+let parseCliArgs (args: string list) =
+    CliArgs(args) |> sanitizeCliArgs
 
 let printHelp() =
-    Log.always """Usage: fable [watch] [.fsproj file or dir path] [arguments]
+    Log.always $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
 Commands:
   -h|--help         Show help
   --version         Print version
   watch             Run Fable in watch mode
-  clean             Remove .fable folders and files with specified extension (default .fs.js)
+  clean             Remove fable_modules folders and files with specified extension (default .fs.js)
 
 Arguments:
-  --cwd             Working directory
-  -o|--outDir       Redirect compilation output to a directory
-  -e|--extension    Extension for generated JS files (default .fs.js)
-  -s|--sourceMaps   Enable source maps
-
-  --define          Defines a symbol for use in conditional compilation
-  --configuration   The configuration to use when parsing .fsproj with MSBuild,
-                    default is 'Debug' in watch mode, or 'Release' otherwise
-  --verbose         Print more info during compilation
-  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
-
-  --run             The command after the argument will be executed after compilation
-  --runFast         The command after the argument will be executed BEFORE compilation
-  --runWatch        Like run, but will execute after each watch compilation
-  --runScript       Runs the generated script for last file with node
-                    (Requires "esm" npm package)
-
-  --yes             Automatically reply 'yes' (e.g. with `clean` command)
-  --noRestore       Skip `dotnet restore`
-  --noCache         Recompile all files, including sources from packages
-  --exclude         Don't merge sources of referenced projects with specified pattern
-                    (Intended for plugin development)
-  --sourceMapsRoot  Set the value of the `sourceRoot` property in generated source maps
-
-  --optimize        Compile with optimized F# AST (experimental)
-  --lang|--language Compile to JavaScript (default), TypeScript, Php or Python.
-                    Support for TypeScript, Php and Python is experimental.
+{printKnownCliArgs() |> String.concat "\n"}
 
   Environment variables:
    DOTNET_USE_POLLING_FILE_WATCHER
@@ -85,9 +126,9 @@ Arguments:
    Docker mounted volumes, and other virtual file systems.
 """
 
-let defaultFileExt language args =
+let defaultFileExt language (args: CliArgs) =
     let fileExt =
-        match argValueMulti ["-o"; "--outDir"] args with
+        match args.Value("-o", "--outDir") with
         | Some _ -> ".js"
         | None -> CompilerOptionsHelper.DefaultExtension
     match language with
@@ -98,11 +139,11 @@ let defaultFileExt language args =
     | Rust -> ".rs"
     | _ -> fileExt
 
-let argLanguage args =
-    argValue "--lang" args
-    |> Option.orElse (argValue "--language" args)
-    |> Option.orElse (tryFlag "--typescript" args |> Option.map (fun _ -> "typescript")) // Compatibility with "--typescript".
-    |> Option.defaultValue "JavaScript"
+let argLanguage (args: CliArgs) =
+    args.Value("--lang", "--language")
+    |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
+    |> Option.map (fun lang -> lang.ToLower())
+    |> Option.defaultValue "js"
     |> (function
     | "ts" | "typescript" | "TypeScript" -> TypeScript
     | "py" | "python" | "Python" -> Python
@@ -118,7 +159,7 @@ let argLanguage args =
         | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) =
+  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) = result {
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -134,103 +175,119 @@ type Runner =
         |> Option.map normalizeAbsolutePath
         |> Option.defaultValue rootDir
 
-    if IO.Directory.Exists(fsprojPath) then
-        IO.Directory.EnumerateFileSystemEntries(fsprojPath)
-        |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
-        |> Seq.toList
-        |> function
-            | [] -> Error("Cannot find .fsproj in dir: " + fsprojPath)
-            | [fsproj] -> Ok fsproj
-            | _ -> Error("Found multiple .fsproj in dir: " + fsprojPath)
-    elif not(IO.File.Exists(fsprojPath)) then
-        Error("File does not exist: " + fsprojPath)
-    else
-        Ok fsprojPath
+    let! projFile =
+        if IO.Directory.Exists(fsprojPath) then
+            IO.Directory.EnumerateFileSystemEntries(fsprojPath)
+            |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
+            |> Seq.toList
+            |> function
+                | [] -> Error("Cannot find .fsproj in dir: " + fsprojPath)
+                | [fsproj] -> Ok fsproj
+                | _ -> Error("Found multiple .fsproj in dir: " + fsprojPath)
+        elif not(IO.File.Exists(fsprojPath)) then
+            Error("File does not exist: " + fsprojPath)
+        else
+            Ok fsprojPath
 
-    // TODO: Remove this check when typed arrays are compatible with typescript
-    |> Result.bind (fun projFile ->
-        let language = argLanguage args
-        let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
-        if language = TypeScript && typedArrays then
+    let language = argLanguage args
+    let typedArrays = args.FlagOr("--typedArrays", true)
+    let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
+    let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
+
+    do!
+        if outDirLast = Naming.fableHiddenDir then
+            Error($"{Naming.fableHiddenDir} is a reserved directory, please use another output directory")
+        // TODO: Remove this check when typed arrays are compatible with typescript
+        elif language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
         else
-            Ok(projFile, language, typedArrays)
-    )
+            Ok ()
 
-    |> Result.bind (fun (projFile, language, typedArrays) ->
-        let verbosity =
-            if flagEnabled "--verbose" args then
-                Log.makeVerbose()
-                Verbosity.Verbose
-            else Verbosity.Normal
+    let verbosity =
+        if args.FlagEnabled "--verbose" then
+            Log.makeVerbose()
+            Verbosity.Verbose
+        else Verbosity.Normal
 
-        let configuration =
-            let defaultConfiguration = if watch then "Debug" else "Release"
-            match argValue "--configuration" args with
-            | None -> defaultConfiguration
-            | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
-            | Some configurationArg -> configurationArg
+    let configuration =
+        let defaultConfiguration = if watch then "Debug" else "Release"
+        match args.Value "--configuration" with
+        | None -> defaultConfiguration
+        | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
+        | Some configurationArg -> configurationArg
 
-        let define =
-            argValues "--define" args
-            |> List.append [
-                "FABLE_COMPILER"
-                "FABLE_COMPILER_3"
-            ]
-            |> List.distinct
+    let define =
+        args.Values "--define"
+        |> List.append [
+            "FABLE_COMPILER"
+            "FABLE_COMPILER_3"
+        ]
+        |> List.distinct
 
-        let fileExt =
-            argValueMulti ["-e"; "--extension"] args
-            |> Option.defaultValue (defaultFileExt language args)
+    let fileExt =
+        args.Value("-e", "--extension")
+        |> Option.defaultValue (defaultFileExt language args)
 
-        let compilerOptions =
-            CompilerOptionsHelper.Make(language=language,
-                                       typedArrays = typedArrays,
-                                       fileExtension = fileExt,
-                                       define = define,
-                                       optimizeFSharpAst = flagEnabled "--optimize" args,
-                                       verbosity = verbosity)
+    let compilerOptions =
+        CompilerOptionsHelper.Make(language=language,
+                                   typedArrays = typedArrays,
+                                   fileExtension = fileExt,
+                                   define = define,
+                                   debugMode = (configuration = "Debug"),
+                                   optimizeFSharpAst = args.FlagEnabled "--optimize",
+                                   rootModule = (args.FlagOr("--rootModule", true)),
+                                   verbosity = verbosity)
 
-        let cliArgs =
-            { ProjectFile = Path.normalizeFullPath projFile
-              FableLibraryPath = argValue "--fableLib" args
-              RootDir = rootDir
-              Configuration = configuration
-              OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
-              SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
-              SourceMapsRoot = argValue "--sourceMapsRoot" args
-              NoRestore = flagEnabled "--noRestore" args
-              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args // backwards compatibility
-              Exclude = argValue "--exclude" args
-              Replace =
-                argValues "--replace" args
-                |> List.map (fun v ->
-                    let v = v.Split(':')
-                    v.[0], Path.normalizeFullPath v.[1])
-                |> Map
-              RunProcess = runProc
-              CompilerOptions = compilerOptions }
+    let cliArgs =
+        { ProjectFile = Path.normalizeFullPath projFile
+          FableLibraryPath = args.Value "--fableLib"
+          RootDir = rootDir
+          Configuration = configuration
+          OutDir = outDir
+          SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
+          SourceMapsRoot = args.Value "--sourceMapsRoot"
+          NoRestore = args.FlagEnabled "--noRestore"
+          NoCache = args.FlagEnabled "--noCache"
+          Exclude = args.Value "--exclude"
+          Replace =
+            args.Values "--replace"
+            |> List.map (fun v ->
+                let v = v.Split(':')
+                v.[0], Path.normalizeFullPath v.[1])
+            |> Map
+          RunProcess = runProc
+          CompilerOptions = compilerOptions }
 
-        State.Create(cliArgs, isWatch=watch)
+    let watchDelay =
+        if watch then
+            args.Value("--watchDelay")
+            |> Option.map int
+            |> Option.defaultValue 200
+            |> Some
+        else None
+
+    return!
+        State.Create(cliArgs, ?watchDelay=watchDelay)
         |> startFirstCompilation
-        |> Async.RunSynchronously)
+        |> Async.RunSynchronously
+}
 
-let clean args dir =
+let clean (args: CliArgs) rootDir =
     let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
     let fileExt =
-        argValueMulti ["-e"; "--extension"] args
+        args.Value("-e", "--extension")
         |> Option.defaultValue (defaultFileExt language args)
 
-    let dir =
-        argValueMulti ["-o"; "--outDir"] args
-        |> Option.defaultValue dir
+    let cleanDir =
+        args.Value("-o", "--outDir")
+        |> Option.defaultValue rootDir
         |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
-    if not(flagEnabled "--yes" args) then
+    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, cleanDir)
+    if not(args.FlagEnabled "--yes") then
         Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
         let keyInfo = Console.ReadKey()
         Console.WriteLine()
@@ -255,18 +312,11 @@ let clean args dir =
         |> Array.iter (fun subdir ->
             if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
                 IO.Directory.Delete(subdir, true)
-                Log.always("Deleted " + File.getRelativePathFromCwd subdir)
+                Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
 
-    recClean dir
+    recClean cleanDir
     Log.always("Clean completed! Files deleted: " + string fileCount)
-
-type ResultBuilder() =
-    member _.Bind(v,f) = Result.bind f v
-    member _.Return v = Ok v
-    member _.ReturnFrom v = v
-
-let result = ResultBuilder()
 
 [<EntryPoint>]
 let main argv =
@@ -287,33 +337,38 @@ let main argv =
                     |> Result.map (fun runProc -> argv, Some runProc)
                 | argv, [] -> Ok(argv, None)
 
+        let commands, args =
+            match argv with
+            | ("help"|"--help"|"-h")::_ -> ["--help"], []
+            | "--version"::_ -> ["--version"], []
+            | argv -> argv |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
+
+        let! args = parseCliArgs args
+
         let rootDir =
-            match argValue "--cwd" argv with
+            match args.Value "--cwd" with
             | Some rootDir -> File.getExactFullPath rootDir
             | None -> IO.Directory.GetCurrentDirectory()
 
         do
-            Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-            Log.always("Thanks to the contributor! @" + Contributors.getRandom())
-            if flagEnabled "--verbose" argv then
-                Log.makeVerbose()
-
-        match argv with
-        | ("help"|"--help"|"-h")::_ -> return printHelp()
-        | "--version"::_ -> return Log.always Literals.VERSION
-        | argv ->
-            let commands, args =
-                argv |> List.splitWhile (fun x ->
-                    x.StartsWith("-") |> not)
-
             match commands with
-            | ["clean"; dir] -> return clean args dir
-            | ["clean"] -> return clean args rootDir
-            | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
-            | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
-            | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=flagEnabled "--watch" args)
-            | [] -> return! Runner.Run(args, rootDir, runProc, watch=flagEnabled "--watch" args)
-            | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
+            | ["--version"] -> ()
+            | _ ->
+                Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
+                if args.FlagEnabled "--verbose" then
+                    Log.makeVerbose()
+
+        match commands with
+        | ["--help"] -> return printHelp()
+        | ["--version"] -> return Log.always Literals.VERSION
+        | ["clean"; dir] -> return clean args dir
+        | ["clean"] -> return clean args rootDir
+        | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
+        | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
+        | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
+        | [] -> return! Runner.Run(args, rootDir, runProc, watch=args.FlagEnabled("--watch"))
+        | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
     }
     |> function
         | Ok _ -> 0

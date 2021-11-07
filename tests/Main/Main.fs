@@ -29,6 +29,7 @@ let allTests =
     Misc.tests
     Observable.tests
     Option.tests
+    Queue.tests
     RecordTypes.tests
     Reflection.tests
     Regex.tests
@@ -37,6 +38,7 @@ let allTests =
     SeqExpressions.tests
     Seqs.tests
     Sets.tests
+    Stack.tests
     Strings.tests
     Sudoku.tests
     TailCalls.tests
@@ -60,13 +62,13 @@ let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
 let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative
 
 
-let rec flattenTest (test:Fable.Tests.Util.Testing.TestKind) : unit =
+let rec flattenTest (test: Util.Testing.TestKind) : unit =
     match test with
-    | Fable.Tests.Util.Testing.TestKind.TestList(name, tests) ->
+    | Util.Testing.TestKind.TestList(name, tests) ->
         describe name (fun () ->
           for t in tests do
             flattenTest t)
-    | Fable.Tests.Util.Testing.TestKind.TestCase (name, test) ->
+    | Util.Testing.TestKind.TestCase (name, test) ->
         it name (unbox test)
 
 

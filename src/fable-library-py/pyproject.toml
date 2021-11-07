@@ -5,7 +5,7 @@ description = "Fable library for Python"
 authors = ["Dag Brattli <dag@brattli.net>"]
 license = "MIT License"
 readme = "README.md"
-homepage "https://fable.io"
+homepage = "https://fable.io"
 
 [tool.poetry.dependencies]
 python = "^3.8"

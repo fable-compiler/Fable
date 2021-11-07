@@ -585,6 +585,27 @@ module private Transforms =
         | Set(e, FieldSet(fieldName), t, value, r) ->
             let value = uncurryArgs com false [t] [value]
             Set(e, FieldSet(fieldName), t, List.head value, r)
+        | ObjectExpr(members, t, baseCall) ->
+            let membersMap =
+                match t with
+                | DeclaredType(e, _genArgs) ->
+                    com.GetEntity(e).MembersFunctionsAndValues
+                    |> Seq.choose (fun m ->
+                        if m.IsGetter || m.IsValue then
+                            Some(m.CompiledName, m.ReturnParameter.Type)
+                        else None)
+                    |> Map
+                | _ -> Map.empty
+            let members =
+                members |> List.map (fun m ->
+                    if m.Info.IsGetter || m.Info.IsValue then
+                        let membType =
+                            Map.tryFind m.Name membersMap
+                            |> Option.defaultValue m.Body.Type
+                        let value = uncurryArgs com false [membType] [m.Body]
+                        { m with Body = List.head value }
+                    else m)
+            ObjectExpr(members, t, baseCall)
         | e -> e
 
     let rec uncurryApplications (com: Compiler) e =
