@@ -13,6 +13,7 @@ let tests: unit[] = [|
     importAll "EnumTests.rs"
     importAll "InterfaceTests.rs"
     importAll "ListTests.rs"
+    importAll "MeasureTests.rs"
     importAll "NBodyTests.rs"
     importAll "OptionTests.rs"
     importAll "RecordTests.rs"
@@ -21,7 +22,6 @@ let tests: unit[] = [|
     importAll "StringTests.rs"
     importAll "TupleTests.rs"
     importAll "UnionTests.rs"
-    importAll "UnitTests.rs"
 |]
 
 #endif

@@ -43,14 +43,14 @@ type ISomeContainer<'a> =
     abstract SomeItem: int -> 'a
     abstract OnlyItem: unit -> 'a
 
-type WithSomeComtainer<'a> (m: 'a) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
+type WithSomeContainer<'a> (m: 'a) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
     interface ISomeContainer<'a> with
         member this.SomeItem x = m
         member this.OnlyItem () = m
 
 [<Fact>]
 let ``Generic container works`` () =
-    let a = WithSomeComtainer(1)
+    let a = WithSomeContainer(1)
     let res = (a :> ISomeContainer<_>).SomeItem 1
     let res2 = (a :> ISomeContainer<_>).OnlyItem()
     res |> equal 1

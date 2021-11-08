@@ -1,4 +1,4 @@
-module Fable.Tests.UnitTests
+module Fable.Tests.MeasureTests
 
 open Util.Testing
 
