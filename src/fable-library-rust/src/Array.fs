@@ -39,6 +39,19 @@ let reverse (array: 'T[]): 'T[] =
 
 // let filter (predicate: 'T -> bool) (array: 'T[]) =
 //     filterImpl predicate array
+// Placeholder implementation (double copy so not efficient) - Probably need a Array.Push() mut equivalent, or vec.push(), or trim.
+let filter (predicate: 'T -> bool) (source: 'T[]): 'T[] =
+    let len = source.Length
+    let target = Array.zeroCreate len
+    let mutable targetIndex = 0
+    for i = 0 to len - 1 do
+        if predicate source.[i] then
+            target.[targetIndex] <- source.[i]
+            targetIndex <- targetIndex + 1
+    let targetOut = Array.zeroCreate targetIndex
+    for i = 0 to targetIndex - 1 do
+        targetOut.[i] <- target.[i]
+    targetOut
 
 // // intentionally returns target instead of unit
 // let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): 'T[] =
@@ -470,6 +483,11 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 //     //     acc
 //     // else
 //     foldImpl (fun acc x -> folder acc x) state array
+let fold folder (state: 'State) (array: 'T[]) =
+    let mutable acc = state
+    for i = 0 to array.Length - 1 do
+        acc <- folder acc array.[i]
+    acc
 
 // let iterate action (array: 'T[]) =
 //     for i = 0 to array.Length - 1 do

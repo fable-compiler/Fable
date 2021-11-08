@@ -37,6 +37,7 @@
     <Compile Include="tests/src/StringTests.fs" />
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
+    <Compile Include="tests/src/UnitTests.fs" />
     <Compile Include="tests/src/main.fs" />
   </ItemGroup>
 </Project>

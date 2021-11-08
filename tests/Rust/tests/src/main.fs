@@ -21,6 +21,7 @@ let tests: unit[] = [|
     importAll "StringTests.rs"
     importAll "TupleTests.rs"
     importAll "UnionTests.rs"
+    importAll "UnitTests.rs"
 |]
 
 #endif

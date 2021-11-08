@@ -422,11 +422,11 @@ let ``Array.length works with non-numeric arrays`` () =
 //     Array.exists2 (fun x y -> x * y = 16UL) xs ys
 //     |> equal true
 
-// [<Fact>]
-// let ``Array.filter works`` () =
-//     let xs = [|1s; 2s; 3s; 4s|]
-//     let ys = xs |> Array.filter (fun x -> x > 2s)
-//     ys.Length |> equal 2
+[<Fact>]
+let ``Array.filter works`` () =
+    let xs = [|1s; 2s; 3s; 4s|]
+    let ys = xs |> Array.filter (fun x -> x > 2s)
+    ys.Length |> equal 2
 
 // [<Fact>]
 // let ``Array.filter with chars works`` () =
@@ -472,11 +472,11 @@ let ``Array.length works with non-numeric arrays`` () =
 //     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
 //     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``Array.fold works`` () =
-//     let xs = [|1y; 2y; 3y; 4y|]
-//     let total = xs |> Array.fold (+) 0y
-//     total |> equal 10y
+[<Fact>]
+let ``Array.fold works`` () =
+    let xs = [|1y; 2y; 3y; 4y|]
+    let total = xs |> Array.fold (+) 0y
+    total |> equal 10y
 
 // [<Fact>]
 // let ``Array.fold2 works`` () =
@@ -568,18 +568,18 @@ let ``Array.length works with non-numeric arrays`` () =
 //     xs |> Array.countBy (fun x -> x % 2)
 //     |> Array.length |> equal 2
 
-// [<Fact>]
-// let ``Array.map works`` () =
-//     let xs = [|1.|]
-//     let ys = xs |> Array.map (fun x -> x * 2.)
-//     ys.[0] |> equal 2.
+[<Fact>]
+let ``Array.map works`` () =
+    let xs = [|1.|]
+    let ys = xs |> Array.map (fun x -> x * 2.)
+    ys.[0] |> equal 2.
 
-// [<Fact>]
-// let ``Array.map doesn't execute side effects twice`` () = // See #1140
-//     let mutable c = 0
-//     let i () = c <- c + 1; c
-//     [| i (); i (); i () |] |> Array.map (fun x -> x + 1) |> ignore
-//     equal 3 c
+[<Fact>]
+let ``Array.map doesn't execute side effects twice`` () = // See #1140
+    let mutable c = 0
+    let i () = c <- c + 1; c
+    [| i (); i (); i () |] |> Array.map (fun x -> x + 1) |> ignore
+    equal 3 c
 
 // [<Fact>]
 // let ``Array.map2 works`` () =
