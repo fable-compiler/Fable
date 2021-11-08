@@ -129,7 +129,7 @@ export function DateTime(value: number, kind?: DateKind) {
 
 export function fromTicks(ticks: number | Long, kind?: DateKind) {
   ticks = fromValue(ticks);
-  kind = kind != null ? kind : DateKind.Unspecified;
+  kind = kind != null ? kind : DateKind.Local; // better default than Unspecified
   let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
 
   // Ticks are local to offset (in this case, either UTC or Local/Unknown).
@@ -175,6 +175,10 @@ export function parseRaw(input: string): [Date, Offset] {
     fail();
   }
 
+  // ISO dates without TZ are parsed as UTC. Adding time without TZ keeps them local.
+  if (input.length === 10 && input[4] === "-" && input[7] === "-") {
+    input += "T00:00:00";
+  }
   let date = new Date(input);
   let offset: Offset = null;
 
