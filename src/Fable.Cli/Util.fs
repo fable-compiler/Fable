@@ -151,22 +151,21 @@ module Process =
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess (envVars: (string * string) list) workingDir exePath args =
-        let args = String.concat " " args
+    let private startProcess (envVars: (string * string) list) workingDir exePath (args: string list) =
         let exePath, args =
-            if isWindows() then "cmd", ("/C " + exePath + " " + args)
+            if isWindows() then "cmd", "/C"::exePath::args
             else exePath, args
 
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
-        Log.always $"{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {args}"
+        Log.always $"""{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {String.concat " " args}"""
 
-        let psi = ProcessStartInfo()
+        let psi = ProcessStartInfo(exePath)
+        for arg in args do
+            psi.ArgumentList.Add(arg)
         for (key, value) in envVars do
             psi.EnvironmentVariables.[key] <- value
-        psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
-        psi.Arguments <- args
         psi.CreateNoWindow <- false
         psi.UseShellExecute <- false
 
