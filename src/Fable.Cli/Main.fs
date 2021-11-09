@@ -350,7 +350,7 @@ type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiag
                     checkResults.AssemblyContents.ImplementationFiles),
                 checkResults.ProjectContext.GetReferencedAssemblies(),
                 getPlugin = loadType config.CliArgs,
-                rootModule = config.FableOptions.RootModule
+                trimRootModule = config.FableOptions.RootModule
             )
         return ProjectChecked(proj, checker, checkResults.Diagnostics)
     }
@@ -446,12 +446,11 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     | None -> false
                     | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
 
+                let pendingFiles = set state.PendingFiles
+
                 let filesToCompile =
-                    projCracked.SourceFiles
-                    |> Array.filter (fun path ->
-                        changes.Contains path || hasWatchDependency path)
-                    |> Array.append state.PendingFiles
-                    |> Array.distinct
+                    projCracked.SourceFiles |> Array.filter (fun path ->
+                        changes.Contains path || pendingFiles.Contains path || hasWatchDependency path)
 
                 let! projChecked = projChecked.Update(projCracked, filesToCompile)
                 return projCracked, projChecked, filesToCompile

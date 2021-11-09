@@ -13,14 +13,14 @@ type CompilerOptionsHelper =
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays,
-                       ?rootModule) =
+                       ?trimRootModule) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
             Language = defaultArg language JavaScript
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-            RootModule = defaultArg rootModule false
+            RootModule = defaultArg trimRootModule false
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false

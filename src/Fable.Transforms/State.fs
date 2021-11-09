@@ -103,7 +103,7 @@ type ImplFile =
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExpr) list
     }
-    static member From(file: FSharpImplementationFileContents, rootModule) =
+    static member From(file: FSharpImplementationFileContents) =
         let entities = Dictionary()
         let rec loop (ents: FSharpEntity seq) =
             for e in ents do
@@ -117,14 +117,14 @@ type ImplFile =
         {
             Ast = file
             Entities = entities
-            RootModule = if rootModule then FSharp2Fable.Compiler.getRootModule file else ""
+            RootModule = FSharp2Fable.Compiler.getRootModule file
             InlineExprs = FSharp2Fable.Compiler.getInlineExprs file
         }
 
 type Project(projFile: string,
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
-             rootModule: bool) =
+             trimRootModule: bool) =
 
     let inlineExprs = implFiles |> Seq.collect (fun kv -> kv.Value.InlineExprs) |> dict
 
@@ -132,9 +132,8 @@ type Project(projFile: string,
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
                        ?getPlugin: PluginRef -> System.Type,
-                       ?rootModule) =
+                       ?trimRootModule) =
 
-        let rootModule = defaultArg rootModule true
         let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
         let assemblies = Assemblies(getPlugin, fsharpAssemblies)
 
@@ -142,26 +141,26 @@ type Project(projFile: string,
             fsharpFiles
             |> List.map (fun file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
-                key, ImplFile.From(file, rootModule))
+                key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFiles, assemblies, rootModule)
+        Project(projFile, implFiles, assemblies, defaultArg trimRootModule true)
 
     member this.Update(fsharpFiles: FSharpImplementationFileContents list) =
 
         let implFiles =
             (this.ImplementationFiles, fsharpFiles) ||> List.fold (fun implFiles file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
-                let file = ImplFile.From(file, this.RootModule)
+                let file = ImplFile.From(file)
                 Map.add key file implFiles)
 
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.RootModule)
+        Project(this.ProjectFile, implFiles, this.Assemblies, this.TrimRootModule)
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
     member _.InlineExprs = inlineExprs
-    member _.RootModule = rootModule
+    member _.TrimRootModule = trimRootModule
 
 type Log =
     { Message: string
@@ -207,13 +206,15 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             | None -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =
-            let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match project.ImplementationFiles.TryValue(fileName) with
-            | Some file -> file.RootModule
-            | None ->
-                let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
-                (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
-                "" // failwith msg
+            if not project.TrimRootModule then ""
+            else
+                let fileName = Path.normalizePathAndEnsureFsExtension fileName
+                match project.ImplementationFiles.TryValue(fileName) with
+                | Some file -> file.RootModule
+                | None ->
+                    let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                    (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                    "" // failwith msg
 
         member _.GetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with

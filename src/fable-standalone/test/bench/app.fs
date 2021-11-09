@@ -41,12 +41,12 @@ let main argv =
         let checker, ms0 = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)
-        let parseFSharpScript () = fable.ParseFSharpFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
+        let parseFSharpScript () = fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
         let fableLibraryDir = "fable-library"
         let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
         let bench i =
             let parseRes, ms1 = measureTime parseFSharpScript ()
-            let errors = fable.GetParseErrors parseRes
+            let errors = fable.GetErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let babelAst, ms2 = measureTime parseFable (parseRes, fileName)
