@@ -27,12 +27,14 @@ type CacheInfo =
         FSharpOptions: string array
         References: string list
         FableLibDir: string
+        TimestampUTC: DateTime
     }
     static member GetPath(fableModulesPath: string) =
         IO.Path.Combine(fableModulesPath, "cache_info.json")
 
     static member TryRead(fableModulesPath: string): CacheInfo option =
         try
+            // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson, see also Write
             let jsonOptions = JsonSerializerOptions()
             jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
             let cacheInfoJson = IO.File.ReadAllText(CacheInfo.GetPath(fableModulesPath))
@@ -47,7 +49,9 @@ type CacheInfo =
 type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir)
-    let cacheInfo = CacheInfo.TryRead(fableModulesDir)
+    let cacheInfo =
+        if noCache then None
+        else CacheInfo.TryRead(fableModulesDir)
 
     member _.CacheInfo = cacheInfo
     member _.FableModulesDir = fableModulesDir
@@ -57,7 +61,6 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
     member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
-    member _.NoCache: bool = noCache
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.BuildDll(normalizedDllPath: string) =
@@ -543,17 +546,28 @@ let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.ProjFile)) then
         failwith ("File does not exist: " + opts.ProjFile)
 
+    let isCacheInfoOutdated (cacheInfo: CacheInfo) =
+        [
+            cacheInfo.ProjectPath
+            yield! cacheInfo.References
+        ]
+        |> List.forall (fun fsproj ->
+            IO.File.Exists(fsproj)
+            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(fsproj).ToUniversalTime())
+        |> not
+
+    // TODO: Check fable_modules contains all packages
     let cacheInfo =
         opts.CacheInfo |> Option.bind (fun cacheInfo ->
             if cacheInfo.Version <> Literals.VERSION
                 || cacheInfo.FableOptions <> opts.FableOptions
-                // TODO: Check timestamp of ProjectFile and references
+                || isCacheInfoOutdated cacheInfo
             then None
             else Some cacheInfo)
 
     match cacheInfo with
     | Some cacheInfo ->
-        // TODO: Assuming fable_modules contains all packages, we should probably check it
+        Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
         { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
           References = cacheInfo.References
           FableLibDir = cacheInfo.FableLibDir }
@@ -620,6 +634,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 FSharpOptions = otherOptions
                 SourcePaths = sourceFiles
                 References = projRefs
+                TimestampUTC = DateTime.UtcNow
             }
 
         cacheInfo.Write(opts.FableModulesDir)
