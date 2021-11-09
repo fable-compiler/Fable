@@ -406,8 +406,9 @@ let test() =
 
     testIntegration()
 
-    if envVarOrNone "APPVEYOR" |> Option.isSome then
-        testJsFast()
+    // TODO: Run testJsFast() in CI after fcs-fable is synced with latest FCS
+    // if envVarOrNone "APPVEYOR" |> Option.isSome then
+    //     testJsFast()
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
