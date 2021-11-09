@@ -53,10 +53,10 @@ module Util =
         run ("npm run tsc -- --project " + projectDir)
 
     let runFableWithArgs projectDir args =
-        run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
+        run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
     let runFableWithArgsAsync projectDir args =
-        runAsync ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
+        runAsync ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
     let runNpx command args =
         run ("npx " + command + " " + (String.concat " " args))
@@ -395,7 +395,7 @@ let test() =
 
     runInDir "tests/Main" "dotnet run"
 
-    // Adaptive tests must go in a different project to avoid conflitcts with Queue shim, see #2559
+    // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
 
     testReact()
@@ -406,8 +406,9 @@ let test() =
 
     testIntegration()
 
-    if envVarOrNone "APPVEYOR" |> Option.isSome then
-        testJsFast()
+    // TODO: Run testJsFast() in CI after fcs-fable is synced with latest FCS
+    // if envVarOrNone "APPVEYOR" |> Option.isSome then
+    //     testJsFast()
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
@@ -565,13 +566,13 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+    run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 
 | "run"::_ ->
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
-    run $"""dotnet run -c Release -p {resolveDir "src/Fable.Cli"} -- {restArgs}"""
+    run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
 
 | "package"::_ ->
     let pkgInstallCmd = buildLocalPackage (resolveDir "temp/pkg")

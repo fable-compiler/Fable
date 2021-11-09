@@ -1,11 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
-    <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
-    <LangVersion>preview</LangVersion>
+    <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
  </PropertyGroup>
 
@@ -13,7 +11,6 @@
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
 

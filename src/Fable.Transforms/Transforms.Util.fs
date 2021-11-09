@@ -206,11 +206,11 @@ module Log =
 
     let addWarningAndReturnNull (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Warning
-        AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
+        Fable.Value(Fable.Null Fable.Any, None)
 
     let addErrorAndReturnNull (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
-        AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
+        Fable.Value(Fable.Null Fable.Any, None)
 
     let attachRange (range: SourceLocation option) msg =
         match range with
