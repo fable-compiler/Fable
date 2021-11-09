@@ -43,7 +43,7 @@ type CacheInfo =
         let jsonOptions = JsonSerializerOptions()
         jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
         IO.File.WriteAllText(CacheInfo.GetPath(fableModulesPath), JsonSerializer.Serialize(this, jsonOptions))
-        
+
 type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir)
@@ -68,7 +68,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
                 |> Array.skipWhile (fun part -> part <> "bin")
                 |> Array.skip 1
                 |> Array.rev
-             
+
              |> String.concat "/"
             Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
@@ -77,7 +77,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
         let fableModulesDir =
             let baseDir = outDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
             IO.Path.Combine(baseDir, Naming.fableHiddenDir)
-        
+
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
             IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
@@ -86,6 +86,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 
 type CrackerResponse =
     { FableLibDir: string
+      References: string list
       ProjectOptions: FSharpProjectOptions }
 
 let isSystemPackage (pkgName: string) =
@@ -272,17 +273,15 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         // yield "--define:DEBUG"
         for constant in opts.FableOptions.Define do
             yield "--define:" + constant
-        yield "--optimize-"
+        yield "--optimize" + if opts.FableOptions.OptimizeFSharpAst then "+" else "-"
         // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
         // yield "--warnaserror:76"
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
-        yield "--target:library"
         yield "--langversion:preview" // Needed for witnesses
-#if !NETFX
-        yield "--targetprofile:netstandard"
-#endif
+        // Since net5.0 there's no difference between app/library
+        // yield "--target:library"
     |]
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
@@ -370,7 +369,6 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
@@ -557,7 +555,8 @@ let getFullProjectOpts (opts: CrackerOptions) =
     | Some cacheInfo ->
         // TODO: Assuming fable_modules contains all packages, we should probably check it
         { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
-          FableLibDir = cacheInfo.FableLibDir }   
+          References = cacheInfo.References
+          FableLibDir = cacheInfo.FableLibDir }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
@@ -580,6 +579,15 @@ let getFullProjectOpts (opts: CrackerOptions) =
             |> List.toArray
 
         let otherOptions =
+            [|
+                yield! refOptions // merged options from all referenced projects
+                yield! mainProj.OtherCompilerOptions // main project compiler options
+                yield! getBasicCompilerArgs opts // options from compiler args
+                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
+            |]
+            |> Array.distinct
+
+        let dllRefs =
             let coreRefs = HashSet Metadata.coreAssemblies
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
@@ -590,10 +598,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 "Microsoft.CSharp"
             ]
             [|
-                yield! refOptions // merged options from all referenced projects
-                yield! mainProj.OtherCompilerOptions // main project compiler options
-                yield! getBasicCompilerArgs opts // options from compiler args
-                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
                         // Remove unneeded System dll references
@@ -604,6 +608,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
                             else Some("-r:" + r))
             |]
 
+        let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
+        let otherOptions = Array.append otherOptions dllRefs
+
         let cacheInfo: CacheInfo =
             {
                 Version = Literals.VERSION
@@ -612,10 +619,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 ProjectPath = opts.ProjFile
                 FSharpOptions = otherOptions
                 SourcePaths = sourceFiles
-                References = projRefs |> List.map (fun p -> p.ProjectFile)
+                References = projRefs
             }
 
         cacheInfo.Write(opts.FableModulesDir)
 
         { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
+          References = projRefs
           FableLibDir = fableLibDir }

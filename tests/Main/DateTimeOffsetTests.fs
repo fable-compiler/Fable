@@ -208,8 +208,11 @@ let tests =
 
     testCase "DateTimeOffset.Parse works" <| fun () ->
         let d = DateTimeOffset.Parse("9/10/2014 1:50:34 PM")
-        d.Year + d.Month + d.Day + d.Hour + d.Minute
-        |> equal 2096
+        d.Year |> equal 2014
+        d.Month + d.Day |> equal 19
+        d.Hour |> equal 13
+        d.Minute |> equal 50
+        d.Second |> equal 34
 
     testCase "DateTimeOffset.Parse with time-only string works" <| fun () -> // See #1045
         let d = DateTimeOffset.Parse("13:50:34")
@@ -223,6 +226,19 @@ let tests =
         let d = DateTimeOffset.Parse("05/01/2008 +3:00")
         d.Year + d.Month + d.Day |> equal 2014
         d.Offset |> equal (TimeSpan.FromHours(3.))
+
+    testCase "DateTimeOffset.Parse doesn't confuse day and offset" <| fun () ->
+        let d = DateTimeOffset.Parse("2021-11-15")
+        d.Year |> equal 2021
+        d.Month |> equal 11
+        d.Day |> equal 15
+        d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
+        d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
+        d.Offset = (TimeSpan.FromHours(15.)) |> equal false
+
+        let d = DateTimeOffset.Parse("2021-11-08-08")
+        d.Year + d.Month + d.Day |> equal 2040
+        d.Offset |> equal (TimeSpan.FromHours(-8.))
 
     testCase "DateTimeOffset.TryParse works" <| fun () ->
         let f (d: string) =

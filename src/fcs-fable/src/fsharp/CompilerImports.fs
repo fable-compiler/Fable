@@ -821,12 +821,12 @@ type TcImports() =
     member x.SetCcuMap m =
         ccuMap <- m
     member x.GetImportedAssemblies() =
-        ccuMap.Values
+        ccuMap.Values |> Seq.toList
 
     member x.GetImportMap() =
         let loaderInterface =
             { new Import.AssemblyLoader with
-                 member _.FindCcuFromAssemblyRef (_ctok, m, ilAssemblyRef) = 
+                 member _.FindCcuFromAssemblyRef (_ctok, m, ilAssemblyRef) =
                     FindCcuInfo(m, ilAssemblyRef.Name)
                  member _.TryFindXmlDocumentationInfo (_assemblyName) =
                     None
@@ -835,7 +835,7 @@ type TcImports() =
 
     member tcImports.GetCcusExcludingBase() =
         //TODO: excludes any framework imports (which may be shared between multiple builds)
-        ccuMap.Values |> List.map (fun x -> x.FSharpViewOfMetadata)
+        ccuMap.Values |> Seq.toList |>List.map (fun x -> x.FSharpViewOfMetadata)
 
 #else //!FABLE_COMPILER
 

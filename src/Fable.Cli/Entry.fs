@@ -54,6 +54,7 @@ let knownCliArgs() = [
   ["--verbose"],         ["Print more info during compilation"]
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
+  ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
   [], []
   ["--run"],             ["The command after the argument will be executed after compilation"]
   ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
@@ -72,7 +73,7 @@ let knownCliArgs() = [
 
   // Hidden args
   ["--typescript"], []
-  ["--rootModule"], []
+  ["--trimRootModule"], []
   ["--fableLib"], []
   ["--replace"], []
 ]
@@ -219,7 +220,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   rootModule = (args.FlagOr("--rootModule", true)),
+                                   trimRootModule = (args.FlagOr("--trimRootModule", true)),
                                    verbosity = verbosity)
 
     let cliArgs =
@@ -242,13 +243,21 @@ type Runner =
           RunProcess = runProc
           CompilerOptions = compilerOptions }
 
+    let watchDelay =
+        if watch then
+            args.Value("--watchDelay")
+            |> Option.map int
+            |> Option.defaultValue 200
+            |> Some
+        else None
+
     return!
-        State.Create(cliArgs, isWatch=watch)
+        State.Create(cliArgs, ?watchDelay=watchDelay)
         |> startFirstCompilation
         |> Async.RunSynchronously
 }
 
-let clean (args: CliArgs) dir =
+let clean (args: CliArgs) rootDir =
     let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
@@ -256,13 +265,13 @@ let clean (args: CliArgs) dir =
         args.Value("-e", "--extension")
         |> Option.defaultValue (defaultFileExt language args)
 
-    let dir =
+    let cleanDir =
         args.Value("-o", "--outDir")
-        |> Option.defaultValue dir
+        |> Option.defaultValue rootDir
         |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
+    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, cleanDir)
     if not(args.FlagEnabled "--yes") then
         Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
         let keyInfo = Console.ReadKey()
@@ -288,10 +297,10 @@ let clean (args: CliArgs) dir =
         |> Array.iter (fun subdir ->
             if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
                 IO.Directory.Delete(subdir, true)
-                Log.always("Deleted " + File.getRelativePathFromCwd subdir)
+                Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
 
-    recClean dir
+    recClean cleanDir
     Log.always("Clean completed! Files deleted: " + string fileCount)
 
 [<EntryPoint>]
@@ -331,7 +340,7 @@ let main argv =
             | ["--version"] -> ()
             | _ ->
                 Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-                Log.always("Thanks to the contributor! @" + Contributors.getRandom())
+                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
 

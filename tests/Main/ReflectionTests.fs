@@ -142,6 +142,66 @@ let typeNameTests = [
     fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
     fullname<TestType4>() |> equal "Fable.Tests.Reflection.TestType4"
 
+  // See https://github.com/thoth-org/Thoth.Json/issues/123
+  testCase "FullName of complex array types is printed correctly " <| fun () ->
+      let fullName1 = typeof<(string * int)[]>.FullName
+      let fullName2 = typeof<(string * float)[]>.FullName
+      let fullName3 = typeof<string[]>.FullName
+      let fullName4 = typeof<string[][]>.FullName
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+      let t4 = typeof<string[][]>
+
+      equal fullName1 t1.FullName
+      equal fullName2 t2.FullName
+      equal fullName3 t3.FullName
+      equal fullName4 t4.FullName
+
+      t1.FullName = t2.FullName |> equal false
+      t1.FullName = t3.FullName |> equal false
+      t2.FullName = t3.FullName |> equal false
+      t3.FullName = t4.FullName |> equal false
+
+  testCase "Name of complex array types is printed correctly " <| fun () ->
+      let name1 = typeof<(string * int)[]>.Name
+      let name2 = typeof<(string * float)[]>.Name
+      let name3 = typeof<string[]>.Name
+      let name4 = typeof<string[][]>.Name
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+      let t4 = typeof<string[][]>
+
+      equal name1 t1.Name
+      equal name2 t2.Name
+      equal name3 t3.Name
+      equal name4 t4.Name
+
+      t1.Name = t2.Name |> equal true
+      t1.Name = t3.Name |> equal false
+      t2.Name = t3.Name |> equal false
+      t3.Name = t4.Name |> equal false
+
+  testCase "Namespace of complex array types is printed correctly " <| fun () ->
+      let namespace1 = typeof<(string * int)[]>.Namespace
+      let namespace2 = typeof<(string * float)[]>.Namespace
+      let namespace3 = typeof<string[]>.Namespace
+
+      let t1 = typeof<(string * int)[]>
+      let t2 = typeof<(string * float)[]>
+      let t3 = typeof<string[]>
+
+      equal namespace1 t1.Namespace
+      equal namespace2 t2.Namespace
+      equal namespace3 t3.Namespace
+
+      t1.Namespace = t2.Namespace |> equal true
+      t1.Namespace = t3.Namespace |> equal true
+      t2.Namespace = t3.Namespace |> equal true
+
 //   testCase "Create new generic objects with inline function" <| fun () ->
 //     create<TestType3>().Value |> equal "Hi"
 //     create<TestType4>().Value2 |> equal "Bye"
