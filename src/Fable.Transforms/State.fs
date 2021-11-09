@@ -22,14 +22,6 @@ type IReadOnlyDictionary<'Key, 'Value> with
         | true, v -> Some v
         | false, _ -> None
 
-type Package =
-    { Id: string
-      Version: string
-      FsprojPath: string
-      DllPath: string
-      SourcePaths: string list
-      Dependencies: Set<string> }
-
 type PluginRef =
     { DllPath: string
       TypeFullName: string }

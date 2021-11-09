@@ -292,7 +292,6 @@ type ProjectCracked(projFile: string,
     member _.FableOptions = cliArgs.CompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
-    member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
     member _.MakeCompiler(currentFile, project, outDir) =
