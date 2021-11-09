@@ -366,10 +366,16 @@ module Visibilities =
           tokens = None }
 
     let PUBLIC_VIS: Visibility =
-        VisibilityKind.Public |> mkVisibility
+        VisibilityKind.Public
+        |> mkVisibility
+
+    let PUBLIC_CRATE_VIS: Visibility =
+        VisibilityKind.Crate(CrateSugar.PubCrate)
+        |> mkVisibility
 
     let INHERITED_VIS: Visibility =
-        VisibilityKind.Inherited |> mkVisibility
+        VisibilityKind.Inherited
+        |> mkVisibility
 
 [<AutoOpen>]
 module AnonConsts =
@@ -1159,6 +1165,9 @@ module Items =
 
     let mkPublicItem item: Item =
         { item with vis = PUBLIC_VIS }
+
+    let mkPublicCrateItem item: Item =
+        { item with vis = PUBLIC_CRATE_VIS }
 
     let mkNonPublicItem item: Item =
         { item with vis = INHERITED_VIS }

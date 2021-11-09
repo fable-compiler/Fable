@@ -1783,7 +1783,10 @@ module Util =
                     match callInfo.CallMemberInfo with
                     | Some callMemberInfo ->
                         // TODO: perhaps only use full path for non-local calls
-                        let path = callMemberInfo.FullName.Replace(".( .ctor )", "::new")
+                        let path =
+                            callMemberInfo.FullName
+                                .Replace(".( .ctor )", "::new")
+                                .Replace(".``.ctor``", "::new")
                         makeFullNamePathExpr path None
                     | _ ->
                         com.TransformAsExpr(ctx, calleeExpr)
@@ -3707,7 +3710,7 @@ module Util =
         |> List.collect (fun ((importPath, modName), moduleImports) ->
             let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
             let modItems = [
-                mkUnloadedModItem attrs modName |> mkNonPublicItem
+                mkUnloadedModItem attrs modName |> mkPublicCrateItem
                 mkGlobUseItem [] [modName]
                 ]
             let useItems =
