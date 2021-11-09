@@ -4,7 +4,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <ItemGroup>
