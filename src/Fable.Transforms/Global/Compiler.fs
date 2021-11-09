@@ -54,7 +54,7 @@ type Compiler =
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: Fable.EntityRef -> Fable.Entity
     abstract TryGetNonCoreAssemblyEntity: Fable.EntityRef -> Fable.Entity option
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+    abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit
