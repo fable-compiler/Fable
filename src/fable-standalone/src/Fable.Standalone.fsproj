@@ -3,11 +3,9 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
     <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
     <ProjectReference Include="../../Fable.Transforms/Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>

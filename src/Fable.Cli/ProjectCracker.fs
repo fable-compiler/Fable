@@ -608,6 +608,15 @@ let getFullProjectOpts (opts: CrackerOptions) =
             |> List.toArray
 
         let otherOptions =
+            [|
+                yield! refOptions // merged options from all referenced projects
+                yield! mainProj.OtherCompilerOptions // main project compiler options
+                yield! getBasicCompilerArgs opts // options from compiler args
+                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
+            |]
+            |> Array.distinct
+
+        let dllRefs =
             let coreRefs = HashSet Metadata.coreAssemblies
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
@@ -618,9 +627,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                "Microsoft.CSharp"
             ]
             [|
-                yield! refOptions // merged options from all referenced projects
-                yield! mainProj.OtherCompilerOptions // main project compiler options
-                yield! getBasicCompilerArgs opts // options from compiler args
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
                         // Remove unneeded System dll references
@@ -631,6 +637,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                             else Some("-r:" + r))
             |]
 
+        let otherOptions = Array.append otherOptions dllRefs
         makeProjectOptions opts.ProjFile sourceFiles otherOptions
 
     { ProjectOptions = projOpts

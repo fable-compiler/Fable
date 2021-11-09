@@ -3,15 +3,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.4.9</Version>
-    <PackageVersion>3.4.9</PackageVersion>
-    <PackageReleaseNotes>* Add CLI arg --watchDelay
-* Show relative paths in logs
-* Fixed Seq.toArray @ncave
-* Fix FullName/Name/Namespace of complex array types</PackageReleaseNotes>
+    <Version>3.4.10</Version>
+    <PackageVersion>3.4.10</PackageVersion>
+    <PackageReleaseNotes>* Add support for StringSplitOptions.TrimEntries @steveofficer
+* Fix #2587: DateTimeOffset.Parse issues with some locales @ncave
+* Use Process.ArgumentList to escape args passed to subprocess
+* Print paths relative to --cwd if set</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PackageId>Fable</PackageId>
     <AssemblyName>fable</AssemblyName>
@@ -35,12 +34,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
-    <!-- <ProjectReference Include="../../../fsharp/src/fsharp/FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj" /> -->
-  </ItemGroup>
-  <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.1" /> -->
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />

@@ -1,3 +1,10 @@
+### 3.4.10
+
+* Add support for StringSplitOptions.TrimEntries @steveofficer
+* Fix #2587: DateTimeOffset.Parse issues with some locales @ncave
+* Use Process.ArgumentList to escape args passed to subprocess
+* Print paths relative to --cwd if set
+
 ### 3.4.9
 
 * Add CLI arg --watchDelay
