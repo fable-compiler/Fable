@@ -24,7 +24,7 @@ type CompilerOptions =
         Define: string list
         DebugMode: bool
         OptimizeFSharpAst: bool
-        RootModule: bool
+        TrimRootModule: bool
         Verbosity: Verbosity
         FileExtension: string
     }

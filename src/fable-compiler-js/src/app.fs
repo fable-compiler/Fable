@@ -145,7 +145,7 @@ let parseFiles projectFileName options =
     printfn "InteractiveChecker created in %d ms" ms0
 
     // parse F# files to AST
-    let parseFSharpProject () = fable.ParseFSharpProject(checker, projectFileName, fileNames, sources)
+    let parseFSharpProject () = fable.ParseAndCheckProject(checker, projectFileName, fileNames, sources)
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
@@ -157,7 +157,7 @@ let parseFiles projectFileName options =
 
     // clear cache to lower memory usage
     // if not options.watch then
-    fable.ClearParseCaches(checker)
+    fable.ClearCache(checker)
 
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))

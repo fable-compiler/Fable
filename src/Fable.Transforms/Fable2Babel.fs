@@ -2264,7 +2264,7 @@ module Compiler =
             member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-            member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
+            member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
