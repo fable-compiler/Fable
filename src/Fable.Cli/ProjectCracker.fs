@@ -90,7 +90,8 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       References: string list
-      ProjectOptions: FSharpProjectOptions }
+      ProjectOptions: FSharpProjectOptions
+      CacheUsed: bool }
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -547,13 +548,17 @@ let getFullProjectOpts (opts: CrackerOptions) =
         failwith ("File does not exist: " + opts.ProjFile)
 
     let isCacheInfoOutdated (cacheInfo: CacheInfo) =
+        let isFileOld (path: string) =
+            IO.File.Exists(path)
+            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(path).ToUniversalTime()
         [
             cacheInfo.ProjectPath
             yield! cacheInfo.References
         ]
         |> List.forall (fun fsproj ->
-            IO.File.Exists(fsproj)
-            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(fsproj).ToUniversalTime())
+            isFileOld(fsproj)
+            // If project uses Paket, dependencies may have updated without touching the .fsproj
+            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json") |> isFileOld)
         |> not
 
     // TODO: Check fable_modules contains all packages
@@ -570,7 +575,8 @@ let getFullProjectOpts (opts: CrackerOptions) =
         Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
         { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
           References = cacheInfo.References
-          FableLibDir = cacheInfo.FableLibDir }
+          FableLibDir = cacheInfo.FableLibDir
+          CacheUsed = true }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
@@ -641,4 +647,5 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
           References = projRefs
-          FableLibDir = fableLibDir }
+          FableLibDir = fableLibDir
+          CacheUsed = false }

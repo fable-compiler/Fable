@@ -292,6 +292,7 @@ type ProjectCracked(projFile: string,
     member _.FableOptions = cliArgs.CompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
+    member _.CacheUsed = crackerResponse.CacheUsed
     member _.SourceFiles = sourceFiles
 
     member _.MakeCompiler(currentFile, project, outDir) =
@@ -458,8 +459,9 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
             let projCracked = ProjectCracked.Init(state.CliArgs)
             let! projChecked = ProjectChecked.Init(projCracked)
             let filesToCompile =
-                if Option.isNone state.Watcher || state.CliArgs.NoCache
-                then projCracked.SourceFiles
+                // If ProjectCracker hasn't used the cache it means fable_modules
+                // are new so make sure they're recompiled
+                if not projCracked.CacheUsed then projCracked.SourceFiles
                 else
                     // Skip files that have a more recent JS version
                     let filesToCompile =

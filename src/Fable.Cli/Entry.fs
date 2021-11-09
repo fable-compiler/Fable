@@ -49,8 +49,8 @@ let knownCliArgs() = [
   ["--sourceMapsRoot"],  ["Set the value of the `sourceRoot` property in generated source maps"]
   [], []
   ["--define"],          ["Defines a symbol for use in conditional compilation"]
-  ["--configuration"],   ["The configuration to use when parsing .fsproj with MSBuild,"
-                          "default is 'Debug' in watch mode, or 'Release' otherwise"]
+  ["-c"; "--configuration"], ["The configuration to use when parsing .fsproj with MSBuild,"
+                              "default is 'Debug' in watch mode, or 'Release' otherwise"]
   ["--verbose"],         ["Print more info during compilation"]
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
@@ -196,7 +196,7 @@ type Runner =
 
     let configuration =
         let defaultConfiguration = if watch then "Debug" else "Release"
-        match args.Value "--configuration" with
+        match args.Value("-c", "--configuration") with
         | None -> defaultConfiguration
         | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
         | Some configurationArg -> configurationArg
@@ -232,7 +232,8 @@ type Runner =
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
-          NoCache = args.FlagEnabled "--noCache"
+          // TODO: Allow `--cache true` to enable cache even in Release mode?
+          NoCache = not compilerOptions.DebugMode || args.FlagEnabled "--noCache"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"
