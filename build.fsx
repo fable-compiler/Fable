@@ -395,15 +395,14 @@ let test() =
 
     runInDir "tests/Main" "dotnet run"
 
-    // Adaptive tests must go in a different project to avoid conflitcts with Queue shim, see #2559
+    // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
 
     testReact()
 
     testProjectConfigs()
 
-    // TODO: fcs-fable needs to be updated
-    // testCompiler()
+    testCompiler()
 
     testIntegration()
 
