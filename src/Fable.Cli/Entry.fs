@@ -73,7 +73,7 @@ let knownCliArgs() = [
 
   // Hidden args
   ["--typescript"], []
-  ["--rootModule"], []
+  ["--trimRootModule"], []
   ["--fableLib"], []
   ["--replace"], []
 ]
@@ -220,7 +220,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   rootModule = (args.FlagOr("--rootModule", true)),
+                                   trimRootModule = (args.FlagOr("--trimRootModule", true)),
                                    verbosity = verbosity)
 
     let cliArgs =

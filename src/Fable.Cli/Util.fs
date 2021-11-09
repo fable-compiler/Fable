@@ -93,14 +93,16 @@ module File =
     open System.IO
 
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) =
+    let readAllTextNonBlocking (path: string) = async {
         if File.Exists(path) then
             use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
             use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
+            let! text = textReader.ReadToEndAsync() |> Async.AwaitTask
+            return text
         else
             Log.always("File does not exist: " + path)
-            ""
+            return ""
+    }
 
     let rec tryFindPackageJsonDir dir =
         if File.Exists(Path.Combine(dir, "package.json")) then Some dir

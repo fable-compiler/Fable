@@ -12,7 +12,7 @@ let allTests =
 
 [<EntryPoint>]
 let main args =
-    let config = { defaultConfig with ``parallel`` = false }
+    let config = { defaultConfig with runInParallel = false }
 
     allTests
     |> testList "All"
