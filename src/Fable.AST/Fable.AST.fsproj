@@ -3,7 +3,6 @@
   <PropertyGroup>
     <Description>Fable AST</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Version>3.1.1</Version>
     <PackageVersion>3.1.1</PackageVersion>

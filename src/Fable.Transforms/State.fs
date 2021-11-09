@@ -4,8 +4,11 @@ open Fable
 open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
+// TODO: Remove when fcs-fable is updated
+#if FABLE_COMPILER
+open FSharp.Compiler.SourceCodeServices
+#endif
 
 #if FABLE_COMPILER
 type Dictionary<'TKey, 'TValue> with
@@ -128,6 +131,8 @@ type ImplFile =
         Entities: IReadOnlyDictionary<string, Fable.Entity>
     }
 
+// TODO: Pass implementation files (and FSharpAssemblies) instead of the check results
+// in case we want to check files individually
 type Project(projFile: string,
              checkResults: FSharpCheckProjectResults,
              ?getPlugin: PluginRef -> System.Type,
@@ -161,9 +166,11 @@ type Project(projFile: string,
             FSharp2Fable.Compiler.getRootFSharpEntities file |> loop
             let key = Path.normalizePathAndEnsureFsExtension file.FileName
             let rootModule = if rootModule then FSharp2Fable.Compiler.getRootModule file else ""
+            // TODO: If we also get the inlined functions here we don't need the concurrent dictionary
             key, { Ast = file; RootModule = rootModule; Entities = entities })
         |> dict
 
+    // TODO: pass a list of files so we don't need to update all the calculated implementation files
     member this.Update(checkResults: FSharpCheckProjectResults) =
         Project(this.ProjectFile, checkResults,
                 optimizeFSharpAst=optimizeFSharpAst,
