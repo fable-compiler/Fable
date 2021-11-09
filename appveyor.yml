@@ -13,7 +13,7 @@ build:
 # Install scripts. (runs after repo cloning)
 install:
   # Get the latest stable version of .NET Core
-  - cmd: choco install dotnet-5.0-sdk --no-progress
+  - cmd: choco install dotnet-sdk --pre --no-progress
   # Get the latest stable version of Node.js
   - ps: choco install nodejs --no-progress
   # # Update npm
