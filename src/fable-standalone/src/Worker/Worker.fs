@@ -42,7 +42,7 @@ type FableStateConfig =
 type State =
     { Fable: FableState option
       Worker: ObservableWorker<WorkerRequest>
-      CurrentResults: Map<string,IParseResults> }
+      CurrentResults: Map<string, IParseAndCheckResults> }
 
 type SourceWriter(sourceMaps: bool) =
     let sb = System.Text.StringBuilder()
@@ -101,7 +101,7 @@ let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOption
         let! fable = makeFableState (Initialized fable) otherFSharpOptions
         let (parseResults, parsingTime) = measureTime (fun () ->
             // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
-            fable.Manager.ParseFSharpFileInProject(fable.Checker, fileName, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)) ()
+            fable.Manager.ParseAndCheckFileInProject(fable.Checker, fileName, PROJECT_NAME, fsharpNames, fsharpCodes, otherFSharpOptions)) ()
 
         let! jsCode, errors, fableTransformTime = async {
             if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
@@ -180,7 +180,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
         // Check if we need to recreate the FableState because otherFSharpOptions have changed
         let! fable = makeFableState (Initialized fable) otherFSharpOptions
         // let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)
-        let res = fable.Manager.ParseFSharpFileInProject(fable.Checker, FILE_NAME, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)
+        let res = fable.Manager.ParseAndCheckFileInProject(fable.Checker, FILE_NAME, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)
 
         ParsedCode res.Errors |> state.Worker.Post
         return! loop box { state with CurrentResults = state.CurrentResults.Add(FILE_NAME,res) }
@@ -194,7 +194,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
 
             let names = fsharpCode |> Array.map (fun x -> x.Name)
             let contents = fsharpCode |> Array.map (fun x -> x.Content)
-            let res = fable.Manager.ParseFSharpFileInProject(fable.Checker, file, PROJECT_NAME, names, contents, otherFSharpOptions)
+            let res = fable.Manager.ParseAndCheckFileInProject(fable.Checker, file, PROJECT_NAME, names, contents, otherFSharpOptions)
 
             ParsedCode res.Errors |> state.Worker.Post
 

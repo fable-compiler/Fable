@@ -8,7 +8,7 @@
  </PropertyGroup>
 
  <ItemGroup>
-    <PackageReference Include="Expecto" Version="5.1.2" />
+    <PackageReference Include="Expecto" Version="9.0.4" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />

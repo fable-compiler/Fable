@@ -39,7 +39,7 @@ module Compiler =
     (fable, checker)
 
   let clear ((fable, checker): Compiler) =
-    fable.ClearParseCaches checker
+    fable.ClearCache checker
 
   let compile ((fable, checker): Compiler) (settings: Settings) (source: string) =
     let preamble =
@@ -54,7 +54,7 @@ module Compiler =
 
     let projectFileName = "project.fsproj"
     let fileName = "tmp.fs"
-    let parseFSharpScript () = fable.ParseFSharpFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
+    let parseFSharpScript () = fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
     let parseResult = parseFSharpScript ()
     let babelResult = fable.CompileToTargetAst ("", parseResult, fileName, None, "JavaScript")
 

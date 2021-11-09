@@ -1272,10 +1272,6 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             |> addError com [] None
         []
     elif isInline memb then
-        let inlineExpr = { Args = List.concat args
-                           Body = body
-                           FileName = (com :> Compiler).CurrentFile }
-        com.AddInlineExpr(memb, inlineExpr)
         []
     elif memb.IsImplicitConstructor then
         transformImplicitConstructor com ctx memb args body
@@ -1420,30 +1416,24 @@ let getRootModule (file: FSharpImplementationFileContents) =
         | _, None -> ""
     getRootModuleInner None file.Declarations
 
-let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memberUniqueName =
-    let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
-        | FSharpImplementationFileDeclaration.Entity (e, decls) ->
-            let entityFullName2 = FsEnt.FullName e
-            if entityFullName.StartsWith(entityFullName2)
-            then List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName) decls
-            else None
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb2, args, body) ->
-            if getMemberUniqueName com memb2 = memberUniqueName
-            then Some(args, body)
-            else None
-        | FSharpImplementationFileDeclaration.InitAction _ -> None
-    let file = com.GetImplementationFile(fileName)
-    file.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
+let getInlineExprs (file: FSharpImplementationFileContents) =
+    let rec getInlineExprsInner decls =
+        decls |> List.collect (function
+            | FSharpImplementationFileDeclaration.InitAction _ -> []
+            | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, args, body) ->
+                if isInline memb then
+                    let key = getMemberUniqueName memb
+                    let inlineExpr = { Args = List.concat args; Body = body; FileName = file.FileName }
+                    [key, inlineExpr]
+                else [])
+    getInlineExprsInner file.Declarations
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
     let onlyOnceWarnings = HashSet<string>()
 
     member __.Options = com.Options
-
-    member _.AddInlineExpr(memb, inlineExpr: InlineExpr) =
-        let fullName = getMemberUniqueName com memb
-        com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
         if attachedMembers.ContainsKey(entityFullName) then
@@ -1492,7 +1482,7 @@ type FableCompiler(com: Compiler) =
             | _ -> Replacements.tryCall this ctx r t info thisArg args
 
         member _.GetInlineExpr(memb) =
-            let membUniqueName = getMemberUniqueName com memb
+            let membUniqueName = getMemberUniqueName memb
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
             | Some ent ->
@@ -1502,13 +1492,7 @@ type FableCompiler(com: Compiler) =
                 | None -> failwith ("Cannot access source path of " + entRef.FullName)
                 | Some fileName ->
                     com.AddWatchDependency(fileName)
-                    com.GetOrAddInlineExpr(membUniqueName, fun () ->
-                        match tryGetMemberArgsAndBody com fileName entRef.FullName membUniqueName with
-                        | Some(args, body) ->
-                            { Args = List.concat args
-                              Body = body
-                              FileName = fileName }
-                        | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
+                    com.GetInlineExpr(membUniqueName)
 
     interface Compiler with
         member _.Options = com.Options
@@ -1522,7 +1506,7 @@ type FableCompiler(com: Compiler) =
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.GetEntity(fullName) = com.GetEntity(fullName)
         member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
-        member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
+        member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)

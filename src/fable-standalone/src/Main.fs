@@ -13,7 +13,7 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
 
 type CheckerImpl(checker: InteractiveChecker) =
-    member __.Checker = checker
+    member _.Checker = checker
     interface IChecker
 
 let mapError (error: FSharpDiagnostic) =
@@ -32,20 +32,21 @@ let mapError (error: FSharpDiagnostic) =
             | FSharpDiagnosticSeverity.Error -> false
     }
 
-type ParseResults (project: Lazy<Project>,
+type ParseAndCheckResults
+                  (project: Lazy<Project>,
                    parseFileResultsOpt: FSharpParseFileResults option,
                    checkFileResultsOpt: FSharpCheckFileResults option,
                    checkProjectResults: FSharpCheckProjectResults,
                    otherFSharpOptions: string[]) =
 
-    member __.GetProject () = project.Force()
-    member __.ParseFileResultsOpt = parseFileResultsOpt
-    member __.CheckFileResultsOpt = checkFileResultsOpt
-    member __.CheckProjectResults = checkProjectResults
+    member _.GetProject () = project.Force()
+    member _.ParseFileResultsOpt = parseFileResultsOpt
+    member _.CheckFileResultsOpt = checkFileResultsOpt
+    member _.CheckProjectResults = checkProjectResults
 
-    interface IParseResults with
-        member __.OtherFSharpOptions = otherFSharpOptions
-        member __.Errors = checkProjectResults.Diagnostics |> Array.map mapError
+    interface IParseAndCheckResults with
+        member _.OtherFSharpOptions = otherFSharpOptions
+        member _.Errors = checkProjectResults.Diagnostics |> Array.map mapError
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -123,23 +124,27 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
         Stamp = None }
     projOptions
 
-let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCheckProjectResults) =
+let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
-    Project(projectOptions.ProjectFileName, projectResults, optimizeFSharpAst=optimize)
+    Project.From(
+        projectOptions.ProjectFileName,
+        (if optimize then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkResults.AssemblyContents.ImplementationFiles),
+        checkResults.ProjectContext.GetReferencedAssemblies())
 
-let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
-    let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
+let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
+    let checkResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
+    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
+    let project = lazy (makeProject projectOptions checkResults)
+    ParseAndCheckResults (project, None, None, checkResults, otherFSharpOptions)
+
+let parseAndCheckFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
+    let results, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
     let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, None, None, projectResults, otherFSharpOptions)
-
-let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
-    let parseResults, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
-    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
-    let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
+    ParseAndCheckResults (project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
 let tooltipToString (el: ToolTipElement): string[] =
     let dataToString (data: ToolTipElementData) =
@@ -166,8 +171,8 @@ let tooltipToString (el: ToolTipElement): string[] =
     | ToolTipElement.CompositionError err -> [|err|]
 
 /// Get tool tip at the specified location
-let getDeclarationLocation (parseResults: ParseResults) line col lineText =
-    match parseResults.CheckFileResultsOpt with
+let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
         | None -> None
@@ -186,8 +191,8 @@ let getDeclarationLocation (parseResults: ParseResults) line col lineText =
     | None -> None
 
 /// Get tool tip at the specified location
-let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
-    match parseResults.CheckFileResultsOpt with
+let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
         | None ->
@@ -200,22 +205,22 @@ let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
     | None ->
         [||]
 
-let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText =
-   match parseResults.CheckFileResultsOpt with
+let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
+   match results.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
         let longName = QuickParse.GetPartialLongNameEx(lineText, col - 1)
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
-        let decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
+        let decls = checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
         decls.Items |> Array.map (fun decl ->
             { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
     | None ->
         [||]
 
-let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedArrays language =
-    let res = parseResults :?> ParseResults
+let compileToFableAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language =
+    let res = results :?> ParseAndCheckResults
     let project = res.GetProject()
-    let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
+    let define = results.OtherFSharpOptions |> Array.choose (fun x ->
         if x.StartsWith("--define:") || x.StartsWith("-d:")
         then x.[(x.IndexOf(':') + 1)..] |> Some
         else None) |> Array.toList
@@ -288,48 +293,48 @@ let getLanguage (language: string) =
 
 let init () =
   { new IFableManager with
-        member __.Version = Fable.Literals.VERSION
+        member _.Version = Fable.Literals.VERSION
 
-        member __.CreateChecker(references, readAllBytes, otherOptions) =
+        member _.CreateChecker(references, readAllBytes, otherOptions) =
             InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker
 
-        member __.ClearParseCaches(checker) =
+        member _.ClearCache(checker) =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
 
-        member __.ParseFSharpProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
+        member _.ParseAndCheckProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            parseFSharpProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseResults
+            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
-        member __.ParseFSharpFileInProject(checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions) =
+        member _.ParseAndCheckFileInProject(checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            parseFSharpFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions :> IParseResults
+            parseAndCheckFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
-        member __.GetParseErrors(parseResults:IParseResults) =
-            parseResults.Errors
+        member _.GetErrors(results:IParseAndCheckResults) =
+            results.Errors
 
-        member __.GetDeclarationLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetDeclarationLocation(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getDeclarationLocation res line col lineText
 
-        member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetToolTipText(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
 
-        member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetCompletionsAtLocation(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToTargetAst(fableLibrary:string, parseResults:IParseResults, fileName:string, typedArrays, language) =
+        member _.CompileToTargetAst(fableLibrary:string, results:IParseAndCheckResults, fileName:string, typedArrays, language) =
             let language = getLanguage language
             let typedArrays =
                 if language = JavaScript then typedArrays else None // not used for other languages
 
             let com, fableAst, errors =
-                compileToFableAst parseResults fileName fableLibrary typedArrays language
+                compileToFableAst results fileName fableLibrary typedArrays language
 
             match language with
             | JavaScript | TypeScript ->
@@ -348,8 +353,8 @@ let init () =
             // TODO: add other languages
             | _ -> failwith "Unexpected Fable result"
 
-        member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
-            let res = parseResults :?> ParseResults
+        member _.FSharpAstToString(results:IParseAndCheckResults, fileName:string) =
+            let res = results :?> ParseAndCheckResults
             let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
             AstPrint.printFSharpDecls "" implFile.Ast.Declarations |> String.concat "\n"
