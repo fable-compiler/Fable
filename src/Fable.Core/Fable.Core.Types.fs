@@ -98,6 +98,9 @@ type ParamObjectAttribute(fromIndex: int) =
     inherit Attribute()
     new () = ParamObjectAttribute(0)
 
+/// Alias for ParamObjectAttribute.
+type NamedParamsAttribute = ParamObjectAttribute
+
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
