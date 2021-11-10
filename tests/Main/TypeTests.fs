@@ -885,7 +885,7 @@ let tests =
         let multiplyTwice x y = x * y * y
 
         foo.[3] <- 'W'
-        foo.Foo <- foo.Foo + foo.DoSomething(addPlus2, 3.).ToString("F2") + foo.[2].ToString()
+        foo.Foo <- foo.Foo + foo.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + foo.[2].ToString()
         foo.Foo <- foo.Foo + foo.Sum("a", "bc", "d")
 
         foo.Foo |> equal "FoW19.20Wabcd"
@@ -904,7 +904,7 @@ let tests =
         let multiplyTwice x y = x * y * y
 
         bar.[3] <- 'Z'
-        bar.Bar <- bar.Bar + bar.DoSomething(multiplyTwice, 3.).ToString("F2") + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
+        bar.Bar <- bar.Bar + bar.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(",", ".") + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
         bar.Bar <- bar.Bar + bar.Sum("a", "bc", "d")
 
         bar.Bar |> equal "Zar77.40rfalsefalsedbca"
@@ -915,7 +915,7 @@ let tests =
         let multiplyTwice x y = x * y * y
         let foo2 = FooClass("Foo") :> FooInterface
         foo2.[0] <- 'W'
-        foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2") + foo2.[2].ToString()
+        foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(',', '.') + foo2.[2].ToString()
         foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
         foo2.Foo |> equal "Woo1020.00oabcabcdabcabcd"
 
@@ -925,7 +925,7 @@ let tests =
         let multiplyTwice x y = x * y * y
         let bar2 = BarClass("Bar") :> BarInterface
         bar2.[0] <- 'Z'
-        bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
+        bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
         bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
         bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
 

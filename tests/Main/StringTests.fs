@@ -2,6 +2,8 @@ module Fable.Tests.Strings
 
 open System
 open Util.Testing
+open System.Globalization
+
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
@@ -83,7 +85,7 @@ let tests =
                               .Append(true)
                               .Append(5.2)
                               .Append(34)
-            equal "aaabcd/true5.234" (builder.ToString().ToLower())
+            equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
 
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
@@ -288,9 +290,9 @@ let tests =
           |> equal "[ Hello][  Foo]"
 
       testCase "String.Format combining padding and zeroes pattern works" <| fun () ->
-          String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
-          String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
-          String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+          String.Format(CultureInfo.InvariantCulture, "{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+          String.Format(CultureInfo.InvariantCulture, "{0:000.00}foo", 5) |> equal "005.00foo"
+          String.Format(CultureInfo.InvariantCulture, "{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
 
       testCase "String.Format {0:x} works" <| fun () ->
             //See above comment on expected values
@@ -312,7 +314,7 @@ let tests =
 
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M
-          decimal.ToString("0.000") |> equal "78.600"
+          decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"
 
       testCase "Printf works with generic argument" <| fun () ->
           spr "bar %s" "a" |> equal "bar a"
@@ -344,7 +346,7 @@ let tests =
       testCase "String.Format with extra formatting works" <| fun () ->
             let i = 0.5466788
             let dt = DateTime(2014, 9, 26).AddMinutes(19.)
-            String.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
+            String.Format(CultureInfo.InvariantCulture, "{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
                   .Replace(",", ".").Replace(" %", "%")
             |> equal "0.55 54.67% 2014-09-26 00:19"
 
@@ -362,10 +364,10 @@ let tests =
           sprintf "%+0-10i" -22  |> equal "-22       "
 
       testCase "Padding with String.Format works" <| fun () ->
-          String.Format("{0,10:F1}", 3.14).Replace(",", ".")  |> equal "       3.1"
-          String.Format("{0,-10:F1}", 3.14).Replace(",", ".") |> equal "3.1       "
-          String.Format("{0,10}", 22)                         |> equal "        22"
-          String.Format("{0,-10}", -22)                       |> equal "-22       "
+          String.Format(CultureInfo.InvariantCulture, "{0,10:F1}", 3.14)  |> equal "       3.1"
+          String.Format(CultureInfo.InvariantCulture, "{0,-10:F1}", 3.14) |> equal "3.1       "
+          String.Format(CultureInfo.InvariantCulture, "{0,10}", 22)       |> equal "        22"
+          String.Format(CultureInfo.InvariantCulture, "{0,-10}", -22)     |> equal "-22       "
 
       // Conversions
 
