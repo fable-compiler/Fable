@@ -344,7 +344,10 @@ module PrinterExtensions =
             printer.Print(node.Func)
             printer.Print("(")
             printer.PrintCommaSeparatedList(node.Args)
-            printer.PrintCommaSeparatedList(node.Keywords)
+            if not node.Keywords.IsEmpty then
+                if not node.Args.IsEmpty then
+                    printer.Print(", ")
+                printer.PrintCommaSeparatedList(node.Keywords)
             printer.Print(")")
 
         member printer.Print(node: Emit) =
