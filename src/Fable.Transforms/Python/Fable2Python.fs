@@ -15,6 +15,10 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
+type ArgsInfo =
+    | CallInfo of Fable.CallInfo
+    | NoCallInfo of args: Fable.Expr list
+
 type Import =
   { Module: string
     LocalIdent: Identifier option
@@ -687,7 +691,7 @@ module Util =
         |> List.map (fun x -> Expression.constant(x))
         |> Expression.list
 
-    let makePyObject com ctx (pairs: seq<string * Expression>) =
+    let makePyObject (pairs: seq<string * Expression>) =
         pairs |> Seq.map (fun (name, value) ->
            //let prop, computed = memberFromName com ctx name
            let prop = Expression.constant(name)
@@ -740,7 +744,6 @@ module Util =
         Statement.expr(callSuper args)
 
     let makeClassConstructor (args: Arguments) body =
-        // printfn "makeClassConstructor"
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args = { args with Args = self::args.Args }
@@ -751,8 +754,8 @@ module Util =
 
         FunctionDef.Create(name, args, body = body)
 
-    let callFunction r funcExpr (args: Expression list) =
-        Expression.call(funcExpr, args, ?loc=r)
+    let callFunction r funcExpr (args: Expression list) (kw: Keyword list) =
+        Expression.call(funcExpr, args, kw=kw, ?loc=r)
 
     let callFunctionWithThisContext com ctx r funcExpr (args: Expression list) =
         let args = thisExpr::args
@@ -832,7 +835,7 @@ module Util =
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
         let args =
             match args.Args with
-            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | [] -> Arguments.arguments(args=[ Arg.arg(Identifier("_unit")) ], defaults=[ Expression.none() ])
             | _ -> args
 
         match body with
@@ -875,7 +878,7 @@ module Util =
         let tempVarReplacements = tempVars |> Map.map (fun _ v -> makeIdentExpr v)
         [
             // First declare temp variables
-            for (KeyValue(argId, tempVar)) in tempVars do
+            for KeyValue(argId, tempVar) in tempVars do
                 yield! varDeclaration ctx (com.GetIdentifierAsExpr(ctx, tempVar)) false (com.GetIdentifierAsExpr(ctx, argId))
             // Then assign argument expressions to the original argument identifiers
             // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
@@ -981,7 +984,7 @@ module Util =
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values, stmts = values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
-            List.zip (List.ofArray fieldNames) values |> makePyObject com ctx , stmts
+            List.zip (List.ofArray fieldNames) values |> makePyObject, stmts
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
@@ -1002,7 +1005,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> com.GetIdentifierAsExpr(ctx, id.Name), []
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx info.HasSpread info.Args
+            let args = transformCallArgs com ctx None (CallInfo info)
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1079,10 +1082,10 @@ module Util =
         let baseExpr, classMembers =
             baseCall
             |> extractBaseExprFromBaseCall com ctx None
-            |> Option.map (fun (baseExpr, (baseArgs, stmts)) ->
+            |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
                 let consBody = [ callSuperAsStatement baseArgs ]
                 let args = Arguments.empty
-                let cons = makeClassConstructor args  consBody
+                let cons = makeClassConstructor args consBody
                 Some baseExpr, cons::members
             )
             |> Option.defaultValue (None, members)
@@ -1095,21 +1098,100 @@ module Util =
         let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
         Expression.call(Expression.name name), [ stmt ]
 
-    let transformCallArgs (com: IPythonCompiler) ctx hasSpread args : Expression list * Statement list =
-        match args with
-        | []
-        | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> [], []
-        | args when hasSpread ->
-            match List.rev args with
-            | [] -> [], []
-            | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs) |> Helpers.unzipArgs
-            | last::rest ->
-                let rest, stmts = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
-                let expr, stmts' = com.TransformAsExpr(ctx, last)
-                rest @ [ Expression.starred(expr) ], stmts @ stmts'
-        | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
+    let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo): Expression list * Keyword list * Statement list =
+        let tryGetParamObjInfo (memberInfo: Fable.CallMemberInfo) =
+            let tryGetParamNames (parameters: Fable.ParamInfo list) =
+                (Some [], parameters) ||> List.fold (fun acc p ->
+                    match acc, p.Name with
+                    | Some acc, Some name -> Some(name::acc)
+                    | _ -> None)
+                |> function
+                    | Some names -> List.rev names |> Some
+                    | None ->
+                        "ParamObj cannot be used with unnamed parameters"
+                        |> addWarning com [] r
+                        None
+
+            match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
+            // Check only members with multiple non-curried arguments
+            | [parameters], Some ent when not (List.isEmpty parameters) ->
+                com.TryGetNonCoreAssemblyEntity(ent)
+                |> Option.bind (fun ent ->
+                    if ent.IsFSharpModule then None
+                    else
+                        ent.MembersFunctionsAndValues
+                        |> Seq.tryFind (fun m ->
+                            m.IsInstance = memberInfo.IsInstance
+                            && m.CompiledName = memberInfo.CompiledName
+                            && match m.CurriedParameterGroups with
+                                | [parameters2] when List.sameLength parameters parameters2 ->
+                                    List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
+                                | _ -> false))
+                |> Option.bind (fun m ->
+                    m.Attributes |> Seq.tryPick (fun a ->
+                        if a.Entity.FullName = Atts.paramObject then
+                            let index =
+                                match a.ConstructorArgs with
+                                | :? int as index::_ -> index
+                                | _ -> 0
+                            tryGetParamNames parameters |> Option.map (fun paramNames ->
+                                {| Index = index; Parameters = paramNames |})
+                        else None
+                    ))
+                | _ -> None
+
+        let paramObjInfo, hasSpread, args =
+            match info with
+            | CallInfo i ->
+                let paramObjInfo =
+                    match i.CallMemberInfo with
+                    // ParamObject is not compatible with arg spread
+                    | Some mi when not i.HasSpread -> tryGetParamObjInfo mi
+                    | _ -> None
+                paramObjInfo, i.HasSpread, i.Args
+            | NoCallInfo args -> None, false, args
+
+        let args, objArg, stmts =
+            match paramObjInfo with
+            | None -> args, None, []
+            | Some i when i.Index > List.length args -> args, None, []
+            | Some i ->
+                let args, objValues = List.splitAt i.Index args
+                let _, objKeys = List.splitAt i.Index i.Parameters
+                let objKeys = List.take (List.length objValues) objKeys
+                let objArg, stmts =
+                    List.zip objKeys objValues
+                    |> List.choose (function
+                        | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
+                        | k, v -> Some(k, v))
+                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                    |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                    |> List.unzip
+                    |> (fun (kv, stmts) -> kv |> List.map(fun (k, v) -> Keyword.keyword(Identifier k, v)), stmts |> List.collect id)
+                args, Some objArg, stmts
+
+        let args, stmts' =
+            match args with
+            | []
+            | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> [], []
+            | args when hasSpread ->
+                match List.rev args with
+                | [] -> [], []
+                | Replacements.ArrayOrListLiteral(spreadArgs,_)::rest ->
+                    let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                    rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs) |> Helpers.unzipArgs
+                | last::rest ->
+                    let rest, stmts = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+                    let expr, stmts' = com.TransformAsExpr(ctx, last)
+                    rest @ [ Expression.starred(expr) ], stmts @ stmts'
+            | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
+
+        match objArg with
+        | None -> args, [], stmts @ stmts'
+        | Some objArg ->
+            //let name = Expression.name(Helpers.getUniqueIdentifier "kw")
+            //let kw = Statement.assign([ name], objArg)
+            args, objArg, stmts @ stmts'
 
     let resolveExpr (ctx: Context) t strategy pyExpr: Statement list =
         // printfn "resolveExpr: %A" (pyExpr, strategy)
@@ -1194,7 +1276,7 @@ module Util =
         let macro = info.Macro
         let info = info.CallInfo
         let thisArg, stmts = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList |> Helpers.unzipArgs
-        let exprs, stmts' = transformCallArgs com ctx info.HasSpread info.Args
+        let exprs, _, stmts' = transformCallArgs com ctx range (CallInfo info)
 
         if macro.StartsWith("functools") then
             com.GetImportExpr(ctx, "functools") |> ignore
@@ -1207,7 +1289,8 @@ module Util =
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
         // printfn "transformCall: %A" (callee, callInfo)
         let callee', stmts = com.TransformAsExpr(ctx, callee)
-        let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+        let args, kw, stmts' = transformCallArgs com ctx range (CallInfo callInfo)
+
         match callee, callInfo.ThisArg with
         | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
             // printfn "Type: %A" expr.Type
@@ -1216,16 +1299,16 @@ module Util =
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
             Expression.none(), Statement.assign([Expression.subscript(value, right)], arg) :: stmts @ stmts' @ stmts''
         | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
-            callFunction range callee' [], stmts @ stmts'
+            callFunction range callee' [] kw, stmts @ stmts'
 
-        | _, Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg::args), stmts @ stmts' @ stmts''
-        | _, None when callInfo.IsConstructor -> Expression.call(callee', args, ?loc=range), stmts @ stmts'
-        | _, None -> callFunction range callee' args, stmts @ stmts'
+        | _, Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg::args) kw, stmts @ stmts' @ stmts''
+        | _, None when callInfo.IsConstructor -> Expression.call(callee', args, kw, ?loc=range), stmts @ stmts'
+        | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
-        match transformCallArgs com ctx false args with
-        | [], stmts' -> callFunction range applied [], stmts @ stmts'
-        | args, stmts' -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg]), stmts @ stmts'
+        match transformCallArgs com ctx range (NoCallInfo args) with
+        | [], kw, stmts' -> callFunction range applied [] kw, stmts @ stmts'
+        | args, kw, stmts' -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg] kw), stmts @ stmts'
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2443,9 +2526,9 @@ module Util =
             classDecl.BaseCall
             |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
             |> Option.orElseWith (fun () ->
-                if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", ([], []))
+                if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", ([], [], []))
                 else None)
-            |> Option.map (fun (baseExpr, (baseArgs, stmts)) ->
+            |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
                 let consBody =
                     stmts @ consBody
                     |> List.append [ callSuperAsStatement baseArgs ]
