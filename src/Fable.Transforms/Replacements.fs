@@ -451,7 +451,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | Char | String -> head
         | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
@@ -2743,12 +2743,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | ".ctor" when args.Length = 4 ->
+        "DateOnly constructor with the calendar parameter is not supported."
+        |> addError com ctx.InlinePath r
+        None
     | ".ctor" ->
-        match args with
-        | [ ExprType (Number Int32); ExprType (Number Int32); ExprType (Number Int32) ] ->
-            Helper.LibCall(com, "DateOnly", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ ->
-            None
+        Helper.LibCall(com, "DateOnly", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2762,7 +2762,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "FromMilliseconds" -> TypeCast(args.Head, t, None) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t, None) |> Some
     | "ToString" when (args.Length = 1) ->
-        "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
+        "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
         None
     | "ToString" when (args.Length = 2) ->
@@ -2785,14 +2785,6 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_MinValue" ->
         makeIntConst 0 |> Some
-    | "Add"
-    | "AddHours"
-    | "AddMinutes"
-    | "get_MaxValue"
-    | "IsBetween"
-    | "FromTimeSpan" ->
-        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
-        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "ToTimeSpan" ->
         // The representation is identical
         thisArg
@@ -2802,9 +2794,28 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "get_Millisecond" ->
         // Translate TimeOnly properties with a name in singular to the equivalent properties on TimeSpan
         timeSpans com ctx r t { i with CompiledName = i.CompiledName + "s" } thisArg args
+    | "get_Ticks" ->
+        Helper.LibCall(com, "TimeSpan", "ticks", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "TimeOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+            None
+        | [ StringConst ("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
+            Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | [ StringConst _; _] ->
+            "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\", format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+            None
+        | [ _ ] ->
+            Helper.LibCall(com, "TimeOnly", "toString", t, makeStrConst "t" :: args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ ->
+            None
     | _ ->
-        // Fall back to TimeSpan
-        timeSpans com ctx r t i thisArg args
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with

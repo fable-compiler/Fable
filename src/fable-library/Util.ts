@@ -209,6 +209,14 @@ export function padWithZeros(i: number, length: number) {
   return str;
 }
 
+export function padRightWithZeros(i: number, length: number) {
+  let str = i.toString(10);
+  while (str.length < length) {
+    str = str + "0";
+  }
+  return str;
+}
+
 export function padLeftAndRightWithZeros(i: number, lengthLeft: number, lengthRight: number) {
   let str = i.toString(10);
   while (str.length < lengthLeft) {

@@ -1,4 +1,6 @@
 import Long, { op_Division as Long_op_Division, toNumber as Long_toNumber } from "./Long.js";
+import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
+import { padRightWithZeros, padWithZeros } from "./Util.js";
 
 export function create(h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   if (h < 0 || m < 0 || s < 0 || ms < 0)
@@ -51,3 +53,16 @@ export function isBetween(t: number, start: number, end: number) {
   else
     return t > start || t < end;
 }
+
+export function toString(t: number, format = "t", _provider?: any) {
+  if (["r", "R", "o", "O", "t", "T"].indexOf(format) === -1) {
+    throw new Error("Custom formats are not supported");
+  }
+
+  const isO = format === "o" || format === "O"
+  const h = padWithZeros(hours(t), 2);
+  const m = padWithZeros(minutes(t), 2);
+  const s = padWithZeros(seconds(t), 2);
+  return `${h}:${m}${format !== "t" ? (isO ? `:${s}.${padRightWithZeros(milliseconds(t), 7)}` : `:${s}`) : ""}`;
+}
+

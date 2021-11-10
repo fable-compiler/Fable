@@ -2,6 +2,7 @@
 
 open System
 open Util.Testing
+open System.Globalization
 
 let tests =
     testList "TimeOnly" [
@@ -85,4 +86,31 @@ let tests =
             t.AddHours -31 |> equal (TimeOnly (23, 0))
             t.AddMinutes 59 |> equal (TimeOnly (6, 59))
             t.AddMinutes -361 |> equal (TimeOnly (23, 59))
+
+        testCase "ToString works" <| fun () ->
+            let t1 = TimeOnly (5, 0, 2, 555)
+            let t2 = TimeOnly (14, 2)
+
+            t2.ToString() |> equal "14:02"
+
+            t1.ToString(CultureInfo.InvariantCulture) |> equal "05:00"
+            t2.ToString(CultureInfo.InvariantCulture) |> equal "14:02"
+
+            t1.ToString("r", CultureInfo.InvariantCulture) |> equal "05:00:02"
+            t2.ToString("r", CultureInfo.InvariantCulture) |> equal "14:02:00"
+
+            t1.ToString("R", CultureInfo.InvariantCulture) |> equal "05:00:02"
+            t2.ToString("R", CultureInfo.InvariantCulture) |> equal "14:02:00"
+
+            t1.ToString("o", CultureInfo.InvariantCulture) |> equal "05:00:02.5550000"
+            t2.ToString("o", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
+
+            t1.ToString("O", CultureInfo.InvariantCulture) |> equal "05:00:02.5550000"
+            t2.ToString("O", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
+
+            t1.ToString("t", CultureInfo.InvariantCulture) |> equal "05:00"
+            t2.ToString("t", CultureInfo.InvariantCulture) |> equal "14:02"
+
+            t1.ToString("T", CultureInfo.InvariantCulture) |> equal "05:00:02"
+            t2.ToString("T", CultureInfo.InvariantCulture) |> equal "14:02:00"
     ]
