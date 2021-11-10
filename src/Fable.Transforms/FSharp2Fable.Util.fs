@@ -382,12 +382,12 @@ module Helpers =
             match memb.DeclaringEntity with
             | Some ent ->
                 let entRef = FsEnt.Ref ent
-                let entName = getEntityMangledName com trimRootModule entRef
+                let entName = getEntityMangledName trimRootModule entRef
                 if ent.IsFSharpModule then
-                    match com.Options.Language, entName with
-                    | Rust, _ -> // no module prefix for Rust
-                        memb.CompiledName, Naming.NoMemberPart
-                    | _ , "" ->
+                    match trimRootModule, entName with
+                    | TrimRootModule com, _ when com.Options.Language = Rust ->
+                        memb.CompiledName, Naming.NoMemberPart // no module prefix for Rust
+                    | _, "" ->
                         memb.CompiledName, Naming.NoMemberPart
                     | _, moduleName ->
                         moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
