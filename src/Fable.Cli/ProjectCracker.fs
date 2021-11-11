@@ -283,7 +283,6 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
-        yield "--langversion:preview" // Needed for witnesses
         // Since net5.0 there's no difference between app/library
         // yield "--target:library"
     |]

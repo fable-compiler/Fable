@@ -544,18 +544,17 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // Sometimes errors are duplicated
     let logs = Array.distinct logs
 
-    logs
-    |> Array.filter (fun x -> x.Severity = Severity.Info)
-    |> Array.iter (formatLog state.CliArgs >> Log.always)
-
-    logs
-    |> Array.filter (fun log ->
-        match log.Severity, log.FileName with
-        // Ignore warnings from packages in `fable_modules` folder
-        | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
-        | Severity.Warning, _ -> true
-        | _ -> false)
-    |> Array.iter (formatLog state.CliArgs >> Log.warning)
+    for log in logs do
+        match log.Severity with
+        | Severity.Error -> () // We deal with errors below
+        | Severity.Info | Severity.Warning ->
+            // Ignore warnings from packages in `fable_modules` folder
+            match log.FileName with
+            | Some filename when Naming.isInFableHiddenDir(filename) -> ()
+            | _ ->
+                let formatted = formatLog state.CliArgs log
+                if log.Severity = Severity.Warning then Log.warning formatted
+                else Log.always formatted
 
     let erroredFiles =
         logs |> Array.choose (fun log ->
