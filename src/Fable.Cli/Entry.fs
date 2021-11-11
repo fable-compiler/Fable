@@ -258,7 +258,7 @@ type Runner =
 
     return!
         State.Create(cliArgs, ?watchDelay=watchDelay)
-        |> startFirstCompilation
+        |> startCompilation
         |> Async.RunSynchronously
 }
 

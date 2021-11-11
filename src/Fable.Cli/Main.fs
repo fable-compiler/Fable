@@ -382,13 +382,38 @@ type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiag
         return ProjectChecked(proj, checker, results |> Array.collect (fun r -> r.Diagnostics))
     }
 
+type Watcher =
+    { Watcher: FsWatcher
+      Subscription: IDisposable
+      StartedAt: DateTime
+      OnChange: ISet<string> -> unit }
+
+    static member Create(watchDelay) =
+        { Watcher = FsWatcher(watchDelay)
+          Subscription = { new IDisposable with member _.Dispose() = () }
+          StartedAt = DateTime.UtcNow
+          OnChange = ignore }
+
+    member this.Watch(projCracked: ProjectCracked) =
+        this.Subscription.Dispose()
+        let subs =
+            this.Watcher.Observe [
+                projCracked.ProjectOptions.ProjectFileName
+                yield! projCracked.References
+                yield! projCracked.SourceFiles |> Array.choose (fun path ->
+                    if Naming.isInFableHiddenDir(path) then None
+                    else Some path)
+            ]
+            |> Observable.subscribe this.OnChange
+        { this with Subscription = subs; StartedAt = DateTime.UtcNow }
+
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndChecked: (ProjectCracked * ProjectChecked) option
       WatchDependencies: Map<string, string[]>
       PendingFiles: string[]
       DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
-      Watcher: FsWatcher option
+      Watcher: Watcher option
       HasCompiledOnce: bool }
 
     member this.RunProcessEnv =
@@ -411,27 +436,16 @@ type State =
         { CliArgs = cliArgs
           ProjectCrackedAndChecked = None
           WatchDependencies = Map.empty
-          Watcher = watchDelay |> Option.map FsWatcher
+          Watcher = watchDelay |> Option.map Watcher.Create
           DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
           PendingFiles = [||]
           HasCompiledOnce = false }
 
-let rec startCompilation (changes: ISet<string>) (state: State) = async {
-    let state =
-        match state.CliArgs.RunProcess with
-        | Some runProc when runProc.IsFast ->
-            let workingDir = state.CliArgs.RootDir
-            let exeFile =
-                File.tryNodeModulesBin workingDir runProc.ExeFile
-                |> Option.defaultValue runProc.ExeFile
-            Process.startWithEnv state.RunProcessEnv workingDir exeFile runProc.Args
-            { state with CliArgs = { state.CliArgs with RunProcess = None } }
-        | _ -> state
+let private compilationCycle (state: State) (changes: ISet<string>) = async {
 
-    // TODO: Use Result here to fail more gracefully if FCS crashes
-    let! projCracked, projChecked, filesToCompile = async {
+    let! projCracked, filesToCompile = async {
         match state.ProjectCrackedAndChecked with
-        | Some(projCracked, projChecked) ->
+        | Some(projCracked, _) ->
             let fsprojChanged, projCracked =
                 // For performance reasons, don't crack .fsx scripts for every change
                 if changes |> Seq.exists (fun c -> c.EndsWith(".fsproj")) then
@@ -439,9 +453,9 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 else false, projCracked
 
             if fsprojChanged then
-                let! projChecked = ProjectChecked.Init(projCracked)
-                return projCracked, projChecked, projCracked.SourceFiles
+                return projCracked, None
             else
+                let pendingFiles = set state.PendingFiles
                 let hasWatchDependency (path: string) =
                     if state.CliArgs.WatchDeps then
                         match Map.tryFind path state.WatchDependencies with
@@ -449,18 +463,14 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
                     else false
 
-                let pendingFiles = set state.PendingFiles
-
                 let filesToCompile =
                     projCracked.SourceFiles |> Array.filter (fun path ->
                         changes.Contains path || pendingFiles.Contains path || hasWatchDependency path)
 
-                let! projChecked = projChecked.Update(projCracked, filesToCompile)
-                return projCracked, projChecked, filesToCompile
+                return projCracked, Some filesToCompile
 
         | None ->
             let projCracked = ProjectCracked.Init(state.CliArgs)
-            let! projChecked = ProjectChecked.Init(projCracked)
             let filesToCompile =
                 // If ProjectCracker hasn't used the cache it means fable_modules
                 // are new so make sure they're recompiled
@@ -477,8 +487,24 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     if filesToCompile.Length < projCracked.SourceFiles.Length then
                         Log.always("Skipping Fable compilation of up-to-date JS files")
                     filesToCompile
-            return projCracked, projChecked, filesToCompile
+            return projCracked, Some filesToCompile
         }
+
+    let state =
+        match state.Watcher with
+        | Some watcher -> { state with Watcher = watcher.Watch(projCracked) |> Some }
+        | None -> state
+
+    // TODO: Use Result here to fail more gracefully if FCS crashes
+    let! projChecked, filesToCompile = async {
+        match state.ProjectCrackedAndChecked, filesToCompile with
+        | Some(_, projChecked), Some filesToCompile ->
+            let! projChecked = projChecked.Update(projCracked, filesToCompile)
+            return projChecked, filesToCompile
+        | _, filesToCompile ->
+            let! projChecked = ProjectChecked.Init(projCracked)
+            return projChecked, defaultArg filesToCompile projCracked.SourceFiles
+    }
 
     let logs = getFSharpErrorLogs projChecked.Errors
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
@@ -572,27 +598,58 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 let exitCode = Process.runSyncWithEnv state.RunProcessEnv workingDir exeFile args
                 (if exitCode = 0 then None else Some "Run process failed"), state
 
-    match state.Watcher with
-    | Some watcher ->
-        let! changes =
-            watcher.Observe [
-                projCracked.ProjectOptions.ProjectFileName
-                yield! projCracked.References
-                yield! projCracked.SourceFiles
-                    |> Array.choose (fun path ->
-                        if Naming.isInFableHiddenDir(path) then None
-                        else Some path)
-            ]
-            |> Async.AwaitObservable
+    let state =
+        { state with ProjectCrackedAndChecked = Some(projCracked, projChecked)
+                     PendingFiles = if state.PendingFiles.Length = 0 then erroredFiles else state.PendingFiles }
 
-        return!
-            { state with ProjectCrackedAndChecked = Some(projCracked, projChecked)
-                         PendingFiles = erroredFiles }
-            |> startCompilation changes
-
-    | None ->
-        return match errorMsg with Some e -> Error e | None -> Ok()
+    return
+        match errorMsg with
+        | Some e -> state, Error e
+        | None -> state, Ok()
 }
 
-let startFirstCompilation state =
-    startCompilation (HashSet() :> ISet<_>) state
+type Msg =
+    | Changes of timeStamp: DateTime * changes: ISet<string>
+
+let startCompilation state = async {
+    let state =
+        match state.CliArgs.RunProcess with
+        | Some runProc when runProc.IsFast ->
+            let workingDir = state.CliArgs.RootDir
+            let exeFile =
+                File.tryNodeModulesBin workingDir runProc.ExeFile
+                |> Option.defaultValue runProc.ExeFile
+            Process.startWithEnv state.RunProcessEnv workingDir exeFile runProc.Args
+            { state with CliArgs = { state.CliArgs with RunProcess = None } }
+        | _ -> state
+
+    // Initialize changes with an empty set
+    let changes = HashSet() :> ISet<_>
+    let! _state, result =
+        match state.Watcher with
+        | None -> compilationCycle state changes
+        | Some watcher ->
+            let agent =
+                MailboxProcessor<Msg>.Start(fun agent ->
+                    let rec loop state = async {
+                        match! agent.Receive() with
+                        | Changes(timestamp, changes) ->
+                            match state.Watcher with
+                            // Discard changes that may have happened before we restarted the watcher
+                            | Some w when w.StartedAt < timestamp ->
+                                // TODO: Get all messages until QueueLength is 0 before starting the compilation cycle?
+                                let! state, _result = compilationCycle state changes
+                                return! loop state
+                            | _ -> return! loop state
+                    }
+
+                    let onChange changes =
+                        Changes(DateTime.UtcNow, changes) |> agent.Post
+
+                    loop { state with Watcher = Some { watcher with OnChange = onChange } })
+
+            // The watcher will remain endless active so we don't really need the reply channel
+            agent.PostAndAsyncReply(fun _ -> Changes(DateTime.UtcNow, changes))
+
+    return result
+}

@@ -346,12 +346,6 @@ module Imports =
             else importPath
 
 module Observable =
-    type Observer<'T>(f) =
-        interface IObserver<'T> with
-            member _.OnNext v = f v
-            member _.OnError _ = ()
-            member _.OnCompleted() = ()
-
     type SingleObservable<'T>(dispose: unit -> unit) =
         let mutable listener: IObserver<'T> option = None
         member _.Trigger v =
@@ -367,17 +361,18 @@ module Observable =
     let throttle (ms: int) (obs: IObservable<'T>) =
         { new IObservable<'T[]> with
             member _.Subscribe w =
-                let events = Collections.Concurrent.ConcurrentBag()
+                let events = ResizeArray()
                 let timer = new Timers.Timer(float ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
-                    events.ToArray() |> w.OnNext
-                    timer.Dispose())
-                let disp = obs.Subscribe(Observer(fun v ->
+                    events.ToArray() |> w.OnNext)
+                let disp = obs.Subscribe(fun v ->
                     events.Add(v)
                     timer.Stop()
-                    timer.Start()))
+                    timer.Start())
                 { new IDisposable with
-                    member _.Dispose() = disp.Dispose() } }
+                    member _.Dispose() =
+                        timer.Dispose()
+                        disp.Dispose() } }
 
 [<AutoOpen>]
 module ResultCE =
