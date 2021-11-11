@@ -39,9 +39,6 @@ module private Util =
                 |> Log.always; t
             | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
 
-    let getSourceFiles (opts: FSharpProjectOptions) =
-        opts.OtherOptions |> Array.filter (fun path -> path.StartsWith("-") |> not)
-
     let splitVersion (version: string) =
         match Version.TryParse(version) with
         | true, v -> v.Major, v.Minor, v.Revision
@@ -283,18 +280,16 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
-type ProjectCracked(projFile: string,
-                    sourceFiles: string array,
-                    cliArgs: CliArgs,
+type ProjectCracked(cliArgs: CliArgs,
                     crackerResponse: CrackerResponse) =
 
     member _.CliArgs = cliArgs
-    member _.ProjectFile = projFile
+    member _.ProjectFile = cliArgs.ProjectFile
     member _.FableOptions = cliArgs.CompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
     member _.CacheUsed = crackerResponse.CacheUsed
-    member _.SourceFiles = sourceFiles
+    member _.SourceFiles = crackerResponse.ProjectOptions.SourceFiles
 
     member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
@@ -315,14 +310,13 @@ type ProjectCracked(projFile: string,
             |> getFullProjectOpts
 
         // We display "parsed" because "cracked" may not be understood by users
-        Log.always $"Project parsed in %i{ms}ms\n"
+        Log.always $"Project parsed in %i{ms}ms. {result.ProjectOptions.SourceFiles.Length} files.\n"
         Log.verbose(lazy
             let proj = IO.Path.GetRelativePath(cliArgs.RootDir, cliArgs.ProjectFile)
             let opts = result.ProjectOptions.OtherOptions |> String.concat "\n   "
             $"F# PROJECT: %s{proj}\n   %s{opts}")
 
-        let sourceFiles = getSourceFiles result.ProjectOptions
-        ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs, result)
+        ProjectCracked(cliArgs, result)
 
 type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiagnostic array) =
 
@@ -337,7 +331,7 @@ type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiag
                 keepAllBackgroundResolutions=false,
                 keepAllBackgroundSymbolUses=false)
 
-        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectOptions.ProjectFileName)}..."
+        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
         let! checkResults, ms = measureTimeAsync <| fun () ->
             checker.ParseAndCheckProject(config.ProjectOptions)
         Log.always $"F# compilation finished in %i{ms}ms\n"
@@ -358,7 +352,7 @@ type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiag
 
     member this.Update(config: ProjectCracked, files: string array) = async {
 
-        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectOptions.ProjectFileName)}..."
+        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
         let! results, ms = measureTimeAsync <| fun () ->
             files
             |> Array.map (fun file -> async {
@@ -391,21 +385,23 @@ type Watcher =
     static member Create(watchDelay) =
         { Watcher = FsWatcher(watchDelay)
           Subscription = { new IDisposable with member _.Dispose() = () }
-          StartedAt = DateTime.UtcNow
+          StartedAt = DateTime.MinValue
           OnChange = ignore }
 
     member this.Watch(projCracked: ProjectCracked) =
-        this.Subscription.Dispose()
-        let subs =
-            this.Watcher.Observe [
-                projCracked.ProjectOptions.ProjectFileName
-                yield! projCracked.References
-                yield! projCracked.SourceFiles |> Array.choose (fun path ->
-                    if Naming.isInFableHiddenDir(path) then None
-                    else Some path)
-            ]
-            |> Observable.subscribe this.OnChange
-        { this with Subscription = subs; StartedAt = DateTime.UtcNow }
+        if this.StartedAt > projCracked.ProjectOptions.LoadTime then this
+        else
+            this.Subscription.Dispose()
+            let subs =
+                this.Watcher.Observe [
+                    projCracked.ProjectFile
+                    yield! projCracked.References
+                    yield! projCracked.SourceFiles |> Array.choose (fun path ->
+                        if Naming.isInFableHiddenDir(path) then None
+                        else Some path)
+                ]
+                |> Observable.subscribe this.OnChange
+            { this with Subscription = subs; StartedAt = DateTime.UtcNow }
 
 type State =
     { CliArgs: CliArgs
