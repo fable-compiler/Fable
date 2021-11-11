@@ -190,9 +190,6 @@ let tests =
             let isValid, _ = TimeOnly.TryParse "002:10"
             equal false isValid
 
-            let isValid, _ = TimeOnly.TryParse "2:0:0."
-            equal false isValid
-
             let isValid, _ = TimeOnly.TryParse "22:50:60"
             equal false isValid
 

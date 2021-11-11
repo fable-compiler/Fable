@@ -1,11 +1,9 @@
-import { getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day } from "./Date.js";
+import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day } from "./Date.js";
 import { IDateTime, DateKind } from "./Util.js";
 import { toInt, fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, ticksToUnixEpochMilliseconds } from "./Long.js";
 
 export function fromUnixMilliseconds(value: number) {
-  const d = new Date(value) as IDateTime;
-  d.kind = DateKind.UTC;
-  return d;
+  return DateTime(value, DateKind.UTC);
 }
 
 export function create(year: number, month: number, day: number) {
@@ -57,4 +55,8 @@ export function dayOfWeek(d: IDateTime) {
 
 export function dayOfYear(d: IDateTime) {
   return Date_dayOfYear(d);
+}
+
+export function toDateTime(d: IDateTime, time: number, kind = DateKind.Unspecified) {
+  return DateTime(d.getTime() + time + (kind !== DateKind.UTC ? d.getTimezoneOffset() : 0) * 60000, kind);
 }
