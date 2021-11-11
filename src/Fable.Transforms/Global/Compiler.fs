@@ -13,14 +13,14 @@ type CompilerOptionsHelper =
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays,
-                       ?rootModule) =
+                       ?trimRootModule) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
             Language = defaultArg language JavaScript
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-            RootModule = defaultArg rootModule false
+            RootModule = defaultArg trimRootModule false
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
@@ -54,7 +54,7 @@ type Compiler =
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: Fable.EntityRef -> Fable.Entity
     abstract TryGetNonCoreAssemblyEntity: Fable.EntityRef -> Fable.Entity option
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+    abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit

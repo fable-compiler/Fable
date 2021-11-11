@@ -84,6 +84,14 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
 
+    static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
+// TODO: Remove when fcs-fable is updated
+#if FABLE_COMPILER
+        Naming.removeGetSetPrefix m.DisplayName
+#else
+        Naming.removeGetSetPrefix m.DisplayNameCore
+#endif
+
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
             m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -103,7 +111,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsGetter = m.IsPropertyGetterMethod
         member _.IsSetter = m.IsPropertySetterMethod
 
-        member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
+        member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
@@ -309,43 +317,47 @@ module Helpers =
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-    let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.EntityRef) =
+    type TrimRootModule =
+        | TrimRootModule of Compiler
+        | NoTrimRootModule
+
+    let private getEntityMangledName trimRootModule (ent: Fable.EntityRef) =
         let fullName = ent.FullName
         match trimRootModule, ent.Path with
-        | true, Fable.SourcePath sourcePath ->
+        | TrimRootModule com, Fable.SourcePath sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
         // Ignore Precompiled libs and other entities for which we don't have implementation file data
-        | true, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
-        | false, _ -> fullName
+        | TrimRootModule _, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        | NoTrimRootModule, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
         if name = ".ctor" then "$ctor"
         else name.Replace('.','_').Replace('`','$')
 
     let getEntityDeclarationName (com: Compiler) (ent: Fable.EntityRef) =
-        let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
+        let entityName = getEntityMangledName (TrimRootModule com) ent |> cleanNameAsJsIdentifier
         (entityName, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
+    let private getMemberMangledName trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
             let overloadSuffix = OverloadSuffix.getExtensionHash memb
-            let entName = FsEnt.Ref memb.ApparentEnclosingEntity |> getEntityMangledName com false
+            let entName = FsEnt.Ref memb.ApparentEnclosingEntity |> getEntityMangledName NoTrimRootModule
             entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
         else
             match memb.DeclaringEntity with
             | Some ent ->
                 let entFullName = FsEnt.Ref ent
                 if ent.IsFSharpModule then
-                    match getEntityMangledName com trimRootModule entFullName with
+                    match getEntityMangledName trimRootModule entFullName with
                     | "" -> memb.CompiledName, Naming.NoMemberPart
                     | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = OverloadSuffix.getHash ent memb
-                    let entName = getEntityMangledName com trimRootModule entFullName
+                    let entName = getEntityMangledName trimRootModule entFullName
                     if memb.IsInstanceMember
                     then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
                     else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
@@ -353,19 +365,19 @@ module Helpers =
 
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
     let getMemberDeclarationName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
-        let name, part = getMemberMangledName com true memb
+        let name, part = getMemberMangledName (TrimRootModule com) memb
         let name = cleanNameAsJsIdentifier name
         let part = part.Replace(cleanNameAsJsIdentifier)
         let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
-    let getMemberUniqueName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue): string =
-        getMemberMangledName com false memb
+    let getMemberUniqueName (memb: FSharpMemberOrFunctionOrValue): string =
+        getMemberMangledName NoTrimRootModule memb
         ||> Naming.buildNameWithoutSanitation
 
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
-        Naming.removeGetSetPrefix memb.DisplayName
+        FsMemberFunctionOrValue.DisplayName memb
 
     let isUsedName (ctx: Context) name =
         ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name

@@ -15,6 +15,7 @@ type CliArgs =
       OutDir: string option
       FableLibraryPath: string option
       Configuration: string
+      WatchDeps: bool
       NoRestore: bool
       NoCache: bool
       SourceMaps: bool
@@ -93,14 +94,16 @@ module File =
     open System.IO
 
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) =
+    let readAllTextNonBlocking (path: string) = async {
         if File.Exists(path) then
             use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
             use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
+            let! text = textReader.ReadToEndAsync() |> Async.AwaitTask
+            return text
         else
             Log.always("File does not exist: " + path)
-            ""
+            return ""
+    }
 
     let rec tryFindPackageJsonDir dir =
         if File.Exists(Path.Combine(dir, "package.json")) then Some dir
@@ -134,6 +137,10 @@ module File =
                 else
                     di.Name.ToUpper()
         Path.GetFullPath(pathName) |> getExactPath
+
+    /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
+    let isDirectoryEmpty dir =
+        not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
 [<RequireQualifiedAccess>]
 module Process =

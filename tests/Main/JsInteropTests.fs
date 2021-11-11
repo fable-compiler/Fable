@@ -270,6 +270,13 @@ let tests =
     testCase "ReflectedDecorator works with generic parameters" <| fun _ ->
         GenericType.GenericMethod(4, "bar") |> equal "XYfoo"
 
+    testCaseAsync "Quoted members in interfaces work" <| fun _ -> async {
+        let pr = JS.Constructors.Promise.resolve(5)
+        let pr = pr.``then``(fun x -> x + 2)
+        let! x = Async.AwaitPromise pr
+        x |> equal 7
+    }
+
     testCase "List can be JSON serialized" <| fun () ->
         let x = [3; 2; 1]
         JS.JSON.stringify(x)
