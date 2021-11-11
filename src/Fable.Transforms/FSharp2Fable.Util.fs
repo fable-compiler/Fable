@@ -84,6 +84,14 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
 
+    static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
+// TODO: Remove when fcs-fable is updated
+#if FABLE_COMPILER
+        Naming.removeGetSetPrefix m.DisplayName
+#else
+        Naming.removeGetSetPrefix m.DisplayNameCore
+#endif
+
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
             m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -103,7 +111,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsGetter = m.IsPropertyGetterMethod
         member _.IsSetter = m.IsPropertySetterMethod
 
-        member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
+        member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
@@ -369,7 +377,7 @@ module Helpers =
         ||> Naming.buildNameWithoutSanitation
 
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
-        Naming.removeGetSetPrefix memb.DisplayName
+        FsMemberFunctionOrValue.DisplayName memb
 
     let isUsedName (ctx: Context) name =
         ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name
