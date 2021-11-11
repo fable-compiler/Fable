@@ -15,6 +15,7 @@ type CliArgs =
       OutDir: string option
       FableLibraryPath: string option
       Configuration: string
+      WatchDeps: bool
       NoRestore: bool
       NoCache: bool
       SourceMaps: bool

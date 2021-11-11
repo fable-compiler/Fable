@@ -80,7 +80,8 @@ module private Util =
         match log.FileName with
         | None -> log.Message
         | Some file ->
-            let file = IO.Path.GetRelativePath(cliArgs.RootDir, file)
+            // Add ./ to make sure VS Code terminal recognises this as a clickable path
+            let file = "." + IO.Path.DirectorySeparatorChar.ToString() + IO.Path.GetRelativePath(cliArgs.RootDir, file)
             let severity =
                 match log.Severity with
                 | Severity.Warning -> "warning"
@@ -442,9 +443,11 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 return projCracked, projChecked, projCracked.SourceFiles
             else
                 let hasWatchDependency (path: string) =
-                    match Map.tryFind path state.WatchDependencies with
-                    | None -> false
-                    | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
+                    if state.CliArgs.WatchDeps then
+                        match Map.tryFind path state.WatchDependencies with
+                        | None -> false
+                        | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
+                    else false
 
                 let pendingFiles = set state.PendingFiles
 

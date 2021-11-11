@@ -55,6 +55,7 @@ let knownCliArgs() = [
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
   ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
+  ["--watchDeps"],       ["TODO (default true)"]
   [], []
   ["--run"],             ["The command after the argument will be executed after compilation"]
   ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
@@ -220,7 +221,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   trimRootModule = (args.FlagOr("--trimRootModule", true)),
+                                   trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
     let cliArgs =
@@ -229,6 +230,7 @@ type Runner =
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
+          WatchDeps = args.FlagOr("--watchDeps", false)
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
