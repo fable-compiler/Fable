@@ -739,7 +739,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
-    | Builtin (BclTimeSpan|BclTimeOnly)::_ ->
+    | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com ctx opName argTypes m ->
         let genArgs = genArgs |> Seq.map snd

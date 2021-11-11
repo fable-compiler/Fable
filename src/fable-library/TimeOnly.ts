@@ -1,6 +1,9 @@
 import Long, { op_Division as Long_op_Division, toNumber as Long_toNumber } from "./Long.js";
+import { FSharpRef } from "./Types.js";
 import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
-import { padRightWithZeros, padWithZeros } from "./Util.js";
+import { padWithZeros } from "./Util.js";
+
+const millisecondsPerDay = 86400000;
 
 export function create(h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   if (h < 0 || m < 0 || s < 0 || ms < 0)
@@ -18,7 +21,7 @@ export function fromTicks(ticks: Long) {
 }
 
 export function fromTimeSpan(timeSpan: number) {
-  if (timeSpan < 0 || timeSpan > 86399999)
+  if (timeSpan < 0 || timeSpan >= millisecondsPerDay)
     throw new Error("The TimeSpan describes an unrepresentable TimeOnly.");
 
   return timeSpan;
@@ -26,13 +29,32 @@ export function fromTimeSpan(timeSpan: number) {
 
 export function maxValue() {
   // This is "23:59:59.999"
-  return 86399999;
+  return millisecondsPerDay - 1;
 }
 
-export function add(t: number, ts: number) {
-  const t2 = (t + ts) % 86400000;
-  return t2 < 0 ? 86400000 + t2 : t2;
+export function add(t: number, ts: number, wrappedDays?: FSharpRef<number>) {
+  if (wrappedDays === undefined) {
+    const t2 = (t + ts) % millisecondsPerDay;
+    return t2 < 0 ? millisecondsPerDay + t2 : t2;
+  }
+
+  wrappedDays.contents = ts / millisecondsPerDay;
+  let newMs = t + ts % millisecondsPerDay;
+
+  if (newMs < 0) {
+    wrappedDays.contents--;
+    newMs += millisecondsPerDay;
+  }
+  else {
+    if (newMs >= millisecondsPerDay) {
+      wrappedDays.contents++;
+      newMs -= millisecondsPerDay;
+    }
+  }
+
+  return newMs;
 }
+
 
 export function addHours(t: number, h: number) {
   return add(t, h * 3600000);
@@ -43,15 +65,9 @@ export function addMinutes(t: number, m: number) {
 }
 
 export function isBetween(t: number, start: number, end: number) {
-  if (start === end)
-    return false;
-  if (t === start)
-    return true;
-
-  if (start < end)
-    return t > start && t < end;
-  else
-    return t > start || t < end;
+  return start <= end
+    ? (start <= t && end > t)
+    : (start <= t || end > t);
 }
 
 export function toString(t: number, format = "t", _provider?: any) {
@@ -59,10 +75,53 @@ export function toString(t: number, format = "t", _provider?: any) {
     throw new Error("Custom formats are not supported");
   }
 
-  const isO = format === "o" || format === "O"
-  const h = padWithZeros(hours(t), 2);
-  const m = padWithZeros(minutes(t), 2);
+  const base = `${padWithZeros(hours(t), 2)}:${padWithZeros(minutes(t), 2)}`
+
+  if (format === "t")
+    return base;
+
   const s = padWithZeros(seconds(t), 2);
-  return `${h}:${m}${format !== "t" ? (isO ? `:${s}.${padRightWithZeros(milliseconds(t), 7)}` : `:${s}`) : ""}`;
+  // We're limited to millisecond precision, so the last 4 digits will always be 0
+  return `${base}${format === "o" || format === "O" ? `:${s}.${padWithZeros(milliseconds(t), 3)}0000` : `:${s}`}`;
 }
 
+export function parse(str: string) {
+  const r = /^([0-1]?[0-9]|2[0-3]):([0-5]?[0-9])(:([0-5]?[0-9])(\.([0-9]+))?)?$/.exec(str);
+  if (r != null && r[1] != null && r[2] != null) {
+    let ms = 0;
+    let s = 0;
+    const h = +r[1];
+    const m = +r[2];
+    if (r[4] != null) {
+      s = +r[4];
+    }
+    if (r[6] != null) {
+      // Depending on the number of decimals passed, we need to adapt the numbers
+      switch (r[6].length) {
+        case 1: ms = +r[6] * 100; break;
+        case 2: ms = +r[6] * 10; break;
+        case 3: ms = +r[6]; break;
+        case 4: ms = +r[6] / 10; break;
+        case 5: ms = +r[6] / 100; break;
+        case 6: ms = +r[6] / 1000; break;
+        default: ms = +r[6].substring(0, 7) / 10000; break;
+      }
+    }
+    return create(h, m, s, Math.trunc(ms));
+  }
+
+  throw new Error(`String '${str}' was not recognized as a valid TimeOnly.`);
+}
+
+export function tryParse(v: string, defValue: FSharpRef<number>): boolean {
+  try {
+    defValue.contents = parse(v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function op_Subtraction(left: number, right: number) {
+  return add(left, -right);
+}
