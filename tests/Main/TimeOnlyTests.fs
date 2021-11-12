@@ -159,23 +159,23 @@ let tests =
             t2.ToString("T", CultureInfo.InvariantCulture) |> equal "14:02:00"
 
         testCase "Parse parses valid TimeOnly" <| fun () ->
-            equal (TimeOnly.Parse "23:0:0") (TimeOnly (23, 0))
-            equal (TimeOnly.Parse "23:00") (TimeOnly (23, 0))
-            equal (TimeOnly.Parse "3:00") (TimeOnly (3, 0))
-            equal (TimeOnly.Parse "00:0:5") (TimeOnly (0, 0, 5))
-            equal (TimeOnly.Parse "0:0:0") TimeOnly.MinValue
-            equal (TimeOnly.Parse "00:40:5.003") (TimeOnly (0, 40, 5, 3))
+            equal (TimeOnly (23, 0)) (TimeOnly.Parse "23:0:0")
+            equal (TimeOnly (23, 0)) (TimeOnly.Parse "23:00")
+            equal (TimeOnly (3, 0)) (TimeOnly.Parse "3:00")
+            equal (TimeOnly (0, 0, 5)) (TimeOnly.Parse "00:0:5   ")
+            equal TimeOnly.MinValue (TimeOnly.Parse "   0   :   0    : 0   ")
+            equal (TimeOnly (0, 40, 5, 3)) (TimeOnly.Parse "00:40:5.003")
             // We're limited to millisecond precision in JS
 #if FABLE_COMPILER
-            equal (TimeOnly.Parse "00:0:5.0031") (TimeOnly (0, 0, 5, 3))
-            equal (TimeOnly.Parse "00:0:5.00313213213213") (TimeOnly (0, 0, 5, 3))
+            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.0031")
+            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.00313213213213")
 #else
-            equal (TimeOnly.Parse "00:0:5.0031") (TimeOnly 50031000L)
-            equal (TimeOnly.Parse "00:0:5.00313213213213") (TimeOnly 50031321L)
+            equal (TimeOnly 50031000L) (TimeOnly.Parse "00:0:5.0031")
+            equal (TimeOnly 50031321L) (TimeOnly.Parse "00:0:5.00313213213213")
 #endif
-            equal (TimeOnly.Parse "00:0:59.03") (TimeOnly (0, 0, 59, 30))
-            equal (TimeOnly.Parse "00:03:5.3") (TimeOnly (0, 3, 5, 300))
-            equal (TimeOnly.Parse "02:0:5.30") (TimeOnly (2, 0, 5, 300))
+            equal (TimeOnly (0, 0, 59, 30)) (TimeOnly.Parse "00:  0:  59.03")
+            equal (TimeOnly (0, 3, 5, 300)) (TimeOnly.Parse "00 :03:5.3")
+            equal (TimeOnly (2, 0, 5, 300)) (TimeOnly.Parse "  02:0:5.30")
 
         testCase "TryParse returns false for invalid TimeOnly" <| fun () ->
             let isValid, _ = TimeOnly.TryParse "4"
@@ -257,4 +257,14 @@ let tests =
             equal true isValid
             equal (TimeOnly 50031321L) t
 #endif
+
+        testCase "Comparison works" <| fun () ->
+            equal true (TimeOnly (20, 1, 1) < TimeOnly (20, 1, 2))
+            equal true (TimeOnly (20, 1, 1) <= TimeOnly (20, 1, 1))
+            equal false (TimeOnly (20, 1, 1) > TimeOnly (20, 1, 1))
+
+        testCase "Can be used as map key" <| fun () ->
+            let m = [ TimeOnly (20, 5, 1), () ] |> Map.ofList
+            equal true (Map.containsKey (TimeOnly(20, 1, 1).AddMinutes(4)) m)
+            equal false (Map.containsKey (TimeOnly (20, 1, 1)) m)
     ]

@@ -1,5 +1,6 @@
-import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day } from "./Date.js";
-import { IDateTime, DateKind } from "./Util.js";
+import { FSharpRef } from "./Types.js";
+import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth } from "./Date.js";
+import { IDateTime, DateKind, padWithZeros } from "./Util.js";
 import { toInt, fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, ticksToUnixEpochMilliseconds } from "./Long.js";
 
 export function fromUnixMilliseconds(value: number) {
@@ -59,4 +60,88 @@ export function dayOfYear(d: IDateTime) {
 
 export function toDateTime(d: IDateTime, time: number, kind = DateKind.Unspecified) {
   return DateTime(d.getTime() + time + (kind !== DateKind.UTC ? d.getTimezoneOffset() : 0) * 60000, kind);
+}
+
+export function toString(d: IDateTime, format = "d", _provider?: any) {
+  if (["d", "o", "O"].indexOf(format) === -1) {
+    throw new Error("Custom formats are not supported");
+  }
+
+  const y = padWithZeros(year(d), 4);
+  const m = padWithZeros(month(d), 2);
+  const dd = padWithZeros(day(d), 2);
+
+  return format === "d" ? `${m}/${dd}/${y}` : `${y}-${m}-${dd}`;
+}
+
+export function parse(str: string) {
+  function fail(): IDateTime {
+    throw new Error(`String '${str}' was not recognized as a valid DateOnly.`);
+  }
+
+  // Allowed separators: . , / -
+  // TODO whitespace alone as the separator
+  //
+  // Whitespace around separators
+  //
+  // Allowed format types:
+  // yyyy/mm/dd
+  // mm/dd/yyyy
+  // mm/dd
+  // mm/yyyy
+  // yyyy/mm
+  const r = /^\s*(\d{1,4})(?:\s*[.,-\/]\s*(\d{1,2}))?\s*[.,-\/]\s*(\d{1,4})\s*$/.exec(str);
+  if (r != null) {
+    let y = 0;
+    let m = 0;
+    let d = 1;
+
+    if (r[2] == null) {
+      if (r[1].length < 3) {
+        if (r[3].length < 3) {
+          // 12/30 = December 30, {CurrentYear}
+          y = new Date().getFullYear();
+          m = +r[1];
+          d = +r[3];
+        } else {
+          // 12/2000 = December 1, 2000
+          m = +r[1];
+          y = +r[3];
+        }
+      } else {
+        if (r[3].length > 2)
+          fail();
+
+        // 2000/12 = December 1, 2000
+        y = +r[1];
+        m = +r[3];
+      }
+    } else {
+      // 2000/1/30 or 1/30/2000
+      const yearFirst = r[1].length > 2;
+      const yTmp = r[yearFirst ? 1 : 3];
+      y = +yTmp;
+
+      // year 0-29 is 2000-2029, 30-99 is 1930-1999
+      if (yTmp.length < 3)
+        y += y >= 30 ? 1900 : 2000;
+
+      m = +r[yearFirst ? 2 : 1];
+      d = +r[yearFirst ? 3 : 2];
+    }
+
+    if (y > 0 && m > 0 && m < 13 && d > 0 && d <= Date_daysInMonth(y, m))
+      return create(y, m, d);
+  }
+
+  return fail();
+}
+
+export function tryParse(v: string, defValue: FSharpRef<IDateTime>): boolean {
+  try {
+    defValue.contents = parse(v);
+    return true;
+  } catch {
+    return false;
+  }
 }

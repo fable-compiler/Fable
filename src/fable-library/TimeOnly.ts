@@ -44,8 +44,7 @@ export function add(t: number, ts: number, wrappedDays?: FSharpRef<number>) {
   if (newMs < 0) {
     wrappedDays.contents--;
     newMs += millisecondsPerDay;
-  }
-  else {
+  } else {
     if (newMs >= millisecondsPerDay) {
       wrappedDays.contents++;
       newMs -= millisecondsPerDay;
@@ -86,7 +85,11 @@ export function toString(t: number, format = "t", _provider?: any) {
 }
 
 export function parse(str: string) {
-  const r = /^([0-1]?[0-9]|2[0-3]):([0-5]?[0-9])(:([0-5]?[0-9])(\.([0-9]+))?)?$/.exec(str);
+  // Allowed format types:
+  // hh:mm
+  // hh:mm:ss
+  // hh:mm:ss.fffffff
+  const r = /^\s*([0-1]?\d|2[0-3])\s*:\s*([0-5]?\d)(\s*:\s*([0-5]?\d)(\.(\d+))?)?\s*$/.exec(str);
   if (r != null && r[1] != null && r[2] != null) {
     let ms = 0;
     let s = 0;

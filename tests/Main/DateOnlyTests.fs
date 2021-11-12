@@ -2,6 +2,7 @@
 
 open System
 open Util.Testing
+open System.Globalization
 
 let tests =
     testList "DateOnly" [
@@ -120,4 +121,87 @@ let tests =
 
             let date = DateOnly (1453, 5, 29)
             date.AddDays -29 |> equal (DateOnly (1453, 4, 30))
+
+        testCase "ToString works" <| fun () ->
+            let date = DateOnly.MaxValue
+            date.ToString(CultureInfo.InvariantCulture) |> equal "12/31/9999"
+            date.ToString("d", CultureInfo.InvariantCulture) |> equal "12/31/9999"
+            date.ToString("o", CultureInfo.InvariantCulture) |> equal "9999-12-31"
+            date.ToString("O", CultureInfo.InvariantCulture) |> equal "9999-12-31"
+
+            let date = DateOnly.FromDateTime DateTime.Now
+            date.ToString(CultureInfo.InvariantCulture) |> equal $"{date.Month}/{date.Day}/{date.Year}"
+            date.ToString("d", CultureInfo.InvariantCulture) |> equal $"{date.Month}/{date.Day}/{date.Year}"
+            date.ToString("o", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{date.Month}-{date.Day}"
+            date.ToString("O", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{date.Month}-{date.Day}"
+
+        testCase "Parse parses valid DateOnly" <| fun () ->
+            equal DateOnly.MaxValue (DateOnly.Parse("9999-12-31", CultureInfo.InvariantCulture))
+            equal DateOnly.MaxValue (DateOnly.Parse("12/31/9999", CultureInfo.InvariantCulture))
+            equal DateOnly.MinValue (DateOnly.Parse("1/01/001", CultureInfo.InvariantCulture))
+            equal DateOnly.MinValue (DateOnly.Parse("001-1-01", CultureInfo.InvariantCulture))
+            equal DateOnly.MinValue (DateOnly.Parse("1/01/0001", CultureInfo.InvariantCulture))
+            equal DateOnly.MinValue (DateOnly.Parse("0001.1.01", CultureInfo.InvariantCulture))
+
+            equal (DateOnly (2001, 1, 1)) (DateOnly.Parse("   01/1/01", CultureInfo.InvariantCulture))
+            equal (DateOnly (2001, 1, 1)) (DateOnly.Parse("1-01-01   ", CultureInfo.InvariantCulture))
+            equal (DateOnly (2005, 1, 1)) (DateOnly.Parse("01/1/5", CultureInfo.InvariantCulture))
+            equal (DateOnly (2001, 5, 1)) (DateOnly.Parse("5-01-01", CultureInfo.InvariantCulture))
+            equal (DateOnly (2000, 11, 30)) (DateOnly.Parse("2000-11-30", CultureInfo.InvariantCulture))
+            equal (DateOnly (2000, 11, 30)) (DateOnly.Parse("11/30/2000", CultureInfo.InvariantCulture))
+            equal (DateOnly (2020, 1, 3)) (DateOnly.Parse("01/03/20", CultureInfo.InvariantCulture))
+            equal (DateOnly (1999, 1, 3)) (DateOnly.Parse("01,03,99", CultureInfo.InvariantCulture))
+            equal (DateOnly (1930, 1, 3)) (DateOnly.Parse("01 -03- 30", CultureInfo.InvariantCulture))
+            equal (DateOnly (2000, 12, 3)) (DateOnly.Parse("12.03.00", CultureInfo.InvariantCulture))
+            equal (DateOnly (2000, 1, 12)) (DateOnly.Parse("01-12-00", CultureInfo.InvariantCulture))
+
+            equal (DateOnly (20, 1, 3)) (DateOnly.Parse("020,01,3", CultureInfo.InvariantCulture))
+            equal (DateOnly (20, 1, 3)) (DateOnly.Parse("01 /   3  /   020", CultureInfo.InvariantCulture))
+            equal (DateOnly (20, 1, 30)) (DateOnly.Parse("0020-1-30", CultureInfo.InvariantCulture))
+            equal (DateOnly (20, 1, 30)) (DateOnly.Parse("1/30/0020", CultureInfo.InvariantCulture))
+
+            equal (DateOnly (DateTime.Now.Year, 10, 30)) (DateOnly.Parse("10/30", CultureInfo.InvariantCulture))
+            equal (DateOnly (300, 10, 1)) (DateOnly.Parse("10,300", CultureInfo.InvariantCulture))
+            equal (DateOnly (2000, 12, 1)) (DateOnly.Parse("2000-12", CultureInfo.InvariantCulture))
+
+        testCase "TryParse returns false for invalid DateOnly" <| fun () ->
+            let isValid, _ = DateOnly.TryParse("4", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("0000-2-5", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("2000-2-30", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("2000-2?2", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("13/01/2000", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("01/00/2000", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("0/10/2000", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("20/2000", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("20/200", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+            let isValid, _ = DateOnly.TryParse("200/20", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            equal false isValid
+
+        testCase "Comparison works" <| fun () ->
+            equal true (DateOnly (2000, 1, 1) < DateOnly (2000, 1, 2))
+            equal true (DateOnly (2000, 1, 1) <= DateOnly (2000, 1, 1))
+            equal false (DateOnly (2000, 1, 1) > DateOnly (2000, 1, 1))
+
+        testCase "Can be used as map key" <| fun () ->
+            let m = [ DateOnly (2000, 1, 2), () ] |> Map.ofList
+            equal true (Map.containsKey (DateOnly(2000, 1, 1).AddDays(1)) m)
+            equal false (Map.containsKey (DateOnly (1999, 1, 1)) m)
     ]

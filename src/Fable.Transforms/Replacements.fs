@@ -451,7 +451,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | Char | String -> head
         | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
@@ -2749,6 +2749,23 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         None
     | ".ctor" ->
         Helper.LibCall(com, "DateOnly", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "DateOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+            None
+        | [ StringConst ("d" | "o" | "O"); _ ] ->
+            Helper.LibCall(com, "DateOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | [ StringConst _; _] ->
+            "DateOnly.ToString doesn't support custom format. It only handles \"d\", \"o\", \"O\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+            None
+        | [ _ ] ->
+            Helper.LibCall(com, "DateOnly", "toString", t, makeStrConst "d" :: args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ ->
+            None
     | "AddDays"
     | "AddMonths"
     | "AddYears" ->
@@ -2811,7 +2828,7 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | [ StringConst ("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
             Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | [ StringConst _; _] ->
-            "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\", format, with CultureInfo.InvariantCulture."
+            "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\" format, with CultureInfo.InvariantCulture."
             |> addError com ctx.InlinePath r
             None
         | [ _ ] ->
