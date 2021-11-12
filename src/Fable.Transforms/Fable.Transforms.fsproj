@@ -27,6 +27,8 @@
     <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Compiler.Service" Version="40.0" />
+    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="40.0" /> -->
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
 </Project>
