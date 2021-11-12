@@ -39,6 +39,7 @@
     <Compile Include="List.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="lib.fs" />
+    <Compile Include="Seq.fs" />
   </ItemGroup>
 
   <ItemGroup>

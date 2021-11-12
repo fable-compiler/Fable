@@ -393,7 +393,10 @@ module TypeInfo =
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else returnType |> transformType com ctx |> mkFnRetTy
-        let bounds = [mkFnTraitGenericBound inputs output]
+        let bounds = [
+            mkFnTraitGenericBound inputs output
+            mkLifetimeGenericBound "'static"
+        ]
         if ctx.Typegen.IsParamType
         then mkImplTraitTy bounds
         else mkDynTraitTy bounds

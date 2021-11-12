@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 
-mod Mutable;
-mod Lazy;
+// import at crate root level
+pub(crate) mod Mutable;
+pub(crate) mod Lazy;
 
 // re-export at crate root level
 pub use std::rc::Rc;

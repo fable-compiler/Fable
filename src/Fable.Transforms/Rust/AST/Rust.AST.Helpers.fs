@@ -938,6 +938,13 @@ module Bounds =
         let ptref = mkPolyTraitRef path
         GenericBound.Trait(ptref, TraitBoundModifier.None)
 
+    let mkLifetimeGenericBound name: GenericBound =
+        let lifetime: Lifetime = {
+            id = DUMMY_NODE_ID
+            ident = mkUnsanitizedIdent name
+        }
+        GenericBound.Outlives(lifetime)
+
     let mkFnTraitGenericBound inputs output: GenericBound =
         let args = mkParenArgs inputs output
         let path = mkGenericPath ["Fn"] args
