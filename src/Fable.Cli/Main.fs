@@ -310,7 +310,7 @@ type ProjectCracked(cliArgs: CliArgs,
             |> getFullProjectOpts
 
         // We display "parsed" because "cracked" may not be understood by users
-        Log.always $"Project parsed in %i{ms}ms. {result.ProjectOptions.SourceFiles.Length} files.\n"
+        Log.always $"Project an references ({result.ProjectOptions.SourceFiles.Length} files) parsed in %i{ms}ms.\n"
         Log.verbose(lazy
             let proj = IO.Path.GetRelativePath(cliArgs.RootDir, cliArgs.ProjectFile)
             let opts = result.ProjectOptions.OtherOptions |> String.concat "\n   "

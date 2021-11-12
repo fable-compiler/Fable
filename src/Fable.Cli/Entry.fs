@@ -178,13 +178,12 @@ type Runner =
     let language = argLanguage args
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
-    let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
 
     do!
-        if outDirLast = Naming.fableHiddenDir then
-            Error($"{Naming.fableHiddenDir} is a reserved directory, please use another output directory")
-        elif outDirLast = "obj" then
-            Error("obj is a reserved directory, please use another output directory")
+        let reservedDirs = [Naming.fableHiddenDir; "obj"]
+        let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
+        if List.contains outDirLast reservedDirs then
+            Error($"{outDirLast} is a reserved directory, please use another output directory")
         // TODO: Remove this check when typed arrays are compatible with typescript
         elif language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
