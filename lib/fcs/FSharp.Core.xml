@@ -7497,6 +7497,17 @@
 
  <param name="task">The task to await.</param>
 
+ <remarks>If an exception occurs in the asynchronous computation then an exception is re-raised by this
+ function.
+        
+ If the task is cancelled then <see cref="F:System.Threading.Tasks.TaskCanceledException"/> is raised. Note
+ that the task may be governed by a different cancellation token to the overall async computation
+ where the AwaitTask occurs. In practice you should normally start the task with the
+ cancellation token returned by <c>let! ct = Async.CancellationToken</c>, and catch
+ any <see cref="F:System.Threading.Tasks.TaskCanceledException"/> at the point where the
+ overall async is started.
+ </remarks>
+
  <category index="2">Awaiting Results</category>
 </member>
 <member name="M:Microsoft.FSharp.Control.FSharpAsync.AwaitTask``1(System.Threading.Tasks.Task{``0})">
@@ -7504,6 +7515,17 @@
  its result.</summary>
 
  <param name="task">The task to await.</param>
+
+ <remarks>If an exception occurs in the asynchronous computation then an exception is re-raised by this
+ function.
+        
+ If the task is cancelled then <see cref="F:System.Threading.Tasks.TaskCanceledException"/> is raised. Note
+ that the task may be governed by a different cancellation token to the overall async computation
+ where the AwaitTask occurs. In practice you should normally start the task with the
+ cancellation token returned by <c>let! ct = Async.CancellationToken</c>, and catch
+ any <see cref="F:System.Threading.Tasks.TaskCanceledException"/> at the point where the
+ overall async is started.
+ </remarks>
 
  <category index="2">Awaiting Results</category>
 </member>
@@ -15224,6 +15246,56 @@
  placeholders. Format placeholders consist of <c>%[flags][width][.precision][type]</c>.</remarks>
 
  <category index="4">Strings and Text</category>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1.Close">
+<summary>
+ Return the resulting list
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1.AddManyAndClose(System.Collections.Generic.IEnumerable{`0})">
+<summary>
+ Add multiple elements to the collector and return the resulting array
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1.AddMany(System.Collections.Generic.IEnumerable{`0})">
+<summary>
+ Add multiple elements to the collector
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1.Add(`0)">
+<summary>
+ Add an element to the collector
+</summary>
+</member>
+<member name="T:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1">
+<summary>
+ Collects elements and builds an array
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ListCollector`1.Close">
+<summary>
+ Return the resulting list
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ListCollector`1.AddManyAndClose(System.Collections.Generic.IEnumerable{`0})">
+<summary>
+ Add multiple elements to the collector and return the resulting list
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ListCollector`1.AddMany(System.Collections.Generic.IEnumerable{`0})">
+<summary>
+ Add multiple elements to the collector
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.ListCollector`1.Add(`0)">
+<summary>
+ Add an element to the collector
+</summary>
+</member>
+<member name="T:Microsoft.FSharp.Core.CompilerServices.ListCollector`1">
+<summary>
+ Collects elements and builds a list
+</summary>
 </member>
 <member name="P:Microsoft.FSharp.Core.CompilerServices.GeneratedSequenceBase`1.LastGenerated">
  <summary>The F# compiler emits implementations of this type for compiled sequence expressions.</summary>

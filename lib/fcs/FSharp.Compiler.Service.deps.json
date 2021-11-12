@@ -7,10 +7,10 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/39.0.0-dev": {
+      "FSharp.Compiler.Service/40.0.0-dev": {
         "dependencies": {
-          "FSharp.Core": "5.0.1-dev",
-          "FSharp.DependencyManager.Nuget": "5.0.1-dev",
+          "FSharp.Core": "5.0.2-dev",
+          "FSharp.DependencyManager.Nuget": "5.0.2-dev",
           "Microsoft.Build.Framework": "16.9.0",
           "Microsoft.Build.Tasks.Core": "16.9.0",
           "Microsoft.Build.Utilities.Core": "16.9.0",
@@ -38,7 +38,7 @@
           "System.Threading.Tasks.Parallel": "4.3.0",
           "System.Threading.Thread": "4.3.0",
           "System.Threading.ThreadPool": "4.3.0",
-          "XliffTasks": "1.0.0-beta.21258.1"
+          "XliffTasks": "1.0.0-beta.21301.1"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -1081,8 +1081,8 @@
           }
         }
       },
-      "XliffTasks/1.0.0-beta.21258.1": {},
-      "FSharp.Core/5.0.1-dev": {
+      "XliffTasks/1.0.0-beta.21301.1": {},
+      "FSharp.Core/5.0.2-dev": {
         "dependencies": {
           "System.Linq.Queryable": "4.3.0",
           "System.Net.Requests": "4.3.0",
@@ -1133,9 +1133,9 @@
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/5.0.1-dev": {
+      "FSharp.DependencyManager.Nuget/5.0.2-dev": {
         "dependencies": {
-          "FSharp.Core": "5.0.1-dev",
+          "FSharp.Core": "5.0.2-dev",
           "System.Collections.Immutable": "5.0.0",
           "System.Diagnostics.Process": "4.3.0",
           "System.Diagnostics.TraceSource": "4.3.0",
@@ -1204,7 +1204,7 @@
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/39.0.0-dev": {
+    "FSharp.Compiler.Service/40.0.0-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -1874,19 +1874,19 @@
       "path": "system.threading.threadpool/4.3.0",
       "hashPath": "system.threading.threadpool.4.3.0.nupkg.sha512"
     },
-    "XliffTasks/1.0.0-beta.21258.1": {
+    "XliffTasks/1.0.0-beta.21301.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Qj9V7H4WzB4LVtOX51g8fFt+6wwslT1qPROoSiONbKC/YEw4Mg8Ug4K5G+0RIzBZkoVXWlMogTUW87usS/O/8g==",
-      "path": "xlifftasks/1.0.0-beta.21258.1",
-      "hashPath": "xlifftasks.1.0.0-beta.21258.1.nupkg.sha512"
+      "sha512": "sha512-viSIWl/PUkVuXWVkJ5GuJPhIpeK1k5qWY7E7NXCs9qWW1ibD2aZ3iiDkR7sPoaykHk4B0gfsna809IANxhGqQg==",
+      "path": "xlifftasks/1.0.0-beta.21301.1",
+      "hashPath": "xlifftasks.1.0.0-beta.21301.1.nupkg.sha512"
     },
-    "FSharp.Core/5.0.1-dev": {
+    "FSharp.Core/5.0.2-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/5.0.1-dev": {
+    "FSharp.DependencyManager.Nuget/5.0.2-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

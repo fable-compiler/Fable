@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.SourceCodeServices
 
 open Fable
 open Fable.AST
@@ -280,8 +281,23 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
+// TODO: Check the path is actually normalized?
+type File(normalizedFullPath: string) =
+    let mutable sourceHash = None
+    member _.NormalizedFullPath = normalizedFullPath
+    member _.ReadSource() =
+        match sourceHash with
+        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
+        | None ->
+            let source = File.readAllTextNonBlocking normalizedFullPath
+            let h = hash source
+            sourceHash <- Some h
+            h, lazy source
+
 type ProjectCracked(cliArgs: CliArgs,
                     crackerResponse: CrackerResponse) =
+
+    let sourceFiles = crackerResponse.ProjectOptions.SourceFiles |> Array.map File
 
     member _.CliArgs = cliArgs
     member _.ProjectFile = cliArgs.ProjectFile
@@ -289,7 +305,7 @@ type ProjectCracked(cliArgs: CliArgs,
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
     member _.CacheUsed = crackerResponse.CacheUsed
-    member _.SourceFiles = crackerResponse.ProjectOptions.SourceFiles
+    member _.SourceFiles = sourceFiles // crackerResponse.ProjectOptions.SourceFiles
 
     member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
@@ -318,63 +334,103 @@ type ProjectCracked(cliArgs: CliArgs,
 
         ProjectCracked(cliArgs, result)
 
-type ProjectChecked(project: Project, checker: FSharpChecker, errors: FSharpDiagnostic array) =
+type ProjectChecked(project: Project, checker: InteractiveChecker, errors: FSharpDiagnostic array) =
+
+    static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) lastFile =
+        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
+        let checkResults, ms = measureTime <| fun () ->
+            let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
+            let sourceReader f = fileDic.[f].ReadSource()
+            let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
+            checker.ParseAndCheckProject(config.ProjectFile, filePaths, sourceReader, ?lastFile=lastFile)
+        Log.always $"F# compilation finished in %i{ms}ms\n"
+        checkResults
+
+    static let getImplementationFiles (config: ProjectCracked) (checkResults: FSharpCheckProjectResults) =
+        if config.FableOptions.OptimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkResults.AssemblyContents.ImplementationFiles
 
     member _.Project = project
     member _.Checker = checker
     member _.Errors = errors
 
-    static member Init(config: ProjectCracked) = async {
-        let checker =
-            FSharpChecker.Create(
-                keepAssemblyContents=true,
-                keepAllBackgroundResolutions=false,
-                keepAllBackgroundSymbolUses=false)
-
-        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
-        let! checkResults, ms = measureTimeAsync <| fun () ->
-            checker.ParseAndCheckProject(config.ProjectOptions)
-        Log.always $"F# compilation finished in %i{ms}ms\n"
+    static member Init(config: ProjectCracked) =
+        let checker = InteractiveChecker.Create(config.ProjectOptions)
+        let checkResults = checkProject config checker None
 
         let proj =
             Project.From(
                 config.ProjectFile,
-                (if config.FableOptions.OptimizeFSharpAst then
-                    checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-                else
-                    checkResults.AssemblyContents.ImplementationFiles),
+                getImplementationFiles config checkResults,
                 checkResults.ProjectContext.GetReferencedAssemblies(),
                 getPlugin = loadType config.CliArgs,
                 trimRootModule = config.FableOptions.RootModule
             )
-        return ProjectChecked(proj, checker, checkResults.Diagnostics)
-    }
+        ProjectChecked(proj, checker, checkResults.Diagnostics)
 
-    member this.Update(config: ProjectCracked, files: string array) = async {
+    member this.Update(config: ProjectCracked, files: string array) =
+        let lastFile = files |> Array.last |> Some
+        let checkResults = checkProject config this.Checker lastFile
 
-        Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
-        let! results, ms = measureTimeAsync <| fun () ->
-            files
-            |> Array.map (fun file -> async {
-                let! sourceText = File.readAllTextNonBlocking file
-                let sourceText = FSharp.Compiler.Text.SourceText.ofString sourceText
-                // `fileVersion` parameter doesn't seem to be used, it ends up discarded here:
-                // https://github.com/dotnet/fsharp/blob/38fd59027e4b8bb42a72c4d896cb3ef4e345f743/src/fsharp/service/service.fs#L452
-                let! _parseResult, checkResult = checker.ParseAndCheckFileInProject(file, 0, sourceText, config.ProjectOptions)
-                return
-                    match checkResult with
-                    | FSharpCheckFileAnswer.Succeeded result -> Some result
-                    | FSharpCheckFileAnswer.Aborted ->
-                        Log.always $"Aborted: {IO.Path.GetRelativePath(config.CliArgs.RootDir, file)}"
-                        None
-            })
-            |> Async.Parallel
-        Log.always $"F# compilation finished in %i{ms}ms\n"
+        let files = set files
+        let implFiles =
+            getImplementationFiles config checkResults
+            |> List.filter (fun f -> files.Contains(f.FileName))
 
-        let results = results |> Array.choose id
-        let proj = results |> Array.choose (fun r -> r.ImplementationFile) |> Array.toList |> this.Project.Update
-        return ProjectChecked(proj, checker, results |> Array.collect (fun r -> r.Diagnostics))
-    }
+        let proj = this.Project.Update(implFiles)
+        ProjectChecked(proj, checker, checkResults.Diagnostics)
+
+    // static member Init(config: ProjectCracked) = async {
+    //     let checker =
+    //         FSharpChecker.Create(
+    //             keepAssemblyContents=true,
+    //             keepAllBackgroundResolutions=false,
+    //             keepAllBackgroundSymbolUses=false)
+
+    //     Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
+    //     let! checkResults, ms = measureTimeAsync <| fun () ->
+    //         checker.ParseAndCheckProject(config.ProjectOptions)
+    //     Log.always $"F# compilation finished in %i{ms}ms\n"
+
+    //     let proj =
+    //         Project.From(
+    //             config.ProjectFile,
+    //             (if config.FableOptions.OptimizeFSharpAst then
+    //                 checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+    //             else
+    //                 checkResults.AssemblyContents.ImplementationFiles),
+    //             checkResults.ProjectContext.GetReferencedAssemblies(),
+    //             getPlugin = loadType config.CliArgs,
+    //             trimRootModule = config.FableOptions.RootModule
+    //         )
+    //     return ProjectChecked(proj, checker, checkResults.Diagnostics)
+    // }
+
+    // member this.Update(config: ProjectCracked, files: string array) = async {
+
+    //     Log.always $"Compiling {IO.Path.GetRelativePath(config.CliArgs.RootDir, config.ProjectFile)}..."
+    //     let! results, ms = measureTimeAsync <| fun () ->
+    //         files
+    //         |> Array.map (fun file -> async {
+    //             let! sourceText = File.readAllTextNonBlockingAsync file
+    //             let sourceText = FSharp.Compiler.Text.SourceText.ofString sourceText
+    //             // `fileVersion` parameter doesn't seem to be used, it ends up discarded here:
+    //             // https://github.com/dotnet/fsharp/blob/38fd59027e4b8bb42a72c4d896cb3ef4e345f743/src/fsharp/service/service.fs#L452
+    //             let! _parseResult, checkResult = checker.ParseAndCheckFileInProject(file, 0, sourceText, config.ProjectOptions)
+    //             return
+    //                 match checkResult with
+    //                 | FSharpCheckFileAnswer.Succeeded result -> Some result
+    //                 | FSharpCheckFileAnswer.Aborted ->
+    //                     Log.always $"Aborted: {IO.Path.GetRelativePath(config.CliArgs.RootDir, file)}"
+    //                     None
+    //         })
+    //         |> Async.Parallel
+    //     Log.always $"F# compilation finished in %i{ms}ms\n"
+
+    //     let results = results |> Array.choose id
+    //     let proj = results |> Array.choose (fun r -> r.ImplementationFile) |> Array.toList |> this.Project.Update
+    //     return ProjectChecked(proj, checker, results |> Array.collect (fun r -> r.Diagnostics))
+    // }
 
 type Watcher =
     { Watcher: FsWatcher
@@ -396,7 +452,8 @@ type Watcher =
                 this.Watcher.Observe [
                     projCracked.ProjectFile
                     yield! projCracked.References
-                    yield! projCracked.SourceFiles |> Array.choose (fun path ->
+                    yield! projCracked.SourceFiles |> Array.choose (fun f ->
+                        let path = f.NormalizedFullPath
                         if Naming.isInFableHiddenDir(path) then None
                         else Some path)
                 ]
@@ -460,7 +517,9 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                     else false
 
                 let filesToCompile =
-                    projCracked.SourceFiles |> Array.filter (fun path ->
+                    projCracked.SourceFiles
+                    |> Array.map (fun f -> f.NormalizedFullPath)
+                    |> Array.filter (fun path ->
                         changes.Contains path || pendingFiles.Contains path || hasWatchDependency path)
 
                 return projCracked, Some filesToCompile
@@ -470,11 +529,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             let filesToCompile =
                 // If ProjectCracker hasn't used the cache it means fable_modules
                 // are new so make sure they're recompiled
-                if not projCracked.CacheUsed then projCracked.SourceFiles
+                if not projCracked.CacheUsed then
+                    projCracked.SourceFiles
+                    |> Array.map (fun f -> f.NormalizedFullPath)
                 else
                     // Skip files that have a more recent JS version
                     let filesToCompile =
                         projCracked.SourceFiles
+                        |> Array.map (fun f -> f.NormalizedFullPath)
                         |> Array.skipWhile (fun file ->
                             try
                                 let jsFile = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir file
@@ -492,15 +554,20 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         | None -> state
 
     // TODO: Use Result here to fail more gracefully if FCS crashes
-    let! projChecked, filesToCompile = async {
+    let projChecked, filesToCompile =
         match state.ProjectCrackedAndChecked, filesToCompile with
         | Some(_, projChecked), Some filesToCompile ->
-            let! projChecked = projChecked.Update(projCracked, filesToCompile)
-            return projChecked, filesToCompile
+            if filesToCompile.Length = 0 then
+                projChecked, filesToCompile
+            else
+                let projChecked = projChecked.Update(projCracked, filesToCompile)
+                projChecked, filesToCompile
         | _, filesToCompile ->
-            let! projChecked = ProjectChecked.Init(projCracked)
-            return projChecked, defaultArg filesToCompile projCracked.SourceFiles
-    }
+            let projChecked = ProjectChecked.Init(projCracked)
+            let filesToCompile =
+                filesToCompile |> Option.defaultWith (fun () ->
+                    projCracked.SourceFiles |> Array.map (fun f -> f.NormalizedFullPath))
+            projChecked, filesToCompile
 
     let logs = getFSharpErrorLogs projChecked.Errors
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
@@ -575,7 +642,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                 match runProc.ExeFile with
                 | Naming.placeholder ->
                     let lastFile = Array.last projCracked.SourceFiles
-                    let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile
+                    let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile.NormalizedFullPath
                     // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                     let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                     "node", lastFilePath::runProc.Args
