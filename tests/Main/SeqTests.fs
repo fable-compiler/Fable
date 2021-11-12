@@ -609,7 +609,7 @@ let tests =
     testCase "Seq.toArray works II" <| fun () ->
         let xs = [|1.; 2.; 3.|]
         let ys = xs |> Seq.toArray
-        xs.[0] = 2.
+        xs.[0] <- 2.
         ys.[0] + ys.[1] |> equal 3.
 
     testCase "Seq.toList works" <| fun () ->

@@ -1456,7 +1456,7 @@ type FableCompiler(com: Compiler) =
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
 
-        member _.GetInlineExpr(memb) =
+        member _.GetInlineExprFromMember(memb) =
             let membUniqueName = getMemberUniqueName memb
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
