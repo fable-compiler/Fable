@@ -90,8 +90,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       References: string list
-      ProjectOptions: FSharpProjectOptions
-      CacheUsed: bool }
+      ProjectOptions: FSharpProjectOptions }
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -574,8 +573,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
         Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
         { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
           References = cacheInfo.References
-          FableLibDir = cacheInfo.FableLibDir
-          CacheUsed = true }
+          FableLibDir = cacheInfo.FableLibDir }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
@@ -646,5 +644,4 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
           References = projRefs
-          FableLibDir = fableLibDir
-          CacheUsed = false }
+          FableLibDir = fableLibDir }

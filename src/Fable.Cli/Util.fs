@@ -24,6 +24,7 @@ type CliArgs =
       Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
+    member this.ProjectFileAsRelativePath = IO.Path.GetRelativePath(this.RootDir, this.ProjectFile)
 
 type private TypeInThisAssembly = class end
 
@@ -373,7 +374,9 @@ module Observable =
                 let events = ResizeArray()
                 let timer = new Timers.Timer(float ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
-                    events.ToArray() |> w.OnNext)
+                    let evs = events.ToArray()
+                    events.Clear()
+                    w.OnNext(evs))
                 let disp = obs.Subscribe(fun v ->
                     events.Add(v)
                     timer.Stop()
