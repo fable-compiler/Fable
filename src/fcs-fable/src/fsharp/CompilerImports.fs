@@ -821,7 +821,7 @@ type TcImports() =
     member x.SetCcuMap m =
         ccuMap <- m
     member x.GetImportedAssemblies() =
-        ccuMap.Values |> Seq.toList
+        ccuMap.Values
 
     member x.GetImportMap() =
         let loaderInterface =
@@ -835,7 +835,7 @@ type TcImports() =
 
     member tcImports.GetCcusExcludingBase() =
         //TODO: excludes any framework imports (which may be shared between multiple builds)
-        ccuMap.Values |> Seq.toList |>List.map (fun x -> x.FSharpViewOfMetadata)
+        ccuMap.Values |> List.map (fun x -> x.FSharpViewOfMetadata)
 
 #else //!FABLE_COMPILER
 

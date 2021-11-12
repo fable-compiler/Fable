@@ -4313,7 +4313,6 @@ let rec ResolvePartialLongIdentPrim (ncenv: NameResolver) (nenv: NameResolutionE
            | FullyQualified -> []
            | OpenQualified ->
                nenv.eUnqualifiedItems.Values
-               |> Seq.toList
                |> List.filter (function
                    | Item.UnqualifiedType _ -> false
                    | Item.Value v -> not v.IsMember
@@ -4346,7 +4345,6 @@ let rec ResolvePartialLongIdentPrim (ncenv: NameResolver) (nenv: NameResolutionE
 
        let tycons =
            nenv.TyconsByDemangledNameAndArity(fullyQualified).Values
-           |> Seq.toList
            |> List.filter (fun tcref ->
                not (tcref.LogicalName.Contains ",") &&
                not tcref.IsExceptionDecl &&
@@ -4356,7 +4354,6 @@ let rec ResolvePartialLongIdentPrim (ncenv: NameResolver) (nenv: NameResolutionE
        // Get all the constructors accessible from here
        let constructors =
            nenv.TyconsByDemangledNameAndArity(fullyQualified).Values
-           |> Seq.toList
            |> List.filter (IsTyconUnseen ad g ncenv.amap m >> not)
            |> List.collect (InfosForTyconConstructors ncenv m ad)
 
@@ -4508,7 +4505,6 @@ and ResolvePartialLongIdentToClassOrRecdFieldsImpl (ncenv: NameResolver) (nenv: 
 
        let recdTyCons =
            nenv.TyconsByDemangledNameAndArity(fullyQualified).Values
-           |> Seq.toList
            |> List.filter (fun tcref ->
                not (tcref.LogicalName.Contains ",") &&
                tcref.IsRecordTycon &&
