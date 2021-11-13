@@ -1370,7 +1370,7 @@ module Identifiers =
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
-          IsThisArgument = false
+          IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           IsMutable = fsRef.IsMutable
           Range = { makeRange fsRef.DeclarationLocation

@@ -952,7 +952,7 @@ module Util =
         Identifier.identifier(id.Name, ?loc=id.Range)
 *)
     let transformIdent com ctx r (ident: Fable.Ident) =
-        if ident.IsThisArgument || ident.Name = "this$" then //for some reason IsThisArgument is false
+        if ident.IsThisArgument then
             let ident = mkUnsanitizedIdent "self"
             let pathSeg = mkPathSegment ident None
             mkPathExpr (mkPath [pathSeg])
