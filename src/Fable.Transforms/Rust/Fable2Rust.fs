@@ -64,7 +64,7 @@ type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> Import list
-    abstract TryAddImport: string -> bool
+    abstract TryAddImport: modName: string * importPath: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
@@ -2865,6 +2865,9 @@ module Util =
         // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         PrivateModuleDeclaration(ExpressionStatement(main))
 *)
+    let hasAttribute fullName (attrs: Fable.Attribute seq) =
+        attrs |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
     let rec tryFindEntryPoint decl: string list option =
         match decl with
         | Fable.ModuleDeclaration decl ->
@@ -3354,7 +3357,10 @@ module Util =
                     else ty
                 mkField [] fi.Name ty isPublic
             )
-        let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]];
+        let attrs =
+            if ent.Attributes |> hasAttribute Atts.noEquality
+            then [mkAttr "derive" ["Clone"]]
+            else [mkAttr "derive" ["Clone";"PartialEq";"Debug"]]
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members
 
@@ -3733,7 +3739,7 @@ module Util =
             if importPath |> isFableLibraryImport com then
                 [] // fable_library_rust::* is already imported in prelude
             else
-                if com.TryAddImport(modName)
+                if com.TryAddImport(modName, importPath)
                 then modItems
                 else useItems // modItems already added somewhere else
         )
@@ -3746,24 +3752,26 @@ module Util =
 
 module Compiler =
     open System.Collections.Generic
+    open System.Collections.Concurrent
     open Util
 
-    // global storage (across files)
-    let importModules = HashSet<string>()
+    // global level (across files)
+    let importModules = ConcurrentDictionary<string, string>()
 
     // per file
     type RustCompiler (com: Fable.Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
-        let interfaces = Dictionary<string, string>()
+        // this should really be at global level, but first we need to fix mod namespace shadowing
+        let interfaces = ConcurrentDictionary<string, string>()
 
         interface IRustCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.TryAddImport(modName) =
-                importModules.Add(modName)
+            member _.TryAddImport(modName, importPath) =
+                importModules.TryAdd(modName, importPath)
 
             member this.GetImportName(ctx, selector, path, r) =
                 if selector = Fable.Naming.placeholder then
@@ -3798,12 +3806,7 @@ module Compiler =
         //     member this.TransformImport(ctx, selector, path) = transformImport this ctx None selector path
 
             member _.TryAddInterface (dotnetNs, rustNs) =
-                // interfaces.TryAdd(dotnetNs, rustNs) // netstandard2.1 only
-                if interfaces.ContainsKey(dotnetNs) then
-                    false // already added
-                else
-                    interfaces.Add(dotnetNs, rustNs)
-                    true
+                interfaces.TryAdd(dotnetNs, rustNs)
 
             member _.GetInterfaceNs dotnetNs =
                 match interfaces.TryGetValue(dotnetNs) with

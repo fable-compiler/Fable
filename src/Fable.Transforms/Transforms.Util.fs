@@ -2,6 +2,8 @@ namespace Fable.Transforms
 
 [<RequireQualifiedAccess>]
 module Atts =
+    let [<Literal>] noEquality = "Microsoft.FSharp.Core.NoEqualityAttribute" // typeof<NoEqualityAttribute>.FullName
+    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
     let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
     let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
