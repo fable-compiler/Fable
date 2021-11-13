@@ -337,10 +337,10 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
 type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array, project: Project) =
 
-    static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) lastFile =
+    static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) lastFile = async {
         Log.always $"Compiling {config.CliArgs.ProjectFileAsRelativePath}..."
 
-        let checkResults, ms = measureTime <| fun () ->
+        let! checkResults, ms = measureTimeAsync <| fun () ->
             let fileDic =
                 config.SourceFiles
                 |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
@@ -354,31 +354,34 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
             if config.FableOptions.OptimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
             else checkResults.AssemblyContents.ImplementationFiles
 
-        implFiles, checkResults.Diagnostics, lazy checkResults.ProjectContext.GetReferencedAssemblies()
+        return implFiles, checkResults.Diagnostics, lazy checkResults.ProjectContext.GetReferencedAssemblies()
+    }
 
     member _.Project = project
     member _.Checker = checker
     member _.Errors = errors
 
-    static member Init(config: ProjectCracked) =
+    static member Init(config: ProjectCracked) = async {
         let checker = InteractiveChecker.Create(config.ProjectOptions)
-        let implFiles, errors, assemblies = checkProject config checker None
+        let! implFiles, errors, assemblies = checkProject config checker None
 
-        ProjectChecked(checker, errors, Project.From(
-                        config.ProjectFile,
-                        implFiles,
-                        assemblies.Value,
-                        getPlugin = loadType config.CliArgs,
-                        trimRootModule = config.FableOptions.RootModule))
+        return ProjectChecked(checker, errors, Project.From(
+                                config.ProjectFile,
+                                implFiles,
+                                assemblies.Value,
+                                getPlugin = loadType config.CliArgs,
+                                trimRootModule = config.FableOptions.RootModule))
+    }
 
-    member this.Update(config: ProjectCracked, filesToCompile) =
-        let implFiles, errors, _ =
+    member this.Update(config: ProjectCracked, filesToCompile) = async {
+        let! implFiles, errors, _ =
             Some(Array.last filesToCompile)
             |> checkProject config this.Checker
 
         let filesToCompile = set filesToCompile
         let implFiles = implFiles |> List.filter (fun f -> filesToCompile.Contains(f.FileName))
-        ProjectChecked(checker, errors, this.Project.Update(implFiles))
+        return ProjectChecked(checker, errors, this.Project.Update(implFiles))
+    }
 
 type Watcher =
     { Watcher: FsWatcher
@@ -488,10 +491,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     let state = { state with Watcher = watcher }
 
     // TODO: Use Result here to fail more gracefully if FCS crashes
-    let projChecked =
+    let! projChecked =
         match projChecked with
         | None -> ProjectChecked.Init(projCracked)
-        | Some projChecked when Array.isEmpty filesToCompile -> projChecked
+        | Some projChecked when Array.isEmpty filesToCompile -> async.Return projChecked
         | Some projChecked -> projChecked.Update(projCracked, filesToCompile)
 
     let logs = getFSharpErrorLogs projChecked.Errors

@@ -7,7 +7,7 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/40.0.0-dev": {
+      "FSharp.Compiler.Service/40.0.1-dev": {
         "dependencies": {
           "FSharp.Core": "5.0.2-dev",
           "FSharp.DependencyManager.Nuget": "5.0.2-dev",
@@ -30,6 +30,7 @@
           "System.Reflection.Metadata": "5.0.0",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Runtime": "4.3.0",
+          "System.Runtime.CompilerServices.Unsafe": "4.7.1",
           "System.Runtime.InteropServices": "4.3.0",
           "System.Runtime.Loader": "4.3.0",
           "System.Security.Claims": "4.3.0",
@@ -464,7 +465,7 @@
         "dependencies": {
           "System.Buffers": "4.5.1",
           "System.Numerics.Vectors": "4.4.0",
-          "System.Runtime.CompilerServices.Unsafe": "4.5.3"
+          "System.Runtime.CompilerServices.Unsafe": "4.7.1"
         },
         "runtime": {
           "lib/netstandard2.0/System.Memory.dll": {
@@ -712,11 +713,11 @@
           "Microsoft.NETCore.Targets": "1.1.0"
         }
       },
-      "System.Runtime.CompilerServices.Unsafe/4.5.3": {
+      "System.Runtime.CompilerServices.Unsafe/4.7.1": {
         "runtime": {
           "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
-            "assemblyVersion": "4.0.4.1",
-            "fileVersion": "4.0.0.0"
+            "assemblyVersion": "4.0.6.0",
+            "fileVersion": "4.700.20.12001"
           }
         }
       },
@@ -1092,11 +1093,26 @@
           "FSharp.Core.dll": {}
         },
         "resources": {
+          "cs/FSharp.Core.resources.dll": {
+            "locale": "cs"
+          },
+          "de/FSharp.Core.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.Core.resources.dll": {
+            "locale": "es"
+          },
+          "fr/FSharp.Core.resources.dll": {
+            "locale": "fr"
+          },
           "it/FSharp.Core.resources.dll": {
             "locale": "it"
           },
-          "ru/FSharp.Core.resources.dll": {
-            "locale": "ru"
+          "ja/FSharp.Core.resources.dll": {
+            "locale": "ja"
+          },
+          "ko/FSharp.Core.resources.dll": {
+            "locale": "ko"
           },
           "pl/FSharp.Core.resources.dll": {
             "locale": "pl"
@@ -1104,32 +1120,17 @@
           "pt-BR/FSharp.Core.resources.dll": {
             "locale": "pt-BR"
           },
-          "ja/FSharp.Core.resources.dll": {
-            "locale": "ja"
-          },
-          "cs/FSharp.Core.resources.dll": {
-            "locale": "cs"
-          },
-          "ko/FSharp.Core.resources.dll": {
-            "locale": "ko"
-          },
-          "zh-Hans/FSharp.Core.resources.dll": {
-            "locale": "zh-Hans"
+          "ru/FSharp.Core.resources.dll": {
+            "locale": "ru"
           },
           "tr/FSharp.Core.resources.dll": {
             "locale": "tr"
           },
-          "fr/FSharp.Core.resources.dll": {
-            "locale": "fr"
+          "zh-Hans/FSharp.Core.resources.dll": {
+            "locale": "zh-Hans"
           },
           "zh-Hant/FSharp.Core.resources.dll": {
             "locale": "zh-Hant"
-          },
-          "de/FSharp.Core.resources.dll": {
-            "locale": "de"
-          },
-          "es/FSharp.Core.resources.dll": {
-            "locale": "es"
           }
         }
       },
@@ -1160,11 +1161,26 @@
           "FSharp.DependencyManager.Nuget.dll": {}
         },
         "resources": {
+          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "cs"
+          },
+          "de/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "es"
+          },
+          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "fr"
+          },
           "it/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "it"
           },
-          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ru"
+          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ja"
+          },
+          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ko"
           },
           "pl/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pl"
@@ -1172,39 +1188,24 @@
           "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pt-BR"
           },
-          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ja"
-          },
-          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "cs"
-          },
-          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ko"
-          },
-          "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "zh-Hans"
+          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ru"
           },
           "tr/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "tr"
           },
-          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "fr"
+          "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hans"
           },
           "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "zh-Hant"
-          },
-          "de/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "de"
-          },
-          "es/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "es"
           }
         }
       }
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/40.0.0-dev": {
+    "FSharp.Compiler.Service/40.0.1-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -1671,12 +1672,12 @@
       "path": "system.runtime/4.3.0",
       "hashPath": "system.runtime.4.3.0.nupkg.sha512"
     },
-    "System.Runtime.CompilerServices.Unsafe/4.5.3": {
+    "System.Runtime.CompilerServices.Unsafe/4.7.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-3TIsJhD1EiiT0w2CcDMN/iSSwnNnsrnbzeVHSKkaEgV85txMprmuO+Yq2AdSbeVGcg28pdNDTPK87tJhX7VFHw==",
-      "path": "system.runtime.compilerservices.unsafe/4.5.3",
-      "hashPath": "system.runtime.compilerservices.unsafe.4.5.3.nupkg.sha512"
+      "sha512": "sha512-zOHkQmzPCn5zm/BH+cxC1XbUS3P4Yoi3xzW7eRgVpDR2tPGSzyMZ17Ig1iRkfJuY0nhxkQQde8pgePNiA7z7TQ==",
+      "path": "system.runtime.compilerservices.unsafe/4.7.1",
+      "hashPath": "system.runtime.compilerservices.unsafe.4.7.1.nupkg.sha512"
     },
     "System.Runtime.Extensions/4.3.0": {
       "type": "package",
