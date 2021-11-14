@@ -49,12 +49,12 @@ let tests =
         testCase "IsBetween works" <| fun () ->
             let start = TimeOnly (3, 0, 0)
             let end' = start
-            let t = start 
+            let t = start
             t.IsBetween (start, end') |> equal false
 
             let start = TimeOnly (3, 0, 0)
             let end' = TimeOnly (4, 0, 0)
-            let t = start 
+            let t = start
             t.IsBetween (start, end') |> equal true
 
             let start = TimeOnly (3, 0, 0)
@@ -82,10 +82,12 @@ let tests =
             t.Add (TimeSpan.FromHours 18.) |> equal TimeOnly.MinValue
             t.Add (TimeSpan.FromHours 19.) |> equal (TimeOnly (1, 0))
             t.Add (TimeSpan.FromHours -7.) |> equal (TimeOnly (23, 0))
-            t.AddHours 18 |> equal TimeOnly.MinValue
-            t.AddHours -31 |> equal (TimeOnly (23, 0))
-            t.AddMinutes 59 |> equal (TimeOnly (6, 59))
-            t.AddMinutes -361 |> equal (TimeOnly (23, 59))
+            // F# 6 can cast int implicitly to float,
+            // but fable-standalone cannot do it until it's updated
+            t.AddHours 18. |> equal TimeOnly.MinValue
+            t.AddHours -31. |> equal (TimeOnly (23, 0))
+            t.AddMinutes 59. |> equal (TimeOnly (6, 59))
+            t.AddMinutes -361. |> equal (TimeOnly (23, 59))
 
         testCase "Add with wrapped days works" <| fun () ->
             let t = TimeOnly (6, 0, 0)
@@ -97,7 +99,7 @@ let tests =
             let newT, wrappedDays = t.Add (TimeSpan.FromHours 18.)
             equal TimeOnly.MinValue newT
             equal 1 wrappedDays
-            
+
             let newT, wrappedDays = t.Add (TimeSpan.FromHours 19.)
             equal (TimeOnly (1, 0)) newT
             equal 1 wrappedDays
@@ -106,7 +108,7 @@ let tests =
             equal (TimeOnly (23, 0)) newT
             equal -1 wrappedDays
 
-            let newT, wrappedDays = t.Add (TimeSpan.FromDays 3)
+            let newT, wrappedDays = t.Add (TimeSpan.FromDays 3.)
             equal t newT
             equal 3 wrappedDays
 
@@ -121,7 +123,7 @@ let tests =
 
             let left = TimeOnly.MinValue
             let right = TimeOnly (23, 59, 59, 999)
-            left - right |> equal (TimeSpan.FromMilliseconds 1)
+            left - right |> equal (TimeSpan.FromMilliseconds 1.)
 
             let left = TimeOnly (23, 59, 59, 999)
             let right = TimeOnly.MinValue
@@ -265,6 +267,6 @@ let tests =
 
         testCase "Can be used as map key" <| fun () ->
             let m = [ TimeOnly (20, 5, 1), () ] |> Map.ofList
-            equal true (Map.containsKey (TimeOnly(20, 1, 1).AddMinutes(4)) m)
+            equal true (Map.containsKey (TimeOnly(20, 1, 1).AddMinutes(4.)) m)
             equal false (Map.containsKey (TimeOnly (20, 1, 1)) m)
     ]
