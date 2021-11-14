@@ -17,6 +17,15 @@ type Language =
     | Dart
     | Rust
 
+    override this.ToString () =
+        match this with
+        | JavaScript -> "JS"
+        | TypeScript -> "TypeScript"
+        | Python -> "Python"
+        | Php -> "PHP"
+        | Dart -> "Dart"
+        | Rust -> "Rust"
+
 type CompilerOptions =
     {
         TypedArrays: bool

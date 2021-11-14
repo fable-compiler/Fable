@@ -143,20 +143,22 @@ let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
     |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
     |> Option.map (fun lang -> lang.ToLower())
-    |> Option.defaultValue "js"
+    |> Option.defaultWith (fun () ->
+        // Set default language based on name of executing process (fable tool).
+        let proc = System.Reflection.Assembly.GetEntryAssembly().Location
+        match Path.GetFileNameWithoutExtension(proc) with
+        | "fable-py" -> Python
+        | _ -> JavaScript
+        |> string
+    )
     |> (function
+    | "js" | "javascript" | "JavaScript" -> JavaScript
     | "ts" | "typescript" | "TypeScript" -> TypeScript
     | "py" | "python" | "Python" -> Python
     | "php" | "Php" | "PHP" -> Php
     | "dart" -> Dart
     | "rust" | "Rust" -> Rust
-    | _ ->
-        // Set language based on name of executing process (fable tool).
-        let proc = System.Reflection.Assembly.GetEntryAssembly().Location
-        let fileName = Path.GetFileNameWithoutExtension(proc)
-        match fileName with
-        | "fable-py" -> Python
-        | _ -> JavaScript)
+    | _ -> JavaScript)
 
 type Runner =
   static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) = result {
@@ -190,6 +192,9 @@ type Runner =
             Ok fsprojPath
 
     let language = argLanguage args
+    Log.always($"Fable: F# to {language} compiler " + Literals.VERSION)
+    Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
+
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
     let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
@@ -354,8 +359,6 @@ let main argv =
             match commands with
             | ["--version"] -> ()
             | _ ->
-                Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
 
