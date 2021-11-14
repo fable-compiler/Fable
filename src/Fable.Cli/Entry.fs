@@ -145,10 +145,10 @@ let argLanguage (args: CliArgs) =
     |> Option.defaultWith (fun () ->
         // Set default language based on name of executing process (fable tool).
         let proc = System.Reflection.Assembly.GetEntryAssembly().Location
-        let fileName = Path.GetFileNameWithoutExtension(proc)
-        match fileName with
-        | "fable-py" -> "py"
-        | _ -> "js"
+        match Path.GetFileNameWithoutExtension(proc) with
+        | "fable-py" -> Python
+        | _ -> JavaScript
+        |> string
     )
     |> (function
     | "js" | "javascript" | "JavaScript" -> JavaScript
