@@ -676,7 +676,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // When using Fable dynamic operator, we must untuple arguments
         // Note F# compiler wraps the value in a closure if it detects it's a lambda
         | FSharpExprPatterns.Let((_, FSharpExprPatterns.Call(None,m,_,_,[e1; e2])),_), args
-// TODO: Remove when fcs-fable is updated
+// TODO: Change needed when updating to FCS 41
 #if FABLE_COMPILER
                 when m.FullName = "Fable.Core.JsInterop.( ? )" ->
 #else
@@ -1456,7 +1456,7 @@ type FableCompiler(com: Compiler) =
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
 
-        member _.GetInlineExpr(memb) =
+        member _.GetInlineExprFromMember(memb) =
             let membUniqueName = getMemberUniqueName memb
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)

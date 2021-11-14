@@ -24,6 +24,7 @@ type CliArgs =
       Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
+    member this.ProjectFileAsRelativePath = IO.Path.GetRelativePath(this.RootDir, this.ProjectFile)
 
 type private TypeInThisAssembly = class end
 
@@ -94,7 +95,16 @@ module File =
     open System.IO
 
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) = async {
+    let readAllTextNonBlocking (path: string) =
+        if File.Exists(path) then
+            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use textReader = new StreamReader(fileStream)
+            textReader.ReadToEnd()
+        else
+            Log.always("File does not exist: " + path)
+            ""
+
+    let readAllTextNonBlockingAsync (path: string) = async {
         if File.Exists(path) then
             use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
             use textReader = new StreamReader(fileStream)
@@ -346,12 +356,6 @@ module Imports =
             else importPath
 
 module Observable =
-    type Observer<'T>(f) =
-        interface IObserver<'T> with
-            member _.OnNext v = f v
-            member _.OnError _ = ()
-            member _.OnCompleted() = ()
-
     type SingleObservable<'T>(dispose: unit -> unit) =
         let mutable listener: IObserver<'T> option = None
         member _.Trigger v =
@@ -367,17 +371,20 @@ module Observable =
     let throttle (ms: int) (obs: IObservable<'T>) =
         { new IObservable<'T[]> with
             member _.Subscribe w =
-                let events = Collections.Concurrent.ConcurrentBag()
+                let events = ResizeArray()
                 let timer = new Timers.Timer(float ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
-                    events.ToArray() |> w.OnNext
-                    timer.Dispose())
-                let disp = obs.Subscribe(Observer(fun v ->
+                    let evs = events.ToArray()
+                    events.Clear()
+                    w.OnNext(evs))
+                let disp = obs.Subscribe(fun v ->
                     events.Add(v)
                     timer.Stop()
-                    timer.Start()))
+                    timer.Start())
                 { new IDisposable with
-                    member _.Dispose() = disp.Dispose() } }
+                    member _.Dispose() =
+                        timer.Dispose()
+                        disp.Dispose() } }
 
 [<AutoOpen>]
 module ResultCE =
