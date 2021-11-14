@@ -86,11 +86,11 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 
     static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
 // TODO: Change needed when updating to FCS 41
-// #if FABLE_COMPILER
+#if FABLE_COMPILER
         Naming.removeGetSetPrefix m.DisplayName
-// #else
-//         Naming.removeGetSetPrefix m.DisplayNameCore
-// #endif
+#else
+        Naming.removeGetSetPrefix m.DisplayNameCore
+#endif
 
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
@@ -453,9 +453,9 @@ module Helpers =
         | FSharpInlineAnnotation.NeverInline
         | FSharpInlineAnnotation.OptionalInline -> false
 // TODO: Change needed when updating to FCS 41
-// #if FABLE_COMPILER
+#if FABLE_COMPILER
         | FSharpInlineAnnotation.PseudoValue
-// #endif
+#endif
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 

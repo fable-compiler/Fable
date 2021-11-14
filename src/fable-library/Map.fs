@@ -653,6 +653,12 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         | Some v -> value <- v; true
         | None -> false
 
+    member __.Keys: ICollection<'Key> =
+        MapTree.toSeq tree |> Seq.map (fun kvp -> kvp.Key) |> ResizeArray :> _
+
+    member __.Values: ICollection<'Value> =
+        MapTree.toSeq tree |> Seq.map (fun kvp -> kvp.Value) |> ResizeArray :> _
+
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS
 //         MapTree.report()
