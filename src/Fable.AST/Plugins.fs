@@ -16,6 +16,14 @@ type Language =
     | Php
     | Dart
 
+    override this.ToString () =
+        match this with
+        | JavaScript -> "JS"
+        | TypeScript -> "TypeScript"
+        | Python -> "Python"
+        | Php -> "PHP"
+        | Dart -> "Dart"
+
 type CompilerOptions =
     {
         TypedArrays: bool

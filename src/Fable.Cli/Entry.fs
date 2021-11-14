@@ -190,15 +190,7 @@ type Runner =
             Ok fsprojPath
 
     let language = argLanguage args
-    let lang =
-        match language with
-        | JavaScript -> "JS"
-        | TypeScript -> "TypeScript"
-        | Python -> "Python"
-        | Php -> "PHP"
-        | Dart -> "Dart"
-
-    Log.always($"Fable: F# to {lang} compiler " + Literals.VERSION)
+    Log.always($"Fable: F# to {language} compiler " + Literals.VERSION)
     Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
 
     let typedArrays = args.FlagOr("--typedArrays", true)
