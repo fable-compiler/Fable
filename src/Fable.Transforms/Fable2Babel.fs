@@ -192,6 +192,8 @@ module Reflection =
                 | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
                 | Replacements.BclDateTimeOffset
+                | Replacements.BclDateOnly
+                | Replacements.BclTimeOnly
                 | Replacements.BclTimer
                 | Replacements.BclInt64
                 | Replacements.BclUInt64
@@ -459,6 +461,8 @@ module Annotation =
         | Replacements.BclTimeSpan -> NumberTypeAnnotation
         | Replacements.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
         | Replacements.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"

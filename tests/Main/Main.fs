@@ -14,6 +14,7 @@ let allTests =
     CustomOperators.tests
     DateTimeOffset.tests
     DateTime.tests
+    DateOnly.tests
     Dictionaries.tests
 #if FABLE_COMPILER
     ElmishParser.tests
@@ -42,6 +43,7 @@ let allTests =
     Strings.tests
     Sudoku.tests
     TailCalls.tests
+    TimeOnly.tests
     TimeSpan.tests
     TupleTypes.tests
     TypeTests.tests

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
@@ -43,6 +43,7 @@
     <Compile Include="CustomOperatorsTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <Compile Include="DateOnlyTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="ElmishParserTests.fs" />
     <Compile Include="EnumerableTests.fs" />
@@ -74,6 +75,7 @@
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="UriTests.fs" />
+    <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
