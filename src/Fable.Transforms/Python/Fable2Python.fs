@@ -236,6 +236,8 @@ module Reflection =
                 | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
                 | Replacements.BclDateTimeOffset
+                | Replacements.BclDateOnly
+                | Replacements.BclTimeOnly
                 | Replacements.BclTimer
                 | Replacements.BclInt64
                 | Replacements.BclUInt64
