@@ -3,6 +3,7 @@ module Fable.Tests.DateTime
 open System
 open Util.Testing
 open Fable.Tests
+open System.Globalization
 
 let toSigFigs nSigFigs x =
     let absX = abs x
@@ -20,7 +21,7 @@ let thatYearMilliseconds (dt: DateTime) =
 let tests =
   testList "DateTime" [
     testCase "DateTime.ToString with format works" <| fun () ->
-        DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
         |> equal "16:37"
 
     testCase "DateTime.ToString without separator works" <| fun () -> // See #1131
@@ -92,7 +93,7 @@ let tests =
         let dto = DateTimeOffset(d)
 
         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
-        dto.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) |> equal "13:23:30"
+        dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
     testCase "DateTime.Hour works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
@@ -230,21 +231,21 @@ let tests =
         d > DateTime.MinValue |> equal true
 
     testCase "DateTime.Parse works" <| fun () ->
-        let d = DateTime.Parse("9/10/2014 1:50:34 PM")
+        let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
         d.Year + d.Month + d.Day + d.Hour + d.Minute
         |> equal 2096
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
-        let d = DateTime.Parse("13:50:34")
+        let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
         d.Hour + d.Minute + d.Second |> equal 97
-        let d = DateTime.Parse("1:5:34 AM")
+        let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
         d.Hour + d.Minute + d.Second |> equal 40
-        let d = DateTime.Parse("1:5:34 PM")
+        let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
         d.Hour + d.Minute + d.Second |> equal 52
 
     testCase "DateTime.TryParse works" <| fun () ->
         let f (d: string) =
-            match DateTime.TryParse(d) with
+            match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
             | true, _ -> true
             | false, _ -> false
         f "foo" |> equal false
@@ -253,7 +254,7 @@ let tests =
 
     testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
         let invalidAmericanDate = "13/1/2020"
-        let r, _date = DateTime.TryParse invalidAmericanDate
+        let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
         r |> equal false
 
     testCase "DateTime.Today works" <| fun () ->

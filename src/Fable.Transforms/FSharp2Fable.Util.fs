@@ -115,6 +115,14 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
 
+    static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
+// TODO: Change needed when updating to FCS 41
+#if FABLE_COMPILER
+        Naming.removeGetSetPrefix m.DisplayName
+#else
+        Naming.removeGetSetPrefix m.DisplayNameCore
+#endif
+
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
             m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -134,7 +142,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsGetter = m.IsPropertyGetterMethod
         member _.IsSetter = m.IsPropertySetterMethod
 
-        member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
+        member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
@@ -309,7 +317,7 @@ type IFableCompiler =
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
-    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract GetInlineExprFromMember: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Helpers =
@@ -416,7 +424,7 @@ module Helpers =
         ||> Naming.buildNameWithoutSanitation
 
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
-        Naming.removeGetSetPrefix memb.DisplayName
+        FsMemberFunctionOrValue.DisplayName memb
 
     let isUsedName (ctx: Context) name =
         ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name
@@ -492,9 +500,8 @@ module Helpers =
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
-        // TODO: Add compiler option to inline also `OptionalInline`
         | FSharpInlineAnnotation.OptionalInline -> false
-// TODO: Remove when fcs-fable is updated
+// TODO: Change needed when updating to FCS 41
 #if FABLE_COMPILER
         | FSharpInlineAnnotation.PseudoValue
 #endif
@@ -1862,7 +1869,7 @@ module Util =
                 | Some c -> c::info.Args
                 | None -> info.Args
 
-            let inExpr = com.GetInlineExpr(memb)
+            let inExpr = com.GetInlineExprFromMember(memb)
 
             let ctx, bindings =
                 ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
