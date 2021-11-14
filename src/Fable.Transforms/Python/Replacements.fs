@@ -2942,6 +2942,25 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     // Fable.Core extensions
     | meth -> Helper.LibCall(com, "async_", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some x, "GetAwaiter" -> Helper.LibCall(com, "task", "get_awaiter", t, [x], i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, "GetResult" -> Helper.LibCall(com, "task", "get_result", t, [x], i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, meth -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth -> Helper.LibCall(com, "task", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | _, "Singleton", _ -> makeImportLib com t "singleton" "task_builder" |> Some
+    // For Using we need to cast the argument to IDisposable
+    | Some x, "Using", [arg; f] ->
+        Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, "TaskBuilderBase.Bind", [arg; f] ->
+        Helper.InstanceCall(x, "Bind", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
+
+    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth, _ -> Helper.LibCall(com, "task_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseGuid (literalGuid: string) =
         try
@@ -3250,9 +3269,11 @@ let private replacedModules =
     "System.Environment", systemEnv
     "System.Globalization.CultureInfo", globalization
     "System.Random", random
+    "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
     "System.Threading.CancellationToken", cancels
     "System.Threading.CancellationTokenSource", cancels
     "System.Threading.Monitor", monitor
+    "System.Threading.Tasks.Task`1", tasks
     "System.Activator", activator
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
@@ -3273,6 +3294,10 @@ let private replacedModules =
     "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
     "Microsoft.FSharp.Control.FSharpAsync", asyncs
     "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
+    "Microsoft.FSharp.Control.TaskBuilder", tasks
+    "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
+    "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
+    "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
     Types.guid, guids
     "System.Uri", uris
     "System.Lazy`1", laziness
