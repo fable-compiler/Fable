@@ -6,10 +6,6 @@ open System.Text.RegularExpressions
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
-let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH //+ "&pr=false"
-let APPVEYOR_REPL_ARTIFACT_URL =
-    "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
-    + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
 let FCS_REPO = "https://github.com/ncave/fsharp"
@@ -79,21 +75,8 @@ module Util =
 open Util
 
 module Unused =
-    // type Chokidar =
-    //     abstract watch: path: string -> Chokidar
-    //     abstract on: event: string * (string -> unit) -> Chokidar
-
-    // let chokidar: Chokidar = importDefault "chokidar"
-
-    // let concurrently(commands: string[]): unit = importDefault "concurrently"
-
     let downloadAndExtractTo (url: string) (targetDir: string) =
         sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
-
-    let downloadStandalone() =
-        let targetDir = "src/fable-standalone/dist"
-        cleanDirs [targetDir]
-        downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
 
     let coverage() =
         // report converter
@@ -443,9 +426,8 @@ let test() =
 
     testIntegration()
 
-    // TODO: Run testJsFast() in CI after fcs-fable is synced with latest FCS
-    // if envVarOrNone "APPVEYOR" |> Option.isSome then
-    //     testJsFast()
+    if envVarOrNone "CI" |> Option.isSome then
+        testJsFast()
 
 let testPython() =
     buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
@@ -608,7 +590,6 @@ match BUILD_ARGS_LOWER with
 //     ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
 //     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
 //     |> List.singleton |> quicktest
-// | "download-standalone"::_ -> downloadStandalone()
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
 | "test-mocha"::_ -> testMocha()
