@@ -1,3 +1,11 @@
+### 3.6.0-beta-001
+
+* Support F# 6
+* Support DateOnly/TimeOnly @kerams
+* Improve watch mode
+* Add `--watchDeps` flag
+* Cache project options
+
 ### 3.4.10
 
 * Add support for StringSplitOptions.TrimEntries @steveofficer
