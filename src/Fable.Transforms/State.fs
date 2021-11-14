@@ -5,7 +5,7 @@ open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
-// TODO: Remove when fcs-fable is updated
+// TODO: Change needed when updating to FCS 40
 #if FABLE_COMPILER
 open FSharp.Compiler.SourceCodeServices
 #endif

@@ -120,12 +120,12 @@ type CrackedFsproj =
 let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
     { ProjectId = None
       ProjectFileName = project
-      SourceFiles = [||]
-      OtherOptions = Array.distinct sources |> Array.append otherOptions
+      SourceFiles = Array.distinct sources
+      OtherOptions = otherOptions
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
-      LoadTime = DateTime.MaxValue
+      LoadTime = DateTime.UtcNow
       UnresolvedReferences = None
       OriginalLoadReferences = []
       Stamp = None }
@@ -292,7 +292,6 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
-        yield "--langversion:preview" // Needed for witnesses
         // Since net5.0 there's no difference between app/library
         // yield "--target:library"
     |]
@@ -578,13 +577,17 @@ let getFullProjectOpts (opts: CrackerOptions) =
         failwith ("File does not exist: " + opts.ProjFile)
 
     let isCacheInfoOutdated (cacheInfo: CacheInfo) =
+        let isFileOld (path: string) =
+            IO.File.Exists(path)
+            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(path).ToUniversalTime()
         [
             cacheInfo.ProjectPath
             yield! cacheInfo.References
         ]
         |> List.forall (fun fsproj ->
-            IO.File.Exists(fsproj)
-            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(fsproj).ToUniversalTime())
+            isFileOld(fsproj)
+            // If project uses Paket, dependencies may have updated without touching the .fsproj
+            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json") |> isFileOld)
         |> not
 
     // TODO: Check fable_modules contains all packages

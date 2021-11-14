@@ -49,12 +49,13 @@ let knownCliArgs() = [
   ["--sourceMapsRoot"],  ["Set the value of the `sourceRoot` property in generated source maps"]
   [], []
   ["--define"],          ["Defines a symbol for use in conditional compilation"]
-  ["--configuration"],   ["The configuration to use when parsing .fsproj with MSBuild,"
-                          "default is 'Debug' in watch mode, or 'Release' otherwise"]
+  ["-c"; "--configuration"], ["The configuration to use when parsing .fsproj with MSBuild,"
+                              "default is 'Debug' in watch mode, or 'Release' otherwise"]
   ["--verbose"],         ["Print more info during compilation"]
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
   ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
+  ["--watchDeps"],       ["Recompile file dependencies during watch (default true)"]
   [], []
   ["--run"],             ["The command after the argument will be executed after compilation"]
   ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
@@ -195,11 +196,12 @@ type Runner =
 
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
-    let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
 
     do!
-        if outDirLast = Naming.fableHiddenDir then
-            Error($"{Naming.fableHiddenDir} is a reserved directory, please use another output directory")
+        let reservedDirs = [Naming.fableHiddenDir; "obj"]
+        let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
+        if List.contains outDirLast reservedDirs then
+            Error($"{outDirLast} is a reserved directory, please use another output directory")
         // TODO: Remove this check when typed arrays are compatible with typescript
         elif language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
@@ -214,7 +216,7 @@ type Runner =
 
     let configuration =
         let defaultConfiguration = if watch then "Debug" else "Release"
-        match args.Value "--configuration" with
+        match args.Value("-c", "--configuration") with
         | None -> defaultConfiguration
         | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
         | Some configurationArg -> configurationArg
@@ -238,7 +240,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   trimRootModule = (args.FlagOr("--trimRootModule", true)),
+                                   trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
     let cliArgs =
@@ -247,10 +249,12 @@ type Runner =
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
+          WatchDeps = args.FlagOr("--watchDeps", true)
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
-          NoCache = args.FlagEnabled "--noCache"
+          // TODO: Allow `--cache true` to enable cache even in Release mode?
+          NoCache = not compilerOptions.DebugMode || args.FlagEnabled "--noCache"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"
@@ -271,7 +275,7 @@ type Runner =
 
     return!
         State.Create(cliArgs, ?watchDelay=watchDelay)
-        |> startFirstCompilation
+        |> startCompilation
         |> Async.RunSynchronously
 }
 
