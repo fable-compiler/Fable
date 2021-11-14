@@ -18,7 +18,7 @@ class ObjectDisposedException(Exception):
 
 class IDisposable:
     @abstractmethod
-    def dispose(self) -> None:
+    def Dispose(self) -> None:
         ...
 
     def __enter__(self):
@@ -28,7 +28,7 @@ class IDisposable:
     def __exit__(self, exctype, excinst, exctb):
         """Exit context management."""
 
-        self.dispose()
+        self.Dispose()
         return False
 
     @staticmethod
@@ -44,7 +44,7 @@ class AnonymousDisposable(IDisposable):
         self._action = action
         self._lock = RLock()
 
-    def dispose(self) -> None:
+    def Dispose(self) -> None:
         """Performs the task of cleaning up resources."""
 
         dispose = False

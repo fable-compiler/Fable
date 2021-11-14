@@ -2953,7 +2953,8 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     match thisArg, i.CompiledName, args with
     | _, "Singleton", _ -> makeImportLib com t "singleton" "task_builder" |> Some
     // For Using we need to cast the argument to IDisposable
-    | Some x, "Using", [arg; f] ->
+    | Some x, "TaskBuilderBase.Using", [arg; f]
+    | Some x, "Using", [arg; f]  ->
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, "TaskBuilderBase.Bind", [arg; f] ->
         Helper.InstanceCall(x, "Bind", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
@@ -3298,6 +3299,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
     "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
     "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+    "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
     Types.guid, guids
     "System.Uri", uris
     "System.Lazy`1", laziness

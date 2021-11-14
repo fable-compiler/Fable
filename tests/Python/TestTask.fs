@@ -61,24 +61,26 @@ let ``test Simple task is executed correctly`` () =
     |> (fun tsk -> tsk.GetAwaiter().GetResult())
     equal result true
 
-(*
 
 [<Fact>]
-let ``test async use statements should dispose of resources when they go out of scope`` () =
-    let isDisposed = ref false
-    let step1ok = ref false
-    let step2ok = ref false
-    let resource = async {
-        return new DisposableAction(fun () -> isDisposed := true)
+let ``test task use statements should dispose of resources when they go out of scope`` () =
+    let mutable isDisposed = false
+    let mutable step1ok = false
+    let mutable step2ok = false
+
+    let resource = task {
+        return new DisposableAction(fun () -> isDisposed <- true)
     }
-    async {
+
+    task {
         use! r = resource
-        step1ok := not !isDisposed
+        step1ok <- not isDisposed
     }
-    //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
-    |> Async.StartImmediate
-    step2ok := !isDisposed
-    (!step1ok && !step2ok) |> equal true
+    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    step2ok <- isDisposed
+    (step1ok && step2ok) |> equal true
+
+(*
 
 [<Fact>]
 let ``test Try ... with ... expressions inside async expressions work the same`` () =

@@ -29,7 +29,7 @@ class TaskBuilder:
 
         return deferred
 
-    def For(self, sequence: Iterable[T], body: Callable[[U], Awaitable[U]]) -> Awaitable[U]:
+    def For(self, sequence: Iterable[T], body: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
         done = False
         it = iter(sequence)
         try:
@@ -84,11 +84,18 @@ class TaskBuilder:
 
         return try_with()
 
-    def Using(self, resource: IDisposable, binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
-        return self.TryFinally(binder(resource), lambda: resource.dispose())
+    def Using(self, resource: T, binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
+        return self.TryFinally(self.Delay(binder(resource)), lambda: resource.Dispose())
 
+    @overload
     def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]:
-        print("While")
+        ...
+
+    @overload
+    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]:
+        ...
+
+    def While(self, guard: Callable[[], bool], computation: Delayed[Any]) -> Awaitable[Any]:
         if guard():
             return self.Bind(computation(), lambda _: self.While(guard, computation))
         else:
@@ -96,7 +103,6 @@ class TaskBuilder:
 
     def Zero(self) -> Awaitable[None]:
         ret = from_result(None)
-        print("zero", ret)
         return ret
 
     def Run(self, computation: Delayed[T]) -> Awaitable[T]:
