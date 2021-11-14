@@ -28,12 +28,12 @@ let ``Class imm methods and props work for prim ints`` () =
     b.A |> equal 7
     a.B |> equal 1
 
-[<Fact>]
-let ``Class comparisons work`` () = //this is inconsistent with .net since structural equality is not the default with classes
-    let a = NTest(1, 2)
-    let b = NTest(3, 4)
-    a |> equal a
-    a |> notEqual b
+// [<Fact>]
+// let ``Class reference equality works`` () =
+//     let a = NTest(1, 2)
+//     let b = NTest(3, 4)
+//     (a = a) |> equal true
+//     (a = b) |> equal false
 
 [<Fact>]
 let ``Class imm methods and props work for strings`` () =

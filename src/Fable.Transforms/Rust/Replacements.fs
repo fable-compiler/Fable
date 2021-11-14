@@ -87,11 +87,11 @@ module Helpers =
     let sub left right =
         Operation(Binary(BinaryMinus, left, right), left.Type, None)
 
-    let eq left right =
-        Operation(Binary(BinaryEqualStrict, left, right), Boolean, None)
+    // let eq left right =
+    //     Operation(Binary(BinaryEqual, left, right), Boolean, None)
 
-    let neq left right =
-        Operation(Binary(BinaryUnequalStrict, left, right), Boolean, None)
+    // let neq left right =
+    //     Operation(Binary(BinaryUnequal, left, right), Boolean, None)
 
     let isNull expr =
         Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
@@ -822,7 +822,8 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     // | _ ->
     //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    makeEqOp r left right (if equal then BinaryEqual else BinaryUnequal)
+    let op = (if equal then BinaryEqual else BinaryUnequal)
+    makeEqOp r left right op
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -1741,10 +1742,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "get_Chars", Some c, _ ->
         Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
-        makeEqOp r x y BinaryEqualStrict |> Some
+        makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
         let left = Helper.LibCall(com, "String", "compare", Number(Int32, None), [x; y; kind])
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
+        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
@@ -1753,7 +1754,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
         let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), args)
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
+        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | ReplaceName [ "ToUpper",          "toLocaleUpperCase"

@@ -262,6 +262,55 @@ module TypeInfo =
                 ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
             | _ -> false
 
+    let hasAttribute fullName (ent: Fable.Entity) =
+        ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
+    let hasInterface fullName (ent: Fable.Entity) =
+        ent |> FSharp2Fable.Util.hasInterface fullName
+
+    let hasStructuralEquality (ent: Fable.Entity) =
+        not (ent |> hasAttribute Atts.noEquality)
+            && (ent.IsFSharpRecord
+            || (ent.IsFSharpUnion)
+            || (ent.IsValueType)
+            || (ent |> hasInterface Types.iStructuralEquatable)
+            || (ent |> hasInterface Types.iStructuralEquatableGeneric))
+
+    let hasStructuralComparison (ent: Fable.Entity) =
+        not (ent |> hasAttribute Atts.noComparison)
+            && (ent.IsFSharpRecord
+            || (ent.IsFSharpUnion)
+            || (ent.IsValueType)
+            || (ent |> hasInterface Types.iStructuralComparable)
+            || (ent |> hasInterface Types.iStructuralComparableGeneric))
+
+    let hasReferenceEquality (com: IRustCompiler) t =
+        match t with
+        | Fable.LambdaType _ -> true
+        | Fable.DelegateType _ -> true
+        | Fable.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity entRef
+            not (ent |> hasStructuralEquality)
+        | _ -> false
+
+    let rec isPrintable (com: IRustCompiler) (ent: Fable.Entity) =
+        let isPrintableType t =
+            match t with
+            | Fable.LambdaType _ -> false
+            | Fable.DelegateType _ -> false
+            // TODO: more unprintable types?
+            | Fable.DeclaredType(entRef, _) ->
+                let ent = com.GetEntity entRef
+                isPrintable com ent
+            | _ -> true
+        if ent.IsFSharpUnion then
+            ent.UnionCases |> Seq.forall (fun uci ->
+                uci.UnionCaseFields |> List.forall (fun fi ->
+                    isPrintableType fi.FieldType))
+        else
+            ent.FSharpFields |> Seq.forall (fun fi ->
+                isPrintableType fi.FieldType)
+
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
@@ -392,7 +441,9 @@ module TypeInfo =
             |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
-            else returnType |> transformType com ctx |> mkFnRetTy
+            else
+                let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = false } }
+                returnType |> transformType com ctx |> mkParenTy |> mkFnRetTy
         let bounds = [
             mkFnTraitGenericBound inputs output
             mkLifetimeGenericBound "'static"
@@ -1400,7 +1451,6 @@ module Util =
 
     let makeString com ctx (value: Rust.Expr) =
         makeLibCall com ctx "Native" "asString" None [mkAddrOfExpr value]
-        // makeCall ["Native";"asString"] None [mkAddrOfExpr value]
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1424,7 +1474,6 @@ module Util =
             |> mkArrayExpr
             |> mkAddrOfExpr
         makeLibCall com ctx "Native" "ofArray" None [array]
-        // makeCall ["Native";"ofArray"] None [array]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
@@ -1432,13 +1481,11 @@ module Util =
             let size = com.TransformAsExpr(ctx, sizeExpr) |> mkAddrOfExpr
             let value = com.TransformAsExpr(ctx, valueExpr) |> mkAddrOfExpr
             makeLibCall com ctx "Native" "newArray" None [size; value]
-            // makeCall ["Native";"newArray"] None [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = com.TransformAsExpr(ctx, expr) |> mkAddrOfExpr
             makeLibCall com ctx "Native" "ofArray" None [sequence]
-            // makeCall ["Native";"ofArray"] None [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         match headAndTail with
@@ -1731,6 +1778,10 @@ module Util =
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
                 |> makeRefValue
                 |> mkCastExpr strTy
+            // | _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
+            //         // reference equality
+            //         //TODO: implement
+            //         // mkBinaryExpr (mkBinOp kind) (mkAddrOfExpr left) (mkAddrOfExpr right)
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -2865,9 +2916,6 @@ module Util =
         // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         PrivateModuleDeclaration(ExpressionStatement(main))
 *)
-    let hasAttribute fullName (attrs: Fable.Attribute seq) =
-        attrs |> Seq.exists (fun att -> att.Entity.FullName = fullName)
-
     let rec tryFindEntryPoint decl: string list option =
         match decl with
         | Fable.ModuleDeclaration decl ->
@@ -3055,16 +3103,17 @@ module Util =
         let isMut = false
         mkInferredParam ident.Name isRef isMut //?loc=id.Range)
 
-    let transformFunctionDecl (com: IRustCompiler) ctx args retType =
-        let fnRetTy =
-            let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = false } }
-            if retType = Fable.Unit then VOID_RETURN_TY
-            else transformType com ctx retType |> mkFnRetTy
+    let transformFunctionDecl (com: IRustCompiler) ctx args returnType =
         let inputs =
             args
             |> List.filter (fun (id: Fable.Ident) -> id.Type <> Fable.Unit)
             |> List.map (typedParam com ctx)
-        mkFnDecl inputs fnRetTy
+        let output =
+            if returnType = Fable.Unit then VOID_RETURN_TY
+            else
+                let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = false } }
+                returnType |> transformType com ctx |> mkFnRetTy
+        mkFnDecl inputs output
 
     let transformFunction (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun arg -> arg.Type)
@@ -3322,12 +3371,25 @@ module Util =
                 yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
         |]
 *)
+
     let getEntityGenParams (ent: Fable.Entity) =
         let bounds = []
         let genParams =
             ent.GenericParameters
             |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
         mkGenerics genParams
+
+    let makeDerivedFrom com (ent: Fable.Entity) =
+        let derivedFrom = [
+            "Clone"
+            if ent |> hasStructuralEquality then
+                "PartialEq"
+            if ent |> hasStructuralComparison then
+                "PartialOrd"
+            if ent |> isPrintable com then
+                "Debug"
+        ]
+        derivedFrom
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let generics = getEntityGenParams ent
@@ -3341,7 +3403,7 @@ module Util =
                         mkField [] fi.Name ty isPublic)
                 mkTupleVariant [] name fields
             )
-        let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]]
+        let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
         [enumItem] // TODO: add traits for attached members
 
@@ -3357,10 +3419,7 @@ module Util =
                     else ty
                 mkField [] fi.Name ty isPublic
             )
-        let attrs =
-            if ent.Attributes |> hasAttribute Atts.noEquality
-            then [mkAttr "derive" ["Clone"]]
-            else [mkAttr "derive" ["Clone";"PartialEq";"Debug"]]
+        let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members
 
@@ -3384,12 +3443,19 @@ module Util =
 
     let interfacesToIgnore =
         Set.ofList [
-            "IComparable"
-            "IStructuralComparable"
-            "IEquatable"
-            "IStructuralEquatable"
-            "IEnumerable"
-            "IEnumerator"
+            Types.ienumerable
+            Types.ienumerableGeneric
+            Types.ienumerator
+            Types.ienumeratorGeneric
+            Types.iequatable
+            Types.iequatableGeneric
+            Types.icomparable
+            Types.icomparableGeneric
+            Types.iStructuralEquatable
+            Types.iStructuralEquatableGeneric
+            Types.iStructuralComparable
+            Types.iStructuralComparableGeneric
+            Types.idisposable
         ]
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
@@ -3416,7 +3482,7 @@ module Util =
                                     mkFnAssocItem [] m.Name fnKind
                             ]
 
-                            if interfacesToIgnore |> Set.contains ifaceEnt.DisplayName |> not then
+                            if interfacesToIgnore |> Set.contains ifaceEnt.FullName |> not then
                                 let generics =
                                     let bounds = [mkTypeTraitGenericBound ["Clone"] None]
                                     ifaceEnt.GenericParameters
@@ -3485,7 +3551,7 @@ module Util =
                             |> Set.ofSeq
                     let complMethodsTrait =
                         let fields = [
-                            let membersNotDeclared = decl.AttachedMembers |> List.filter(fun m -> membersNotDefinedInInterfaces |> Set.contains m.Name)
+                            let membersNotDeclared = decl.AttachedMembers |> List.filter (fun m -> membersNotDefinedInInterfaces |> Set.contains m.Name)
                             for m in membersNotDeclared ->
                                 let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
                                 let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
@@ -3516,8 +3582,7 @@ module Util =
 
                                 let makeDecl (decl: Fable.MemberDecl) =
                                     withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                                        let namesp, name = splitNameSpace decl.FullDisplayName
-                                        transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+                                        transformAssocMemberFunction com ctx decl.Info decl.Name decl.Args decl.Body
 
                                 decl.AttachedMembers
                                 |> List.filter(fun m -> tmethods |> Set.contains m.Name)

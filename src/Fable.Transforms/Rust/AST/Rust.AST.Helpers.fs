@@ -993,6 +993,10 @@ module Types =
         TyKind.ImplTrait(DUMMY_NODE_ID, mkVec bounds)
         |> mkTy
 
+    let mkParenTy ty: Ty =
+        TyKind.Paren(ty)
+        |> mkTy
+
     let mkRefTy ty: Ty =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
         |> mkTy
