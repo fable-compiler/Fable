@@ -677,11 +677,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // Note F# compiler wraps the value in a closure if it detects it's a lambda
         | FSharpExprPatterns.Let((_, FSharpExprPatterns.Call(None,m,_,_,[e1; e2])),_), args
 // TODO: Change needed when updating to FCS 41
-// #if FABLE_COMPILER
+#if FABLE_COMPILER
                 when m.FullName = "Fable.Core.JsInterop.( ? )" ->
-// #else
-//                 when m.FullName = "Fable.Core.JsInterop.(?)" ->
-// #endif
+#else
+                when m.FullName = "Fable.Core.JsInterop.(?)" ->
+#endif
             let! e1 = transformExpr com ctx e1
             let! e2 = transformExpr com ctx e2
             let e = Fable.Get(e1, Fable.ByKey(Fable.ExprKey e2), Fable.Any, e1.Range)
