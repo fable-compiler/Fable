@@ -12,10 +12,6 @@ async def from_result(value):
     return value
 
 
-def run(value: Awaitable[T]) -> T:
-    return asyncio.run(value)
-
-
 def get_awaiter(value: Awaitable[T]) -> Awaitable[T]:
     return value
 

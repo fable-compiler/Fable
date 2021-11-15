@@ -1,7 +1,6 @@
-import asyncio
 from typing import Any, Awaitable, Callable, Iterable, Optional, TypeVar, overload
 
-from .task import from_result
+from .task import from_result, zero
 from .util import IDisposable
 
 T = TypeVar("T")
@@ -13,17 +12,16 @@ Delayed = Callable[[], Awaitable[T]]
 class TaskBuilder:
     def Bind(self, computation: Awaitable[T], binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
         async def bind() -> U:
-            print("Bind: bind computation", computation)
-            t = await computation
-            return await binder(t)
+            value = await computation
+            return await binder(value)
 
         return bind()
 
-    def Combine(self, computation1: Awaitable[None], computation2: Awaitable[T]) -> Awaitable[T]:
-        return self.Bind(computation1, lambda _: computation2)
+    def Combine(self, computation1: Awaitable[None], computation2: Delayed[T]) -> Awaitable[T]:
+        return self.Bind(computation1, computation2)
 
     def Delay(self, generator: Callable[[], Awaitable[T]]) -> Delayed[T]:
-        def deferred() -> Awaitable[T]:
+        def deferred(_:Any=None) -> Awaitable[T]:
             # print("Delay: deferred: ", generator)
             return generator()
 
@@ -57,9 +55,7 @@ class TaskBuilder:
         ...
 
     def Return(self, value: Optional[T] = None) -> Awaitable[Optional[T]]:
-        ret = from_result(value)
-        print("Resut:", ret)
-        return ret
+        return from_result(value)
 
     def ReturnFrom(self, computation: Awaitable[T]) -> Awaitable[T]:
         return computation
@@ -85,7 +81,7 @@ class TaskBuilder:
         return try_with()
 
     def Using(self, resource: T, binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
-        return self.TryFinally(self.Delay(binder(resource)), lambda: resource.Dispose())
+        return self.TryFinally(lambda: binder(resource), lambda: resource.Dispose())
 
     @overload
     def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]:
@@ -102,8 +98,7 @@ class TaskBuilder:
             return self.Return()
 
     def Zero(self) -> Awaitable[None]:
-        ret = from_result(None)
-        return ret
+        return zero()
 
     def Run(self, computation: Delayed[T]) -> Awaitable[T]:
         return computation()
