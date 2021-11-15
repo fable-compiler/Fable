@@ -1,33 +1,53 @@
-from typing import Any, Awaitable, Callable, Iterable, Optional, TypeVar, overload
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    Optional,
+    TypeVar,
+    overload,
+    Protocol,
+)
 
 from .task import from_result, zero
 from .util import IDisposable
 
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+TD = TypeVar("TD", bound=IDisposable)
 U = TypeVar("U")
 
-Delayed = Callable[[], Awaitable[T]]
+
+class Delayed(Protocol[T_co]):
+    def __call__(self, __unit: Optional[None] = None) -> Awaitable[T_co]:
+        ...
 
 
 class TaskBuilder:
-    def Bind(self, computation: Awaitable[T], binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
+    def Bind(
+        self, computation: Awaitable[T], binder: Callable[[T], Awaitable[U]]
+    ) -> Awaitable[U]:
         async def bind() -> U:
             value = await computation
             return await binder(value)
 
         return bind()
 
-    def Combine(self, computation1: Awaitable[None], computation2: Delayed[T]) -> Awaitable[T]:
+    def Combine(
+        self, computation1: Awaitable[None], computation2: Delayed[T]
+    ) -> Awaitable[T]:
         return self.Bind(computation1, computation2)
 
     def Delay(self, generator: Callable[[], Awaitable[T]]) -> Delayed[T]:
-        def deferred(_:Any=None) -> Awaitable[T]:
+        def deferred(_: Any = None) -> Awaitable[T]:
             # print("Delay: deferred: ", generator)
             return generator()
 
         return deferred
 
-    def For(self, sequence: Iterable[T], body: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
+    def For(
+        self, sequence: Iterable[T], body: Callable[[T], Awaitable[U]]
+    ) -> Awaitable[U]:
         done = False
         it = iter(sequence)
         try:
@@ -60,7 +80,9 @@ class TaskBuilder:
     def ReturnFrom(self, computation: Awaitable[T]) -> Awaitable[T]:
         return computation
 
-    def TryFinally(self, computation: Delayed[T], compensation: Callable[[], None]) -> Awaitable[T]:
+    def TryFinally(
+        self, computation: Delayed[T], compensation: Callable[[], None]
+    ) -> Awaitable[T]:
         async def try_finally() -> T:
             try:
                 t = await computation()
@@ -70,7 +92,9 @@ class TaskBuilder:
 
         return try_finally()
 
-    def TryWith(self, computation: Delayed[T], catchHandler: Callable[[Any], Awaitable[T]]) -> Awaitable[T]:
+    def TryWith(
+        self, computation: Delayed[T], catchHandler: Callable[[Any], Awaitable[T]]
+    ) -> Awaitable[T]:
         async def try_with() -> T:
             try:
                 t = await computation()
@@ -80,18 +104,24 @@ class TaskBuilder:
 
         return try_with()
 
-    def Using(self, resource: T, binder: Callable[[T], Awaitable[U]]) -> Awaitable[U]:
-        return self.TryFinally(lambda: binder(resource), lambda: resource.Dispose())
+    def Using(self, resource: TD, binder: Callable[[TD], Awaitable[U]]) -> Awaitable[U]:
+        return self.TryFinally(
+            self.Delay(lambda: binder(resource)), lambda: resource.Dispose()
+        )
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]:
+    def While(
+        self, guard: Callable[[], bool], computation: Delayed[None]
+    ) -> Awaitable[None]:
         ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]:
+    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]: # type: ignore
         ...
 
-    def While(self, guard: Callable[[], bool], computation: Delayed[Any]) -> Awaitable[Any]:
+    def While(
+        self, guard: Callable[[], bool], computation: Delayed[Any]
+    ) -> Awaitable[Any]:
         if guard():
             return self.Bind(computation(), lambda _: self.While(guard, computation))
         else:
