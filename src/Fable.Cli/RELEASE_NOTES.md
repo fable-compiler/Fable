@@ -1,3 +1,9 @@
+### 3.6.0-beta-002
+
+* Fix watch mode when saving multiple files at same time
+* TimeOnly.FromDateTime @kerams
+* Remove --watchDeps flag
+
 ### 3.6.0-beta-001
 
 * Support F# 6
