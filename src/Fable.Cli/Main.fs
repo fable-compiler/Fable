@@ -471,11 +471,9 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                 let filesToCompile =
                     let pendingFiles = set state.PendingFiles
                     let hasWatchDependency (path: string) =
-                        if state.CliArgs.WatchDeps then
-                            match Map.tryFind path state.WatchDependencies with
-                            | None -> false
-                            | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
-                        else false
+                        match Map.tryFind path state.WatchDependencies with
+                        | None -> false
+                        | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
 
                     projCracked.SourceFilePaths
                     |> Array.filter (fun path ->
