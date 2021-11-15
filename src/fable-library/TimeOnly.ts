@@ -1,7 +1,7 @@
 import Long, { op_Division as Long_op_Division, toNumber as Long_toNumber } from "./Long.js";
 import { FSharpRef } from "./Types.js";
 import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
-import { padWithZeros } from "./Util.js";
+import { DateKind, IDateTime, padWithZeros } from "./Util.js";
 
 const millisecondsPerDay = 86400000;
 
@@ -25,6 +25,12 @@ export function fromTimeSpan(timeSpan: number) {
     throw new Error("The TimeSpan describes an unrepresentable TimeOnly.");
 
   return timeSpan;
+}
+
+export function fromDateTime(d: IDateTime) {
+  return d.kind === DateKind.UTC
+    ? create(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds())
+    : create(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
 }
 
 export function maxValue() {
