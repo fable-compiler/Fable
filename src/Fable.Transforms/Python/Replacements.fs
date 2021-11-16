@@ -2946,6 +2946,7 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     match thisArg, i.CompiledName with
     | Some x, "GetAwaiter" -> Helper.LibCall(com, "task", "get_awaiter", t, [x], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, "GetResult" -> Helper.LibCall(com, "task", "get_result", t, [x], i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, "get_Result" -> Helper.LibCall(com, "task", "get_result", t, [x], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth -> Helper.LibCall(com, "task", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -3275,6 +3276,7 @@ let private replacedModules =
     "System.Threading.CancellationTokenSource", cancels
     "System.Threading.Monitor", monitor
     "System.Threading.Tasks.Task`1", tasks
+    "System.Threading.Tasks.Task", tasks
     "System.Activator", activator
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
