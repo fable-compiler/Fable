@@ -230,7 +230,7 @@ module TypeInfo =
 
     // TODO: emit Rc or Arc depending on threading.
     // Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
-    let makeRefTy com (ty: Rust.Ty): Rust.Ty =
+    let makeRcTy com (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy ["Rc"]
 
     // TODO: emit Lazy or SyncLazy depending on threading.
@@ -247,6 +247,7 @@ module TypeInfo =
         if ctx.Typegen.IsParamType
         then mkImplTraitTy bounds
         else mkDynTraitTy bounds
+        |> makeRcTy com
 
     let isCloneable (com: IRustCompiler) t e =
         match e with
@@ -451,7 +452,7 @@ module TypeInfo =
         if ctx.Typegen.IsParamType
         then mkImplTraitTy bounds
         else mkDynTraitTy bounds
-        |> makeRefTy com
+        |> makeRcTy com
 
     let numberType kind: Rust.Ty =
         match kind with
@@ -579,8 +580,10 @@ module TypeInfo =
                     let ent = com.GetEntity(entRef)
                     let genArgsTr = transformGenArgs com ctx genArgs
                     if ent.IsInterface then
-                        makeImplOrDynTraitTy com ctx (splitFullName (com.GetInterfaceNs ent.FullName)) genArgs
-                    else makeFullNamePathTy ent.FullName genArgsTr
+                        let path = splitFullName (com.GetInterfaceNs ent.FullName)
+                        makeImplOrDynTraitTy com ctx path genArgs
+                    else
+                        makeFullNamePathTy ent.FullName genArgsTr
 
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                     // /// Check if the entity is actually declared in JS code
@@ -605,7 +608,7 @@ module TypeInfo =
                 ent.IsInterface
             | _ -> false
         if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType && not isInterface
-        then makeRefTy com ty
+        then makeRcTy com ty
         else ty
 
 (*
@@ -1325,7 +1328,7 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
-    let makeRefValue (value: Rust.Expr) =
+    let makeRcValue (value: Rust.Expr) =
         makeCall ["Rc";"from"] None [value]
 
     let makeMutValue (value: Rust.Expr) =
@@ -1464,8 +1467,8 @@ module Util =
                 mkGenericPathExpr [rawIdent "None"] genArgs
         // if isStruct
         // then expr
-        // else expr |> makeRefValue
-        expr |> makeRefValue
+        // else expr |> makeRcValue
+        expr |> makeRcValue
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
         let array =
@@ -1534,7 +1537,7 @@ module Util =
             |> mkTupleExpr
         if isStruct
         then expr
-        else expr |> makeRefValue
+        else expr |> makeRcValue
 
     let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
         let ent = com.GetEntity(entRef)
@@ -1555,7 +1558,7 @@ module Util =
         let expr = mkStructExpr path fields // TODO: range
         if ent.IsValueType
         then expr
-        else expr |> makeRefValue
+        else expr |> makeRcValue
 
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
@@ -1565,7 +1568,7 @@ module Util =
         let expr = callFunctionTakingOwnership com ctx None callee values
         if ent.IsValueType
         then expr
-        else expr |> makeRefValue
+        else expr |> makeRcValue
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         match value with
@@ -1650,7 +1653,7 @@ module Util =
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx t name e
 
         if shouldBeRefCountWrapped com t && not isOnlyReference then
-            makeClone expr
+            makeClone expr |> makeRcValue
         elif isCloneable com t e && not isOnlyReference then
             makeClone expr // shouldn't really be using a rchelper as this is NOT an rc
         elif varAttrs.IsRef then
@@ -1774,9 +1777,9 @@ module Util =
             | Fable.String, Rust.BinOpKind.Add ->
                 //proprietary string concatenation - String + &String = String
                 let left = mkMethodCallExpr "to_string" None left []
-                let strTy = primitiveType "str" |> makeRefTy com
+                let strTy = primitiveType "str" |> makeRcTy com
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
-                |> makeRefValue
+                |> makeRcValue
                 |> mkCastExpr strTy
             // | _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
             //         // reference equality
@@ -1819,7 +1822,7 @@ module Util =
             let callee = com.TransformAsExpr(ctx, callee)
             let expr = mkMethodCallExpr name None callee args
             if shouldBeRefCountWrapped com typ
-            then makeRefValue expr //todo - not convinced this is right. Normally the returned value is already wrapped
+            then makeRcValue expr //todo - not convinced this is right. Normally the returned value is already wrapped
             else expr
         | _ ->
             match callInfo.ThisArg with
@@ -2077,7 +2080,7 @@ module Util =
         let tyOpt =
             tyOpt |> Option.map (fun ty ->
                 if ident.IsMutable
-                then ty |> makeMutTy com |> makeRefTy com
+                then ty |> makeMutTy com |> makeRcTy com
                 else ty)
         let init =
             match value with
@@ -2088,7 +2091,7 @@ module Util =
                 transformLeaveContextByValue com ctx (Some ident.Type) (Some ident.Name) value
         let expr =
             if ident.IsMutable
-            then init |> makeMutValue |> makeRefValue
+            then init |> makeMutValue |> makeRcValue
             else init
         let local = mkLocal [] pat tyOpt (Some expr)
         // TODO : traverse body and follow references to decide on if this should be wrapped or not]
@@ -3221,7 +3224,7 @@ module Util =
                 yield closureExpr |> mkExprStmt
             ])
         else closureExpr
-        |> makeRefValue
+        |> makeRcValue
 
     // // Really crude way to determine if a generic type should be mutable,
     // // basically just checks if the generic arg is inside a generic array.
@@ -3502,15 +3505,16 @@ module Util =
                                 let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                                 let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, generics), None)
                                 (returnVal, exprs |> List.rev)
-                                ||> List.fold(fun acc ->
-                                        function| Fable.Set (structFieldExpr, Fable.SetKind.FieldSet name, t, assignExpr ,_) ->
-                                                    Fable.Let(makeIdent name, assignExpr, acc)
-                                                | Fable.Value(Fable.ValueKind.UnitConstant, _)
-                                                | Fable.ObjectExpr _ -> acc
-                                                | x -> Fable.Sequential [acc; x])
+                                ||> List.fold (fun acc -> function
+                                    | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet name, t, assignExpr, _) ->
+                                        let ident = idents |> List.find (fun id -> id.Name = name)
+                                        Fable.Let(ident, assignExpr, acc)
+                                    | Fable.Value(Fable.ValueKind.UnitConstant, _)
+                                    | Fable.ObjectExpr _ -> acc
+                                    | x -> Fable.Sequential [acc; x])
                             exprs
                         | y -> y
-                        //todo - get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
+                        //TODO: get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
                     let ctor = { ctor with Body = body; Name="new" }
                     let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map(fun g -> g.Name) |> Set.ofList }
                     transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
@@ -3527,7 +3531,9 @@ module Util =
                     let classImplBlock =
                         let ty =
                             let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
-                            let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                            let generics =
+                                ent.GenericParameters
+                                |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                             Fable.Type.DeclaredType(ent.Ref, generics) |> transformType com ctx
                         let generics =
                             let bounds = [mkTypeTraitGenericBound ["Clone"] None]
@@ -3540,8 +3546,7 @@ module Util =
                         |> Seq.map(fun i ->
                             let ifaceEnt = com.GetEntity i.Entity
                             let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt.GenericParameters
-                            )
+                            com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt.GenericParameters)
                         |> Seq.filter(fun (dn, m, p) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
                         |> Seq.toList
                     let membersNotDefinedInInterfaces =
@@ -3593,7 +3598,7 @@ module Util =
                                 let genArgs = transformGenArgs com ctx generics
                                 let bounds = mkTypeTraitGenericBound [entName] genArgs
                                 mkTraitTy [bounds]
-                                |> makeRefTy com
+                                // |> makeRcTy com
                             let path =
                                 let gargs = pgenerics
                                             |> List.map(fun p -> Fable.Type.GenericParam(p.Name, []))

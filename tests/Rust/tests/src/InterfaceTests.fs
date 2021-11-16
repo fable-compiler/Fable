@@ -6,51 +6,51 @@ open Util.Testing
 type IHasAdd =
     abstract Add: x: int -> y: int -> int
 
-type WithInterface(m: int) =
+type Adder(m: int) =
     interface IHasAdd with
       member this.Add x y = x + y + m
 
 [<Fact>]
 let ``Class interface impl works trivial`` () =
-    let a = WithInterface(1)
+    let a = Adder(1)
     let aCasted = (a :> IHasAdd)
     let res = aCasted.Add 2 1
     res |> equal 4
 
-let doAddWithInterface (i: IHasAdd) =
+let addWithAdder (i: IHasAdd) =
     i.Add 3 4
 
 [<Fact>]
 let ``Class interface with callout works`` () =
-    let a = WithInterface(1)
+    let a = Adder(1)
     let aCasted = (a :> IHasAdd)
-    let res = doAddWithInterface aCasted
-    let res2 = doAddWithInterface a
+    let res = addWithAdder aCasted
+    let res2 = addWithAdder a
     res |> equal 8
     res2 |> equal 8
 
-type WithInterface2 (m: int) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
+type Adder2 (m: int) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
     interface IHasAdd with
       member this.Add x y = x + y - m
 
 [<Fact>]
 let ``Second class implementing same interface also works`` () =
-    let a = WithInterface2(1)
-    let res = doAddWithInterface a
+    let a = Adder2(1)
+    let res = addWithAdder a
     res |> equal 6
 
 type ISomeContainer<'a> =
     abstract SomeItem: int -> 'a
     abstract OnlyItem: unit -> 'a
 
-type WithSomeContainer<'a> (m: 'a) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
+type SomeContainer<'a> (m: 'a) = //todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
     interface ISomeContainer<'a> with
         member this.SomeItem x = m
         member this.OnlyItem () = m
 
 [<Fact>]
 let ``Generic container works`` () =
-    let a = WithSomeContainer(1)
+    let a = SomeContainer(1)
     let res = (a :> ISomeContainer<_>).SomeItem 1
     let res2 = (a :> ISomeContainer<_>).OnlyItem()
     res |> equal 1
