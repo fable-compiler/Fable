@@ -5,7 +5,9 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
-from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
+from types import TracebackType
+from typing import (Any, Callable, Generic, Iterable, Iterator, List, Optional, Type,
+                    TypeVar)
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -18,33 +20,33 @@ class ObjectDisposedException(Exception):
 
 class IDisposable:
     @abstractmethod
-    def dispose(self) -> None:
+    def Dispose(self) -> None:
         ...
 
     def __enter__(self):
         """Enter context management."""
         return self
 
-    def __exit__(self, exctype, excinst, exctb):
+    def __exit__(self, exctype: Optional[Type[BaseException]], excinst: Optional[BaseException], exctb: Optional[TracebackType]) -> bool:
         """Exit context management."""
 
-        self.dispose()
+        self.Dispose()
         return False
 
     @staticmethod
-    def create(action):
+    def create(action: Callable[[], None]):
         """Create disposable from action. Will call action when
         disposed."""
         return AnonymousDisposable(action)
 
 
 class AnonymousDisposable(IDisposable):
-    def __init__(self, action):
+    def __init__(self, action: Callable[[], None]):
         self._is_disposed = False
         self._action = action
         self._lock = RLock()
 
-    def dispose(self) -> None:
+    def Dispose(self) -> None:
         """Performs the task of cleaning up resources."""
 
         dispose = False
@@ -67,16 +69,16 @@ class IEquatable(ABC):
         return hash(self)
 
     @abstractmethod
-    def __eq__(self, other):
+    def __eq__(self, other: Any):
         return NotImplemented
 
     @abstractmethod
-    def __hash__(self):
+    def __hash__(self) -> int:
         raise NotImplementedError
 
 
 class IComparable(IEquatable):
-    def CompareTo(self, other):
+    def CompareTo(self, other: Any):
         if self < other:
             return -1
         elif self == other:
@@ -84,7 +86,7 @@ class IComparable(IEquatable):
         return 1
 
     @abstractmethod
-    def __lt__(self, other):
+    def __lt__(self, other: Any):
         raise NotImplementedError
 
 
@@ -94,7 +96,7 @@ class DateKind(Enum):
     Local = 2
 
 
-def equals(a, b):
+def equals(a: Any, b: Any) -> bool:
     return a == b
 
 
@@ -102,7 +104,7 @@ def is_comparable(x: Any) -> bool:
     return hasattr(x, "CompareTo") and callable(x.CompareTo)
 
 
-def compare(a, b):
+def compare(a: Any, b: Any) -> int:
     if a is b:
         return 0
 
@@ -128,7 +130,7 @@ def compare_arrays(a, b):
     return compare(a, b)
 
 
-def equal_arrays_with(x, y, eq):
+def equal_arrays_with(x, y, eq) -> bool:
     if x is None:
         return y is None
     if y is None:
@@ -237,19 +239,19 @@ def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
     return str(i)
 
 
-def int8_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+def int8_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
     return int_to_string(i, radix, 8)
 
 
-def int16_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+def int16_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
     return int_to_string(i, radix, 16)
 
 
-def int32_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+def int32_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
     return int_to_string(i, radix, 32)
 
 
-def int64_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+def int64_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
     return int_to_string(i, radix, 64)
 
 
@@ -258,24 +260,24 @@ def clear(col):
         col.clear()
 
 
-class IEnumerator(IDisposable):
+class IEnumerator(Generic[T], IDisposable):
     @abstractmethod
-    def Current(self):
+    def Current(self) -> T:
         ...
 
     @abstractmethod
-    def MoveNext(self):
+    def MoveNext(self) -> bool:
         ...
 
     @abstractmethod
-    def Reset(self):
+    def Reset(self) -> None:
         ...
 
     @abstractmethod
     def Dispose(self):
         ...
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         return {
             "System_Collections_Generic_IEnumerator_00601_get_Current": self.Current,
             "System_Collections.IEnumerator_get_Current": self.Current,
@@ -284,14 +286,14 @@ class IEnumerator(IDisposable):
         }[name]
 
 
-class IEnumerable(Iterable):
+class IEnumerable(Iterable[T]):
     @abstractmethod
-    def GetEnumerator(self):
+    def GetEnumerator(self) -> Iterator[T]:
         ...
 
 
-class Enumerator(IEnumerator):
-    def __init__(self, iter) -> None:
+class Enumerator(IEnumerator[T]):
+    def __init__(self, iter: Iterator[T]) -> None:
         self.iter = iter
         self.current = None
 
@@ -300,7 +302,7 @@ class Enumerator(IEnumerator):
             return self.current
         return None
 
-    def MoveNext(self):
+    def MoveNext(self) -> bool:
         try:
             cur = next(self.iter)
             self.current = cur
@@ -308,14 +310,14 @@ class Enumerator(IEnumerator):
         except StopIteration:
             return False
 
-    def Reset(self):
+    def Reset(self) -> None:
         raise Exception("Python iterators cannot be reset")
 
-    def Dispose(self):
+    def Dispose(self) -> None:
         return
 
 
-def get_enumerator(o):
+def get_enumerator(o: Any) -> Enumerator[T]:
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
@@ -421,7 +423,7 @@ def is_array_like(x):
     return hasattr(x, "__len__") and callable(x.__len__)
 
 
-def is_disposable(x):
+def is_disposable(x: Any):
     return x is not None and isinstance(x, IDisposable)
 
 
@@ -473,7 +475,7 @@ def string_hash(s):
     return h
 
 
-def number_hash(x):
+def number_hash(x: int) -> int:
     return x * 2654435761 | 0
 
 
@@ -490,14 +492,14 @@ def identity_hash(x: Any) -> int:
     return physical_hash(x)
 
 
-def combine_hash_codes(hashes):
+def combine_hash_codes(hashes: List[int]) -> int:
     if not hashes:
         return 0
 
     return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
 
 
-def structural_hash(x):
+def structural_hash(x: Any) -> int:
     return hash(x)
 
 

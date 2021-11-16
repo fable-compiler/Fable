@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="FSharp.Core" Version="6.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
     <PackageReference Include="XUnit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
+    <Compile Include="TestTask.fs" />
     <Compile Include="TestComparison.fs" />
     <Compile Include="TestCustomOperators.fs" />
     <Compile Include="TestConvert.fs" />

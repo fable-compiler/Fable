@@ -1,26 +1,23 @@
-from expression.core import aiotools
-from expression.system import OperationCanceledError, CancellationToken
+from typing import Awaitable, TypeVar
+import asyncio
 
-# class Trampoline:
-#     maxTrampolineCallCount = 2000
+T = TypeVar("T")
 
-#     def __init__(self) -> None:
-#         self.callCount = 0
 
-#     def incrementAndCheck(self):
-#         self.callCount += 1
-#         return self.callCount > Trampoline.maxTrampolineCallCount
+async def zero():
+    return
 
-#     def hijack(self, f: Callable[[], None]):
-#         self.callCount = 0
-#         setTimeout(f, 0)
-#         asyncio.e
 
-Continuation = aiotools.Continuation
+async def from_result(value):
+    return value
 
-sleep = aiotools.sleep
-start = aiotools.start
-run_synchronously = aiotools.run_synchronously
-start_immediate = aiotools.start_immediate
 
-__all__ = ["sleep", "start", "run_synchronously", "start_immediate"]
+def get_awaiter(value: Awaitable[T]) -> Awaitable[T]:
+    return value
+
+
+def get_result(value: Awaitable[T]) -> T:
+    return asyncio.run(value)
+
+
+__all__ = ["get_awaiter", "get_result", "from_result", "run"]
