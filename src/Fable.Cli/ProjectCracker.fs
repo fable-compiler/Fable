@@ -606,6 +606,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let dllRefs =
             let coreRefs = HashSet Metadata.coreAssemblies
+            // TODO: Not sure if we still need this
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                 "WindowsBase"
