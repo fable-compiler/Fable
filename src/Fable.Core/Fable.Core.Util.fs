@@ -43,8 +43,21 @@ module Reflection =
     let getCaseFields (x: obj): obj[] = jsNative
 
 module Compiler =
+    /// Compiler full version as string
     let version: string = ""
+
+    /// Compiler major/minor version as number (e.g. 3.6)
     let majorMinorVersion: float = 0.
+
+    /// Indicates if compiler is running in debug mode
     let debugMode: bool = false
+
+    /// Indicates if Fable will compile numeric arrays as JS typed arrays
     let typedArrays: bool = false
+
+    /// Extension used for generated files
     let extension: string = ".fs.js"
+
+    /// In watch compilations, indicates if the file is being recompiled
+    /// not because of a direct change, but because a dependency has changed
+    let triggeredByDependency: bool = false

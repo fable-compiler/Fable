@@ -25,6 +25,7 @@ type CompilerOptions =
         RootModule: bool
         Verbosity: Verbosity
         FileExtension: string
+        TriggeredByDependency: bool
     }
 
 type PluginHelper =

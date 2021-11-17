@@ -24,6 +24,7 @@ type CompilerOptionsHelper =
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
+            TriggeredByDependency = false
         }
 
 [<RequireQualifiedAccess>]
