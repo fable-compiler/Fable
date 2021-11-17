@@ -1,3 +1,7 @@
+### 3.6.0-beta-001
+
+* Add Fable.Core.Compiler.triggeredByDependency flag
+
 ### 3.4.0
 
 * ParamObject attribute
