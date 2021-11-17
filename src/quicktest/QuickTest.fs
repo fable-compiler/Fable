@@ -67,3 +67,18 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+[<TaggedUnion("kind")>]
+type TypeScriptDU =
+    | [<Case("foo")>] Foo of {| kind: string; foo: string |}
+    | [<Case("bar")>] Bar of {| kind: string; bar: string |}
+    | [<Case("baz")>] Baz of {| kind: string; baz: string |}
+
+testCase "Case testing with TypeScript-style discriminated unions works" <| fun () ->
+    let describe = function
+        | Foo x -> "foo: " + x.foo
+        | Bar x -> "bar: " + x.bar
+        | Baz x -> "baz: " + x.baz
+    Foo {| kind = "foo"; foo = "42" |} |> describe |> equal "foo: 42"
+    Bar {| kind = "bar"; bar = "hello" |} |> describe |> equal "bar: hello"
+    Baz {| kind = "baz"; baz = "world" |} |> describe |> equal "baz: world"

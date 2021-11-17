@@ -539,6 +539,81 @@ module Helpers =
 
         hasParamArray memb || hasParamSeq memb
 
+    type UnionPattern =
+        | OptionUnion of FSharpType
+        | ListUnion of FSharpType
+        | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules
+        | ErasedUnionCase
+        | TaggedUnion of FSharpEntity * IList<FSharpType> * tagName:string
+        | Case of Fable.Type * Fable.ValueKind
+        | StringEnum of FSharpEntity * CaseRules
+        | DiscriminatedUnion of FSharpEntity * IList<FSharpType>
+
+    [<RequireQualifiedAccess>]
+    type CustomUnionType =
+        /// tagged union types, commonly used in TypeScript
+        | Tagged of tagName:string
+
+    let getCustomUnionType (typ: FSharpType) =
+        let typ = nonAbbreviatedType typ
+        match tryDefinition typ with
+        | None -> failwith "Union without definition"
+        | Some(tdef, fullName) ->
+            match defaultArg fullName tdef.CompiledName with
+            | Types.valueOption
+            | Types.option
+            | Types.list -> None
+            | _ ->
+                tdef.Attributes |> Seq.tryPick (fun att ->
+                    match att.AttributeType.TryFullName with
+                    | Some Atts.taggedUnion ->
+                        match Seq.tryItem 0 att.ConstructorArguments with
+                            | Some (_, (:? string as name)) -> Some (CustomUnionType.Tagged name)
+                            | _ -> None
+                    | _ -> None)
+
+    let getUnionPattern (typ: FSharpType) (unionCase: FSharpUnionCase) : UnionPattern =
+        let typ = nonAbbreviatedType typ
+        let getCaseRule (att: FSharpAttribute) =
+            match Seq.tryHead att.ConstructorArguments with
+            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
+            | _ -> CaseRules.LowerFirst
+
+        unionCase.Attributes |> Seq.tryPick (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some Atts.erase -> Some ErasedUnionCase
+            | Some Atts.case ->
+                match getCustomUnionType typ with
+                | Some (CustomUnionType.Tagged _) ->
+                    match Seq.tryItem 0 att.ConstructorArguments with
+                    | Some (_, (:? string as value)) -> Some (Case (Fable.String, Fable.StringConstant(value)))
+                    | Some (_, (:? int as value)) -> Some (Case (Fable.Number Int32, Fable.NumberConstant(float value, Int32)))
+                    | Some (_, (:? float as value)) -> Some (Case (Fable.Number Float64, Fable.NumberConstant(float value, Float64)))
+                    | Some (_, (:? bool as value)) -> Some (Case (Fable.Boolean, Fable.BoolConstant(value)))
+                    | _ -> None
+                | _ -> None
+            | _ -> None)
+        |> Option.defaultWith (fun () ->
+            match tryDefinition typ with
+            | None -> failwith "Union without definition"
+            | Some(tdef, fullName) ->
+                match defaultArg fullName tdef.CompiledName with
+                | Types.valueOption
+                | Types.option -> OptionUnion typ.GenericArguments.[0]
+                | Types.list -> ListUnion typ.GenericArguments.[0]
+                | _ ->
+                    tdef.Attributes |> Seq.tryPick (fun att ->
+                        match att.AttributeType.TryFullName with
+                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
+                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
+                        | Some Atts.taggedUnion ->
+                            match Seq.tryItem 0 att.ConstructorArguments with
+                            | Some (_, (:? string as name)) -> Some (TaggedUnion(tdef, typ.GenericArguments, name))
+                            | _ -> failwith "Invalud TaggedUnion attribute"
+                        | _ -> None)
+                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
+        )
+
 module Patterns =
     open FSharpExprPatterns
     open Helpers
@@ -729,34 +804,6 @@ module Patterns =
                 Some(memb, Some comp, "GenericEquality", [e1.Type; e2.Type], [e1; e2])
             | _ -> None
         else None
-
-    let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
-                            (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
-        let getCaseRule (att: FSharpAttribute) =
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
-            | _ -> CaseRules.LowerFirst
-
-        unionCase.Attributes |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some Atts.erase -> Some ErasedUnionCase
-            | _ -> None)
-        |> Option.defaultWith (fun () ->
-            match tryDefinition typ with
-            | None -> failwith "Union without definition"
-            | Some(tdef, fullName) ->
-                match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption
-                | Types.option -> OptionUnion typ.GenericArguments.[0]
-                | Types.list -> ListUnion typ.GenericArguments.[0]
-                | _ ->
-                    tdef.Attributes |> Seq.tryPick (fun att ->
-                        match att.AttributeType.TryFullName with
-                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
-                        | _ -> None)
-                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
-        )
 
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes

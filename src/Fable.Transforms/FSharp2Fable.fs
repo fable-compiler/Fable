@@ -50,7 +50,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
         | e -> e
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
-    match fsType, unionCase with
+    match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         Fable.NewTuple argExprs |> makeValue r
     | ErasedUnion(tdef, _genArgs, rule) ->
@@ -61,6 +61,20 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
         | argExprs -> Fable.NewTuple argExprs |> makeValue r
+    | Case _ ->
+        match getCustomUnionType fsType with
+        | Some (CustomUnionType.Tagged _) ->
+            match argExprs with
+            | [argExpr] -> argExpr
+            | _ ->
+                "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
+                |> addErrorAndReturnNull com ctx.InlinePath r
+        | _ ->
+            "This attribute can not be used in this type: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
+    | TaggedUnion _ ->
+        "Every case in a tagged union must have Case attribute: " + (getFsTypeFullName fsType)
+        |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -304,7 +318,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                             unionExpr fsType (unionCase: FSharpUnionCase) =
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
-    match fsType, unionCase with
+    match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         return "Cannot test erased union cases"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -326,6 +340,25 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         | _ ->
             return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
+    | Case(typ, value) ->
+        match getCustomUnionType fsType with
+        | Some (CustomUnionType.Tagged name) ->
+            match unionCase.Fields.Count with
+            | 1 ->
+                return makeEqOp r
+                    (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(name, lazy typ))), typ, r))
+                    (Fable.Value(value, r))
+                    BinaryEqualStrict
+            | _ ->
+                return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
+                |> addErrorAndReturnNull com ctx.InlinePath r
+        | _ ->
+            return "This attribute can not be used in this type: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
+
+    | TaggedUnion _ ->
+        return "Every case in a tagged union must have Case attribute: " + (getFsTypeFullName fsType)
+        |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)
@@ -352,6 +385,7 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
             let! expr = transformExpr com ctx expr
             return! transformDecisionTargets com ctx ((idents, expr)::acc) tail
     }
+
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
   trampoline {
@@ -772,15 +806,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
-        match fsType, unionCase with
+        match getUnionPattern fsType unionCase with
         | ErasedUnionCase ->
             let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
             return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
-        | ErasedUnion _ ->
+        | ErasedUnion _  ->
             if unionCase.Fields.Count = 1 then return unionExpr
             else
                 let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
                 return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
+        | TaggedUnion _ | Case _ ->
+            if unionCase.Fields.Count = 1 then return unionExpr
+            else
+                return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
+                |> addErrorAndReturnNull com ctx.InlinePath r
         | StringEnum _ ->
             return "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.InlinePath r
