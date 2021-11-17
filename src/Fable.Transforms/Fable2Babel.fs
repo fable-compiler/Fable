@@ -1476,6 +1476,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
+            | Fable.Get(Fable.IdentExpr i1,Fable.ByKey(Fable.FieldKey k1),_,_), Fable.Get(Fable.IdentExpr i2,Fable.ByKey(Fable.FieldKey k2),_,_) ->
+                i1.Name = i2.Name && k1.Name = k2.Name
             | _ -> false
         let rec checkInner cases evalExpr = function
             | Fable.IfThenElse(Equals(evalExpr2, caseExpr),
