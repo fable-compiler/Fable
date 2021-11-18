@@ -73,9 +73,11 @@ type IRustCompiler =
     abstract TryAddInterface: rustNs: string * dotnetNs: string -> bool
     abstract GetInterfaceNs: dotnetNs: string -> string
 
-// TODO : Centralise and find a home for this
+// TODO: Centralise and find a home for this
 module Helpers =
     module Map =
+        let except excludedKeys source =
+            source |> Map.filter (fun key _v -> not (excludedKeys |> Set.contains key))
         let merge a b =
             (a, b) ||> Map.fold(fun acc key t -> acc |> Map.add key t)
         let mergeAndAggregate aggregateFn a b =
@@ -191,7 +193,7 @@ module UsageTracking =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
 
     let hasMultipleUses (name: string) =
-        Map.tryFind name >> Option.map(fun x -> x > 1) >> Option.defaultValue false
+        Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue false
         //fun _ -> true
 
 module TypeInfo =
@@ -240,14 +242,6 @@ module TypeInfo =
     // TODO: emit MutCell or AtomicCell depending on threading.
     let makeMutTy com (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy ["MutCell"]
-
-    let makeImplOrDynTraitTy com ctx (path: string seq) genArgs: Rust.Ty =
-        let genArgs = transformGenArgs com ctx genArgs
-        let bounds = [mkTypeTraitGenericBound path genArgs]
-        if ctx.Typegen.IsParamType
-        then mkImplTraitTy bounds
-        else mkDynTraitTy bounds
-        |> makeRcTy com
 
     let isCloneable (com: IRustCompiler) t e =
         match e with
@@ -406,6 +400,9 @@ module TypeInfo =
         |> List.map (transformType com ctx)
         |> mkGenericTy (splitFullName typeName)
 
+    let transformOptionType com ctx genArg: Rust.Ty =
+        transformGenericType com ctx [genArg] (rawIdent "Option")
+
     let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
         let importName = getImportName com ctx moduleName typeName
         importName |> transformGenericType com ctx genArgs
@@ -484,6 +481,23 @@ module TypeInfo =
         // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
         // |> libReflectionCall com ctx None "enum"
 
+    let transformDeclaredType (com: IRustCompiler) ctx entRef genArgs: Rust.Ty =
+        let ent = com.GetEntity(entRef)
+        let genArgs = transformGenArgs com ctx genArgs
+        if ent.IsInterface then
+            let path = splitFullName (com.GetInterfaceNs ent.FullName)
+            let bounds = [mkTypeTraitGenericBound path genArgs]
+            mkDynTraitTy bounds |> makeRcTy com
+        else
+            makeFullNamePathTy ent.FullName genArgs
+
+    let isInterface (com: IRustCompiler) (t: Fable.Type) =
+        match t with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
+            ent.IsInterface
+        | _ -> false
+
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     // TODO: use a genMap?
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
@@ -528,7 +542,7 @@ module TypeInfo =
             // | Fable.DelegateType(argTypes, returnType) ->
             //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
             | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
-            | Fable.Option(genArg, _) -> transformGenericType com ctx [genArg] (rawIdent "Option")
+            | Fable.Option(genArg, _) -> transformOptionType com ctx genArg
             | Fable.Array genArg -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             // | Fable.Regex           -> nonGenericTypeInfo Types.regex
@@ -577,13 +591,7 @@ module TypeInfo =
                 //         [|transformTypeInfo com ctx r genMap gen|]
                 //         |> transformRecordReflectionInfo com ctx r ent
                 | _ ->
-                    let ent = com.GetEntity(entRef)
-                    let genArgsTr = transformGenArgs com ctx genArgs
-                    if ent.IsInterface then
-                        let path = splitFullName (com.GetInterfaceNs ent.FullName)
-                        makeImplOrDynTraitTy com ctx path genArgs
-                    else
-                        makeFullNamePathTy ent.FullName genArgsTr
+                    transformDeclaredType com ctx entRef genArgs
 
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                     // /// Check if the entity is actually declared in JS code
@@ -600,14 +608,8 @@ module TypeInfo =
             // TODO: remove this catch-all
             | _ -> TODO_TYPE (sprintf "%A" t)
 
-        let isInterface =
-            //Interfaces are already implemented against an Rc so they are already wrapped
-            match t with
-            | Fable.DeclaredType(entRef, genArgs) ->
-                let ent = com.GetEntity(entRef)
-                ent.IsInterface
-            | _ -> false
-        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType && not isInterface
+        // Interfaces are already wrapped in Rc
+        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType && not (isInterface com t)
         then makeRcTy com ty
         else ty
 
@@ -641,7 +643,28 @@ module TypeInfo =
 
     let private ofString s = Expression.stringLiteral(s)
     let private ofArray rustExprs = Expression.arrayExpression(List.toArray rustExprs)
+*)
+    let transformTypeTest (com: IRustCompiler) ctx range expr (typ: Fable.Type): Rust.Expr =
+        // no runtime type tests in Rust, unfortunately
+        let testOpt =
+            match expr with
+            | Fable.TypeCast(e, Fable.Any) ->
+                match typ, e.Type with
+                | Fable.DeclaredType(entRef, _), Fable.DeclaredType(entRef2, _) ->
+                    // TODO: somehow test if entRef2 implements or inherits entRef
+                    // for now the test is just an exact match
+                    let sameEnt = (entRef.FullName = entRef2.FullName)
+                    Some sameEnt
+                | _ -> None
+            | _ -> None
 
+        match testOpt with
+        | Some b -> mkBoolLitExpr b
+        | _ ->
+            addWarning com [] range "Cannot type test (evals to false)"
+            mkBoolLitExpr false
+
+(*
     let transformTypeTest (com: IRustCompiler) ctx range expr (typ: Fable.Type): Rust.Expr =
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg
@@ -1273,16 +1296,18 @@ module Util =
             yield Statement.continueStatement(Identifier.identifier(tc.Label), ?loc=range)
         |]
 *)
-    let transformCast (com: IRustCompiler) (ctx: Context) typ (expr: Fable.Expr): Rust.Expr =
-        let fromType, toType = expr.Type, typ
+    let transformCast (com: IRustCompiler) (ctx: Context) typ (fableExpr: Fable.Expr): Rust.Expr =
+        let fromType, toType = fableExpr.Type, typ
+        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let ty = transformType com ctx typ
         match fromType, toType with
         | Fable.Number _, Fable.Number _ ->
-            let ty = transformType com ctx typ
-            com.TransformAsExpr(ctx, expr)
-            |> mkCastExpr ty
-        // TODO: other casts
+            expr |> mkCastExpr ty
+        | _, toType when isInterface com toType ->
+            expr |> makeClone |> mkCastExpr ty
+        // TODO: other casts?
         | _ ->
-            com.TransformAsExpr(ctx, expr)
+            expr // no cast
 
 (*
     let transformCast (com: IRustCompiler) (ctx: Context) t tag e: Rust.Expr =
@@ -1841,9 +1866,14 @@ module Util =
                     | Some callMemberInfo ->
                         // TODO: perhaps only use full path for non-local calls
                         let path =
-                            callMemberInfo.FullName
-                                .Replace(".( .ctor )", "::new")
-                                .Replace(".``.ctor``", "::new")
+                            match callMemberInfo.DeclaringEntity with
+                            | Some ent ->
+                                let memberName = callMemberInfo.CompiledName.Replace(".ctor", "new")
+                                ent.FullName + "." + memberName
+                            | _ ->
+                                callMemberInfo.FullName
+                                    .Replace(".( .ctor )", "::new")
+                                    .Replace(".``.ctor``", "::new")
                         makeFullNamePathExpr path None
                     | _ ->
                         com.TransformAsExpr(ctx, calleeExpr)
@@ -1935,6 +1965,13 @@ module Util =
                 let idx = fields |> Array.findIndex (fun f -> f = fieldName)
                 (Fable.TupleIndex (idx))
                 |> transformGet com ctx range typ fableExpr
+            | t when isInterface com t ->
+                // for interfaces, transpile property gets as instance calls
+                let callee = com.TransformAsExpr(ctx, fableExpr)
+                let expr = mkMethodCallExpr fieldName None callee []
+                if shouldBeRefCountWrapped com typ
+                then makeRcValue expr // TODO: is this needed?
+                else expr
             | _ ->
                 let expr = com.TransformAsExpr(ctx, fableExpr)
                 let field = getField range expr fieldName
@@ -2178,8 +2215,13 @@ module Util =
     let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
-        let bodyExpr = com.TransformAsExpr(ctx, body)
-        mkTryBlockExpr bodyExpr // TODO: add catch and finally
+        // let bodyExpr = com.TransformAsExpr(ctx, body)
+        // mkTryBlockExpr bodyExpr // TODO: nightly only, enable when stable
+        // TODO: transform catch
+        // Temporary: this transforms try/finally as blocks
+        match finalizer with
+        | Some finBody -> transformSequential com ctx [body; finBody]
+        | _ -> transformSequential com ctx [body]
 
     let transformCurriedApply (com: IRustCompiler) ctx range expr args =
         let callee = com.TransformAsExpr(ctx, expr)
@@ -2223,8 +2265,8 @@ module Util =
 *)
     let transformTest (com: IRustCompiler) ctx range kind (expr: Fable.Expr): Rust.Expr =
         match kind with
-        // | Fable.TypeTest t ->
-        //     transformTypeTest com ctx range expr t
+        | Fable.TypeTest t ->
+            transformTypeTest com ctx range expr t
         | Fable.OptionTest isSome ->
             let test = if isSome then "is_some" else "is_none"
             let expr = com.TransformAsExpr(ctx, expr)
@@ -2258,9 +2300,6 @@ module Util =
                 mkLetExpr pat expr
             | _ ->
                 failwith "Should not happen"
-
-        // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "%A" expr)
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets: Rust.Expr =
         let namesForIndex evalType evalName caseIndex = //todo refactor with below
@@ -2300,7 +2339,7 @@ module Util =
                 let symbolsAndNames =
                     let fromIdents =
                         idents
-                        |> List.map(fun id ->
+                        |> List.map (fun id ->
                             id.Name, {  IsArm = true
                                         IsRef = true
                                         // IsMutable = id.IsMutable
@@ -3171,7 +3210,7 @@ module Util =
             isClosedOverIdent com ctx ignoredNames expr |> Option.isSome
         FableTransforms.deepExists isClosedOver body
 
-    let getCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let getCapturedNamesSet com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let ignoredNames = getIgnoredNames name args
         let capturedNames = ResizeArray<string>()
         let addClosedOverIdent expr =
@@ -3181,8 +3220,7 @@ module Util =
         // collect all closed over names that are not arguments
         FableTransforms.deepExists addClosedOverIdent body |> ignore
         capturedNames
-        |> Seq.toList
-        |> List.distinct //there seem to be duplicates in some contexts?
+        |> Set.ofSeq //there seem to be duplicates in some contexts?
 
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let isRecursive = name |> Option.exists (fun id -> FableTransforms.isIdentUsed id body)
@@ -3203,7 +3241,9 @@ module Util =
                         }
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
-        let closedOverCloneableNames = getCapturedNames com ctx name args body
+        let closedOverCloneableNames = getCapturedNamesSet com ctx name args body
+        // remove closedOverCloneableNames from scoped symbols, as they will be cloned
+        let ctx = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
         let fnBody = transformLeaveContextByValue com ctx None None body
         let closureExpr = mkClosureExpr fnDecl fnBody
         let closureExpr =
@@ -3212,7 +3252,7 @@ module Util =
                 let fixName = "fix" + string (List.length args)
                 makeLibCall com ctx "Func" fixName None [closureExpr]
             else closureExpr
-        if closedOverCloneableNames.Length > 0 then
+        if not (Set.isEmpty closedOverCloneableNames) then
             mkBlockExpr (mkBlock [
                 for name in closedOverCloneableNames do
                     let pat = mkIdentPat name false false
@@ -3220,7 +3260,6 @@ module Util =
                     let cloneExpr = makeClone identExpr
                     let letExpr = mkLetExpr pat cloneExpr
                     yield letExpr |> mkSemiStmt
-
                 yield closureExpr |> mkExprStmt
             ])
         else closureExpr
@@ -3271,8 +3310,11 @@ module Util =
     //         )
     //     mkGenerics genParams
 
-    let makeGenerics (args: Fable.Ident list) (returnType: Fable.Type) genTypeParams =
-        let bounds = [mkTypeTraitGenericBound ["Clone"] None]
+    let makeGenerics genTypeParams =
+        let bounds = [
+            mkTypeTraitGenericBound ["Clone"] None
+            mkLifetimeGenericBound "'static" //TODO: add it only when needed
+        ]
         genTypeParams
         |> Seq.map (fun name -> mkGenericParamFromName [] name bounds)
         |> mkGenerics
@@ -3285,7 +3327,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics args body.Type fnGenTypeParams
+        let generics = makeGenerics fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = []
         let name = name |> Option.defaultValue "__"
@@ -3300,7 +3342,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics decl.Args decl.Body.Type fnGenTypeParams
+        let generics = makeGenerics fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             // translate test methods attributes
@@ -3322,14 +3364,14 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics args body.Type fnGenTypeParams
+        let generics = makeGenerics fnGenTypeParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test" [])
         let fnItem = mkFnAssocItem attrs membName kind
-        [fnItem]
+        fnItem
 
 (*
         let args, body, returnType, typeParamDecl =
@@ -3376,11 +3418,14 @@ module Util =
 *)
 
     let getEntityGenParams (ent: Fable.Entity) =
-        let bounds = []
-        let genParams =
-            ent.GenericParameters
-            |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
-        mkGenerics genParams
+        ent.GenericParameters
+        |> List.map (fun genParam -> genParam.Name)
+        |> makeGenerics
+
+    let getEntityMemberNamesSet (ent: Fable.Entity) =
+        ent.MembersFunctionsAndValues
+        |> Seq.map (fun m -> m.DisplayName)
+        |> Set.ofSeq
 
     let makeDerivedFrom com (ent: Fable.Entity) =
         let derivedFrom = [
@@ -3426,14 +3471,14 @@ module Util =
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members
 
-    let transformGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl)=
+    let transformGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
         let fields = getEntityFieldsAsIdents com ent |> Array.toList
-        //let exprs = ent.FSharpFields |> List.map(fun f -> f.)
+        //let exprs = ent.FSharpFields |> List.map (fun f -> f.)
         //ctor |> Option.map (fun x -> transformModuleFunction com ctx x. )
         // let fields = ent.FSharpFields
-        //                 |> List.map(fun f -> makeIdent f.Name, f.FieldType)
+        //                 |> List.map (fun f -> makeIdent f.Name, f.FieldType)
         // let fieldIdents = fields |> List.map (fst)
         let body =
             Fable.Value(
@@ -3469,65 +3514,62 @@ module Util =
         if ent.IsFSharpUnion
         then transformUnion com ctx ent entName classMembers
         else
-            let dependentInterfaceTraits =
-                [
-                    for iface in ent.AllInterfaces do
-                        let ifaceEnt = com.GetEntity iface.Entity
-                        let isNew = com.TryAddInterface (ifaceEnt.FullName, entNamesp + "." + ifaceEnt.DisplayName)
-                        if isNew then
-                            let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            let filteredMembers = decl.AttachedMembers |> List.filter(fun q-> members |> Set.contains  q.Name)
-                            let fields = [
-                                for m in filteredMembers ->
-                                    let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                                    let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
-                                    let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                                    mkFnAssocItem [] m.Name fnKind
-                            ]
+            let dependentInterfaceTraits = [
+                for iface in ent.AllInterfaces do
+                    let ifaceEnt = com.GetEntity(iface.Entity)
+                    let ifaceNamesp, ifaceName = splitNameSpace ifaceEnt.FullName
+                    let isNew = com.TryAddInterface (ifaceEnt.FullName, entNamesp + "." + ifaceName)
+                    if isNew then
+                        let members = ifaceEnt |> getEntityMemberNamesSet
+                        let filteredMembers =
+                            decl.AttachedMembers |> List.filter (fun q -> members |> Set.contains q.Name)
+                        let fields = [
+                            for m in filteredMembers ->
+                                let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                                let generics = makeGenerics (Set.ofList []) //["abc"])
+                                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                                mkFnAssocItem [] m.Name fnKind
+                        ]
+                        if not (interfacesToIgnore |> Set.contains ifaceEnt.FullName) then
+                            let generics = getEntityGenParams ifaceEnt
+                            yield mkTraitItem [] ifaceName fields [] generics
+            ]
 
-                            if interfacesToIgnore |> Set.contains ifaceEnt.FullName |> not then
-                                let generics =
-                                    let bounds = [mkTypeTraitGenericBound ["Clone"] None]
-                                    ifaceEnt.GenericParameters
-                                    |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
-                                yield mkTraitItem [] (ifaceEnt.DisplayName) fields [] generics
-                ]
-            let ctorItem =
-                match decl.Constructor with
-                | Some ctor ->
-                    let body =
-                        match ctor.Body with
-                        | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential _] ->
-                            let exprs = flattenSequential ctor.Body
-                            let idents = getEntityFieldsAsIdents com ent |> Array.toList
-                            let assignmentsIn = idents |> List.map(Fable.IdentExpr)
-                            let exprs = //fold back over ctor body, seeding with a create record statement for return, throwing out object exprs and converting `this.param` mutations to `let param = param.Clone()`
-                                let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
-                                let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, generics), None)
-                                (returnVal, exprs |> List.rev)
-                                ||> List.fold (fun acc -> function
-                                    | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet name, t, assignExpr, _) ->
-                                        let ident = idents |> List.find (fun id -> id.Name = name)
-                                        Fable.Let(ident, assignExpr, acc)
-                                    | Fable.Value(Fable.ValueKind.UnitConstant, _)
-                                    | Fable.ObjectExpr _ -> acc
-                                    | x -> Fable.Sequential [acc; x])
-                            exprs
-                        | y -> y
-                        //TODO: get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
-                    let ctor = { ctor with Body = body; Name="new" }
-                    let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map(fun g -> g.Name) |> Set.ofList }
-                    transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
-                | _ ->
-                    // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
-                    if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                        []
-                    else
-                        transformGeneratedConstructor com ctx ent (decl: Fable.ClassDecl)
             let classImpls =
                 if ent.IsFSharpUnion || ent.IsFSharpRecord then //todo - generics break stuff at the moment, but this should work for all
                     []
                 else
+                    let ctorItem =
+                        match decl.Constructor with
+                        | Some ctor ->
+                            let body =
+                                match ctor.Body with
+                                | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential _] ->
+                                    let exprs = flattenSequential ctor.Body
+                                    let idents = getEntityFieldsAsIdents com ent |> Array.toList
+                                    let assignmentsIn = idents |> List.map (Fable.IdentExpr)
+                                    let exprs = //fold back over ctor body, seeding with a create record statement for return, throwing out object exprs and converting `this.param` mutations to `let param = param.Clone()`
+                                        let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                                        let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, generics), None)
+                                        (returnVal, exprs |> List.rev)
+                                        ||> List.fold (fun acc -> function
+                                            | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet name, t, assignExpr, _) ->
+                                                let ident = idents |> List.find (fun id -> id.Name = name)
+                                                Fable.Let(ident, assignExpr, acc)
+                                            | Fable.Value(Fable.ValueKind.UnitConstant, _)
+                                            | Fable.ObjectExpr _ -> acc
+                                            | x -> Fable.Sequential [acc; x])
+                                    exprs
+                                | y -> y
+                                //TODO: get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
+                            let ctor = { ctor with Body = body; Name="new" }
+                            let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
+                            transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
+                        | _ ->
+                            // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
+                            transformGeneratedConstructor com ctx ent decl
+                        |> mkPublicAssocItem
+
                     let classImplBlock =
                         let ty =
                             let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
@@ -3535,64 +3577,61 @@ module Util =
                                 ent.GenericParameters
                                 |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                             Fable.Type.DeclaredType(ent.Ref, generics) |> transformType com ctx
-                        let generics =
-                            let bounds = [mkTypeTraitGenericBound ["Clone"] None]
-                            ent.GenericParameters
-                            |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
-                        mkImplItem [] "" ty generics (ctorItem) None
+                        let generics = getEntityGenParams ent
+                        mkImplItem [] "" ty generics [ctorItem] None
 
                     let ifaces =
                         ent.AllInterfaces
-                        |> Seq.map(fun i ->
-                            let ifaceEnt = com.GetEntity i.Entity
-                            let members = ifaceEnt.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt.GenericParameters)
-                        |> Seq.filter(fun (dn, m, p) -> interfacesToIgnore |> Set.contains dn |> not)//temporary, throw out anything not defined such as IComparable etc
+                        |> Seq.map (fun i ->
+                            let ifaceEnt = com.GetEntity(i.Entity)
+                            let members = ifaceEnt |> getEntityMemberNamesSet
+                            com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt)
+                        |> Seq.filter (fun (dn, m, p) -> not (interfacesToIgnore |> Set.contains dn)) //temporary, throw out anything not defined such as IComparable etc
                         |> Seq.toList
+
                     let membersNotDefinedInInterfaces =
-                            let allIfaceMembers = ifaces |> Seq.map (fun (_, members, _) -> members) |> Seq.fold Set.union Set.empty
-                            ent.MembersFunctionsAndValues |> Seq.map (fun m -> m.DisplayName) |> Set.ofSeq
-                            |> Seq.except allIfaceMembers
-                            |> Set.ofSeq
+                        let allIfaceMembers =
+                            ifaces |> Seq.map (fun (_, members, _) -> members) |> Seq.fold Set.union Set.empty
+                        ent
+                        |> getEntityMemberNamesSet
+                        |> Seq.except allIfaceMembers
+                        |> Set.ofSeq
+
                     let complMethodsTrait =
                         let fields = [
-                            let membersNotDeclared = decl.AttachedMembers |> List.filter (fun m -> membersNotDefinedInInterfaces |> Set.contains m.Name)
+                            let membersNotDeclared =
+                                decl.AttachedMembers |> List.filter (fun m ->
+                                    membersNotDefinedInInterfaces |> Set.contains m.Name)
                             for m in membersNotDeclared ->
                                 let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                                let generics = makeGenerics m.Args m.Body.Type (Set.ofList []) //["abc"])
+                                let generics = makeGenerics (Set.ofList []) //["abc"])
                                 let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                                 mkFnAssocItem [] m.Name fnKind
                         ]
                         //let genBound = [mkPathSegment (mkIdent decl.Name) None] |> mkPath |> mkTraitGenericBound
-                        let generics =
-                                let bounds = [mkTypeTraitGenericBound ["Clone"] None]
-                                ent.GenericParameters
-                                |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
+                        let generics = getEntityGenParams ent
                         mkTraitItem [] (entName + "Methods") fields [] generics
 
                     let traitsToRender =
                         let complTrait =
-                            entName + "Methods", membersNotDefinedInInterfaces, ent.GenericParameters
+                            entName + "Methods", membersNotDefinedInInterfaces, ent
                         ifaces @ [complTrait]
 
                     let complMethodsTraitImpl = [
-                        for tFullName, tmethods, pgenerics in traitsToRender ->
-                            let ctx = { ctx with ScopedTypeParams = pgenerics |> List.map(fun g -> g.Name) |> Set.ofList }
-                            let decs = //copied from below. Do we need this? If so refactor to common or something
+                        for tFullName, tmethods, tEnt in traitsToRender ->
+                            let ctx = { ctx with ScopedTypeParams = tEnt.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
+                            let decls = //copied from below. Do we need this? If so refactor to common or something
                                 let withCurrentScope ctx (usedNames: Set<string>) f =
                                     let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
                                     let result = f ctx
                                     ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
                                     result
-
                                 let makeDecl (decl: Fable.MemberDecl) =
                                     withCurrentScope ctx decl.UsedNames <| fun ctx ->
                                         transformAssocMemberFunction com ctx decl.Info decl.Name decl.Args decl.Body
-
                                 decl.AttachedMembers
-                                |> List.filter(fun m -> tmethods |> Set.contains m.Name)
+                                |> List.filter (fun m -> tmethods |> Set.contains m.Name)
                                 |> List.map makeDecl
-                                |> List.collect id
                             let ty =
                                 let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                                 let genArgs = transformGenArgs com ctx generics
@@ -3600,15 +3639,12 @@ module Util =
                                 mkTraitTy [bounds]
                                 // |> makeRcTy com
                             let path =
-                                let gargs = pgenerics
-                                            |> List.map(fun p -> Fable.Type.GenericParam(p.Name, []))
+                                let gargs = tEnt.GenericParameters
+                                            |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
                                             |> List.map (transformType com ctx)
                                 mkGenericPath (splitFullName tFullName) (mkGenericTypeArgs gargs)
-                            let generics =
-                                let bounds = [mkTypeTraitGenericBound ["Clone"] None]
-                                pgenerics
-                                |> List.map (fun p -> mkGenericParamFromName [] p.Name bounds)
-                            mkImplItem [] "" ty generics decs (mkTraitRef path |> Some)
+                            let generics = getEntityGenParams tEnt
+                            mkImplItem [] "" ty generics decls (mkTraitRef path |> Some)
                         ]
                     [classImplBlock; complMethodsTrait] @ complMethodsTraitImpl
 

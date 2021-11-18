@@ -1174,6 +1174,9 @@ module Items =
           kind = kind
           tokens = None }
 
+    let mkPublicAssocItem item: AssocItem =
+        { item with vis = PUBLIC_VIS }
+
     let mkPublicItem item: Item =
         { item with vis = PUBLIC_VIS }
 
@@ -1234,7 +1237,7 @@ module Items =
 
     let mkTraitItem attrs name fields bounds generics: Item =
         let ident = mkIdent name
-        ItemKind.Trait(IsAuto.No, Unsafety.No, mkGenerics generics, mkVec bounds, mkVec fields)
+        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec fields)
         |> mkItem attrs ident
 
     let mkEnumItem attrs name variants generics: Item =
@@ -1267,14 +1270,14 @@ module Items =
         ItemKind.Const(def, ty, exprOpt)
         |> mkItem attrs ident
 
-    let mkImplItem attrs name ty genericParams items ofTrait: Item =
+    let mkImplItem attrs name ty generics items ofTrait: Item =
         let ident = mkIdent name
         ItemKind.Impl({
             unsafety = Unsafety.No
             polarity = ImplPolarity.Positive
             defaultness = Defaultness.Final
             constness = Constness.No
-            generics = mkGenerics genericParams
+            generics = generics
             of_trait = ofTrait
             self_ty = ty
             items = mkVec items

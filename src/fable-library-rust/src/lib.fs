@@ -1,5 +1,6 @@
-#if FABLE_COMPILER
 module Fable.Library.Rust
+
+#if FABLE_COMPILER
 open Fable.Core.JsInterop
 
 let imports: unit[] = [|
@@ -8,8 +9,8 @@ let imports: unit[] = [|
     importAll "./Option.rs"
     importAll "./Array.rs"
     importAll "./List.rs"
-    importAll "./Enumerable.rs"
-    // importAll "./Seq.rs"
+    // importAll "./Enumerable.rs"
+    importAll "./Seq.rs"
     importAll "./Util.rs"
 |]
 #endif
