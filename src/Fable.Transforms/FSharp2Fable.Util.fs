@@ -89,7 +89,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 #if FABLE_COMPILER
         Naming.removeGetSetPrefix m.DisplayName
 #else
-        Naming.removeGetSetPrefix m.DisplayNameCore
+        Naming.removeGetSetPrefix m.DisplayName
 #endif
 
     interface Fable.MemberFunctionOrValue with
@@ -454,9 +454,9 @@ module Helpers =
         // TODO: Add compiler option to inline also `OptionalInline`
         | FSharpInlineAnnotation.OptionalInline -> false
 // TODO: Remove when fcs-fable is updated
-#if FABLE_COMPILER
+// #if FABLE_COMPILER
         | FSharpInlineAnnotation.PseudoValue
-#endif
+// #endif
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
