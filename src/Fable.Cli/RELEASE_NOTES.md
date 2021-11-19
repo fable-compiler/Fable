@@ -1,3 +1,10 @@
+### 3.6.0
+
+* Support F# 6
+* Support DateOnly/TimeOnly @kerams
+* Improve watch mode
+* Cache project options
+
 ### 3.6.0-beta-003
 
 * Add Fable.Core.Compiler.triggeredByDependency flag

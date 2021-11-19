@@ -1,4 +1,4 @@
-### 3.6.0-beta-001
+### 3.6.0
 
 * Add Fable.Core.Compiler.triggeredByDependency flag
 
