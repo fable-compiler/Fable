@@ -57,91 +57,91 @@ module Enumerable =
     type 'T seq = IEnumerable<'T>
 
     // [<CompiledName("Enumerator")>]
-    // type FromFunctions<'T>(current, movenext, dispose) =
+    // type FromFunction<'T>(next: unit -> 'T option) =
+    //     let mutable curr: 'T option = None
     //     interface IEnumerator<'T> with
-    //         member _.Current = current()
-    //     // interface System.Collections.IEnumerator with
-    //     //     member _.Current = box (current())
-    //         member _.MoveNext() = movenext()
-    //     //     member _.Reset() = noReset()
-    //     // interface System.IDisposable with
-    //         member _.Dispose() = dispose()
+    //         member _.Current =
+    //             curr.Value
+    //         member _.MoveNext() =
+    //             curr <- next()
+    //             curr.IsSome
+    //         member _.Dispose() = ()
 
-    [<CompiledName("Enumerator")>]
-    type FromFunction<'T>(next: unit -> 'T option) =
-        let mutable curr: 'T option = None
-        interface IEnumerator<'T> with
-            member _.Current =
-                curr.Value
-            member _.MoveNext() =
-                curr <- next()
-                curr.IsSome
-            member _.Dispose() = ()
-
-    let fromFunction next: IEnumerator<'T> =
-        new FromFunction<'T>(next) :> IEnumerator<'T>
-
-    let empty<'T>(): IEnumerator<'T> =
-        let next(): 'T option = None
-        fromFunction next
-
-    let singleton (x: 'T): IEnumerator<'T> =
-        let mutable i = 0
-        let next() =
-            if i < 1 then
-                i <- i + 1
-                Some x
-            else
-                None
-        fromFunction next
-
-    let ofArray (arr: 'T[]): IEnumerator<'T> =
-        let len = arr.Length
-        let mutable i = 0
-        let next() =
-            if i < len then
-                i <- i + 1
-                Some(arr[i - 1])
-            else
-                None
-        fromFunction next
-
-    // let inline fromFunctions current movenext dispose: IEnumerator<'T> =
-    //     new FromFunctions<_>(current, movenext, dispose) :> IEnumerator<'T>
-
-    // implementation for languages where arrays are not IEnumerable
+    // let fromFunction next: IEnumerator<'T> =
+    //     new FromFunction<'T>(next) :> IEnumerator<'T>
 
     // let empty<'T>(): IEnumerator<'T> =
-    //     let mutable started = false
-    //     let current() = if not started then notStarted() else alreadyFinished()
-    //     let movenext() = started <- true; false
-    //     let dispose() = ()
-    //     fromFunctions current movenext dispose
+    //     let next(): 'T option = None
+    //     fromFunction next
 
     // let singleton (x: 'T): IEnumerator<'T> =
-    //     let mutable index = -1
-    //     let current() =
-    //         if index < 0 then notStarted()
-    //         if index > 0 then alreadyFinished()
-    //         x
-    //     let movenext() = index <- index + 1; index = 0
-    //     let dispose() = ()
-    //     fromFunctions current movenext dispose
+    //     let mutable i = 0
+    //     let next() =
+    //         if i < 1 then
+    //             i <- i + 1
+    //             Some x
+    //         else
+    //             None
+    //     fromFunction next
 
     // let ofArray (arr: 'T[]): IEnumerator<'T> =
     //     let len = arr.Length
-    //     let mutable i = -1
-    //     let current() =
-    //         if i < 0 then notStarted()
-    //         elif i >= len then alreadyFinished()
-    //         else arr.[i]
-    //     let movenext() =
+    //     let mutable i = 0
+    //     let next() =
     //         if i < len then
     //             i <- i + 1
-    //             i < len
-    //         else false
-    //     let dispose() = ()
-    //     fromFunctions current movenext dispose
+    //             Some(arr[i - 1])
+    //         else
+    //             None
+    //     fromFunction next
+
+    [<CompiledName("Enumerator")>]
+    type FromFunctions<'T>(current, movenext, dispose) =
+        interface IEnumerator<'T> with
+            member _.Current = current()
+        // interface System.Collections.IEnumerator with
+        //     member _.Current = box (current())
+            member _.MoveNext() = movenext()
+        //     member _.Reset() = noReset()
+        // interface System.IDisposable with
+            member _.Dispose() = dispose()
+
+    let fromFunctions current movenext dispose: IEnumerator<'T> =
+        new FromFunctions<'T>(current, movenext, dispose) :> IEnumerator<'T>
+
+    // implementation for languages where arrays are not IEnumerable
+
+    let empty<'T>(): IEnumerator<'T> =
+        let mutable started = false
+        let current() = if not started then notStarted() else alreadyFinished()
+        let movenext() = started <- true; false
+        let dispose() = ()
+        fromFunctions current movenext dispose
+
+    let singleton (x: 'T): IEnumerator<'T> =
+        let mutable index = -1
+        let current() =
+            if index < 0 then notStarted()
+            if index > 0 then alreadyFinished()
+            x
+        let movenext() = index <- index + 1; index = 0
+        let dispose() = ()
+        fromFunctions current movenext dispose
+
+    let ofArray (arr: 'T[]): IEnumerator<'T> =
+        let len = arr.Length
+        let mutable i = -1
+        let current() =
+            if i < 0 then notStarted()
+            elif i >= len then alreadyFinished()
+            else arr.[i]
+        let movenext() =
+            if i < len then
+                i <- i + 1
+                i < len
+            else false
+        let dispose() = ()
+        fromFunctions current movenext dispose
 
     // let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
     //     let current() = unbox<'T> e.Current
@@ -583,10 +583,10 @@ let length (xs: seq<'T>) =
     // | :? array<'T> as a -> Array.length a
     // | :? list<'T> as a -> List.length a
     | _ ->
-        // use e = ofSeq xs
-        let e = ofSeq xs
         let mutable count = 0
-        while e.MoveNext() do
+        // use e = ofSeq xs
+        // while e.MoveNext() do
+        for _ in xs do
             count <- count + 1
         count
 

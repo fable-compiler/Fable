@@ -75,11 +75,11 @@ open Util.Testing
 //     |> Seq.length
 //     |> equal 5
 
-// [<Fact>]
-// let ``Seq.empty works`` () =
-//     let xs = Seq.empty<int>
-//     Seq.length xs
-//     |> equal 0
+[<Fact>]
+let ``Seq.empty works`` () =
+    let xs = Seq.empty<int>
+    Seq.length xs
+    |> equal 0
 
 // [<Fact>]
 // let ``Seq.append works`` () =
@@ -545,62 +545,62 @@ open Util.Testing
 
 // [<Fact>]
 // let ``Seq.range works`` () =
-//     seq{1..5}
+//     seq {1..5}
 //     |> Seq.reduce (+)
 //     |> equal 15
 
-//     seq{1. .. 5.}
+//     seq {1. .. 5.}
 //     |> Seq.reduce (+)
 //     |> equal 15.
 
 // [<Fact>]
 // let ``Seq.range step works`` () =
-//     seq{0..2..9}
+//     seq {0..2..9}
 //     |> Seq.reduce (+)
 //     |> equal 20
 
-//     seq{0. .. 2. .. 9.}
+//     seq {0. .. 2. .. 9.}
 //     |> Seq.reduce (+)
 //     |> equal 20.
 
-//     seq{9 .. -2 .. 0}
+//     seq {9 .. -2 .. 0}
 //     |> Seq.reduce (+)
 //     |> equal 25
 
 // [<Fact>]
 // let ``Seq.range works with chars`` () =
-//     seq{'a' .. 'f'}
+//     seq {'a' .. 'f'}
 //     |> Seq.toArray
 //     |> System.String
 //     |> equal "abcdef"
 
-//     seq{'z' .. 'a'}
+//     seq {'z' .. 'a'}
 //     |> Seq.length
 //     |> equal 0
 
 // [<Fact>]
 // let ``Seq.range works with long`` () =
-//     seq{1L..5L}
+//     seq {1L..5L}
 //     |> Seq.reduce (+)
 //     |> equal 15L
 
-//     seq{1UL .. 5UL}
+//     seq {1UL .. 5UL}
 //     |> Seq.reduce (+)
 //     |> equal 15UL
 
 // [<Fact>]
 // let ``Seq.range step works with long`` () =
-//     seq{0L..2L..9L}
+//     seq {0L..2L..9L}
 //     |> Seq.reduce (+)
 //     |> equal 20L
 
-//     seq{0UL..2UL..9UL}
+//     seq {0UL..2UL..9UL}
 //     |> Seq.reduce (+)
 //     |> equal 20UL
 
 // [<Fact>]
 // let ``Seq.range works with decimal`` () =
-//     seq{1M .. 50M}
+//     seq {1M .. 50M}
 //     |> Seq.reduce (+)
 //     |> equal 1275M
 
@@ -612,7 +612,7 @@ open Util.Testing
 
 // [<Fact>]
 // let ``Seq.range works with bigint`` () =
-//     seq{1I..2000I}
+//     seq {1I..2000I}
 //     |> Seq.reduce (+)
 //     |> equal 2001000I
 
