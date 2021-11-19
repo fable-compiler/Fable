@@ -37,6 +37,7 @@ type CompilerOptions =
         TrimRootModule: bool
         Verbosity: Verbosity
         FileExtension: string
+        TriggeredByDependency: bool
     }
 
 type PluginHelper =

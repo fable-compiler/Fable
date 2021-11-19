@@ -1248,6 +1248,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
+        | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
         | _ -> None
     | "Fable.Core.PyInterop", _
     | "Fable.Core.JsInterop", _ ->
