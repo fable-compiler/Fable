@@ -54,11 +54,20 @@ open Util.Testing
 //     sumEnumerable ys |> equal 7
 //     sumEnumerable zs |> equal -1
 
+[<Fact>]
+let ``Seq.length with arrays works`` () =
+    let xs = [|1; 2; 3; 4|]
+    Seq.length xs |> equal 4
+
+[<Fact>]
+let ``Seq.length with lists works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.length xs |> equal 4
+
 // [<Fact>]
-// let ``Seq.length works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     Seq.length xs
-//     |> equal 4
+// let ``Seq.length with seq works`` () =
+//     let xs = seq { 1; 2; 3; 4 }
+//     Seq.length xs |> equal 4
 
 // [<Fact>]
 // let ``Seq.delay works`` () =
@@ -78,8 +87,7 @@ open Util.Testing
 [<Fact>]
 let ``Seq.empty works`` () =
     let xs = Seq.empty<int>
-    Seq.length xs
-    |> equal 0
+    Seq.length xs |> equal 0
 
 // [<Fact>]
 // let ``Seq.append works`` () =
@@ -700,6 +708,13 @@ let ``Seq.empty works`` () =
 //     let ys = xs |> Seq.toArray
 //     ys.[0] + ys.[1]
 //     |> equal 3.
+
+// [<Fact>]
+// let ``Seq.toArray works II`` () =
+//     let xs = [|1.; 2.; 3.|]
+//     let ys = xs |> Seq.toArray
+//     xs.[0] <- 2.
+//     ys.[0] + ys.[1] |> equal 3.
 
 // [<Fact>]
 // let ``Seq.toList works`` () =

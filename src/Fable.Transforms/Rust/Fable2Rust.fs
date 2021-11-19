@@ -956,6 +956,14 @@ module Util =
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
         | _ -> None
 
+    let (|IEnumerable|_|) (com: IRustCompiler) = function
+        | Fable.DeclaredType(entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
+            if ent.IsInterface && entRef.FullName = Types.ienumerableGeneric
+            then Some(genArgs)
+            else None
+        | _ -> None
+
     let discardUnitArg (args: Fable.Ident list) =
         match args with
         | [] -> []
@@ -1033,10 +1041,10 @@ module Util =
         then mkGenericPathExpr [rawIdent "self"] None
         else mkGenericPathExpr [ident.Name] None
 
-    let transformMaybeIdentExpr (com: IRustCompiler) ctx r (expr: Fable.Expr) =
+    let transformExprMaybeIdentExpr (com: IRustCompiler) ctx r (expr: Fable.Expr) =
         match expr with
         | Fable.IdentExpr id ->
-            // avoids extra Rc wrapping for thisArg
+            // avoids the extra Rc wrapping for self that transformIdentGet does
             transformIdent com ctx r id
         | _ -> com.TransformAsExpr(ctx,expr)
 
@@ -1309,7 +1317,11 @@ module Util =
         match fromType, toType with
         | Fable.Number _, Fable.Number _ ->
             expr |> mkCastExpr ty
-        | _, toType when isInterface com toType ->
+        | Fable.Array _, IEnumerable com _ ->
+            libCall com ctx None [] "Seq" "ofArray" [fableExpr]
+        | Fable.List _, IEnumerable com _ ->
+            libCall com ctx None [] "Seq" "ofList" [fableExpr]
+        | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
         // TODO: other casts?
         | _ ->
@@ -1852,7 +1864,7 @@ module Util =
         | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
             // this is an instance call
             let namesp, name = splitNameSpace membName
-            let callee = transformMaybeIdentExpr com ctx range callee
+            let callee = transformExprMaybeIdentExpr com ctx range callee
             let expr = mkMethodCallExpr name None callee args
             if shouldBeRefCountWrapped com typ
             then makeRcValue expr //todo - not convinced this is right. Normally the returned value is already wrapped
@@ -1891,9 +1903,8 @@ module Util =
                             // this is for imports like List.empty, Seq.empty etc.
                             let genArgs =
                                 match selector, typ with
-                                | "Seq::empty", Fable.DeclaredType(entRef, genArgs)
-                                    when entRef.FullName = Types.ienumerableGeneric ->
-                                        genArgs |> transformGenArgs com ctx
+                                | "Seq::empty", IEnumerable com genArgs ->
+                                    genArgs |> transformGenArgs com ctx
                                 | _ -> None
                             transformImport com ctx r selector path genArgs
                         | _ ->
@@ -1968,7 +1979,7 @@ module Util =
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
         | Fable.ExprGet idx ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
+            let expr = transformExprMaybeIdentExpr com ctx range fableExpr
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
@@ -1988,13 +1999,13 @@ module Util =
                 |> transformGet com ctx range typ fableExpr
             | t when isInterface com t ->
                 // for interfaces, transpile property gets as instance calls
-                let callee = com.TransformAsExpr(ctx, fableExpr)
+                let callee = transformExprMaybeIdentExpr com ctx range fableExpr
                 let expr = mkMethodCallExpr fieldName None callee []
                 if shouldBeRefCountWrapped com typ
                 then makeRcValue expr // TODO: is this needed?
                 else expr
             | _ ->
-                let expr = transformMaybeIdentExpr com ctx range fableExpr
+                let expr = transformExprMaybeIdentExpr com ctx range fableExpr
                 let field = getField range expr fieldName
                 if isMutable
                 then mutableGet com ctx range typ field
@@ -2074,7 +2085,7 @@ module Util =
                     failwith "Should not happen"
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
-        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let expr = transformExprMaybeIdentExpr com ctx range fableExpr
         let value = transformExprMaybeUnwrapRef com ctx value
         match kind with
         | Fable.ValueSet ->
@@ -3203,10 +3214,10 @@ module Util =
         let fnBody = transformLeaveContextByValue com ctx None None body
         fnDecl, fnBody, genTypeParams
 
-    let isClosedOverIdent com ctx ignoredNames expr =
+    let isClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
         match expr with
         | Fable.Expr.IdentExpr ident ->
-            if not (Set.contains ident.Name ignoredNames)
+            if not (ignoredNames.Contains(ident.Name))
                 && (ident.IsMutable ||
                     (isRefScoped ctx ident.Name) ||
                     (shouldBeRefCountWrapped com ident.Type) ||
@@ -3219,7 +3230,17 @@ module Util =
                 )
             then Some ident
             else None
-        | _ -> None
+        // ignore local names declared in the closure
+        // TODO: not perfect, local name redeclaration will ignore captured names
+        | Fable.Let(ident, _, _) ->
+            ignoredNames.Add(ident.Name) |> ignore
+            None
+        | Fable.LetRec(bindings, _) ->
+            bindings |> List.iter (fun (ident, _) ->
+                ignoredNames.Add(ident.Name) |> ignore)
+            None
+        | _ ->
+            None
 
     let getIgnoredNames (name: string option) (args: Fable.Ident list) =
         let argNames = args |> List.map (fun arg -> arg.Name)
@@ -3227,17 +3248,17 @@ module Util =
         allNames |> Set.ofList
 
     let hasCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ignoredNames = getIgnoredNames name args
+        let ignoredNames = HashSet(getIgnoredNames name args)
         let isClosedOver expr =
             isClosedOverIdent com ctx ignoredNames expr |> Option.isSome
         FableTransforms.deepExists isClosedOver body
 
-    let getCapturedNamesSet com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ignoredNames = getIgnoredNames name args
-        let capturedNames = ResizeArray<string>()
+    let getCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let ignoredNames = HashSet(getIgnoredNames name args)
+        let capturedNames = HashSet<string>()
         let addClosedOverIdent expr =
             isClosedOverIdent com ctx ignoredNames expr
-            |> Option.iter (fun ident -> capturedNames.Add(ident.Name))
+            |> Option.iter (fun ident -> capturedNames.Add(ident.Name) |> ignore)
             false
         // collect all closed over names that are not arguments
         FableTransforms.deepExists addClosedOverIdent body |> ignore
@@ -3263,7 +3284,7 @@ module Util =
                         }
                     acc |> Map.add arg.Name scopedVarAttrs)
             { ctx with ScopedSymbols = scopedSymbols }
-        let closedOverCloneableNames = getCapturedNamesSet com ctx name args body
+        let closedOverCloneableNames = getCapturedNames com ctx name args body
         // remove closedOverCloneableNames from scoped symbols, as they will be cloned
         let ctx = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
         let fnBody = transformLeaveContextByValue com ctx None None body
