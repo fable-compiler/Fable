@@ -247,7 +247,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
 
-    member _.MakeCompiler(currentFile, project, outDir) =
+    member _.MakeCompiler(currentFile, project, triggeredByDependency) =
+        let opts = { cliArgs.CompilerOptions with TriggeredByDependency = triggeredByDependency }
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
         let common = Path.getCommonBaseDir([currentFile; crackerResponse.FableLibDir])
         let outputType =
@@ -261,7 +262,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
                 Some "Library"
             else
                 crackerResponse.OutputType
-        CompilerImpl(currentFile, project, cliArgs.CompilerOptions, fableLibDir, ?outDir=outDir, ?outType=outputType)
+        CompilerImpl(currentFile, project, opts, fableLibDir, ?outDir=cliArgs.OutDir, ?outType=outputType)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
@@ -390,6 +391,11 @@ type State =
             set this.DeduplicateDic.Values
             |> addTargetDir)
 
+    member this.TriggeredByDependency(path: string, changes: ISet<string>) =
+        match Map.tryFind path this.WatchDependencies with
+        | None -> false
+        | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
+
     static member Create(cliArgs, ?watchDelay) =
         { CliArgs = cliArgs
           ProjectCrackedAndChecked = None
@@ -423,16 +429,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
 
                 let filesToCompile =
                     let pendingFiles = set state.PendingFiles
-                    let hasWatchDependency (path: string) =
-                        if state.CliArgs.WatchDeps then
-                            match Map.tryFind path state.WatchDependencies with
-                            | None -> false
-                            | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
-                        else false
 
                     projCracked.SourceFilePaths
                     |> Array.filter (fun path ->
-                        changes.Contains path || pendingFiles.Contains path || hasWatchDependency path)
+                        changes.Contains path || pendingFiles.Contains path || state.TriggeredByDependency(path, changes))
 
                 Log.verbose(lazy $"""Files to compile:{newLine}    {filesToCompile |> String.concat $"{newLine}    "}""")
 
@@ -464,7 +464,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                 filesToCompile
                 |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
                 |> Array.map (fun file ->
-                    projCracked.MakeCompiler(file, projChecked.Project, state.CliArgs.OutDir)
+                    projCracked.MakeCompiler(file, projChecked.Project, state.TriggeredByDependency(file, changes))
                     |> compileFile state.HasCompiledOnce state.CliArgs state.GetOrAddDeduplicateTargetDir)
                 |> Async.Parallel
 

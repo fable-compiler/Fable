@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "3.4.10"
+    let [<Literal>] VERSION = "3.6.0"
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
@@ -24,6 +24,7 @@ type CompilerOptionsHelper =
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
+            TriggeredByDependency = false
         }
 
 [<RequireQualifiedAccess>]

@@ -55,7 +55,6 @@ let knownCliArgs() = [
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
   ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
-  ["--watchDeps"],       ["Recompile file dependencies during watch (default true)"]
   [], []
   ["--run"],             ["The command after the argument will be executed after compilation"]
   ["--runFast"],         ["The command after the argument will be executed BEFORE compilation"]
@@ -249,7 +248,6 @@ type Runner =
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
-          WatchDeps = args.FlagOr("--watchDeps", true)
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"

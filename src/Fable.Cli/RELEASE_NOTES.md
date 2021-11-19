@@ -1,3 +1,30 @@
+### 3.6.0
+
+* Support F# 6
+* Support DateOnly/TimeOnly @kerams
+* Improve watch mode
+* Cache project options
+
+### 3.6.0-beta-003
+
+* Add Fable.Core.Compiler.triggeredByDependency flag
+* Support DefaultParameterValue attribute (not for JS interop)
+* Update F# compiler
+
+### 3.6.0-beta-002
+
+* Fix watch mode when saving multiple files at same time
+* TimeOnly.FromDateTime @kerams
+* Remove --watchDeps flag
+
+### 3.6.0-beta-001
+
+* Support F# 6
+* Support DateOnly/TimeOnly @kerams
+* Improve watch mode
+* Add `--watchDeps` flag
+* Cache project options
+
 ### 3.4.10
 
 * Add support for StringSplitOptions.TrimEntries @steveofficer

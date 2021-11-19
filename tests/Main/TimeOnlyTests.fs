@@ -35,6 +35,23 @@ let tests =
             Util.throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours 24.))
             Util.throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours -1.))
 
+        testCase "FromDateTime works" <| fun () ->
+            let now = DateTime.Now
+            let t = TimeOnly.FromDateTime now
+
+            equal now.Hour t.Hour
+            equal now.Minute t.Minute
+            equal now.Second t.Second
+            equal now.Millisecond t.Millisecond
+
+            let now = DateTime.UtcNow
+            let t = TimeOnly.FromDateTime now
+
+            equal now.Hour t.Hour
+            equal now.Minute t.Minute
+            equal now.Second t.Second
+            equal now.Millisecond t.Millisecond
+
         testCase "ToTimeSpan works" <| fun () ->
             let t1 = TimeOnly.MaxValue.ToTimeSpan()
             let t2 = TimeOnly(10, 20, 30, 40).ToTimeSpan()

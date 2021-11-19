@@ -1,6 +1,7 @@
 module Fable.Tests.Misc
 
 open System
+open System.Runtime.InteropServices
 open Fable.Core
 open Util.Testing
 open Util2.Extensions
@@ -414,6 +415,8 @@ type Shape =
     | Rectangle of int * int
 
 type StaticClass =
+    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
+
     static member inline Add(x: int, ?y: int) =
         x + (defaultArg y 2)
 
@@ -1120,6 +1123,9 @@ let tests =
     testCase "Inlined methods can have optional arguments" <| fun () ->
         StaticClass.Add(2, 3) |> equal 5
         StaticClass.Add(5) |> equal 7
+
+    testCase "DefaultParameterValue works" <| fun () ->
+        StaticClass.DefaultParam() |> equal true
 
     testCase "Ignore shouldn't return value" <| fun () -> // See #1360
         let producer () = 7
