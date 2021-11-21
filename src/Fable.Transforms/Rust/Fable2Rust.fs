@@ -1702,7 +1702,8 @@ module Util =
         //     else expr
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (name: string option) (e: Fable.Expr): Rust.Expr =
-        let expr = com.TransformAsExpr (ctx, e)
+        // let expr = com.TransformAsExpr (ctx, e)
+        let expr = transformExprMaybeUnwrapRef com ctx e
         let t = t |> Option.defaultValue e.Type
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx t name e
 
@@ -2069,8 +2070,9 @@ module Util =
                             else WILD_PAT)
                     let path = makeFullNamePath unionCase.FullName None
                     let pat = mkTupleStructPat path fields
-                    let expr = com.TransformAsExpr(ctx, fableExpr)
-                                    |> prepareRefForPatternMatch com ctx fableExpr.Type ""
+                    let expr =
+                        com.TransformAsExpr(ctx, fableExpr)
+                        |> prepareRefForPatternMatch com ctx fableExpr.Type ""
                     let thenExpr =
                         mkGenericPathExpr [fieldName] None
 
@@ -2490,8 +2492,9 @@ module Util =
             let pat = patOpt |> Option.defaultValue WILD_PAT
             let extraVals = namesForIndex evalType evalName targetIndex
             makeArm pat targetIndex boundValues extraVals
-        let expr = com.TransformAsExpr(ctx, evalExpr)
-                    |> prepareRefForPatternMatch com ctx evalType (evalName |> Option.defaultValue "")
+        let expr =
+            com.TransformAsExpr(ctx, evalExpr)
+            |> prepareRefForPatternMatch com ctx evalType (evalName |> Option.defaultValue "")
         mkMatchExpr expr (arms @ [defaultArm])
 
 (*

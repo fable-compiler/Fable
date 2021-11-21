@@ -11,11 +11,11 @@ open Util.Testing
 //     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
 //     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
 
-// let rec sumFirstList (zs: float list) (n: int): float =
-//     match n with
-//     | 0 -> 0.
-//     | 1 -> zs.Head
-//     | _ -> zs.Head + sumFirstList zs.Tail (n-1)
+let rec sumFirstList (zs: float list) (n: int): float =
+    match n with
+    | 0 -> 0.
+    | 1 -> zs.Head
+    | _ -> zs.Head + sumFirstList zs.Tail (n-1)
 
 // type Point =
 //     { x: int; y: int }
@@ -177,29 +177,29 @@ let ``List.empty works`` () =
     let ys = 1 :: List.empty
     xs.Length + ys.Length |> equal 2
 
-// [<Fact>]
-// let ``List.append works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [0]
-//     let zs = List.append ys xs
-//     zs.Head + zs.Tail.Head
-//     |> equal 1
+[<Fact>]
+let ``List.append works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [0]
+    let zs = List.append ys xs
+    zs.Head + zs.Tail.Head
+    |> equal 1
 
-// [<Fact>]
-// let ``List.append works II`` () =
-//     let li = [1;2;3;4;5]
-//     let li2 = li.Tail
-//     let li3 = [8;9;11] @ li2
-//     let li3b = [20;16] @ li3.Tail
-//     let li4 = li3b @ li2
-//     li4.[1] |> equal 16
-//     li4.[9] |> equal 3
-//     List.length li4 |> equal 12
-//     List.sum li4 |> equal 84
+[<Fact>]
+let ``List.append works II`` () =
+    let li = [1;2;3;4;5]
+    let li2 = li.Tail
+    let li3 = [8;9;11] @ li2
+    let li3b = [20;16] @ li3.Tail
+    let li4 = li3b @ li2
+    li4.[1] |> equal 16
+    li4.[9] |> equal 3
+    List.length li4 |> equal 12
+    // List.sum li4 |> equal 84
 
 // [<Fact>]
 // let ``List.append works with empty list`` () =
-//     let li = [{| value = 2|}; {| value = 4|};]
+//     let li = [{| value = 2|}; {| value = 4|}]
 //     let li = li @ []
 //     let li = [] @ li
 //     li
@@ -216,34 +216,36 @@ let ``List.empty works`` () =
 //     result.Head + result.Tail.Head
 //     |> equal 7
 
-// [<Fact>]
-// let ``List.exactlyOne works`` () =
-//     let xs = [1.;]
-//     xs |> List.exactlyOne
-//     |> equal 1.
-//     let xs2 = [1.;2.]
-//     (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
-//     let xs3 = []
-//     (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``List.exactlyOne works`` () =
+    let xs = [1.]
+    xs |> List.exactlyOne
+    |> equal 1.
+    // TODO: enable when try/catch works
+    // let xs2 = [1.; 2.]
+    // (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
+    // let xs3: float list = []
+    // (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``List.tryExactlyOne works`` () =
-//     [1.] |> List.tryExactlyOne |> equal (Some 1.)
-//     [1.;2.] |> List.tryExactlyOne |> equal None
-//     [] |> List.tryExactlyOne |> equal None
+[<Fact>]
+let ``List.tryExactlyOne works`` () =
+    [1.] |> List.tryExactlyOne |> equal (Some 1.)
+    [1.; 2.] |> List.tryExactlyOne |> equal None
+    let xs: float list = []
+    xs |> List.tryExactlyOne |> equal None
 
-// [<Fact>]
-// let ``List.exists works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> List.exists (fun x -> x = 2)
-//     |> equal true
+[<Fact>]
+let ``List.exists works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> List.exists (fun x -> x = 2)
+    |> equal true
 
-// [<Fact>]
-// let ``List.exists2 works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [1; 2; 3; 4]
-//     List.exists2 (fun x y -> x * y = 16) xs ys
-//     |> equal true
+[<Fact>]
+let ``List.exists2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4]
+    List.exists2 (fun x y -> x * y = 16) xs ys
+    |> equal true
 
 // [<Fact>]
 // let ``List.filter works`` () =
@@ -256,17 +258,17 @@ let ``List.empty works`` () =
 //     let li = [1; 2; 3; 4; 5]
 //     li |> List.filteri (fun i _ -> i <> 1) |> equal [1; 3; 4; 5]
 
-// [<Fact>]
-// let ``List.find works`` () =
-//     [1; 2; 3; 4]
-//     |> List.find ((=) 2)
-//     |> equal 2
+[<Fact>]
+let ``List.find works`` () =
+    [1; 2; 3; 4]
+    |> List.find ((=) 2)
+    |> equal 2
 
-// [<Fact>]
-// let ``List.findIndex works`` () =
-//     [1; 2; 3; 4]
-//     |> List.findIndex ((=) 2)
-//     |> equal 1
+[<Fact>]
+let ``List.findIndex works`` () =
+    [1; 2; 3; 4]
+    |> List.findIndex ((=) 2)
+    |> equal 1
 
 [<Fact>]
 let ``List.fold works`` () =
@@ -300,17 +302,17 @@ let ``List.foldBack2 works`` () =
 //     |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
 //     |> equal 12
 
-// [<Fact>]
-// let ``List.forall works`` () =
-//     [1; 2; 3; 4]
-//     |> List.forall (fun x -> x < 5)
-//     |> equal true
+[<Fact>]
+let ``List.forall works`` () =
+    [1; 2; 3; 4]
+    |> List.forall (fun x -> x < 5)
+    |> equal true
 
-// [<Fact>]
-// let ``List.forall2 works`` () =
-//     ([1; 2; 3; 4], [1; 2; 3; 4])
-//     ||> List.forall2 (=)
-//     |> equal true
+[<Fact>]
+let ``List.forall2 works`` () =
+    ([1; 2; 3; 4], [1; 2; 3; 4])
+    ||> List.forall2 (=)
+    |> equal true
 
 [<Fact>]
 let ``List.head works`` () =
@@ -365,34 +367,34 @@ let ``List.iteri2 works`` () =
         ) xs ys
     total |> equal 20
 
-// [<Fact>]
-// let ``List.map works`` () =
-//     let xs = [1;2;3]
-//     let ys = xs |> List.map ((*) 2)
-//     equal 4 ys.Tail.Head
+[<Fact>]
+let ``List.map works`` () =
+    let xs = [1;2;3]
+    let ys = xs |> List.map ((*) 2)
+    equal 4 ys.Tail.Head
 
-// [<Fact>]
-// let ``List.mapi works`` () =
-//     let xs = [1]
-//     let ys = xs |> List.mapi (fun i x -> i * x)
-//     equal 0 ys.Head
+[<Fact>]
+let ``List.mapi works`` () =
+    let xs = [1]
+    let ys = xs |> List.mapi (fun i x -> i * x)
+    equal 0 ys.Head
 
-// [<Fact>]
-// let ``List.map2 works`` () =
-//     let xs = [1;2]
-//     let ys = [2;3]
-//     let zs = List.map2 (fun x y -> x - y) xs ys
-//     equal -1 zs.Head
+[<Fact>]
+let ``List.map2 works`` () =
+    let xs = [1;2]
+    let ys = [2;3]
+    let zs = List.map2 (fun x y -> x - y) xs ys
+    zs.Head |> equal -1
+    List.length zs |> equal 2
 
-// [<Fact>]
-// let ``List.ofArray works`` () =
-//     let xs = [|1; 2|]
-//     let ys = List.ofArray xs
-//     ys.Head |> equal 1
-
-//     let xs1 = [|1.; 2.; 3.; 4.|]
-//     let ys1 = List.ofArray xs1
-//     sumFirstList ys1 3 |> equal 6.
+[<Fact>]
+let ``List.ofArray works`` () =
+    let xs = [|1; 2|]
+    let ys = List.ofArray xs
+    ys.Head |> equal 1
+    let xs1 = [|1.; 2.; 3.; 4.|]
+    let ys1 = List.ofArray xs1
+    sumFirstList ys1 3 |> equal 6.
 
 // [<Fact>]
 // let ``List.ofSeq works`` () =
@@ -401,14 +403,14 @@ let ``List.iteri2 works`` () =
 //     ys.Head |> equal 1
 //     ys.Length |> equal 2
 
-// [<Fact>]
-// let ``List.pick works`` () =
-//     let xs = [1; 2]
-//     xs |> List.pick (fun x ->
-//         match x with
-//         | 2 -> Some x
-//         | _ -> None)
-//     |> equal 2
+[<Fact>]
+let ``List.pick works`` () =
+    let xs = [1; 2]
+    xs |> List.pick (fun x ->
+        match x with
+        | 2 -> Some x
+        | _ -> None)
+    |> equal 2
 
 // [<Fact>]
 // let ``List.reduce works`` () =
@@ -605,29 +607,29 @@ let ``List.rev works`` () =
 //     |> Seq.tail |> Seq.head
 //     |> equal 2
 
-// [<Fact>]
-// let ``List.tryPick works`` () =
-//     [1; 2]
-//     |> List.tryPick (function
-//         | 2 -> Some 2
-//         | _ -> None)
-//     |> function
-//     | Some x -> x
-//     | None -> 0
-//     |> equal 2
+[<Fact>]
+let ``List.tryPick works`` () =
+    [1; 2]
+    |> List.tryPick (function
+        | 2 -> Some 2
+        | _ -> None)
+    |> function
+    | Some x -> x
+    | None -> 0
+    |> equal 2
 
-// [<Fact>]
-// let ``List.tryFind works`` () =
-//     [1; 2]
-//     |> List.tryFind ((=) 5)
-//     |> equal None
+[<Fact>]
+let ``List.tryFind works`` () =
+    [1; 2]
+    |> List.tryFind ((=) 5)
+    |> equal None
 
-// [<Fact>]
-// let ``List.tryFindIndex works`` () =
-//     let xs = [1; 2]
-//     let ys = xs |> List.tryFindIndex ((=) 2)
-//     ys.Value |> equal 1
-//     xs |> List.tryFindIndex ((=) 5) |> equal None
+[<Fact>]
+let ``List.tryFindIndex works`` () =
+    let xs = [1; 2]
+    let ys = xs |> List.tryFindIndex ((=) 2)
+    ys.Value |> equal 1
+    xs |> List.tryFindIndex ((=) 5) |> equal None
 
 // [<Fact>]
 // let ``List.unzip works`` () =
@@ -652,13 +654,13 @@ let ``List.rev works`` () =
 //     equal 2 x
 //     equal 5 y
 
-// [<Fact>]
-// let ``List snail to append works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [0]
-//     let zs = ys @ xs
-//     zs.Head + zs.Tail.Head
-//     |> equal 1
+[<Fact>]
+let ``List snail to append works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [0]
+    let zs = ys @ xs
+    zs.Head + zs.Tail.Head
+    |> equal 1
 
 // [<Fact>]
 // let ``List slice works`` () =
@@ -801,18 +803,12 @@ let ``List.rev works`` () =
 //     xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
 //     xs |> List.tryFindIndexBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``List.foldBack2 works`` () =
-//     ([1; 2; 3; 4], [1; 2; 3; 4], 0)
-//     |||> List.foldBack2 (fun x y acc -> acc - y * x)
-//     |> equal -30
-
-// [<Fact>]
-// let ``List.indexed works`` () =
-//     let xs = ["a"; "b"; "c"] |> List.indexed
-//     xs.Length |> equal 3
-//     fst xs.[2] |> equal 2
-//     snd xs.[2] |> equal "c"
+[<Fact>]
+let ``List.indexed works`` () =
+    let xs = ["a"; "b"; "c"] |> List.indexed
+    xs.Length |> equal 3
+    fst xs.[2] |> equal 2
+    snd xs.[2] |> equal "c"
 
 // [<Fact>]
 // let ``List.map3 works`` () =

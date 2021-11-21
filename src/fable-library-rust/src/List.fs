@@ -18,11 +18,13 @@ module SR =
     let inputSequenceEmpty = "The input sequence was empty."
     let inputSequenceTooLong = "The input sequence contains more than one element."
     let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let listsHadDifferentLengths = "The lists had different lengths."
+    let differentLengths = "The lists had different lengths."
     let notEnoughElements = "The input sequence has an insufficient number of elements."
 
+let inline indexNotFound() = failwith SR.keyNotFoundAlt
+
 // type List<'T> with
-// TODO: there will be some class members here when those are supported
+// TODO: there may be some class members here when those are supported
 
 let empty (): 'T list = //List.Empty
     { root = None }
@@ -126,19 +128,19 @@ let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T 
         else loop (i + 1) (folder i acc (head xs)) (tail xs)
     loop 0 state xs
 
-let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
-    if (isEmpty xs) || (isEmpty ys) then state
-    else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
+// let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+//     if (isEmpty xs) || (isEmpty ys) then state
+//     else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
 
-// let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
-//     let mutable acc = state
-//     let mutable xs = xs
-//     let mutable ys = ys
-//     while not (isEmpty xs) && not (isEmpty ys) do
-//         acc <- folder acc (head xs) (head ys)
-//         xs <- (tail xs)
-//         ys <- (tail ys)
-//     acc
+let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+    let mutable acc = state
+    let mutable xs = xs
+    let mutable ys = ys
+    while not (isEmpty xs) && not (isEmpty ys) do
+        acc <- folder acc (head xs) (head ys)
+        xs <- (tail xs)
+        ys <- (tail ys)
+    acc
 
 let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
@@ -166,6 +168,8 @@ let iterateIndexed action xs =
 let iterateIndexed2 action xs ys =
     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
 
+// List.toSeq is redirected to Seq.ofList to avoid dependency
+
 // let toSeq (xs: 'T list): 'T seq =
 //     xs :> System.Collections.Generic.IEnumerable<'T>
 
@@ -179,15 +183,17 @@ let iterateIndexed2 action xs ys =
 //         | None -> None
 //     Enumerable.fromFunction next
 
-// let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
-//     let mutable res = tail
-//     let len = length xs
-//     for i = len - 1 downto 0 do
-//         res <- cons xs.[i] res
-//     res
+let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
+    let mutable res = tail
+    let len = Array.length xs
+    for i = len - 1 downto 0 do
+        res <- cons xs.[i] res
+    res
 
-// let ofArray (xs: 'T[]) =
-//     ofArrayWithTail xs (empty())
+let ofArray (xs: 'T[]) =
+    ofArrayWithTail xs (empty())
+
+// List.ofSeq is redirected to Seq.toList to avoid dependency
 
 // let ofSeq (xs: seq<'T>): 'T list =
 //     match xs with
@@ -228,8 +234,8 @@ let iterateIndexed2 action xs ys =
 //     Array.scanBack folder (toArray xs) state
 //     |> ofArray
 
-// let append (xs: 'T list) (ys: 'T list) =
-//     fold (fun acc x -> cons x acc) ys (reverse xs)
+let append (xs: 'T list) (ys: 'T list) =
+    fold (fun acc x -> cons x acc) ys (reverse xs)
 
 // let collect (mapping: 'T -> 'U list) (xs: 'T list) =
 //     let root = (empty())
@@ -244,12 +250,20 @@ let iterateIndexed2 action xs ys =
 //     node.SetConsTail (empty())
 //     root.Tail
 
+let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
+    foldIndexed (fun i acc x -> cons (mapping i x) acc) (empty()) xs
+    |> reverse
+
 // let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
 //     let root = (empty())
 //     let folder i (acc: 'U list) x = acc.AppendConsNoTail (mapping i x)
 //     let node = foldIndexed folder root xs
 //     node.SetConsTail (empty())
 //     root.Tail
+
+let map (mapping: 'T -> 'U) (xs: 'T list) =
+    fold (fun acc x -> cons (mapping x) acc) (empty()) xs
+    |> reverse
 
 // let map (mapping: 'T -> 'U) (xs: 'T list) =
 //     let root = (empty())
@@ -258,8 +272,12 @@ let iterateIndexed2 action xs ys =
 //     node.SetConsTail (empty())
 //     root.Tail
 
-// let indexed xs =
-//     mapIndexed (fun i x -> (i, x)) xs
+let indexed xs =
+    mapIndexed (fun i x -> (i, x)) xs
+
+let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
+    fold2 (fun acc x y -> cons (mapping x y) acc) (empty()) xs ys
+    |> reverse
 
 // let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
 //     let root = (empty())
@@ -302,27 +320,27 @@ let iterateIndexed2 action xs ys =
 // let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
 //     mapFold (fun acc x -> mapping x acc) state (reverse xs)
 
-// let tryPick f xs =
-//     let rec loop (xs: 'T list) =
-//         if (isEmpty xs) then None
-//         else
-//             match f (head xs) with
-//             | Some _  as res -> res
-//             | None -> loop (tail xs)
-//     loop xs
+let tryPick f xs =
+    let rec loop (xs: 'T list) =
+        if (isEmpty xs) then None
+        else
+            match f (head xs) with
+            | Some _  as res -> res
+            | None -> loop (tail xs)
+    loop xs
 
-// let pick f xs =
-//     match tryPick f xs with
-//     | Some x -> x
-//     | None -> indexNotFound()
+let pick f xs =
+    match tryPick f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
-// let tryFind f xs =
-//     tryPick (fun x -> if f x then Some x else None) xs
+let tryFind f xs =
+    tryPick (fun x -> if f x then Some x else None) xs
 
-// let find f xs =
-//     match tryFind f xs with
-//     | Some x -> x
-//     | None -> indexNotFound()
+let find f xs =
+    match tryFind f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 // let tryFindBack f xs =
 //     xs |> toArray |> Array.tryFindBack f
@@ -332,19 +350,19 @@ let iterateIndexed2 action xs ys =
 //     | Some x -> x
 //     | None -> indexNotFound()
 
-// let tryFindIndex f xs: int option =
-//     let rec loop i (xs: 'T list) =
-//         if (isEmpty xs) then None
-//         else
-//             if f (head xs)
-//             then Some i
-//             else loop (i + 1) (tail xs)
-//     loop 0 xs
+let tryFindIndex f xs: int option =
+    let rec loop i (xs: 'T list) =
+        if (isEmpty xs) then None
+        else
+            if f (head xs)
+            then Some i
+            else loop (i + 1) (tail xs)
+    loop 0 xs
 
-// let findIndex f xs: int =
-//     match tryFindIndex f xs with
-//     | Some x -> x
-//     | None -> indexNotFound()
+let findIndex f xs: int =
+    match tryFindIndex f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 // let tryFindIndexBack f xs: int option =
 //     xs |> toArray |> Array.tryFindIndexBack f
@@ -419,20 +437,20 @@ let item n (xs: 'T list) = // xs.Item(n)
 //     if (isEmpty xs) then invalidOp SR.inputListWasEmpty
 //     else foldBack f (tail xs) (head xs)
 
-// let forAll f xs =
-//     fold (fun acc x -> acc && f x) true xs
+let forAll f xs =
+    fold (fun acc x -> acc && f x) true xs
 
-// let forAll2 f xs ys =
-//     fold2 (fun acc x y -> acc && f x y) true xs ys
+let forAll2 f xs ys =
+    fold2 (fun acc x y -> acc && f x y) true xs ys
 
-// let exists f xs =
-//     tryFindIndex f xs |> Option.isSome
+let exists f xs =
+    tryFindIndex f xs |> Option.isSome
 
-// let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
-//     match (isEmpty xs), (isEmpty ys) with
-//     | true, true -> false
-//     | false, false -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
-//     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
+let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> false
+    | false, false -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
+    | _ -> invalidArg "list2" SR.differentLengths
 
 // let unzip xs =
 //     foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty()), (empty()))
@@ -569,17 +587,17 @@ let item n (xs: 'T list) = // xs.Item(n)
 //     if index > length xs then invalidArg "index" SR.notEnoughElements
 //     take index xs, skip index xs
 
-// let exactlyOne (xs: 'T list) =
-//     if (isEmpty xs)
-//     then invalidArg "list" SR.inputSequenceEmpty
-//     else
-//         if isEmpty (tail xs) then (head xs)
-//         else invalidArg "list" SR.inputSequenceTooLong
+let exactlyOne (xs: 'T list) =
+    if (isEmpty xs)
+    then invalidArg "list" SR.inputSequenceEmpty
+    else
+        if isEmpty (tail xs) then (head xs)
+        else invalidArg "list" SR.inputSequenceTooLong
 
-// let tryExactlyOne (xs: 'T list) =
-//     if not (isEmpty xs) && isEmpty (tail xs)
-//     then Some (head xs)
-//     else None
+let tryExactlyOne (xs: 'T list) =
+    if not (isEmpty xs) && isEmpty (tail xs)
+    then Some (head xs)
+    else None
 
 // let where predicate (xs: 'T list) =
 //     filter predicate xs

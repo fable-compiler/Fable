@@ -88,18 +88,23 @@ let ``Array pass by reference works`` () =
 let ``Array.empty works`` () =
     let xs = Array.empty<int>
     xs.Length |> equal 0
-    xs |> equal [||]
 
 // [<Fact>]
 // let ``Array.empty generic works`` () =
 //     let xs = [||]
-//     Array.isEmpty xs |> equal true
+//     xs.Length |> equal 0
 
 [<Fact>]
 let ``Array.create works`` () =
     let xs = Array.create 3 2
     xs.Length |> equal 3
     xs |> equal [|2;2;2|]
+
+[<Fact>]
+let ``Array.create works II`` () =
+    let xs = Array.create 3 "a"
+    xs.Length |> equal 3
+    xs |> equal [|"a";"a";"a"|]
 
 [<Fact>]
 let ``Array.zeroCreate works`` () =
@@ -110,7 +115,7 @@ let ``Array.zeroCreate works`` () =
 // // this errors with "cannot infer type for type parameter `T`""
 // [<Fact>]
 // let ``Array.zeroCreate works II`` () =
-//     let xs = Array.zeroCreate<int*int> 3
+//     let xs = Array.zeroCreate<int * int> 3
 //     xs.Length |> equal 3
 
 // // this panics with "attempted to zero-initialize type `std::rc::Rc<str>`, which is invalid"
@@ -330,11 +335,14 @@ let ``Array.length works with non-numeric arrays`` () =
 //     Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
 //     xs |> Array.sum |> equal 6
 
+[<Fact>]
+let ``Array.append works`` () =
+    let xs1 = [|1; 2; 3; 4|]
+    let zs1 = Array.append [|5|] xs1
+    zs1.[0] + zs1.[1] |> equal 6
+
 // [<Fact>]
-// let ``Array.append works`` () =
-//     let xs1 = [|1; 2; 3; 4|]
-//     let zs1 = Array.append [|0|] xs1
-//     zs1.[0] + zs1.[1] |> equal 1
+// let ``Array.append works II`` () =
 //     let xs2 = [|"a"; "b"; "c"|]
 //     let zs2 = Array.append [|"x";"y"|] xs2
 //     zs2.[1] + zs2.[3] |> equal "yb"
@@ -478,25 +486,25 @@ let ``Array.fold works`` () =
     let total = xs |> Array.fold (+) 0y
     total |> equal 10y
 
-// [<Fact>]
-// let ``Array.fold2 works`` () =
-//     let xs = [|1uy; 2uy; 3uy; 4uy|]
-//     let ys = [|1uy; 2uy; 3uy; 4uy|]
-//     let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
-//     total |> equal 20uy
+[<Fact>]
+let ``Array.fold2 works`` () =
+    let xs = [|1uy; 2uy; 3uy; 4uy|]
+    let ys = [|1uy; 2uy; 3uy; 4uy|]
+    let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
+    total |> equal 20uy
 
-// [<Fact>]
-// let ``Array.foldBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = Array.foldBack (fun x acc -> acc - x) xs 0.
-//     total |> equal -10.
+[<Fact>]
+let ``Array.foldBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = Array.foldBack (fun x acc -> acc - x) xs 0.
+    total |> equal -10.
 
-// [<Fact>]
-// let ``Array.foldBack2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = [|1; 2; 3; 4|]
-//     let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
-//     total |> equal -4
+[<Fact>]
+let ``Array.foldBack2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 // [<Fact>]
 // let ``Array.forall works`` () =
@@ -513,18 +521,19 @@ let ``Array.fold works`` () =
 //     Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
 //     |> equal true
 
-// [<Fact>]
-// let ``Array.init works`` () =
-//     let xs = Array.init 4 (float >> sqrt)
-//     xs.[0] + xs.[1]
-//     |> equal 1.
-//     (xs.[2] > 1. && xs.[3] < 2.)
-//     |> equal true
+[<Fact>]
+let ``Array.init works`` () =
+    let xs = Array.init 4 (float >> sqrt)
+    xs.[0] + xs.[1]
+    |> equal 1.
+    (xs.[2] > 1. && xs.[3] < 2.)
+    |> equal true
 
-// [<Fact>]
-// let ``Array.isEmpty works`` () =
-//     Array.isEmpty [|"a"|] |> equal false
-//     Array.isEmpty [||] |> equal true
+[<Fact>]
+let ``Array.isEmpty works`` () =
+    Array.isEmpty [|"a"|] |> equal false
+    // Array.isEmpty [||] |> equal true //TODO: untyped
+    Array.isEmpty Array.empty<int> |> equal true
 
 [<Fact>]
 let ``Array.iter works`` () =
@@ -647,12 +656,14 @@ let ``Array.map doesn't execute side effects twice`` () = // See #1140
 //     xs |> Array.minBy (fun x -> -x)
 //     |> equal 2.
 
+// Array.ofList is redirected to List.toArray to avoid dependency
 // [<Fact>]
 // let ``Array.ofList works`` () =
 //     let xs = [1.; 2.]
 //     let ys = Array.ofList xs
 //     ys.Length |> equal 2
 
+// Array.ofSeq is redirected to Seq.toArray to avoid dependency
 // [<Fact>]
 // let ``Array.ofSeq works`` () =
 //     let xs = seq { yield 1; yield 2 }
@@ -1060,12 +1071,12 @@ let ``Array.tryLast works`` () =
 //     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 //     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-// [<Fact>]
-// let ``Array indexed works`` () =
-//     let xs = [|"a"; "b"; "c"|] |> Array.indexed
-//     xs.Length |> equal 3
-//     fst xs.[2] |> equal 2
-//     snd xs.[2] |> equal "c"
+[<Fact>]
+let ``Array indexed works`` () =
+    let xs = [|1.; 2.; 3.|] |> Array.indexed
+    xs.Length |> equal 3
+    fst xs.[2] |> equal 2
+    snd xs.[2] |> equal 3.
 
 // [<Fact>]
 // let ``Array.chunkBySize works`` () =
