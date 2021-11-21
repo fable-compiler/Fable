@@ -416,21 +416,25 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let rewriteFableImport (com: IPythonCompiler) modulePath =
-        // printfn "ModulePath: %s" modulePath
+    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
+        //printfn "ModulePath: %s" modulePath
         let relative =
             match com.OutputType with
             | OutputType.Exe -> false
             | _ -> true
 
-        // printfn $"Relative: {relative}"
-        // printfn $"OutputDir: {com.OutputDir}"
-        // printfn $"LibraryDir: {com.LibraryDir}"
+        //printfn $"Relative: {relative}"
+        //printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
-                Path.GetFileNameWithoutExtension(modulePath)
-                |> Naming.applyCaseRule CaseRules.SnakeCase
+                let fileName = Path.GetFileNameWithoutExtension(modulePath)
+                match fileName with
+                | "" when modulePath.StartsWith(".") ->
+                    modulePath.[1..]
+                | _ ->
+                    fileName |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
         let path =
@@ -1294,6 +1298,9 @@ module Util =
         let args, kw, stmts' = transformCallArgs com ctx range (CallInfo callInfo)
 
         match callee, callInfo.ThisArg with
+        | Fable.Get(expr, Fable.FieldGet(fieldName="Dispose"), _, _), _ ->
+            let expr, stmts'' = com.TransformAsExpr(ctx, expr)
+            libCall com ctx range "util" "dispose" [ expr ], stmts @ stmts' @ stmts''
         | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
             // printfn "Type: %A" expr.Type
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
@@ -1380,10 +1387,10 @@ module Util =
         let finalizer, stmts =
             match finalizer with
             | Some finalizer ->
-                finalizer |>
-                transformBlock com ctx None
-                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
-            | None -> [], []
+                    finalizer |>
+                    transformBlock com ctx None
+                    |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+                | None -> [], []
 
         stmts @ [ Statement.try'(transformBlock com ctx returnStrategy body, ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
 
@@ -1398,7 +1405,7 @@ module Util =
         | guardExpr ->
             let thenStmnt, stmts' =
                 transformBlock com ctx ret thenStmnt
-                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+                |> List.partition (function | Statement.NonLocal _ -> false | _ -> true )
             let ifStatement, stmts'' =
                 let block, stmts =
                     com.TransformAsStatements(ctx, ret, elseStmnt)
@@ -1412,7 +1419,7 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
 
-        // printfn "transformGet: %A" kind
+        //printfn "transformGet: %A" kind
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
@@ -1437,10 +1444,6 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        // | Fable.FieldGet(fieldName="findIndex") ->
-        //     let attr = Python.Identifier("index")
-        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -1462,7 +1465,7 @@ module Util =
                 match fableExpr.Type with
                 | Fable.AnonymousRecordType(_) -> true
                 | _ -> false
-            // printfn "Fable.FieldGet: %A" fieldName
+            //printfn "Fable.FieldGet: %A" fieldName
             get com ctx range expr fieldName subscript, stmts
 
         | Fable.ListHead ->
@@ -1897,7 +1900,7 @@ module Util =
         Expression.call (name), [ func ]
 
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list =
-        //printfn "transformAsExpr: %A" expr
+        // printfn "transformAsExpr: %A" expr
         match expr with
         | Fable.TypeCast(e,t) -> transformCast com ctx t e
 

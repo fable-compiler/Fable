@@ -91,6 +91,7 @@ type Statement =
     | For of For
     | Try of Try
     | Expr of Expr
+    | With of With
     | While of While
     | Raise of Raise
     | Import of Import
@@ -141,6 +142,19 @@ type Try =
       OrElse: Statement list
       FinalBody: Statement list
       Loc: SourceLocation option }
+
+/// A single context manager in a with block. context_expr is the context manager, often a Call node. optional_vars is a
+/// Name, Tuple or List for the as foo part, or None if that isn’t used.
+type WithItem =
+  { ContextExpr: Expression
+    OptionalVars: Expression option }
+
+/// A with block. items is a list of withitem nodes representing the context managers, and body is the indented block
+/// inside the context.
+type With =
+  { Items: WithItem list
+    Body: Statement list
+    TypeComment: string option }
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -804,6 +818,7 @@ type AST =
     | Keyword of Keyword
     | Arg of Arg
     | Identifier of Identifier
+    | WithItem of WithItem
 
 [<AutoOpen>]
 module PythonExtensions =
@@ -817,6 +832,12 @@ module PythonExtensions =
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
             |> Try
+
+        static member with'(items, ?body, ?typeComment) : Statement =
+             { Items=items
+               Body=defaultArg body []
+               TypeComment=typeComment }
+            |> With
 
         static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
             { Name = name

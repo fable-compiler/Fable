@@ -109,6 +109,7 @@ module PrinterExtensions =
             | While (wh) -> printer.Print(wh)
             | Raise (st) -> printer.Print(st)
             | Expr (st) -> printer.Print(st)
+            | With (wi) -> printer.Print(wi)
             | For (st) -> printer.Print(st)
             | Try (st) -> printer.Print(st)
             | If (st) -> printer.Print(st)
@@ -169,6 +170,22 @@ module PrinterExtensions =
                 printer.Print(", *")
                 printer.Print(vararg)
             | _ -> ()
+
+        member printer.Print(wi: With) =
+            printer.Print("with ")
+            printer.PrintCommaSeparatedList(wi.Items)
+            printer.Print(":")
+            printer.PushIndentation()
+            printer.PrintStatements(wi.Body)
+            printer.PopIndentation()
+
+        member printer.Print(wi: WithItem) =
+            printer.Print(wi.ContextExpr)
+            match wi.OptionalVars with
+            | Some vars ->
+                printer.Print(" as ")
+                printer.Print(vars)
+            | None -> ()
 
         member printer.Print(assign: Assign) =
             //printer.PrintOperation(targets.[0], "=", value, None)
@@ -629,6 +646,7 @@ module PrinterExtensions =
             | AST.Arg (arg) -> printer.Print(arg)
             | AST.Statement (st) -> printer.Print(st)
             | AST.Identifier (id) -> printer.Print(id)
+            | AST.WithItem (wi) -> printer.Print(wi)
 
         member printer.PrintBlock
             (
@@ -723,7 +741,8 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Alias)
         member printer.PrintCommaSeparatedList(nodes: Identifier list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Identifier)
-
+        member printer.PrintCommaSeparatedList(nodes: WithItem list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.WithItem)
 
         member printer.PrintFunction
             (
