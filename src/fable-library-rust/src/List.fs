@@ -1,7 +1,7 @@
 module List
 
 type Node<'T> = {
-    elem: 'T
+    item: 'T
     next: Node<'T> option
 }
 
@@ -28,7 +28,7 @@ let empty (): 'T list = //List.Empty
     { root = None }
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
-    { root = Some { elem = x; next = xs.root } }
+    { root = Some { item = x; next = xs.root } }
 
 let singleton (x: 'T) = //List.Cons(x, List.Empty)
     cons x (empty())
@@ -37,10 +37,10 @@ let isEmpty (xs: 'T list) = //xs.IsEmpty
     xs.root |> Option.isNone
 
 let head (xs: 'T list) = //xs.Head
-    (xs.root |> Option.get).elem
+    (xs.root |> Option.get).item
 
 let tryHead (xs: 'T list) = //xs.TryHead
-    xs.root |> Option.map (fun node -> node.elem)
+    xs.root |> Option.map (fun node -> node.item)
 
 let tail (xs: 'T list) = //xs.Tail
     { root = xs.root |> Option.bind (fun node -> node.next) }
@@ -75,6 +75,12 @@ let last (xs: 'T list) =
     | Some x -> x
     | None -> failwith SR.inputListWasEmpty
 
+let ofOption<'T> (opt: 'T option): 'T list =
+    match opt with
+    | Some x -> singleton x
+    | None -> empty()
+
+//TODO: redo when ResizeArray is available
 let toArray (xs: 'T list) =
     let len = length xs
     let res = Array.zeroCreate len
@@ -85,9 +91,9 @@ let toArray (xs: 'T list) =
     loop res 0 xs
     res
 
-// // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-// //     if (isEmpty xs) then state
-// //     else fold folder (folder state (head xs)) (tail xs)
+// let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+//     if (isEmpty xs) then state
+//     else fold folder (folder state (head xs)) (tail xs)
 
 // let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 //     let mutable acc = state
@@ -97,22 +103,32 @@ let toArray (xs: 'T list) =
 //         xs <- (tail xs)
 //     acc
 
-// let reverse (xs: 'T list) =
-//     fold (fun acc x -> cons x acc) (empty()) xs
+let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    let mutable acc = state
+    let mutable node = xs.root
+    while Option.isSome node do
+        let item = node.Value.item
+        let next = node.Value.next
+        acc <- folder acc item
+        node <- next
+    acc
 
-// let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
-//     // fold (fun acc x -> folder x acc) state (reverse xs)
-//     Array.foldBack folder (toArray xs) state
+let reverse (xs: 'T list) =
+    fold (fun acc x -> cons x acc) (empty()) xs
 
-// let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     let rec loop i acc (xs: 'T list) =
-//         if (isEmpty xs) then acc
-//         else loop (i + 1) (folder i acc (head xs)) (tail xs)
-//     loop 0 state xs
+let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    fold (fun acc x -> folder x acc) state (reverse xs)
+    // Array.foldBack folder (toArray xs) state
 
-// // let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
-// //     if (isEmpty xs) || (isEmpty ys) then state
-// //     else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
+let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    let rec loop i acc (xs: 'T list) =
+        if (isEmpty xs) then acc
+        else loop (i + 1) (folder i acc (head xs)) (tail xs)
+    loop 0 state xs
+
+let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+    if (isEmpty xs) || (isEmpty ys) then state
+    else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
 
 // let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
 //     let mutable acc = state
@@ -124,9 +140,9 @@ let toArray (xs: 'T list) =
 //         ys <- (tail ys)
 //     acc
 
-// let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
-//     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
-//     Array.foldBack2 folder (toArray xs) (toArray ys) state
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
+    fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
+    // Array.foldBack2 folder (toArray xs) (toArray ys) state
 
 // let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
 //     let rec loop acc (node: 'T list) =
@@ -138,20 +154,30 @@ let toArray (xs: 'T list) =
 //     node.SetConsTail (empty())
 //     root.Tail
 
-// let iterate action xs =
-//     fold (fun () x -> action x) () xs
+let iterate action xs =
+    fold (fun () x -> action x) () xs
 
-// let iterate2 action xs ys =
-//     fold2 (fun () x y -> action x y) () xs ys
+let iterate2 action xs ys =
+    fold2 (fun () x y -> action x y) () xs ys
 
-// let iterateIndexed action xs =
-//     fold (fun i x -> action i x; i + 1) 0 xs |> ignore
+let iterateIndexed action xs =
+    fold (fun i x -> action i x; i + 1) 0 xs |> ignore
 
-// let iterateIndexed2 action xs ys =
-//     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
+let iterateIndexed2 action xs ys =
+    fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
 
 // let toSeq (xs: 'T list): 'T seq =
 //     xs :> System.Collections.Generic.IEnumerable<'T>
+
+// let toSeq (xs: 'T list): IEnumerator<'T> =
+//     let mutable curr = xs.root
+//     let next() =
+//         match curr with
+//         | Some node ->
+//             curr <- node.next
+//             Some (node.item)
+//         | None -> None
+//     Enumerable.fromFunction next
 
 // let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 //     let mutable res = tail

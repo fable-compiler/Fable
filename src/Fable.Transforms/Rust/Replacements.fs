@@ -49,7 +49,8 @@ type Helper =
         Call(callee, { info with IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
-        getAttachedMemberWith loc typ (makeIdentExpr ident) memb
+        // getAttachedMemberWith loc typ (makeIdentExpr ident) memb
+        makeIdentExpr (ident + "::" + memb)
 
 module Helpers =
     let resolveArgTypes argTypes (genArgs: (string * Type) list) =
@@ -1711,7 +1712,8 @@ let implementedStringFunctions =
         |]
 
 let getEnumerator com r t expr =
-    Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+    // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+    Helper.InstanceCall(expr, "GetEnumerator", t, [], ?loc=r)
 
 let emitFormat (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) macro =
     let args =
@@ -2031,7 +2033,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Clone", Some callee, _ ->
-        Helper.InstanceCall(callee, "to_vec", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "copyArray", t, [callee], ?loc=r) |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "ConvertAll", None, [source; mapping] ->
@@ -2062,8 +2064,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ar] ->
         Helper.InstanceCall(ar, "is_empty", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", [ar] ->
-        Helper.InstanceCall(ar, "to_vec", t, [], i.SignatureArgTypes, ?loc=r) |> Some
-        // Helper.LibCall(com, "Array", "copy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "copyArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
@@ -2105,7 +2106,9 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         NewList(Some(x, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | "ToSeq", [x] -> toSeq t x |> Some
+    | "ToSeq", [x] ->
+        //toSeq t x |> Some
+        Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -2199,6 +2202,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     //     let args = args |> List.replaceLast (toArray None t)
     //     let args = injectArg com ctx r "Seq" meth i.GenericArgs args
     //     Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToList", [arg] ->
+        Helper.LibCall(com, "List", "ofOption", t, args, ?loc=r) |> Some
     | meth, args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2965,13 +2970,13 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | _ -> None
 
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg with
-    | Some callee ->
-        // Enumerators are mangled, use the fully qualified name
-        let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
-        let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
-        let methName = entityName + "." + i.CompiledName
-        Helper.InstanceCall(callee, methName, t, args, ?loc=r) |> Some
+    match thisArg, i.CompiledName with
+    | Some callee, meth ->
+        // // Enumerators are mangled, use the fully qualified name
+        // let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
+        // let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
+        // let methName = entityName + "." + i.CompiledName
+        Helper.InstanceCall(callee, Naming.removeGetSetPrefix meth, t, args, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
@@ -3291,6 +3296,8 @@ let private replacedModules =
     Types.ireadonlydictionary, dictionaries
     Types.ienumerableGeneric, enumerables
     Types.ienumerable, enumerables
+    Types.ienumeratorGeneric, enumerators
+    Types.ienumerator, enumerators
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators

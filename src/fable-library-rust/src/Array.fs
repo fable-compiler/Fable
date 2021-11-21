@@ -19,6 +19,12 @@ module SR =
 //     let inline item (index: int) (array: _[]): 'T = array.[index]
 //     let inline copy (array: 'T[]): 'T[] = Array.copy array
 
+let inline indexNotFound() =
+    failwith SR.indexNotFound
+
+let inline differentLengths() =
+    failwith SR.differentLengths
+
 let tryItem (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
@@ -483,29 +489,30 @@ let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
 //     //     acc
 //     // else
 //     foldImpl (fun acc x -> folder acc x) state array
+
 let fold folder (state: 'State) (array: 'T[]) =
     let mutable acc = state
     for i = 0 to array.Length - 1 do
         acc <- folder acc array.[i]
     acc
 
-// let iterate action (array: 'T[]) =
-//     for i = 0 to array.Length - 1 do
-//         action array.[i]
+let iterate action (array: 'T[]) =
+    for i = 0 to array.Length - 1 do
+        action array.[i]
 
-// let iterateIndexed action (array: 'T[]) =
-//     for i = 0 to array.Length - 1 do
-//         action i array.[i]
+let iterateIndexed action (array: 'T[]) =
+    for i = 0 to array.Length - 1 do
+        action i array.[i]
 
-// let iterate2 action (array1: 'T[]) (array2: 'T[]) =
-//     if array1.Length <> array2.Length then differentLengths()
-//     for i = 0 to array1.Length - 1 do
-//         action array1.[i] array2.[i]
+let iterate2 action (array1: 'T[]) (array2: 'T[]) =
+    if array1.Length <> array2.Length then differentLengths()
+    for i = 0 to array1.Length - 1 do
+        action array1.[i] array2.[i]
 
-// let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
-//     if array1.Length <> array2.Length then differentLengths()
-//     for i = 0 to array1.Length - 1 do
-//         action i array1.[i] array2.[i]
+let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
+    if array1.Length <> array2.Length then differentLengths()
+    for i = 0 to array1.Length - 1 do
+        action i array1.[i] array2.[i]
 
 // let forAll predicate (array: 'T[]) =
 //     // if isTypedArrayImpl array then

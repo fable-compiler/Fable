@@ -526,41 +526,41 @@ let ``Array.fold works`` () =
 //     Array.isEmpty [|"a"|] |> equal false
 //     Array.isEmpty [||] |> equal true
 
-// [<Fact>]
-// let ``Array.iter works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     xs |> Array.iter (fun x ->
-//         total := !total + x
-//     )
-//     !total |> equal 10.
+[<Fact>]
+let ``Array.iter works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let mutable total = 0.
+    xs |> Array.iter (fun x ->
+        total <- total + x
+    )
+    total |> equal 10.
 
-// [<Fact>]
-// let ``Array.iter2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let mutable total = 0
-//     Array.iter2 (fun x y ->
-//         total <- total - x - y
-//     ) xs xs
-//     total |> equal -20
+[<Fact>]
+let ``Array.iter2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let mutable total = 0
+    Array.iter2 (fun x y ->
+        total <- total - x - y
+    ) xs xs
+    total |> equal -20
 
-// [<Fact>]
-// let ``Array.iteri works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     xs |> Array.iteri (fun i x ->
-//         total := !total + (float i) * x
-//     )
-//     !total |> equal 20.
+[<Fact>]
+let ``Array.iteri works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let mutable total = 0.
+    xs |> Array.iteri (fun i x ->
+        total <- total + (float i) * x
+    )
+    total |> equal 20.
 
-// [<Fact>]
-// let ``Array.iteri2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     Array.iteri2 (fun i x y ->
-//         total := !total + (float i) * x + (float i) * y
-//     ) xs xs
-//     !total |> equal 40.
+[<Fact>]
+let ``Array.iteri2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let mutable total = 0.
+    Array.iteri2 (fun i x y ->
+        total <- total + (float i) * x + (float i) * y
+    ) xs xs
+    total |> equal 40.
 
 // [<Fact>]
 // let ``Array.countBy works`` () =

@@ -111,6 +111,7 @@ let toArray<'T> (opt: 'T option): 'T[] =
     | Some x -> Array.singleton x
     | None -> Array.empty
 
+// moved to List.ofOption to avoid dependency
 // let toList<'T> (opt: 'T option): 'T list =
 //     match opt with
 //     | Some x -> List.singleton x

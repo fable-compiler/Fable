@@ -232,10 +232,10 @@ let ``Option.toArray works`` () =
     None |> Option.toArray<int> |> equal [||]
     Some 42 |> Option.toArray |> equal [|42|]
 
-// [<Fact>]
-// let ``Option.toList works`` () =
-//     None |> Option.toList<int> |> equal []
-//     Some 42 |> Option.toList |> equal [42]
+[<Fact>]
+let ``Option.toList works`` () =
+    None |> Option.toList<int> |> equal []
+    Some 42 |> Option.toList |> equal [42]
 
 // [<Fact>]
 // let ``Option.fold works II`` () = // See #660

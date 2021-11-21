@@ -381,6 +381,15 @@ module TypeInfo =
         |> List.map (transformType com ctx)
         |> mkGenericTypeArgs
 
+    let transformGenericType com ctx genArgs typeName: Rust.Ty =
+        genArgs
+        |> List.map (transformType com ctx)
+        |> mkGenericTy (splitFullName typeName)
+
+    let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
+        let importName = getImportName com ctx moduleName typeName
+        importName |> transformGenericType com ctx genArgs
+
     let transformArrayType com ctx genArg: Rust.Ty =
         genArg
         |> transformType com ctx
@@ -395,17 +404,8 @@ module TypeInfo =
         |> List.map (transformType com ctx)
         |> mkTupleTy
 
-    let transformGenericType com ctx genArgs typeName: Rust.Ty =
-        genArgs
-        |> List.map (transformType com ctx)
-        |> mkGenericTy (splitFullName typeName)
-
     let transformOptionType com ctx genArg: Rust.Ty =
         transformGenericType com ctx [genArg] (rawIdent "Option")
-
-    let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
-        let importName = getImportName com ctx moduleName typeName
-        importName |> transformGenericType com ctx genArgs
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
@@ -434,9 +434,11 @@ module TypeInfo =
 
     let transformClosureType com ctx inputTypes returnType: Rust.Ty =
         let inputs =
-            inputTypes
-            |> List.filter (fun typ -> typ <> Fable.Unit)
-            |> List.map (transformParamType com ctx)
+            match inputTypes with
+            | [Fable.Unit] -> []
+            | _ ->
+                inputTypes
+                |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
@@ -485,7 +487,14 @@ module TypeInfo =
         let ent = com.GetEntity(entRef)
         let genArgs = transformGenArgs com ctx genArgs
         if ent.IsInterface then
-            let path = splitFullName (com.GetInterfaceNs ent.FullName)
+            let path =
+                match ent.FullName with
+                | Types.ienumerable | Types.ienumerableGeneric ->
+                    ["Seq"; "Enumerable"; "IEnumerable`1"]
+                | Types.ienumerator | Types.ienumeratorGeneric ->
+                    ["Seq"; "Enumerable"; "IEnumerator`1"]
+                | _ ->
+                    splitFullName (com.GetInterfaceNs ent.FullName)
             let bounds = [mkTypeTraitGenericBound path genArgs]
             mkDynTraitTy bounds |> makeRcTy com
         else
@@ -1316,7 +1325,7 @@ module Util =
         let ty = transformType com ctx typ
         match fromType, toType with
         | Fable.Number _, Fable.Number _ ->
-            expr |> mkCastExpr ty
+            expr |> makeClone |> mkCastExpr ty
         | Fable.Array _, IEnumerable com _ ->
             libCall com ctx None [] "Seq" "ofArray" [fableExpr]
         | Fable.List _, IEnumerable com _ ->
@@ -1777,6 +1786,12 @@ module Util =
         | Some(Assign left) -> ExpressionStatement(assign None left rustExpr)
         | Some(Target left) -> ExpressionStatement(assign None (left |> Expression.Identifier) rustExpr)
 *)
+    let maybeAddParens fableExpr expr: Rust.Expr =
+        match fableExpr with
+        | Fable.IfThenElse _ -> mkParenExpr expr
+        // TODO: add more expressions that need parens
+        | _ -> expr
+
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(op, TransformExpr com ctx expr) ->
@@ -1815,8 +1830,8 @@ module Util =
                 | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
                 | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
 
-            let left = transformExprMaybeUnwrapRef com ctx left
-            let right = transformExprMaybeUnwrapRef com ctx right
+            let left = transformExprMaybeUnwrapRef com ctx left |> maybeAddParens left
+            let right = transformExprMaybeUnwrapRef com ctx right |> maybeAddParens right
 
             match typ, kind with
             | Fable.String, Rust.BinOpKind.Add ->
@@ -1865,10 +1880,7 @@ module Util =
             // this is an instance call
             let namesp, name = splitNameSpace membName
             let callee = transformExprMaybeIdentExpr com ctx range callee
-            let expr = mkMethodCallExpr name None callee args
-            if shouldBeRefCountWrapped com typ
-            then makeRcValue expr //todo - not convinced this is right. Normally the returned value is already wrapped
-            else expr
+            mkMethodCallExpr name None callee args
         | _ ->
             match callInfo.ThisArg with
             | Some(thisArg) ->
@@ -2000,10 +2012,7 @@ module Util =
             | t when isInterface com t ->
                 // for interfaces, transpile property gets as instance calls
                 let callee = transformExprMaybeIdentExpr com ctx range fableExpr
-                let expr = mkMethodCallExpr fieldName None callee []
-                if shouldBeRefCountWrapped com typ
-                then makeRcValue expr // TODO: is this needed?
-                else expr
+                mkMethodCallExpr fieldName None callee []
             | _ ->
                 let expr = transformExprMaybeIdentExpr com ctx range fableExpr
                 let field = getField range expr fieldName
@@ -3181,7 +3190,7 @@ module Util =
     let transformFunctionDecl (com: IRustCompiler) ctx args returnType =
         let inputs =
             args
-            |> List.filter (fun (id: Fable.Ident) -> id.Type <> Fable.Unit)
+            |> discardUnitArg
             |> List.map (typedParam com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
@@ -3231,13 +3240,21 @@ module Util =
             then Some ident
             else None
         // ignore local names declared in the closure
-        // TODO: not perfect, local name redeclaration will ignore captured names
+        // TODO: not perfect, local name shadowing will ignore captured names
+        | Fable.ForLoop(ident, _, _, _, _, _) ->
+            ignoredNames.Add(ident.Name) |> ignore
+            None
         | Fable.Let(ident, _, _) ->
             ignoredNames.Add(ident.Name) |> ignore
             None
         | Fable.LetRec(bindings, _) ->
             bindings |> List.iter (fun (ident, _) ->
                 ignoredNames.Add(ident.Name) |> ignore)
+            None
+        | Fable.DecisionTree(_, targets) ->
+            targets |> List.iter (fun (idents, _) ->
+                idents |> List.iter (fun ident ->
+                    ignoredNames.Add(ident.Name) |> ignore))
             None
         | _ ->
             None

@@ -268,24 +268,31 @@ let ``List.empty works`` () =
 //     |> List.findIndex ((=) 2)
 //     |> equal 1
 
-// [<Fact>]
-// let ``List.fold works`` () =
-//     [1; 2; 3; 4]
-//     |> List.fold (+) 0
-//     |> equal 10
+[<Fact>]
+let ``List.fold works`` () =
+    [1; 2; 3; 4]
+    |> List.fold (+) 0
+    |> equal 10
 
-// [<Fact>]
-// let ``List.fold2 works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [1; 2; 3; 4]
-//     List.fold2 (fun x y z -> x + y + z) 0 xs ys
-//     |> equal 20
+[<Fact>]
+let ``List.fold2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4]
+    let total = List.fold2 (fun x y z -> x + y + z) 0 xs ys
+    total |> equal 20
 
-// [<Fact>]
-// let ``List.foldBack works`` () =
-//     [1; 2; 3; 4]
-//     |> List.foldBack (fun x acc -> acc - x) <| 100
-//     |> equal 90
+[<Fact>]
+let ``List.foldBack works`` () =
+    let xs = [1; 2; 3; 4]
+    let total = List.foldBack (fun x acc -> acc - x) xs 0
+    total |> equal -10
+
+[<Fact>]
+let ``List.foldBack2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4]
+    let total = List.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 // [<Fact>]
 // let ``List.foldBack with composition works`` () =
@@ -322,41 +329,41 @@ let ``List.isEmpty works`` () =
     List.isEmpty [1] |> equal false
     List.isEmpty<int> [] |> equal true
 
-// [<Fact>]
-// let ``List.iter works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let mutable total = 0
-//     xs |> List.iter (fun x ->
-//     total <- total + x)
-//     equal 10 total
+[<Fact>]
+let ``List.iter works`` () =
+    let xs = [1; 2; 3; 4]
+    let mutable total = 0
+    xs |> List.iter (fun x ->
+        total <- total + x)
+    total |> equal 10
 
-// [<Fact>]
-// let ``List.iter2 works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [2; 4; 6; 8]
-//     let total = ref 0
-//     List.iter2 (fun x y ->
-//         total := !total + (y - x)
-//         ) xs ys
-//     equal 10 !total
+[<Fact>]
+let ``List.iter2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [2; 4; 6; 8]
+    let mutable total = 0
+    List.iter2 (fun x y ->
+        total <- total + (y - x)
+        ) xs ys
+    total |> equal 10
 
-// [<Fact>]
-// let ``List.iteri works`` () =
-//     let mutable total = 0
-//     [1; 2; 3; 4]
-//     |> List.iteri (fun i x ->
-//         total <- total + (i * x))
-//     equal 20 total
+[<Fact>]
+let ``List.iteri works`` () =
+    let xs = [1; 2; 3; 4]
+    let mutable total = 0
+    xs |> List.iteri (fun i x ->
+        total <- total + (i * x))
+    total |> equal 20
 
-// [<Fact>]
-// let ``List.iteri2 works`` () =
-//     let mutable total = 0
-//     let xs = [1; 2; 3; 4]
-//     let ys = [2; 4; 6; 8]
-//     List.iteri2 (fun i x y ->
-//         total <- total + i * (y - x)
-//         ) xs ys
-//     equal 20 total
+[<Fact>]
+let ``List.iteri2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [2; 4; 6; 8]
+    let mutable total = 0
+    List.iteri2 (fun i x y ->
+        total <- total + i * (y - x)
+        ) xs ys
+    total |> equal 20
 
 // [<Fact>]
 // let ``List.map works`` () =
@@ -420,11 +427,12 @@ let ``List.isEmpty works`` () =
 //     List.replicate 3 3
 //     |> List.sum |> equal 9
 
-// [<Fact>]
-// let ``List.rev works`` () =
-//     let xs = [1; 2; 3]
-//     let ys = xs |> List.rev
-//     equal 3 ys.Head
+[<Fact>]
+let ``List.rev works`` () =
+    let xs = [1; 2; 3]
+    let ys = xs |> List.rev
+    ys.Head |> equal 3
+    ys.Length |> equal 3
 
 // [<Fact>]
 // let ``List.scan works`` () =

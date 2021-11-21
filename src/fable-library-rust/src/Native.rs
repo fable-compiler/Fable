@@ -33,4 +33,8 @@ pub mod Native {
         let v = vec![value.clone(); *count as usize];
         ofArray(&v)
     }
+
+    pub fn copyArray<T: Clone>(a: &Rc<[MutCell<T>]>) -> Rc<[MutCell<T>]> {
+        Rc::from(a.to_vec())
+    }
 }

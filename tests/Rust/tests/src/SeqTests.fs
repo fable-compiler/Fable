@@ -2,10 +2,11 @@ module Fable.Tests.SeqTests
 
 open Util.Testing
 
-// let sumFirstTwo (zs: seq<float>) =
-//    let first = Seq.head zs
-//    let second = Seq.skip 1 zs |> Seq.head
-//    first + second
+let sumFirstTwo (xs: seq<float>) =
+    let e = xs.GetEnumerator()
+    let first = if e.MoveNext() then e.Current else nan
+    let second = if e.MoveNext() then e.Current else nan
+    first + second
 
 // let rec sumFirstSeq (zs: seq<float>) (n: int): float =
 //    match n with
@@ -64,38 +65,37 @@ let ``Seq.length with lists works`` () =
     let xs = [1.; 2.; 3.; 4.]
     Seq.length xs |> equal 4
 
-// [<Fact>]
-// let ``Seq.length with seq works`` () =
-//     let xs = seq { 1; 2; 3; 4 }
-//     Seq.length xs |> equal 4
+[<Fact>]
+let ``Seq.length with seq works`` () =
+    let xs = seq { 1; 2; 3; 4 }
+    Seq.length xs |> equal 4
 
-// [<Fact>]
-// let ``Seq.delay works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let ys = Seq.delay (fun () -> xs :> _ seq)
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Seq.delay works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Seq.delay (fun () -> xs :> _ seq)
+    Seq.length ys |> equal 4
 
-// [<Fact>]
-// let ``Seq.unfold works`` () =
-//     1 |> Seq.unfold (fun x ->
-//         if x <= 5 then Some(x, x + 1)
-//         else None)
-//     |> Seq.length
-//     |> equal 5
+[<Fact>]
+let ``Seq.unfold works`` () =
+    1 |> Seq.unfold (fun x ->
+        if x <= 5 then Some(x, x + 1)
+        else None)
+    |> Seq.length
+    |> equal 5
 
 [<Fact>]
 let ``Seq.empty works`` () =
     let xs = Seq.empty<int>
     Seq.length xs |> equal 0
 
-// [<Fact>]
-// let ``Seq.append works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let ys = [0.]
-//     let zs = Seq.append ys xs
-//     sumFirstTwo zs
-//     |> equal 1.
+[<Fact>]
+let ``Seq.append works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = [5.; 6.; 7.]
+    let zs = Seq.append xs ys
+    Seq.length zs |> equal 7
+    sumFirstTwo zs |> equal 3.
 
 // [<Fact>]
 // let ``Seq.average for empty sequence`` () =
