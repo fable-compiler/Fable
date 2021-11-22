@@ -1443,7 +1443,10 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let template =
             match str with
             | StringConst str ->
-                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
+                // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
+                // (though it does resolve double braces {{ }})
+                let str = str.Replace("%%" , "%")
+                (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
                 ||> Seq.fold (fun acc m ->
                     match acc with
                     | None -> None
@@ -1460,9 +1463,6 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
         match template with
         | Some(str, holes) ->
-            // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
-            // (though it does resolve double braces {{ }})
-            let str = str.Replace("%%" , "%")
             printJsTaggedTemplate str holes (fun i -> $"${i}")
             |> emitJsExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
         // TODO: We could still use a JS template for formatting to increase performance?

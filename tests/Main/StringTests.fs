@@ -545,7 +545,7 @@ let tests =
             |> equal [|" a"; "- b- c "|]
             "---o---o---".Split("--", StringSplitOptions.None)
             |> equal [|""; "-o"; "-o"; "-"|];
-            
+
       testCase "String.Split with remove empties works" <| fun () ->
             "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
             |> (=) [|"a";"b";"c";"d"|] |> equal true
@@ -954,6 +954,9 @@ let tests =
 
       testCase "interpolated string with format and double % should be unescaped" <| fun () ->
           $"%.2f{100.4566666}%%" |> equal "100.46%"
+
+      testCase "interpolated string with double % should not interfere with holes afterwards " <| fun () ->
+          $"%%{99. - 1.5}" |> equal "%97.5"
 
       testCase "interpolated string with double braces should be unescaped" <| fun () ->
           $"{{ {100} }}" |> equal "{ 100 }"
