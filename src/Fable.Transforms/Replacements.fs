@@ -2916,8 +2916,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
-    match i.CompiledName with
-    | ".ctor" ->
+    let createRegex r t args =
         let makeRegexConst r (pattern: string) flags =
             let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
             RegexConstant(pattern, flags) |> makeValue r
@@ -2935,9 +2934,12 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
                 | _ -> None
             getFlags e
         match args with
-        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
-        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
-        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [StringConst pattern] -> makeRegexConst r pattern []
+        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags
+        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, ?loc=r)
+
+    match i.CompiledName with
+    | ".ctor" -> createRegex r t args |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
     | "get_Index" ->
@@ -2986,6 +2988,19 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "IsMatch" | "Match" | "Matches" as meth ->
+        match thisArg, args with
+        | Some thisArg, args ->
+            if args.Length > 2 then
+                $"Regex.{meth} doesn't support more than 2 arguments"
+                |> addError com ctx.InlinePath r
+            thisArg::args |> Some
+        | None, input::pattern::args ->
+            let reg = createRegex None Any (pattern::args)
+            [reg; input] |> Some
+        | _ -> None
+        |> Option.map (fun args ->
+            Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r))
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
