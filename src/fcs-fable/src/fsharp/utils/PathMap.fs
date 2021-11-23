@@ -6,6 +6,8 @@ namespace Internal.Utilities
 open System
 open System.IO
 
+open FSharp.Compiler.IO
+
 type PathMap = PathMap of Map<string, string>
 
 [<RequireQualifiedAccess>]
@@ -20,7 +22,7 @@ module internal PathMap =
 #if FABLE_COMPILER
         let normalSrc = src // no file system
 #else
-        let normalSrc = Path.GetFullPath src
+        let normalSrc = FileSystem.GetFullPathShim src
 #endif
 
         let oldPrefix =

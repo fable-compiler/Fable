@@ -10,7 +10,6 @@ namespace FSharp.Compiler.EditorServices
 open System
 open System.Collections.Generic
 open Internal.Utilities.Library 
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.IO
 open FSharp.Compiler.Symbols
@@ -109,7 +108,6 @@ type IAssemblyContentCache =
 
 #if !FABLE_COMPILER
 module AssemblyContent =
-    open System.IO
 
     let UnresolvedSymbol (topRequireQualifiedAccessParent: ShortIdents option) (cleanedIdents: ShortIdents) (fullName: string) =
         let getNamespace (idents: ShortIdents) = 

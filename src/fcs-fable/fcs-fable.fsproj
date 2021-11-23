@@ -14,6 +14,7 @@
     <DefineConstants>$(DefineConstants);NO_EXTENSIONTYPING</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
     <OtherFlags>$(OtherFlags) --warnon:1182 --nowarn:57</OtherFlags>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,10 +36,6 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/Logger.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/LanguageFeatures.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/LanguageFeatures.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-lexing.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-lexing.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-parsing.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-parsing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/ResizeArray.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/ResizeArray.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/HashMultiMap.fsi" />
@@ -65,6 +62,8 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/QueueList.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/lib.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/lib.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/block.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/block.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/rational.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/rational.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/PathMap.fsi" />
@@ -80,6 +79,10 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorLogger.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorResolutionHints.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorResolutionHints.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-lexing.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-lexing.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-parsing.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/prim-parsing.fs" />
     <!-- <FsLex Include="$(FSharpSourcesRoot)/fsharp/absil/illex.fsl" /> -->
     <!-- <None Include="$(FSharpSourcesRoot)/fsharp/absil/illex.fsl" /> -->
     <!-- <FsYacc Include="$(FSharpSourcesRoot)/fsharp/absil/ilpars.fsy" /> -->
@@ -119,12 +122,11 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/LegacyMSBuildReferenceResolver.fs" Condition="'$(MonoPackaging)' != 'true'" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/SimulatedMSBuildReferenceResolver.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/SimulatedMSBuildReferenceResolver.fs" /> -->
-    <!-- <EmbeddedText Include="$(FSharpSourcesRoot)/fsharp/utils/UtilsStrings.txt" / /> -->
+    <!-- <EmbeddedText Include="$(FSharpSourcesRoot)/fsharp/utils/UtilsStrings.txt" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/CompilerLocationUtils.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/CompilerLocationUtils.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/PrettyNaming.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/PrettyNaming.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/ilxsettings.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseClosures.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseClosures.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseUnions.fsi" />
@@ -221,6 +223,8 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InnerLambdasToTopLevelFuncs.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/LowerCallsAndSeqs.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/LowerCallsAndSeqs.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/LowerStateMachines.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/LowerStateMachines.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/autobox.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/autobox.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/IlxGen.fsi" />
@@ -232,6 +236,8 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/NativeDllResolveHandler.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/DependencyProvider.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/DependencyProvider.fs" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/BuildGraph.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/BuildGraph.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerConfig.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerConfig.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerImports.fsi" />
@@ -265,8 +271,6 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/Exprs.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/SymbolPatterns.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/SymbolPatterns.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/Reactor.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/Reactor.fs" />
     <!-- the incremental builder and service . -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassification.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassification.fs" />
@@ -274,6 +278,8 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ItemKey.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassificationKey.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassificationKey.fs" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/FSharpSource.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/FSharpSource.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/IncrementalBuild.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/IncrementalBuild.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceCompilerDiagnostics.fsi" />

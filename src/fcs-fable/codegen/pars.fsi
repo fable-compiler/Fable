@@ -413,7 +413,7 @@ type nonTerminalId =
     | NONTERM__startsignatureFile
     | NONTERM__startimplementationFile
     | NONTERM__startinteraction
-    | NONTERM__starttypedSeqExprEOF
+    | NONTERM__starttypedSequentialExprEOF
     | NONTERM__starttypEOF
     | NONTERM_interaction
     | NONTERM_interactiveTerminator
@@ -440,7 +440,6 @@ type nonTerminalId =
     | NONTERM_valSpfn
     | NONTERM_optLiteralValueSpfn
     | NONTERM_moduleSpecBlock
-    | NONTERM_tyconSpfns
     | NONTERM_tyconSpfnList
     | NONTERM_tyconSpfn
     | NONTERM_tyconSpfnRhsBlock
@@ -527,7 +526,6 @@ type nonTerminalId =
     | NONTERM_explicitValTyparDeclsCore
     | NONTERM_explicitValTyparDecls
     | NONTERM_opt_explicitValTyparDecls
-    | NONTERM_opt_explicitValTyparDecls2
     | NONTERM_opt_typeConstraints
     | NONTERM_typeConstraints
     | NONTERM_typeConstraint
@@ -546,7 +544,6 @@ type nonTerminalId =
     | NONTERM_recdFieldDecl
     | NONTERM_fieldDecl
     | NONTERM_exconDefn
-    | NONTERM_exceptionAndGrabDoc
     | NONTERM_exconCore
     | NONTERM_exconIntro
     | NONTERM_exconRepr
@@ -597,12 +594,12 @@ type nonTerminalId =
     | NONTERM_recordPatternElementsAux
     | NONTERM_recordPatternElement
     | NONTERM_listPatternElements
-    | NONTERM_typedSeqExprBlock
+    | NONTERM_typedSequentialExprBlock
     | NONTERM_declExprBlock
-    | NONTERM_typedSeqExprBlockR
-    | NONTERM_typedSeqExpr
-    | NONTERM_typedSeqExprEOF
-    | NONTERM_seqExpr
+    | NONTERM_typedSequentialExprBlockR
+    | NONTERM_typedSequentialExpr
+    | NONTERM_typedSequentialExprEOF
+    | NONTERM_sequentialExpr
     | NONTERM_recover
     | NONTERM_moreBinders
     | NONTERM_declExpr
@@ -622,9 +619,6 @@ type nonTerminalId =
     | NONTERM_argExpr
     | NONTERM_atomicExpr
     | NONTERM_atomicExprQualification
-    | NONTERM_optRangeSeqExpr
-    | NONTERM_optRange
-    | NONTERM_rangeDeclExpr
     | NONTERM_atomicExprAfterType
     | NONTERM_beginEndExpr
     | NONTERM_quoteExpr
@@ -636,8 +630,8 @@ type nonTerminalId =
     | NONTERM_braceExpr
     | NONTERM_braceExprBody
     | NONTERM_listExprElements
-    | NONTERM_monadicExprInitial
-    | NONTERM_rangeSequenceExpr
+    | NONTERM_arrayExprElements
+    | NONTERM_computationExpr
     | NONTERM_arrowThenExprR
     | NONTERM_forLoopBinder
     | NONTERM_forLoopRange
@@ -757,5 +751,5 @@ val token_to_string: token -> string
 val signatureFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedSigFile) 
 val implementationFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedImplFile) 
 val interaction : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedScriptInteraction) 
-val typedSeqExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SynExpr) 
+val typedSequentialExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SynExpr) 
 val typEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SynType) 

@@ -965,6 +965,9 @@ let resources =
       ( "AssemblyNotResolved",
         "Assembly reference '{0}' was not found or is invalid"
       );
+      ( "HashLoadedSourceHasIssues0",
+        "One or more informational messages in loaded file.\n"
+      );
       ( "HashLoadedSourceHasIssues1",
         "One or more warnings in loaded file.\n"
       );
