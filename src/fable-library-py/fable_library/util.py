@@ -6,8 +6,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
 from types import TracebackType
-from typing import (Any, Callable, Generic, Iterable, Iterator, List, Optional, Type,
-                    TypeVar)
+from typing import Any, Callable, ContextManager, Generic, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -27,7 +26,9 @@ class IDisposable:
         """Enter context management."""
         return self
 
-    def __exit__(self, exctype: Optional[Type[BaseException]], excinst: Optional[BaseException], exctb: Optional[TracebackType]) -> bool:
+    def __exit__(
+        self, exctype: Optional[Type[BaseException]], excinst: Optional[BaseException], exctb: Optional[TracebackType]
+    ) -> bool:
         """Exit context management."""
 
         self.Dispose()
@@ -38,6 +39,9 @@ class IDisposable:
         """Create disposable from action. Will call action when
         disposed."""
         return AnonymousDisposable(action)
+
+
+Disposable = TypeVar("Disposable", bound=IDisposable)
 
 
 class AnonymousDisposable(IDisposable):
@@ -130,16 +134,21 @@ def compare_arrays(a, b):
     return compare(a, b)
 
 
-def equal_arrays_with(x, y, eq) -> bool:
-    if x is None:
-        return y is None
-    if y is None:
+def equal_arrays_with(xs: List[T], ys: List[T], eq: Callable[[T, T], bool]) -> bool:
+    if xs is None:
+        return ys is None
+
+    if ys is None:
         return False
 
-    if len(x) != len(y):
+    if len(xs) != len(ys):
         return False
 
-    return eq(x, y)
+    for i, x in enumerate(xs):
+        if not eq(x, ys[i]):
+            return False
+
+    return True
 
 
 def equal_arrays(x, y):
@@ -239,19 +248,19 @@ def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
     return str(i)
 
 
-def int8_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
+def int8_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
     return int_to_string(i, radix, 8)
 
 
-def int16_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
+def int16_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
     return int_to_string(i, radix, 16)
 
 
-def int32_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
+def int32_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
     return int_to_string(i, radix, 32)
 
 
-def int64_to_string(i: int, radix: int = 10, bitsize: Optional[int]=None) -> str:
+def int64_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
     return int_to_string(i, radix, 64)
 
 
@@ -271,10 +280,6 @@ class IEnumerator(Generic[T], IDisposable):
 
     @abstractmethod
     def Reset(self) -> None:
-        ...
-
-    @abstractmethod
-    def Dispose(self):
         ...
 
     def __getattr__(self, name: str):
@@ -427,6 +432,21 @@ def is_disposable(x: Any):
     return x is not None and isinstance(x, IDisposable)
 
 
+def dispose(x: Union[Disposable, ContextManager]):
+    """Helper to dispose objects.
+
+    Also tries to call `__exit__` if the object turns out to be a Python resource manager.
+    For more info see: https://www.python.org/dev/peps/pep-0310/
+    """
+    try:
+        x.Dispose()
+    except AttributeError as ex:
+        try:
+            x.__exit__(None, None, None)
+        except AttributeError:
+            raise ex
+
+
 def is_hashable(x: Any) -> bool:
     return hasattr(x, "GetHashCode")
 
@@ -516,23 +536,6 @@ def physical_hash(x):
         return hash(x)
 
     return number_hash(ObjectRef.id(x))
-
-
-def equal_arrays_with(xs: Iterable[T], ys: Iterable[T], eq: Callable[[T, T], bool]) -> bool:
-    if xs is None:
-        return ys is None
-
-    if ys is None:
-        return False
-
-    if len(xs) != len(ys):
-        return False
-
-    for i, x in enumerate(xs):
-        if not eq(x, ys[i]):
-            return False
-
-    return True
 
 
 def round(value, digits=0):

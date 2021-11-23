@@ -87,8 +87,10 @@ class IAsyncContext:
     def create(on_success, on_error, on_cancel, trampoline, cancel_token):
         return AnonymousAsyncContext(on_success, on_error, on_cancel, trampoline, cancel_token)
 
+
 def empty_continuation(x=None):
     pass
+
 
 class AnonymousAsyncContext:
     def __init__(self, on_success=None, on_error=None, on_cancel=None, trampoline=None, cancel_token=None):
