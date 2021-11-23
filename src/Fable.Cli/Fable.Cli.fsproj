@@ -4,12 +4,13 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.6.0</Version>
-    <PackageVersion>3.6.0</PackageVersion>
-    <PackageReleaseNotes>* Support F# 6
-* Support DateOnly/TimeOnly @kerams
-* Improve watch mode
-* Cache project options</PackageReleaseNotes>
+    <Version>3.6.1</Version>
+    <PackageVersion>3.6.1</PackageVersion>
+    <PackageReleaseNotes>* Fix #2614: Char addition
+* Fix #2615: Math.DivRem
+* Fix string template literals
+* Improve Regex.Match/IsMatch/Matches
+* Update FCS</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

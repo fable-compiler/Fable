@@ -1,3 +1,11 @@
+### 3.6.1
+
+* Fix #2614: Char addition
+* Fix #2615: Math.DivRem
+* Fix string template literals
+* Improve Regex.Match/IsMatch/Matches
+* Update FCS
+
 ### 3.6.0
 
 * Support F# 6
