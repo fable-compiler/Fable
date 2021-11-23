@@ -134,16 +134,21 @@ def compare_arrays(a, b):
     return compare(a, b)
 
 
-def equal_arrays_with(x, y, eq) -> bool:
-    if x is None:
-        return y is None
-    if y is None:
+def equal_arrays_with(xs: List[T], ys: List[T], eq: Callable[[T, T], bool]) -> bool:
+    if xs is None:
+        return ys is None
+
+    if ys is None:
         return False
 
-    if len(x) != len(y):
+    if len(xs) != len(ys):
         return False
 
-    return eq(x, y)
+    for i, x in enumerate(xs):
+        if not eq(x, ys[i]):
+            return False
+
+    return True
 
 
 def equal_arrays(x, y):
@@ -275,10 +280,6 @@ class IEnumerator(Generic[T], IDisposable):
 
     @abstractmethod
     def Reset(self) -> None:
-        ...
-
-    @abstractmethod
-    def Dispose(self):
         ...
 
     def __getattr__(self, name: str):
@@ -535,23 +536,6 @@ def physical_hash(x):
         return hash(x)
 
     return number_hash(ObjectRef.id(x))
-
-
-def equal_arrays_with(xs: List[T], ys: List[T], eq: Callable[[T, T], bool]) -> bool:
-    if xs is None:
-        return ys is None
-
-    if ys is None:
-        return False
-
-    if len(xs) != len(ys):
-        return False
-
-    for i, x in enumerate(xs):
-        if not eq(x, ys[i]):
-            return False
-
-    return True
 
 
 def round(value, digits=0):

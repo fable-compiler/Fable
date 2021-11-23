@@ -175,6 +175,7 @@ module PrinterExtensions =
             printer.Print("with ")
             printer.PrintCommaSeparatedList(wi.Items)
             printer.Print(":")
+            printer.PrintNewLine()
             printer.PushIndentation()
             printer.PrintStatements(wi.Body)
             printer.PopIndentation()

@@ -1028,6 +1028,10 @@ module PythonExtensions =
     type Alias with
 
         static member alias(name, ?asname) = { Name = name; AsName = asname }
+    type WithItem with
+        static member withItem(contextExpr, ?optinalVars) =
+            { ContextExpr=contextExpr
+              OptionalVars = optinalVars }
 
     type Try with
 

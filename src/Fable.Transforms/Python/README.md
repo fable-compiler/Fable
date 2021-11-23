@@ -54,14 +54,14 @@ and https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/basic-type
 
 ## Interfaces and Protocols
 
-| .NET          |       Python       | Comment                                                                                           |
-|---------------|:------------------:|---------------------------------------------------------------------------------------------------|
-| `IEquatable`  |      `__eq__`      | for determining equality of instances with method `Equals`                                        |
-| `IEnumerator` |     `__next__`     |                                                                                                   |
-| `IEnumerable` |     `__iter__`     |                                                                                                   |
-| `IComparable` | `__lt__`+ `__eq__` | Method `CompareTo` returns 0, 1 or -1 and is implemented for types that can be ordered or sorted. |
-| `IDisposable` |     `__exit__`     |                                                                                                   |
-| `ToString`    |     `__str__`      | Calls to `x.ToString` will be translated to `str(x)`.                                             |
+| .NET          |         Python          | Comment                                                                                           |
+|---------------|:-----------------------:|---------------------------------------------------------------------------------------------------|
+| `IEquatable`  |        `__eq__`         | for determining equality of instances with method `Equals`                                        |
+| `IEnumerator` |       `__next__`        |                                                                                                   |
+| `IEnumerable` |       `__iter__`        |                                                                                                   |
+| `IComparable` |   `__lt__`+ `__eq__`    | Method `CompareTo` returns 0, 1 or -1 and is implemented for types that can be ordered or sorted. |
+| `IDisposable` | `__exit__` + `__exit__` | Every IDisposable will (and should) also implement a resource manager.                            |
+| `ToString`    |        `__str__`        | Calls to `x.ToString` will be translated to `str(x)`.                                             |
 
 ## Arrow Functions
 

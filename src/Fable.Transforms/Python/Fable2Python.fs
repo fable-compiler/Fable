@@ -8,10 +8,15 @@ open Fable.AST
 open Fable.AST.Python
 open Fable.PY
 open Fable.Core
+open Fable.Transforms.Fable2Extended
 
 type ReturnStrategy =
+    /// Return last expression
     | Return
+    /// Return unit
     | ReturnUnit
+    /// Return within a with-statement (to make sure we don't TC with statements)
+    | ResourceManager
     | Assign of Expression
     | Target of Identifier
 
@@ -523,11 +528,6 @@ module Util =
         | Fable.Delegate(args, body, _) -> Some(args, body)
         | _ -> None
 
-    let (|Lets|_|) = function
-        | Fable.Let(ident, value, body) -> Some([ident, value], body)
-        | Fable.LetRec(bindings, body) -> Some(bindings, body)
-        | _ -> None
-
     let discardUnitArg (args: Fable.Ident list) =
         match args with
         | [] -> []
@@ -750,6 +750,7 @@ module Util =
         Statement.expr(callSuper args)
 
     let makeClassConstructor (args: Arguments) body =
+        // printfn "makeClassConstructor: %A" body
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args = { args with Args = self::args.Args }
@@ -814,7 +815,13 @@ module Util =
                     else body
                 None, genTypeParams, args, body
             | Attached(isStatic=true), _
-            | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
+            | ClassConstructor, _ ->
+                let body =
+                    match body with
+                    // Remove empty object expression on constructor.
+                    | Fable.Sequential(Fable.ObjectExpr([], t, None)::xs) -> Fable.Sequential(xs)
+                    | _ -> body
+                None, ctx.ScopedTypeParams, args, body
             | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
             | _ -> None, Set.empty, args, body
 
@@ -1005,14 +1012,15 @@ module Util =
         [ Statement.return'(libCall com ctx None "util" "toIterator" [ enumerator ]) ]
 
     let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
+        // printfn "extractBaseExprFromBaseCall: %A" (baseCall, baseType)
         match baseCall, baseType with
         | Some (Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr, stmts =
                 match baseRef with
                 | Fable.IdentExpr id -> com.GetIdentifierAsExpr(ctx, id.Name), []
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx None (CallInfo info)
-            Some (baseExpr, args)
+            let expr, keywords, stmts' = transformCallArgs com ctx None (CallInfo info)
+            Some (baseExpr, (expr, keywords, stmts @ stmts'))
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
             // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com baseType.Entity
@@ -1027,17 +1035,10 @@ module Util =
             let range = baseCall |> Option.bind (fun x -> x.Range)
             "Unexpected base call expression, please report" |> addError com [] range
             None
-        | None, _ ->
-            None
+        | None, _ -> None
 
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
-        // printfn "transformObjectExpr"
-        let compileAsClass =
-            Option.isSome baseCall || members |> List.exists (fun m ->
-                // Optimization: Object literals with getters and setters are very slow in V8
-                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
-                m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects m.Body))
-
+        // printfn "transformObjectExpr: %A" baseCall
         let makeMethod prop hasSpread args body decorators =
             let args, body =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
@@ -1050,6 +1051,15 @@ module Util =
                 | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
                 | _ -> { args with Args = self::args.Args }
             FunctionDef.Create(name, args, body, decorators)
+
+        let interfaces =
+            members
+            |> List.map(fun memb -> memb.Name)
+            |> List.choose(function
+                | "Dispose" ->
+                    let iDisposable = libValue com ctx "util" "IDisposable"
+                    Some iDisposable
+                | _ -> None)
 
         let members =
             members |> List.collect (fun memb ->
@@ -1072,19 +1082,6 @@ module Util =
                     [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
             )
 
-        // let classMembers =
-        //     members |> List.choose (function
-        //         | ObjectProperty(key, value, computed) ->
-        //             ClassMember.classProperty(key, value, computed_=computed) |> Some
-        //         | ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, _) ->
-        //             let kind =
-        //                 match kind with
-        //                 | "get" -> ClassGetter
-        //                 | "set" -> ClassSetter
-        //                 | _ -> ClassFunction
-        //             ClassMember.classMethod(kind, key, ``params``, body, computed_=computed,
-        //                 ?returnType=returnType, ?typeParameters=typeParameters) |> Some)
-
         let baseExpr, classMembers =
             baseCall
             |> extractBaseExprFromBaseCall com ctx None
@@ -1095,13 +1092,14 @@ module Util =
                 Some baseExpr, cons::members
             )
             |> Option.defaultValue (None, members)
+            |> (fun (expr, memb) -> expr |> Option.toList, memb)
 
         let classBody =
             match classMembers with
             | [] -> [ Pass]
             | _ -> classMembers
         let name = Helpers.getUniqueIdentifier "ObjectExpr"
-        let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
+        let stmt = Statement.classDef(name, body=classBody, bases=interfaces @ baseExpr )
         Expression.call(Expression.name name), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo): Expression list * Keyword list * Statement list =
@@ -1204,6 +1202,7 @@ module Util =
         match strategy with
         | None | Some ReturnUnit -> exprAsStatement ctx pyExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
+        | Some ResourceManager
         | Some Return ->  [ Statement.return'(pyExpr) ]
         | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
         | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
@@ -1375,7 +1374,7 @@ module Util =
             block
             |> transformBody com ctx ret
 
-    let transformTryCatch com ctx r returnStrategy (body, (catch: option<Fable.Ident * Fable.Expr>), finalizer) =
+    let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<Fable.Ident * Fable.Expr>, finalizer) =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
         let handlers =
@@ -1418,7 +1417,6 @@ module Util =
             stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
-
         //printfn "transformGet: %A" kind
         // printfn "transformGet: %A" (fableExpr.Type)
 
@@ -1923,7 +1921,7 @@ module Util =
             transformFunction com ctx name args body
             ||> makeArrowFunctionExpression
 
-        | Fable.ObjectExpr (members, _, baseCall) ->
+        | Fable.ObjectExpr (members, typ, baseCall) ->
           transformObjectExpr com ctx members baseCall
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
@@ -2095,8 +2093,17 @@ module Util =
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Let(ident, value, body) ->
-            let binding = transformBindingAsStatements com ctx ident value
-            List.append binding (transformAsStatements com ctx returnStrategy body)
+            match ident, value, body with
+            // Transform F# `use` i.e TryCatch as Python `with`
+            | {Name=valueName}, value, Fable.TryCatch(body, None, Some(Fable.IfThenElse(_, Fable.Call(Fable.Get(Fable.TypeCast(Fable.IdentExpr({Name=disposeName}), _), Fable.FieldGet("Dispose", _), t, _), _, _, _), elseExpr, _)), _) when valueName = disposeName ->
+                let id = Identifier valueName
+                let body = com.TransformAsStatements(ctx, Some ResourceManager, body)
+                let value, stmts = com.TransformAsExpr(ctx, value)
+                let items = [ WithItem.withItem(value, Expression.name id) ]
+                stmts @ [ Statement.with'(items, body) ]
+            | _ ->
+                let binding = transformBindingAsStatements com ctx ident value
+                List.append binding (transformAsStatements com ctx returnStrategy body)
 
         | Fable.LetRec(bindings, body) ->
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toList
@@ -2120,6 +2127,7 @@ module Util =
                 | None | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
+                | Some ResourceManager
                 | Some Return ->
                     Option.isSome ctx.TailCallOpportunity
                     || (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
@@ -2330,7 +2338,7 @@ module Util =
             |> Seq.toArray
 
     let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) (baseExpr: Expression option) classMembers =
-        // printfn "declareClassType"
+        // printfn "declareClassType: %A" consBody
         let classCons = makeClassConstructor consArgs consBody
         let classFields = Array.empty
         let classMembers = List.append [ classCons ] classMembers
@@ -2340,7 +2348,19 @@ module Util =
             match body with
             | [] -> [ Pass ]
             | _ -> body
-        let bases = baseExpr |> Option.toList
+        let interfaces = ent.AllInterfaces |> List.ofSeq |> List.map (fun int -> int.Entity.FullName)
+        let bases =
+            baseExpr
+            |> Option.toList
+            |> (fun bases ->
+                match interfaces with
+                // Add IDisposable as ABC.
+                | xs when List.contains "System.IDisposable" xs ->
+                    //com.GetImportExpr(ctx, "fable_modules.fable_library.util", "IDisposable") |> ignore
+                    let iDisposable = libValue com ctx "util" "IDisposable"
+                    iDisposable::bases
+                | _ -> bases)
+
         let name = com.GetIdentifier(ctx, entName)
         let classStmt = Statement.classDef(name, body = classBody, bases = bases)
         classStmt
@@ -2515,7 +2535,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
-        // printfn "transformClassWithImplicitConstructor"
+        // printfn "transformClassWithImplicitConstructor: %A" cons.Body
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
         let consArgs, consBody =
@@ -2548,7 +2568,7 @@ module Util =
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
         // printfn "transformDeclaration: %A" decl
         // printfn "ctx.UsedNames: %A" ctx.UsedNames
-        let withCurrentScope ctx (usedNames: Set<string>) f =
+        let withCurrentScope (ctx: Context) (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
             ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
@@ -2731,7 +2751,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
