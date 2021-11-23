@@ -85,12 +85,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
 
     static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
-// TODO: Change needed when updating to FCS 41
-#if FABLE_COMPILER
-        Naming.removeGetSetPrefix m.DisplayName
-#else
         Naming.removeGetSetPrefix m.DisplayNameCore
-#endif
 
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
@@ -452,10 +447,6 @@ module Helpers =
         match memb.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
         | FSharpInlineAnnotation.OptionalInline -> false
-// TODO: Change needed when updating to FCS 41
-#if FABLE_COMPILER
-        | FSharpInlineAnnotation.PseudoValue
-#endif
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 

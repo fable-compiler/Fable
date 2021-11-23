@@ -7,8 +7,8 @@
     "build-node": "fable fcs-fable-test.fsproj out-test",
     "test": "dotnet run -c Release fcs-fable-test.fsproj",
     "test-node": "node out-test/test",
-    "test-dotnet": "dotnet run -c Release -p fcs-fable-test.fsproj",
-    "bench-dotnet": "dotnet run -c Release -p bench/fcs-fable-bench.fsproj ../fcs-fable.fsproj"
+    "test-dotnet": "dotnet run -c Release --project fcs-fable-test.fsproj",
+    "bench-dotnet": "cd bench && dotnet run -c Release --project fcs-fable-bench.fsproj ../../fcs-fable.fsproj"
   },
   "devDependencies": {
     "fable-compiler-js": "^3.0.0"

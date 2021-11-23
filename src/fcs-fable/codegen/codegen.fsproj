@@ -9,6 +9,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <!-- <RollForward>Major</RollForward> -->
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <!-- <FsSrGen Include="$(FSharpSourcesRoot)/fsharp/FSComp.txt">

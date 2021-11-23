@@ -18,7 +18,7 @@ open FSharp.Compiler.Text
 type NiceNameGenerator() =
 
     let lockObj = obj()
-    let basicNameCounts = new Dictionary<string, int>(100)
+    let basicNameCounts = Dictionary<string, int>(100)
 
     member x.FreshCompilerGeneratedName (name, m: range) =
       lock lockObj (fun () ->
@@ -46,8 +46,8 @@ type StableNiceNameGenerator() =
 
     let lockObj = obj()
 
-    let names = new Dictionary<(string * int64), string>(100)
-    let basicNameCounts = new Dictionary<string, int>(100)
+    let names = Dictionary<string * int64, string>(100)
+    let basicNameCounts = Dictionary<string, int>(100)
 
     member x.GetUniqueCompilerGeneratedName (name, m: range, uniq) =
         lock lockObj (fun () ->
@@ -93,7 +93,7 @@ type Unique = int64
 
 //++GLOBAL MUTABLE STATE (concurrency-safe)
 #if FABLE_COMPILER
-let newUnique = let i = ref 0L in fun () -> i := !i + 1L; !i
+let newUnique = let i = ref 0L in fun () -> i.Value <- i.Value + 1L; i.Value
 #else
 let newUnique = let i = ref 0L in fun () -> System.Threading.Interlocked.Increment i
 #endif
@@ -101,7 +101,7 @@ let newUnique = let i = ref 0L in fun () -> System.Threading.Interlocked.Increme
 /// Unique name generator for stamps attached to to val_specs, tycon_specs etc.
 //++GLOBAL MUTABLE STATE (concurrency-safe)
 #if FABLE_COMPILER
-let newStamp = let i = ref 0L in fun () -> i := !i + 1L; !i
+let newStamp = let i = ref 0L in fun () -> i.Value <- i.Value + 1L; i.Value
 #else
 let newStamp = let i = ref 0L in fun () -> System.Threading.Interlocked.Increment i
 #endif
