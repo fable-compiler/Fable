@@ -15,8 +15,8 @@
           "Microsoft.Build.Tasks.Core": "16.11.0",
           "Microsoft.Build.Utilities.Core": "16.11.0",
           "Microsoft.DotNet.XliffTasks": "1.0.0-beta.21518.1",
-          "Microsoft.SourceLink.AzureRepos.Git": "1.1.0-beta-20206-02",
-          "Microsoft.SourceLink.GitHub": "1.1.0-beta-20206-02",
+          "Microsoft.SourceLink.AzureRepos.Git": "1.1.1-beta-21566-01",
+          "Microsoft.SourceLink.GitHub": "1.1.1-beta-21566-01",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
           "System.Collections.Immutable": "5.0.0",
@@ -119,7 +119,7 @@
           }
         }
       },
-      "Microsoft.Build.Tasks.Git/1.1.0-beta-20206-02": {},
+      "Microsoft.Build.Tasks.Git/1.1.1-beta-21566-01": {},
       "Microsoft.Build.Utilities.Core/16.11.0": {
         "dependencies": {
           "Microsoft.Build.Framework": "16.11.0",
@@ -152,17 +152,17 @@
       },
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.NETCore.Targets/1.1.0": {},
-      "Microsoft.SourceLink.AzureRepos.Git/1.1.0-beta-20206-02": {
+      "Microsoft.SourceLink.AzureRepos.Git/1.1.1-beta-21566-01": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.1.0-beta-20206-02",
-          "Microsoft.SourceLink.Common": "1.1.0-beta-20206-02"
+          "Microsoft.Build.Tasks.Git": "1.1.1-beta-21566-01",
+          "Microsoft.SourceLink.Common": "1.1.1-beta-21566-01"
         }
       },
-      "Microsoft.SourceLink.Common/1.1.0-beta-20206-02": {},
-      "Microsoft.SourceLink.GitHub/1.1.0-beta-20206-02": {
+      "Microsoft.SourceLink.Common/1.1.1-beta-21566-01": {},
+      "Microsoft.SourceLink.GitHub/1.1.1-beta-21566-01": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.1.0-beta-20206-02",
-          "Microsoft.SourceLink.Common": "1.1.0-beta-20206-02"
+          "Microsoft.Build.Tasks.Git": "1.1.1-beta-21566-01",
+          "Microsoft.SourceLink.Common": "1.1.1-beta-21566-01"
         }
       },
       "Microsoft.Win32.Primitives/4.3.0": {
@@ -1260,12 +1260,12 @@
       "path": "microsoft.build.tasks.core/16.11.0",
       "hashPath": "microsoft.build.tasks.core.16.11.0.nupkg.sha512"
     },
-    "Microsoft.Build.Tasks.Git/1.1.0-beta-20206-02": {
+    "Microsoft.Build.Tasks.Git/1.1.1-beta-21566-01": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-hZ9leS9Yd9MHpqvviMftSJFDcLYu2h1DrapW1TDm1s1fgOy71c8HvArNMd3fseVkXmp3VTfGnkgcw0FR+TI6xw==",
-      "path": "microsoft.build.tasks.git/1.1.0-beta-20206-02",
-      "hashPath": "microsoft.build.tasks.git.1.1.0-beta-20206-02.nupkg.sha512"
+      "sha512": "sha512-qhmeoKmoYYCJfEIRZl26S8MMW26GTW/u9DtcPYe6jS++Nr2roNN50WhVRw+p/2uUuC/NN8b6YIyi1+z52oHsTg==",
+      "path": "microsoft.build.tasks.git/1.1.1-beta-21566-01",
+      "hashPath": "microsoft.build.tasks.git.1.1.1-beta-21566-01.nupkg.sha512"
     },
     "Microsoft.Build.Utilities.Core/16.11.0": {
       "type": "package",
@@ -1302,26 +1302,26 @@
       "path": "microsoft.netcore.targets/1.1.0",
       "hashPath": "microsoft.netcore.targets.1.1.0.nupkg.sha512"
     },
-    "Microsoft.SourceLink.AzureRepos.Git/1.1.0-beta-20206-02": {
+    "Microsoft.SourceLink.AzureRepos.Git/1.1.1-beta-21566-01": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-vVYhSds9TfraTQkGHHMDMVWnr3kCkTZ7vmqUmrXQBDJFXiWTuMoP5RRa9s1M/KmgB4szi5TOb7sOaHWKDT9qDA==",
-      "path": "microsoft.sourcelink.azurerepos.git/1.1.0-beta-20206-02",
-      "hashPath": "microsoft.sourcelink.azurerepos.git.1.1.0-beta-20206-02.nupkg.sha512"
+      "sha512": "sha512-xXlHkYiDJlRFE78vFuCbmiqj4fYBMyppviLUF9BZojltG9ShU5c3anoUDW+w8kKFdEovL4KSdyZ33VwkX1jE7A==",
+      "path": "microsoft.sourcelink.azurerepos.git/1.1.1-beta-21566-01",
+      "hashPath": "microsoft.sourcelink.azurerepos.git.1.1.1-beta-21566-01.nupkg.sha512"
     },
-    "Microsoft.SourceLink.Common/1.1.0-beta-20206-02": {
+    "Microsoft.SourceLink.Common/1.1.1-beta-21566-01": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-aek0RTQ+4Bf11WvqaXajwYoaBWkX2edBjAr5XJOvhAsHX6/9vPOb7IpHAiE/NyCse7IcpGWslJZHNkv4UBEFqw==",
-      "path": "microsoft.sourcelink.common/1.1.0-beta-20206-02",
-      "hashPath": "microsoft.sourcelink.common.1.1.0-beta-20206-02.nupkg.sha512"
+      "sha512": "sha512-tHssgwLxyVNGR00VzXBUfPDC+P2mpM0Nus8M1YA7fdahDIvc771ptWEEdZNRSXtbBpCCQW+sxN3vqf7CXE2BKQ==",
+      "path": "microsoft.sourcelink.common/1.1.1-beta-21566-01",
+      "hashPath": "microsoft.sourcelink.common.1.1.1-beta-21566-01.nupkg.sha512"
     },
-    "Microsoft.SourceLink.GitHub/1.1.0-beta-20206-02": {
+    "Microsoft.SourceLink.GitHub/1.1.1-beta-21566-01": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-7A7P0EwL+lypaI/CEvG4IcpAlQeAt04uPPw1SO6Q9Jwz2nE9309pQXJ4TfP/RLL8IOObACidN66+gVR+bJDZHw==",
-      "path": "microsoft.sourcelink.github/1.1.0-beta-20206-02",
-      "hashPath": "microsoft.sourcelink.github.1.1.0-beta-20206-02.nupkg.sha512"
+      "sha512": "sha512-PPHqgIFxV0m9mMoxmOdV2dA5t8nfe4p4b5KkixT5TQ+Mm+ZGeV6gIYyUQmiQUQ+heGP9JcsPHjZl1JhziJC3hg==",
+      "path": "microsoft.sourcelink.github/1.1.1-beta-21566-01",
+      "hashPath": "microsoft.sourcelink.github.1.1.1-beta-21566-01.nupkg.sha512"
     },
     "Microsoft.Win32.Primitives/4.3.0": {
       "type": "package",
