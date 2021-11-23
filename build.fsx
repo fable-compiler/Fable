@@ -547,6 +547,7 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
+    removeDirRecursive "src/quicktest/fable_modules"
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 
 | "run"::_ ->

@@ -605,7 +605,10 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | JsNumber UInt32 -> emitJsExpr None (Number UInt32) [arg] "$0 >>> 0"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
-    | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
+    | Char, _ ->
+        match targetType, args with
+        | Number kind, Value(CharConstant c, r)::_ -> Value(NumberConstant(float c, kind), r)
+        | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
@@ -696,7 +699,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Operation(Logical(op, left, right), Boolean, r)
     let nativeOp opName argTypes args =
         match opName, args with
-        | Operators.addition, [left; right] -> binOp BinaryPlus left right
+        | Operators.addition, [left; right] ->
+            match argTypes with
+            | Char::_ ->
+                let toUInt16 e = toInt com ctx None (Number UInt16) [e]
+                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Number UInt16, r) |> toChar
+            | _ -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
@@ -1622,6 +1630,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
         Helper.LibCall(com, "Util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "DivRem", _ ->
+        let modName =
+            match i.SignatureArgTypes with
+            | Builtin (BclInt64)::_ -> "Long"
+            | _ -> "Int32"
+        Helper.LibCall(com, modName, "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Numbers
     | ("Infinity"|"InfinitySingle"), _ ->
         Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc=r) |> Some

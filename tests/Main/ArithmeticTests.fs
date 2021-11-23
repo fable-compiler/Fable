@@ -56,6 +56,28 @@ let tests =
     testCase "Infix modulo can be generated" <| fun () ->
         4 % 3 |> equal 1
 
+    testCase "Math.DivRem works with ints" <| fun () ->
+        Math.DivRem(5, 2) |> equal (2, 1)
+        Math.DivRem(4, 2) |> equal (2, 0)
+
+    testCase "Math.DivRem works with ints and ref" <| fun () ->
+        let rem = ref -1
+        Math.DivRem(5, 2, rem) |> equal 2
+        rem.Value |> equal 1
+        Math.DivRem(4, 2, rem) |> equal 2
+        rem.Value |> equal 0
+
+    testCase "Math.DivRem works with longs" <| fun () ->
+        Math.DivRem(5L, 2L) |> equal (2L, 1L)
+        Math.DivRem(4L, 2L) |> equal (2L, 0L)
+
+    testCase "Math.DivRem works with longs and ref" <| fun () ->
+        let rem = ref -1L
+        Math.DivRem(5L, 2L, rem) |> equal 2L
+        rem.Value |> equal 1L
+        Math.DivRem(4L, 2L, rem) |> equal 2L
+        rem.Value |> equal 0L
+
     testCase "Evaluation order is preserved by generated code" <| fun () ->
         (4 - 2) * 2 + 1 |> equal 5
 
