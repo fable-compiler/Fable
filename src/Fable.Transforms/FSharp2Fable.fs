@@ -61,20 +61,12 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
         | argExprs -> Fable.NewTuple argExprs |> makeValue r
-    | Case _ ->
-        match getCustomUnionType fsType with
-        | Some (CustomUnionType.Tagged _) ->
-            match argExprs with
-            | [argExpr] -> argExpr
-            | _ ->
-                "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
-                |> addErrorAndReturnNull com ctx.InlinePath r
+    | TypeScriptTaggedUnion _  ->
+        match argExprs with
+        | [argExpr] -> argExpr
         | _ ->
-            "This attribute can not be used in this type: " + (getFsTypeFullName fsType)
+            "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-    | TaggedUnion _ ->
-        "Every case in a tagged union must have Case attribute: " + (getFsTypeFullName fsType)
-        |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -340,25 +332,24 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         | _ ->
             return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-    | Case(typ, value) ->
-        match getCustomUnionType fsType with
-        | Some (CustomUnionType.Tagged name) ->
-            match unionCase.Fields.Count with
-            | 1 ->
-                return makeEqOp r
-                    (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(name, lazy typ))), typ, r))
-                    (Fable.Value(value, r))
-                    BinaryEqualStrict
-            | _ ->
-                return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
-                |> addErrorAndReturnNull com ctx.InlinePath r
+    | TypeScriptTaggedUnion (_, _, tagName, rule) ->
+        match unionCase.Fields.Count with
+        | 1 ->
+            let inline numberConst kind value =
+                Fable.Number kind, Fable.Value (Fable.NumberConstant(float value, kind), r)
+            let typ, value =
+                match FsUnionCase.CompiledValue unionCase with
+                | None -> Fable.String, transformStringEnum rule unionCase
+                | Some (CompiledValue.Integer i) -> numberConst Int32 i
+                | Some (CompiledValue.Float f) -> numberConst Float64 f
+                | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
+            return makeEqOp r
+                (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(tagName, lazy typ))), typ, r))
+                value
+                BinaryEqualStrict
         | _ ->
-            return "This attribute can not be used in this type: " + (getFsTypeFullName fsType)
+            return "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-
-    | TaggedUnion _ ->
-        return "Every case in a tagged union must have Case attribute: " + (getFsTypeFullName fsType)
-        |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)
@@ -810,7 +801,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             else
                 let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
                 return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
-        | TaggedUnion _ | Case _ ->
+        | TypeScriptTaggedUnion _ ->
             if unionCase.Fields.Count = 1 then return unionExpr
             else
                 return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
