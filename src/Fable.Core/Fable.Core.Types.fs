@@ -31,16 +31,16 @@ type EraseAttribute() =
     new (caseRules: CaseRules) = EraseAttribute()
 
 /// Used for "tagged" union types, which is commonly used in TypeScript.
-type TaggedUnionAttribute(tagName: string) =
+type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
     inherit Attribute()
+    new (tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
-/// Used for cases of tagged union types.
-type CaseAttribute private () =
+type CompiledValueAttribute private () =
     inherit Attribute()
-    new (value: int) = CaseAttribute()
-    new (value: float) = CaseAttribute()
-    new (value: bool) = CaseAttribute()
-    new (value: string) = CaseAttribute()
+    new (value: int) = CompiledValueAttribute()
+    new (value: float) = CompiledValueAttribute()
+    new (value: bool) = CompiledValueAttribute()
+    new (value: Enum) = CompiledValueAttribute()
 
 /// The module, type, function... is globally accessible in JS.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
