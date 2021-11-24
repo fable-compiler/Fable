@@ -606,7 +606,10 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
-    | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
+    | Char, _ ->
+        match targetType, args with
+        | Number kind, Value(CharConstant c, r)::_ -> Value(NumberConstant(float c, kind), r)
+        | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
@@ -697,7 +700,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Operation(Logical(op, left, right), Boolean, r)
     let nativeOp opName argTypes args =
         match opName, args with
-        | Operators.addition, [left; right] -> binOp BinaryPlus left right
+        | Operators.addition, [left; right] ->
+            match argTypes with
+            | Char::_ ->
+                let toUInt16 e = toInt com ctx None (Number UInt16) [e]
+                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Number UInt16, r) |> toChar
+            | _ -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
@@ -1448,7 +1456,10 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let template =
             match str with
             | StringConst str ->
-                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
+                // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
+                // (though it does resolve double braces {{ }})
+                let str = str.Replace("%%" , "%")
+                (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
                 ||> Seq.fold (fun acc m ->
                     match acc with
                     | None -> None
@@ -1465,9 +1476,6 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
         match template with
         | Some(str, holes) ->
-            // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
-            // (though it does resolve double braces {{ }})
-            let str = str.Replace("%%" , "%")
             printJsTaggedTemplate str holes (fun i -> $"${i}")
             |> emitJsExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
         // TODO: We could still use a JS template for formatting to increase performance?
@@ -1627,6 +1635,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
         Helper.LibCall(com, "Util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "DivRem", _ ->
+        let modName =
+            match i.SignatureArgTypes with
+            | Builtin (BclInt64)::_ -> "Long"
+            | _ -> "Int32"
+        Helper.LibCall(com, modName, "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Numbers
     | ("Infinity"|"InfinitySingle"), _ ->
         Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc=r) |> Some
@@ -2937,8 +2951,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
-    match i.CompiledName with
-    | ".ctor" ->
+    let createRegex r t args =
         let makeRegexConst r (pattern: string) flags =
             let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
             RegexConstant(pattern, flags) |> makeValue r
@@ -2956,9 +2969,12 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
                 | _ -> None
             getFlags e
         match args with
-        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
-        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
-        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [StringConst pattern] -> makeRegexConst r pattern []
+        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags
+        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, ?loc=r)
+
+    match i.CompiledName with
+    | ".ctor" -> createRegex r t args |> Some
     | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
     | "get_Index" ->
@@ -3007,6 +3023,19 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "IsMatch" | "Match" | "Matches" as meth ->
+        match thisArg, args with
+        | Some thisArg, args ->
+            if args.Length > 2 then
+                $"Regex.{meth} doesn't support more than 2 arguments"
+                |> addError com ctx.InlinePath r
+            thisArg::args |> Some
+        | None, input::pattern::args ->
+            let reg = createRegex None Any (pattern::args)
+            [reg; input] |> Some
+        | _ -> None
+        |> Option.map (fun args ->
+            Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r))
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some

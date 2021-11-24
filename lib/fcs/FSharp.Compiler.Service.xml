@@ -11,43 +11,43 @@
 <member name="M:FSComp.SR.xmlDocUnresolvedCrossReference(System.String)">
 <summary>
  This XML comment is invalid: unresolved cross-reference &apos;%s&apos;
- (Originally from ..\FSComp.txt:1605)
+ (Originally from ..\FSComp.txt:1604)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingParameterName">
 <summary>
  This XML comment is invalid: missing &apos;name&apos; attribute for parameter or parameter reference
- (Originally from ..\FSComp.txt:1601)
+ (Originally from ..\FSComp.txt:1600)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingParameter(System.String)">
 <summary>
  This XML comment is incomplete: no documentation for parameter &apos;%s&apos;
- (Originally from ..\FSComp.txt:1606)
+ (Originally from ..\FSComp.txt:1605)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingCrossReference">
 <summary>
  This XML comment is invalid: missing &apos;cref&apos; attribute for cross-reference
- (Originally from ..\FSComp.txt:1602)
+ (Originally from ..\FSComp.txt:1601)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocInvalidParameterName(System.String)">
 <summary>
  This XML comment is invalid: unknown parameter &apos;%s&apos;
- (Originally from ..\FSComp.txt:1603)
+ (Originally from ..\FSComp.txt:1602)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocDuplicateParameter(System.String)">
 <summary>
  This XML comment is invalid: multiple documentation entries for parameter &apos;%s&apos;
- (Originally from ..\FSComp.txt:1604)
+ (Originally from ..\FSComp.txt:1603)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocBadlyFormed(System.String)">
 <summary>
  This XML comment is invalid: &apos;%s&apos;
- (Originally from ..\FSComp.txt:1600)
+ (Originally from ..\FSComp.txt:1599)
 </summary>
 </member>
 <member name="M:FSComp.SR.writeToReadOnlyByref">
@@ -2009,7 +2009,7 @@
 <member name="M:FSComp.SR.tcLiteralAttributeCannotUseActivePattern">
 <summary>
  A [&lt;Literal&gt;] declaration cannot use an active pattern for its identifier
- (Originally from ..\FSComp.txt:1607)
+ (Originally from ..\FSComp.txt:1610)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcListThenAdjacentListArgumentReserved">
@@ -2294,6 +2294,12 @@
  (Originally from ..\FSComp.txt:495)
 </summary>
 </member>
+<member name="M:FSComp.SR.tcInvalidMemberDeclNameMissingOrHasParen">
+<summary>
+ Invalid member declaration. The name of the member is missing or has parentheses.
+ (Originally from ..\FSComp.txt:1635)
+</summary>
+</member>
 <member name="M:FSComp.SR.tcInvalidInlineSpecification">
 <summary>
  Invalid inline specification
@@ -2477,13 +2483,13 @@
 <member name="M:FSComp.SR.tcImplicitConversionUsedForNonMethodArg(System.String,System.String,System.String)">
 <summary>
  This expression uses the implicit conversion &apos;%s&apos; to convert type &apos;%s&apos; to type &apos;%s&apos;. See https://aka.ms/fsharp-implicit-convs. This warning may be disabled using &apos;#nowarn \&quot;3391\&quot;.
- (Originally from ..\FSComp.txt:1598)
+ (Originally from ..\FSComp.txt:1597)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcImplicitConversionUsedForMethodArg(System.String,System.String,System.String)">
 <summary>
  This expression uses the implicit conversion &apos;%s&apos; to convert type &apos;%s&apos; to type &apos;%s&apos;.
- (Originally from ..\FSComp.txt:1597)
+ (Originally from ..\FSComp.txt:1609)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcImplementsIStructuralEquatableExplicitly(System.String)">
@@ -4270,7 +4276,7 @@
 <member name="M:FSComp.SR.parsNewExprMemberAccess">
 <summary>
  This member access is ambiguous. Please use parentheses around the object creation, e.g. &apos;(new SomeType(args)).MemberName&apos;
- (Originally from ..\FSComp.txt:1610)
+ (Originally from ..\FSComp.txt:1608)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsNamespaceOrModuleNotBoth">
@@ -4779,7 +4785,7 @@
 </member>
 <member name="M:FSComp.SR.packageManagementRequiresVFive">
 <summary>
- The package management feature requires language version 5.0 use /langversion:preview
+ The &apos;package management&apos; feature requires language version 5.0 or above
  (Originally from ..\FSComp.txt:1514)
 </summary>
 </member>
@@ -6937,7 +6943,7 @@
 </member>
 <member name="M:FSComp.SR.fromEndSlicingRequiresVFive">
 <summary>
- From the end slicing with requires language version 5.0, use /langversion:preview.
+ The &apos;from the end slicing&apos; feature requires language version &apos;preview&apos;.
  (Originally from ..\FSComp.txt:1515)
 </summary>
 </member>
@@ -8288,13 +8294,13 @@
 <member name="M:FSComp.SR.containerSigningUnsupportedOnThisPlatform">
 <summary>
  Key container signing is not supported on this platform.
- (Originally from ..\FSComp.txt:1609)
+ (Originally from ..\FSComp.txt:1607)
 </summary>
 </member>
 <member name="M:FSComp.SR.containerDeprecated">
 <summary>
  The &apos;AssemblyKeyNameAttribute&apos; has been deprecated. Use &apos;AssemblyKeyFileAttribute&apos; instead.
- (Originally from ..\FSComp.txt:1608)
+ (Originally from ..\FSComp.txt:1606)
 </summary>
 </member>
 <member name="M:FSComp.SR.considerUpcastOperator(System.String,System.String)">
@@ -12215,6 +12221,18 @@
 <member name="M:FSharp.Compiler.IO.Bytes.get(System.Byte[],System.Int32)">
 <summary>
  returned int will be 0 &lt;= x &lt;= 255
+</summary>
+</member>
+<member name="T:FSharp.Compiler.ErrorLogger.CompilationGlobalsScope">
+<summary>
+ This represents the global state established as each task function runs as part of the build.
+
+ Use to reset error and warning handlers.
+</summary>
+</member>
+<member name="M:FSharp.Compiler.ErrorLogger.StackGuard.Guard``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,``0})">
+<summary>
+ Execute the new function, on a new thread if necessary
 </summary>
 </member>
 <member name="T:FSharp.Compiler.ErrorLogger.OperationResult`1">
@@ -26086,6 +26104,11 @@ Get the signature for the value&apos;s XML documentation
  Set to true if this file causes the creation of generated provided types.
 </summary>
 </member>
+<member name="P:FSharp.Compiler.CheckExpressions.TcFileState.stackGuard">
+<summary>
+ Guard against depth of expression nesting, by moving to new stack when a maximum depth is reached
+</summary>
+</member>
 <member name="P:FSharp.Compiler.CheckExpressions.TcFileState.recUses">
 <summary>
  Push an entry every time a recursive value binding is used, 
@@ -27134,7 +27157,7 @@ Get the signature for the value&apos;s XML documentation
  Contains helpers to specify code that can be run as part of the build graph.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.BuildGraph.NodeCodeBuilder.Using``1(FSharp.Compiler.BuildGraph.CompilationGlobalsScope,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.BuildGraph.CompilationGlobalsScope,FSharp.Compiler.BuildGraph.NodeCode{``0}})">
+<member name="M:FSharp.Compiler.BuildGraph.NodeCodeBuilder.Using``1(FSharp.Compiler.ErrorLogger.CompilationGlobalsScope,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.ErrorLogger.CompilationGlobalsScope,FSharp.Compiler.BuildGraph.NodeCode{``0}})">
 <summary>
  A limited form &apos;use&apos; for establishing the compilation globals.  (Note
  that a proper generic &apos;use&apos; could be implemented but has not currently been necessary)
@@ -27152,13 +27175,6 @@ Get the signature for the value&apos;s XML documentation
  This is essentially cancellable async code where the only asynchronous waits are on nodes.
  When a node is evaluated the evaluation is run synchronously on the thread of the
  first requestor.
-</summary>
-</member>
-<member name="T:FSharp.Compiler.BuildGraph.CompilationGlobalsScope">
-<summary>
- This represents the global state established as each task function runs as part of the build.
-
- Use to reset error and warning handlers.
 </summary>
 </member>
 <member name="P:FSharp.Compiler.BuildGraph.node">
@@ -31429,6 +31445,11 @@ Get the signature for the value&apos;s XML documentation
  Represents a set of bindings that implement an interface
 </summary>
 </member>
+<member name="T:FSharp.Compiler.Syntax.PropertyKeyword">
+<summary>
+ Represents a used keyword for a property member
+</summary>
+</member>
 <member name="T:FSharp.Compiler.Syntax.SynPat.FromParseError">
 <summary>
  A pattern arising from a parse error
@@ -34907,6 +34928,12 @@ Get the signature for the value&apos;s XML documentation
  Represents the use of an F# symbol from F# source code
 </summary>
 </member>
+<member name="P:FSharp.Compiler.CodeAnalysis.FSharpReferencedProject.OutputFile">
+<summary>
+ The fully qualified path to the output of the referenced project. This should be the same value as the <code>-r</code>
+ reference in the project options for this referenced project.
+</summary>
+</member>
 <member name="M:FSharp.Compiler.CodeAnalysis.FSharpReferencedProject.CreatePortableExecutable(System.String,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.DateTime},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpOption{System.IO.Stream}})">
 <summary>
  Creates a reference for any portable executable, including F#. The stream is owned by this reference.
@@ -34914,16 +34941,22 @@ Get the signature for the value&apos;s XML documentation
  Once the stream is evaluated, the function that constructs the stream will no longer be referenced by anything.
  If the stream evaluation throws an exception, it will be automatically handled.
 </summary>
+<param name="projectOutputFile">The fully qualified path to the output of the referenced project. This should be the same value as the <code>-r</code> reference in the project options for this referenced project.</param>
+<param name="getStamp">A function that calculates a last-modified timestamp for this reference. This will be used to determine if the reference is up-to-date.</param>
+<param name="getStream">A function that opens a Portable Executable data stream for reading.</param>
 </member>
 <member name="M:FSharp.Compiler.CodeAnalysis.FSharpReferencedProject.CreateFromILModuleReader(System.String,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.DateTime},Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,FSharp.Compiler.AbstractIL.ILBinaryReader.ILModuleReader})">
-<summary>
- Creates a reference from an ILModuleReader.
-</summary>
+<summary>Creates a reference from an ILModuleReader.</summary>
+<param name="projectOutputFile">The fully qualified path to the output of the referenced project. This should be the same value as the <code>-r</code> reference in the project options for this referenced project.</param>
+<param name="getStamp">A function that calculates a last-modified timestamp for this reference. This will be used to determine if the reference is up-to-date.</param>
+<param name="getReader">A function that creates an ILModuleReader for reading module data.</param>
 </member>
 <member name="M:FSharp.Compiler.CodeAnalysis.FSharpReferencedProject.CreateFSharp(System.String,FSharp.Compiler.CodeAnalysis.FSharpProjectOptions)">
 <summary>
  Creates a reference for an F# project. The physical data for it is stored/cached inside of the compiler service.
 </summary>
+<param name="projectOutputFile">The fully qualified path to the output of the referenced project. This should be the same value as the <code>-r</code> reference in the project options for this referenced project.</param>
+<param name="options">The Project Options for this F# project</param>
 </member>
 <member name="P:FSharp.Compiler.CodeAnalysis.FSharpProjectOptions.Stamp">
 <summary>
@@ -35466,6 +35499,14 @@ Get the signature for the value&apos;s XML documentation
  Parses and checks the whole project, good for compilers (Fable etc.)
  Does not retain name resolutions and symbol uses which are quite memory hungry (so no intellisense etc.).
  Already parsed files will be cached so subsequent compilations will be faster.
+</summary>
+</member>
+<member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.ParseAndCheckFileInProject(System.String,System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}},System.String)">
+<summary>
+ Parses and checks file in project, will compile and cache all the files up to this one
+ (if not already done before), or fetch them from cache. Returns partial project results,
+ up to and including the file requested. Returns parse and typecheck results containing
+ name resolutions and symbol uses for the file requested only, so intellisense etc. works.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.ClearCache">

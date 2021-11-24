@@ -5,6 +5,8 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.SourceCodeServices
 open Fable.Compiler.Platform
 
+// let references = Metadata.references_full
+// let metadataPath = "../../../../temp/metadata/" // .NET BCL binaries
 let references = Metadata.references_core
 let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 

@@ -166,8 +166,12 @@ let checkExprOp (lexbuf:UnicodeLexing.Lexbuf) =
 let unexpectedChar lexbuf =
     LEX_FAILURE (FSComp.SR.lexUnexpectedChar(lexeme lexbuf))
 
+/// Arbitrary value
+[<Literal>]
+let StringCapacity = 100
+
 let startString args (lexbuf: UnicodeLexing.Lexbuf) =
-    let buf = ByteBuffer.Create 100
+    let buf = ByteBuffer.Create StringCapacity
     let m = lexbuf.LexemeRange
     let startp = lexbuf.StartPos
     let fin =
@@ -248,11 +252,11 @@ let shouldStartFile args lexbuf (m:range) err tok =
     if (m.StartColumn <> 0 || m.StartLine <> 1) then fail args lexbuf err tok
     else tok
 
-let evalIfDefExpression startPos isFeatureSupported args (lookup:string->bool) (lexed:string) =
+let evalIfDefExpression startPos reportLibraryOnlyFeatures langVersion args (lookup:string->bool) (lexed:string) =
 #if FABLE_COMPILER
-    let lexbuf          = LexBuffer<_>.FromString (isFeatureSupported, lexed)
+    let lexbuf          = LexBuffer<_>.FromString (reportLibraryOnlyFeatures, langVersion, lexed)
 #else
-    let lexbuf          = LexBuffer<char>.FromChars (isFeatureSupported, lexed.ToCharArray ())
+    let lexbuf          = LexBuffer<char>.FromChars (reportLibraryOnlyFeatures, langVersion, lexed.ToCharArray ())
 #endif
     lexbuf.StartPos     <- startPos
     lexbuf.EndPos       <- startPos
@@ -618,7 +622,9 @@ rule token args skip = parse
        | _ -> fail args lexbuf  (FSComp.SR.lexThisUnicodeOnlyInStringLiterals()) (CHAR (char 0)) }
 
  | "(*IF-FSHARP"
-     { if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
+     { if lexbuf.SupportsFeature LanguageFeature.MLCompatRevisions then
+          mlCompatWarning (FSComp.SR.lexIndentOffForML()) lexbuf.LexemeRange
+       if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
        else token args skip lexbuf }
 
  | "(*F#"
@@ -728,6 +734,7 @@ rule token args skip = parse
  | "////" op_char*
      { // 4+ slash are 1-line comments, online 3 slash are XmlDoc
        let m = lexbuf.LexemeRange
+       LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
        if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
        else singleLineComment (None,1,m,args) skip lexbuf }
 
@@ -742,6 +749,7 @@ rule token args skip = parse
  | "//" op_char*
      { // Need to read all operator symbols too, otherwise it might be parsed by a rule below
        let m = lexbuf.LexemeRange
+       LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
        if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
        else singleLineComment (None,1,m,args) skip lexbuf }
 
@@ -981,7 +989,10 @@ rule token args skip = parse
 
  | ("#indent" | "#light") anywhite+ "\"off\""
    { args.lightStatus.Status <- false
-     mlCompatWarning (FSComp.SR.lexIndentOffForML()) lexbuf.LexemeRange
+     if lexbuf.SupportsFeature LanguageFeature.MLCompatRevisions then
+         mlCompatError (FSComp.SR.mlCompatLightOffNoLongerSupported()) lexbuf.LexemeRange
+     else
+         mlCompatWarning (FSComp.SR.lexIndentOffForML()) lexbuf.LexemeRange
      if not skip then HASH_LIGHT (LexCont.Token (args.ifdefStack, args.stringNest))
      else token args skip lexbuf }
 
@@ -989,7 +1000,7 @@ rule token args skip = parse
    { let m = lexbuf.LexemeRange
      let lookup id = List.contains id args.defines
      let lexed = lexeme lexbuf
-     let isTrue = evalIfDefExpression lexbuf.StartPos lexbuf.SupportsFeature args lookup lexed
+     let isTrue = evalIfDefExpression lexbuf.StartPos lexbuf.ReportLibraryOnlyFeatures lexbuf.LanguageVersion args lookup lexed
      args.ifdefStack <- (IfDefIf,m) :: args.ifdefStack
 
      // Get the token; make sure it starts at zero position & return
@@ -1505,6 +1516,7 @@ and comment cargs skip = parse
 
  | "(*)"
     { let n, m, args = cargs
+      LexbufLocalXmlDocStore.AddGrabPoint(lexbuf)
       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
       else comment cargs skip lexbuf }
 
@@ -1525,6 +1537,7 @@ and comment cargs skip = parse
           if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n-1, m))
           else comment (n-1,m,args) skip lexbuf
       else
+          LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
           if not skip then COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
           else token args skip lexbuf }
 
@@ -1639,7 +1652,7 @@ and tripleQuoteStringInComment n m args skip = parse
 
 and mlOnly m args skip = parse
  | "\""
-     { let buf = ByteBuffer.Create 100
+     { let buf = ByteBuffer.Create StringCapacity
        let m2 = lexbuf.LexemeRange
        let _ = singleQuoteString (buf, LexerStringFinisher.Default, m2, LexerStringKind.String, args) skip lexbuf
        if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))

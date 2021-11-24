@@ -214,4 +214,8 @@ let tests =
                 |> failwithf "Unexpected result '%c'"
             with
             | _ -> ()
+
+        testCase "Char addition works" <| fun _ ->
+            'A' + 'B' |> int |> equal 131
+            'A' + char 7 |> int |> equal 72
     ]

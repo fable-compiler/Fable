@@ -1,6 +1,6 @@
 export type MatchEvaluator = (match: any) => string;
 
-export function create(pattern: string, options: number = 0) {
+export function create(pattern: string, options = 0) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002
@@ -25,35 +25,26 @@ export function unescape(str: string) {
   return str.replace(/\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
 }
 
-export function isMatch(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
-  return reg.test(str as string);
+export function isMatch(reg: RegExp, input: string, startAt = 0) {
+  reg.lastIndex = startAt;
+  return reg.test(input);
 }
 
-export function match(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
-  return reg.exec(str as string);
+export function match(reg: RegExp, input: string, startAt = 0) {
+  reg.lastIndex = startAt;
+  return reg.exec(input);
 }
 
-export function matches(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
+export function matches(reg: RegExp, input: string, startAt = 0) {
+  reg.lastIndex = startAt;
   if (!reg.global) {
     throw new Error("Non-global RegExp"); // Prevent infinite loop
   }
-  let m = reg.exec(str as string);
+  let m = reg.exec(input);
   const matches: RegExpExecArray[] = [];
   while (m !== null) {
     matches.push(m);
-    m = reg.exec(str as string);
+    m = reg.exec(input);
   }
   return matches;
 }

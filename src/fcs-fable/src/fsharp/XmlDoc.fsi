@@ -2,9 +2,6 @@
 
 namespace FSharp.Compiler.Xml
 
-#if !FABLE_COMPILER
-open System.Xml
-#endif
 open FSharp.Compiler.Text
 open FSharp.Compiler.AbstractIL.IL
 
@@ -46,10 +43,16 @@ type internal XmlDocCollector =
 
     member AddGrabPoint: pos: pos -> unit
 
+    member AddGrabPointDelayed: pos: pos -> unit
+
     member AddXmlDocLine: line:string * range:range -> unit
 
     member LinesBefore: grabPointPos: pos -> (string * range) []
-  
+
+    member HasComments: grabPointPos: pos -> bool
+
+    member CheckInvalidXmlDocPositions: unit -> unit
+
 /// Represents the XmlDoc fragments as collected from the lexer during parsing
 [<Sealed>]
 type public PreXmlDoc =
@@ -61,6 +64,10 @@ type public PreXmlDoc =
     static member Create: unprocessedLines:string [] * range:range -> PreXmlDoc
 
     member ToXmlDoc: check:bool * paramNamesOpt:string list option -> XmlDoc
+
+    member IsEmpty: bool
+
+    member internal MarkAsInvalid: unit -> unit
 
     static member Empty: PreXmlDoc
 

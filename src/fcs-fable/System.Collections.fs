@@ -4,6 +4,21 @@
 
 namespace System.Collections
 
+module Generic =
+
+    type Queue<'T> =
+        inherit ResizeArray<'T>
+
+        new () = Queue<'T>()
+
+        member x.Enqueue (item: 'T) =
+            x.Add(item)
+
+        member x.Dequeue () =
+            let item = x.Item(0)
+            x.RemoveAt(0)
+            item
+
 module Immutable =
 
     type ImmutableArray<'T> =

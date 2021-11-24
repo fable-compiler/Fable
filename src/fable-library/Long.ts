@@ -143,3 +143,14 @@ export function ticksToUnixEpochMilliseconds(ticks: Long) {
 //     }
 //   };
 // }
+
+export function divRem(x: Long, y: Long, out?: FSharpRef<Long>) {
+  const div = op_Division(x, y);
+  const rem = op_Modulus(x, y);
+  if (out != null) {
+    out.contents = rem;
+    return div;
+  } else {
+    return [div, rem];
+  }
+}

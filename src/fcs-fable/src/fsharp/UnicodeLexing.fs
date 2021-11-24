@@ -8,23 +8,23 @@ open Internal.Utilities.Text.Lexing
 
 type Lexbuf = LexBuffer<LexBufferChar>
 
-let StringAsLexbuf (supportsFeature, s: string) =
+let StringAsLexbuf (reportLibraryOnlyFeatures, langVersion, s: string) =
 #if FABLE_COMPILER
-    LexBuffer<LexBufferChar>.FromString (supportsFeature, s)
+    LexBuffer<LexBufferChar>.FromString (reportLibraryOnlyFeatures, langVersion, s)
 #else
-    LexBuffer<char>.FromChars (supportsFeature, s.ToCharArray())
+    LexBuffer<char>.FromChars (reportLibraryOnlyFeatures, langVersion, s.ToCharArray())
 #endif
 
-let FunctionAsLexbuf (supportsFeature, bufferFiller) =
-    LexBuffer<LexBufferChar>.FromFunction(supportsFeature, bufferFiller)
+let FunctionAsLexbuf (reportLibraryOnlyFeatures, langVersion, bufferFiller) =
+    LexBuffer<LexBufferChar>.FromFunction(reportLibraryOnlyFeatures, langVersion, bufferFiller)
 
-let SourceTextAsLexbuf (supportsFeature, sourceText) =
-    LexBuffer<LexBufferChar>.FromSourceText(supportsFeature, sourceText)
+let SourceTextAsLexbuf (reportLibraryOnlyFeatures, langVersion, sourceText) =
+    LexBuffer<LexBufferChar>.FromSourceText(reportLibraryOnlyFeatures, langVersion, sourceText)
 
 #if !FABLE_COMPILER
-let StreamReaderAsLexbuf (supportsFeature, reader: StreamReader) =
+let StreamReaderAsLexbuf (reportLibraryOnlyFeatures, langVersion, reader: StreamReader) =
     let mutable isFinished = false
-    FunctionAsLexbuf (supportsFeature, fun (chars, start, length) ->
+    FunctionAsLexbuf (reportLibraryOnlyFeatures, langVersion, fun (chars, start, length) ->
         if isFinished then 0
         else
             let nBytesRead = reader.Read(chars, start, length)
