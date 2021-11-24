@@ -608,7 +608,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     match sourceType, targetType with
     | Char, _ ->
         match targetType, args with
-        | Number kind, Value(CharConstant c, r)::_ -> Value(NumberConstant(float c, kind), r)
+        | Number(kind, _), Value(CharConstant c, r)::_ -> Value(NumberConstant(float c, kind, None), r)
         | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
@@ -703,8 +703,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.addition, [left; right] ->
             match argTypes with
             | Char::_ ->
-                let toUInt16 e = toInt com ctx None (Number UInt16) [e]
-                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Number UInt16, r) |> toChar
+                let toUInt16 e = toInt com ctx None (Number(UInt16, None)) [e]
+                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Number(UInt16, None), r) |> toChar
             | _ -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
