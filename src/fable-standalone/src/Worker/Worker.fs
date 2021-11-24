@@ -112,13 +112,15 @@ let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOption
                     typescript = Array.contains "--typescript" fableOptions
                     sourceMaps = Array.contains "--sourceMaps" fableOptions
                 |}
+                let typedArrays = if options.typedArrays then Some true else None
+                let language = if options.typescript then "TypeScript" else "JavaScript" //TODO: more languages
                 let (res, fableTransformTime) =
                     measureTime (fun () ->
-                        fable.Manager.CompileToBabelAst("fable-library", parseResults, fileName, typedArrays = options.typedArrays, typescript = options.typescript)
+                        fable.Manager.CompileToTargetAst("fable-library", parseResults, fileName, typedArrays, language)
                     ) ()
-                // Print Babel AST
+                // Print target language AST
                 let writer = new SourceWriter(options.sourceMaps)
-                do! fable.Manager.PrintBabelAst(res, writer)
+                do! fable.Manager.PrintTargetAst(res, writer)
                 let jsCode = writer.Result
 
                 return jsCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime

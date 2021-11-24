@@ -6,8 +6,8 @@ type CmdLineOptions = {
     benchmark: bool
     optimize: bool
     sourceMaps: bool
-    typedArrays: bool
-    typescript: bool
+    typedArrays: bool option
+    language: string
     printAst: bool
     // watch: bool
 }

@@ -27,6 +27,9 @@ module Util =
         for dir in dirs do
             removeDirRecursive dir
 
+    let resolveDir dir =
+        __SOURCE_DIRECTORY__ </> dir
+
     let updateVersionInFableTransforms version =
         let filePath = "src/Fable.Transforms/Global/Compiler.fs"
         // printfn "VERSION %s" version
@@ -51,6 +54,12 @@ module Util =
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
+    let runFableWithArgsInDir projectDir args =
+        let cliDir = resolveDir "src/Fable.Cli"
+        let cliArgs = args |> String.concat " "
+        let cliCmd = $"dotnet run -c Release --project {cliDir} -- {cliArgs}"
+        runInDir projectDir cliCmd
+
     let runFableWithArgsAsync projectDir args =
         runAsync ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
@@ -68,9 +77,6 @@ module Util =
 
     let runMocha testDir =
         runNpmScript "mocha" [$"{testDir} --reporter dot -t 10000"]
-
-    let resolveDir dir =
-        __SOURCE_DIRECTORY__ </> dir
 
 open Util
 
@@ -167,17 +173,17 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
+// TODO: move to PublishUtils.fs ?
+let copyFiles sourceDir searchPattern destDir =
+    for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
+        let fileName = IO.Path.GetFileName(source)
+        let target = destDir </> fileName
+        IO.File.Copy(source, target, true)
+
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
     let projectDir = libraryDir </> "fable_library"
     let buildDirPy = "build/fable-library-py"
-
-    // TODO: move to PublishUtils.fs ?
-    let copyFiles sourceDir searchPattern destDir =
-        for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
-            let fileName = IO.Path.GetFileName(source)
-            let target = destDir </> fileName
-            IO.File.Copy(source, target, true)
 
     cleanDirs [buildDirPy]
 
@@ -202,6 +208,33 @@ let buildPyLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library-py")) then
         buildLibraryPy()
+
+let buildLibraryRust() =
+    let libraryDir = "src/fable-library-rust"
+    let sourceDir = libraryDir </> "src"
+    let buildDir = "build/fable-library-rust"
+    let outDir = buildDir </> "src"
+    let fableLib = "."
+
+    cleanDirs [buildDir]
+
+    runFableWithArgsInDir sourceDir [
+        "--outDir " + resolveDir outDir
+        "--fableLib " + fableLib
+        "--lang Rust"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+    ]
+
+    copyFiles libraryDir "*.toml" buildDir
+    copyFiles sourceDir "*.rs" outDir
+
+    runInDir buildDir ("cargo build")
+
+// let buildLibraryRustIfNotExists() =
+//     let baseDir = __SOURCE_DIRECTORY__
+//     if not (pathExists (baseDir </> "build/fable-library-rust")) then
+//         buildLibraryRust()
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -445,6 +478,35 @@ let testPython() =
 
     runInDir buildDir "pytest -x"
 
+let testRust() =
+    // buildLibraryRustIfNotExists()
+    buildLibraryRust()
+
+    let testAstDir = "src/Fable.Transforms/Rust/AST/Tests"
+    let projectDir = "tests/Rust"
+    let buildDir = "build/tests/Rust"
+
+    // limited cleanup to reduce IO churn, speed up rebuilds,
+    // and save the ssd (target folder can get huge)
+    cleanDirs [buildDir </> "src"]
+    cleanDirs [buildDir </> "tests"]
+    cleanDirs [buildDir </> ".fable"]
+
+    // run .NET tests
+    runInDir testAstDir "dotnet test"
+    runInDir projectDir "dotnet test"
+
+    // build Fable Rust tests
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang Rust"
+        "--fableLib " + "fable-library-rust"
+    ]
+
+    // run Fable Rust tests
+    copyFile (projectDir </> "Cargo.toml") buildDir
+    runInDir buildDir "cargo test"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
@@ -600,6 +662,7 @@ match BUILD_ARGS_LOWER with
 | "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
+| "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
@@ -625,6 +688,7 @@ match BUILD_ARGS_LOWER with
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
+| ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Rust.AST.Adapters.fs" />
+    <Compile Include="Rust.AST.Symbols.fs" />
+    <Compile Include="Rust.AST.Spans.fs" />
+    <Compile Include="Rust.AST.Types.fs" />
+    <Compile Include="Rust.AST.Parser.fs" />
+    <Compile Include="Rust.AST.Stubs.fs" />
+    <Compile Include="Rust.AST.Impl.fs" />
+    <!-- <Compile Include="Rust.AST.Visitor.fs" /> -->
+    <!-- <Compile Include="Rust.AST.Format.fs" /> -->
+    <!-- <Compile Include="Rust.AST.Printer.fs" /> -->
+    <Compile Include="Rust.AST.Pretty.fs" />
+    <Compile Include="Rust.AST.State.fs" />
+    <Compile Include="Rust.AST.Helpers.fs" />
+  </ItemGroup>
+
+</Project>

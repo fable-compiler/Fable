@@ -2,6 +2,8 @@ namespace Fable.Transforms
 
 [<RequireQualifiedAccess>]
 module Atts =
+    let [<Literal>] noEquality = "Microsoft.FSharp.Core.NoEqualityAttribute" // typeof<NoEqualityAttribute>.FullName
+    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
     let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
     let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
@@ -88,6 +90,10 @@ module Types =
     let [<Literal>] iequatable = "System.IEquatable"
     let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
+    let [<Literal>] iStructuralEquatableGeneric = "System.IStructuralEquatable`1"
+    let [<Literal>] iStructuralEquatable = "System.IStructuralEquatable"
+    let [<Literal>] iStructuralComparableGeneric = "System.IStructuralComparable`1"
+    let [<Literal>] iStructuralComparable = "System.IStructuralComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
     let [<Literal>] printfModule = "Microsoft.FSharp.Core.PrintfModule"
@@ -438,6 +444,8 @@ module AST =
             // Python modules should be all lower case without any dots (PEP8)
             let moduleName' = moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase |> (fun str -> str.Replace(".", "_"))
             com.LibraryDir + "/" + moduleName' + ".py"
+        | Rust ->
+            com.LibraryDir + "/" + moduleName + ".rs"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =

@@ -60,6 +60,11 @@ let tests =
         li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
         equal 5 li.Count
 
+    testCase "ResizeArray.ConvertAll works" <| fun () ->
+        let xs = ResizeArray<_> [1.; 2.; 3.; 4.]
+        let ys = xs.ConvertAll(System.Converter(fun x -> int x))
+        ys |> Seq.toList |> equal [1;2;3;4]
+
     testCase "ResizeArray.Find works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)

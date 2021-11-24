@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+    <PackageReference Include="XUnit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="tests/common/Util.fs" />
+    <Compile Include="tests/src/AnonRecordTests.fs" />
+    <Compile Include="tests/src/ArithmeticTests.fs" />
+    <Compile Include="tests/src/ArrayTests.fs" />
+    <Compile Include="tests/src/InterfaceTests.fs" />
+    <Compile Include="tests/src/ClassTests.fs" />
+    <Compile Include="tests/src/ClosureTests.fs" />
+    <Compile Include="tests/src/ControlFlowTests.fs" />
+    <Compile Include="tests/src/EnumTests.fs" />
+    <Compile Include="tests/src/ListTests.fs" />
+    <Compile Include="tests/src/MeasureTests.fs" />
+    <Compile Include="tests/src/NBodyTests.fs" />
+    <Compile Include="tests/src/OptionTests.fs" />
+    <Compile Include="tests/src/RecordTests.fs" />
+    <Compile Include="tests/src/ResizeArrayTests.fs" />
+    <Compile Include="tests/src/SeqTests.fs" />
+    <Compile Include="tests/src/StringTests.fs" />
+    <Compile Include="tests/src/TupleTests.fs" />
+    <Compile Include="tests/src/UnionTests.fs" />
+    <Compile Include="tests/src/main.fs" />
+  </ItemGroup>
+</Project>

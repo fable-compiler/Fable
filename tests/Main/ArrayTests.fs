@@ -178,6 +178,11 @@ let tests =
         let xs = [| 1.; 2.; 3.; 4. |]
         xs.Length |> equal 4
 
+    testCase "Array.ConvertAll works" <| fun () ->
+        let xs = [| 1.; 2.; 3.; 4. |]
+        let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
+        ys |> Seq.toList |> equal [1;2;3;4]
+
     testCase "Array.zeroCreate works" <| fun () ->
         let xs = Array.zeroCreate 2
         equal 2 xs.Length

@@ -136,6 +136,7 @@ let defaultFileExt language (args: CliArgs) =
     | Python -> Path.replaceExtension ".py" fileExt
     | Php -> ".php"
     | Dart -> ".dart"
+    | Rust -> ".rs"
     | _ -> fileExt
 
 let argLanguage (args: CliArgs) =
@@ -156,6 +157,7 @@ let argLanguage (args: CliArgs) =
     | "py" | "python" | "Python" -> Python
     | "php" | "Php" | "PHP" -> Php
     | "dart" -> Dart
+    | "rust" | "Rust" -> Rust
     | _ -> JavaScript)
 
 type Runner =

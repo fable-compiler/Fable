@@ -20,6 +20,31 @@
                 "reveal": "silent"
             },
             "problemMatcher": "$msCompile"
-        }
+        },
+        {
+            "label": "build bench-compiler",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary",
+                "src/fable-standalone/test/bench-compiler"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build Rust.AST.Tests",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary",
+                "src/Fable.Transforms/Rust/AST/Tests"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+
     ]
 }

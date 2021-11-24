@@ -252,8 +252,44 @@ let compileToFableAst (results: IParseAndCheckResults) fileName fableLibrary typ
 
 type BabelResult(program: Babel.Program, errors) =
     member _.Program = program
-    interface IBabelResult with
+    interface IFableResult with
         member _.FableErrors = errors
+
+type RustResult(crate: Rust.AST.Types.Crate, errors) =
+    member _.Crate = crate
+    interface IFableResult with
+        member _.FableErrors = errors
+
+let printBabelAst (babel: BabelResult) (writer: IWriter) =
+    let writer =
+        { new BabelPrinter.Writer with
+            member _.Dispose() = writer.Dispose()
+            member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
+            member _.MakeImportPath(path) = writer.MakeImportPath(path)
+            member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+            member _.Write(str) = writer.Write(str) }
+
+    BabelPrinter.run writer babel.Program
+
+let printRustAst (rust: RustResult) (writer: IWriter) =
+    let writer =
+        { new Rust.RustPrinter.Writer with
+            member _.Dispose() = writer.Dispose()
+            member _.MakeImportPath(path) = writer.MakeImportPath(path)
+            member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+            member _.Write(str) = writer.Write(str) }
+
+    Rust.RustPrinter.run writer rust.Crate
+
+let getLanguage (language: string) =
+    match language.ToLowerInvariant() with
+    | "js" | "javascript" -> JavaScript
+    | "ts" | "typescript" -> TypeScript
+    | "py" | "python" -> Python
+    | "php" -> Php
+    | "dart" -> Dart
+    | "rust" -> Rust
+    | _ -> failwithf "Unsupported language: %s" language
 
 let init () =
   { new IFableManager with
@@ -292,29 +328,30 @@ let init () =
             let res = results :?> ParseAndCheckResults
             getCompletionsAtLocation res line col lineText
 
-        member _.CompileToBabelAst(fableLibrary:string, results:IParseAndCheckResults, fileName:string,
-                                    ?typedArrays, ?typescript) =
-            let language = match typescript with | Some true -> TypeScript | _ -> JavaScript
+        member _.CompileToTargetAst(fableLibrary:string, results:IParseAndCheckResults, fileName:string, typedArrays, language) =
+            let language = getLanguage language
+            let typedArrays =
+                if language = JavaScript then typedArrays else None // not used for other languages
+
             let com, fableAst, errors =
                 compileToFableAst results fileName fableLibrary typedArrays language
-            let babelAst =
-                fableAst |> Fable2Babel.Compiler.transformFile com
-            upcast BabelResult(babelAst, errors)
 
-        member _.PrintBabelAst(babelResult, writer) =
-            match babelResult with
-            | :? BabelResult as babel ->
-                let writer =
-                    { new BabelPrinter.Writer with
-                        member _.Dispose() = writer.Dispose()
-                        member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
-                        member _.MakeImportPath(path) = writer.MakeImportPath(path)
-                        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
-                        member _.Write(str) = writer.Write(str) }
+            match language with
+            | JavaScript | TypeScript ->
+                let babelAst = fableAst |> Fable2Babel.Compiler.transformFile com
+                upcast BabelResult(babelAst, errors)
+            | Rust ->
+                let rustAst = fableAst |> Rust.Fable2Rust.Compiler.transformFile com
+                upcast RustResult(rustAst, errors)
+            // TODO: add other languages
+            | _ -> failwithf "Unsupported language: %A" language
 
-                BabelPrinter.run writer babel.Program
-            | _ ->
-                failwith "Unexpected Babel result"
+        member _.PrintTargetAst(fableResult, writer) =
+            match fableResult with
+            | :? BabelResult as babel -> printBabelAst babel writer
+            | :? RustResult as rust -> printRustAst rust writer
+            // TODO: add other languages
+            | _ -> failwith "Unexpected Fable result"
 
         member _.FSharpAstToString(results:IParseAndCheckResults, fileName:string) =
             let res = results :?> ParseAndCheckResults

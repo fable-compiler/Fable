@@ -1914,6 +1914,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ ->
         Helper.LibCall(com, "Util", "clear", t, [ar], ?loc=r) |> Some
+    | "ConvertAll", Some ar, [arg] ->
+        Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
@@ -2005,6 +2007,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
+    | "ConvertAll", None, [source; mapping] ->
+        Helper.LibCall(com, "Array", "map", t, [mapping; source], ?loc=r) |> Some
     | "IndexOf", None, args ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
@@ -2206,6 +2210,12 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
+    | "IsPositiveInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isPositiveInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsNegativeInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isNegativeInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsInfinity", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,

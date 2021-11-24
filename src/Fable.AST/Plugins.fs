@@ -15,6 +15,7 @@ type Language =
     | Python
     | Php
     | Dart
+    | Rust
 
     override this.ToString () =
         match this with
@@ -23,6 +24,7 @@ type Language =
         | Python -> "Python"
         | Php -> "PHP"
         | Dart -> "Dart"
+        | Rust -> "Rust"
 
 type CompilerOptions =
     {

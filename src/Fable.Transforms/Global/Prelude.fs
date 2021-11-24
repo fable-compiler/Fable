@@ -171,6 +171,11 @@ module Naming =
             value + (input.Substring(prefix.Length))
         else input
 
+    let replaceSuffix (suffix: string) (value: string) (input: string) =
+        if input.EndsWith(suffix) then
+            (input.Substring(0, input.Length - suffix.Length)) + value
+        else input
+
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
             s.Substring(4)

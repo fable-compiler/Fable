@@ -115,7 +115,11 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         | args, argTypes -> None, args, argTypes
 
     sourceTypes |> Seq.tryPick (fun t ->
-        match Replacements.tryType t with
+        let typeOpt =
+            match com.Options.Language with
+            | Rust -> Rust.Replacements.tryType t
+            | _ -> Replacements.tryType t
+        match typeOpt with
         | Some(entityFullName, makeCall, genArgs) ->
             let info = makeCallInfo traitName entityFullName argTypes genArgs
             makeCall com ctx r typ info thisArg args
@@ -490,7 +494,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Const(value, typ) ->
         let typ = makeType ctx.GenericArgs typ
-        return Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        let expr =
+            match com.Options.Language with
+            | Rust -> Rust.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+            | _ -> Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        return expr
 
     | FSharpExprPatterns.BaseValue typ ->
         let r = makeRangeFrom fsExpr
@@ -1293,8 +1301,8 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             transformExplicitlyAttachedMember com ctx ent memb args body; []
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
-let private addUsedRootName com name (usedRootNames: Set<string>) =
-    if Set.contains name usedRootNames then
+let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
+    if com.Options.Language <> Rust && Set.contains name usedRootNames then
         "Cannot have two module members with same name: " + name
         |> addError com [] None
     Set.add name usedRootNames
@@ -1350,30 +1358,30 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             match sub with
             | [] when isIgnoredLeafEntity ent -> []
             | [] ->
-                let entFullName = FsEnt.Ref ent
-                let ent = (com :> Compiler).GetEntity(entFullName)
+                let entRef = FsEnt.Ref ent
+                let ent = (com :> Compiler).GetEntity(entRef)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     []
                 else
                     // If the file is empty F# creates a class for the module, but Fable clears the name
                     // because it matches the root module so it becomes invalid JS, see #2350
-                    match getEntityDeclarationName com entFullName with
+                    match getEntityDeclarationName com entRef with
                     | "" -> []
                     | name ->
                         [Fable.ClassDeclaration
                             { Name = name
-                              Entity = entFullName
+                              Entity = entRef
                               Constructor = None
                               BaseCall = None
                               AttachedMembers = [] }]
-            // // This adds modules in the AST for languages that support them (like Rust)
-            // | sub when (ent.IsFSharpModule || ent.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
-            //     let entRef = FsEnt.Ref ent
-            //     let members = transformDeclarations com ctx sub
-            //     [Fable.ModuleDeclaration
-            //         { Name = ent.CompiledName
-            //           Entity = entRef
-            //           Members = members }]
+            // This adds modules in the AST for languages that support them (like Rust)
+            | sub when (ent.IsFSharpModule || ent.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
+                let entRef = FsEnt.Ref ent
+                let members = transformDeclarations com ctx sub
+                [Fable.ModuleDeclaration
+                    { Name = ent.CompiledName
+                      Entity = entRef
+                      Members = members }]
             | sub ->
                 transformDeclarations com ctx sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
@@ -1470,6 +1478,7 @@ type FableCompiler(com: Compiler) =
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             match this.Options.Language with
             | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
+            | Rust -> Rust.Replacements.tryCall this ctx r t info thisArg args
             | _ -> Replacements.tryCall this ctx r t info thisArg args
 
         member _.GetInlineExprFromMember(memb) =
@@ -1502,6 +1511,20 @@ type FableCompiler(com: Compiler) =
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
+let rec attachClassMembers (com: FableCompiler) = function
+    | Fable.ModuleDeclaration decl ->
+        { decl with Members = decl.Members |> List.map (attachClassMembers com) }
+        |> Fable.ModuleDeclaration
+    | Fable.ClassDeclaration decl as classDecl ->
+        com.TryGetAttachedMembers(decl.Entity.FullName)
+        |> Option.map (fun members ->
+            { decl with Constructor = members.Cons
+                        BaseCall = members.BaseCall
+                        AttachedMembers = members.Members.ToArray() |> List.ofArray }
+            |> Fable.ClassDeclaration)
+        |> Option.defaultValue classDecl
+    | decl -> decl
+
 let transformFile (com: Compiler) =
     let file = com.GetImplementationFile(com.CurrentFile)
     let usedRootNames = getUsedRootNames com Set.empty file.Declarations
@@ -1509,14 +1532,5 @@ let transformFile (com: Compiler) =
     let com = FableCompiler(com)
     let rootDecls =
         transformDeclarations com ctx file.Declarations
-        |> List.map (function
-            | Fable.ClassDeclaration decl as classDecl ->
-                com.TryGetAttachedMembers(decl.Entity.FullName)
-                |> Option.map (fun members ->
-                    { decl with Constructor = members.Cons
-                                BaseCall = members.BaseCall
-                                AttachedMembers = members.Members.ToArray() |> List.ofArray }
-                    |> Fable.ClassDeclaration)
-                |> Option.defaultValue classDecl
-            | decl -> decl)
+        |> List.map (attachClassMembers com)
     Fable.File(rootDecls, usedRootNames)

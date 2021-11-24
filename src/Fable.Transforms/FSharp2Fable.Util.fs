@@ -352,9 +352,9 @@ module Helpers =
         | TrimRootModule of Compiler
         | NoTrimRootModule
 
-    let private getEntityMangledName trimRootModule (ent: Fable.EntityRef) =
-        let fullName = ent.FullName
-        match trimRootModule, ent.Path with
+    let private getEntityMangledName trimRootModule (entRef: Fable.EntityRef) =
+        let fullName = entRef.FullName
+        match trimRootModule, entRef.Path with
         | TrimRootModule com, Fable.SourcePath sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
@@ -368,13 +368,18 @@ module Helpers =
         if name = ".ctor" then "$ctor"
         else name.Replace('.','_').Replace('`','$')
 
-    let getEntityDeclarationName (com: Compiler) (ent: Fable.EntityRef) =
-        let entityName = getEntityMangledName (TrimRootModule com) ent |> cleanNameAsJsIdentifier
-        (entityName, Naming.NoMemberPart)
-        ||> match com.Options.Language with
-            | Python ->
-                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains
-            | _ -> Naming.sanitizeIdent (fun _ -> false)
+    let cleanNameAsRustIdentifier (name: string) =
+        name.Replace(' ','_').Replace('`','_')
+
+    let getEntityDeclarationName (com: Compiler) (entRef: Fable.EntityRef) =
+        let entityName = getEntityMangledName (TrimRootModule com) entRef |> cleanNameAsJsIdentifier
+        let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
+        let sanitizedName =
+            match com.Options.Language with
+            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | Rust -> entityName |> cleanNameAsRustIdentifier
+            | _ -> Naming.sanitizeIdent (fun _ -> false) name part
+        sanitizedName
 
     let private getMemberMangledName trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
@@ -384,14 +389,18 @@ module Helpers =
         else
             match memb.DeclaringEntity with
             | Some ent ->
-                let entFullName = FsEnt.Ref ent
+                let entRef = FsEnt.Ref ent
+                let entName = getEntityMangledName trimRootModule entRef
                 if ent.IsFSharpModule then
-                    match getEntityMangledName trimRootModule entFullName with
-                    | "" -> memb.CompiledName, Naming.NoMemberPart
-                    | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
+                    match trimRootModule, entName with
+                    | TrimRootModule com, _ when com.Options.Language = Rust ->
+                        memb.CompiledName, Naming.NoMemberPart // no module prefix for Rust
+                    | _, "" ->
+                        memb.CompiledName, Naming.NoMemberPart
+                    | _, moduleName ->
+                        moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
-                    let entName = getEntityMangledName trimRootModule entFullName
                     if memb.IsInstanceMember
                     then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
                     else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
@@ -405,7 +414,8 @@ module Helpers =
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
-            | _ ->  Naming.sanitizeIdent (fun _ -> false) name part
+            | Rust -> Naming.sanitizeIdent (fun _ -> false) (name |> cleanNameAsRustIdentifier) part
+            | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
@@ -1357,16 +1367,17 @@ module Identifiers =
     let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
         { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
-    let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
+    let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
+        let name, part = (fsRef.CompiledName, Naming.NoMemberPart)
         let sanitizedName =
-            (fsRef.CompiledName, Naming.NoMemberPart)
-            ||> match _com.Options.Language with
-                | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name)
-                | _ -> Naming.sanitizeIdent (isUsedName ctx)
+            match com.Options.Language with
+            | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
+            | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
+            | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
-          IsThisArgument = false
+          IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           IsMutable = fsRef.IsMutable
           Range = { makeRange fsRef.DeclarationLocation
@@ -1563,11 +1574,15 @@ module Util =
             | _ -> false)
 
     let isAttachMembersEntity (com: Fable.Compiler) (ent: FSharpEntity) =
-        not ent.IsFSharpModule && ((*com.Options.Language = Php ||*) ent.Attributes |> Seq.exists (fun att ->
-            // Should we make sure the attribute is not an alias?
-            match att.AttributeType.TryFullName with
-            | Some Atts.attachMembers -> true
-            | _ -> false))
+        not ent.IsFSharpModule && (
+            // com.Options.Language = Php ||
+            com.Options.Language = Rust ||
+            ent.Attributes |> Seq.exists (fun att ->
+                // Should we make sure the attribute is not an alias?
+                match att.AttributeType.TryFullName with
+                | Some Atts.attachMembers -> true
+                | _ -> false)
+        )
 
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.exists (fun att ->
@@ -1816,7 +1831,8 @@ module Util =
                 match tryGlobalOrImportedEntity com fableEnt with
                 | Some expr -> Some expr
                 // AttachMembers classes behave the same as global/imported classes
-                | None when isAttachMembersEntity com e -> Some(entityRef com fableEnt)
+                | None when com.Options.Language <> Rust && isAttachMembersEntity com e ->
+                    Some(entityRef com fableEnt)
                 | None -> None
             match moduleOrClassExpr, callInfo.ThisArg with
             | Some _, Some _thisArg ->
@@ -1984,7 +2000,7 @@ module Util =
 
             callInstanceMember com r typ callInfo entity memb
 
-        | _, Some entity when isModuleValueForCalls entity memb ->
+        | _, Some entity when isModuleValueForCalls entity memb && com.Options.Language <> Rust ->
             let typ = makeReturnType memb.FullType
             memberRef com ctx r typ memb
         | _ ->
