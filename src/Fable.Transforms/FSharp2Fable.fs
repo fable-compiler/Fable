@@ -985,11 +985,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | FSharpExprPatterns.Call(None, memb, _, _, _)
         | FSharpExprPatterns.Value memb ->
             let value = makeValueFrom com ctx r memb
-            match memb.DeclaringEntity with
-            | Some ent when ent.IsFSharpModule && isPublicMember memb ->
-                return Replacements.makeRefFromMutableFunc com ctx r value.Type value
-            | _ ->
-                return Replacements.makeRefFromMutableValue com ctx r value.Type value
+            if memb.IsMutable then
+                match memb.DeclaringEntity with
+                | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                    return Replacements.makeRefFromMutableFunc com ctx r value.Type value
+                | _ ->
+                    return Replacements.makeRefFromMutableValue com ctx r value.Type value
+            else
+                return Replacements.newReference com r value.Type value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
@@ -1503,8 +1506,7 @@ type FableCompiler(com: Compiler) =
         member _.ProjectFile = com.ProjectFile
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-        member _.GetEntity(fullName) = com.GetEntity(fullName)
-        member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
+        member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
