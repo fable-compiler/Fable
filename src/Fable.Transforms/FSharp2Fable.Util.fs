@@ -914,6 +914,7 @@ module TypeHelpers =
                 tdef.Attributes |> tryPickAttribute [
                     Atts.stringEnum, Fable.String
                     Atts.erase, Fable.Any
+                    Atts.tsTaggedUnion, Fable.Any
                 ]
                 // Rest of declared types
                 |> Option.defaultWith (fun () ->
@@ -1518,7 +1519,7 @@ module Util =
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.Entity.FullName with
-            | Atts.erase | Atts.stringEnum -> true
+            | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion -> true
             | _ -> false)
 
     let isGlobalOrImportedEntity (ent: Fable.Entity) =
