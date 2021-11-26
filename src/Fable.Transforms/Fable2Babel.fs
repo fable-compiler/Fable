@@ -1128,7 +1128,10 @@ module Util =
             match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
             // Check only members with multiple non-curried arguments
             | [parameters], Some ent when not (List.isEmpty parameters) ->
-                com.TryGetNonCoreAssemblyEntity(ent)
+                // Skip check for core assemblies
+                match ent.Path with
+                | Fable.CoreAssemblyName _ -> None
+                | _ -> com.TryGetEntity(ent)
                 |> Option.bind (fun ent ->
                     if ent.IsFSharpModule then None
                     else
@@ -2255,8 +2258,7 @@ module Compiler =
             member _.CurrentFile = com.CurrentFile
             member _.OutputDir = com.OutputDir
             member _.ProjectFile = com.ProjectFile
-            member _.GetEntity(fullName) = com.GetEntity(fullName)
-            member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
+            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)

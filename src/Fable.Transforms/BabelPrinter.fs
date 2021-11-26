@@ -779,11 +779,17 @@ module PrinterExtensions =
 
         member printer.PrintConditionalExpression(test, consequent, alternate, loc) =
             printer.AddLocation(loc)
-            match test with
+            match test, consequent, alternate with
             // TODO: Move node optimization to Fable2Babel as with IfStatement?
-            | Literal(BooleanLiteral(value=value)) ->
+            | Literal(BooleanLiteral(value=value)), _, _ ->
                 if value then printer.Print(consequent)
                 else printer.Print(alternate)
+            | test, Literal(BooleanLiteral(true,_)), Literal(BooleanLiteral(false,_)) ->
+                printer.Print(test)
+            | test, Literal(BooleanLiteral(false,_)), Literal(BooleanLiteral(true,_)) ->
+                printer.PrintUnaryExpression(test, "!", loc)
+            | test, _, Literal(BooleanLiteral(false,_)) ->
+                printer.PrintOperation(test, "&&", consequent, loc)
             | _ ->
                 printer.ComplexExpressionWithParens(test)
                 printer.Print(" ? ")
