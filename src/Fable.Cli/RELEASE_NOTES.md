@@ -1,3 +1,8 @@
+### 3.6.2
+
+* TypescriptTaggedUnion @cannorin
+* Speed up recompilation when adding/removing files
+
 ### 3.6.1
 
 * Fix #2614: Char addition
