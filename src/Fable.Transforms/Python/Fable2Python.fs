@@ -416,7 +416,6 @@ module Helpers =
         // printfn $"clean: {name}"
         match name with
         | "Math" -> "math"
-        | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
@@ -699,7 +698,6 @@ module Util =
 
     let makePyObject (pairs: seq<string * Expression>) =
         pairs |> Seq.map (fun (name, value) ->
-           //let prop, computed = memberFromName com ctx name
            let prop = Expression.constant(name)
            prop, value)
         |> Seq.toList

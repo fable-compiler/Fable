@@ -500,3 +500,177 @@ let ``test Array.map works`` () =
     let xs = [|1.|]
     let ys = xs |> Array.map (fun x -> x * 2.)
     ys.[0] |> equal 2.
+
+[<Fact>]
+let ``test Array.map doesn't execute side effects twice`` () = // See #1140
+    let mutable c = 0
+    let i () = c <- c + 1; c
+    [| i (); i (); i () |] |> Array.map (fun x -> x + 1) |> ignore
+    equal 3 c
+
+[<Fact>]
+let ``test Array.map2 works`` () =
+    let xs = [|1.|]
+    let ys = [|2.|]
+    let zs = Array.map2 (*) xs ys
+    zs.[0] |> equal 2.
+
+[<Fact>]
+let ``test Array.map3 works`` () =
+    let value1 = [|1.|]
+    let value2 = [|2.|]
+    let value3 = [|3.|]
+    let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
+    zs.[0] |> equal 6.
+
+[<Fact>]
+let ``test Array.mapi works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.mapi (fun i x -> float i + x)
+    ys.[1] |> equal 3.
+
+[<Fact>]
+let ``test Array.mapi2 works`` () =
+    let xs = [|1.; 2.|]
+    let ys = [|2.; 3.|]
+    let zs = Array.mapi2 (fun i x y -> float i + x * y) xs ys
+    zs.[1] |> equal 7.
+
+[<Fact>]
+let ``test Array.mapFold works`` () =
+    let xs = [|1y; 2y; 3y; 4y|]
+    let result = xs |> Array.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst result |> Array.sum |> equal 20y
+    snd result |> equal 10y
+
+[<Fact>]
+let ``test Array.mapFoldBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let result = Array.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst result |> Array.sum |> equal -20.
+    snd result |> equal -10.
+
+[<Fact>]
+let ``test Array.max works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.max
+    |> equal 2.
+
+[<Fact>]
+let ``test Array.maxBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.maxBy (fun x -> -x)
+    |> equal 1.
+
+[<Fact>]
+let ``test Array.min works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.min
+    |> equal 1.
+
+[<Fact>]
+let ``test Array.minBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.minBy (fun x -> -x)
+    |> equal 2.
+
+[<Fact>]
+let ``test Array.ofList works`` () =
+    let xs = [1.; 2.]
+    let ys = Array.ofList xs
+    ys.Length |> equal 2
+
+[<Fact>]
+let ``test Array.ofSeq works`` () =
+    let xs = seq { yield 1; yield 2 }
+    let ys = Array.ofSeq xs
+    ys.[0] |> equal 1
+
+[<Fact>]
+let ``test Array.partition works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys, zs = xs |> Array.partition (fun x -> x <= 1.)
+    equal ys [| 1. |]
+    equal zs [| 2.; 3. |]
+
+[<Fact>]
+let ``test Array.permute works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys.[0] |> equal 2.
+
+[<Fact>]
+let ``test Array.pick works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.pick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    |> equal 2.
+
+[<Fact>]
+let ``test Array.range works`` () =
+    [|1..5|]
+    |> Array.reduce (+)
+    |> equal 15
+    [|0..2..9|]
+    |> Array.reduce (+)
+    |> equal 20
+
+[<Fact>]
+let ``test Array.reduce works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.reduce (-)
+    |> equal -8.
+
+[<Fact>]
+let ``test Array.reduce Array.append works`` () = // See #2372
+    let nums =
+        [|
+            [| 0 |]
+            [| 1 |]
+        |]
+    Array.reduce Array.append nums |> equal [|0; 1|]
+
+    let nums2d =
+        [|
+            [| [| 0 |] |]
+            [| [| 1 |] |]
+        |]
+    Array.reduce Array.append nums2d
+    |> equal [|[|0|]; [|1|]|]
+
+    let strs =
+        [|
+            [| "a" |]
+            [| "b" |]
+        |]
+    Array.reduce Array.append strs
+    |> equal [|"a"; "b"|]
+
+[<Fact>]
+let ``test Array.reduceBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.reduceBack (-)
+    |> equal -2.
+
+[<Fact>]
+let ``test Array.rev works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.rev
+    xs.[0] |> equal 1. // Make sure there is no side effects
+    ys.[0] |> equal 2.
+
+[<Fact>]
+let ``test Array.scan works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = xs |> Array.scan (+) 0.
+    ys.[2] + ys.[3]
+    |> equal 9.
+
+[<Fact>]
+let ``test Array.scanBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = Array.scanBack (-) xs 0.
+    ys.[2] + ys.[3]
+    |> equal 3.

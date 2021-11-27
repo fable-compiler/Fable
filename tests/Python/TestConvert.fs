@@ -13,7 +13,7 @@ let tryParse f initial (value: string) =
 #else
     let success = f(value, NumberStyles.Number, CultureInfo("en-US"), res)
 #endif
-    (success, !res)
+    (success, res.Value)
 
 let parse f (a: string) =
 #if FABLE_COMPILER

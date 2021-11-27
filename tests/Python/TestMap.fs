@@ -101,8 +101,8 @@ let ``test xs.Remove works`` () =
 let ``test Map.iter works`` () =
     let xs = Map [1.,1.; 2.,4.; 3.,9.; 4.,16.]
     let total = ref 0.
-    xs |> Map.iter (fun x y -> total := !total + x + y)
-    !total |> equal 40.
+    xs |> Map.iter (fun x y -> total.Value <- total.Value + x + y)
+    total.Value |> equal 40.
 
 [<Fact>]
 let ``test Map.forAll works`` () =

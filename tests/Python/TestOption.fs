@@ -229,9 +229,9 @@ let ``test Mixing refs and options works`` () =
         (fun f -> slot.Value <- Some f),
         // TODO!!! If we change this to `slot.Value.Value` it fails
         (fun v -> slot.Value.Value v)
-    setter (fun i -> res := i + 2)
+    setter (fun i -> res.Value <- i + 2)
     getter 5
-    equal 7 !res
+    equal 7 res.Value
 
 [<Fact>]
 let ``test Generic options work`` () =
