@@ -52,6 +52,11 @@ type Helper =
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getAttachedMemberWith loc typ (makeIdentExpr ident) memb
 
+[<RequireQualifiedAccess>]
+module Atts =
+    let [<Literal>] decorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
+    let [<Literal>] reflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
+
 module Helpers =
     let getTypedArrayName (com: Compiler) numberKind =
         match numberKind with
