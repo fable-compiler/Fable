@@ -93,10 +93,11 @@ module Helpers =
 
     let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
 
-    [<Emit("functools.reduce($1, $0)")>]
+    [<Emit("functools.reduce($0, $1)")>]
     let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = nativeOnly
 
-    let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = !! array?reduceRight (reduction)
+    [<Emit("functools.reduce($0, $1[::-1])")>]
+    let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = nativeOnly
 
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature. Note: Python cannot take an argument here.

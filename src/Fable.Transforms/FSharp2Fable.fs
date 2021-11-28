@@ -1148,7 +1148,9 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
         match attEnt.BaseType with
         | Some tbase when tbase.HasTypeDefinition ->
             match tbase.TypeDefinition.TryFullName with
+            | Some PY.Replacements.Atts.decorator
             | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = false |}
+            | Some PY.Replacements.Atts.reflectedDecorator
             | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = true |}
             | _ -> None
         | _ -> None)

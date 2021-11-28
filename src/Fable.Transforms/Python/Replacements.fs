@@ -52,17 +52,22 @@ type Helper =
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getAttachedMemberWith loc typ (makeIdentExpr ident) memb
 
+[<RequireQualifiedAccess>]
+module Atts =
+    let [<Literal>] decorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
+    let [<Literal>] reflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
+
 module Helpers =
     let getTypedArrayName (com: Compiler) numberKind =
         match numberKind with
-        | Int8 -> "list"
-        | UInt8 -> "list"
-        | Int16 -> "list"
-        | UInt16 -> "list"
-        | Int32 -> "list"
-        | UInt32 -> "list"
-        | Float32 -> "list"
-        | Float64 -> "list"
+        | Int8 -> "Int8Array"
+        | UInt8 -> "Uint8Array"
+        | Int16 -> "Int16Array"
+        | UInt16 -> "Uint16Array"
+        | Int32 -> "Int32Array"
+        | UInt32 -> "Uint32Array"
+        | Float32 -> "Float32Array"
+        | Float64 -> "Float64Array"
 
     let getIdentUniqueName (ctx: Context) name =
         // printfn "getIdentUniqueName: %A" name
@@ -1049,7 +1054,9 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (s
             | Types.arrayCons ->
                 match genArg with
                 | Number(numberKind,_) when com.Options.TypedArrays ->
-                    args @ [Helpers.getTypedArrayName com numberKind |> makeIdentExpr]
+                    let name = Helpers.getTypedArrayName com numberKind
+                    let cons = [ makeImportLib com Any name "types" ]
+                    args @ cons
                 // Python will complain if we miss an argument
                 | _ when com.Options.Language = Python ->
                     args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
@@ -1899,7 +1906,7 @@ let nativeArrayFunctions =
             //"FindIndex", "index"
             //"ForAll", "all"
             //"Iterate", "forEach"
-            "Reduce", "reduce"
+            //"Reduce", "reduce"
             //"ReduceBack", "reduceRight"
           |]
 
@@ -1989,7 +1996,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let call = Helper.GlobalCall(meth, t, args @ [thisArg], ?loc=r)
         Helper.GlobalCall("list", t, [call], ?loc=r)
         |> Some
-    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+    | "Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth, args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -3003,7 +3010,7 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> Helper.LibCall(com, "Uri", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor" -> Helper.LibCall(com, "Uri", "Uri", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
     | "UnescapeDataString" -> Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeDataString"   -> Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeUriString"    -> Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes) |> Some

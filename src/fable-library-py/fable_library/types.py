@@ -4,6 +4,7 @@ from abc import abstractstaticmethod
 from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 from typing import Union as Union_
 from typing import cast
+import array
 
 from .util import IComparable, equals
 
@@ -256,6 +257,38 @@ class FSharpException(Exception, IComparable):
 
     def CompareTo(self, other: FSharpException):
         return record_compare_to(self, other)
+
+
+def Int8Array(lst: List[int]):
+    return array.array("b", lst)
+
+
+def Uint8Array(lst: List[int]):
+    return bytearray(lst)
+
+
+def Int16Array(lst: List[int]):
+    return array.array("h", lst)
+
+
+def Uint16Array(lst: List[int]):
+    return array.array("H", lst)
+
+
+def Int32Array(lst: List[int]):
+    return array.array("i", lst)
+
+
+def Uint32Array(lst: List[int]):
+    return array.array("I", lst)
+
+
+def Float32Array(lst: List[float]):
+    return array.array("f", lst)
+
+
+def Float64Array(lst: List[float]):
+    return array.array("d", lst)
 
 
 __all__ = ["Attribute", "Exception", "FSharpException", "FSharpRef", "Record", "seq_to_string", "to_string", "Union"]

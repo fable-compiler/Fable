@@ -7,10 +7,10 @@ type DisposableAction(f) =
     interface IDisposable with
         member __.Dispose() = f()
 
-let sleepAndAssign token res =
+let sleepAndAssign token (res : Ref<bool>) =
     Async.StartImmediate(async {
         do! Async.Sleep 200
-        res := true
+        res.Value <- true
     }, token)
 
 let successWork: Async<string> = Async.FromContinuations(fun (onSuccess,_,_) -> onSuccess "success")
@@ -36,54 +36,54 @@ let ``test Async while binding works correctly`` () =
 [<Fact>]
 let ``test Async for binding works correctly`` () =
     let inputs = [|1; 2; 3|]
-    let result = ref 0
+    let mutable result = 0
     async {
         for inp in inputs do
-            result := !result + inp
+            result <- result + inp
     } |> Async.StartImmediate
-    equal !result 6
+    equal result 6
 
 [<Fact>]
 let ``test Async exceptions are handled correctly`` () =
-    let result = ref 0
+    let mutable result = 0
     let f shouldThrow =
         async {
             try
                 if shouldThrow then failwith "boom!"
-                else result := 12
-            with _ -> result := 10
+                else result <- 12
+            with _ -> result <- 10
         } |> Async.StartImmediate
-        !result
+        result
     f true + f false |> equal 22
 
 [<Fact>]
 let ``test Simple async is executed correctly`` () =
-    let result = ref false
+    let mutable result = false
     let x = async { return 99 }
     async {
         let! x = x
         let y = 99
-        result := x = y
+        result <- x = y
     }
     |> Async.StartImmediate
-    equal !result true
+    equal result true
 
 [<Fact>]
 let ``test async use statements should dispose of resources when they go out of scope`` () =
-    let isDisposed = ref false
-    let step1ok = ref false
-    let step2ok = ref false
+    let mutable isDisposed = false
+    let mutable step1ok = false
+    let mutable step2ok = false
     let resource = async {
-        return new DisposableAction(fun () -> isDisposed := true)
+        return new DisposableAction(fun () -> isDisposed <- true)
     }
     async {
         use! r = resource
-        step1ok := not !isDisposed
+        step1ok <- not isDisposed
     }
     //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
     |> Async.StartImmediate
-    step2ok := !isDisposed
-    (!step1ok && !step2ok) |> equal true
+    step2ok <- isDisposed
+    (step1ok && step2ok) |> equal true
 
 [<Fact>]
 let ``test Try ... with ... expressions inside async expressions work the same`` () =
@@ -91,7 +91,7 @@ let ``test Try ... with ... expressions inside async expressions work the same``
     let throw() : unit =
         raise(exn "Boo!")
     let append(x) =
-        result := !result + x
+        result.Value <- result.Value + x
     let innerAsync() =
         async {
             append "b"
@@ -107,7 +107,7 @@ let ``test Try ... with ... expressions inside async expressions work the same``
         with _ -> append "2"
         append "f"
     } |> Async.StartImmediate
-    equal !result "abcdef"
+    equal result.Value "abcdef"
 
 // Disable this test for dotnet as it's failing too many times in Appveyor
 #if FABLE_COMPILER
@@ -125,9 +125,9 @@ let ``test async cancellation works`` () =
         tcs2.Cancel()
         tcs3.CancelAfter(1000)
         do! Async.Sleep 500
-        equal false !res1
-        equal false !res2
-        equal true !res3
+        equal false res1.Value
+        equal false res2.Value
+        equal true res3.Value
     } |> Async.StartImmediate
 
 [<Fact>]
@@ -140,7 +140,7 @@ let ``test CancellationTokenSourceRegister works`` () =
             x <- x + 1)
         sleepAndAssign tcs1.Token res1
         do! Async.Sleep 500
-        equal false !res1
+        equal false res1.Value
         equal 1 x
     } |> Async.StartImmediate
 #endif
@@ -148,18 +148,18 @@ let ``test CancellationTokenSourceRegister works`` () =
 [<Fact>]
 let ``test Async StartWithContinuations works`` () =
     let res1, res2, res3 = ref "", ref "", ref ""
-    Async.StartWithContinuations(successWork, (fun x -> res1 := x), ignore, ignore)
-    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2 := x.Message), ignore)
-    Async.StartWithContinuations(cancelWork, ignore, ignore, (fun x -> res3 := x.Message))
-    equal "success" !res1
-    equal "error" !res2
-    equal "cancelled" !res3
+    Async.StartWithContinuations(successWork, (fun x -> res1.Value <- x), ignore, ignore)
+    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2.Value <- x.Message), ignore)
+    Async.StartWithContinuations(cancelWork, ignore, ignore, (fun x -> res3.Value <- x.Message))
+    equal "success" res1.Value
+    equal "error" res2.Value
+    equal "cancelled" res3.Value
 
 [<Fact>]
 let ``test Async.Catch works`` () =
-    let assign res = function
-        | Choice1Of2 msg -> res := msg
-        | Choice2Of2 (ex: Exception) -> res := "ERROR: " + ex.Message
+    let assign (res: Ref<string>) = function
+        | Choice1Of2 msg -> res.Value <- msg
+        | Choice2Of2 (ex: Exception) -> res.Value <- "ERROR: " + ex.Message
     let res1 = ref ""
     let res2 = ref ""
     async {
@@ -168,17 +168,17 @@ let ``test Async.Catch works`` () =
         let! x2 = errorWork |> Async.Catch
         assign res2 x2
     } |> Async.StartImmediate
-    equal "success" !res1
-    equal "ERROR: error" !res2
+    equal "success" res1.Value
+    equal "ERROR: error" res2.Value
 
 [<Fact>]
 let ``test Async.Ignore works`` () =
     let res = ref false
     async {
         do! successWork |> Async.Ignore
-        res := true
+        res.Value <- true
     } |> Async.StartImmediate
-    equal true !res
+    equal true res.Value
 
 [<Fact>]
 let ``test MailboxProcessor.post works`` () =

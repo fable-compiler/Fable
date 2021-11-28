@@ -721,8 +721,8 @@ let ``test String.collect works`` () =
 let ``test String.iter works`` () =
     let res = ref ""
     "Hello world!"
-    |> String.iter (fun c -> res := !res + c.ToString())
-    equal "Hello world!" !res
+    |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
+    equal "Hello world!" res.Value
 
 [<Fact>]
 let ``test String.iteri works`` () =

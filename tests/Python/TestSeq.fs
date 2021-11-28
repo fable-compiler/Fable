@@ -266,27 +266,27 @@ let ``test Seq.iter works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     xs |> Seq.iter (fun x ->
-       total := !total + x
+       total.Value <- total.Value + x
     )
-    !total |> equal 10.
+    total.Value |> equal 10.
 
 [<Fact>]
 let ``test Seq.iter2 works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     Seq.iter2 (fun x y ->
-       total := !total + x + y
+       total.Value <- total.Value + x + y
     ) xs xs
-    !total |> equal 20.
+    total.Value |> equal 20.
 
 [<Fact>]
 let ``test Seq.iteri works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     xs |> Seq.iteri (fun i x ->
-       total := !total + (float i) * x
+       total.Value <- total.Value + (float i) * x
     )
-    !total |> equal 20.
+    total.Value |> equal 20.
 
 [<Fact>]
 let ``test Seq.map works II`` () =
@@ -613,12 +613,12 @@ let ``test Seq.skip fails when there're not enough elements`` () =
     let error, xs = ref false, [|1;2;3;4;5|]
     try
         Seq.skip 5 xs |> Seq.length |> equal 0
-    with _ -> error := true
-    equal false !error
+    with _ -> error.Value <- true
+    equal false error.Value
     try
         Seq.skip 6 xs |> Seq.length |> equal 0
-    with _ -> error := true
-    equal true !error
+    with _ -> error.Value <- true
+    equal true error.Value
 
 [<Fact>]
 let ``test Seq.toArray works`` () =
@@ -686,13 +686,13 @@ let ``test Seq.cache works`` () =
      let count = ref 0
      let xs =
         1 |> Seq.unfold(fun i ->
-           count := !count + 1
+           count.Value <- count.Value + 1
            if i <= 10 then Some(i, i+1)
            else None)
            |> Seq.cache
      xs |> Seq.length |> ignore
      xs |> Seq.length |> ignore
-     !count
+     count.Value
      |> equal 11
 
 [<Fact>]

@@ -112,7 +112,7 @@ module Helpers =
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = nativeOnly //!!array?sort(comparer)
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = nativeOnly
 
     [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
     let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = nativeOnly

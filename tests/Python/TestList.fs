@@ -294,9 +294,9 @@ let ``test List.iter2 works`` () =
     let ys = [2; 4; 6; 8]
     let total = ref 0
     List.iter2 (fun x y ->
-    total := !total + (y - x)
+    total.Value <- total.Value + (y - x)
     ) xs ys
-    equal 10 !total
+    equal 10 total.Value
 
 [<Fact>]
 let ``test List.iteri works`` () =
