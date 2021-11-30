@@ -34,20 +34,20 @@ type Helper =
         makeImportLib com returnType coreMember coreModule
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
-                           ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isJsConstructor: bool, ?loc: SourceLocation) =
+                           ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isPyConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportLib com Any coreMember coreModule
         let info = makeCallInfo thisArg args (defaultArg argTypes [])
         Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+                                 IsConstructor = defaultArg isPyConstructor false }, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list,
-                             ?memb: string, ?isJsConstructor: bool, ?loc: SourceLocation) =
+                             ?memb: string, ?isPyConstructor: bool, ?loc: SourceLocation) =
         let callee =
             match memb with
             | Some memb -> getAttachedMember (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
         let info = makeCallInfo None args (defaultArg argTypes [])
-        Call(callee, { info with IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+        Call(callee, { info with IsConstructor = defaultArg isPyConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getAttachedMemberWith loc typ (makeIdentExpr ident) memb
@@ -343,10 +343,10 @@ let makeLongInt com r t signed (x: uint64) =
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
-    Helper.LibCall(com, "decimal", "Decimal", t, [makeStrConst str], isJsConstructor=true, ?loc=r)
+    Helper.LibCall(com, "decimal", "Decimal", t, [makeStrConst str], isPyConstructor=true, ?loc=r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
-    Helper.LibCall(com, "decimal", "Decimal", t, [e], isJsConstructor=true, ?loc=r)
+    Helper.LibCall(com, "decimal", "Decimal", t, [e], isPyConstructor=true, ?loc=r)
 
 let makeFloat32 r (x: float32) =
     Helper.GlobalCall("math", Number(Float32, None), [NumberConstant (float x, Float32, None) |> makeValue r], memb="fround")
@@ -420,7 +420,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
-    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isPyConstructor=true)
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
@@ -428,7 +428,7 @@ let makeRefFromMutableField com ctx r t callee key =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
-    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isPyConstructor=true)
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
@@ -443,7 +443,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None)
-    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    Helper.LibCall(com, "types", "FSharpRef", t, [getter; setter], isPyConstructor=true)
 
 // let turnLastArgIntoRef com ctx args =
 //     let args, defValue = List.splitLast args
@@ -902,7 +902,7 @@ let makeMap (com: ICompiler) ctx r t methName args genArg =
     Helper.LibCall(com, "map", Naming.lowerFirst methName, t, args, ?loc=r)
 
 let makeDictionaryWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "mutable_map", "Dictionary", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
+    Helper.LibCall(com, "mutable_map", "Dictionary", t, [sourceSeq; comparer], isPyConstructor=true, ?loc=r)
 
 let makeDictionary (com: ICompiler) ctx r t sourceSeq =
     match t with
@@ -910,10 +910,10 @@ let makeDictionary (com: ICompiler) ctx r t sourceSeq =
         // makeComparer com ctx key
         makeEqualityComparer com ctx key
         |> makeDictionaryWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("dict", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+    | _ -> Helper.GlobalCall("dict", t, [sourceSeq], isPyConstructor=true, ?loc=r)
 
 let makeHashSetWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "mutable_set", "HashSet", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
+    Helper.LibCall(com, "mutable_set", "HashSet", t, [sourceSeq; comparer], isPyConstructor=true, ?loc=r)
 
 let makeHashSet (com: ICompiler) ctx r t sourceSeq =
     match t with
@@ -921,7 +921,7 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
         // makeComparer com ctx key
         makeEqualityComparer com ctx key
         |> makeHashSetWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+    | _ -> Helper.GlobalCall("set", t, [sourceSeq], isPyConstructor=true, ?loc=r)
 
 let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
@@ -1360,7 +1360,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let getReference r t expr = getAttachedMemberWith r t expr "contents"
 let setReference r expr value = setExpr r expr (makeStrConst "contents") value
-let newReference com r t value = Helper.LibCall(com, "types", "FSharpRef", t, [value], isJsConstructor=true, ?loc=r)
+let newReference com r t value = Helper.LibCall(com, "types", "FSharpRef", t, [value], isPyConstructor=true, ?loc=r)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2738,7 +2738,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> Helper.LibCall(com, "timer", "Timer", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor", _, _ -> Helper.LibCall(com, "timer", "Timer", t, args, i.SignatureArgTypes, isPyConstructor=true, ?loc=r) |> Some
     | Naming.StartsWith "get_" meth, Some x, _ -> getAttachedMemberWith r t x meth |> Some
     | Naming.StartsWith "set_" meth, Some x, [value] -> setExpr r x (makeStrConst meth) value |> Some
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2900,7 +2900,7 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isPyConstructor=true, ?loc=r) |> Some
     | "get_Publish", Some x -> getAttachedMemberWith r t x "Publish" |> Some
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2912,7 +2912,7 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match thisArg with
     | None ->
         match i.CompiledName with
-        | ".ctor" -> Helper.LibCall(com, "mailbox_processor", "MailboxProcessor", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+        | ".ctor" -> Helper.LibCall(com, "mailbox_processor", "MailboxProcessor", t, args, i.SignatureArgTypes, isPyConstructor=true, ?loc=r) |> Some
         | "Start" -> Helper.LibCall(com, "mailbox_processor", "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> None
     | Some callee ->
@@ -3010,7 +3010,7 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> Helper.LibCall(com, "Uri", "Uri", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | ".ctor" -> Helper.LibCall(com, "Uri", "Uri", t, args, i.SignatureArgTypes, isPyConstructor=true, ?loc=r) |> Some
     | "UnescapeDataString" -> Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeDataString"   -> Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeUriString"    -> Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes) |> Some
@@ -3034,7 +3034,7 @@ let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallIn
 
 let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | (".ctor"|"Create"),_,_ -> Helper.LibCall(com, "Util", "Lazy", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
+    | (".ctor"|"Create"),_,_ -> Helper.LibCall(com, "Util", "Lazy", t, args, i.SignatureArgTypes, isPyConstructor=true, ?loc=r) |> Some
     | "CreateFromValue",_,_ -> Helper.LibCall(com, "Util", "lazyFromValue", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Force", Some callee, _ -> getAttachedMemberWith r t callee "Value" |> Some
     | ("get_Value"|"get_IsValueCreated"), Some callee, _ ->
