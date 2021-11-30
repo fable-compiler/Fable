@@ -497,7 +497,7 @@ module Helpers =
 
         match stmt with
         // Remove `self = self`
-        | Statement.Assign { Targets = [ Name {Id=Identifier("self")}]; Value = Name {Id=Identifier("self")}} -> None
+        | Statement.Assign { Targets = [ Name {Id=Identifier(x)}]; Value = Name {Id=Identifier(y)}} when x = y -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -712,7 +712,7 @@ module Util =
         let _, body = com.TransformFunction(ctx, None, [], expr)
         // Use an arrow function in case we need to capture `this`
         let args = Arguments.arguments ()
-        let afe, stmts = makeArrowFunctionExpression args body
+        let afe, stmts = makeArrowFunctionExpression None args body
         Expression.call(afe, []), stmts
 
     let multiVarDeclaration (ctx: Context) (variables: (Identifier * Expression option) list) =
@@ -843,7 +843,7 @@ module Util =
     let wrapExprInBlockWithReturn (e, stmts) =
         stmts @ [ Statement.return'(e) ]
 
-    let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
+    let makeArrowFunctionExpression (name: string option) (args: Arguments) (body: Statement list) : Expression * Statement list =
         let args =
             match args.Args with
             | [] -> Arguments.arguments(args=[ Arg.arg(Identifier("_unit")) ], defaults=[ Expression.none() ])
@@ -852,9 +852,9 @@ module Util =
         match body with
             | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
             | _ ->
-                let name = Helpers.getUniqueIdentifier "arrow"
-                let func = FunctionDef.Create(name = name, args = args, body = body)
-                Expression.name (name), [ func ]
+                let ident = name |> Option.map Identifier |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "arrow")
+                let func = FunctionDef.Create(name = ident, args = args, body = body)
+                Expression.name ident, [ func ]
 
     let makeFunction name (args: Arguments, (body: Expression)) : Statement =
         // printfn "Name: %A" name
@@ -1518,8 +1518,8 @@ module Util =
         match value with
         | Function(args, body) ->
             let name = Some var.Name
-            let args, stmts = transformFunction com ctx name args body
-            makeArrowFunctionExpression args stmts
+            let args, body = transformFunction com ctx name args body
+            makeArrowFunctionExpression name args body
         | _ ->
             com.TransformAsExpr(ctx, value)
 
@@ -1913,11 +1913,11 @@ module Util =
 
         | Fable.Lambda(arg, body, name) ->
             transformFunction com ctx name [arg] body
-            ||> makeArrowFunctionExpression
+            ||> makeArrowFunctionExpression name
 
         | Fable.Delegate(args, body, name) ->
             transformFunction com ctx name args body
-            ||> makeArrowFunctionExpression
+            ||> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr (members, typ, baseCall) ->
           transformObjectExpr com ctx members baseCall
@@ -2058,12 +2058,12 @@ module Util =
 
         | Fable.Lambda(arg, body, name) ->
             let args, body = transformFunction com ctx name [arg] body
-            let expr', stmts = makeArrowFunctionExpression args body
+            let expr', stmts = makeArrowFunctionExpression name args body
             stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.Delegate(args, body, name) ->
             let args, body = transformFunction com ctx name args body
-            let expr', stmts = makeArrowFunctionExpression args body
+            let expr', stmts = makeArrowFunctionExpression name args body
             stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.ObjectExpr (members, t, baseCall) ->
