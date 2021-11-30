@@ -10,7 +10,7 @@ def add_to_dict(dict, k, v):
     if k in dict:
         raise Exception("An item with the same key has already been added. Key: " + str(k))
 
-    dict.set(k, v)
+    dict[k] = v
 
 
 def try_get_value(map, key, defaultValue):
