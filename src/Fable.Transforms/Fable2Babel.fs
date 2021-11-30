@@ -975,13 +975,13 @@ module Util =
             | [TransformExpr com ctx expr], None ->
                 libCall com ctx r "List" "singleton" [|expr|]
             | exprs, None ->
-                [|makeArray com ctx exprs|]
-                |> libCall com ctx r "List" "ofArray"
+                [|List.rev exprs |> makeArray com ctx|]
+                |> libCall com ctx r "List" "newList"
             | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
                 libCall com ctx r "List" "cons" [|head; tail|]
             | exprs, Some(TransformExpr com ctx tail) ->
-                [|makeArray com ctx exprs; tail|]
-                |> libCall com ctx r "List" "ofArrayWithTail"
+                [|List.rev exprs |> makeArray com ctx; tail|]
+                |> libCall com ctx r "List" "newListWithTail"
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
@@ -1313,11 +1313,11 @@ module Util =
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
-            libCall com ctx range "List" "head" [|com.TransformAsExpr(ctx, fableExpr)|]
+            libCall com ctx range "List" "head_" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.ListTail ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
-            libCall com ctx range "List" "tail" [|com.TransformAsExpr(ctx, fableExpr)|]
+            libCall com ctx range "List" "tail_" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.TupleIndex index ->
             match fableExpr with
