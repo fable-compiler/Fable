@@ -14,3 +14,13 @@ type Symbol_wellknown =
 
 type IJsonSerializable =
     abstract toJSON: key: string -> obj
+
+module SR =
+    let indexOutOfBounds = "The index was outside the range of elements in the collection."
+    let inputWasEmpty = "Collection was empty."
+    let inputMustBeNonNegative = "The input must be non-negative."
+    let inputSequenceEmpty = "The input sequence was empty."
+    let inputSequenceTooLong = "The input sequence contains more than one element."
+    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
+    let differentLengths = "The collections had different lengths."
+    let notEnoughElements = "The input sequence has an insufficient number of elements."

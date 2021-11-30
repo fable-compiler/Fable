@@ -715,8 +715,8 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
         result
 
 let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
-    if index < 0 then invalidArg "index" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
-    if index > array.Length then invalidArg "index" "The input sequence has an insufficient number of elements."
+    if index < 0 || index > array.Length then
+        invalidArg "index" SR.indexOutOfBounds
     subArrayImpl array 0 index, skipImpl array index
 
 let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
@@ -938,3 +938,33 @@ let transpose (arrays: 'T[] seq) ([<Inject>] cons: Cons<'T>): 'T[][] =
             for j in 0..len-1 do
                 result.[i].[j] <- arrays.[j].[i]
         result
+
+let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+    let len = xs.Length
+    if index < 0 || index > len then
+        invalidArg "index" SR.indexOutOfBounds
+    let mutable i = -1
+    let target = allocateArrayFrom xs (len + 1)
+    for i = 0 to (index - 1) do
+        target.[i] <- xs.[i]
+    target.[index] <- y
+    for i = index to (len - 1) do
+        target.[i + 1] <- xs.[i]
+    target
+
+let removeAt (index: int) (xs: 'T[]): 'T[] =
+    if index < 0 || index >= xs.Length then
+        invalidArg "index" SR.indexOutOfBounds
+    let mutable i = -1
+    xs |> filter (fun _ ->
+        i <- i + 1
+        i <> index)
+
+let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+    let len = xs.Length
+    if index < 0 || index >= len then
+        invalidArg "index" SR.indexOutOfBounds
+    let target = allocateArrayFrom xs len
+    for i = 0 to (len - 1) do
+        target.[i] <- if i = index then y else xs.[i]
+    target

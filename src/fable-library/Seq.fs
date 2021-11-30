@@ -243,10 +243,10 @@ let toArray (xs: seq<'T>): 'T[] =
     | :? list<'T> as a -> Array.ofList a
     | _ -> Array.ofSeq xs
 
-let ofList (xs: 'T list) =
+let ofList (xs: list<'T>) =
     (xs :> seq<'T>)
 
-let toList (xs: seq<'T>): 'T list =
+let toList (xs: seq<'T>): seq<'T> =
     match xs with
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
@@ -913,3 +913,57 @@ let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<seq<'T>> =
 // let mapi2 = mapIndexed2
 // let readonly = readOnly
 // let rev = reverse
+
+let insertAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index then
+                isDone <- true
+                Some y
+            else None)
+        (fun e ->
+            if not isDone then
+                invalidArg "index" SR.indexOutOfBounds
+            e.Dispose())
+
+let removeAt (index: int) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index && e.MoveNext() then
+                isDone <- true
+                if e.MoveNext() then Some e.Current else None
+            else None)
+        (fun e ->
+            if not isDone then
+                invalidArg "index" SR.indexOutOfBounds
+            e.Dispose())
+
+let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index && e.MoveNext() then
+                isDone <- true
+                Some y
+            else None)
+        (fun e ->
+            if not isDone then
+                invalidArg "index" SR.indexOutOfBounds
+            e.Dispose())
