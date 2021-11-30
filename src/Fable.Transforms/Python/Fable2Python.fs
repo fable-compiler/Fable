@@ -621,6 +621,8 @@ module Util =
         match memberName with
         | "ToString" -> Expression.identifier("__str__")
         | "Equals" -> Expression.identifier("__eq__")
+        | "set" -> Expression.identifier("__setitem__")
+        | "get" -> Expression.identifier("__getitem__")
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name(name)
