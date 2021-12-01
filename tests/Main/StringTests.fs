@@ -312,6 +312,16 @@ let tests =
             String.Format("#{0:X3}", 0xC149D) |> equal "#C149D"
             String.Format("#{0:X6}", 0xC149D) |> equal "#0C149D"
 
+      testCase "String.Format works with thousands separator" <| fun () ->
+            (12343235354.6547757).ToString() |> equal "12343235354.654776"
+            (12343235354.6547757).ToString("#,##.000") |> equal "12,343,235,354.655"
+            (12343235354.6547757M).ToString("#,##.000") |> equal "12,343,235,354.655"
+            (123.456).ToString("#,##.00") |> equal "123.46"
+            (123.456M).ToString("#,##.00") |> equal "123.46"
+            (123438192123.456M).ToString("#,##.00") |> equal "123,438,192,123.46"
+            (1.456M).ToString("#,##") |> equal "1"
+            (1.456M).ToString("0,0") |> equal "01"
+
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M
           decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"
