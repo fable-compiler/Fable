@@ -701,10 +701,10 @@ let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
         else invalidArg "index" SR.indexOutOfBounds
     reverse result
 
-let insertManyAt (index: int) (ys: 'T list) (xs: 'T list): 'T list =
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
     let mutable i = -1
     let mutable isDone = false
-    let ys = reverse ys
+    let ys = (ys, List.Empty) ||> Seq.foldBack (fun y acc -> List.Cons(y, acc))
     let result =
         (List.Empty, xs) ||> fold (fun acc x ->
             i <- i + 1

@@ -951,11 +951,12 @@ let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
         target.[i + 1] <- xs.[i]
     target
 
-let insertManyAt (index: int) (ys: 'T[]) (xs: 'T[]): 'T[] =
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
     let len = xs.Length
-    let len2 = ys.Length
     if index < 0 || index > len then
         invalidArg "index" SR.indexOutOfBounds
+    let ys = arrayFrom ys
+    let len2 = ys.Length
     let target = allocateArrayFrom xs (len + len2)
     for i = 0 to (index - 1) do
         target.[i] <- xs.[i]

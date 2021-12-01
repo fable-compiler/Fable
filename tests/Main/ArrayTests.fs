@@ -1088,19 +1088,19 @@ let tests =
 
     testCase "Array.insertManyAt works" <| fun () ->
         // integer list
-        equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [|0; 0|] [|1..5|])
-        equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [|0; 0|] [|1..5|])
-        equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [|0; 0|] [|1..5|])
+        equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
+        equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
+        equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
 
         //string list
-        equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 [|"0"; "0"|] [|"1"; "2"; "3"; "4"; "5"|])
-        equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 [|"0"; "0"|] [|"1"; "2"; "3"; "4"; "5"|])
-        equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 [|"0"; "0"|] [|"1"; "2"; "3"; "4"; "5"|])
+        equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+        equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+        equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
 
         // empty list & out of bounds
-        equal [|0; 0|] (Array.insertManyAt 0 [|0; 0|] [||])
-        throwsAnyError (fun () -> Array.insertManyAt -1 [|0; 0|] [|1|] |> ignore)
-        throwsAnyError (fun () -> Array.insertManyAt 2 [|0; 0|] [|1|] |> ignore)
+        equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
+        throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+        throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
 
     testCase "Array.removeAt works" <| fun () ->
         // integer list
