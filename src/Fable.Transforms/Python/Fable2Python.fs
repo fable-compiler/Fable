@@ -465,7 +465,7 @@ module Helpers =
             if relative then
                 $".{moduleName}"
             else
-                $"{Naming.isInFableHiddenDir}.fable_library.{moduleName}"
+                $"{Naming.fableHiddenDir}.fable_library.{moduleName}"
         | name when name.EndsWith(".fs") ->
             $"{path}{moduleName}"
         // Local module references in the same package
