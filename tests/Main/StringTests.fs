@@ -322,6 +322,25 @@ let tests =
             (1.456M).ToString("#,##") |> equal "1"
             (1.456M).ToString("0,0") |> equal "01"
 
+      testCase "String.Format can omit decimal digits" <| fun () ->
+            (12343235354.6547757).ToString("#,##") |> equal "12,343,235,355"
+            (12343235354.6547757).ToString("0,00") |> equal "12,343,235,355"
+            (12343235354.).ToString("0,00") |> equal "12,343,235,354"
+            (12343235354.).ToString("#") |> equal "12343235354"
+            (12343235354.).ToString("0") |> equal "12343235354"
+
+            (12343235354.6547757M).ToString("#,#") |> equal "12,343,235,355"
+            (12343235354.6547757M).ToString("0,0") |> equal "12,343,235,355"
+
+            (1234323535).ToString("0,0") |> equal "1,234,323,535"
+            (1234323535).ToString("#") |> equal "1234323535"
+            (1234323535).ToString("0") |> equal "1234323535"
+
+            (12343235354M).ToString("0,0") |> equal "12,343,235,354"
+            (343235354M).ToString("0,0") |> equal "343,235,354"
+            (12343235354M).ToString("#") |> equal "12343235354"
+            (12343235354M).ToString("0") |> equal "12343235354"
+
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M
           decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"

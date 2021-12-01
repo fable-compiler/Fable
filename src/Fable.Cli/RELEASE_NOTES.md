@@ -1,3 +1,9 @@
+### 3.6.3
+
+* New FSharp.Core 6 APIs: updateAt/insertAt/insertManyAt/removeAt/removeManyAt
+* Support thousand separators in String.Format
+* Fix #2628 @stroborobo
+
 ### 3.6.2
 
 * TypescriptTaggedUnion @cannorin
