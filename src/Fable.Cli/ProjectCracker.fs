@@ -80,12 +80,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
     static member GetFableModulesDir(projFile: string, outDir: string option, lang) =
         let fableModulesDir =
             let baseDir = outDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
-            let dirName =
-                // TODO: Now PY.Naming.fableModulesDir and Naming.fableHiddenDir are the same,
-                // should we still keep them separated?
-                match lang with
-                | Python -> PY.Naming.fableModulesDir
-                | _ -> Naming.fableHiddenDir
+            let dirName = Naming.fableHiddenDir
             IO.Path.Combine(baseDir, dirName)
 
         if File.isDirectoryEmpty fableModulesDir then
