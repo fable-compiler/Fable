@@ -449,8 +449,8 @@ module Helpers =
             | false, "." -> ""
             | false, _ ->
                 let prefix =
-                    if Naming.isInFableModulesDir modulePath then
-                         Naming.fableModulesDir
+                    if Naming.isInFableHiddenDir modulePath then
+                        Naming.fableHiddenDir
                     else
                         ""
                 Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
@@ -465,7 +465,7 @@ module Helpers =
             if relative then
                 $".{moduleName}"
             else
-                $"{Naming.fableModulesDir}.fable_library.{moduleName}"
+                $"{Naming.isInFableHiddenDir}.fable_library.{moduleName}"
         | name when name.EndsWith(".fs") ->
             $"{path}{moduleName}"
         // Local module references in the same package
