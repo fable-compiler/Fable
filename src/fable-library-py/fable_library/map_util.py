@@ -1,7 +1,7 @@
 from typing import Any
 
 def add_to_set(v: Any, st: set) -> bool:
-    if v in set:
+    if v in st:
         return False
 
     st.add(v)

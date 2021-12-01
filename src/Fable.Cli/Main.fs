@@ -123,16 +123,16 @@ module private Util =
             File.changeFsExtension isInFableHiddenDir file fileExt
 
     // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
-    // set we set `outDir` to the same directory as the project file.
+    // set we set `outDir` to the directory of the project file being compiled.
     let getOutPyPath (cliArgs: CliArgs) dedupTargetDir file =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let isInFableHiddenDir = Naming.isInFableHiddenDir file
+        let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
         let outDir =
             match cliArgs.OutDir with
             | Some outDir ->outDir
             | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
-
-        let absPath = Imports.getTargetAbsolutePath dedupTargetDir file outDir outDir
+        let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
         File.changeFsExtension isInFableHiddenDir absPath fileExt
 
     let compileFile isRecompile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
@@ -141,8 +141,6 @@ module private Util =
                 match com.Options.Language with
                 | Python -> getOutPyPath cliArgs dedupTargetDir com.CurrentFile
                 | _ -> getOutJsPath cliArgs dedupTargetDir com.CurrentFile
-
-            printfn "outPath: %A" (outPath, cliArgs.ProjectFile, cliArgs.ProjectFileAsRelativePath)
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath

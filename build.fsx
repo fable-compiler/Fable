@@ -203,7 +203,6 @@ let buildLibraryPy() =
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
-
 let buildPyLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library-py")) then
