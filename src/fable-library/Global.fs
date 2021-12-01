@@ -15,6 +15,9 @@ type Symbol_wellknown =
 type IJsonSerializable =
     abstract toJSON: key: string -> obj
 
+namespace global
+
+[<RequireQualifiedAccess>]
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the collection."
     let inputWasEmpty = "Collection was empty."

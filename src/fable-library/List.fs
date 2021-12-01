@@ -688,18 +688,35 @@ let transpose (lists: seq<'T list>): 'T list list =
 let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
     let mutable i = -1
     let mutable isDone = false
-    let ys =
-        (List.Empty, xs) ||> fold (fun ys x ->
+    let result =
+        (List.Empty, xs) ||> fold (fun acc x ->
             i <- i + 1
             if i = index then
                 isDone <- true
-                List.Cons(x, List.Cons(y, ys))
-            else List.Cons(x, ys))
-    let ys =
-        if isDone then ys
-        elif i + 1 = index then List.Cons(y, ys)
+                List.Cons(x, List.Cons(y, acc))
+            else List.Cons(x, acc))
+    let result =
+        if isDone then result
+        elif i + 1 = index then List.Cons(y, result)
         else invalidArg "index" SR.indexOutOfBounds
-    reverse ys
+    reverse result
+
+let insertManyAt (index: int) (ys: 'T list) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let ys = reverse ys
+    let result =
+        (List.Empty, xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                List.Cons(x, append ys acc)
+            else List.Cons(x, acc))
+    let result =
+        if isDone then result
+        elif i + 1 = index then append ys result
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse result
 
 let removeAt (index: int) (xs: 'T list): 'T list =
     let mutable i = -1
@@ -713,6 +730,32 @@ let removeAt (index: int) (xs: 'T list): 'T list =
             else true)
     if not isDone then
         invalidArg "index" SR.indexOutOfBounds
+    ys
+
+let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let ys =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
     ys
 
 let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
