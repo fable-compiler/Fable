@@ -1025,6 +1025,105 @@ let tail (xs: seq<'T>) =
 //         |> ofArray
 //     )
 
+// let insertAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+//     let mutable isDone = false
+//     if index < 0 then
+//         invalidArg "index" SR.indexOutOfBounds
+//     generateIndexed
+//         (fun () -> ofSeq xs)
+//         (fun i e ->
+//             if (isDone || i < index) && e.MoveNext()
+//             then Some e.Current
+//             elif i = index then
+//                 isDone <- true
+//                 Some y
+//             else
+//                 if not isDone then
+//                     invalidArg "index" SR.indexOutOfBounds
+//                 None)
+//         (fun e -> e.Dispose())
+
+// let insertManyAt (index: int) (ys: seq<'T>) (xs: seq<'T>): seq<'T> =
+//     // incomplete -1, in-progress 0, complete 1
+//     let mutable status = -1
+//     if index < 0 then
+//         invalidArg "index" SR.indexOutOfBounds
+//     generateIndexed
+//         (fun () -> ofSeq xs, ofSeq ys)
+//         (fun i (e1, e2) ->
+//             if i = index then
+//                 status <- 0
+//             let inserted =
+//                 if status = 0 then
+//                     if e2.MoveNext() then Some e2.Current
+//                     else status <- 1; None
+//                 else None
+//             match inserted with
+//             | Some inserted -> Some inserted
+//             | None ->
+//                 if e1.MoveNext() then Some e1.Current
+//                 else
+//                     if status < 1 then
+//                         invalidArg "index" SR.indexOutOfBounds
+//                     None)
+//         (fun (e1, e2) ->
+//             e1.Dispose()
+//             e2.Dispose())
+
+// let removeAt (index: int) (xs: seq<'T>): seq<'T> =
+//     let mutable isDone = false
+//     if index < 0 then
+//         invalidArg "index" SR.indexOutOfBounds
+//     generateIndexed
+//         (fun () -> ofSeq xs)
+//         (fun i e ->
+//             if (isDone || i < index) && e.MoveNext()
+//             then Some e.Current
+//             elif i = index && e.MoveNext() then
+//                 isDone <- true
+//                 if e.MoveNext() then Some e.Current else None
+//             else
+//                 if not isDone then
+//                     invalidArg "index" SR.indexOutOfBounds
+//                 None)
+//         (fun e -> e.Dispose())
+
+// let removeManyAt (index: int) (count: int) (xs: seq<'T>): seq<'T> =
+//     if index < 0 then
+//         invalidArg "index" SR.indexOutOfBounds
+//     generateIndexed
+//         (fun () -> ofSeq xs)
+//         (fun i e ->
+//             if i < index then
+//                 if e.MoveNext() then Some e.Current
+//                 else invalidArg "index" SR.indexOutOfBounds
+//             else
+//                 if i = index then
+//                     for _ = 1 to count do
+//                         if not(e.MoveNext()) then
+//                             invalidArg "count" SR.indexOutOfBounds
+//                 if e.MoveNext() then Some e.Current
+//                 else None)
+//         (fun e -> e.Dispose())
+
+// let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+//     let mutable isDone = false
+//     if index < 0 then
+//         invalidArg "index" SR.indexOutOfBounds
+//     generateIndexed
+//         (fun () -> ofSeq xs)
+//         (fun i e ->
+//             if (isDone || i < index) && e.MoveNext()
+//             then Some e.Current
+//             elif i = index && e.MoveNext() then
+//                 isDone <- true
+//                 Some y
+//             else
+//                 if not isDone then
+//                     invalidArg "index" SR.indexOutOfBounds
+//                 None)
+//         (fun e -> e.Dispose())
+
 // // let init = initialize
 // // let initInfinite = initializeInfinite
 // // let iter = iterate
