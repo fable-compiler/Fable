@@ -130,10 +130,11 @@ let tests =
             date.ToString("O", CultureInfo.InvariantCulture) |> equal "9999-12-31"
 
             let date = DateOnly.FromDateTime DateTime.Now
-            date.ToString(CultureInfo.InvariantCulture) |> equal $"{date.Month}/{date.Day}/{date.Year}"
-            date.ToString("d", CultureInfo.InvariantCulture) |> equal $"{date.Month}/{date.Day}/{date.Year}"
-            date.ToString("o", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{date.Month}-{date.Day}"
-            date.ToString("O", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{date.Month}-{date.Day}"
+            let fill d = if d < 10 then "0" + (string d) else string d
+            date.ToString(CultureInfo.InvariantCulture) |> equal $"{fill date.Month}/{fill date.Day}/{date.Year}"
+            date.ToString("d", CultureInfo.InvariantCulture) |> equal $"{fill date.Month}/{fill date.Day}/{date.Year}"
+            date.ToString("o", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{fill date.Month}-{fill date.Day}"
+            date.ToString("O", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{fill date.Month}-{fill date.Day}"
 
         testCase "Parse parses valid DateOnly" <| fun () ->
             equal DateOnly.MaxValue (DateOnly.Parse("9999-12-31", CultureInfo.InvariantCulture))
