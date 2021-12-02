@@ -325,7 +325,11 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    warnAndEvalToFalse "interfaces"
+                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
+                    | Some typeExpr ->
+                        let typeExpr = com.TransformAsExpr(ctx, typeExpr)
+                        jsInstanceof typeExpr expr
+                    | None -> warnAndEvalToFalse "interfaces"
                 else
                     match tryJsConstructor com ctx ent with
                     | Some cons ->
