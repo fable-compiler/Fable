@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{73195338-BB4E-46F5-A228-B6D1534F45A3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "fable-standalone", "fable-standalone", "{28710D0C-8922-4BB2-A287-5CD49E198847}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Standalone", "src\fable-standalone\src\Fable.Standalone.fsproj", "{64881F92-4EC3-411D-BD57-676DF151C584}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{45C3B0D4-AFA8-417A-9A32-9333200D2A9F}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Worker", "src\fable-standalone\src\Worker\Worker.fsproj", "{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{64881F92-4EC3-411D-BD57-676DF151C584}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64881F92-4EC3-411D-BD57-676DF151C584}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64881F92-4EC3-411D-BD57-676DF151C584}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64881F92-4EC3-411D-BD57-676DF151C584}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{28710D0C-8922-4BB2-A287-5CD49E198847} = {73195338-BB4E-46F5-A228-B6D1534F45A3}
+		{64881F92-4EC3-411D-BD57-676DF151C584} = {28710D0C-8922-4BB2-A287-5CD49E198847}
+		{45C3B0D4-AFA8-417A-9A32-9333200D2A9F} = {28710D0C-8922-4BB2-A287-5CD49E198847}
+		{0ADF4C4F-A23C-4D78-BCAB-9AA969E4AE2F} = {45C3B0D4-AFA8-417A-9A32-9333200D2A9F}
+	EndGlobalSection
+EndGlobal
