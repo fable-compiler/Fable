@@ -8,6 +8,7 @@ open Fable
 open Fable.Core
 open Fable.AST
 open Fable.Transforms
+open Fable.Transforms.FSharp2Fable
 
 type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) =
     new (fi: FSharpField) =
@@ -261,6 +262,17 @@ type Witness =
         | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
         | _ -> []
 
+[<Mangle>]
+type IContext =
+    abstract Scope: (Fable.Ident * Fable.Expr option) list
+    abstract UsedNamesInRootScope: Set<string>
+    abstract UsedNamesInDeclarationScope: HashSet<string>
+    abstract GenericArgs: Map<string, Fable.Type>
+    abstract CaughtException: Fable.Ident option
+    abstract BoundConstructorThis: Fable.Ident option
+    abstract BoundMemberThis: Fable.Ident option
+    abstract InlinePath: InlinePath list
+
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
@@ -276,6 +288,16 @@ type Context =
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
       Witnesses: Witness list
     }
+    interface IContext with
+        member this.Scope = this.Scope |> List.map (fun (_,i,e) -> i,e)
+        member this.UsedNamesInRootScope = this.UsedNamesInRootScope
+        member this.UsedNamesInDeclarationScope = this.UsedNamesInDeclarationScope
+        member this.GenericArgs = this.GenericArgs
+        member this.CaughtException = this.CaughtException
+        member this.BoundConstructorThis = this.BoundConstructorThis
+        member this.BoundMemberThis = this.BoundMemberThis
+        member this.InlinePath = this.InlinePath
+
     static member Create(usedRootNames) =
         { Scope = []
           ScopeInlineValues = []
@@ -295,9 +317,9 @@ type Context =
 type IFableCompiler =
     inherit Compiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
-    abstract TryReplace: Context * SourceLocation option * Fable.Type *
+    abstract TryReplace: IContext * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
-    abstract InjectArgument: Context * SourceLocation option *
+    abstract InjectArgument: IContext * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExprFromMember: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
@@ -392,10 +414,10 @@ module Helpers =
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
         FsMemberFunctionOrValue.DisplayName memb
 
-    let isUsedName (ctx: Context) name =
+    let isUsedName (ctx: IContext) name =
         ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name
 
-    let getIdentUniqueName (ctx: Context) name =
+    let getIdentUniqueName (ctx: IContext) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(name) |> ignore
         name
@@ -1005,7 +1027,7 @@ module TypeHelpers =
                 else false)
         | _ -> None
 
-    [<RequireQualifiedAccess; Flags>]
+    [<Flags>]
     type private Allow =
         | TheUsual      = 0b0000
           /// Enums in F# are uint32
@@ -1326,7 +1348,7 @@ module Identifiers =
     let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
         { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
-    let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
+    let makeIdentFrom (_com: IFableCompiler) (ctx: IContext) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
                             ||> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
@@ -1594,7 +1616,7 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef (com: Compiler) (ctx: IContext) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1697,7 +1719,7 @@ module Util =
         else
             getSimple callee name |> makeCall r typ callInfo
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
+    let (|Replaced|_|) (com: IFableCompiler) (ctx: IContext) r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
@@ -1820,7 +1842,7 @@ module Util =
         // Log error if the inline function is called recursively
         match ctx.InlinedFunction with
         | Some memb2 when memb.Equals(memb2) ->
-            sprintf "Recursive functions cannot be inlined: (%s)" memb.FullName
+            $"Recursive functions cannot be inlined: (%s{memb.FullName})"
             |> addErrorAndReturnNull com [] r
         | _ ->
             let args: Fable.Expr list =
@@ -1871,13 +1893,8 @@ module Util =
             | body ->
                 List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
-    let (|Inlined|_|) (com: IFableCompiler) ctx r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
-        if isInline memb
-        then inlineExpr com ctx r t genArgs callee info memb |> Some
-        else None
-
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
-    let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
+    let transformOptionalArguments (com: IFableCompiler) (ctx: IContext) r
                 (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
@@ -1900,7 +1917,19 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com ctx r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let tryNonInlinedPatterns com (ctx: IContext) r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
+        match ctx with
+        | :? Context as ctx ->
+            if isInline memb then inlineExpr com ctx r t genArgs callee info memb |> Some
+            else
+                match memb.DeclaringEntity, tryGetIdentFromScope ctx r memb with
+                | Some entity, Some funcExpr ->
+                    if isModuleValueForCalls entity memb then Some funcExpr
+                    else makeCall r t info funcExpr |> Some
+                | _ -> None
+        | _ -> None
+
+    let makeCallWithArgInfo com (ctx: IContext) r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         let makeReturnType t =
             match makeType (Map genArgs.Value) t with
             // TODO: This is not ideal, but for proper currying when the call returns a lambda,
@@ -1912,11 +1941,9 @@ module Util =
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ genArgs callInfo replaced -> replaced
-        | Inlined com ctx r typ genArgs callee callInfo expr, _ -> expr
 
-        | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
-            if isModuleValueForCalls entity memb then funcExpr
-            else makeCall r typ callInfo funcExpr
+        // These patterns will be inactive during resolution of unresolved expressions
+        | Try (tryNonInlinedPatterns com ctx r typ genArgs callee callInfo) expr, _ -> expr
 
         | _, Some entity when entity.IsDelegate ->
             match callInfo.ThisArg, memb.DisplayName with
@@ -1972,7 +1999,7 @@ module Util =
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
-    let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
+    let makeCallInfoFrom (com: IFableCompiler) (ctx: IContext) r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {
             ThisArg = callee
             Args = transformOptionalArguments com ctx r memb genArgs args
@@ -1982,7 +2009,7 @@ module Util =
             CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
         }
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let makeCallFrom (com: IFableCompiler) (ctx: IContext) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
         makeCallInfoFrom com ctx r genArgs callee args memb
         |> makeCallWithArgInfo com ctx r typ genArgs callee memb

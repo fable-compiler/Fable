@@ -8,7 +8,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 
-type Context = FSharp2Fable.Context
+type Context = FSharp2Fable.IContext
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
@@ -373,7 +373,7 @@ let makeTypeConst com r (typ: Type) (value: obj) =
     | Array (Number kind), (:? (uint16[]) as arr) ->
         let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> makeValue None) |> Seq.toList
         NewArray (values, Number kind) |> makeValue r
-    | _ -> failwithf "Unexpected type %A for literal %O (%s)" typ value (value.GetType().FullName)
+    | _ -> failwithf $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
 
 let makeTypeInfo r t =
     TypeInfo t |> makeValue r
@@ -412,10 +412,10 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
-        Delegate([], Fable.Get(callee, Fable.ByKey key, t, r), None)
+        Delegate([], Get(callee, ByKey key, t, r), None)
     let setter =
         let v = makeUniqueIdent ctx Any "v"
-        Delegate([v], Fable.Set(callee, Some key, IdentExpr v, r), None)
+        Delegate([v], Set(callee, Some key, IdentExpr v, r), None)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
 
 // Mutable and public module values are compiled as functions, because
@@ -428,8 +428,8 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         let args = [IdentExpr v; makeBoolConst true]
-        let info = makeCallInfo None args [t; Fable.Boolean]
-        let value = makeCall r Fable.Unit info value
+        let info = makeCallInfo None args [t; Boolean]
+        let value = makeCall r Unit info value
         Delegate([v], value, None)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
 
@@ -603,7 +603,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | JsNumber UInt8 -> emitJsExpr None (Number UInt8) [arg] "$0 & 0xFF"
         | JsNumber UInt16 -> emitJsExpr None (Number UInt16) [arg] "$0 & 0xFFFF"
         | JsNumber UInt32 -> emitJsExpr None (Number UInt32) [arg] "$0 >>> 0"
-        | _ -> failwithf "Unexpected non-integer type %A" typeTo
+        | _ -> failwithf $"Unexpected non-integer type %A{typeTo}"
     match sourceType, targetType with
     | Char, _ ->
         match targetType, args with
@@ -660,7 +660,7 @@ let (|ListSingleton|) x = [x]
 let rec findInScope scope identName =
     match scope with
     | [] -> None
-    | (_,ident2,expr)::prevScope ->
+    | (ident2,expr)::prevScope ->
         if identName = ident2.Name then
             match expr with
             | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
@@ -925,7 +925,7 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
         |> makeHashSetWithComparer com r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
 
-let rec getZero (com: ICompiler) ctx (t: Type) =
+let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Char | String -> makeStrConst "" // TODO: Use null for string?
@@ -943,7 +943,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ -> Value(Null Any, None) // null
 
-let getOne (com: ICompiler) ctx (t: Type) =
+let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Builtin (BclInt64|BclUInt64) as t -> Helper.LibCall(com, "Long", "fromInt", t, [makeIntConst 1])
     | Builtin BclBigInt as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 1])
@@ -1122,7 +1122,7 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let rec defaultof (com: ICompiler) ctx (t: Type) =
+let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
@@ -2941,7 +2941,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
                 | NumberOrEnumConst(2., _) -> Some [RegexFlag.RegexMultiline]
                 // TODO: We're missing RegexFlag.Singleline in the AST
                 // | NumberOrEnumConst(16., _) -> Some [RegexFlag.Singleline]
-                | Fable.Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+                | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
                     match getFlags flags1, getFlags flags2 with
                     | Some flags1, Some flags2 -> Some(flags1 @ flags2)
                     | _ -> None
@@ -3549,13 +3549,13 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
     | _ -> None
 
 let tryType = function
-    | Fable.Boolean -> Some(Types.bool, parseBool, [])
-    | Fable.Number kind -> Some(getNumberFullName kind, parseNum, [])
-    | Fable.String -> Some(Types.string, strings, [])
-    | Fable.Tuple genArgs as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Fable.Option genArg -> Some(Types.option, options, [genArg])
-    | Fable.Array genArg -> Some(Types.array, arrays, [genArg])
-    | Fable.List genArg -> Some(Types.list, lists, [genArg])
+    | Boolean -> Some(Types.bool, parseBool, [])
+    | Number kind -> Some(getNumberFullName kind, parseNum, [])
+    | String -> Some(Types.string, strings, [])
+    | Tuple genArgs as t -> Some(getTypeFullName false t, tuples, genArgs)
+    | Option genArg -> Some(Types.option, options, [genArg])
+    | Array genArg -> Some(Types.array, arrays, [genArg])
+    | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
