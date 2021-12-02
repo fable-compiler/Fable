@@ -336,11 +336,13 @@ let testCompiler() =
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
-let compileAndRunTestsWithMocha projectDir buildDir =
+let compileAndRunTestsWithMocha clean projectDir buildDir =
     let projectDir = "tests/" + projectDir
     let buildDir = "build/" + buildDir
 
-    cleanDirs [buildDir]
+    if clean then
+        cleanDirs [buildDir]
+
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
@@ -348,8 +350,8 @@ let compileAndRunTestsWithMocha projectDir buildDir =
 
     runMocha buildDir
 
-let testMocha() =
-    compileAndRunTestsWithMocha "Main" "tests"
+let testMocha clean =
+    compileAndRunTestsWithMocha clean "Main" "tests"
 
 let testProjectConfigs() =
     [ "tests/ProjectConfigs/DebugWithExtraDefines", "Debug"
@@ -374,12 +376,12 @@ let testProjectConfigs() =
 let test() =
     buildLibraryIfNotExists()
 
-    testMocha()
+    testMocha true
 
     runInDir "tests/Main" "dotnet run"
 
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
-    compileAndRunTestsWithMocha "Adaptive" "tests-adaptive"
+    compileAndRunTestsWithMocha true "Adaptive" "tests-adaptive"
 
     testReact()
 
@@ -538,7 +540,8 @@ match BUILD_ARGS_LOWER with
 //     |> List.singleton |> quicktest
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
-| "test-mocha"::_ -> testMocha()
+| "test-mocha"::_ -> testMocha true
+| "test-mocha-fast"::_ -> testMocha false
 | "test-configs"::_ -> testProjectConfigs()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
