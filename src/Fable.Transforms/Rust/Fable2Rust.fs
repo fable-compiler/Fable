@@ -392,10 +392,10 @@ module TypeInfo =
         importName |> transformGenericType com ctx genArgs
 
     let transformArrayType com ctx genArg: Rust.Ty =
-        genArg
-        |> transformType com ctx
+        let ty = transformType com ctx genArg
+        [ty]
+        |> mkGenericTy ["Vec"]
         |> makeMutTy com
-        |> mkSliceTy
 
     let transformListType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "List" "List::List`1"
@@ -543,6 +543,8 @@ module TypeInfo =
             | Fable.Number(kind, _) -> numberType kind
             | Replacements.Builtin Replacements.BclInt64 -> primitiveType "i64"
             | Replacements.Builtin Replacements.BclUInt64 -> primitiveType "u64"
+            | Replacements.Builtin Replacements.BclIntPtr -> primitiveType "isize"
+            | Replacements.Builtin Replacements.BclUIntPtr -> primitiveType "usize"
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType t
                 transformClosureType com ctx inputTypes returnType
@@ -574,6 +576,8 @@ module TypeInfo =
                 //     | Replacements.BclTimer
                 //     | Replacements.BclInt64
                 //     | Replacements.BclUInt64
+                //     | Replacements.BclIntPtr
+                //     | Replacements.BclUIntPtr
                 //     | Replacements.BclDecimal
                 //     | Replacements.BclBigInt -> genericEntity entRef.FullName [||]
                 //     | Replacements.BclHashSet gen
@@ -1063,13 +1067,13 @@ module Util =
         if ident.IsThisArgument then
             expr |> makeClone |> makeRcValue
         elif ident.IsMutable then
-            expr |> mutableGet com ctx r ident.Type
+            expr |> mutableGet
         else expr
 
     let transformIdentSet com ctx r (ident: Fable.Ident) (value: Rust.Expr) =
         let expr = transformIdent com ctx r ident
         assert(ident.IsMutable)
-        mutableSet com ctx r ident.Type expr value
+        mutableSet expr value
 
 (*
     let identAsPattern (id: Fable.Ident) =
@@ -1181,12 +1185,12 @@ module Util =
 *)
     let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
-        let trArgs = transformCallArgs com ctx false args []
+        let trArgs = transformCallArgs com ctx false false args []
         mkCallExpr callee trArgs //?loc=range)
 
     let callFunctionTakingOwnership com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
-        let trArgs = transformCallArgs com ctx false args []
+        let trArgs = transformCallArgs com ctx false false args []
         mkCallExpr callee trArgs //?loc=range)
 
     /// Immediately Invoked Function Expression
@@ -1322,11 +1326,11 @@ module Util =
 *)
     let transformCast (com: IRustCompiler) (ctx: Context) typ (fableExpr: Fable.Expr): Rust.Expr =
         let fromType, toType = fableExpr.Type, typ
-        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let expr = transformExprMaybeUnwrapRef com ctx fableExpr
         let ty = transformType com ctx typ
         match fromType, toType with
-        | Fable.Number _, Fable.Number _ ->
-            expr |> makeClone |> mkCastExpr ty
+        | Replacements.Numeric, Replacements.Numeric ->
+            expr |> mkCastExpr ty
         | Fable.Array _, IEnumerable com _ ->
             libCall com ctx None [] "Seq" "ofArray" [fableExpr]
         | Fable.List _, IEnumerable com _ ->
@@ -1372,7 +1376,7 @@ module Util =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 *)
     /// This guarantees a new owned Rc<T>
-    let makeClone expr = mkMethodCallExpr "clone" None expr []
+    let makeClone expr = mkMethodCallExprOnce "clone" None expr []
 
     /// Calling this on an rc guarantees a &T, regardless of if the Rc is a ref or not
     let makeAsRef expr = mkMethodCallExpr "as_ref" None expr []
@@ -1390,7 +1394,7 @@ module Util =
     let makeLazyValue (value: Rust.Expr) =
         makeCall ["Lazy";"new"] None [value]
 
-    let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
+    let transformCallArgs (com: IRustCompiler) ctx isNative hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
@@ -1404,7 +1408,9 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
-            if ctx.Typegen.TakingOwnership then
+            if isNative then
+                args |> List.map (fun arg -> com.TransformAsExpr (ctx, arg))
+            elif ctx.Typegen.TakingOwnership then
                 args |> List.map (transformLeaveContextByValue com ctx None None)
             else
                 args |> List.map (transformLeaveContextByPreferredBorrow com ctx)
@@ -1506,7 +1512,7 @@ module Util =
                 mkUInt64LitExpr u
 
     let makeString com ctx (value: Rust.Expr) =
-        makeNativeCall com ctx "Native" "asString" None [mkAddrOfExpr value]
+        makeNativeCall com ctx "Native" "string" None [mkAddrOfExpr value]
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1524,24 +1530,28 @@ module Util =
         expr |> makeRcValue
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
+        let genArgs =
+            match exprs with
+            | [] -> transformGenArgs com ctx [typ]
+            | _ -> None
         let array =
             exprs
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             |> mkArrayExpr
             |> mkAddrOfExpr
-        makeNativeCall com ctx "Native" "ofArray" None [array]
+        makeNativeCall com ctx "Native" "arrayFrom" genArgs [array]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
             let size = com.TransformAsExpr(ctx, sizeExpr) |> mkAddrOfExpr
             let value = com.TransformAsExpr(ctx, valueExpr) |> mkAddrOfExpr
-            makeNativeCall com ctx "Native" "newArray" None [size; value]
+            makeNativeCall com ctx "Native" "arrayCreate" None [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = com.TransformAsExpr(ctx, expr) |> mkAddrOfExpr
-            makeNativeCall com ctx "Native" "ofArray" None [sequence]
+            makeNativeCall com ctx "Native" "arrayFrom" None [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         match headAndTail with
@@ -1728,7 +1738,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx info.HasSpread info.Args
+            let args = transformCallArgs com ctx false info.HasSpread info.Args
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1838,7 +1848,7 @@ module Util =
             match typ, kind with
             | Fable.String, Rust.BinOpKind.Add ->
                 //proprietary string concatenation - String + &String = String
-                let left = mkMethodCallExpr "to_string" None left []
+                let left = mkMethodCallExprOnce "to_string" None left []
                 let strTy = primitiveType "str" |> makeRcTy com
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
                 |> makeRcValue
@@ -1862,7 +1872,8 @@ module Util =
         // TODO: better implementation, range
         let macro = info.Macro
         let info = info.CallInfo
-        let args = transformCallArgs com ctx info.HasSpread info.Args info.SignatureArgTypes
+        let isNative = info.OptimizableInto = Some "native"
+        let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
             match macro, info.Args with
@@ -1876,7 +1887,8 @@ module Util =
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
-        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
+        let isNative = callInfo.OptimizableInto = Some "native"
+        let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
             // this is an instance call
@@ -1926,7 +1938,7 @@ module Util =
                 mkCallExpr callee args
 (*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx false args with
+        match transformCallArgs com ctx false false args with
         | [] -> callFunction range applied []
         | args -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg])
 
@@ -1984,10 +1996,13 @@ module Util =
             | statements -> Rust.Stmt.ifStatement(guardExpr, thenStmnt, Statement.blockStatement(statements), ?loc=r)
             |> Array.singleton
 *)
-    let mutableGet (com: IRustCompiler) ctx range typ expr =
+    let mutableGet expr =
         mkMethodCallExpr "get" None expr []
 
-    let mutableSet (com: IRustCompiler) ctx range typ expr value =
+    let mutableGetMut expr =
+        mkMethodCallExpr "get_mut" None expr []
+
+    let mutableSet expr value =
         mkMethodCallExpr "set" None expr [value]
 
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
@@ -1997,10 +2012,10 @@ module Util =
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
-                // when indexing an array, cast index to usize
-                let prop = mkCastExpr (primitiveType "usize") prop
-                getExpr range expr prop
-                |> mutableGet com ctx range t
+                // // when indexing an array, cast index to usize
+                // let expr = expr |> mutableGetMut
+                // let prop = prop |> mkCastExpr (primitiveType "usize")
+                getExpr range expr prop |> makeClone
             | _ ->
                 getExpr range expr prop
 
@@ -2019,7 +2034,7 @@ module Util =
                 let expr = transformExprMaybeIdentExpr com ctx range fableExpr
                 let field = getField range expr fieldName
                 if isMutable
-                then mutableGet com ctx range typ field
+                then field |> mutableGet
                 else field
 
         | Fable.ListHead ->
@@ -2111,15 +2126,16 @@ module Util =
             match fableExpr.Type, idx.Type with
             | Fable.Array t, Fable.Number(Int32, None) ->
                 // when indexing an array, cast index to usize
-                let prop = mkCastExpr (primitiveType "usize") prop
+                let expr = expr |> mutableGetMut
+                let prop = prop |> mkCastExpr (primitiveType "usize")
                 let left = getExpr range expr prop
-                mutableSet com ctx range typ left value
+                mkAssignExpr left value
             | _ ->
                 let left = getExpr range expr prop
                 mkAssignExpr left value //?loc=range)
         | Fable.FieldSet(fieldName) ->
             let field = getField None expr fieldName
-            mutableSet com ctx range typ field value
+            mutableSet field value
 
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr =
@@ -3026,8 +3042,8 @@ module Util =
         | Some path ->
             let strBody = [
                 "let args: Vec<String> = std::env::args().collect()"
-                "let args: Vec<Rc<str>> = args[1..].iter().map(Native::ofString).collect()"
-                (String.concat "::" path) + "(&Native::ofArray(&args))"
+                "let args: Vec<Rc<str>> = args[1..].iter().map(|s| Native::string(s)).collect()"
+                (String.concat "::" path) + "(&Native::arrayFrom(&args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
