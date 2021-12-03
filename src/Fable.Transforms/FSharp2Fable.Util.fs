@@ -598,7 +598,7 @@ module Helpers =
         hasParamArray memb || hasParamSeq memb
 
     type UnionPattern =
-        | OptionUnion of FSharpType
+        | OptionUnion of FSharpType * isStruct: bool
         | ListUnion of FSharpType
         | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules
         | ErasedUnionCase
@@ -622,8 +622,8 @@ module Helpers =
             | None -> failwith "Union without definition"
             | Some(tdef, fullName) ->
                 match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption
-                | Types.option -> OptionUnion typ.GenericArguments.[0]
+                | Types.valueOption -> OptionUnion (typ.GenericArguments.[0], true)
+                | Types.option -> OptionUnion (typ.GenericArguments.[0], false)
                 | Types.list -> ListUnion typ.GenericArguments.[0]
                 | _ ->
                     tdef.Attributes |> Seq.tryPick (fun att ->

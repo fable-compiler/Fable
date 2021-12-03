@@ -1470,8 +1470,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1,Fable.ByKey(Fable.FieldKey k1),_,_), Fable.Get(Fable.IdentExpr i2,Fable.ByKey(Fable.FieldKey k2),_,_) ->
-                i1.Name = i2.Name && k1.Name = k2.Name
+            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet(fieldName1, _),_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet(fieldName2, _),_,_) ->
+                i1.Name = i2.Name && fieldName1 = fieldName2
             | _ -> false
         let rec checkInner cases evalExpr = function
             | Fable.IfThenElse(Equals(evalExpr2, caseExpr),
@@ -2269,9 +2269,9 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
-            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

@@ -336,7 +336,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 1 ->
             let inline numberConst kind value =
-                Fable.Number kind, Fable.Value (Fable.NumberConstant(float value, kind), r)
+                Fable.Number (kind, None), Fable.Value (Fable.NumberConstant(float value, kind, None), r)
             let typ, value =
                 match FsUnionCase.CompiledValue unionCase with
                 | None -> Fable.String, transformStringEnum rule unionCase
@@ -344,7 +344,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 | Some (CompiledValue.Float f) -> numberConst Float64 f
                 | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(tagName, lazy typ))), typ, r))
+                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), typ, r))
                 value
                 BinaryEqualStrict
         | _ ->
