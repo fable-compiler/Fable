@@ -30,6 +30,19 @@ type EraseAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = EraseAttribute()
 
+/// Used for "tagged" union types, which is commonly used in TypeScript.
+type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
+    inherit Attribute()
+    new (tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
+
+/// Used in place of `CompiledNameAttribute` if the target is not a string.
+type CompiledValueAttribute private () =
+    inherit Attribute()
+    new (value: int) = CompiledValueAttribute()
+    new (value: float) = CompiledValueAttribute()
+    new (value: bool) = CompiledValueAttribute()
+    new (value: Enum) = CompiledValueAttribute()
+
 /// The module, type, function... is globally accessible in JS.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type GlobalAttribute() =

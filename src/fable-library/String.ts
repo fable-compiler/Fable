@@ -316,13 +316,30 @@ export function format(str: string, ...args: any[]) {
         default:
           if (pattern) {
             let sign = "";
-            rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
+            rep = (pattern as string).replace(/([0#,]+)(\.[0#]+)?/, (_, intPart: string, decimalPart: string) => {
               if (isLessThan(rep, 0)) {
                 rep = multiply(rep, -1);
                 sign = "-";
               }
-              rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
-              return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
+              const decimalPartLength = decimalPart != null ? decimalPart.length : 0
+              rep = toFixed(rep, Math.max(decimalPartLength - 1, 0));
+
+              // Thousands separator
+              if (intPart.indexOf(",") > 0) {
+                const [intPart, decimalPart] = (rep as string).split(".");
+                const i = intPart.length % 3;
+                const thousandGroups = Math.floor(intPart.length / 3);
+                let thousands = i > 0 ? intPart.substr(0, i) + (thousandGroups > 0 ? "," : "") : "";
+                for (let j = 0; j < thousandGroups; j++) {
+                  thousands += intPart.substr(i + j * 3, 3) + (j < thousandGroups - 1 ? "," : "");
+                }
+                rep = decimalPart ? thousands + "." + decimalPart : thousands;
+              }
+
+              // In .NET you can mix 0/# placeholders but for simplicity we only check the left most character
+              intPart = intPart.replace(/,/g, "");
+              const intPartLength = intPart.length > 0 && intPart[0] === "0" ? intPart.length : 0;
+              return padLeft(rep, intPartLength - sign.length + decimalPartLength, "0");
             });
             rep = sign + rep;
           }

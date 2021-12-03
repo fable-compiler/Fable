@@ -54,6 +54,17 @@ let testCaseAsync msg f =
                    printfn "%s" ex.StackTrace
        } |> Async.StartImmediate)
 
+let throwsAnyError (f: unit -> 'a): unit =
+    let success =
+        try
+            f() |> ignore
+            true
+        with e ->
+            printfn "Got expected error: %s" e.Message
+            false
+    if success then
+        printfn "[ERROR EXPECTED]"
+
 let measureTime (f: unit -> unit) = emitJsStatement () """
    //js
    const startTime = process.hrtime();

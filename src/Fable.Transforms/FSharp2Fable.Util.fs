@@ -40,6 +40,12 @@ type FsField(fi: FSharpField) =
                 | 0 -> name
                 | n -> name + "_" + (string n)
 
+[<RequireQualifiedAccess>]
+type CompiledValue =
+    | Integer of int
+    | Float of float
+    | Boolean of bool
+
 type FsUnionCase(uci: FSharpUnionCase) =
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
     /// We must check the attributes explicitly
@@ -53,6 +59,18 @@ type FsUnionCase(uci: FSharpUnionCase) =
         uci.XmlDocSig
         |> Naming.replacePrefix "T:Microsoft.FSharp." "FSharp."
         |> Naming.replacePrefix "T:" ""
+
+    static member CompiledValue (uci: FSharpUnionCase) =
+        uci.Attributes
+        |> Helpers.tryFindAtt Atts.compiledValue
+        |> Option.bind (fun (att: FSharpAttribute) ->
+            match snd att.ConstructorArguments.[0] with
+            | :? int as value -> Some (CompiledValue.Integer value)
+            | :? float as value -> Some (CompiledValue.Float value)
+            | :? bool as value -> Some (CompiledValue.Boolean value)
+            | :? Enum as value when Enum.GetUnderlyingType(value.GetType()) = typeof<int> -> Some (CompiledValue.Integer (box value :?> int))
+            | _ -> None
+        )
 
     interface Fable.UnionCase with
         member _.Name = uci.Name
@@ -579,6 +597,50 @@ module Helpers =
 
         hasParamArray memb || hasParamSeq memb
 
+    type UnionPattern =
+        | OptionUnion of FSharpType * isStruct: bool
+        | ListUnion of FSharpType
+        | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules
+        | ErasedUnionCase
+        | TypeScriptTaggedUnion of FSharpEntity * IList<FSharpType> * tagName:string * CaseRules
+        | StringEnum of FSharpEntity * CaseRules
+        | DiscriminatedUnion of FSharpEntity * IList<FSharpType>
+
+    let getUnionPattern (typ: FSharpType) (unionCase: FSharpUnionCase) : UnionPattern =
+        let typ = nonAbbreviatedType typ
+        let getCaseRule (att: FSharpAttribute) =
+            match Seq.tryHead att.ConstructorArguments with
+            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
+            | _ -> CaseRules.LowerFirst
+
+        unionCase.Attributes |> Seq.tryPick (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some Atts.erase -> Some ErasedUnionCase
+            | _ -> None)
+        |> Option.defaultWith (fun () ->
+            match tryDefinition typ with
+            | None -> failwith "Union without definition"
+            | Some(tdef, fullName) ->
+                match defaultArg fullName tdef.CompiledName with
+                | Types.valueOption -> OptionUnion (typ.GenericArguments.[0], true)
+                | Types.option -> OptionUnion (typ.GenericArguments.[0], false)
+                | Types.list -> ListUnion typ.GenericArguments.[0]
+                | _ ->
+                    tdef.Attributes |> Seq.tryPick (fun att ->
+                        match att.AttributeType.TryFullName with
+                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
+                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
+                        | Some Atts.tsTaggedUnion ->
+                            match Seq.tryItem 0 att.ConstructorArguments, Seq.tryItem 1 att.ConstructorArguments with
+                            | Some (_, (:? string as name)), None ->
+                                Some (TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, CaseRules.LowerFirst))
+                            | Some (_, (:? string as name)), Some (_, (:? int as rule)) ->
+                                Some (TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, enum<CaseRules>(rule)))
+                            | _ -> failwith "Invalid TypeScriptTaggedUnion attribute"
+                        | _ -> None)
+                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
+        )
+
 module Patterns =
     open FSharpExprPatterns
     open Helpers
@@ -770,34 +832,6 @@ module Patterns =
             | _ -> None
         else None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
-                            (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
-        let getCaseRule (att: FSharpAttribute) =
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
-            | _ -> CaseRules.LowerFirst
-
-        unionCase.Attributes |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some Atts.erase -> Some ErasedUnionCase
-            | _ -> None)
-        |> Option.defaultWith (fun () ->
-            match tryDefinition typ with
-            | None -> failwith "Union without definition"
-            | Some(tdef, fullName) ->
-                match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption -> OptionUnion(typ.GenericArguments.[0], true)
-                | Types.option -> OptionUnion(typ.GenericArguments.[0], false)
-                | Types.list -> ListUnion typ.GenericArguments.[0]
-                | _ ->
-                    tdef.Attributes |> Seq.tryPick (fun att ->
-                        match att.AttributeType.TryFullName with
-                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
-                        | _ -> None)
-                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
-        )
-
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes
 
@@ -947,6 +981,7 @@ module TypeHelpers =
                 tdef.Attributes |> tryPickAttribute [
                     Atts.stringEnum, Fable.String
                     Atts.erase, Fable.Any
+                    Atts.tsTaggedUnion, Fable.Any
                 ]
                 // Rest of declared types
                 |> Option.defaultWith (fun () ->
@@ -1555,7 +1590,7 @@ module Util =
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.Entity.FullName with
-            | Atts.erase | Atts.stringEnum -> true
+            | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion -> true
             | _ -> false)
 
     let isGlobalOrImportedEntity (ent: Fable.Entity) =

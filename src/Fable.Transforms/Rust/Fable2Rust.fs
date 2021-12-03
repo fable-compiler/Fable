@@ -72,6 +72,7 @@ type IRustCompiler =
     // abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
     abstract TryAddInterface: rustNs: string * dotnetNs: string -> bool
     abstract GetInterfaceNs: dotnetNs: string -> string
+    abstract GetEntity: entRef: Fable.EntityRef -> Fable.Entity
 
 // TODO: Centralise and find a home for this
 module Helpers =
@@ -222,7 +223,7 @@ module TypeInfo =
     //     | Fable.Number _ -> true
     //     // TODO: should we consider some dotnet value types?
     //     // | Fable.DeclaredType (entRef, gargs) ->
-    //     //     let ent = com.GetEntity entRef
+    //     //     let ent = com.GetEntity(entRef)
     //     //     ent.IsValueType && not (ent.IsFSharpRecord)
     //     | _ -> false
 
@@ -252,7 +253,7 @@ module TypeInfo =
             | Fable.LambdaType _ -> true
             | Fable.DelegateType _ -> true
             | Fable.DeclaredType(entRef, _) ->
-                let ent = com.GetEntity entRef
+                let ent = com.GetEntity(entRef)
                 ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
             | _ -> false
 
@@ -283,7 +284,7 @@ module TypeInfo =
         | Fable.LambdaType _ -> true
         | Fable.DelegateType _ -> true
         | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity entRef
+            let ent = com.GetEntity(entRef)
             not (ent |> hasStructuralEquality)
         | _ -> false
 
@@ -294,7 +295,7 @@ module TypeInfo =
             | Fable.DelegateType _ -> false
             // TODO: more unprintable types?
             | Fable.DeclaredType(entRef, _) ->
-                let ent = com.GetEntity entRef
+                let ent = com.GetEntity(entRef)
                 isPrintable com ent
             | _ -> true
         if ent.IsFSharpUnion then
@@ -338,9 +339,9 @@ module TypeInfo =
     //         | Fable.GenericParam _
     //         | Fable.LambdaType _
     //         | Fable.DelegateType _ -> true
-    //         | Fable.DeclaredType(eref, _) ->
-    //             let ety = com.GetEntity eref
-    //             not ety.IsValueType
+    //         | Fable.DeclaredType(entRef, _) ->
+    //             let ent = com.GetEntity(entRef)
+    //             not ent.IsValueType
     //         | _ -> false
     //     shouldBeRefCountWrapped com t || isPassByRefTy
 
@@ -2587,6 +2588,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
+            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet(fieldName1, _),_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet(fieldName2, _),_,_) ->
+                i1.Name = i2.Name && fieldName1 = fieldName2
             | _ -> false
         let rec checkInner cases evalExpr treeExpr =
             match treeExpr with
@@ -3983,6 +3986,9 @@ module Compiler =
                 | true, v -> v
                 | false, _ -> dotnetNs
 
+            member _.GetEntity(fullName) =
+                com.TryGetEntity(fullName).Value
+
         interface Fable.Compiler with
             member _.Options = com.Options
             member _.Plugins = com.Plugins
@@ -3991,10 +3997,9 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
-            member _.GetEntity(fullName) = com.GetEntity(fullName)
-            member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

@@ -911,4 +911,83 @@ let tests =
         throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
         throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
 
+    testCase "List.udpateAt works" <| fun () ->
+        // integer list
+        equal [0; 2; 3; 4; 5] (List.updateAt 0 0 [1..5])
+        equal [1; 2; 0; 4; 5] (List.updateAt 2 0 [1..5])
+        equal [1; 2; 3; 4; 0] (List.updateAt 4 0 [1..5])
+
+        //string list
+        equal ["0"; "2"; "3"; "4"; "5"] (List.updateAt 0 "0" ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "0"; "4"; "5"] (List.updateAt 2 "0" ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "3"; "4"; "0"] (List.updateAt 4 "0" ["1"; "2"; "3"; "4"; "5"])
+
+        // empty list & out of bounds
+        throwsAnyError (fun () -> List.updateAt 0 0 [] |> ignore)
+        throwsAnyError (fun () -> List.updateAt -1 0 [1] |> ignore)
+        throwsAnyError (fun () -> List.updateAt 2 0 [1] |> ignore)
+
+    testCase "List.insertAt works" <| fun () ->
+        // integer list
+        equal [0; 1; 2; 3; 4; 5] (List.insertAt 0 0 [1..5])
+        equal [1; 2; 0; 3; 4; 5] (List.insertAt 2 0 [1..5])
+        equal [1; 2; 3; 4; 0; 5] (List.insertAt 4 0 [1..5])
+
+        //string list
+        equal ["0"; "1"; "2"; "3"; "4"; "5"] (List.insertAt 0 "0" ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "0"; "3"; "4"; "5"] (List.insertAt 2 "0" ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "3"; "4"; "0"; "5"] (List.insertAt 4 "0" ["1"; "2"; "3"; "4"; "5"])
+
+        // empty list & out of bounds
+        equal [0] (List.insertAt 0 0 [])
+        throwsAnyError (fun () -> List.insertAt -1 0 [1] |> ignore)
+        throwsAnyError (fun () -> List.insertAt 2 0 [1] |> ignore)
+
+    testCase "List.insertManyAt works" <| fun () ->
+        // integer list
+        equal [0; 0; 1; 2; 3; 4; 5] (List.insertManyAt 0 [0; 0] [1..5])
+        equal [1; 2; 0; 0; 3; 4; 5] (List.insertManyAt 2 [0; 0] [1..5])
+        equal [1; 2; 3; 4; 0; 0; 5] (List.insertManyAt 4 [0; 0] [1..5])
+
+        //string list
+        equal ["0"; "0"; "1"; "2"; "3"; "4"; "5"] (List.insertManyAt 0 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "0"; "0"; "3"; "4"; "5"] (List.insertManyAt 2 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "3"; "4"; "0"; "0"; "5"] (List.insertManyAt 4 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"])
+
+        // empty list & out of bounds
+        equal [0; 0] (List.insertManyAt 0 [0; 0] [])
+        throwsAnyError (fun () -> List.insertManyAt -1 [0; 0] [1] |> ignore)
+        throwsAnyError (fun () -> List.insertManyAt 2 [0; 0] [1] |> ignore)
+
+    testCase "List.removeAt works" <| fun () ->
+        // integer list
+        equal [2; 3; 4; 5] (List.removeAt 0 [1..5])
+        equal [1; 2; 4; 5] (List.removeAt 2 [1..5])
+        equal [1; 2; 3; 4] (List.removeAt 4 [1..5])
+
+        //string list
+        equal ["2"; "3"; "4"; "5"] (List.removeAt 0 ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "4"; "5"] (List.removeAt 2 ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "3"; "4"] (List.removeAt 4 ["1"; "2"; "3"; "4"; "5"])
+
+        // empty list & out of bounds
+        throwsAnyError (fun () -> List.removeAt 0 [] |> ignore)
+        throwsAnyError (fun () -> List.removeAt -1 [1] |> ignore)
+        throwsAnyError (fun () -> List.removeAt 2 [1] |> ignore)
+
+    testCase "List.removeManyAt works" <| fun () ->
+        // integer list
+        equal [3; 4; 5] (List.removeManyAt 0 2 [1..5])
+        equal [1; 2; 5] (List.removeManyAt 2 2 [1..5])
+        equal [1; 2; 3] (List.removeManyAt 3 2 [1..5])
+
+        //string list
+        equal ["3"; "4"; "5"] (List.removeManyAt 0 2 ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "5"] (List.removeManyAt 2 2 ["1"; "2"; "3"; "4"; "5"])
+        equal ["1"; "2"; "3"] (List.removeManyAt 3 2 ["1"; "2"; "3"; "4"; "5"])
+
+        // empty list & out of bounds
+        throwsAnyError (fun () -> List.removeManyAt 0 2 [] |> ignore)
+        throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
+        throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)
   ]
