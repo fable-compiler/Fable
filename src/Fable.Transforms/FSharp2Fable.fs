@@ -2,7 +2,6 @@ module rec Fable.Transforms.FSharp2Fable.Compiler
 
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Syntax
 
 open Fable
 open Fable.AST
@@ -70,7 +69,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
-        | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
+        | _ -> $"StringEnum types cannot have fields: {tdef.TryFullName}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion typ ->
         let typ = makeType ctx.GenericArgs typ
@@ -93,7 +92,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         let tag = unionCaseTag com tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
-let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName (flags: SynMemberFlags) (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
+let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName isInstance (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
     let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
         { SignatureArgTypes = argTypes
           DeclaringEntityFullName = entityFullName
@@ -118,7 +117,6 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
         |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
 
-    let isInstance = flags.IsInstance
     let thisArg, args, argTypes =
         match argExprs, argTypes with
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
@@ -215,7 +213,7 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                     // Setters can have same name as getters, assume there will always be a getter
                     if not isSetter &&
                         (nonMangledNameConflicts declaringEntityName name || declaringEntityFields.Contains(name)) then
-                        sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
+                        $"Member %s{name} is duplicated, use Mangle attribute to prevent conflicts with interfaces"
                         // TODO: Temporarily emitting a warning, because this errors in old libraries,
                         // like Fable.React.HookBindings
                         |> addWarning com ctx.InlinePath r
@@ -481,7 +479,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
         return (match membOpt with
                 | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
-                | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
+                | None -> failwith $"Cannot find member %s{entity.FullName}.%s{opName}")
 
     | FSharpExprPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
@@ -508,7 +506,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! limit = transformExpr com ctx limit
             let! body = transformExpr com newContext body
             return makeForLoop r isUp ident start limit body
-        | _ -> return failwithf "Unexpected loop %O: %A" r fsExpr
+        | _ -> return failwithf $"Unexpected loop {r}: %A{fsExpr}"
 
     | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr) ->
         let! guardExpr = transformExpr com ctx guardExpr
@@ -602,24 +600,29 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | bindings -> return Fable.LetRec(bindings, body)
 
     // `argTypes2` is always empty
-    | FSharpExprPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, argTypes2, argExprs) ->
+    | FSharpExprPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r = makeRangeFrom fsExpr
         let typ = makeType ctx.GenericArgs fsExpr.Type
         let! argExprs = transformExprList com ctx argExprs
         let argTypes = List.map (makeType ctx.GenericArgs) argTypes
 
-        let witness = ctx.Witnesses |> List.tryFind (fun w ->
-            w.TraitName = traitName
-            && w.IsInstance = flags.IsInstance
-            && listEquals (typeEquals false) argTypes w.ArgTypes)
-
-        match witness with
-        | None ->
+        match ctx.PrecompilingInlineFunction with
+        | Some _ ->
             let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
-            return transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
-        | Some w ->
-            let callInfo = makeCallInfo None argExprs w.ArgTypes
-            return makeCall r typ callInfo w.Expr
+            return Fable.UnresolvedTraitCall(sourceTypes, traitName, flags.IsInstance, argTypes, argExprs, typ, r) |> Fable.Unresolved
+        | None ->
+            let witness = ctx.Witnesses |> List.tryFind (fun w ->
+                w.TraitName = traitName
+                && w.IsInstance = flags.IsInstance
+                && listEquals (typeEquals false) argTypes w.ArgTypes)
+
+            match witness with
+            | None ->
+                let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
+                return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
+            | Some w ->
+                let callInfo = makeCallInfo None argExprs w.ArgTypes
+                return makeCall r typ callInfo w.Expr
 
     | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
         match callee with
@@ -971,7 +974,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match Replacements.tryField com typ ownerTyp fieldName with
         | Some expr -> return expr
         | None ->
-            return sprintf "Cannot compile ILFieldGet(%A, %s)" ownerTyp fieldName
+            return $"Cannot compile ILFieldGet(%A{ownerTyp}, %s{fieldName})"
             |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
     | FSharpExprPatterns.Quote _ ->
@@ -1020,7 +1023,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // | FSharpExprPatterns.ILFieldSet _
     // | FSharpExprPatterns.ILAsm _
     | expr ->
-        return sprintf "Cannot compile expression %A" expr
+        return $"Cannot compile expression %A{expr}"
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
@@ -1093,7 +1096,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
     | Fable.Import(info, typ, r) when not info.IsCompilerGenerated ->
         match typ with
-        | Fable.LambdaType(_, Fable.LambdaType(_, _)) ->
+        | Fable.LambdaType(_, Fable.LambdaType _) ->
             "Change declaration of member: " + name + "\n"
             + "Importing JS functions with multiple arguments as `let add: int->int->int` won't uncurry parameters." + "\n"
             + "Use following syntax: `let add (x:int) (y:int): int = import ...`"
@@ -1419,24 +1422,11 @@ let getRootModule (file: FSharpImplementationFileContents) =
         | _, None -> ""
     getRootModuleInner None file.Declarations
 
-let getInlineExprs (file: FSharpImplementationFileContents) =
-    let rec getInlineExprsInner decls =
-        decls |> List.collect (function
-            | FSharpImplementationFileDeclaration.InitAction _ -> []
-            | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, args, body) ->
-                if isInline memb then
-                    let key = getMemberUniqueName memb
-                    let inlineExpr = { Args = List.concat args; Body = body; FileName = file.FileName }
-                    [key, inlineExpr]
-                else [])
-    getInlineExprsInner file.Declarations
-
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
     let onlyOnceWarnings = HashSet<string>()
 
-    member __.Options = com.Options
+    member _.Options = com.Options
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
         if attachedMembers.ContainsKey(entityFullName) then
@@ -1484,19 +1474,6 @@ type FableCompiler(com: Compiler) =
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
 
-        member _.GetInlineExprFromMember(memb) =
-            let membUniqueName = getMemberUniqueName memb
-            match memb.DeclaringEntity with
-            | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
-            | Some ent ->
-                // The entity name is not included in the member unique name for type extensions, see #1667
-                let entRef = FsEnt.Ref ent
-                match entRef.SourcePath with
-                | None -> failwith ("Cannot access source path of " + entRef.FullName)
-                | Some fileName ->
-                    com.AddWatchDependency(fileName)
-                    com.GetInlineExpr(membUniqueName)
-
     interface Compiler with
         member _.Options = com.Options
         member _.Plugins = com.Plugins
@@ -1511,6 +1488,32 @@ type FableCompiler(com: Compiler) =
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
+
+let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
+    let com = FableCompiler(com) :> IFableCompiler
+
+    let rec getInlineExprsInner decls =
+        decls |> List.collect (function
+            | FSharpImplementationFileDeclaration.InitAction _ -> []
+            | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
+                if isInline memb then
+                    let ctx = { Context.Create() with UsedNamesInDeclarationScope = HashSet() }
+
+                    let ctx, idents =
+                        ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
+                            let ctx, ident = putArgInScope com ctx argId
+                            ctx, ident::idents)
+
+                    let inlineExpr =
+                        { Args = List.rev idents
+                          Body = com.Transform(ctx, body)
+                          FileName = file.FileName
+                          ScopeIdents = set ctx.UsedNamesInDeclarationScope }
+
+                    [getMemberUniqueName memb, inlineExpr]
+                else [])
+    getInlineExprsInner file.Declarations
 
 let transformFile (com: Compiler) =
     let file = com.GetImplementationFile(com.CurrentFile)

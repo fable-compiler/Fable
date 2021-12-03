@@ -43,7 +43,7 @@ let (|GeneratedInterface|_|) com ctx r t =
         | _ -> None
     | _ -> None
 
-let injectArg com (ctx: IContext) r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
+let injectArg com (ctx: Context) r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
     let parType = nonAbbreviatedType par.Type
     let typ =
         // The type of the parameter must be an option

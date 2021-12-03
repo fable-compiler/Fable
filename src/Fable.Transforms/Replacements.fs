@@ -8,7 +8,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 
-type Context = FSharp2Fable.IContext
+type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
@@ -373,7 +373,7 @@ let makeTypeConst com r (typ: Type) (value: obj) =
     | Array (Number kind), (:? (uint16[]) as arr) ->
         let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> makeValue None) |> Seq.toList
         NewArray (values, Number kind) |> makeValue r
-    | _ -> failwithf $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
+    | _ -> failwith $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
 
 let makeTypeInfo r t =
     TypeInfo t |> makeValue r
@@ -476,7 +476,7 @@ let getParseParams (kind: NumberExtKind) =
         | JsNumber Float64 -> true, "Double", false, 64
         | Long unsigned -> false, "Long", unsigned, 64
         | Decimal -> true, "Decimal", false, 128
-        | x -> failwithf "Unexpected kind in getParseParams: %A" x
+        | x -> failwith $"Unexpected kind in getParseParams: %A{x}"
     isFloatOrDecimal, numberModule, unsigned, bitsize
 
 let castBigIntMethod typeTo =
@@ -494,7 +494,7 @@ let castBigIntMethod typeTo =
         | JsNumber Float64 -> "toDouble"
         | Decimal -> "toDecimal"
         | BigInt -> failwith "Unexpected bigint-bigint conversion"
-    | _ -> failwithf "Unexpected non-number type %A" typeTo
+    | _ -> failwith $"Unexpected non-number type %A{typeTo}"
 
 let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
     match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
@@ -559,7 +559,7 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
     let kind =
         match targetType with
         | NumberExt kind -> kind
-        | x -> failwithf "Unexpected type in stringToInt: %A" x
+        | x -> failwith $"Unexpected type in stringToInt: %A{x}"
     let style = int System.Globalization.NumberStyles.Any
     let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
     let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
@@ -660,7 +660,7 @@ let (|ListSingleton|) x = [x]
 let rec findInScope scope identName =
     match scope with
     | [] -> None
-    | (ident2,expr)::prevScope ->
+    | (_,ident2,expr)::prevScope ->
         if identName = ident2.Name then
             match expr with
             | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
@@ -730,7 +730,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
             | Number Int16::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
             | Number Int32::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
             | _ -> unOp UnaryMinus operand
-        | _ -> sprintf "Operator %s not found in %A" opName argTypes
+        | _ -> $"Operator %s{opName} not found in %A{argTypes}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
@@ -1041,8 +1041,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
     let injectArgInner args (injectType, injectGenArgIndex) =
         let fail () =
-            sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
-                moduleName methName (List.map fst genArgs) injectGenArgIndex
+            $"Cannot inject arg to %s{moduleName}.%s{methName} (genArgs %A{List.map fst genArgs} - expected index %i{injectGenArgIndex})"
             |> addError com ctx.InlinePath r
             args
 
@@ -2023,7 +2022,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
             Helper.LibCall(com, "Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
-        | _ -> sprintf "Expecting an array type but got %A" t
+        | _ -> $"Expecting an array type but got %A{t}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
@@ -2191,7 +2190,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let kind =
             match i.DeclaringEntityFullName with
             | NumberExtKind kind -> kind
-            | x -> failwithf "Unexpected type in parse: %A" x
+            | x -> failwithf $"Unexpected type in parse: %A{x}"
         let isFloatOrDecimal, numberModule, unsigned, bitsize =
             getParseParams kind
         let outValue =
@@ -2217,19 +2216,19 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
         if style <> hexConst && style <> intConst then
-            sprintf "%s.%s(): NumberStyle %d is ignored" i.DeclaringEntityFullName meth style
+            $"%s{i.DeclaringEntityFullName}.%s{meth}(): NumberStyle %d{style} is ignored"
             |> addWarning com ctx.InlinePath r
         let acceptedArgs = if meth = "Parse" then 2 else 3
         if List.length args > acceptedArgs then
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
-            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
             |> addWarning com ctx.InlinePath r
         parseCall meth str args style
     | ("Parse" | "TryParse") as meth, str::_ ->
         let acceptedArgs = if meth = "Parse" then 1 else 2
         if List.length args > acceptedArgs then
             // e.g. Double.Parse(string, IFormatProvider) etc.
-            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
             |> addWarning com ctx.InlinePath r
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
@@ -2420,7 +2419,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
             Helper.JsConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
-        | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
+        | t -> $"Cannot create instance of type unresolved at compile time: %A{t}"
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
     // Type: PowDouble : float -> int -> float
@@ -2636,7 +2635,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Number Float64 -> "getBytesDouble"
             | Builtin BclInt64 -> "getBytesInt64"
             | Builtin BclUInt64 -> "getBytesUInt64"
-            | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
+            | x -> failwith $"Unsupported type in BitConverter.GetBytes(): %A{x}"
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
         else toArray r t expr |> Some // convert to dynamic array
@@ -2658,7 +2657,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String" | "FromBase64String" ->
         if not(List.isSingle args) then
-            sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.CompiledName)
+            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
             |> addWarning com ctx.InlinePath r
         Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
