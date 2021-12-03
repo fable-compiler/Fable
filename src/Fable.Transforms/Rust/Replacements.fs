@@ -1980,8 +1980,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         // TODO: Check also IList?
         | Array _ -> getLength r t ar |> Some
         | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
-    | "Clear", Some ar, _ ->
-        Helper.InstanceCall(getMut ar, "clear", t, [], ?loc=r) |> nativeCall |> Some
+    | "Clear", Some ar, [] ->
+        Helper.InstanceCall(getMut ar, "clear", t, [], ?loc=r) |> Some
     | "ConvertAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
@@ -2002,13 +2002,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
         match ar.Type with
         | Array _ ->
-            let left = Helper.InstanceCall(ar, "indexOf", Number(Int32, None), [arg], ?loc=r)
-            makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-        | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
+            Helper.LibCall(com, "Array", "contains", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ ->
+            Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
     | "IndexOf", Some ar, args ->
-        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "insert", t, [toNativeIndex idx; arg], ?loc=r) |> nativeCall |> Some
     | "InsertRange", Some ar, [idx; arg] ->
         Helper.LibCall(com, "Array", "insertRangeInPlace", t, [idx; arg; ar], ?loc=r) |> Some
     | "RemoveRange", Some ar, args ->
@@ -2016,16 +2016,15 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveAt", Some ar, [idx] ->
         Helper.InstanceCall(getMut ar, "remove", t, [toNativeIndex idx], ?loc=r) |> nativeCall |> Some
     | "Reverse", Some ar, [] ->
-        Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
-        let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
-        Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "sort", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [ExprType(DelegateType _)] ->
-        Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "sort_by", t, args, ?loc=r) |> nativeCall |> Some
     | "Sort", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "sortInPlace", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
-        Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "arrayCopy", t, [ar], ?loc=r) |> Some
     | _ -> None
 
 // let nativeArrayFunctions =

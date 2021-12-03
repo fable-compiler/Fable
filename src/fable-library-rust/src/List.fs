@@ -168,10 +168,9 @@ let iterateIndexed action xs =
 let iterateIndexed2 action xs ys =
     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
 
-// List.toSeq is redirected to Seq.ofList to avoid dependency
-
-// let toSeq (xs: 'T list): 'T seq =
-//     xs :> System.Collections.Generic.IEnumerable<'T>
+// Redirected to Seq.ofList to avoid dependency (see Replacements)
+// let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
+// //     xs :> System.Collections.Generic.IEnumerable<'T>
 
 // let toSeq (xs: 'T list): IEnumerator<'T> =
 //     let mutable curr = xs.root
@@ -193,19 +192,18 @@ let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 let ofArray (xs: 'T[]) =
     ofArrayWithTail xs (empty())
 
-// List.ofSeq is redirected to Seq.toList to avoid dependency
-
-// let ofSeq (xs: seq<'T>): 'T list =
-//     match xs with
-//     | :? array<'T> as xs -> ofArray xs
-//     | :? list<'T> as xs -> xs
-//     | _ ->
-//         let root = (empty())
-//         let mutable node = root
-//         for x in xs do
-//             node <- node.AppendConsNoTail x
-//         node.SetConsTail (empty())
-//         root.Tail
+// Redirected to Seq.toList to avoid dependency (see Replacements)
+// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
+// //     match xs with
+// //     | :? array<'T> as xs -> ofArray xs
+// //     | :? list<'T> as xs -> xs
+// //     | _ ->
+// //         let root = (empty())
+// //         let mutable node = root
+// //         for x in xs do
+// //             node <- node.AppendConsNoTail x
+// //         node.SetConsTail (empty())
+// //         root.Tail
 
 // let concat (lists: seq<'T list>) =
 //     let root = (empty())

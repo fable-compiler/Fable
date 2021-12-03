@@ -136,11 +136,6 @@ let ``Array.copy works`` () =
     xs.[1] <- xs.[1] + 1
     ys |> equal [|1;2;3|]
 
-[<Fact>]
-let ``Array.reverse works`` () =
-    let xs = [|1;2;3|]
-    Array.rev xs |> equal [|3;2;1|]
-
 // [<Fact>]
 // let ``Pattern matching with arrays works`` () =
 //     match [||] with [||] -> true | _ -> false
@@ -195,26 +190,26 @@ let ``Array.reverse works`` () =
 // [<Fact>]
 // let ``Array slice with upper index work`` () =
 //     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
-//     xs.[..2] |> Array.sum |> equal 6
+//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+//     xs.[..2] |> equal [| 1; 2; 3 |]
 //     xs.[..2] <- ys
-//     xs |> Array.sum |> equal 39
+//     xs |> equal [| 8; 8; 8; 4; 5; 6 |]
 
 // [<Fact>]
 // let ``Array slice with lower index work`` () =
 //     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
-//     xs.[4..] |> Array.sum |> equal 11
+//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+//     xs.[4..] |> equal [| 5; 6 |]
 //     xs.[4..] <- ys
-//     xs |> Array.sum |> equal 26
+//     xs |> equal [| 1; 2; 3; 4; 8; 8 |]
 
 // [<Fact>]
 // let ``Array slice with both indices work`` () =
 //     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
-//     xs.[1..3] |> Array.sum |> equal 9
+//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+//     xs.[1..3] |> equal [| 2; 3; 4 |]
 //     xs.[1..3] <- ys
-//     xs |> Array.sum |> equal 36
+//     xs |> equal [| 1; 8; 8; 8; 5; 6 |]
 
 // [<Fact>]
 // let ``Array slice with non-numeric arrays work`` () =
@@ -323,17 +318,17 @@ let ``Array.length works with non-numeric arrays`` () =
 //         |> Array.distinctBy(fun x -> x.ToString())
 //     ys |> equal xs
 
-// [<Fact>]
-// let ``Array.sub works`` () =
-//     let xs = [|0..99|]
-//     let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
-//     ys |> Array.sum |> equal 95
+[<Fact>]
+let ``Array.sub works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let ys = Array.sub xs 2 2
+    ys |> equal [|3; 4|]
 
-// [<Fact>]
-// let ``Array.fill works`` () =
-//     let xs = Array.zeroCreate 4   // [|0; 0; 0; 0|]
-//     Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
-//     xs |> Array.sum |> equal 6
+[<Fact>]
+let ``Array.fill works`` () =
+    let xs = Array.zeroCreate 4
+    Array.fill xs 1 2 3
+    xs |> equal [|0; 3; 3; 0|]
 
 [<Fact>]
 let ``Array.append works`` () =
@@ -506,20 +501,20 @@ let ``Array.foldBack2 works`` () =
     let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
     total |> equal -4
 
-// [<Fact>]
-// let ``Array.forall works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.forall ((>) 5.) xs
-//     |> equal true
+[<Fact>]
+let ``Array.forall works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.forall ((>) 5.) xs
+    |> equal true
 
-// [<Fact>]
-// let ``Array.forall2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let ys = [|1.; 2.; 3.; 5.|]
-//     Array.forall2 (=) xs ys
-//     |> equal false
-//     Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
-//     |> equal true
+[<Fact>]
+let ``Array.forall2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = [|1.; 2.; 3.; 5.|]
+    Array.forall2 (=) xs ys
+    |> equal false
+    Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
+    |> equal true
 
 [<Fact>]
 let ``Array.init works`` () =
@@ -701,11 +696,17 @@ let ``Array.map doesn't execute side effects twice`` () = // See #1140
 //     |> Array.reduce (+)
 //     |> equal 20
 
-// [<Fact>]
-// let ``Array.reduce works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.reduce (-)
-//     |> equal -8.
+[<Fact>]
+let ``Array.reduce works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.reduce (-)
+    |> equal -8.
+
+[<Fact>]
+let ``Array.reduceBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.reduceBack (-)
+    |> equal -2.
 
 // [<Fact>]
 // let ``Array.reduce Array.append works`` () = // See #2372
@@ -732,18 +733,12 @@ let ``Array.map doesn't execute side effects twice`` () = // See #1140
 //     Array.reduce Array.append strs
 //     |> equal [|"a"; "b"|]
 
-// [<Fact>]
-// let ``Array.reduceBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.reduceBack (-)
-//     |> equal -2.
-
-// [<Fact>]
-// let ``Array.rev works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.rev
-//     xs.[0] |> equal 1. // Make sure there is no side effects
-//     ys.[0] |> equal 2.
+[<Fact>]
+let ``Array.rev works`` () =
+    let xs = [|1;2;3|]
+    let ys = xs |> Array.rev
+    xs |> equal [|1;2;3|] // Make sure there is no side effects
+    ys |> equal [|3;2;1|]
 
 // [<Fact>]
 // let ``Array.scan works`` () =
