@@ -598,7 +598,8 @@ module private Transforms =
                 | _ -> Map.empty
             let members =
                 members |> List.map (fun m ->
-                    if m.Info.IsGetter || m.Info.IsValue then
+                    let hasGenerics = m.Body.Type.Generics |> List.isEmpty |> not
+                    if m.Info.IsGetter || (m.Info.IsValue && not hasGenerics) then
                         let membType =
                             Map.tryFind m.Name membersMap
                             |> Option.defaultValue m.Body.Type

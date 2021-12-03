@@ -1,7 +1,16 @@
 module Fable.Tests.React
 
+open Feliz
 open Fable.Jester
 open Fable.ReactTestingLibrary
+
+[<ReactComponent>]
+let ComponentAcceptingCurriedFunction fn _oneMoreParam =
+    let value = fn 1 2
+    Html.p [
+        prop.testId "text"
+        prop.text (value.ToString())
+    ]
 
 Jest.describe("React tests", (fun () ->
 
@@ -38,5 +47,13 @@ Jest.describe("React tests", (fun () ->
         // Click another cell to remove the editor
         RTL.fireEvent.click(cells.[8])
         Jest.expect(cell).toHaveTextContent("7")
+    ))
+
+    // See #2628
+    Jest.test("Curried functions passed to plugin transforms", (fun () ->
+        let fn a b = a + b
+        let elem = RTL.render(ComponentAcceptingCurriedFunction fn "ignored")
+        let text = elem.getByTestId "text"
+        Jest.expect(text).toHaveTextContent("3")
     ))
 ))

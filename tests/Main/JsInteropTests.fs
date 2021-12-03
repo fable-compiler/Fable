@@ -2,9 +2,9 @@ module Fable.Tests.JsInterop
 
 open System
 open Util.Testing
+open Fable.Core
 
 #if FABLE_COMPILER
-open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
@@ -231,6 +231,53 @@ type ClassWithAttachmentsChild() =
 type ClassWithAttachmentsChild2() =
     inherit ClassWithAttachments(3, "?")
     member this.dileHola(name) = this.SaySomethingTo(name, "Hola, {0}")
+
+module TaggedUnion =
+    type Base<'Kind> =
+        abstract kind: 'Kind
+
+    type Foo<'Kind> =
+        inherit Base<'Kind>
+        abstract foo: string
+
+    type Bar<'Kind> =
+        inherit Base<'Kind>
+        abstract bar: int
+
+    type Baz<'Kind> =
+        inherit Base<'Kind>
+        abstract baz: bool
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("kind")>]
+    type StringTagged =
+        | Foo of Foo<string>
+        | Bar of Bar<string>
+        | [<CompiledName("_baz")>] Baz of Baz<string>
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("kind")>]
+    type NumberTagged =
+        | [<CompiledValue(0)>] Foo of Foo<int>
+        | [<CompiledValue(1.0)>] Bar of Bar<int>
+        | [<CompiledValue(2)>] Baz of Baz<int>
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("kind")>]
+    type BoolTagged =
+        | [<CompiledValue(true)>] Foo of Foo<bool>
+        | [<CompiledValue(false)>] Bar of Bar<bool>
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("kind")>]
+    type MixedTagged =
+        | [<CompiledValue(0)>] Foo of Foo<int>
+        | Bar of Bar<string>
+        | [<CompiledValue(false)>] Baz of Baz<bool>
+
+    type Kind = Foo = 0 | Bar = 1 | Baz = 2
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("kind")>]
+    type EnumTagged =
+        | [<CompiledValue(Kind.Foo)>] Foo of Foo<Kind>
+        | [<CompiledValue(Kind.Bar)>] Bar of Bar<Kind>
+        | [<CompiledValue(Kind.Baz)>] Baz of Baz<Kind>
 
 let tests =
   testList "JsInterop" [
@@ -627,6 +674,49 @@ let tests =
       fn.Invoke(arg)  // fable compiler will spread this argument
       |> unbox
       |> equal 2
+
+    testCase "Case testing with TS tagged unions of string tags works" <| fun () ->
+        let describe = function
+            | TaggedUnion.StringTagged.Foo x -> sprintf "foo: %s" x.foo
+            | TaggedUnion.StringTagged.Bar x -> sprintf "bar: %d" x.bar
+            | TaggedUnion.StringTagged.Baz x -> sprintf "baz: %b" x.baz
+        TaggedUnion.StringTagged.Foo !!{| kind = "foo"; foo = "hello" |} |> describe |> equal "foo: hello"
+        TaggedUnion.StringTagged.Bar !!{| kind = "bar"; bar = 42 |} |> describe |> equal "bar: 42"
+        TaggedUnion.StringTagged.Baz !!{| kind = "_baz"; baz = false |} |> describe |> equal "baz: false"
+
+    testCase "Case testing with TS tagged unions of number tags works" <| fun () ->
+        let describe = function
+            | TaggedUnion.NumberTagged.Foo x -> sprintf "foo: %s" x.foo
+            | TaggedUnion.NumberTagged.Bar x -> sprintf "bar: %d" x.bar
+            | TaggedUnion.NumberTagged.Baz x -> sprintf "baz: %b" x.baz
+        TaggedUnion.NumberTagged.Foo !!{| kind = 0; foo = "hello" |} |> describe |> equal "foo: hello"
+        TaggedUnion.NumberTagged.Bar !!{| kind = 1.0; bar = 42 |} |> describe |> equal "bar: 42"
+        TaggedUnion.NumberTagged.Baz !!{| kind = 2; baz = false |} |> describe |> equal "baz: false"
+
+    testCase "Case testing with TS tagged unions of boolean tags works" <| fun () ->
+        let describe = function
+            | TaggedUnion.BoolTagged.Foo x -> sprintf "foo: %s" x.foo
+            | TaggedUnion.BoolTagged.Bar x -> sprintf "bar: %d" x.bar
+        TaggedUnion.BoolTagged.Foo !!{| kind = true; foo = "hello" |} |> describe |> equal "foo: hello"
+        TaggedUnion.BoolTagged.Bar !!{| kind = false; bar = 42 |} |> describe |> equal "bar: 42"
+
+    testCase "Case testing with TS tagged unions of mixed type tags works" <| fun () ->
+        let describe = function
+            | TaggedUnion.MixedTagged.Foo x -> sprintf "foo: %s" x.foo
+            | TaggedUnion.MixedTagged.Bar x -> sprintf "bar: %d" x.bar
+            | TaggedUnion.MixedTagged.Baz x -> sprintf "baz: %b" x.baz
+        TaggedUnion.MixedTagged.Foo !!{| kind = 0; foo = "hello" |} |> describe |> equal "foo: hello"
+        TaggedUnion.MixedTagged.Bar !!{| kind = "bar"; bar = 42 |} |> describe |> equal "bar: 42"
+        TaggedUnion.MixedTagged.Baz !!{| kind = false; baz = false |} |> describe |> equal "baz: false"
+
+    testCase "Case testing with TS tagged unions of enum tags works" <| fun () ->
+        let describe = function
+            | TaggedUnion.EnumTagged.Foo x -> sprintf "foo: %s" x.foo
+            | TaggedUnion.EnumTagged.Bar x -> sprintf "bar: %d" x.bar
+            | TaggedUnion.EnumTagged.Baz x -> sprintf "baz: %b" x.baz
+        TaggedUnion.EnumTagged.Foo !!{| kind = TaggedUnion.Kind.Foo; foo = "hello" |} |> describe |> equal "foo: hello"
+        TaggedUnion.EnumTagged.Bar !!{| kind = TaggedUnion.Kind.Bar; bar = 42 |} |> describe |> equal "bar: 42"
+        TaggedUnion.EnumTagged.Baz !!{| kind = TaggedUnion.Kind.Baz; baz = false |} |> describe |> equal "baz: false"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
