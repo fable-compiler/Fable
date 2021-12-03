@@ -355,6 +355,7 @@ type Watcher =
             Log.verbose(lazy "Watcher started!")
             this.Subscription.Dispose()
             let subs =
+                // TODO: watch also project.assets.json?
                 this.Watcher.Observe [
                     projCracked.ProjectFile
                     yield! projCracked.References
@@ -406,6 +407,25 @@ type State =
           HasCompiledOnce = false }
 
 let private compilationCycle (state: State) (changes: ISet<string>) = async {
+    let getFilesToCompile (oldFiles: IDictionary<string, File> option) (projCracked: ProjectCracked) =
+        let pendingFiles = set state.PendingFiles
+
+        // Clear the hash of files that have changed
+        let projCracked = projCracked.MapSourceFiles(fun file ->
+            if changes.Contains(file.NormalizedFullPath) then
+                File(file.NormalizedFullPath)
+            else file)
+
+        let filesToCompile =
+            projCracked.SourceFilePaths |> Array.filter (fun path ->
+                changes.Contains path
+                || pendingFiles.Contains path
+                || state.TriggeredByDependency(path, changes)
+                // TODO: If files have been deleted, we should likely recompile after first deletion
+                || (match oldFiles with Some oldFiles -> not(oldFiles.ContainsKey(path)) | None -> false)
+            )
+        Log.verbose(lazy $"""Files to compile:{newLine}    {filesToCompile |> String.concat $"{newLine}    "}""")
+        projCracked, filesToCompile
 
     let projCracked, projChecked, filesToCompile =
         match state.ProjectCrackedAndChecked with
@@ -418,24 +438,24 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             let fsprojChanged = changes |> Seq.exists (fun c -> c.EndsWith(".fsproj"))
 
             if fsprojChanged then
-                let projCracked = ProjectCracked.Init(state.CliArgs)
-                projCracked, None, projCracked.SourceFilePaths
+                let oldProjCracked = projCracked
+                let newProjCracked = ProjectCracked.Init(state.CliArgs)
+
+                // If only source files have changed, keep the project checker to speed up recompilation
+                let projChecked =
+                    if oldProjCracked.ProjectOptions.OtherOptions = newProjCracked.ProjectOptions.OtherOptions
+                    then Some projChecked
+                    else None
+
+                let oldFiles = oldProjCracked.SourceFiles |> Array.map (fun f -> f.NormalizedFullPath, f) |> dict
+                let newProjCracked = newProjCracked.MapSourceFiles(fun f ->
+                    match oldFiles.TryGetValue(f.NormalizedFullPath) with
+                    | true, f -> f
+                    | false, _ -> f)
+                let newProjCracked, filesToCompile = getFilesToCompile (Some oldFiles) newProjCracked
+                newProjCracked, projChecked, filesToCompile
             else
-                // Clear the hash of files that have changed
-                let projCracked = projCracked.MapSourceFiles(fun file ->
-                    if changes.Contains(file.NormalizedFullPath) then
-                        File(file.NormalizedFullPath)
-                    else file)
-
-                let filesToCompile =
-                    let pendingFiles = set state.PendingFiles
-
-                    projCracked.SourceFilePaths
-                    |> Array.filter (fun path ->
-                        changes.Contains path || pendingFiles.Contains path || state.TriggeredByDependency(path, changes))
-
-                Log.verbose(lazy $"""Files to compile:{newLine}    {filesToCompile |> String.concat $"{newLine}    "}""")
-
+                let projCracked, filesToCompile = getFilesToCompile None projCracked
                 projCracked, Some projChecked, filesToCompile
 
     // Update the watcher (it will restart if the fsproj has changed)

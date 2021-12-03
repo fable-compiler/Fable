@@ -44,9 +44,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
         | e -> e
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
-    match fsType, unionCase with
-    // TODO: Erased unions should be represented in Fable AST,
-    // not erased already to tuples/strings
+    match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         makeTuple r argExprs
     | ErasedUnion(tdef, _genArgs, rule) ->
@@ -57,6 +55,12 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
         | argExprs -> makeTuple r argExprs
+    | TypeScriptTaggedUnion _  ->
+        match argExprs with
+        | [argExpr] -> argExpr
+        | _ ->
+            "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -306,7 +310,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                             unionExpr fsType (unionCase: FSharpUnionCase) =
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
-    match fsType, unionCase with
+    match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         return "Cannot test erased union cases"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -327,6 +331,24 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
             return Fable.Test(unionExpr, kind, r)
         | _ ->
             return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
+    | TypeScriptTaggedUnion (_, _, tagName, rule) ->
+        match unionCase.Fields.Count with
+        | 1 ->
+            let inline numberConst kind value =
+                Fable.Number kind, Fable.Value (Fable.NumberConstant(float value, kind), r)
+            let typ, value =
+                match FsUnionCase.CompiledValue unionCase with
+                | None -> Fable.String, transformStringEnum rule unionCase
+                | Some (CompiledValue.Integer i) -> numberConst Int32 i
+                | Some (CompiledValue.Float f) -> numberConst Float64 f
+                | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
+            return makeEqOp r
+                (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(tagName, lazy typ))), typ, r))
+                value
+                BinaryEqualStrict
+        | _ ->
+            return "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
@@ -354,6 +376,7 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
             let! expr = transformExpr com ctx expr
             return! transformDecisionTargets com ctx ((idents, expr)::acc) tail
     }
+
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
   trampoline {
@@ -775,15 +798,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
-        match fsType, unionCase with
+        match getUnionPattern fsType unionCase with
         | ErasedUnionCase ->
             let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
             return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
-        | ErasedUnion _ ->
+        | ErasedUnion _  ->
             if unionCase.Fields.Count = 1 then return unionExpr
             else
                 let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
                 return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
+        | TypeScriptTaggedUnion _ ->
+            if unionCase.Fields.Count = 1 then return unionExpr
+            else
+                return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
+                |> addErrorAndReturnNull com ctx.InlinePath r
         | StringEnum _ ->
             return "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -967,11 +995,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | FSharpExprPatterns.Call(None, memb, _, _, _)
         | FSharpExprPatterns.Value memb ->
             let value = makeValueFrom com ctx r memb
-            match memb.DeclaringEntity with
-            | Some ent when ent.IsFSharpModule && isPublicMember memb ->
-                return Replacements.makeRefFromMutableFunc com ctx r value.Type value
-            | _ ->
-                return Replacements.makeRefFromMutableValue com ctx r value.Type value
+            if memb.IsMutable then
+                match memb.DeclaringEntity with
+                | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                    return Replacements.makeRefFromMutableFunc com ctx r value.Type value
+                | _ ->
+                    return Replacements.makeRefFromMutableValue com ctx r value.Type value
+            else
+                return Replacements.newReference com r value.Type value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
@@ -1501,8 +1532,7 @@ type FableCompiler(com: Compiler) =
         member _.ProjectFile = com.ProjectFile
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-        member _.GetEntity(fullName) = com.GetEntity(fullName)
-        member _.TryGetNonCoreAssemblyEntity(fullName) = com.TryGetNonCoreAssemblyEntity(fullName)
+        member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

@@ -1,3 +1,7 @@
+### 3.6.1
+
+* TypescriptTaggedUnion @cannorin
+
 ### 3.6.0
 
 * Add Fable.Core.Compiler.triggeredByDependency flag

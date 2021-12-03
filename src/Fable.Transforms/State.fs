@@ -62,29 +62,18 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                 { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
             else acc)
 
-    let findEntityByPath asmPathOrName (entityRef: Fable.EntityRef) (asm: FSharpAssembly option) =
-        match asm with
-        | Some asm ->
-            let entPath = List.ofArray (entityRef.FullName.Split('.'))
-            match asm.Contents.FindEntityByPath(entPath) with
-            | Some e -> FSharp2Fable.FsEnt e :> Fable.Entity
-            | None -> failwithf "Cannot find dll entity %s" entityRef.FullName
-        | None -> failwithf "Cannot find assembly %s" asmPathOrName
-
-    member _.GetEntityByAssemblyPath(asmPath, entityRef) =
-        assemblies.TryValue(asmPath)
-        |> findEntityByPath asmPath entityRef
+    let tryFindEntityByPath (entityRef: Fable.EntityRef) (asm: FSharpAssembly) =
+        let entPath = List.ofArray (entityRef.FullName.Split('.'))
+        asm.Contents.FindEntityByPath(entPath)
+        |> Option.map(fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
 
     member _.TryGetEntityByAssemblyPath(asmPath, entityRef: Fable.EntityRef) =
         assemblies.TryValue(asmPath)
-        |> Option.bind (fun asm ->
-            let entPath = List.ofArray (entityRef.FullName.Split('.'))
-            asm.Contents.FindEntityByPath(entPath))
-        |> Option.map (fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
+        |> Option.bind (tryFindEntityByPath entityRef)
 
-    member _.GetEntityByCoreAssemblyName(asmName, entityRef: Fable.EntityRef) =
+    member _.TryGetEntityByCoreAssemblyName(asmName, entityRef: Fable.EntityRef) =
         coreAssemblies.TryValue(asmName)
-        |> findEntityByPath asmName entityRef
+        |> Option.bind (tryFindEntityByPath entityRef)
 
     member _.Plugins = plugins
 
@@ -116,8 +105,9 @@ type ImplFile =
 type Project(projFile: string,
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
-             trimRootModule: bool) =
+             ?trimRootModule: bool) =
 
+    let trimRootModule = defaultArg trimRootModule true
     let inlineExprs = implFiles |> Seq.collect (fun kv -> kv.Value.InlineExprs) |> dict
 
     static member From(projFile,
@@ -136,7 +126,7 @@ type Project(projFile: string,
                 key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFiles, assemblies, defaultArg trimRootModule true)
+        Project(projFile, implFiles, assemblies, ?trimRootModule=trimRootModule)
 
     member this.Update(fsharpFiles: FSharpImplementationFileContents list) =
 
@@ -215,27 +205,13 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                     "" // failwith msg
 
-        member _.GetEntity(entityRef: Fable.EntityRef) =
+        member this.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
-            | Fable.CoreAssemblyName name -> project.Assemblies.GetEntityByCoreAssemblyName(name, entityRef)
+            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef)
             | Fable.PrecompiledLib(_, path)
-            | Fable.AssemblyPath path -> project.Assemblies.GetEntityByAssemblyPath(path, entityRef)
+            | Fable.AssemblyPath path -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
-                match project.ImplementationFiles.TryValue(fileName) with
-                | Some file ->
-                    match file.Entities.TryValue(entityRef.FullName) with
-                    | Some e -> e
-                    | None -> failwithf "Cannot find entity %s in %s" entityRef.FullName fileName
-                | None -> failwith ("Cannot find implementation file " + fileName)
-
-        member _.TryGetNonCoreAssemblyEntity(entityRef: Fable.EntityRef) =
-            match entityRef.Path with
-            | Fable.CoreAssemblyName _ -> None
-            | Fable.PrecompiledLib(_, path)
-            | Fable.AssemblyPath path ->
-                project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef)
-            | Fable.SourcePath fileName ->
                 project.ImplementationFiles.TryValue(fileName)
                 |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
 
