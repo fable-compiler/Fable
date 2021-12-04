@@ -1098,3 +1098,88 @@ let ``Seq.singleton works with None`` () =
 //     |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
 //     Seq.transpose (seq { ["a";"b"]; ["c";"d"] })
 //     |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
+
+// [<Fact>]
+// let ``Seq.updateAt works`` () =
+//     // integer list
+//     equal [0; 2; 3; 4; 5] (Seq.updateAt 0 0 [1..5] |> Seq.toList)
+//     equal [1; 2; 0; 4; 5] (Seq.updateAt 2 0 [1..5] |> Seq.toList)
+//     equal [1; 2; 3; 4; 0] (Seq.updateAt 4 0 [1..5] |> Seq.toList)
+
+//     //string list
+//     equal ["0"; "2"; "3"; "4"; "5"] (Seq.updateAt 0 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "0"; "4"; "5"] (Seq.updateAt 2 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "3"; "4"; "0"] (Seq.updateAt 4 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+//     // empty list & out of bounds
+//     throwsAnyError (fun () -> Seq.updateAt 0 0 [] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.updateAt -1 0 [1] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.updateAt 2 0 [1] |> Seq.toList |> ignore)
+
+// [<Fact>]
+// let ``Seq.insertAt works`` () =
+//     // integer list
+//     equal [0; 1; 2; 3; 4; 5] (Seq.insertAt 0 0 [1..5] |> Seq.toList)
+//     equal [1; 2; 0; 3; 4; 5] (Seq.insertAt 2 0 [1..5] |> Seq.toList)
+//     equal [1; 2; 3; 4; 0; 5] (Seq.insertAt 4 0 [1..5] |> Seq.toList)
+
+//     //string list
+//     equal ["0"; "1"; "2"; "3"; "4"; "5"] (Seq.insertAt 0 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "0"; "3"; "4"; "5"] (Seq.insertAt 2 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "3"; "4"; "0"; "5"] (Seq.insertAt 4 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+//     // empty list & out of bounds
+//     equal [0] (Seq.insertAt 0 0 [] |> Seq.toList)
+//     throwsAnyError (fun () -> Seq.insertAt -1 0 [1] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.insertAt 2 0 [1] |> Seq.toList |> ignore)
+
+// [<Fact>]
+// let ``Seq.insertManyAt works`` () =
+//     // integer list
+//     equal [0; 0; 1; 2; 3; 4; 5] (Seq.insertManyAt 0 [0; 0] [1..5] |> Seq.toList)
+//     equal [1; 2; 0; 0; 3; 4; 5] (Seq.insertManyAt 2 [0; 0] [1..5] |> Seq.toList)
+//     equal [1; 2; 3; 4; 0; 0; 5] (Seq.insertManyAt 4 [0; 0] [1..5] |> Seq.toList)
+
+//     //string list
+//     equal ["0"; "0"; "1"; "2"; "3"; "4"; "5"] (Seq.insertManyAt 0 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "0"; "0"; "3"; "4"; "5"] (Seq.insertManyAt 2 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "3"; "4"; "0"; "0"; "5"] (Seq.insertManyAt 4 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+//     // empty list & out of bounds
+//     equal [0; 0] (Seq.insertManyAt 0 [0; 0] [] |> Seq.toList)
+//     throwsAnyError (fun () -> Seq.insertManyAt -1 [0; 0] [1] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.insertManyAt 2 [0; 0] [1] |> Seq.toList |> ignore)
+
+// [<Fact>]
+// let ``Seq.removeAt works`` () =
+//     // integer list
+//     equal [2; 3; 4; 5] (Seq.removeAt 0 [1..5] |> Seq.toList)
+//     equal [1; 2; 4; 5] (Seq.removeAt 2 [1..5] |> Seq.toList)
+//     equal [1; 2; 3; 4] (Seq.removeAt 4 [1..5] |> Seq.toList)
+
+//     //string list
+//     equal ["2"; "3"; "4"; "5"] (Seq.removeAt 0 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "4"; "5"] (Seq.removeAt 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "3"; "4"] (Seq.removeAt 4 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+//     // empty list & out of bounds
+//     throwsAnyError (fun () -> Seq.removeAt 0 [] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.removeAt -1 [1] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.removeAt 2 [1] |> Seq.toList |> ignore)
+
+// [<Fact>]
+// let ``Seq.removeManyAt works`` () =
+//     // integer list
+//     equal [3; 4; 5] (Seq.removeManyAt 0 2 [1..5] |> Seq.toList)
+//     equal [1; 2; 5] (Seq.removeManyAt 2 2 [1..5] |> Seq.toList)
+//     equal [1; 2; 3] (Seq.removeManyAt 3 2 [1..5] |> Seq.toList)
+
+//     //string list
+//     equal ["3"; "4"; "5"] (Seq.removeManyAt 0 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "5"] (Seq.removeManyAt 2 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+//     equal ["1"; "2"; "3"] (Seq.removeManyAt 3 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+//     // empty list & out of bounds
+//     throwsAnyError (fun () -> Seq.removeManyAt 0 2 [] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
+//     throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)

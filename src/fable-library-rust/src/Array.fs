@@ -3,6 +3,7 @@ module Array
 // open System.Collections.Generic
 
 module SR =
+    let indexOutOfBounds = "The index was outside the range of elements in the array."
     let inputArrayWasEmpty = "The input array was empty"
     let inputArrayWasTooLong = "The input array was too long"
     let inputArrayWasTooShort = "The input array has not enough elements"
@@ -20,8 +21,13 @@ let inline differentLengths() = failwith SR.differentLengths
 //     let singleton (value: 'T): 'T[] = Array.singleton value
 //     let isEmpty (source: 'T[]): bool = Array.isEmpty source
 //     let length (source: 'T[]): int = Array.length source
-//     let item (index: int) (source: 'T[]): 'T = source.[index]
+//     let item (index: int) (source: 'T[]): 'T = Array.item index source
+//     let get (source: 'T[]) (index: int): 'T = Array.get source index
+//     let set (source: 'T[]) (index: int) (value: 'T): unit = Array.set source index value
 //     let copy (source: 'T[]): 'T[] = Array.copy source
+
+let inline zeroCreate (count: int): 'T[] =
+    Array.create count Unchecked.defaultof<_>
 
 let tryItem (index: int) (source: 'T[]): 'T option =
     if index < 0 || index >= source.Length then None
@@ -29,7 +35,7 @@ let tryItem (index: int) (source: 'T[]): 'T option =
 
 let reverse (source: 'T[]): 'T[] =
     let len = source.Length
-    let res = Array.create len Unchecked.defaultof<_>
+    let res = zeroCreate len
     for i = 0 to len - 1 do
         res.[len - 1 - i] <- source.[i]
     res
@@ -37,23 +43,31 @@ let reverse (source: 'T[]): 'T[] =
 // TODO: (double copy so not efficient) - Probably need a Array.Push() mut equivalent, or vec.push(), or trim.
 let filter (predicate: 'T -> bool) (source: 'T[]): 'T[] =
     let len = source.Length
-    let target = Array.create len Unchecked.defaultof<_>
-    let mutable targetIndex = 0
+    let target = zeroCreate len
+    let mutable targetLen = 0
     for i = 0 to len - 1 do
         if predicate source.[i] then
-            target.[targetIndex] <- source.[i]
-            targetIndex <- targetIndex + 1
-    let targetOut = Array.create targetIndex Unchecked.defaultof<_>
-    for i = 0 to targetIndex - 1 do
-        targetOut.[i] <- target.[i]
-    targetOut
+            target.[targetLen] <- source.[i]
+            targetLen <- targetLen + 1
+    let res = zeroCreate targetLen
+    for i = 0 to targetLen - 1 do
+        res.[i] <- target.[i]
+    res
 
-// // intentionally returns target instead of unit
-// let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): 'T[] =
-//     fillImpl target value targetIndex count
+let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
+    if targetIndex < 0 || targetIndex + count > target.Length then
+        invalidArg "index" SR.indexOutOfBounds
+    let len = target.Length
+    for i = targetIndex to targetIndex + count - 1 do
+        target.[i] <- value
 
-// let getSubArray (source: 'T[]) (start: int) (count: int): 'T[] =
-//     subArrayImpl source start count
+let getSubArray (source: 'T[]) (startIndex: int) (count: int): 'T[] =
+    if startIndex < 0 || startIndex + count > source.Length then
+        invalidArg "index" SR.indexOutOfBounds
+    let res = zeroCreate count
+    for i = 0 to count - 1 do
+        res.[i] <- source.[startIndex + i]
+    res
 
 let exactlyOne (source: 'T[]): 'T =
     if source.Length = 1 then source.[0]
@@ -94,7 +108,7 @@ let tryLast (source: 'T[]): 'T option =
 let append (source1: 'T[]) (source2: 'T[]): 'T[] =
     let len1 = source1.Length
     let len2 = source2.Length
-    let res = Array.create (len1 + len2) Unchecked.defaultof<_>
+    let res = zeroCreate (len1 + len2)
     for i = 0 to len1 - 1 do
         res.[i] <- source1.[i]
     for i = 0 to len2 - 1 do
@@ -103,14 +117,14 @@ let append (source1: 'T[]) (source2: 'T[]): 'T[] =
 
 let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]): 'U[] =
     let len = source.Length
-    let target = Array.create len Unchecked.defaultof<_>
+    let target = zeroCreate len
     for i = 0 to len - 1 do
         target.[i] <- f i source.[i]
     target
 
 let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
     let len = source.Length
-    let target = Array.create len Unchecked.defaultof<_>
+    let target = zeroCreate len
     for i = 0 to len - 1 do
         target.[i] <- f source.[i]
     target
@@ -215,7 +229,7 @@ let indexed (source: 'T[]) =
 
 let initialize count initializer =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
-    let res = Array.create count Unchecked.defaultof<_>
+    let res = zeroCreate count
     for i = 0 to count - 1 do
         res.[i] <- initializer i
     res
@@ -460,17 +474,60 @@ let initialize count initializer =
 //     | null -> res // avoid extra copy
 //     | _ -> map id res cons
 
+let fold folder (state: 'State) (source: 'T[]) =
+    let mutable acc = state
+    for i = 0 to source.Length - 1 do
+        acc <- folder acc source.[i]
+    acc
+
 let foldIndexed folder (state: 'State) (source: 'T[]) =
     let mutable acc = state
     for i = 0 to source.Length - 1 do
         acc <- folder i acc source.[i]
     acc
 
-let fold folder (state: 'State) (source: 'T[]) =
+let foldBackIndexed<'T, 'State> folder (source: 'T[]) (state: 'State) =
     let mutable acc = state
-    for i = 0 to source.Length - 1 do
-        acc <- folder acc source.[i]
+    let size = source.Length
+    for i = 1 to size do
+        acc <- folder (i-1) source.[size - i] acc
     acc
+
+let foldBack<'T, 'State> folder (source: 'T[]) (state: 'State) =
+    foldBackIndexed (fun _ x acc -> folder x acc) source state
+
+let foldIndexed2 folder state (source1: _[]) (source2: _[]) =
+    let mutable acc = state
+    if source1.Length <> source2.Length then differentLengths()
+    for i = 0 to source1.Length - 1 do
+        acc <- folder i acc source1.[i] source2.[i]
+    acc
+
+let fold2<'T1, 'T2, 'State> folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
+    foldIndexed2 (fun _ acc x y -> folder acc x y) state source1 source2
+
+let foldBackIndexed2<'T1, 'T2, 'State> folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
+    let mutable acc = state
+    if source1.Length <> source2.Length then differentLengths()
+    let size = source1.Length
+    for i = 1 to size do
+        acc <- folder (i-1) source1.[size - i] source2.[size - i] acc
+    acc
+
+let foldBack2<'T1, 'T2, 'State> f (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
+    foldBackIndexed2 (fun _ x y acc -> f x y acc) source1 source2 state
+
+let forAll predicate (source: 'T[]) =
+    let mutable i = 0
+    let mutable res = true
+    while i < source.Length && res do
+        res <- predicate source.[i]
+        i <- i + 1
+    res
+
+let forAll2 predicate source1 source2 =
+    // TODO: stop early
+    fold2 (fun acc x y -> acc && predicate x y) true source1 source2
 
 let iterate action (source: 'T[]) =
     for i = 0 to source.Length - 1 do
@@ -489,17 +546,6 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
     if source1.Length <> source2.Length then differentLengths()
     for i = 0 to source1.Length - 1 do
         action i source1.[i] source2.[i]
-
-// let forAll predicate (source: 'T[]) =
-//     // if isTypedArrayImpl source then
-//     //     let mutable i = 0
-//     //     let mutable res = true
-//     //     while i < source.Length && res do
-//     //         res <- predicate source.[i]
-//     //         i <- i + 1
-//     //     res
-//     // else
-//     forAllImpl predicate source
 
 // let permute f (source: 'T[]) =
 //     let size = source.Length
@@ -575,8 +621,8 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
 // // TODO: We should pass Cons<'T> here (and unzip3) but 'a and 'b may differ
 // let unzip (source: 'T[]) =
 //     let len = source.Length
-//     let res1 = Array.create len Unchecked.defaultof<_>
-//     let res2 = Array.create len Unchecked.defaultof<_>
+//     let res1 = zeroCreate len
+//     let res2 = zeroCreate len
 //     iterateIndexed (fun i (item1, item2) ->
 //         res1.[i] <- item1
 //         res2.[i] <- item2
@@ -585,9 +631,9 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
 
 // let unzip3 (source: 'T[]) =
 //     let len = source.Length
-//     let res1 = Array.create len Unchecked.defaultof<_>
-//     let res2 = Array.create len Unchecked.defaultof<_>
-//     let res3 = Array.create len Unchecked.defaultof<_>
+//     let res1 = zeroCreate len
+//     let res2 = zeroCreate len
+//     let res3 = zeroCreate len
 //     iterateIndexed (fun i (item1, item2, item3) ->
 //         res1.[i] <- item1
 //         res2.[i] <- item2
@@ -624,9 +670,9 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
 //         res
 
 // let splitAt (index: int) (source: 'T[]): 'T[] * 'T[] =
-//     if index < 0 then invalidArg "index" SR.inputMustBeNonNegative
-//     if index > source.Length then invalidArg "index" "The input sequence has an insufficient number of elements."
-//     subArrayImpl source 0 index, skipImpl source index
+//     if index < 0 || index > source.Length then
+//         invalidArg "index" SR.indexOutOfBounds
+//     subArrayImpl array 0 index, skipImpl array index
 
 // let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
 //     if isNull source1 then
@@ -649,53 +695,13 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
 // let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
 //     compareWith compare source1 source2 = 0
 
-let foldBackIndexed<'T, 'State> folder (source: 'T[]) (state: 'State) =
-    let mutable acc = state
-    let size = source.Length
-    for i = 1 to size do
-        acc <- folder (i-1) source.[size - i] acc
-    acc
+let reduce reduction (source: 'T[]) =
+    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> source
 
-let foldBack<'T, 'State> folder (source: 'T[]) (state: 'State) =
-    foldBackIndexed (fun _ x acc -> folder x acc) source state
-
-let foldIndexed2 folder state (source1: _[]) (source2: _[]) =
-    let mutable acc = state
-    if source1.Length <> source2.Length then differentLengths()
-    for i = 0 to source1.Length - 1 do
-        acc <- folder i acc source1.[i] source2.[i]
-    acc
-
-let fold2<'T1, 'T2, 'State> folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
-    foldIndexed2 (fun _ acc x y -> folder acc x y) state source1 source2
-
-let foldBackIndexed2<'T1, 'T2, 'State> folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
-    let mutable acc = state
-    if source1.Length <> source2.Length then differentLengths()
-    let size = source1.Length
-    for i = 1 to size do
-        acc <- folder (i-1) source1.[size - i] source2.[size - i] acc
-    acc
-
-let foldBack2<'T1, 'T2, 'State> f (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
-    foldBackIndexed2 (fun _ x y acc -> f x y acc) source1 source2 state
-
-// let reduce reduction (source: 'T[]) =
-//     if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-//     // if isTypedArrayImpl source then
-//     //     foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> source
-//     // else
-//     reduceImpl reduction source
-
-// let reduceBack reduction (source: 'T[]) =
-//     if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-//     // if isTypedArrayImpl source then
-//     //     foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) source Unchecked.defaultof<_>
-//     // else
-//     reduceBackImpl reduction source
-
-// let forAll2 predicate source1 source2 =
-//     fold2 (fun acc x y -> acc && predicate x y) true source1 source2
+let reduceBack reduction (source: 'T[]) =
+    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) source Unchecked.defaultof<_>
 
 // let rec existsOffset predicate (source: 'T[]) index =
 //     if index = source.Length then false
@@ -752,7 +758,8 @@ let foldBack2<'T1, 'T2, 'State> f (source1: 'T1[]) (source2: 'T2[]) (state: 'Sta
 //         total <- averager.Add(total, projection source.[i])
 //     averager.DivideByInt(total, source.Length)
 
-// // let toList (source: 'T[]) = List.ofArray (see Replacements)
+// Redirected to List.ofArray to avoid dependency (see Replacements)
+// let toList (source: 'T[]) = List.ofArray
 
 // let windowed (windowSize: int) (source: 'T[]): 'T[][] =
 //     if windowSize <= 0 then
@@ -797,3 +804,85 @@ let foldBack2<'T1, 'T2, 'State> f (source1: 'T1[]) (source2: 'T2[]) (state: 'Sta
 //             for j in 0..len-1 do
 //                 res.[i].[j] <- arrays.[j].[i]
 //         res
+
+// let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+//     let len = xs.Length
+//     if index < 0 || index > len then
+//         invalidArg "index" SR.indexOutOfBounds
+//     let target = allocateArrayFrom xs (len + 1)
+//     for i = 0 to (index - 1) do
+//         target.[i] <- xs.[i]
+//     target.[index] <- y
+//     for i = index to (len - 1) do
+//         target.[i + 1] <- xs.[i]
+//     target
+
+// let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
+//     let len = xs.Length
+//     if index < 0 || index > len then
+//         invalidArg "index" SR.indexOutOfBounds
+//     let ys = arrayFrom ys
+//     let len2 = ys.Length
+//     let target = allocateArrayFrom xs (len + len2)
+//     for i = 0 to (index - 1) do
+//         target.[i] <- xs.[i]
+//     for i = 0 to (len2 - 1) do
+//         target.[index + i] <- ys.[i]
+//     for i = index to (len - 1) do
+//         target.[i + len2] <- xs.[i]
+//     target
+
+// let removeAt (index: int) (xs: 'T[]): 'T[] =
+//     if index < 0 || index >= xs.Length then
+//         invalidArg "index" SR.indexOutOfBounds
+//     let mutable i = -1
+//     xs |> filter (fun _ ->
+//         i <- i + 1
+//         i <> index)
+
+// let removeManyAt (index: int) (count: int) (xs: 'T[]): 'T[] =
+//     let mutable i = -1
+//     // incomplete -1, in-progress 0, complete 1
+//     let mutable status = -1
+//     let ys =
+//         xs |> filter (fun _ ->
+//             i <- i + 1
+//             if i = index then
+//                 status <- 0
+//                 false
+//             elif i > index then
+//                 if i < index + count then
+//                     false
+//                 else
+//                     status <- 1
+//                     true
+//             else true)
+//     let status =
+//         if status = 0 && i + 1 = index + count then 1
+//         else status
+//     if status < 1 then
+//         // F# always says the wrong parameter is index but the problem may be count
+//         let arg = if status < 0 then "index" else "count"
+//         invalidArg arg SR.indexOutOfBounds
+//     ys
+
+// let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+//     let len = xs.Length
+//     if index < 0 || index >= len then
+//         invalidArg "index" SR.indexOutOfBounds
+//     let target = allocateArrayFrom xs len
+//     for i = 0 to (len - 1) do
+//         target.[i] <- if i = index then y else xs.[i]
+//     target
+
+// let init = initialize
+// let iter = iterate
+// let iter2 = iterate2
+// let iteri = iterateIndexed
+// let iteri2 = iterateIndexed2
+// let forall = forAll
+// let forall2 = forAll2
+// let mapi = mapIndexed
+// let mapi2 = mapIndexed2
+// let rev = reverse
+// let sub = getSubArray

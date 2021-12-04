@@ -168,10 +168,9 @@ let iterateIndexed action xs =
 let iterateIndexed2 action xs ys =
     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
 
-// List.toSeq is redirected to Seq.ofList to avoid dependency
-
-// let toSeq (xs: 'T list): 'T seq =
-//     xs :> System.Collections.Generic.IEnumerable<'T>
+// Redirected to Seq.ofList to avoid dependency (see Replacements)
+// let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
+// //     xs :> System.Collections.Generic.IEnumerable<'T>
 
 // let toSeq (xs: 'T list): IEnumerator<'T> =
 //     let mutable curr = xs.root
@@ -193,19 +192,18 @@ let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 let ofArray (xs: 'T[]) =
     ofArrayWithTail xs (empty())
 
-// List.ofSeq is redirected to Seq.toList to avoid dependency
-
-// let ofSeq (xs: seq<'T>): 'T list =
-//     match xs with
-//     | :? array<'T> as xs -> ofArray xs
-//     | :? list<'T> as xs -> xs
-//     | _ ->
-//         let root = (empty())
-//         let mutable node = root
-//         for x in xs do
-//             node <- node.AppendConsNoTail x
-//         node.SetConsTail (empty())
-//         root.Tail
+// Redirected to Seq.toList to avoid dependency (see Replacements)
+// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
+// //     match xs with
+// //     | :? array<'T> as xs -> ofArray xs
+// //     | :? list<'T> as xs -> xs
+// //     | _ ->
+// //         let root = (empty())
+// //         let mutable node = root
+// //         for x in xs do
+// //             node <- node.AppendConsNoTail x
+// //         node.SetConsTail (empty())
+// //         root.Tail
 
 // let concat (lists: seq<'T list>) =
 //     let root = (empty())
@@ -626,6 +624,91 @@ let tryExactlyOne (xs: 'T list) =
 //     |> Array.transpose
 //     |> Array.map ofArray
 //     |> ofArray
+
+// let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+//     let mutable i = -1
+//     let mutable isDone = false
+//     let result =
+//         (List.Empty, xs) ||> fold (fun acc x ->
+//             i <- i + 1
+//             if i = index then
+//                 isDone <- true
+//                 List.Cons(x, List.Cons(y, acc))
+//             else List.Cons(x, acc))
+//     let result =
+//         if isDone then result
+//         elif i + 1 = index then List.Cons(y, result)
+//         else invalidArg "index" SR.indexOutOfBounds
+//     reverse result
+
+// let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
+//     let mutable i = -1
+//     let mutable isDone = false
+//     let ys = (ys, List.Empty) ||> Seq.foldBack (fun y acc -> List.Cons(y, acc))
+//     let result =
+//         (List.Empty, xs) ||> fold (fun acc x ->
+//             i <- i + 1
+//             if i = index then
+//                 isDone <- true
+//                 List.Cons(x, append ys acc)
+//             else List.Cons(x, acc))
+//     let result =
+//         if isDone then result
+//         elif i + 1 = index then append ys result
+//         else invalidArg "index" SR.indexOutOfBounds
+//     reverse result
+
+// let removeAt (index: int) (xs: 'T list): 'T list =
+//     let mutable i = -1
+//     let mutable isDone = false
+//     let ys =
+//         xs |> filter (fun _ ->
+//             i <- i + 1
+//             if i = index then
+//                 isDone <- true
+//                 false
+//             else true)
+//     if not isDone then
+//         invalidArg "index" SR.indexOutOfBounds
+//     ys
+
+// let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
+//     let mutable i = -1
+//     // incomplete -1, in-progress 0, complete 1
+//     let mutable status = -1
+//     let ys =
+//         xs |> filter (fun _ ->
+//             i <- i + 1
+//             if i = index then
+//                 status <- 0
+//                 false
+//             elif i > index then
+//                 if i < index + count then
+//                     false
+//                 else
+//                     status <- 1
+//                     true
+//             else true)
+//     let status =
+//         if status = 0 && i + 1 = index + count then 1
+//         else status
+//     if status < 1 then
+//         // F# always says the wrong parameter is index but the problem may be count
+//         let arg = if status < 0 then "index" else "count"
+//         invalidArg arg SR.indexOutOfBounds
+//     ys
+
+// let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+//     let mutable isDone = false
+//     let ys =
+//         xs |> mapIndexed (fun i x ->
+//             if i = index then
+//                 isDone <- true
+//                 y
+//             else x)
+//     if not isDone then
+//         invalidArg "index" SR.indexOutOfBounds
+//     ys
 
 // let init = initialize
 // let iter = iterate

@@ -2,58 +2,54 @@ module Fable.Tests.ResizeArrayTests
 
 open Util.Testing
 
-// [<Fact>]
-// let ``ResizeArray zero creation works`` () =
-//     let li = ResizeArray<float>()
-//     equal 0 li.Count
+[<Fact>]
+let ``ResizeArray zero creation works`` () =
+    let li = ResizeArray<float>()
+    li.Count |> equal 0
 
 // [<Fact>]
 // let ``ResizeArray zero creation with size works`` () =
 //     let li = ResizeArray<string>(5)
-//     equal 0 li.Count
+//      li.Count |> equal 0
 
 // [<Fact>]
 // let ``ResizeArray creation with seq works`` () =
 //     let li = ResizeArray<_>(seq{1..5})
-//     Seq.sum li
-//     |> equal 15
+//     Seq.sum li |> equal 15
 
 // [<Fact>]
 // let ``ResizeArray creation with literal array works`` () =
 //     let li = ResizeArray<_> [|1;2;3;4;5|]
-//     Seq.sum li
-//     |> equal 15
+//     Seq.sum li |> equal 15
 
 // [<Fact>]
 // let ``ResizeArray creation with literal list works`` () =
 //     let li = ResizeArray<_> [1;2;3;4;5]
-//     Seq.sum li
-//     |> equal 15
+//     Seq.sum li |> equal 15
 
 // [<Fact>]
 // let ``ResizeArray casting to seq works`` () =
 //     let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
-//     Seq.sum xs
-//     |> equal 15
+//     Seq.sum xs |> equal 15
 
 // [<Fact>]
 // let ``ResizeArray iteration works`` () =
 //     let li = ResizeArray<_>()
 //     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     let acc = ref 0.
+//     let mutable acc = 0.
 //     for i in li do
-//         acc := !acc + i
-//     equal 15. !acc
+//         acc <- acc + i
+//     acc |> equal 15.
 
-// [<Fact>]
-// let ``ResizeArray iteration with index works`` () =
-//     let li = ResizeArray<_>()
-//     for i = 1 to 4 do
-//         li.Add(i)
-//     let mutable x = 0
-//     for i = 0 to li.Count - 1 do
-//         x <- x + li.[i]
-//     equal 10 x
+[<Fact>]
+let ``ResizeArray iteration with index works`` () =
+    let li = ResizeArray<_>()
+    for i = 1 to 4 do
+        li.Add(i)
+    let mutable x = 0
+    for i = 0 to li.Count - 1 do
+        x <- x + li.[i]
+    x |> equal 10
 
 // [<Fact>]
 // let ``ResizeArray folding works`` () =
@@ -62,11 +58,11 @@ open Util.Testing
 //     li |> Seq.fold (fun acc item -> acc + item) 0.
 //     |> equal 15.
 
-// [<Fact>]
-// let ``ResizeArray.Count works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     equal 5 li.Count
+[<Fact>]
+let ``ResizeArray.Count works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.Count |> equal 5
 
 // [<Fact>]
 // let ``ResizeArray.ConvertAll works`` () =
@@ -132,32 +128,31 @@ open Util.Testing
 //     System.Action<_> (fun x -> sum <- sum + x) |> li.ForEach
 //     sum |> equal 15
 
-// [<Fact>]
-// let ``ResizeArray indexer getter works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     equal 2. li.[1]
+[<Fact>]
+let ``ResizeArray indexer getter works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.[1] |> equal 2.
 
-// [<Fact>]
-// let ``ResizeArray indexer setter works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.[3] <- 10.
-//     equal 10. li.[3]
+[<Fact>]
+let ``ResizeArray indexer setter works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.[3] <- 10.
+    li.[3] |> equal 10.
 
-// [<Fact>]
-// let ``ResizeArray.Clear works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.Clear()
-//     equal 0 li.Count
+[<Fact>]
+let ``ResizeArray.Clear works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.Clear()
+    li.Count |> equal 0
 
-// [<Fact>]
-// let ``ResizeArray.Add works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.Add(6.)
-//     equal 6 li.Count
+[<Fact>]
+let ``ResizeArray.Add works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.)
+    equal 3 li.Count
 
 // [<Fact>]
 // let ``ResizeArray.AddRange works`` () =
@@ -235,43 +230,48 @@ open Util.Testing
 //     xs.Exists (fun a -> a < 1) |> equal false
 //     xs.Exists (fun a -> a = 3) |> equal true
 
-// [<Fact>]
-// let ``ResizeArray.RemoveAt works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.RemoveAt(2)
-//     equal 4. li.[2]
+[<Fact>]
+let ``ResizeArray.RemoveAt works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.RemoveAt(2)
+    li.Count |> equal 4
+    li.[2] |> equal 4.
 
-// [<Fact>]
-// let ``ResizeArray.Insert works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.Insert(2, 8.)
-//     equal 8. li.[2]
+[<Fact>]
+let ``ResizeArray.Insert works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.Insert(2, 8.)
+    li.Count |> equal 6
+    li.[2] |> equal 8.
 
-// [<Fact>]
-// let ``ResizeArray.ReverseInPlace works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-//     li.Reverse()
-//     equal 2. li.[3]
+[<Fact>]
+let ``ResizeArray.ReverseInPlace works`` () =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    li.Reverse()
+    li.Count |> equal 5
+    li.[3] |> equal 2.
 
-// [<Fact>]
-// let ``ResizeArray.SortInPlace works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add("Ana"); li.Add("Pedro"); li.Add("Lucía"); li.Add("Paco")
-//     li.Sort()
-//     equal "Paco" li.[2]
-//     let li2 = ResizeArray [1;3;10;2]
-//     li2.Sort()
-//     equal 2 li2.[1]
+[<Fact>]
+let ``ResizeArray.SortInPlace works`` () =
+    let li = ResizeArray<_>()
+    li.Add("Ana"); li.Add("Pedro"); li.Add("Lucía"); li.Add("Paco")
+    li.Sort()
+    li.Count |> equal 4
+    li.[2] |> equal "Paco"
+    let li2 = ResizeArray [1;3;10;2]
+    li2.Sort()
+    li2.Count |> equal 4
+    li2.[1] |> equal 2
 
 // [<Fact>]
 // let ``ResizeArray.SortInPlaceWith works`` () =
 //     let li = ResizeArray<_>()
 //     li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
 //     li.Sort(fun x y -> if x > y then -1 elif x < y then 1 else 0)
-//     equal 4. li.[3]
+//     li.[3] |> equal 4.
 
 // [<Fact>]
 // let ``ResizeArray.SortInPlaceWith works with custom comparison function`` () = // See #1386
@@ -288,16 +288,16 @@ open Util.Testing
 //     ns.Sort(comparer)
 //     Seq.toList ns |> equal [1;2;3]
 
-// [<Fact>]
-// let ``ResizeArray.ToArray works`` () =
-//     let li = ResizeArray<_>()
-//     li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
-//     equal 5 li.Count
-//     let ar = li.ToArray()
-//     Array.length ar |> equal li.Count
-//     ar.[0] <- 2.
-//     equal 3. li.[0]
-//     equal 2. ar.[0]
+[<Fact>]
+let ``ResizeArray.ToArray works`` () =
+    let li = ResizeArray<_>()
+    li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
+    li.Count |> equal 5
+    let ar = li.ToArray()
+    Array.length ar |> equal 5
+    ar.[0] <- 2.
+    equal 3. li.[0]
+    equal 2. ar.[0]
 
 // [<Fact>]
 // let ``ResizeArray.Item is undefined when index is out of range`` () =

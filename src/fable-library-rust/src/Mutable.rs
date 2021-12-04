@@ -1,6 +1,7 @@
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
+use core::ops::{Deref, Index};
 
 #[repr(transparent)]
 pub struct MutCell<T: ?Sized> {
@@ -90,6 +91,13 @@ impl<T> MutCell<T> {
     }
 
     #[inline]
+    pub fn get_mut(&self) -> &mut T {
+        // SAFETY: This can cause data races if called from a separate thread,
+        // but `UnsafeCell` is `!Sync` so this won't happen.
+        unsafe { &mut *self.value.get() }
+    }
+
+    #[inline]
     pub fn replace(&self, val: T) -> T {
         // SAFETY: This can cause data races if called from a separate thread,
         // but `UnsafeCell` is `!Sync` so this won't happen.
@@ -106,5 +114,23 @@ impl<T> MutCell<T> {
 impl<T: Default> MutCell<T> {
     pub fn take(&self) -> T {
         self.replace(Default::default())
+    }
+}
+
+impl<T> Deref for MutCell<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.get_mut()
+    }
+}
+
+impl<T> Index<i32> for MutCell<Vec<T>> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, idx: i32) -> &Self::Output {
+        &self.get_mut()[idx as usize]
     }
 }

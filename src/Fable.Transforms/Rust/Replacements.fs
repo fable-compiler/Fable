@@ -65,6 +65,13 @@ module Helpers =
         | Call(e, i, t, r) -> Call(e, { i with OptimizableInto = Some optimization }, t, r)
         | e -> e
 
+    let nativeCall expr =
+        expr |> asOptimizable "native"
+
+    let getMut expr =
+        Helper.InstanceCall(expr, "get_mut", expr.Type, [])
+        |> nativeCall
+
     let objValue (k, v): MemberDecl =
         {
             Name = k
@@ -121,6 +128,8 @@ type BuiltinType =
     | BclTimer
     | BclInt64
     | BclUInt64
+    | BclIntPtr
+    | BclUIntPtr
     | BclDecimal
     | BclBigInt
     | BclHashSet of Type
@@ -141,7 +150,9 @@ let (|BuiltinDefinition|_|) = function
     | Types.int64 -> Some BclInt64
     | Types.uint64 -> Some BclUInt64
     | "Microsoft.FSharp.Core.int64`1" -> Some BclInt64
-    | Types.decimal
+    | Types.nativeint -> Some BclIntPtr
+    | Types.unativeint -> Some BclUIntPtr
+    | Types.decimal -> Some BclDecimal
     | "Microsoft.FSharp.Core.decimal`1" -> Some BclDecimal
     | Types.bigint -> Some BclBigInt
     | Types.fsharpSet -> Some(FSharpSet(Any))
@@ -201,6 +212,22 @@ let (|NumberExt|_|) = function
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
 
+let (|Numeric|NonNumeric|) = function
+    | Number _
+    | Builtin BclInt64
+    | Builtin BclUInt64
+    | Builtin BclIntPtr
+    | Builtin BclUIntPtr
+    | Builtin BclDecimal
+    | Builtin BclBigInt
+        -> Numeric
+    | _ -> NonNumeric
+
+let getElementType = function
+    | Array t -> t
+    | List t -> t
+    | _ -> Any
+
 let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
@@ -223,6 +250,26 @@ let rec getTypeName com (ctx: Context) r t =
         getTypeName com ctx r elemType + "[]"
     | _ ->
         getTypeFullName false t |> splitFulName |> snd
+
+let makeDeclaredType assemblyName genArgs fullName =
+    let entRef: Fable.EntityRef = {
+        FullName = fullName
+        Path = Fable.CoreAssemblyName assemblyName
+    }
+    Fable.DeclaredType(entRef, genArgs)
+
+let makeRuntimeType genArgs fullName =
+    makeDeclaredType "System.Runtime" genArgs fullName
+
+let makeFSharpCoreType genArgs fullName =
+    makeDeclaredType "FSharp.Core" genArgs fullName
+
+module BclTypes =
+    let nativeint = makeRuntimeType [] Types.nativeint
+    let unativeint = makeRuntimeType [] Types.unativeint
+
+let toNativeIndex expr =
+    TypeCast(expr, BclTypes.unativeint)
 
 let rec namesof com ctx acc e =
     match acc, e with
@@ -297,7 +344,10 @@ let coreModFor = function
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
     | BclTimer -> "Timer"
-    | BclInt64 | BclUInt64 -> "Long"
+    | BclInt64 -> "Long"
+    | BclUInt64 -> "Long"
+    | BclIntPtr -> "Native"
+    | BclUIntPtr -> "Native"
     | BclDecimal -> "Decimal"
     | BclBigInt -> "BigInt"
     | BclTimeSpan -> "TimeSpan"
@@ -1077,8 +1127,10 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
     | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
-    // | BuiltinDefinition BclInt64
+    // | BuiltinDefinition BclInt64 -> makeImportLib com Any "default" "Long" |> Some
     // | BuiltinDefinition BclUInt64 -> makeImportLib com Any "default" "Long" |> Some
+    // | BuiltinDefinition BclIntPtr -> fail "nativeint" // TODO:
+    // | BuiltinDefinition BclUIntPtr -> fail "unativeint" // TODO:
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
@@ -1895,13 +1947,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     // Use Any to prevent creation of a typed array (not resizable)
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
     | ".ctor", _, [] ->
-        makeArray Any [] |> Some
+        makeArray (getElementType t) [] |> Some
     // Don't pass the size to `new Array()` because that would fill the array with null values
     | ".ctor", _, [ExprType(Number _)] ->
-        makeArray Any [] |> Some
+        makeArray (getElementType t) [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
-        makeArray Any vals |> Some
+    | ".ctor", _, [ArrayOrListLiteral(vals, typ)] ->
+        makeArray typ vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r)
         |> asOptimizable "array"
@@ -1909,7 +1961,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [arg] ->
-        "void ($0)" |> emitJsExpr r t [Helper.InstanceCall(ar, "push", t, [arg])] |> Some
+        Helper.InstanceCall(getMut ar, "push", t, [arg], ?loc=r) |> nativeCall |> Some
     | "Remove", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->
@@ -1926,10 +1978,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         // Fable translates System.Collections.Generic.List as Array
         // TODO: Check also IList?
-        | Array _ ->  getLength r t ar |> Some
+        | Array _ -> getLength r t ar |> Some
         | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
-    | "Clear", Some ar, _ ->
-        Helper.LibCall(com, "Util", "clear", t, [ar], ?loc=r) |> Some
+    | "Clear", Some ar, [] ->
+        Helper.InstanceCall(getMut ar, "clear", t, [], ?loc=r) |> Some
     | "ConvertAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
@@ -1950,30 +2002,29 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
         match ar.Type with
         | Array _ ->
-            let left = Helper.InstanceCall(ar, "indexOf", Number(Int32, None), [arg], ?loc=r)
-            makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-        | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
+            Helper.LibCall(com, "Array", "contains", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ ->
+            Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
     | "IndexOf", Some ar, args ->
-        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "insert", t, [toNativeIndex idx; arg], ?loc=r) |> nativeCall |> Some
     | "InsertRange", Some ar, [idx; arg] ->
         Helper.LibCall(com, "Array", "insertRangeInPlace", t, [idx; arg; ar], ?loc=r) |> Some
     | "RemoveRange", Some ar, args ->
         Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 1], ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "remove", t, [toNativeIndex idx], ?loc=r) |> nativeCall |> Some
     | "Reverse", Some ar, [] ->
-        Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
-        let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
-        Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "sort", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [ExprType(DelegateType _)] ->
-        Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
+        Helper.InstanceCall(getMut ar, "sort_by", t, args, ?loc=r) |> nativeCall |> Some
     | "Sort", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "sortInPlace", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
-        Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "arrayCopy", t, [ar], ?loc=r) |> Some
     | _ -> None
 
 // let nativeArrayFunctions =
@@ -2033,7 +2084,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Clone", Some callee, _ ->
-        Helper.LibCall(com, "Native", "copyArray", t, [callee], ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "arrayCopy", t, [callee], ?loc=r) |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "ConvertAll", None, [source; mapping] ->
@@ -2064,7 +2115,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ar] ->
         Helper.InstanceCall(ar, "is_empty", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", [ar] ->
-        Helper.LibCall(com, "Native", "copyArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Native", "arrayCopy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
@@ -3503,6 +3554,8 @@ let tryType = function
         | BclTimer -> Some("System.Timers.Timer", timers, [])
         | BclInt64 -> Some(Types.int64, parseNum, [])
         | BclUInt64 -> Some(Types.uint64, parseNum, [])
+        | BclIntPtr -> Some(Types.nativeint, parseNum, [])
+        | BclUIntPtr -> Some(Types.unativeint, parseNum, [])
         | BclDecimal -> Some(Types.decimal, decimals, [])
         | BclBigInt -> Some(Types.bigint, bigints, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
