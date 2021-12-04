@@ -16,25 +16,21 @@ pub mod Native {
         unsafe { std::mem::zeroed() }
     }
 
-    pub fn asString(s: &str) -> Rc<str> {
+    pub fn string(s: &str) -> Rc<str> {
         Rc::from(s)
     }
 
-    pub fn ofString(s: &String) -> Rc<str> {
-        Rc::from(s.to_owned())
+    pub fn arrayFrom<T: Clone>(a: &[T]) -> Rc<MutCell<Vec<T>>> {
+        Rc::from(MutCell::from(a.to_vec()))
     }
 
-    pub fn ofArray<T: Clone>(a: &[T]) -> Rc<[MutCell<T>]> {
-        let v: Vec<MutCell<T>> = a.iter().map(|x| MutCell::from(x.clone())).collect();
-        Rc::from(v)
-    }
-
-    pub fn newArray<T: Clone>(count: &i32, value: &T) -> Rc<[MutCell<T>]> {
+    pub fn arrayCreate<T: Clone>(count: &i32, value: &T) -> Rc<MutCell<Vec<T>>> {
         let v = vec![value.clone(); *count as usize];
-        ofArray(&v)
+        Rc::from(MutCell::from(v))
     }
 
-    pub fn copyArray<T: Clone>(a: &Rc<[MutCell<T>]>) -> Rc<[MutCell<T>]> {
-        Rc::from(a.to_vec())
+    pub fn arrayCopy<T: Clone>(a: &Rc<MutCell<Vec<T>>>) -> Rc<MutCell<Vec<T>>> {
+        Rc::from(MutCell::from(a.get_mut().to_vec()))
     }
+
 }
