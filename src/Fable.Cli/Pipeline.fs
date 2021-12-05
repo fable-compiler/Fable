@@ -67,7 +67,10 @@ module Python =
         let fileName =
             Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
                 .Replace(".", "_")
-        let fileName = Naming.applyCaseRule Core.CaseRules.SnakeCase fileName
+        let fileName =
+            fileName
+            |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+            |> Fable.PY.Naming.checkPyKeywords
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let targetPath = Path.Combine(targetDir, fileName + fileExt)
         let stream = new IO.StreamWriter(targetPath)

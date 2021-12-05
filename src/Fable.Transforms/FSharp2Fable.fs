@@ -705,7 +705,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // When using Fable dynamic operator, we must untuple arguments
         // Note F# compiler wraps the value in a closure if it detects it's a lambda
         | FSharpExprPatterns.Let((_, FSharpExprPatterns.Call(None,m,_,_,[e1; e2])),_), args
-                when m.FullName = "Fable.Core.JsInterop.(?)" ->
+                when m.FullName = "Fable.Core.JsInterop.(?)" || m.FullName = "Fable.Core.PyInterop.(?)" ->
             let! e1 = transformExpr com ctx e1
             let! e2 = transformExpr com ctx e2
             let e = Fable.Get(e1, Fable.ExprGet e2, Fable.Any, e1.Range)
