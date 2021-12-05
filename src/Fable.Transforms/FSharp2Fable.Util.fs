@@ -10,36 +10,43 @@ open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
 
-type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) =
+type FsField(name, typ: Fable.Type, ?isMutable, ?isStatic, ?literalValue) =
     new (fi: FSharpField) =
-        let getFSharpFieldName (fi: FSharpField) =
-            let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
-                match TypeHelpers.getBaseEntity ent with
-                | None -> acc
-                | Some (baseClass, _) ->
-                    let conflicts =
-                        baseClass.FSharpFields
-                        |> Seq.exists (fun fi -> fi.Name = name)
-                    let acc = if conflicts then acc + 1 else acc
-                    countConflictingCases acc baseClass name
-
-            let name = fi.Name
-            match fi.DeclaringEntity with
-            | None -> name
-            | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
-            | Some ent ->
-                match countConflictingCases 0 ent name with
-                | 0 -> name
-                | n -> name + "_" + (string n)
-
-        let typ = lazy TypeHelpers.makeType Map.empty fi.FieldType
-        FsField(getFSharpFieldName fi, typ, isMutable=fi.IsMutable, isStatic=fi.IsStatic, ?literalValue=fi.LiteralValue)
+        let typ = TypeHelpers.makeType Map.empty fi.FieldType
+        FsField(FsField.Name fi, typ, isMutable=fi.IsMutable, isStatic=fi.IsStatic, ?literalValue=fi.LiteralValue)
     interface Fable.Field with
         member _.Name = name
-        member _.FieldType = typ.Value
+        member _.FieldType = typ
         member _.LiteralValue = literalValue
         member _.IsStatic = defaultArg isStatic false
         member _.IsMutable = defaultArg isMutable false
+
+    static member Key (name: string, typ: Fable.Type, ?isMutable): Fable.FieldKey =
+        { Name = name; FieldType = typ; IsMutable = defaultArg isMutable false }
+
+    static member Key (fi: FSharpField) =
+        let t = TypeHelpers.makeType Map.empty fi.FieldType
+        FsField.Key(FsField.Name fi, t, fi.IsMutable)
+
+    static member Name (fi: FSharpField) =
+        let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
+            match TypeHelpers.getBaseEntity ent with
+            | None -> acc
+            | Some (baseClass, _) ->
+                let conflicts =
+                    baseClass.FSharpFields
+                    |> Seq.exists (fun fi -> fi.Name = name)
+                let acc = if conflicts then acc + 1 else acc
+                countConflictingCases acc baseClass name
+
+        let name = fi.Name
+        match fi.DeclaringEntity with
+        | None -> name
+        | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
+        | Some ent ->
+            match countConflictingCases 0 ent name with
+            | 0 -> name
+            | n -> name + "_" + (string n)
 
 [<RequireQualifiedAccess>]
 type CompiledValue =
@@ -81,10 +88,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
 
-type FsParam(p: FSharpParameter) =
-    interface Fable.Parameter with
-        member _.Name = p.Name
-        member _.Type = TypeHelpers.makeType Map.empty p.Type
+[<AutoOpen>]
+module FisFus =
+    let FsParam(p: FSharpParameter): Fable.Parameter =
+        { Name = p.Name
+          Type = TypeHelpers.makeType Map.empty p.Type }
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
@@ -94,7 +102,7 @@ type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
     static member CurriedParameterGroups(m: FSharpMemberOrFunctionOrValue): Fable.Parameter list list =
         m.CurriedParameterGroups
-        |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+        |> Seq.mapToList (Seq.mapToList (fun p -> FsParam(p)))
 
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
         { CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
@@ -130,7 +138,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
-        member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
+        member _.ReturnParameter = FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
@@ -1722,13 +1730,18 @@ module Util =
                 GenericArgs = genArgs.Value }
             match ctx.PrecompilingInlineFunction with
             | Some _ ->
-                // If it's an interface compiled the call to the attached member just in case
-                let attachedCall =
-                    if info.IsInterface then callAttachedMember com r typ callInfo ent memb |> Some
-                    else None
-                Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall, typ, r)
-                |> Fable.Unresolved
-                |> Some
+                // Deal with reraise so we don't need to save caught exception every time
+                match ctx.CaughtException, info.DeclaringEntityFullName, info.CompiledName with
+                | Some ex, "Microsoft.FSharp.Core.Operators", "Reraise" ->
+                    makeThrow r typ (Fable.IdentExpr ex) |> Some
+                | _ ->
+                    // If it's an interface compile the call to the attached member just in case
+                    let attachedCall =
+                        if info.IsInterface then callAttachedMember com r typ callInfo ent memb |> Some
+                        else None
+                    Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall, typ, r)
+                    |> Fable.Unresolved
+                    |> Some
             | None ->
                 match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
                 | Some e -> Some e
@@ -1879,13 +1892,15 @@ module Util =
                     | None -> k, v
                 | v -> k, v)
 
-        let resolvedExpr =
-            inExpr.Body |> visitFromOutsideIn (function
+        let rec resolveExpr ctx expr =
+            expr |> visitFromOutsideIn (function
                 | Fable.IdentExpr i ->
                     resolveIdent ctx i |> Fable.IdentExpr |> Some
                 | Fable.Unresolved e ->
                     match e with
                     | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
+                        let argExprs = argExprs |> List.map (resolveExpr ctx)
+
                         // TODO: duplicated code
                         let witness = ctx.Witnesses |> List.tryFind (fun w ->
                             w.TraitName = traitName
@@ -1894,7 +1909,7 @@ module Util =
 
                         match witness with
                         | None ->
-                            failwith "TODO"
+                            failwith "TODO: Resolving trait calls without witnesses"
 //                            let sourceTypes = resolveGenArgs ctx sourceTypes
 //                            transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
                         | Some w ->
@@ -1902,15 +1917,20 @@ module Util =
                             makeCall r t callInfo w.Expr |> Some
 
                     | Fable.UnresolvedInlineCall(membUniqueName, unresolvedGenArgs, callee, info, t, r) ->
+                        let callee = callee |> Option.map (resolveExpr ctx)
+                        let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx)
+                                               Args = info.Args |> List.map (resolveExpr ctx) }
                         let resolvedGenArgs = resolveGenArgs ctx unresolvedGenArgs
                         inlineExpr com ctx r t resolvedGenArgs callee info membUniqueName |> Some
 
                     | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
+                        let thisArg = thisArg |> Option.map (resolveExpr ctx)
+                        let args = args |> List.map (resolveExpr ctx)
                         match com.TryReplace(ctx, r, typ, info, thisArg, args) with
                         | Some e -> Some e
                         | None when info.IsInterface ->
                             match attachedCall with
-                            | Some e -> Some e
+                            | Some e -> resolveExpr ctx e |> Some
                             | None ->
                                 "Unexpected, missing attached call in unresolved replace call"
                                 |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1918,7 +1938,7 @@ module Util =
                         | None -> failReplace com ctx r info |> Some
                 | _ -> None)
 
-        match resolvedExpr with
+        match resolveExpr ctx inExpr.Body with
         // If this is an import expression, apply the arguments, see #2280
         | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
             // Check if import has absorbed the arguments, see #2284

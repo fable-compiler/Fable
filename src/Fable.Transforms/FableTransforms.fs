@@ -207,7 +207,7 @@ module private Transforms =
         | Delegate(args, body, name) -> Some(args, body, name)
         | _ -> None
 
-    let (|FieldType|) (fi: Field) = fi.FieldType
+    let (|FieldKeyType|) (fi: FieldKey) = fi.FieldType
 
     let (|ImmediatelyApplicable|_|) = function
         | Lambda(arg, body, _) -> Some(arg, body)
@@ -437,7 +437,7 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
+        | Get(callee, (ByKey(FieldKey(FieldKeyType fieldType)) | UnionField(_,fieldType)), t, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application

@@ -136,7 +136,8 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     let fieldName = Naming.removeGetSetPrefix traitName
                     entity.FSharpFields |> Seq.tryPick (fun fi ->
                         if fi.Name = fieldName then
-                            Fable.Get(thisArg.Value, Fable.ByKey(Fable.FieldKey fi), typ, r) |> Some
+                            let key = FsField.Key(fi.Name, fi.FieldType)
+                            Fable.Get(thisArg.Value, Fable.ByKey(Fable.FieldKey key), typ, r) |> Some
                         else None)
                     |> Option.orElseWith (fun () ->
                         resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
@@ -147,7 +148,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                 Seq.zip sortedFieldNames genArgs
                 |> Seq.tryPick (fun (fi, fiType) ->
                     if fi = fieldName then
-                        let key = FsField(fi, lazy fiType) :> Fable.Field |> Fable.FieldKey
+                        let key = FsField.Key(fi, fiType) |> Fable.FieldKey
                         Fable.Get(thisArg.Value, Fable.ByKey key, typ, r) |> Some
                     else None)
             | _ -> None
@@ -342,7 +343,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 | Some (CompiledValue.Float f) -> numberConst Float64 f
                 | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField(tagName, lazy typ))), typ, r))
+                (Fable.Get(unionExpr, Fable.ByKey(Fable.FieldKey(FsField.Key(tagName, typ))), typ, r))
                 value
                 BinaryEqualStrict
         | _ ->
@@ -771,14 +772,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let key = FsField(fieldName, lazy typ) :> Fable.Field |> Fable.FieldKey
+        let key = FsField.Key(fieldName, typ) |> Fable.FieldKey
         return Fable.Get(callee, Fable.ByKey key, typ, r)
 
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let key = FsField(field) :> Fable.Field |> Fable.FieldKey
+        let key = FsField.Key(field) |> Fable.FieldKey
         return Fable.Get(callee, Fable.ByKey key, typ, r)
 
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
@@ -832,7 +833,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         let! value = transformExpr com ctx value
-        let field = FsField(field) :> Fable.Field |> Fable.FieldKey |> Some
+        let field = FsField.Key(field) |> Fable.FieldKey |> Some
         return Fable.Set(callee, field, value, r)
 
     | FSharpExprPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
@@ -1001,7 +1002,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let r = makeRangeFrom fsExpr
             let! callee = transformCallee com ctx callee calleeType
             let typ = makeType ctx.GenericArgs expr.Type
-            let key = FsField(field) :> Fable.Field |> Fable.FieldKey
+            let key = FsField.Key field |> Fable.FieldKey
             return Replacements.makeRefFromMutableField com ctx r typ callee key
         | _ ->
             // ignore AddressOf, pass by value
@@ -1498,7 +1499,9 @@ let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
             | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
                 if isInline memb then
-                    let ctx = { Context.Create() with UsedNamesInDeclarationScope = HashSet() }
+                    let ctx = { Context.Create() with
+                                    PrecompilingInlineFunction = Some memb
+                                    UsedNamesInDeclarationScope = HashSet() }
 
                     let ctx, idents =
                         ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->

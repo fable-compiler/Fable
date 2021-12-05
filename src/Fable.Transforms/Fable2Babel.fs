@@ -1625,7 +1625,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.Unresolved _ -> addErrorAndReturnNull com None "Unexpected unresolved expression"
+        | Fable.Unresolved e -> addErrorAndReturnNull com e.Range "Unexpected unresolved expression"
 
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
@@ -1706,8 +1706,8 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
-        | Fable.Unresolved _ ->
-            addError com [] None "Unexpected unresolved expression"
+        | Fable.Unresolved e ->
+            addError com [] e.Range "Unexpected unresolved expression"
             [||]
 
         | Fable.TypeCast(e, t, tag) ->

@@ -374,12 +374,7 @@ module AST =
         | _ -> false
 
     let makeFieldKey name isMutable typ =
-        FieldKey({ new Field with
-                    member _.Name = name
-                    member _.IsMutable = isMutable
-                    member _.IsStatic = false
-                    member _.FieldType = typ
-                    member _.LiteralValue = None })
+        FieldKey({ Name = name; FieldType = typ; IsMutable = isMutable })
 
     /// ATTENTION: Make sure the ident name is unique
     let makeTypedIdent typ name =

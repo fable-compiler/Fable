@@ -42,8 +42,8 @@ type GenericParam =
     abstract Name: string
 
 type Parameter =
-    abstract Name: string option
-    abstract Type: Type
+    { Name: string option
+      Type: Type }
 
 type MemberInfo =
     abstract Attributes: Attribute seq
@@ -265,8 +265,13 @@ type OperationKind =
     | Binary of BinaryOperator * left: Expr * right: Expr
     | Logical of LogicalOperator * left: Expr * right: Expr
 
+type FieldKey =
+    { Name: string
+      FieldType: Type
+      IsMutable: bool }
+
 type KeyKind =
-    | FieldKey of Field
+    | FieldKey of FieldKey
     | ExprKey of Expr
 
 type GetKind =

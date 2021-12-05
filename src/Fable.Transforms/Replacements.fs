@@ -660,7 +660,7 @@ let (|ListSingleton|) x = [x]
 let rec findInScope scope identName =
     match scope with
     | [] -> None
-    | (_,ident2,expr)::prevScope ->
+    | (_, ident2: Ident, expr: Expr option)::prevScope ->
         if identName = ident2.Name then
             match expr with
             | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
