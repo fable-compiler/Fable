@@ -1159,7 +1159,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
-            "A function supposed to be replaced by JS native code has been called, please check."
+            "A function supposed to be replaced by Python native code has been called, please check."
             |> StringConstant |> makeValue None
         makeThrow r t (error runtimeMsg) |> Some
     | _, ("nameof"|"nameof2" as meth) ->
@@ -1691,10 +1691,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), [arg])
+        let left = Helper.InstanceCall(c, "find", Number(Int32, None), [arg])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), args)
+        let left = Helper.InstanceCall(c, "find", Number(Int32, None), args)
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
@@ -1844,7 +1844,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "FindLastIndex", Some ar, [arg] ->
         Helper.LibCall(com, "array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "ForEach", Some ar, [arg] ->
-        Helper.InstanceCall(ar, "forEach", t, [arg], ?loc=r) |> Some
+        Helper.LibCall(com, "array", "iterate", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
     | "get_Count", Some (MaybeCasted(ar)), _ ->
@@ -1871,21 +1871,17 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetRange", Some ar, [idx; cnt] ->
         Helper.LibCall(com, "Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
-        match ar.Type with
-        | Array _ ->
-            let left = Helper.InstanceCall(ar, "indexOf", Number(Int32, None), [arg], ?loc=r)
-            makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-        | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
+        emitJsExpr r t [ar; arg] "$1 in $0" |> Some
     | "IndexOf", Some ar, args ->
-        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "array", "index_of", t, ar::args, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "insert", t, [idx; arg], ?loc=r) |> Some
     | "InsertRange", Some ar, [idx; arg] ->
         Helper.LibCall(com, "array", "insertRangeInPlace", t, [idx; arg; ar], ?loc=r) |> Some
     | "RemoveRange", Some ar, args ->
-        Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "array", "remove_many_at", t, args @ [ar], ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 1], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "pop", t, [idx; makeIntConst 1], ?loc=r) |> Some
     | "Reverse", Some ar, [] ->
         Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
@@ -1901,7 +1897,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
 let nativeArrayFunctions =
     dict [| //"Exists", "some"
-            "Filter", "filter"
+            //"Filter", "filter"
             //"Find", "find"
             //"FindIndex", "index"
             //"ForAll", "all"

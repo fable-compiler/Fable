@@ -44,7 +44,7 @@
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestMap.fs" />
     <Compile Include="TestArray.fs" />
-    <!-- <Compile Include="TestResizeArray.fs" /> -->
+    <Compile Include="TestResizeArray.fs" />
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestSudoku.fs" />
     <Compile Include="TestDateTime.fs" />

@@ -42,8 +42,8 @@ let ``test ResizeArray iteration works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     let acc = ref 0.
     for i in li do
-       acc := !acc + i
-    equal 15. !acc
+       acc.Value <- acc.Value + i
+    equal 15. acc.Value
 
 [<Fact>]
 let ``test ResizeArray iteration with index works`` () =
@@ -104,6 +104,7 @@ let ``test ResizeArray.FindLast with option works`` () =
     System.Predicate<_> (fun _ -> false)  |> li.FindLast |> equal None
     System.Predicate<_> Option.isSome  |> li.FindLast |> equal (Some 1)
 
+(*
 [<Fact>]
 let ``test ResizeArray.FindIndex works`` () =
     let li = ResizeArray<_>()
@@ -117,7 +118,7 @@ let ``test ResizeArray.FindLastIndex works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(2.); li.Add(5.)
     System.Predicate<_> (fun x -> x = 2.) |> li.FindLastIndex |> equal 3
     System.Predicate<_> (fun x -> x = 0.) |> li.FindLastIndex |> equal -1
-
+*)
 [<Fact>]
 let ``test ResizeArray.ForEach works`` () =
     let li = ResizeArray<_>()
@@ -209,6 +210,9 @@ let ``test ResizeArray.RemoveAll works`` () =
     System.Predicate<_> (fun x -> x = "ab") |> li.RemoveAll |> equal 0
     li.[0] |> equal "ch"
 
+
+(*
+
 [<Fact>]
 let ``test ResizeArray.RemoveRange works`` () =
     let xs = ResizeArray<int>()
@@ -235,14 +239,14 @@ let ``test ResizeArray.RemoveAt works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.RemoveAt(2)
     equal 4. li.[2]
-
+*)
 [<Fact>]
 let ``test ResizeArray.Insert works`` () =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Insert(2, 8.)
     equal 8. li.[2]
-
+(*
 [<Fact>]
 let ``test ResizeArray.ReverseInPlace works`` () =
     let li = ResizeArray<_>()
@@ -281,7 +285,7 @@ let ``test ResizeArray.SortInPlaceWith works with custom comparer`` () =
     let comparer = System.Collections.Generic.Comparer<int>.Default
     ns.Sort(comparer)
     Seq.toList ns |> equal [1;2;3]
-
+*)
 [<Fact>]
 let ``test ResizeArray.ToArray works`` () =
     let li = ResizeArray<_>()
@@ -292,7 +296,7 @@ let ``test ResizeArray.ToArray works`` () =
     ar.[0] <- 2.
     equal 3. li.[0]
     equal 2. ar.[0]
-
+(*
 [<Fact>]
 let ``test ResizeArray.Item is undefined when index is out of range`` () =
     let xs = ResizeArray [0]
@@ -302,3 +306,4 @@ let ``test ResizeArray.Item is undefined when index is out of range`` () =
     try (xs.Item 1) |> ignore; false with _ -> true
     #endif
     |> equal true
+*)

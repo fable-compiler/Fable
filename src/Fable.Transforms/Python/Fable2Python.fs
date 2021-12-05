@@ -1443,10 +1443,6 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.FieldGet(fieldName="indexOf") ->
-            let attr = Python.Identifier("find")
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop

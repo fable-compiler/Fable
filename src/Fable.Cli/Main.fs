@@ -130,7 +130,7 @@ module private Util =
         let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
         let outDir =
             match cliArgs.OutDir with
-            | Some outDir ->outDir
+            | Some outDir -> outDir
             | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
         let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
         File.changeFsExtension isInFableHiddenDir absPath fileExt

@@ -96,23 +96,23 @@ module PrinterExtensions =
 
         member printer.Print(stmt: Statement) =
             match stmt with
-            | AsyncFunctionDef (def) -> printer.Print(def)
-            | FunctionDef (def) -> printer.Print(def)
-            | ImportFrom (im) -> printer.Print(im)
-            | NonLocal (st) -> printer.Print(st)
-            | ClassDef (st) -> printer.Print(st)
-            | AsyncFor (st) -> printer.Print(st)
-            | Return (rtn) -> printer.Print(rtn)
-            | Global (st) -> printer.Print(st)
-            | Import (im) -> printer.Print(im)
-            | Assign (st) -> printer.Print(st)
-            | While (wh) -> printer.Print(wh)
-            | Raise (st) -> printer.Print(st)
-            | Expr (st) -> printer.Print(st)
-            | With (wi) -> printer.Print(wi)
-            | For (st) -> printer.Print(st)
-            | Try (st) -> printer.Print(st)
-            | If (st) -> printer.Print(st)
+            | AsyncFunctionDef def -> printer.Print(def)
+            | FunctionDef def -> printer.Print(def)
+            | ImportFrom im -> printer.Print(im)
+            | NonLocal st -> printer.Print(st)
+            | ClassDef st -> printer.Print(st)
+            | AsyncFor st -> printer.Print(st)
+            | Return rtn -> printer.Print(rtn)
+            | Global st -> printer.Print(st)
+            | Import im -> printer.Print(im)
+            | Assign st -> printer.Print(st)
+            | While wh -> printer.Print(wh)
+            | Raise st -> printer.Print(st)
+            | Expr st -> printer.Print(st)
+            | With wi -> printer.Print(wi)
+            | For st -> printer.Print(st)
+            | Try st -> printer.Print(st)
+            | If st -> printer.Print(st)
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
@@ -400,34 +400,31 @@ module PrinterExtensions =
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
             let value =
                 node.Value
-                |> replace
-                    @"\$(\d+)\.\.\."
-                    (fun m ->
-                        let rep = ResizeArray()
-                        let i = int m.Groups.[1].Value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to node.Args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
 
-                        for j = i to node.Args.Length - 1 do
-                            rep.Add("$" + string j)
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match node.Args.[i] with
+                    | Constant(value=value) when (value :?> bool) -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
 
-                        String.concat ", " rep)
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match List.tryItem i node.Args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
 
-                |> replace
-                    @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}"
-                    (fun m ->
-                        let i = int m.Groups.[1].Value
-
-                        match node.Args.[i] with
-                        | Constant (value=c) -> m.Groups.[2].Value
-                        | _ -> m.Groups.[3].Value)
-
-                |> replace
-                    @"\{\{([^\}]*\$(\d+).*?)\}\}"
-                    (fun m ->
-                        let i = int m.Groups.[2].Value
-
-                        match List.tryItem i node.Args with
-                        | Some _ -> m.Groups.[1].Value
-                        | None -> "")
+                // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
+                |> replace @"\$(\d+)!" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match List.tryItem i node.Args with
+                    | Some(Constant(value, _)) when (value :? string) -> unbox value
+                    | _ -> "")
 
             let matches =
                 System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
@@ -435,6 +432,12 @@ module PrinterExtensions =
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
                     let m = matches.[i]
+
+                    let isSurroundedWithParens =
+                        m.Index > 0
+                        && m.Index + m.Length < value.Length
+                        && value.[m.Index - 1] = '('
+                        && value.[m.Index + m.Length] = ')'
 
                     let segmentStart =
                         if i > 0 then
@@ -447,6 +450,7 @@ module PrinterExtensions =
                     let argIndex = int m.Value.[1..]
 
                     match List.tryItem argIndex node.Args with
+                    | Some e when isSurroundedWithParens -> printer.Print(e)
                     | Some e -> printer.ComplexExpressionWithParens(e)
                     | None -> printer.Print("None")
 
@@ -593,13 +597,13 @@ module PrinterExtensions =
 
         member printer.Print(node: Expression) =
             match node with
-            | Attribute (ex) -> printer.Print(ex)
-            | Subscript (ex) -> printer.Print(ex)
-            | BoolOp (ex) -> printer.Print(ex)
-            | BinOp (ex) -> printer.Print(ex)
-            | Emit (ex) -> printer.Print(ex)
-            | UnaryOp (ex) -> printer.Print(ex)
-            | FormattedValue (ex) -> printer.Print(ex)
+            | Attribute ex -> printer.Print(ex)
+            | Subscript ex -> printer.Print(ex)
+            | BoolOp ex -> printer.Print(ex)
+            | BinOp ex -> printer.Print(ex)
+            | Emit ex -> printer.Print(ex)
+            | UnaryOp ex -> printer.Print(ex)
+            | FormattedValue ex -> printer.Print(ex)
             | Constant (value=value) ->
                 match box value with
                 | :? string as str ->
@@ -608,16 +612,16 @@ module PrinterExtensions =
                     printer.Print("\"")
                 | _ -> printer.Print(string value)
 
-            | IfExp (ex) -> printer.Print(ex)
-            | Call (ex) -> printer.Print(ex)
-            | Lambda (ex) -> printer.Print(ex)
-            | NamedExpr (ex) -> printer.Print(ex)
-            | Name (ex) -> printer.Print(ex)
-            | Yield (expr) -> printer.Print("(Yield)")
-            | YieldFrom (expr) -> printer.Print("(Yield)")
-            | Compare (cp) -> printer.Print(cp)
-            | Dict (di) -> printer.Print(di)
-            | Tuple (tu) -> printer.Print(tu)
+            | IfExp ex -> printer.Print(ex)
+            | Call ex -> printer.Print(ex)
+            | Lambda ex -> printer.Print(ex)
+            | NamedExpr ex -> printer.Print(ex)
+            | Name ex -> printer.Print(ex)
+            | Yield expr -> printer.Print("(Yield)")
+            | YieldFrom expr -> printer.Print("(Yield)")
+            | Compare cp -> printer.Print(cp)
+            | Dict di -> printer.Print(di)
+            | Tuple tu -> printer.Print(tu)
             | Slice (lower, upper, step) ->
                 if lower.IsSome then
                     printer.Print(lower.Value)
@@ -634,7 +638,7 @@ module PrinterExtensions =
 
         member printer.Print(node: AST) =
             match node with
-            | AST.Expression (ex) -> printer.Print(ex)
+            | AST.Expression ex -> printer.Print(ex)
             | AST.Operator (op) -> printer.Print(op)
             | AST.BoolOperator (op) -> printer.Print(op)
             | AST.ComparisonOperator (op) -> printer.Print(op)
@@ -733,7 +737,7 @@ module PrinterExtensions =
             printer.PrintList(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
-            printer.PrintList(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedList(nodes: Arg list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)
         member printer.PrintCommaSeparatedList(nodes: Keyword list) =
@@ -773,23 +777,14 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
-        member printer.SequenceExpressionWithParens(expr: Expression) =
-            match expr with
-            //| :? SequenceExpression -> printer.WithParens(expr)
-            | _ -> printer.Print(expr)
-
         /// Surround with parens anything that can potentially conflict with operator precedence
         member printer.ComplexExpressionWithParens(expr: Expression) =
             match expr with
-            | Constant (_) -> printer.Print(expr)
-            | Name (_) -> printer.Print(expr)
-            // | :? MemberExpression
-            // | :? CallExpression
-            // | :? ThisExpression
-            // | :? Super
-            // | :? SpreadElement
-            // | :? ArrayExpression
-            // | :? ObjectExpression -> expr.Print(printer)
+            | Constant _
+            | Name _
+            | Call _
+            | List (_, _)
+            | Attribute _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, ?loc) =

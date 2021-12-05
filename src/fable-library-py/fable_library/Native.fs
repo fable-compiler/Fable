@@ -20,7 +20,7 @@ module Helpers =
     [<Emit("[None]*$0")>]
     let allocateArray (len: int) : 'T [] = nativeOnly
 
-    [<Emit("[x for i, x in enumerate($0)] if i < len")>]
+    [<Emit("[x for i, x in enumerate($0) if i < len]")>]
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
@@ -57,10 +57,13 @@ module Helpers =
     let inline pushImpl (array: 'T []) (item: 'T) : int = !! array?append (item)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline insertImpl (array: 'T []) (index: int) (item: 'T) : 'T [] = !! array?splice (index, 0, item)
+    let inline insertImpl (array: 'T []) (index: int) (item: 'T) : 'T [] = !! array?insert(index, item)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline spliceImpl (array: 'T []) (start: int) (deleteCount: int) : 'T [] = !! array?splice (start, deleteCount)
+    let spliceImpl (array: 'T []) (start: int) (deleteCount: int) : 'T [] =
+        for _ = 1 to deleteCount do
+            !! array?pop(start)
+        array
 
     [<Emit("$0[::-1]")>]
     let reverseImpl (array: 'T []) : 'T [] = nativeOnly
@@ -74,9 +77,12 @@ module Helpers =
     [<Emit("$0[$1:$1+$2]")>]
     let subArrayImpl (array: 'T []) (start: int) (count: int) : 'T [] = nativeOnly
 
-    let inline indexOfImpl (array: 'T []) (item: 'T) (start: int) : int = !! array?indexOf (item, start)
+    let indexOfImpl (array: 'T []) (item: 'T) (start: int) : int =
+        try
+            !! array?index(item, start)
+        with ex -> -1
 
-    [<Emit("next((x for x in $1 if ($0)(x)), -1)")>]
+    [<Emit("next((x for x in $1 if ($0)(x)), None)")>]
     let findImpl (predicate: 'T -> bool) (array: 'T []) : 'T option = nativeOnly
 
     [<Emit("next((i for i, x in enumerate($1) if ($0)(x)), -1)")>]
@@ -91,7 +97,9 @@ module Helpers =
     [<Emit("all([$0(x) for x in $1])")>]
     let forAllImpl (predicate: 'T -> bool) (array: 'T []) : bool = nativeOnly
 
-    let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
+    [<ImportAll("builtins")>]
+    [<Emit("list(builtins.filter($1, $2))")>]
+    let filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = nativeOnly
 
     [<Emit("functools.reduce($0, $1)")>]
     let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = nativeOnly
