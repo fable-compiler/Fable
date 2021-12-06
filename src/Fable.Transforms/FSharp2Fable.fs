@@ -1461,6 +1461,106 @@ type FableCompiler(com: Compiler) =
         |> Option.map (fun members -> members.NonMangledNames.Contains(memberName))
         |> Option.defaultValue false
 
+    member this.TryReplace(ctx, r, t, info, thisArg, args) =
+        Replacements.tryCall this ctx r t info thisArg args
+
+    member com.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
+        let resolvedIdents = Dictionary()
+
+        let resolveIdent (ctx: Context) (ident: Fable.Ident) =
+            if inExpr.ScopeIdents.Contains ident.Name then
+                let sanitizedName =
+                    match resolvedIdents.TryGetValue(ident.Name) with
+                    | true, resolvedName -> resolvedName
+                    | false, _ ->
+                        let resolvedName = Naming.preventConflicts (isUsedName ctx) ident.Name
+                        ctx.UsedNamesInDeclarationScope.Add(resolvedName) |> ignore
+                        resolvedIdents.Add(ident.Name, resolvedName)
+                        resolvedName
+                { ident with Name = sanitizedName }
+            else ident
+
+        let resolveGenArg (ctx: Context) = function
+            | Fable.GenericParam name as v ->
+                match Map.tryFind name ctx.GenericArgs with
+                | Some v -> v
+                | None -> v
+            | v -> v
+
+        let rec resolveExpr ctx expr =
+            expr |> visitFromOutsideIn (function
+                | Fable.IdentExpr i -> Fable.IdentExpr(resolveIdent ctx i) |> Some
+                | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx b, n) |> Some
+                | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx b, n) |> Some
+                | Fable.DecisionTree(e, targets) -> Fable.DecisionTree(resolveExpr ctx e, targets |> List.map(fun (idents, e) -> List.map (resolveIdent ctx) idents, resolveExpr ctx e)) |> Some
+                | Fable.Let(i, v, b) -> Fable.Let(resolveIdent ctx i, resolveExpr ctx v, resolveExpr ctx b) |> Some
+                | Fable.LetRec(bindings, b) -> Fable.LetRec(bindings |> List.map(fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e), resolveExpr ctx b) |> Some
+                | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
+                | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
+                | Fable.Unresolved e ->
+                    match e with
+                    | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
+                        let t = resolveGenArg ctx t
+                        let argTypes = argTypes |> List.map (resolveGenArg ctx)
+                        let argExprs = argExprs |> List.map (resolveExpr ctx)
+
+                        // TODO: duplicated code
+                        let witness = ctx.Witnesses |> List.tryFind (fun w ->
+                            w.TraitName = traitName
+                            && w.IsInstance = isInstance
+                            && listEquals (typeEquals false) argTypes w.ArgTypes)
+
+                        match witness with
+                        | None ->
+                           let sourceTypes = sourceTypes |> List.map (resolveGenArg ctx)
+                           transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
+                        | Some w ->
+                            let callInfo = makeCallInfo None argExprs w.ArgTypes
+                            makeCall r t callInfo w.Expr |> Some
+
+                    | Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info, t, r) ->
+                        let t = resolveGenArg ctx t
+                        let callee = callee |> Option.map (resolveExpr ctx)
+                        let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx)
+                                               Args = info.Args |> List.map (resolveExpr ctx) }
+                        let genArgs = genArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v)
+                        inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
+
+                    | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
+                        let typ = resolveGenArg ctx typ
+                        let thisArg = thisArg |> Option.map (resolveExpr ctx)
+                        let args = args |> List.map (resolveExpr ctx)
+                        let info = { info with GenericArgs = info.GenericArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v) }
+                        match com.TryReplace(ctx, r, typ, info, thisArg, args) with
+                        | Some e -> Some e
+                        | None when info.IsInterface ->
+                            match attachedCall with
+                            | Some e -> resolveExpr ctx e |> Some
+                            | None ->
+                                "Unexpected, missing attached call in unresolved replace call"
+                                |> addErrorAndReturnNull com ctx.InlinePath r
+                                |> Some
+                        | None -> failReplace com ctx r info |> Some
+                | _ -> None)
+
+        let rec foldArgs acc = function
+            | argIdent::restArgIdents, argExpr::restArgExprs ->
+                foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
+            | (argIdent: Fable.Ident)::restArgIdents, [] ->
+                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, argIdent.Type), None))::acc) (restArgIdents, [])
+            | [], _ -> List.rev acc
+
+        let bindings =
+            ([], foldArgs [] (inExpr.Args, args)) ||> List.fold (fun bindings (argId, arg) ->
+                let argId = resolveIdent ctx argId
+                // Change type and mark argId as compiler-generated so Fable also
+                // tries to inline it in DEBUG mode (some patterns depend on this)
+                let argId = { argId with Type = arg.Type; IsCompilerGenerated = true }
+                (argId, arg)::bindings)
+
+        let ctx = { ctx with ScopeInlineArgs = ctx.ScopeInlineArgs @ bindings }
+        bindings, resolveExpr ctx inExpr.Body
+
     interface IFableCompiler with
         member _.WarnOnlyOnce(msg, ?range) =
             if onlyOnceWarnings.Add(msg) then
@@ -1470,10 +1570,13 @@ type FableCompiler(com: Compiler) =
             transformExpr this ctx fsExpr |> run
 
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
-            Replacements.tryCall this ctx r t info thisArg args
+            this.TryReplace(ctx, r, t, info, thisArg, args)
 
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
+
+        member this.ResolveInlineExpr(ctx, inExpr, args) =
+            this.ResolveInlineExpr(ctx, inExpr, args)
 
     interface Compiler with
         member _.Options = com.Options
