@@ -98,6 +98,7 @@ module Util =
 
     let rec isStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
+        | Fable.Unresolved _
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
         | Fable.Call _ | Fable.CurriedApply _ | Fable.Operation _

@@ -705,7 +705,7 @@ let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
 let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
     let mutable i = -1
     let mutable isDone = false
-    let ys = (ys, List.Empty) ||> Seq.foldBack (fun y acc -> List.Cons(y, acc))
+    let ys = ofSeq ys
     let result =
         (List.Empty, xs) ||> fold (fun acc x ->
             i <- i + 1

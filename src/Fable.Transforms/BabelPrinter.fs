@@ -567,7 +567,8 @@ module PrinterExtensions =
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
-            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\n", @"\n"))
+            // Note we cannot use EscapeJsStringLiteral literal because it will corrupt the regex pattern
+            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\r", @"\r").Replace("\n", @"\n"))
             printer.Print("/")
             printer.Print(flags)
 
