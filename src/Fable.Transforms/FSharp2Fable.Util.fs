@@ -1019,6 +1019,12 @@ module TypeHelpers =
                 else false)
         | _ -> None
 
+    let tryFindWitness (ctx: Context) argTypes isInstance traitName =
+        ctx.Witnesses |> List.tryFind (fun w ->
+            w.TraitName = traitName
+            && w.IsInstance = isInstance
+            && listEquals (typeEquals false) argTypes w.ArgTypes)
+
     [<Flags>]
     type private Allow =
         | TheUsual      = 0b0000
@@ -1608,6 +1614,19 @@ module Util =
             then None
             else Some (entityRef com ent)
 
+    let resolveMemberRef (com: Compiler) (ctx: Context) r typ (info: Fable.MemberRefInfo) =
+        if info.Path = com.CurrentFile then
+            { makeTypedIdent typ info.Name with Range = r; IsMutable = info.IsMutable }
+            |> Fable.IdentExpr
+        elif info.IsPublic then
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if info.HasOverloadSuffix then
+                com.AddWatchDependency(info.Path)
+            makeImportInternal com typ info.Name info.Path
+        else
+            $"Cannot reference private members from other files: %s{info.Name}"
+            |> addErrorAndReturnNull com ctx.InlinePath r
+
     let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -1617,18 +1636,15 @@ module Util =
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
-        if file = com.CurrentFile then
-            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
-            |> Fable.IdentExpr
-        elif isPublicMember memb then
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if hasOverloadSuffix then
-                com.AddWatchDependency(file)
-            makeImportInternal com typ memberName file
-        else
-            defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
-            |> sprintf "Cannot reference private members from other files: %s"
-            |> addErrorAndReturnNull com ctx.InlinePath r
+        let info: Fable.MemberRefInfo =
+            { Name = memberName
+              Path = file
+              IsMutable = memb.IsMutable
+              IsPublic = isPublicMember memb
+              HasOverloadSuffix = hasOverloadSuffix }
+        match ctx.PrecompilingInlineFunction with
+        | Some _ -> Fable.UnresolvedMemberRef(info, typ, r) |> Fable.Unresolved
+        | None -> resolveMemberRef com ctx r typ info
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
@@ -2013,6 +2029,5 @@ module Util =
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
-        // TODO: When precompiling inline functions we cannot reference idents outside the declaration scope
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRef com ctx r typ v

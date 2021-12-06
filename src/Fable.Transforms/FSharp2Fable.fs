@@ -612,12 +612,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
             return Fable.UnresolvedTraitCall(sourceTypes, traitName, flags.IsInstance, argTypes, argExprs, typ, r) |> Fable.Unresolved
         | None ->
-            let witness = ctx.Witnesses |> List.tryFind (fun w ->
-                w.TraitName = traitName
-                && w.IsInstance = flags.IsInstance
-                && listEquals (typeEquals false) argTypes w.ArgTypes)
-
-            match witness with
+            match tryFindWitness ctx argTypes flags.IsInstance traitName with
             | None ->
                 let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
                 return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
@@ -1489,6 +1484,7 @@ type FableCompiler(com: Compiler) =
 
         let rec resolveExpr ctx expr =
             expr |> visitFromOutsideIn (function
+                // Resolve idents
                 | Fable.IdentExpr i -> Fable.IdentExpr(resolveIdent ctx i) |> Some
                 | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx b, n) |> Some
                 | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx b, n) |> Some
@@ -1497,20 +1493,19 @@ type FableCompiler(com: Compiler) =
                 | Fable.LetRec(bindings, b) -> Fable.LetRec(bindings |> List.map(fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e), resolveExpr ctx b) |> Some
                 | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
                 | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
+
+                // Resolve the unresolved
                 | Fable.Unresolved e ->
                     match e with
+                    | Fable.UnresolvedMemberRef(info, t, r) ->
+                        resolveMemberRef com ctx r t info |> Some
+
                     | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
                         let t = resolveGenArg ctx t
                         let argTypes = argTypes |> List.map (resolveGenArg ctx)
                         let argExprs = argExprs |> List.map (resolveExpr ctx)
 
-                        // TODO: duplicated code
-                        let witness = ctx.Witnesses |> List.tryFind (fun w ->
-                            w.TraitName = traitName
-                            && w.IsInstance = isInstance
-                            && listEquals (typeEquals false) argTypes w.ArgTypes)
-
-                        match witness with
+                        match tryFindWitness ctx argTypes isInstance traitName with
                         | None ->
                            let sourceTypes = sourceTypes |> List.map (resolveGenArg ctx)
                            transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
@@ -1541,6 +1536,7 @@ type FableCompiler(com: Compiler) =
                                 |> addErrorAndReturnNull com ctx.InlinePath r
                                 |> Some
                         | None -> failReplace com ctx r info |> Some
+
                 | _ -> None)
 
         let rec foldArgs acc = function

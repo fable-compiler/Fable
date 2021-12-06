@@ -289,21 +289,33 @@ type TestKind =
     | ListTest of isCons: bool
     | UnionCaseTest of tag: int
 
+type MemberRefInfo =
+    {
+        Name: string
+        Path: string
+        IsMutable: bool
+        IsPublic: bool
+        HasOverloadSuffix: bool
+    }
+
 type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?
     | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list * typ: Type * range: SourceLocation option
     | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option * typ: Type * range: SourceLocation option
     | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo * typ: Type * range: SourceLocation option
+    | UnresolvedMemberRef of MemberRefInfo * typ: Type * range: SourceLocation option
     member this.Type =
         match this with
         | UnresolvedTraitCall(_,_,_,_,_,t,_)
         | UnresolvedReplaceCall(_,_,_,_,t,_)
-        | UnresolvedInlineCall(_,_,_,_,t,_) -> t
+        | UnresolvedInlineCall(_,_,_,_,t,_)
+        | UnresolvedMemberRef(_,t,_) -> t
     member this.Range =
         match this with
         | UnresolvedTraitCall(_,_,_,_,_,_,r)
         | UnresolvedReplaceCall(_,_,_,_,_,r)
-        | UnresolvedInlineCall(_,_,_,_,_,r) -> r
+        | UnresolvedInlineCall(_,_,_,_,_,r)
+        | UnresolvedMemberRef(_,_,r) -> r
 
 type Expr =
     // Values and Idents
