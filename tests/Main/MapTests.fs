@@ -234,6 +234,20 @@ let tests =
             pr someSeq |> equal "a, b"
             pr someSeq |> equal "a, b"
 
+        testCase "Map.keys works" <| fun () ->
+            let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
+            let ys = Map.ofArray xs
+            let zs = Map.keys ys
+            zs.Count |> equal xs.Length
+            Seq.item 2 zs |> equal (fst xs.[2])
+
+        testCase "Map.values works" <| fun () ->
+            let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
+            let ys = Map.ofArray xs
+            let zs = Map.values ys
+            zs.Count |> equal xs.Length
+            Seq.item 2 zs |> equal (snd xs.[2])
+
         testCase "Map can be casted to IDictionary" <| fun () -> // See #1729, #1857
             let map = Map [ "a", 1; "b", 2; "c", 3]
             let dic = map :> System.Collections.Generic.IDictionary<_,_>

@@ -883,6 +883,12 @@ let toList (table: Map<_, _>) =
 let toArray (table: Map<_, _>) =
     table.ToArray()
 
+let keys (table: Map<'K, 'V>): ICollection<'K> =
+    table.Keys
+
+let values (table: Map<'K, 'V>): ICollection<'V> =
+    table.Values
+
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> =
     Map<'Key, 'Value>.Empty
