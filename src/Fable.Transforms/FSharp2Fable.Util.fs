@@ -8,37 +8,45 @@ open Fable
 open Fable.Core
 open Fable.AST
 open Fable.Transforms
+open Fable.Transforms.FSharp2Fable
 
-type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) =
+type FsField(name, typ: Fable.Type, ?isMutable, ?isStatic, ?literalValue) =
     new (fi: FSharpField) =
-        let getFSharpFieldName (fi: FSharpField) =
-            let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
-                match TypeHelpers.getBaseEntity ent with
-                | None -> acc
-                | Some (baseClass, _) ->
-                    let conflicts =
-                        baseClass.FSharpFields
-                        |> Seq.exists (fun fi -> fi.Name = name)
-                    let acc = if conflicts then acc + 1 else acc
-                    countConflictingCases acc baseClass name
-
-            let name = fi.Name
-            match fi.DeclaringEntity with
-            | None -> name
-            | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
-            | Some ent ->
-                match countConflictingCases 0 ent name with
-                | 0 -> name
-                | n -> name + "_" + (string n)
-
-        let typ = lazy TypeHelpers.makeType Map.empty fi.FieldType
-        FsField(getFSharpFieldName fi, typ, isMutable=fi.IsMutable, isStatic=fi.IsStatic, ?literalValue=fi.LiteralValue)
+        let typ = TypeHelpers.makeType Map.empty fi.FieldType
+        FsField(FsField.Name fi, typ, isMutable=fi.IsMutable, isStatic=fi.IsStatic, ?literalValue=fi.LiteralValue)
     interface Fable.Field with
         member _.Name = name
-        member _.FieldType = typ.Value
+        member _.FieldType = typ
         member _.LiteralValue = literalValue
         member _.IsStatic = defaultArg isStatic false
         member _.IsMutable = defaultArg isMutable false
+
+    static member Key (name: string, typ: Fable.Type, ?isMutable): Fable.FieldKey =
+        { Name = name; FieldType = typ; IsMutable = defaultArg isMutable false }
+
+    static member Key (fi: FSharpField) =
+        let t = TypeHelpers.makeType Map.empty fi.FieldType
+        FsField.Key(FsField.Name fi, t, fi.IsMutable)
+
+    static member Name (fi: FSharpField) =
+        let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
+            match TypeHelpers.getBaseEntity ent with
+            | None -> acc
+            | Some (baseClass, _) ->
+                let conflicts =
+                    baseClass.FSharpFields
+                    |> Seq.exists (fun fi -> fi.Name = name)
+                let acc = if conflicts then acc + 1 else acc
+                countConflictingCases acc baseClass name
+
+        let name = fi.Name
+        match fi.DeclaringEntity with
+        | None -> name
+        | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
+        | Some ent ->
+            match countConflictingCases 0 ent name with
+            | 0 -> name
+            | n -> name + "_" + (string n)
 
 [<RequireQualifiedAccess>]
 type CompiledValue =
@@ -80,10 +88,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
 
-type FsParam(p: FSharpParameter) =
-    interface Fable.Parameter with
-        member _.Name = p.Name
-        member _.Type = TypeHelpers.makeType Map.empty p.Type
+[<AutoOpen>]
+module FisFus =
+    let FsParam(p: FSharpParameter): Fable.Parameter =
+        { Name = p.Name
+          Type = TypeHelpers.makeType Map.empty p.Type }
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
@@ -93,11 +102,12 @@ type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
     static member CurriedParameterGroups(m: FSharpMemberOrFunctionOrValue): Fable.Parameter list list =
         m.CurriedParameterGroups
-        |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+        |> Seq.mapToList (Seq.mapToList (fun p -> FsParam(p)))
 
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
         { CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
           IsInstance = m.IsInstanceMember
+          IsGetter = m.IsPropertyGetterMethod
           FullName = m.FullName
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
@@ -128,7 +138,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
-        member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
+        member _.ReturnParameter = FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
@@ -264,11 +274,12 @@ type Witness =
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+      ScopeInlineArgs: (Fable.Ident * Fable.Expr) list
       UsedNamesInRootScope: Set<string>
       UsedNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
-      InlinedFunction: FSharpMemberOrFunctionOrValue option
+      PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
@@ -276,14 +287,16 @@ type Context =
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
       Witnesses: Witness list
     }
-    static member Create(usedRootNames) =
+
+    static member Create(?usedRootNames) =
         { Scope = []
           ScopeInlineValues = []
-          UsedNamesInRootScope = usedRootNames
+          ScopeInlineArgs = []
+          UsedNamesInRootScope = defaultArg usedRootNames Set.empty
           UsedNamesInDeclarationScope = Unchecked.defaultof<_>
           GenericArgs = Map.empty
           EnclosingMember = None
-          InlinedFunction = None
+          PrecompilingInlineFunction = None
           CaughtException = None
           BoundConstructorThis = None
           BoundMemberThis = None
@@ -295,11 +308,12 @@ type Context =
 type IFableCompiler =
     inherit Compiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
+    abstract ResolveInlineExpr: Context * InlineExpr * Fable.Expr list
+        -> (Fable.Ident * Fable.Expr) list * Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
-    abstract GetInlineExprFromMember: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Helpers =
@@ -488,7 +502,7 @@ module Helpers =
             com.AddWatchDependency(FsEnt.SourcePath ent)
             ent.UnionCases |> Seq.findIndex (fun uci -> unionCase.Name = uci.Name)
         with _ ->
-            failwithf "Cannot find case %s in %s" unionCase.Name (FsEnt.FullName ent)
+            failwith $"Cannot find case %s{unionCase.Name} in %s{FsEnt.FullName ent}"
 
     /// Apply case rules to case name if there's no explicit compiled name
     let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
@@ -1005,7 +1019,13 @@ module TypeHelpers =
                 else false)
         | _ -> None
 
-    [<RequireQualifiedAccess; Flags>]
+    let tryFindWitness (ctx: Context) argTypes isInstance traitName =
+        ctx.Witnesses |> List.tryFind (fun w ->
+            w.TraitName = traitName
+            && w.IsInstance = isInstance
+            && listEquals (typeEquals false) argTypes w.ArgTypes)
+
+    [<Flags>]
     type private Allow =
         | TheUsual      = 0b0000
           /// Enums in F# are uint32
@@ -1294,13 +1314,13 @@ module TypeHelpers =
                             |> Some
                     )
 
-            let withoutErrored
-                (interfaceMembers: FSharpMemberOrFunctionOrValue list)
-                (errors: _ list)
-                =
-                let fieldsWithError = errors |> List.map (fun (_, fieldName, _) -> fieldName) |> Set.ofList
-                interfaceMembers
-                |> List.filter (fun m -> fieldsWithError |> Set.contains (m.DisplayName) |> not)
+//            let withoutErrored
+//                (interfaceMembers: FSharpMemberOrFunctionOrValue list)
+//                (errors: _ list)
+//                =
+//                let fieldsWithError = errors |> List.map (fun (_, fieldName, _) -> fieldName) |> Set.ofList
+//                interfaceMembers
+//                |> List.filter (fun m -> fieldsWithError |> Set.contains (m.DisplayName) |> not)
 
             // TODO: Check also if there are extra fields in the record not present in the interface?
             let fieldErrors = fitsInterfaceMembers (Set.empty)
@@ -1568,7 +1588,7 @@ module Util =
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: Compiler) (ent: Fable.Entity) suffix =
         let error msg =
-            sprintf "%s: %s" msg ent.FullName
+            $"%s{msg}: %s{ent.FullName}"
             |> addErrorAndReturnNull com [] None
         match ent.IsInterface, ent.Ref.SourcePath with
         | true, _ -> error "Cannot reference an interface"
@@ -1594,6 +1614,19 @@ module Util =
             then None
             else Some (entityRef com ent)
 
+    let resolveMemberRef (com: Compiler) (ctx: Context) r typ (info: Fable.MemberRefInfo) =
+        if info.Path = com.CurrentFile then
+            { makeTypedIdent typ info.Name with Range = r; IsMutable = info.IsMutable }
+            |> Fable.IdentExpr
+        elif info.IsPublic then
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if info.HasOverloadSuffix then
+                com.AddWatchDependency(info.Path)
+            makeImportInternal com typ info.Name info.Path
+        else
+            $"Cannot reference private members from other files: %s{info.Name}"
+            |> addErrorAndReturnNull com ctx.InlinePath r
+
     let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -1603,18 +1636,15 @@ module Util =
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
-        if file = com.CurrentFile then
-            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
-            |> Fable.IdentExpr
-        elif isPublicMember memb then
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if hasOverloadSuffix then
-                com.AddWatchDependency(file)
-            makeImportInternal com typ memberName file
-        else
-            defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
-            |> sprintf "Cannot reference private members from other files: %s"
-            |> addErrorAndReturnNull com ctx.InlinePath r
+        let info: Fable.MemberRefInfo =
+            { Name = memberName
+              Path = file
+              IsMutable = memb.IsMutable
+              IsPublic = isPublicMember memb
+              HasOverloadSuffix = hasOverloadSuffix }
+        match ctx.PrecompilingInlineFunction with
+        | Some _ -> Fable.UnresolvedMemberRef(info, typ, r) |> Fable.Unresolved
+        | None -> resolveMemberRef com ctx r typ info
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
@@ -1663,13 +1693,12 @@ module Util =
         let entityName = defaultArg ent.TryFullName ""
         entityName + "." + memberName + overloadHash
 
-    let callInstanceMember _com r typ (callInfo: Fable.CallInfo)
-                    (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+    let callAttachedMember _com r typ (callInfo: Fable.CallInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callInfo, callee =
             match callInfo.ThisArg with
             | Some callee -> { callInfo with ThisArg = None }, callee
             | None ->
-                sprintf "Unexpected static interface/override call: %s" memb.FullName
+                $"Unexpected static interface/override call: %s{memb.FullName}"
                 |> attachRange r |> failwith
         let isGetter = memb.IsPropertyGetterMethod
         let isSetter = not isGetter && memb.IsPropertySetterMethod
@@ -1697,7 +1726,16 @@ module Util =
         else
             getSimple callee name |> makeCall r typ callInfo
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
+    let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) =
+        let msg =
+            if info.DeclaringEntityFullName.StartsWith("Fable.Core.") then
+                $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
+            else
+                com.WarnOnlyOnce("Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs.")
+                $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
+        msg |> addErrorAndReturnNull com ctx.InlinePath r
+
+    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
@@ -1710,18 +1748,25 @@ module Util =
                 CompiledName = memb.CompiledName
                 OverloadSuffix = if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
-            match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
-            | Some e -> Some e
-            | None when info.IsInterface ->
-                callInstanceMember com r typ callInfo ent memb |> Some
+            match ctx.PrecompilingInlineFunction with
+            | Some _ ->
+                // Deal with reraise so we don't need to save caught exception every time
+                match ctx.CaughtException, info.DeclaringEntityFullName, info.CompiledName with
+                | Some ex, "Microsoft.FSharp.Core.Operators", "Reraise" ->
+                    makeThrow r typ (Fable.IdentExpr ex) |> Some
+                | _ ->
+                    // If it's an interface compile the call to the attached member just in case
+                    let attachedCall =
+                        if info.IsInterface then callAttachedMember com r typ callInfo ent memb |> Some
+                        else None
+                    Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall, typ, r)
+                    |> Fable.Unresolved
+                    |> Some
             | None ->
-                let msg =
-                    if info.DeclaringEntityFullName.StartsWith("Fable.Core.") then
-                        $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
-                    else
-                        com.WarnOnlyOnce("Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs.")
-                        $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
-                msg |> addErrorAndReturnNull com ctx.InlinePath r |> Some
+                match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
+                | Some e -> Some e
+                | None when info.IsInterface -> callAttachedMember com r typ callInfo ent memb |> Some
+                | None -> failReplace com ctx r info |> Some
         | _ -> None
 
     let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
@@ -1790,7 +1835,7 @@ module Util =
                 | None -> None
             match moduleOrClassExpr, callInfo.ThisArg with
             | Some _, Some _thisArg ->
-                callInstanceMember com r typ callInfo e memb |> Some
+                callAttachedMember com r typ callInfo e memb |> Some
 
             | Some classExpr, None when memb.IsConstructor ->
                 Fable.Call(classExpr, { callInfo with IsJsConstructor = true }, typ, r) |> Some
@@ -1802,78 +1847,65 @@ module Util =
                     Fable.Get(moduleOrClassExpr, Fable.ByKey fieldGet, typ, r) |> Some
                 else
                     let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
-                    callInstanceMember com r typ callInfo e memb |> Some
+                    callAttachedMember com r typ callInfo e memb |> Some
 
             | None, _ -> None
         | _ -> None
         |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
 
-    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee (info: Fable.CallInfo) (memb: FSharpMemberOrFunctionOrValue) =
-        let rec foldArgs acc = function
-            | argIdent::restArgIdents, argExpr::restArgExprs ->
-                foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
-            | (argIdent: FSharpMemberOrFunctionOrValue)::restArgIdents, [] ->
-                let t = makeType ctx.GenericArgs argIdent.FullType
-                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
-            | [], _ -> List.rev acc
+    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: (string * Fable.Type) list) callee (info: Fable.CallInfo) membUniqueName =
+        let args: Fable.Expr list =
+            match callee with
+            | Some c -> c::info.Args
+            | None -> info.Args
 
-        // Log error if the inline function is called recursively
-        match ctx.InlinedFunction with
-        | Some memb2 when memb.Equals(memb2) ->
-            sprintf "Recursive functions cannot be inlined: (%s)" memb.FullName
-            |> addErrorAndReturnNull com [] r
-        | _ ->
-            let args: Fable.Expr list =
-                match callee with
-                | Some c -> c::info.Args
-                | None -> info.Args
+        let inExpr = com.GetInlineExpr(membUniqueName)
+        com.AddWatchDependency(inExpr.FileName)
 
-            let inExpr = com.GetInlineExprFromMember(memb)
+        let fromFile, fromRange =
+            match ctx.InlinePath with
+            | { ToFile = file; ToRange = r }::_ -> file, r
+            | [] -> com.CurrentFile, r
 
-            let ctx, bindings =
-                ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
-                    // Change type and mark ident as compiler-generated so Fable also
-                    // tries to inline it in DEBUG mode (some patterns depend on this)
-                    let ident = { makeIdentFrom com ctx argId with
-                                    Type = arg.Type
-                                    IsCompilerGenerated = true }
-                    let ctx = putIdentInScope ctx argId ident (Some arg)
-                    ctx, (ident, arg)::bindings)
+        let ctx = { ctx with GenericArgs = Map genArgs
+                             InlinePath = { ToFile = inExpr.FileName
+                                            ToRange = inExpr.Body.Range
+                                            FromFile = fromFile
+                                            FromRange = fromRange }::ctx.InlinePath }
 
-            let fromFile, fromRange =
-                match ctx.InlinePath with
-                | { ToFile = file; ToRange = r }::_ -> file, r
-                | [] -> com.CurrentFile, r
+        let bindings, expr = com.ResolveInlineExpr(ctx, inExpr, args)
 
-            let ctx = { ctx with GenericArgs = genArgs.Value |> Map
-                                 InlinedFunction = Some memb
-                                 InlinePath = { ToFile = inExpr.FileName
-                                                ToRange = makeRangeFrom inExpr.Body
-                                                FromFile = fromFile
-                                                FromRange = fromRange }::ctx.InlinePath }
+        match expr with
+        // If this is an import expression, apply the arguments, see #2280
+        | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
+            // Check if import has absorbed the arguments, see #2284
+            let args =
+                let path = importInfo.Path
+                match importInfo.Selector, info.Args with
+                | sel, (StringConst selArg)::(StringConst pathArg)::args when sel = selArg && path = pathArg -> args
+                | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
+                | _, args -> args
+            // Don't apply args either if this is a class getter, see #2329
+            if List.isEmpty args || info.CallMemberInfo |> Option.map (fun i -> i.IsGetter) |> Option.defaultValue false then
+                // Set IsCompilerGenerated=true to prevent Fable removing args of surrounding function
+                Fable.Import({ importInfo with IsCompilerGenerated = true }, ti, r)
+            else
+                makeCall r t info importExpr
+        | body ->
+            List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
-            match com.Transform(ctx, inExpr.Body) with
-            // If this is an import expression, apply the arguments, see #2280
-            | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
-                // Check if import has absorbed the arguments, see #2284
-                let args =
-                    let path = importInfo.Path
-                    match importInfo.Selector, info.Args with
-                    | sel, (StringConst selArg)::(StringConst pathArg)::args when sel = selArg && path = pathArg -> args
-                    | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
-                    | _, args -> args
-                // Don't apply args either if this is a class getter, see #2329
-                if List.isEmpty args || memb.IsPropertyGetterMethod then
-                    // Set IsCompilerGenerated=true to prevent Fable removing args of surrounding function
-                    Fable.Import({ importInfo with IsCompilerGenerated = true }, ti, r)
-                else
-                    makeCall r t info importExpr
-            | body ->
-                List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
-
-    let (|Inlined|_|) (com: IFableCompiler) ctx r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
-        if isInline memb
-        then inlineExpr com ctx r t genArgs callee info memb |> Some
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee info (memb: FSharpMemberOrFunctionOrValue) =
+        if isInline memb then
+            let genArgs = genArgs.Value
+            let membUniqueName = getMemberUniqueName memb
+            match ctx.PrecompilingInlineFunction with
+            | Some memb2 when memb.Equals(memb2) ->
+                $"Recursive functions cannot be inlined: (%s{memb.FullName})"
+                |> addErrorAndReturnNull com [] r |> Some
+            | Some _ ->
+                Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info, t, r) |> Fable.Unresolved |> Some
+            | None ->
+                inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
         else None
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
@@ -1900,7 +1932,7 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com ctx r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com (ctx: Context) r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         let makeReturnType t =
             match makeType (Map genArgs.Value) t with
             // TODO: This is not ideal, but for proper currying when the call returns a lambda,
@@ -1958,7 +1990,7 @@ module Util =
                     |> Option.defaultValue entity
                 | _ -> entity
 
-            callInstanceMember com r typ callInfo entity memb
+            callAttachedMember com r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls entity memb ->
             let typ = makeReturnType memb.FullType
@@ -1972,7 +2004,7 @@ module Util =
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
-    let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
+    let makeCallInfoFrom (com: IFableCompiler) (ctx: Context) r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {
             ThisArg = callee
             Args = transformOptionalArguments com ctx r memb genArgs args
@@ -1992,7 +2024,7 @@ module Util =
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
             if com.Options.Verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
-                sprintf "Value %s is replaced with unit constant" v.DisplayName
+                $"Value %s{v.DisplayName} is replaced with unit constant"
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted

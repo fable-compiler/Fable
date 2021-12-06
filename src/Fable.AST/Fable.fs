@@ -42,8 +42,8 @@ type GenericParam =
     abstract Name: string
 
 type Parameter =
-    abstract Name: string option
-    abstract Type: Type
+    { Name: string option
+      Type: Type }
 
 type MemberInfo =
     abstract Attributes: Attribute seq
@@ -160,8 +160,8 @@ type Declaration =
             ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
 
 type File(decls, ?usedRootNames) =
-    member __.Declarations: Declaration list = decls
-    member __.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
+    member _.Declarations: Declaration list = decls
+    member _.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
 
 type Ident =
     { Name: string
@@ -224,6 +224,7 @@ type ValueKind =
 type CallMemberInfo =
     { CurriedParameterGroups: Parameter list list
       IsInstance: bool
+      IsGetter: bool
       FullName: string
       CompiledName: string
       DeclaringEntity: EntityRef option }
@@ -264,8 +265,13 @@ type OperationKind =
     | Binary of BinaryOperator * left: Expr * right: Expr
     | Logical of LogicalOperator * left: Expr * right: Expr
 
+type FieldKey =
+    { Name: string
+      FieldType: Type
+      IsMutable: bool }
+
 type KeyKind =
-    | FieldKey of Field
+    | FieldKey of FieldKey
     | ExprKey of Expr
 
 type GetKind =
@@ -282,6 +288,34 @@ type TestKind =
     | OptionTest of isSome: bool
     | ListTest of isCons: bool
     | UnionCaseTest of tag: int
+
+type MemberRefInfo =
+    {
+        Name: string
+        Path: string
+        IsMutable: bool
+        IsPublic: bool
+        HasOverloadSuffix: bool
+    }
+
+type UnresolvedExpr =
+    // TODO: Add also MemberKind from the flags?
+    | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list * typ: Type * range: SourceLocation option
+    | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option * typ: Type * range: SourceLocation option
+    | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo * typ: Type * range: SourceLocation option
+    | UnresolvedMemberRef of MemberRefInfo * typ: Type * range: SourceLocation option
+    member this.Type =
+        match this with
+        | UnresolvedTraitCall(_,_,_,_,_,t,_)
+        | UnresolvedReplaceCall(_,_,_,_,t,_)
+        | UnresolvedInlineCall(_,_,_,_,t,_)
+        | UnresolvedMemberRef(_,t,_) -> t
+    member this.Range =
+        match this with
+        | UnresolvedTraitCall(_,_,_,_,_,_,r)
+        | UnresolvedReplaceCall(_,_,_,_,_,r)
+        | UnresolvedInlineCall(_,_,_,_,_,r)
+        | UnresolvedMemberRef(_,_,r) -> r
 
 type Expr =
     // Values and Idents
@@ -326,8 +360,11 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
+    | Unresolved of UnresolvedExpr
+
     member this.Type =
         match this with
+        | Unresolved e -> e.Type
         | Test _ -> Boolean
         | Value (kind, _) -> kind.Type
         | IdentExpr id -> id.Type
@@ -355,6 +392,7 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
+        | Unresolved e -> e.Range
         | ObjectExpr _
         | Sequential _
         | Let _

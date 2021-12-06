@@ -226,7 +226,7 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(entRef)
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                /// Check if the entity is actually declared in JS code
+                // Check if the entity is actually declared in JS code
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -362,7 +362,7 @@ module Annotation =
 
     let mergeTypeParamDecls (decl1: TypeParameterDeclaration option) (decl2: TypeParameterDeclaration option) =
         match decl1, decl2 with
-        | Some (TypeParameterDeclaration(``params``=p1)), Some (TypeParameterDeclaration(``params``=p2)) ->
+        | Some (TypeParameterDeclaration(parameters=p1)), Some (TypeParameterDeclaration(parameters=p2)) ->
             Array.append
                 (p1 |> Array.map (fun (TypeParameter(name=name)) -> name))
                 (p2 |> Array.map (fun (TypeParameter(name=name)) -> name))
@@ -599,11 +599,12 @@ module Util =
 
     let getDecisionTarget (ctx: Context) targetIndex =
         match List.tryItem targetIndex ctx.DecisionTargets with
-        | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
+        | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
         | Some(idents, target) -> idents, target
 
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
+        | Fable.Unresolved _
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
         | Fable.Call _ | Fable.CurriedApply _ | Fable.Curry _ | Fable.Operation _
@@ -1036,7 +1037,7 @@ module Util =
             // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
             // Some (baseExpr, []) // default base constructor
             let range = baseCall |> Option.bind (fun x -> x.Range)
-            sprintf "Ignoring base call for %s" baseType.Entity.FullName |> addWarning com [] range
+            $"Ignoring base call for %s{baseType.Entity.FullName}" |> addWarning com [] range
             None
         | Some _, _ ->
             let range = baseCall |> Option.bind (fun x -> x.Range)
@@ -1088,13 +1089,13 @@ module Util =
                 members |> List.choose (function
                     | ObjectProperty(key, value, computed) ->
                         ClassMember.classProperty(key, value, computed_=computed) |> Some
-                    | ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, _) ->
+                    | ObjectMethod(kind, key, parameters, body, computed, returnType, typeParameters, _) ->
                         let kind =
                             match kind with
                             | "get" -> ClassGetter
                             | "set" -> ClassSetter
                             | _ -> ClassFunction
-                        ClassMember.classMethod(kind, key, ``params``, body, computed_=computed,
+                        ClassMember.classMethod(kind, key, parameters, body, computed_=computed,
                             ?returnType=returnType, ?typeParameters=typeParameters) |> Some)
 
             let baseExpr, classMembers =
@@ -1452,7 +1453,7 @@ module Util =
 
     let transformDecisionTreeSuccessAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement[] =
         match returnStrategy with
-        | Some(Target targetId) as target ->
+        | Some(Target targetId) ->
             let idents, _ = getDecisionTarget ctx targetIndex
             let assignments =
                 matchTargetIdentAndValues idents boundValues
@@ -1624,6 +1625,8 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
+        | Fable.Unresolved e -> addErrorAndReturnNull com e.Range "Unexpected unresolved expression"
+
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
         | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
@@ -1703,6 +1706,10 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
+        | Fable.Unresolved e ->
+            addError com [] e.Range "Unexpected unresolved expression"
+            [||]
+
         | Fable.TypeCast(e, t, tag) ->
             [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
 
@@ -1805,8 +1812,6 @@ module Util =
                 then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                 else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
 
-            let a = start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true
-
             [|Statement.forStatement(
                 transformBlock com ctx None body,
                 start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true,
@@ -1870,7 +1875,7 @@ module Util =
         let membName = Identifier.identifier(membName)
         let decl: Declaration =
             match expr with
-            | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
+            | ClassExpression(body, _id, superClass, implements, superTypeParameters, typeParameters, _loc) ->
                 Declaration.classDeclaration(
                     body,
                     ?id = Some membName,
@@ -1878,9 +1883,9 @@ module Util =
                     ?superTypeParameters = superTypeParameters,
                     ?typeParameters = typeParameters,
                     ?implements = implements)
-            | FunctionExpression(_, ``params``, body, returnType, typeParameters, _) ->
+            | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
                 Declaration.functionDeclaration(
-                    ``params``, body, membName,
+                    parameters, body, membName,
                     ?returnType = returnType,
                     ?typeParameters = typeParameters)
             | _ -> varDeclaration membName' isMutable expr |> Declaration.VariableDeclaration

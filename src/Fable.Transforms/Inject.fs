@@ -8,6 +8,7 @@ open Fable.Transforms
 open FSharp2Fable.Helpers
 open FSharp2Fable.Patterns
 open FSharp2Fable.TypeHelpers
+open Fable.Transforms.FSharp2Fable
 
 let private resolveParamGeneric (genArg: Lazy<(string * Fable.Type) list>)= function
     | Fable.GenericParam genParamName ->
@@ -42,7 +43,7 @@ let (|GeneratedInterface|_|) com ctx r t =
         | _ -> None
     | _ -> None
 
-let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
+let injectArg com (ctx: Context) r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
     let parType = nonAbbreviatedType par.Type
     let typ =
         // The type of the parameter must be an option
