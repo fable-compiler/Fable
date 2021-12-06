@@ -44,9 +44,10 @@ open FSharp.Compiler.Symbols
 open Fable.AST
 
 type InlineExpr =
-    { Args: FSharpMemberOrFunctionOrValue list
-      Body: FSharpExpr
-      FileName: string }
+    { Args: Fable.Ident list
+      Body: Fable.Expr
+      FileName: string
+      ScopeIdents: Set<string> }
 
 type CompilerPlugins =
     { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }

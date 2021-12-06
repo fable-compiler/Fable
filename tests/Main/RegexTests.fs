@@ -19,6 +19,17 @@ let tests =
         reg.Replace(str, "$1bar$2$3ham$4")
         |> equal "<a>bar</a><b>ham</b>"
 
+    testCase "Literal regex works with whitespace characters" <| fun _ -> // See #2635
+        Regex("\r\n|\n").IsMatch("foo\r\nbar") |> equal true
+        Regex(@"\r\n|\n").IsMatch("foo\r\nbar") |> equal true
+        Regex("\\r\\n|\\n").IsMatch("foo\r\nbar") |> equal true
+        Regex(@"\\r\\n|\\n").IsMatch("foo\r\nbar") |> equal false
+
+        Regex("\t").IsMatch("foo\tbar") |> equal true
+        Regex(@"\t").IsMatch("foo\tbar") |> equal true
+        Regex("\\t").IsMatch("foo\tbar") |> equal true
+        Regex(@"\\t").IsMatch("foo\tbar") |> equal false
+
     testCase "Regex.Options works" <| fun _ ->
         let option1 = int RegexOptions.IgnoreCase
         let option2 = int RegexOptions.ECMAScript

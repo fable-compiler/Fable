@@ -3,103 +3,8 @@ module Fable.Transforms.FableTransforms
 open Fable
 open Fable.AST.Fable
 
-let visit f e =
-    match e with
-    | IdentExpr _ -> e
-    | TypeCast(e, t) -> TypeCast(f e, t)
-    | Import(info, t, r) ->
-        Import({ info with Selector = info.Selector
-                           Path = info.Path }, t, r)
-    | Extended(kind, r) ->
-        match kind with
-        | Curry(e, arity) -> Extended(Curry(f e, arity), r)
-        | Throw(e, t) -> Extended(Throw(f e, t), r)
-        | Return e -> Extended(Return(f e), r)
-        | Break _
-        | Debugger -> e
-    | Value(kind, r) ->
-        match kind with
-        | ThisValue _ | BaseValue _
-        | TypeInfo _ | Null _ | UnitConstant
-        | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ -> e
-        | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
-        | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
-        | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
-        | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
-        | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
-        | NewList(ht, t) ->
-            let ht = ht |> Option.map (fun (h,t) -> f h, f t)
-            NewList(ht, t) |> makeValue r
-        | NewRecord(exprs, ent, genArgs) ->
-            NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
-        | NewAnonymousRecord(exprs, ent, genArgs) ->
-            NewAnonymousRecord(List.map f exprs, ent, genArgs) |> makeValue r
-        | NewUnion(exprs, uci, ent, genArgs) ->
-            NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
-    | Test(e, kind, r) -> Test(f e, kind, r)
-    | Lambda(arg, body, name) -> Lambda(arg, f body, name)
-    | Delegate(args, body, name) -> Delegate(args, f body, name)
-    | ObjectExpr(members, t, baseCall) ->
-        let baseCall = Option.map f baseCall
-        let members = members |> List.map (fun m -> { m with Body = f m.Body })
-        ObjectExpr(members, t, baseCall)
-    | CurriedApply(callee, args, t, r) ->
-        CurriedApply(f callee, List.map f args, t, r)
-    | Call(callee, info, t, r) ->
-        let info = { info with ThisArg = Option.map f info.ThisArg
-                               Args = List.map f info.Args }
-        Call(f callee, info, t, r)
-    | Emit(info, t, r) ->
-        let callInfo =
-            { info.CallInfo with ThisArg = Option.map f info.CallInfo.ThisArg
-                                 Args = List.map f info.CallInfo.Args }
-        Emit({ info with CallInfo = callInfo }, t, r)
-    | Operation(kind, t, r) ->
-        match kind with
-        | Unary(operator, operand) ->
-            Operation(Unary(operator, f operand), t, r)
-        | Binary(op, left, right) ->
-            Operation(Binary(op, f left, f right), t, r)
-        | Logical(op, left, right) ->
-            Operation(Logical(op, f left, f right), t, r)
-    | Get(e, kind, t, r) ->
-        match kind with
-        | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
-        | UnionField _ | FieldGet _ -> Get(f e, kind, t, r)
-        | ExprGet e2 -> Get(f e, ExprGet(f e2), t, r)
-    | Sequential exprs -> Sequential(List.map f exprs)
-    | Let(ident, value, body) -> Let(ident, f value, f body)
-    | LetRec(bs, body) ->
-        let bs = bs |> List.map (fun (i,e) -> i, f e)
-        LetRec(bs, f body)
-    | IfThenElse(cond, thenExpr, elseExpr, r) ->
-        IfThenElse(f cond, f thenExpr, f elseExpr, r)
-    | Set(e, kind, t, v, r) ->
-        match kind with
-        | ExprSet e2 -> Set(f e, ExprSet(f e2), t, f v, r)
-        | FieldSet _ | ValueSet -> Set(f e, kind, t, f v, r)
-    | WhileLoop(e1, e2, label, r) -> WhileLoop(f e1, f e2, label, r)
-    | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
-    | TryCatch(body, catch, finalizer, r) ->
-        TryCatch(f body,
-                 Option.map (fun (i, e) -> i, f e) catch,
-                 Option.map f finalizer, r)
-    | DecisionTree(expr, targets) ->
-        let targets = targets |> List.map (fun (idents, v) -> idents, f v)
-        DecisionTree(f expr, targets)
-    | DecisionTreeSuccess(idx, boundValues, t) ->
-        DecisionTreeSuccess(idx, List.map f boundValues, t)
-
-let rec visitFromInsideOut f e =
-    visit (visitFromInsideOut f) e |> f
-
-let rec visitFromOutsideIn (f: Expr->Expr option) e =
-    match f e with
-    | Some e -> e
-    | None -> visit (visitFromOutsideIn f) e
-
 let getSubExpressions = function
+    | Unresolved _ -> []
     | IdentExpr _ -> []
     | TypeCast(e,_) -> [e]
     | Import _ -> []
@@ -235,6 +140,7 @@ let noSideEffectBeforeIdent identName expr =
             true
 
     let rec findIdentOrSideEffect = function
+        | Unresolved _ -> false
         | IdentExpr id ->
             if id.Name = identName then true
             elif id.IsMutable then

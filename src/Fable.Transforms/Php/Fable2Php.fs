@@ -516,6 +516,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
     | Fable.Extended _ -> failwith "TODO: Extended instructions"
 
+    | Fable.Unresolved _ -> failwith "Unexpected unresolved expression"
+
     | Fable.Value(value,range) ->
         // this is a value (number / record instanciation ...)
         convertValue com value range

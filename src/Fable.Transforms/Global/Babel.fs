@@ -68,13 +68,13 @@ type Expression =
     | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
     | FunctionExpression of
         id: Identifier option *
-        ``params``: Pattern array *
+        parameters: Pattern array *
         body: BlockStatement *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameterDeclaration option *
         loc: SourceLocation option
     | ArrowFunctionExpression of
-        ``params``: Pattern array *
+        parameters: Pattern array *
         body: BlockStatement *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameterDeclaration option *
@@ -125,7 +125,7 @@ type Declaration =
         loc: SourceLocation option
     | VariableDeclaration of VariableDeclaration
     | FunctionDeclaration of
-        ``params``: Pattern array *
+        parameters: Pattern array *
         body: BlockStatement *
         id: Identifier *
         returnType: TypeAnnotation option *
@@ -150,7 +150,7 @@ type ModuleDeclaration =
     | ImportDeclaration of specifiers: ImportSpecifier array * source: StringLiteral
     | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
 
-    /// An export batch declaration, e.g., export * from "mod";.
+//    /// An export batch declaration, e.g., export * from "mod";.
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
 //    inherit Node("TemplateElement", ?loc = loc)
@@ -205,7 +205,7 @@ type BlockStatement =
 //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
 
-/// An empty statement, i.e., a solitary semicolon.
+// /// An empty statement, i.e., a solitary semicolon.
 //type EmptyStatement(?loc) =
 //    inherit Statement("EmptyStatement", ?loc = loc)
 //    member _.Print(_) = ()
@@ -239,8 +239,8 @@ type VariableDeclaration =
 //    member _.Body: BlockStatement = body
 //    member _.Test: Expression = test
 
-/// When passing a VariableDeclaration, the bound value must go through
-/// the `right` parameter instead of `init` property in VariableDeclarator
+// /// When passing a VariableDeclaration, the bound value must go through
+// /// the `right` parameter instead of `init` property in VariableDeclarator
 //type ForInStatement(left, right, body, ?loc) =
 //    inherit Statement("ForInStatement", ?loc = loc)
 //    member _.Body: BlockStatement = body
@@ -307,7 +307,7 @@ type ObjectMember =
     | ObjectMethod of
         kind: string *
         key: Expression *
-        ``params``: Pattern array *
+        parameters: Pattern array *
         body: BlockStatement *
         computed: bool *
         returnType: TypeAnnotation option *
@@ -346,7 +346,7 @@ type ClassMember =
     | ClassMethod of
         kind: string *
         key: Expression *
-        ``params``: Pattern array *
+        parameters: Pattern array *
         body: BlockStatement *
         computed: bool *
         ``static``: bool option *
@@ -419,7 +419,7 @@ type TypeAnnotationInfo =
     | ObjectTypeAnnotation of ObjectTypeAnnotation
     | GenericTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation option
     | FunctionTypeAnnotation of
-        ``params``: FunctionTypeParam array *
+        parameters: FunctionTypeParam array *
         returnType: TypeAnnotationInfo *
         typeParameters: TypeParameterDeclaration option *
         rest: FunctionTypeParam option
@@ -433,10 +433,10 @@ type TypeParameter =
     | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotationInfo option
 
 type TypeParameterDeclaration =
-    | TypeParameterDeclaration of ``params``: TypeParameter array
+    | TypeParameterDeclaration of parameters: TypeParameter array
 
 type TypeParameterInstantiation =
-    | TypeParameterInstantiation of ``params``: TypeAnnotationInfo array
+    | TypeParameterInstantiation of parameters: TypeAnnotationInfo array
 
 type FunctionTypeParam =
     | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotationInfo * optional: bool option
@@ -522,11 +522,11 @@ module Helpers =
         static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
         static member newExpression(callee, arguments, ?typeArguments, ?loc) = NewExpression(callee, arguments, typeArguments, loc)
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-        static member arrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
-            ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
-        static member arrowFunctionExpression(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
+        static member arrowFunctionExpression(parameters, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
+            ArrowFunctionExpression(parameters, body, returnType, typeParameters, loc)
+        static member arrowFunctionExpression(parameters, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
             let body = BlockStatement [| Statement.returnStatement(body) |]
-            Expression.arrowFunctionExpression(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
+            Expression.arrowFunctionExpression(parameters, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
         /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
         /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
         static member memberExpression(object, property, ?computed_, ?loc) =
@@ -536,8 +536,8 @@ module Helpers =
                 | Expression.Identifier(Identifier(name=name)) -> name
                 | _ -> ""
             MemberExpression(name, object, property, computed, loc)
-        static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
-            FunctionExpression(id, ``params``, body, returnType, typeParameters, loc)
+        static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
+            FunctionExpression(id, parameters, body, returnType, typeParameters, loc)
         static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
         static member spreadElement(argument, ?loc) =
@@ -659,8 +659,8 @@ module Helpers =
                 [| VariableDeclarator(var, init) |],
                 ?loc = loc
             )
-        static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
-            FunctionDeclaration(``params``, body, id, returnType, typeParameters, loc)
+        static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
+            FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc)
         static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassDeclaration(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
         static member interfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
@@ -695,7 +695,7 @@ module Helpers =
             FunctionTypeParam(name, typeInfo, optional)
 
     type ClassMember with
-        static member classMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
+        static member classMethod(kind_, key, parameters, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
             let kind =
                 match kind_ with
                 | ClassImplicitConstructor -> "constructor"
@@ -703,7 +703,7 @@ module Helpers =
                 | ClassSetter -> "set"
                 | ClassFunction -> "method"
             let computed = defaultArg computed_ false
-            ClassMethod(kind, key, ``params``, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
+            ClassMethod(kind, key, parameters, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
         static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
             let computed = defaultArg computed_ false
             ClassProperty(key, value, computed, defaultArg ``static`` false, defaultArg optional false, typeAnnotation, loc)
@@ -729,14 +729,14 @@ module Helpers =
         static member objectProperty(key, value, ?computed_) = // ?shorthand_,
             let computed = defaultArg computed_ false
             ObjectProperty(key, value, computed)
-        static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
+        static member objectMethod(kind_, key, parameters, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
             let kind =
                 match kind_ with
                 | ObjectGetter -> "get"
                 | ObjectSetter -> "set"
                 | ObjectMeth -> "method"
             let computed = defaultArg computed_ false
-            ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, loc)
+            ObjectMethod(kind, key, parameters, body, computed, returnType, typeParameters, loc)
 
     type ObjectTypeProperty with
         static member objectTypeProperty(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
@@ -755,8 +755,8 @@ module Helpers =
     type TypeAnnotationInfo with
         static member genericTypeAnnotation(id, ?typeParameters) =
             GenericTypeAnnotation (id, typeParameters)
-        static member functionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
-            FunctionTypeAnnotation(``params``,returnType, typeParameters, rest)
+        static member functionTypeAnnotation(parameters, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
+            FunctionTypeAnnotation(parameters,returnType, typeParameters, rest)
 
     type ObjectTypeAnnotation with
         static member objectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =

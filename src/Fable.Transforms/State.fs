@@ -3,12 +3,7 @@ module Fable.Transforms.State
 open Fable
 open Fable.AST
 open System.Collections.Generic
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
-// TODO: Change needed when updating to FCS 40
-#if FABLE_COMPILER
-open FSharp.Compiler.SourceCodeServices
-#endif
 
 type IDictionary<'Key, 'Value> with
     member this.TryValue(key: 'Key) =
@@ -82,7 +77,6 @@ type ImplFile =
         Ast: FSharpImplementationFileContents
         RootModule: string
         Entities: IReadOnlyDictionary<string, Fable.Entity>
-        InlineExprs: (string * InlineExpr) list
     }
     static member From(file: FSharpImplementationFileContents) =
         let entities = Dictionary()
@@ -99,44 +93,55 @@ type ImplFile =
             Ast = file
             Entities = entities
             RootModule = FSharp2Fable.Compiler.getRootModule file
-            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file
         }
 
 type Project(projFile: string,
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
+             ?inlineExprs: Map<string, InlineExpr>,
              ?trimRootModule: bool) =
 
+    let inlineExprs = defaultArg inlineExprs Map.empty
     let trimRootModule = defaultArg trimRootModule true
-    let inlineExprs = implFiles |> Seq.collect (fun kv -> kv.Value.InlineExprs) |> dict
 
     static member From(projFile,
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
+                       mkCompiler: Project -> string -> Compiler,
                        ?getPlugin: PluginRef -> System.Type,
                        ?trimRootModule) =
 
         let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
         let assemblies = Assemblies(getPlugin, fsharpAssemblies)
 
-        let implFiles =
+        let implFilesMap =
             fsharpFiles
             |> List.map (fun file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFiles, assemblies, ?trimRootModule=trimRootModule)
+        Project(projFile, implFilesMap, assemblies, ?trimRootModule=trimRootModule)
+            .UpdateInlineExprs(fsharpFiles, mkCompiler)
 
-    member this.Update(fsharpFiles: FSharpImplementationFileContents list) =
+    member this.UpdateInlineExprs(fsharpFiles: FSharpImplementationFileContents list, mkCompiler: Project -> string -> Compiler) =
+        let inlineExprs =
+            (Map.empty, fsharpFiles) ||> List.fold (fun inlineExprs implFile ->
+                let com = mkCompiler this implFile.FileName
+                (inlineExprs, FSharp2Fable.Compiler.getInlineExprs com implFile)
+                ||> List.fold (fun inlineExprs (k, v) -> Map.add k v inlineExprs)
+            )
+        Project(this.ProjectFile, implFiles, this.Assemblies, inlineExprs, this.TrimRootModule)
 
+    member this.Update(fsharpFiles: FSharpImplementationFileContents list, mkCompiler) =
         let implFiles =
             (this.ImplementationFiles, fsharpFiles) ||> List.fold (fun implFiles file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 let file = ImplFile.From(file)
                 Map.add key file implFiles)
 
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.TrimRootModule)
+        Project(this.ProjectFile, implFiles, this.Assemblies, this.InlineExprs, this.TrimRootModule)
+            .UpdateInlineExprs(fsharpFiles, mkCompiler)
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
