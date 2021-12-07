@@ -567,6 +567,7 @@ module Util =
 
     let rec isPyStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
+        | Fable.Unresolved _
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
         | Fable.Call _ | Fable.CurriedApply _ | Fable.Operation _
@@ -1896,6 +1897,8 @@ module Util =
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list =
         // printfn "transformAsExpr: %A" expr
         match expr with
+        | Fable.Unresolved e -> addErrorAndReturnNull com e.Range "Unexpected unresolved expression", []
+
         | Fable.TypeCast(e,t) -> transformCast com ctx t e
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
@@ -2026,6 +2029,10 @@ module Util =
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
+        | Fable.Unresolved e ->
+            addError com [] e.Range "Unexpected unresolved expression"
+            []
+
         | Fable.Extended(kind, r) ->
             match kind with
             | Fable.Curry(e, arity) ->

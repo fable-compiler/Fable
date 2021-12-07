@@ -263,8 +263,11 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
 
-    member _.MakeCompiler(currentFile, project, triggeredByDependency) =
-        let opts = { cliArgs.CompilerOptions with TriggeredByDependency = triggeredByDependency }
+    member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
+        let opts =
+            match triggeredByDependency with
+            | Some t -> { cliArgs.CompilerOptions with TriggeredByDependency = t }
+            | None -> cliArgs.CompilerOptions
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
         let common = Path.getCommonBaseDir([currentFile; crackerResponse.FableLibDir])
         let outputType =
@@ -328,26 +331,27 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
     member _.Checker = checker
     member _.Errors = errors
 
-    static member Init(config: ProjectCracked) = async {
-        let checker = InteractiveChecker.Create(config.ProjectOptions)
-        let! implFiles, errors, assemblies = checkProject config checker None
+    static member Init(projCracked: ProjectCracked) = async {
+        let checker = InteractiveChecker.Create(projCracked.ProjectOptions)
+        let! implFiles, errors, assemblies = checkProject projCracked checker None
 
         return ProjectChecked(checker, errors, Project.From(
-                                config.ProjectFile,
+                                projCracked.ProjectFile,
                                 implFiles,
                                 assemblies.Value,
-                                getPlugin = loadType config.CliArgs,
-                                trimRootModule = config.FableOptions.TrimRootModule))
+                                mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)),
+                                getPlugin = loadType projCracked.CliArgs,
+                                trimRootModule = projCracked.FableOptions.TrimRootModule))
     }
 
-    member this.Update(config: ProjectCracked, filesToCompile) = async {
+    member this.Update(projCracked: ProjectCracked, filesToCompile) = async {
         let! implFiles, errors, _ =
             Some(Array.last filesToCompile)
-            |> checkProject config this.Checker
+            |> checkProject projCracked this.Checker
 
         let filesToCompile = set filesToCompile
         let implFiles = implFiles |> List.filter (fun f -> filesToCompile.Contains(f.FileName))
-        return ProjectChecked(checker, errors, this.Project.Update(implFiles))
+        return ProjectChecked(checker, errors, this.Project.Update(implFiles, mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p))))
     }
 
 type Watcher =

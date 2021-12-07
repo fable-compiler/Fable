@@ -57,8 +57,8 @@ type GenericParam =
     abstract Constraints: Constraint seq
 
 type Parameter =
-    abstract Name: string option
-    abstract Type: Type
+    { Name: string option
+      Type: Type }
 
 type MemberInfo =
     abstract Attributes: Attribute seq
@@ -206,7 +206,7 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
-    // TODO: Add `allowGeneric` field
+    // TODO: Add `allowGeneric` field, see makeGenericTypeInfo hack for generic info in decorators
     | TypeInfo of typ: Type
     | Null of typ: Type
     | UnitConstant
@@ -253,6 +253,7 @@ type ParamInfo =
 type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list
       IsInstance: bool
+      IsGetter: bool
       FullName: string
       CompiledName: string
       DeclaringEntity: EntityRef option }
@@ -356,6 +357,35 @@ type ExtendedSet =
         /// with beta reduction but in some cases it may be necessary to do it at runtime
         | Curry (expr, _) -> expr.Type
 
+type MemberRefInfo =
+    {
+        Name: string
+        Path: string
+        IsInstance: bool
+        IsMutable: bool
+        IsPublic: bool
+        HasOverloadSuffix: bool
+    }
+
+type UnresolvedExpr =
+    // TODO: Add also MemberKind from the flags?
+    | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list * typ: Type * range: SourceLocation option
+    | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option * typ: Type * range: SourceLocation option
+    | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo * typ: Type * range: SourceLocation option
+    | UnresolvedMemberRef of MemberRefInfo * typ: Type * range: SourceLocation option
+    member this.Type =
+        match this with
+        | UnresolvedTraitCall(_,_,_,_,_,t,_)
+        | UnresolvedReplaceCall(_,_,_,_,t,_)
+        | UnresolvedInlineCall(_,_,_,_,t,_)
+        | UnresolvedMemberRef(_,t,_) -> t
+    member this.Range =
+        match this with
+        | UnresolvedTraitCall(_,_,_,_,_,_,r)
+        | UnresolvedReplaceCall(_,_,_,_,_,r)
+        | UnresolvedInlineCall(_,_,_,_,_,r)
+        | UnresolvedMemberRef(_,_,r) -> r
+
 type Expr =
     /// The extended set contains instructions that are not used in the first FSharp2Fable pass
     /// but later when making the AST closer to a C-like language
@@ -371,7 +401,7 @@ type Expr =
     /// Lambdas are curried, they always have a single argument (which can be unit)
     | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * name: string option //* isArrow: bool
+    | Delegate of args: Ident list * body: Expr * name: string option //* TODO: isArrow: bool
     | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
@@ -407,8 +437,11 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
+    | Unresolved of UnresolvedExpr
+
     member this.Type =
         match this with
+        | Unresolved e -> e.Type
         | Test _ -> Boolean
         | Value (kind, _) -> kind.Type
         | IdentExpr id -> id.Type
@@ -436,6 +469,7 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
+        | Unresolved e -> e.Range
         | ObjectExpr _
         | Sequential _
         | Let _

@@ -124,15 +124,31 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
         Stamp = None }
     projOptions
 
+let makeCompiler fableLibrary typedArrays language fsharpOptions project fileName: CompilerImpl =
+    let define = fsharpOptions |> Array.choose (fun (x: string) ->
+        if x.StartsWith("--define:") || x.StartsWith("-d:")
+        then x.[(x.IndexOf(':') + 1)..] |> Some
+        else None) |> Array.toList
+    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
+    CompilerImpl(fileName, project, options, fableLibrary)
+
+// Compiler used to precompile inlined functions, fable-library dir can be empty
+// because replacements won't be resolved yet
+let makePreCompiler fsharpOptions project fileName: Compiler =
+    makeCompiler "" None JavaScript fsharpOptions project fileName
+
 let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
+    let implFiles =
+        if optimize then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkResults.AssemblyContents.ImplementationFiles
     Project.From(
         projectOptions.ProjectFileName,
-        (if optimize then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-        else checkResults.AssemblyContents.ImplementationFiles),
-        checkResults.ProjectContext.GetReferencedAssemblies())
+        implFiles,
+        checkResults.ProjectContext.GetReferencedAssemblies(),
+        makePreCompiler projectOptions.OtherOptions)
 
 let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
     let checkResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
@@ -220,12 +236,7 @@ let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: i
 let compileToFableAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language =
     let res = results :?> ParseAndCheckResults
     let project = res.GetProject()
-    let define = results.OtherFSharpOptions |> Array.choose (fun x ->
-        if x.StartsWith("--define:") || x.StartsWith("-d:")
-        then x.[(x.IndexOf(':') + 1)..] |> Some
-        else None) |> Array.toList
-    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
-    let com = CompilerImpl(fileName, project, options, fableLibrary)
+    let com = makeCompiler fableLibrary typedArrays language results.OtherFSharpOptions project fileName
     let fableAst =
         FSharp2Fable.Compiler.transformFile com
         |> FableTransforms.transformFile com
