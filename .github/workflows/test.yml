@@ -27,6 +27,9 @@ jobs:
       with:
         toolchain: stable
 
+    - name: Install pytest runner
+      run: pip install pytest
+
     - name: Fable Tests
       run: dotnet fsi build.fsx test
 
