@@ -1458,9 +1458,10 @@ module Util =
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             let subscript =
                 match fableExpr.Type with
-                | Fable.AnonymousRecordType(_) -> true
+                | Fable.AnonymousRecordType _ -> true
+                | Fable.GenericParam (_, [Fable.Constraint.HasMember (_, false)]) -> true
                 | _ -> false
-            //printfn "Fable.FieldGet: %A" fieldName
+            // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
             get com ctx range expr fieldName subscript, stmts
 
         | Fable.ListHead ->
