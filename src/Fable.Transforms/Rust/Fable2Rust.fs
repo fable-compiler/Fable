@@ -422,23 +422,23 @@ module TypeInfo =
             | returnType -> List.rev acc, returnType
         uncurryLambdaArgs [] t
 
-    // let transformLambdaType com ctx inputTypes returnType: Rust.Ty =
+    // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
     //         if returnType = Fable.Unit then VOID_RETURN_TY
     //         else transformType com ctx returnType |> mkFnRetTy
     //     let pat = mkIdentPat "a" false false
-    //     let inputs = inputTypes |> List.map (fun tInput ->
+    //     let inputs = argTypes |> List.map (fun tInput ->
     //         mkParam [] (transformParamType com ctx tInput) pat false)
     //     let fnDecl = mkFnDecl inputs fnRetTy
     //     let genParams = [] // TODO:
     //     mkFnTy genParams fnDecl
 
-    let transformClosureType com ctx inputTypes returnType: Rust.Ty =
+    let transformClosureType com ctx argTypes returnType: Rust.Ty =
         let inputs =
-            match inputTypes with
+            match argTypes with
             | [Fable.Unit] -> []
             | _ ->
-                inputTypes
+                argTypes
                 |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
@@ -527,6 +527,7 @@ module TypeInfo =
         //     |]
         let ty =
             match t with
+            | Fable.Measure _
             | Fable.Any -> mkInferTy () // primitiveType "obj"
             | Fable.GenericParam(name, _) ->
                 mkGenericPathTy [name] None
@@ -546,19 +547,23 @@ module TypeInfo =
             | Replacements.Builtin Replacements.BclIntPtr -> primitiveType "isize"
             | Replacements.Builtin Replacements.BclUIntPtr -> primitiveType "usize"
             | Fable.LambdaType(_, returnType) ->
-                let inputTypes, returnType = uncurryLambdaType t
-                transformClosureType com ctx inputTypes returnType
+                let argTypes, returnType = uncurryLambdaType t
+                transformClosureType com ctx argTypes returnType
                 // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
-                // then transformClosureType com ctx inputTypes returnType
-                // else transformLambdaType com ctx inputTypes returnType
-            // | Fable.DelegateType(argTypes, returnType) ->
-            //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
+                // then transformClosureType com ctx argTypes returnType
+                // else transformLambdaType com ctx argTypes returnType
+            | Fable.DelegateType(argTypes, returnType) ->
+                transformClosureType com ctx argTypes returnType
             | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
             | Fable.Option(genArg, _) -> transformOptionType com ctx genArg
             | Fable.Array genArg -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
-            // | Fable.Regex           -> nonGenericTypeInfo Types.regex
-            // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
+            | Fable.Regex ->
+                // nonGenericTypeInfo Types.regex
+                TODO_TYPE (sprintf "%A" t) //TODO:
+            | Fable.MetaType ->
+                // nonGenericTypeInfo Types.type_
+                TODO_TYPE (sprintf "%A" t) //TODO:
             | Fable.AnonymousRecordType(fieldNames, genArgs) ->
                 transformTupleType com ctx genArgs //TODO: temporary - uses tuples for now!
                 // let genArgs = resolveGenerics (List.toArray genArgs)
@@ -608,7 +613,7 @@ module TypeInfo =
                     transformDeclaredType com ctx entRef genArgs
 
                     // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                    // /// Check if the entity is actually declared in JS code
+                    // // Check if the entity is actually declared in JS code
                     // if ent.IsInterface
                     //     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     //     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -618,9 +623,6 @@ module TypeInfo =
                     //     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
-
-            // TODO: remove this catch-all
-            | _ -> TODO_TYPE (sprintf "%A" t)
 
         // Interfaces are already wrapped in Rc
         if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType && not (isInterface com t)
@@ -768,7 +770,7 @@ module Annotation =
 
     let mergeTypeParamDecls (decl1: TypeParameterDeclaration option) (decl2: TypeParameterDeclaration option) =
         match decl1, decl2 with
-        | Some (TypeParameterDeclaration(``params``=p1)), Some (TypeParameterDeclaration(``params``=p2)) ->
+        | Some (TypeParameterDeclaration(parameters=p1)), Some (TypeParameterDeclaration(parameters=p2)) ->
             Array.append
                 (p1 |> Array.map (fun (TypeParameter(name=name)) -> name))
                 (p2 |> Array.map (fun (TypeParameter(name=name)) -> name))
@@ -1011,11 +1013,12 @@ module Util =
 *)
     let getDecisionTarget (ctx: Context) targetIndex =
         match List.tryItem targetIndex ctx.DecisionTargets with
-        | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
+        | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
         | Some(idents, target) -> idents, target
 (*
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
+        | Fable.Unresolved _
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
         | Fable.Call _ | Fable.CurriedApply _ | Fable.Curry _ | Fable.Operation _
@@ -1371,10 +1374,10 @@ module Util =
                 makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
-
-    let transformCurry (com: IRustCompiler) (ctx: Context) _r expr arity: Rust.Expr =
-        com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 *)
+    let transformCurry (com: IRustCompiler) (ctx: Context) expr arity: Rust.Expr =
+        com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
+
     /// This guarantees a new owned Rc<T>
     let makeClone expr = mkMethodCallExprOnce "clone" None expr []
 
@@ -1748,7 +1751,7 @@ module Util =
             // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
             // Some (baseExpr, []) // default base constructor
             let range = baseCall |> Option.bind (fun x -> x.Range)
-            sprintf "Ignoring base call for %s" baseType.Entity.FullName |> addWarning com [] range
+            $"Ignoring base call for %s{baseType.Entity.FullName}" |> addWarning com [] range
             None
         | Some _, _ ->
             let range = baseCall |> Option.bind (fun x -> x.Range)
@@ -1787,6 +1790,9 @@ module Util =
             )
 
         //Expression.objectExpression(List.toArray  members)
+        // TODO:
+        "Object expressions are not implemented yet"
+        |> addError com [] None
         TODO_EXPR (sprintf "%A" members)
 
 (*
@@ -2573,7 +2579,7 @@ module Util =
 (*
     let transformDecisionTreeSuccessAsStatements (com: IRustCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Rust.Stmt[] =
         match returnStrategy with
-        | Some(Target targetId) as target ->
+        | Some(Target targetId) ->
             let idents, _ = getDecisionTarget ctx targetIndex
             let assignments =
                 matchTargetIdentAndValues idents boundValues
@@ -2758,14 +2764,15 @@ module Util =
 *)
     let rec transformAsExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr): Rust.Expr =
         match fableExpr with
+        | Fable.Unresolved e ->
+            addError com [] e.Range "Unexpected unresolved expression"
+            mkUnitExpr ()
 
         | Fable.TypeCast(e, t) -> transformCast com ctx t e
 
-        // | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
-
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
-        | Fable.IdentExpr id -> transformIdentGet com ctx None id // TODO: range
+        | Fable.IdentExpr id -> transformIdentGet com ctx None id
 
         | Fable.Import({ Selector = selector; Path = path }, _t, r) ->
             transformImport com ctx r selector path None
@@ -2779,8 +2786,8 @@ module Util =
         | Fable.Delegate(args, body, name) ->
             transformLambda com ctx name args body
 
-        // | Fable.ObjectExpr (members, _, baseCall) ->
-        //    transformObjectExpr com ctx members baseCall
+        | Fable.ObjectExpr (members, _, baseCall) ->
+            transformObjectExpr com ctx members baseCall
 
         | Fable.Call(callee, info, typ, range) ->
             transformCall com ctx range typ callee info
@@ -2846,20 +2853,37 @@ module Util =
         | Fable.Extended(Fable.Throw(TransformExpr com ctx msg, _), _) ->
             mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
 
-        // | Fable.Extended(kind, _) ->
-        //     match kind with
-        //     | Fable.Throw _ ->
-        //     | Fable.Return _ ->
-        //     | Fable.Break _ ->
-        //     | Fable.Debugger ->
-        //     | Fable.Curry _ ->
+        | Fable.Extended(kind, r) ->
+            match kind with
+            | Fable.Curry(e, arity) -> transformCurry com ctx e arity
+            | Fable.Throw _
+            | Fable.Return _
+            | Fable.Break _
+            | Fable.Debugger ->
+                // TODO:
+                $"Unimplemented Extended expression: %A{kind}"
+                |> addError com [] r
+                mkUnitExpr ()
 
-        // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "%A" fableExpr)
 (*
     let rec transformAsStatements (com: IRustCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Rust.Stmt array =
         match expr with
+        | Fable.Unresolved e ->
+            addError com [] e.Range "Unexpected unresolved expression"
+            [||]
+
+        | Fable.Extended(kind, r) ->
+            match kind with
+            | Fable.Curry(e, arity) -> transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy
+            | Fable.Throw(TransformExpr com ctx e, _) -> Statement.throwStatement(e, ?loc=r)
+            | Fable.Return(TransformExpr com ctx e) -> Statement.returnStatement(e, ?loc=r)
+            | Fable.Debugger -> Statement.debuggerStatement(?loc=r)
+            | Fable.Break label ->
+                let label = label |> Option.map Identifier.identifier
+                Statement.breakStatement(?label=label, ?loc=r)
+            |> Array.singleton
+
         | Fable.TypeCast(e, t) ->
             [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
@@ -2961,8 +2985,6 @@ module Util =
                 if isUp
                 then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                 else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
-
-            let a = start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true
 
             [|Statement.forStatement(
                 transformBlock com ctx None body,
@@ -3082,7 +3104,7 @@ module Util =
         let membName = Identifier.identifier(membName)
         let decl: Declaration =
             match expr with
-            | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
+            | ClassExpression(body, _id, superClass, implements, superTypeParameters, typeParameters, loc) ->
                 Declaration.classDeclaration(
                     body,
                     ?id = Some membName,
@@ -3090,9 +3112,9 @@ module Util =
                     ?superTypeParameters = superTypeParameters,
                     ?typeParameters = typeParameters,
                     ?implements = implements)
-            | FunctionExpression(_, ``params``, body, returnType, typeParameters, _) ->
+            | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
                 Declaration.functionDeclaration(
-                    ``params``, body, membName,
+                    parameters, body, membName,
                     ?returnType = returnType,
                     ?typeParameters = typeParameters)
             | _ -> varDeclaration membName' isMutable expr |> Declaration.VariableDeclaration
