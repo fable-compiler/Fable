@@ -88,11 +88,10 @@ type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
 
-[<AutoOpen>]
-module FisFus =
-    let FsParam(p: FSharpParameter): Fable.Parameter =
-        { Name = p.Name
-          Type = TypeHelpers.makeType Map.empty p.Type }
+type FsParam =
+    static member Make(name, typ): Fable.Parameter =
+        { Name = name; Type = TypeHelpers.makeType Map.empty typ }
+    static member Make(p: FSharpParameter) = FsParam.Make(p.Name, p.Type)
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
@@ -102,7 +101,7 @@ type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
     static member CurriedParameterGroups(m: FSharpMemberOrFunctionOrValue): Fable.Parameter list list =
         m.CurriedParameterGroups
-        |> Seq.mapToList (Seq.mapToList (fun p -> FsParam(p)))
+        |> Seq.mapToList (Seq.mapToList FsParam.Make)
 
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
         { CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
@@ -138,7 +137,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
-        member _.ReturnParameter = FsParam(m.ReturnParameter)
+        member _.ReturnParameter = FsParam.Make(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
@@ -153,10 +152,6 @@ type FsEnt(ent: FSharpEntity) =
         else None
 
     member _.FSharpEntity = ent
-
-    static member SourcePath (ent: FSharpEntity) =
-        ent.DeclarationLocation.FileName
-        |> Path.normalizePathAndEnsureFsExtension
 
     static member IsPublic (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
@@ -185,14 +180,11 @@ type FsEnt(ent: FSharpEntity) =
             // Find the actual assembly name from the entity qualified name
             | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
                 ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-#if FABLE_COMPILER
-            | Some asmPath when asmPath.EndsWith("Fable.Repl.Lib.dll") ->
-                let sourcePath = FsEnt.SourcePath ent
-                let sourcePath = "fable-repl-lib" + sourcePath.[sourcePath.IndexOf("Fable.Repl.Lib") + 14 ..]
-                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
-#endif
             | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
-            | None -> FsEnt.SourcePath ent |> Fable.SourcePath
+            | None ->
+                ent.DeclarationLocation.FileName
+                |> Path.normalizePathAndEnsureFsExtension
+                |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
           Path = path }
 
@@ -356,8 +348,8 @@ module Helpers =
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        // Ignore Precompiled libs and other entities for which we don't have implementation file data
-        | TrimRootModule _, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        // Ignore entities for which we don't have implementation file data
+        | TrimRootModule _, (Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
         | NoTrimRootModule, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
@@ -495,11 +487,20 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
+    let addWatchDependencyFromEntity (com: Compiler) ent =
+        FsEnt.Ref(ent)
+        |> com.TryGetSourcePath
+        |> Option.iter com.AddWatchDependency
+
+    let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
+        memb.DeclaringEntity
+        |> Option.iter (addWatchDependencyFromEntity com)
+
     let unionCaseTag (com: IFableCompiler) (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
             // If the order of cases changes in the declaration, the tag has to change too.
             // Mark all files using the case tag as watch dependencies.
-            com.AddWatchDependency(FsEnt.SourcePath ent)
+            addWatchDependencyFromEntity com ent
             ent.UnionCases |> Seq.findIndex (fun uci -> unionCase.Name = uci.Name)
         with _ ->
             failwith $"Cannot find case %s{unionCase.Name} in %s{FsEnt.FullName ent}"
@@ -1510,7 +1511,7 @@ module Util =
             let path =
                 match Path.isRelativePath path, memb.DeclaringEntity with
                 | true, Some e ->
-                    FsEnt.Ref(e).SourcePath
+                    com.TryGetSourcePath(FsEnt.Ref(e))
                     |> Option.map (fixImportedRelativePath com path)
                     |> Option.defaultValue path
                 | _ -> path
@@ -1529,7 +1530,7 @@ module Util =
                 else selector
             let path =
                 if Path.isRelativePath path then
-                    ent.Ref.SourcePath
+                    com.TryGetSourcePath(ent.Ref)
                     |> Option.map (fixImportedRelativePath com path)
                     |> Option.defaultValue path
                 else path
@@ -1565,8 +1566,6 @@ module Util =
         match ent.Ref.Path with
         | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
         | Fable.SourcePath _ -> false
-        // This helper is only used for replacement candidates, so we discard precompiled libs
-        | Fable.PrecompiledLib _ -> false
 
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
@@ -1590,7 +1589,7 @@ module Util =
         let error msg =
             $"%s{msg}: %s{ent.FullName}"
             |> addErrorAndReturnNull com [] None
-        match ent.IsInterface, ent.Ref.SourcePath with
+        match ent.IsInterface, com.TryGetSourcePath(ent.Ref) with
         | true, _ -> error "Cannot reference an interface"
         | _, None -> error "Cannot reference entity from .dll reference, Fable packages must include F# sources"
         | _, Some file ->
@@ -1632,7 +1631,7 @@ module Util =
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
             memb.DeclaringEntity
-            |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+            |> Option.bind (fun ent -> com.TryGetSourcePath(FsEnt.Ref(ent)))
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
@@ -1768,11 +1767,6 @@ module Util =
                 | None when info.IsInterface -> callAttachedMember com r typ callInfo ent memb |> Some
                 | None -> failReplace com ctx r info |> Some
         | _ -> None
-
-    let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
-        memb.DeclaringEntity
-        |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
-        |> Option.iter com.AddWatchDependency
 
     let (|Emitted|_|) com r typ (callInfo: Fable.CallInfo option) (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (fun att ->

@@ -41,9 +41,9 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                             attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
                     if scanForPlugins then
                        for e in asm.Contents.Entities do
-                               if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
-                                   let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
-                                   plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
+                            if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                                let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
+                                plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
                 with _ -> ()
 
                 assemblies.Add(path, asm)
@@ -203,15 +203,19 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                     "" // failwith msg
 
-        member this.TryGetEntity(entityRef: Fable.EntityRef) =
+        member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
             | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef)
-            | Fable.PrecompiledLib(_, path)
             | Fable.AssemblyPath path -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
                 project.ImplementationFiles.TryValue(fileName)
                 |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
+
+        member _.TryGetSourcePath(entityRef: Fable.EntityRef) =
+            match entityRef.Path with
+            | Fable.SourcePath p -> Some p
+            | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> None
 
         member _.GetInlineExpr(memberUniqueName) =
             match project.InlineExprs.TryValue(memberUniqueName) with

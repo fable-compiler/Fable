@@ -55,6 +55,7 @@ type Compiler =
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
+    abstract TryGetSourcePath: Fable.EntityRef -> string option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation

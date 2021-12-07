@@ -834,8 +834,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
         // the tag in this step but here we delay the calculation until Fable2Babel
-        do tryDefinition unionType
-           |> Option.iter (fun (tdef, _) -> com.AddWatchDependency(FsEnt.SourcePath tdef))
+        tryDefinition unionType |> Option.iter (fst >> addWatchDependencyFromEntity com)
         let! unionExpr = transformExpr com ctx unionExpr
         return Fable.Get(unionExpr, Fable.UnionTag, Fable.Any, makeRangeFrom fsExpr)
 
@@ -1583,7 +1582,8 @@ type FableCompiler(com: Compiler) =
         member _.ProjectFile = com.ProjectFile
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-        member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+        member _.TryGetEntity(entRef) = com.TryGetEntity(entRef)
+        member _.TryGetSourcePath(entRef) = com.TryGetSourcePath(entRef)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
