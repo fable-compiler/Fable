@@ -22,8 +22,16 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Test
+    - name: Setup Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Fable Tests
       run: dotnet fsi build.fsx test
 
     - name: Fable Tests - Python
       run: dotnet fsi build.fsx test-py
+
+    - name: Fable Tests - Rust
+      run: dotnet fsi build.fsx test-rust
