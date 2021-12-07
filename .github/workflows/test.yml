@@ -24,3 +24,6 @@ jobs:
 
     - name: Test
       run: dotnet fsi build.fsx test
+
+    - name: Fable Tests - Python
+      run: dotnet fsi build.fsx test-py
