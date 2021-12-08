@@ -482,7 +482,7 @@ module Path =
 
     let GetFullPath (path: string) =
 #if FABLE_COMPILER
-        path //TODO: proper implementation
+        path //TODO: proper implementation, at least remove . and ..
 #else
         IO.Path.GetFullPath(path)
 #endif

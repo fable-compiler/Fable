@@ -8,6 +8,7 @@ open FSharp.Compiler.SourceCodeServices
 
 open Fable
 open Fable.AST
+open Fable.Cli
 open Fable.Transforms
 open Fable.Transforms.State
 open ProjectCracker
@@ -15,7 +16,10 @@ open ProjectCracker
 module private Util =
     let newLine = Environment.NewLine
 
-    let loadType (cliArgs: CliArgs) (r: PluginRef): Type =
+    let relativePathToCwd (path: string) =
+        IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), path)
+
+    let loadType (r: PluginRef): Type =
         /// Prevent ReflectionTypeLoadException
         /// From http://stackoverflow.com/a/7889272
         let getTypes (asm: System.Reflection.Assembly) =
@@ -38,9 +42,9 @@ module private Util =
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
         |> function
             | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
+                $"Loaded %s{r.TypeFullName} from %s{relativePathToCwd r.DllPath}"
                 |> Log.always; t
-            | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
+            | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
 
     let splitVersion (version: string) =
         match Version.TryParse(version) with
@@ -76,12 +80,12 @@ module private Util =
         let stack = innerStack ex
         $"[ERROR] %s{file}{newLine}%s{ex.Message}{newLine}%s{stack}"
 
-    let formatLog (cliArgs: CliArgs) (log: Log) =
+    let formatLog rootDir (log: Log) =
         match log.FileName with
         | None -> log.Message
         | Some file ->
             // Add ./ to make sure VS Code terminal recognises this as a clickable path
-            let file = "." + IO.Path.DirectorySeparatorChar.ToString() + IO.Path.GetRelativePath(cliArgs.RootDir, file)
+            let file = "." + IO.Path.DirectorySeparatorChar.ToString() + IO.Path.GetRelativePath(rootDir, file)
             let severity =
                 match log.Severity with
                 | Severity.Warning -> "warning"
@@ -111,49 +115,53 @@ module private Util =
             Log.Make(severity, msg, fileName=er.FileName, range=range, tag="FSHARP")
         )
 
-    let changeFsExtension isInFableHiddenDir filePath fileExt =
+    let changeFsExtension lang isPrecompiled filePath fileExt =
         let fileExt =
-            // Prevent conflicts in package sources as they may include
-            // JS files with same name as the F# .fs file
-            if fileExt = ".js" && isInFableHiddenDir then
-                CompilerOptionsHelper.DefaultExtension
+            if isPrecompiled then
+                CompilerOptionsHelper.DefaultExtension(lang, outDir=false)
             else fileExt
         Path.replaceExtension fileExt filePath
 
-    let getOutJsPath (cliArgs: CliArgs) dedupTargetDir file =
-        let fileExt = cliArgs.CompilerOptions.FileExtension
-        let isInFableHiddenDir = Naming.isInFableHiddenDir file
-        match cliArgs.OutDir with
+    let getOutPath (opts: CompilerOptions) (projFile: string) outDir dedupTargetDir isPrecompiled file =
+        let lang = opts.Language
+        let fileExt = opts.FileExtension
+        let isPrecompiled = isPrecompiled file
+        match outDir with
         | Some outDir ->
-            let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+            let projDir = IO.Path.GetDirectoryName projFile
             let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
-            changeFsExtension isInFableHiddenDir absPath fileExt
+            changeFsExtension lang isPrecompiled absPath fileExt
         | None ->
-            changeFsExtension isInFableHiddenDir file fileExt
+            changeFsExtension lang isPrecompiled file fileExt
 
-    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
+    type FileWriter(sourcePath: string, targetPath: string, projFile: string, dedupTargetDir, isPrecompiled, opts: CompilerOptions, ?outDir, ?sourceMapsRoot) =
+        let sourceMaps, sourceRoot =
+            match sourceMapsRoot with
+            | Some "" -> true, None
+            | Some r -> true, Some r
+            | None -> false, None
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
-            let fileExt = cliArgs.CompilerOptions.FileExtension
+            let fileExt = opts.FileExtension
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
-        let targetDir = Path.GetDirectoryName(targetPath)
+//        let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
+        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = sourceRoot))
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                let projDir = IO.Path.GetDirectoryName(projFile)
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir outDir path
                 if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    changeFsExtension isInFableHiddenDir path fileExt
+                    let isPrecompiled = isPrecompiled path
+                    changeFsExtension opts.Language isPrecompiled path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
-                if cliArgs.SourceMaps then
+                if sourceMaps then
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
                     let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
                     let targetPath = Path.normalizeFullPath targetPath
@@ -162,45 +170,57 @@ module private Util =
         member _.SourceMap =
             mapGenerator.Force().toJSON()
 
-    let compileFile isRecompile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
-        try
-            let babel =
-                FSharp2Fable.Compiler.transformFile com
-                |> FableTransforms.transformFile com
-                |> Fable2Babel.Compiler.transformFile com
+    type CompilerImpl with
+        static member Make(currentFile, project, fableLibDir, options: CompilerOptions, ?outDir, ?triggeredByDependency) =
+            let opts =
+                match triggeredByDependency with
+                | Some t -> { options with TriggeredByDependency = t }
+                | None -> options
+            let fableLibDir = Path.getRelativePath currentFile fableLibDir
+            CompilerImpl(currentFile, project, opts, fableLibDir, ?outDir=outDir)
 
-            let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
+        member com.CompileFile(dedupTargetDir, ?outDir: string, ?sourceMapRoot: string) = async {
+            let opts = com.Options
+            let projFile = com.Project.ProjectFile
+            let isPrecompiled = com.Project.IsPrecompiled
+            try
+                let babel =
+                    FSharp2Fable.Compiler.transformFile com
+                    |> FableTransforms.transformFile com
+                    |> Fable2Babel.Compiler.transformFile com
 
-            // ensure directory exists
-            let dir = IO.Path.GetDirectoryName outPath
-            if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
+                let outPath = getOutPath opts projFile outDir dedupTargetDir isPrecompiled com.CurrentFile
 
-            // write output to file
-            let! sourceMap = async {
-                use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-                do! BabelPrinter.run writer babel
-                return if cliArgs.SourceMaps then Some writer.SourceMap else None
-            }
+                // ensure directory exists
+                let dir = IO.Path.GetDirectoryName outPath
+                if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
-            // write source map to file
-            match sourceMap with
-            | Some sourceMap ->
-                let mapPath = outPath + ".map"
-                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
-            | None -> ()
+                // write output to file
+                let! sourceMap = async {
+                    use writer = new FileWriter(com.CurrentFile, outPath, projFile, dedupTargetDir, isPrecompiled, opts, ?outDir=outDir)
+                    do! BabelPrinter.run writer babel
+                    return if Option.isSome sourceMapRoot then Some writer.SourceMap else None
+                }
 
-            $"Compiled {IO.Path.GetRelativePath(cliArgs.RootDir, com.CurrentFile)}"
-            |> Log.verboseOrIf isRecompile
+                // write source map to file
+                match sourceMap with
+                | Some sourceMap ->
+                    let mapPath = outPath + ".map"
+                    do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                    use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                    do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
+                | None -> ()
 
-            return Ok {| File = com.CurrentFile
-                         Logs = com.Logs
-                         WatchDependencies = com.WatchDependencies |}
-        with e ->
-            return Error {| File = com.CurrentFile
-                            Exception = e |}
-    }
+                lazy $"Compiled {relativePathToCwd com.CurrentFile}"
+                |> Log.verbose
+
+                return Ok {| File = com.CurrentFile
+                             Logs = com.Logs
+                             WatchDependencies = com.WatchDependencies |}
+            with e ->
+                return Error {| File = com.CurrentFile
+                                Exception = e |}
+        }
 
 module FileWatcherUtil =
     let getCommonBaseDir (files: string list) =
@@ -228,6 +248,16 @@ module FileWatcherUtil =
 open Util
 open FileWatcher
 open FileWatcherUtil
+
+type Dedup() =
+    let deduplicateDic = Collections.Concurrent.ConcurrentDictionary<string, string>()
+    member this.GetOrAddDeduplicateTargetDir (importDir: string) addTargetDir =
+        // importDir must be trimmed and normalized by now, but lower it just in case
+        // as some OS use case insensitive paths
+        let importDir = importDir.ToLower()
+        deduplicateDic.GetOrAdd(importDir, fun _ ->
+            set deduplicateDic.Values
+            |> addTargetDir)
 
 let caseInsensitiveSet(items: string seq): ISet<string> =
     let s = HashSet(items)
@@ -292,6 +322,7 @@ type File(normalizedFullPath: string) =
         | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
         | _ ->
             let source = File.readAllTextNonBlocking normalizedFullPath
+            // TODO: Skip hash calculation if we're not in watch mode?
             let h = hash source
             sourceHash <- Some h
             h, lazy source
@@ -301,18 +332,12 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.CliArgs = cliArgs
     member _.ProjectFile = cliArgs.ProjectFile
     member _.FableOptions = cliArgs.CompilerOptions
+    member _.FableLibDir = crackerResponse.FableLibDir
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
+    member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
-
-    member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
-        let opts =
-            match triggeredByDependency with
-            | Some t -> { cliArgs.CompilerOptions with TriggeredByDependency = t }
-            | None -> cliArgs.CompilerOptions
-        let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, opts, fableLibDir, ?outDir=cliArgs.OutDir)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
@@ -341,6 +366,10 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
 type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array, project: Project) =
 
+    static let getImplFiles (opts: CompilerOptions) (checkResults: FSharpCheckProjectResults) =
+        if opts.OptimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkResults.AssemblyContents.ImplementationFiles
+
     static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) lastFile = async {
         Log.always "Started F# compilation..."
 
@@ -353,29 +382,107 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
             checker.ParseAndCheckProject(config.ProjectFile, filePaths, sourceReader, ?lastFile=lastFile)
 
         Log.always $"F# compilation finished in %i{ms}ms{newLine}"
-
-        let implFiles =
-            if config.FableOptions.OptimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-            else checkResults.AssemblyContents.ImplementationFiles
-
-        return implFiles, checkResults.Diagnostics, lazy checkResults.ProjectContext.GetReferencedAssemblies()
+        return getImplFiles config.FableOptions checkResults, checkResults.Diagnostics, lazy checkResults.ProjectContext.GetReferencedAssemblies()
     }
 
     member _.Project = project
     member _.Checker = checker
     member _.Errors = errors
 
+    static member ParseAndCheckPackage(compilerOpts: CompilerOptions, mainProjOptions: FSharpProjectOptions, allPkgs: FablePackage list, pkg: FablePackage) =
+        let projectOptions = getPackageFSharpProjectOptions compilerOpts mainProjOptions allPkgs pkg
+        // We don't need caching here so we can skip calculating the hash
+        let mutable i = 0
+        let sourceReader f =
+            i <- i + 1
+            i, lazy File.readAllTextNonBlocking f
+        let checker = InteractiveChecker.Create(projectOptions)
+        checker.ParseAndCheckProject(pkg.FsprojPath, Array.ofList pkg.SourcePaths, sourceReader)
+
+    static member CompilePackages(projCracked: ProjectCracked): Async<PrecompiledInfo list> = async {
+
+        let infoName = "fable_info.json"
+        let lang = projCracked.FableOptions.Language
+        let isDebug = projCracked.FableOptions.DebugMode
+        let compilerOpts = CompilerOptionsHelper.Make(language=lang, debugMode=isDebug)
+        let fableLibDir = Cache.getFableLibDir(compilerOpts)
+
+        let precompiledInfo = ResizeArray()
+
+        let pkgsToCompile =
+            projCracked.Packages |> List.choose (fun p ->
+                let copied, cacheDir = Cache.copyPkgToCacheIfNotExists compilerOpts p.FsprojPath p.Id p.Version
+                let p = p.MoveTo(cacheDir)
+                if copied then Some p
+                else
+                    let info = IO.Path.Combine(cacheDir, infoName) |> Json.read
+                    precompiledInfo.Add(p, info)
+                    None)
+
+        let! pgksChecked =
+            pkgsToCompile |> List.map (fun p -> async {
+                let! r = ProjectChecked.ParseAndCheckPackage(compilerOpts, projCracked.ProjectOptions, projCracked.Packages, p)
+                return p, r
+            })
+            |> Async.Parallel
+
+        // TODO: Check F# and Fable errors. Remove cached dirs if there's a problem
+        for (pkg, checkResults) in pgksChecked do
+            let dedup = Dedup()
+            let project = Project.From(
+                pkg.FsprojPath,
+                getImplFiles compilerOpts checkResults,
+                checkResults.ProjectContext.GetReferencedAssemblies(),
+                // TODO: Try to remove precompiledInfo that doesn't correspond to dependencies?
+                precompiledInfo = (precompiledInfo |> Seq.map snd),
+                mkCompiler = (fun p f -> CompilerImpl.Make(f, p, fableLibDir, compilerOpts)),
+                getPlugin = loadType,
+                trimRootModule = projCracked.FableOptions.RootModule
+            )
+
+            let! _results =
+                pkg.SourcePaths
+                |> List.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+                |> List.map (fun file ->
+                    let com = CompilerImpl.Make(file, project, fableLibDir, compilerOpts)
+                    com.CompileFile(dedup.GetOrAddDeduplicateTargetDir))
+                |> Async.Parallel
+
+            let info = project.GetPrecompiledInfoForThisProject()
+            let infoPath = IO.Path.Combine(IO.Path.GetDirectoryName(pkg.FsprojPath), infoName)
+            do! Json.writeAsync infoPath info
+            precompiledInfo.Add(pkg, info)
+
+        let fableModulesDir = IO.Path.GetDirectoryName(projCracked.FableLibDir)
+        return
+            precompiledInfo
+            |> Seq.toList
+            |> List.map (fun (pkg, info) ->
+                let oldDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
+                let _, newDir = Cache.copyPkgFromCacheToFableModules compilerOpts fableModulesDir pkg.Id pkg.Version
+                let sources =
+                    info.Sources
+                    |> Seq.map (fun kv -> File.moveToNewPath oldDir newDir kv.Key, kv.Value)
+                    |> Map
+                { info with Sources = sources }
+            )
+    }
+
     static member Init(projCracked: ProjectCracked) = async {
+        let! precompiledInfo = ProjectChecked.CompilePackages(projCracked)
+
         let checker = InteractiveChecker.Create(projCracked.ProjectOptions)
         let! implFiles, errors, assemblies = checkProject projCracked checker None
 
         return ProjectChecked(checker, errors, Project.From(
-                                projCracked.ProjectFile,
-                                implFiles,
-                                assemblies.Value,
-                                mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)),
-                                getPlugin = loadType projCracked.CliArgs,
-                                trimRootModule = projCracked.FableOptions.RootModule))
+            projCracked.ProjectFile,
+            implFiles,
+            assemblies.Value,
+            precompiledInfo = precompiledInfo,
+            mkCompiler = (fun p f ->
+                CompilerImpl.Make(f, p, projCracked.FableLibDir, projCracked.FableOptions, ?outDir=projCracked.CliArgs.OutDir)),
+            getPlugin = loadType,
+            trimRootModule = projCracked.FableOptions.RootModule))
     }
 
     member this.Update(projCracked: ProjectCracked, filesToCompile) = async {
@@ -385,7 +492,8 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
         let filesToCompile = set filesToCompile
         let implFiles = implFiles |> List.filter (fun f -> filesToCompile.Contains(f.FileName))
-        return ProjectChecked(checker, errors, this.Project.Update(implFiles, mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p))))
+        return ProjectChecked(checker, errors, this.Project.Update(implFiles, mkCompiler = (fun p f ->
+            CompilerImpl.Make(f, p, projCracked.FableLibDir, projCracked.FableOptions, ?outDir=projCracked.CliArgs.OutDir))))
     }
 
 type Watcher =
@@ -410,10 +518,7 @@ type Watcher =
                 this.Watcher.Observe [
                     projCracked.ProjectFile
                     yield! projCracked.References
-                    yield! projCracked.SourceFiles |> Array.choose (fun f ->
-                        let path = f.NormalizedFullPath
-                        if Naming.isInFableHiddenDir(path) then None
-                        else Some path)
+                    yield! projCracked.SourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
                 ]
                 |> Observable.subscribe this.OnChange
             { this with Subscription = subs; StartedAt = DateTime.UtcNow }
@@ -423,7 +528,7 @@ type State =
       ProjectCrackedAndChecked: (ProjectCracked * ProjectChecked) option
       WatchDependencies: Map<string, string[]>
       PendingFiles: string[]
-      DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
+      Dedup: Dedup
       Watcher: Watcher option
       HasCompiledOnce: bool }
 
@@ -435,14 +540,6 @@ type State =
             | _ -> "development"
         [ "NODE_ENV", nodeEnv ]
 
-    member this.GetOrAddDeduplicateTargetDir (importDir: string) addTargetDir =
-        // importDir must be trimmed and normalized by now, but lower it just in case
-        // as some OS use case insensitive paths
-        let importDir = importDir.ToLower()
-        this.DeduplicateDic.GetOrAdd(importDir, fun _ ->
-            set this.DeduplicateDic.Values
-            |> addTargetDir)
-
     member this.TriggeredByDependency(path: string, changes: ISet<string>) =
         match Map.tryFind path this.WatchDependencies with
         | None -> false
@@ -453,11 +550,13 @@ type State =
           ProjectCrackedAndChecked = None
           WatchDependencies = Map.empty
           Watcher = watchDelay |> Option.map Watcher.Create
-          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
+          Dedup = Dedup()
           PendingFiles = [||]
           HasCompiledOnce = false }
 
 let private compilationCycle (state: State) (changes: ISet<string>) = async {
+    let cliArgs = state.CliArgs
+
     let getFilesToCompile (oldFiles: IDictionary<string, File> option) (projCracked: ProjectCracked) =
         let pendingFiles = set state.PendingFiles
 
@@ -481,7 +580,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     let projCracked, projChecked, filesToCompile =
         match state.ProjectCrackedAndChecked with
         | None ->
-            let projCracked = ProjectCracked.Init(state.CliArgs)
+            let projCracked = ProjectCracked.Init(cliArgs)
             projCracked, None, projCracked.SourceFilePaths
 
         | Some(projCracked, projChecked) ->
@@ -490,7 +589,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
 
             if fsprojChanged then
                 let oldProjCracked = projCracked
-                let newProjCracked = ProjectCracked.Init(state.CliArgs)
+                let newProjCracked = ProjectCracked.Init(cliArgs)
 
                 // If only source files have changed, keep the project checker to speed up recompilation
                 let projChecked =
@@ -530,13 +629,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             return logs, { state with PendingFiles = filesToCompile }
         else
             Log.always "Started Fable compilation..."
-
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
                 |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
                 |> Array.map (fun file ->
-                    projCracked.MakeCompiler(file, projChecked.Project, state.TriggeredByDependency(file, changes))
-                    |> compileFile state.HasCompiledOnce state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                    let com = CompilerImpl.Make(file, projChecked.Project, projCracked.FableLibDir, projCracked.FableOptions,
+                        ?outDir=cliArgs.OutDir, triggeredByDependency=state.TriggeredByDependency(file, changes))
+                    com.CompileFile(state.Dedup.GetOrAddDeduplicateTargetDir, ?outDir=cliArgs.OutDir, ?sourceMapRoot=cliArgs.SourceMapsRoot)
+                )
                 |> Async.Parallel
 
             Log.always $"Fable compilation finished in %i{ms}ms{newLine}"
@@ -568,16 +668,16 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         | Severity.Info | Severity.Warning ->
             // Ignore warnings from packages in `fable_modules` folder
             match log.FileName with
-            | Some filename when Naming.isInFableHiddenDir(filename) || not(filesToCompile.Contains(filename)) -> ()
+            | Some filename when not(filesToCompile.Contains(filename)) -> ()
             | _ ->
-                let formatted = formatLog state.CliArgs log
+                let formatted = formatLog cliArgs.RootDir log
                 if log.Severity = Severity.Warning then Log.warning formatted
                 else Log.always formatted
 
     let erroredFiles =
         logs |> Array.choose (fun log ->
             if log.Severity = Severity.Error then
-                Log.error(formatLog state.CliArgs log)
+                Log.error(formatLog cliArgs.RootDir log)
                 log.FileName
             else None)
 
@@ -586,18 +686,22 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         else Some "Compilation failed"
 
     let errorMsg, state =
-        match errorMsg, state.CliArgs.RunProcess with
+        match errorMsg, cliArgs.RunProcess with
         // Only run process if there are no errors
         | Some e, _ -> Some e, state
         | None, None -> None, state
         | None, Some runProc ->
-            let workingDir = state.CliArgs.RootDir
+            let workingDir = cliArgs.RootDir
 
             let exeFile, args =
                 match runProc.ExeFile with
                 | Naming.placeholder ->
                     let lastFile = Array.last projCracked.SourceFiles
-                    let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile.NormalizedFullPath
+                    let lastFilePath =
+                        getOutPath cliArgs.CompilerOptions projCracked.ProjectFile cliArgs.OutDir
+                            state.Dedup.GetOrAddDeduplicateTargetDir
+                            projChecked.Project.IsPrecompiled
+                            lastFile.NormalizedFullPath
                     // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                     let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                     "node", lastFilePath::runProc.Args
@@ -608,7 +712,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             if Option.isSome state.Watcher then
                 Process.startWithEnv state.RunProcessEnv workingDir exeFile args
                 let runProc = if runProc.IsWatch then Some runProc else None
-                None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
+                None, { state with CliArgs = { cliArgs with RunProcess = runProc } }
             else
                 // TODO: When not in watch mode, we should run the process out of this scope
                 // to free the memory used by Fable/F# compiler

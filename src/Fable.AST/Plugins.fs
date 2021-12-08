@@ -12,6 +12,10 @@ type Verbosity =
 type Language =
     | JavaScript
     | TypeScript
+    override this.ToString() =
+        match this with
+        | JavaScript -> "javascript"
+        | TypeScript -> "typescript"
 
 type CompilerOptions =
     {

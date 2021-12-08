@@ -95,24 +95,41 @@ type ImplFile =
             RootModule = FSharp2Fable.Compiler.getRootModule file
         }
 
+type PrecompiledInfo =
+    { InlineExprs: Map<string, InlineExpr>
+      Sources: Map<string, {| RootModule: string; Entities: string list |}> }
+    static member Empty =
+        { InlineExprs = Map.empty; Sources = Map.empty }
+    static member Combine(infos: PrecompiledInfo seq) =
+        let combine (m1: Map<_,_>) (m2: Map<_,_>) =
+            (m1, m2) ||> Map.fold (fun m k v -> Map.add k v m)
+
+        (PrecompiledInfo.Empty, infos) ||> Seq.fold (fun acc info ->
+            { InlineExprs = combine acc.InlineExprs info.InlineExprs
+              Sources = combine acc.Sources info.Sources })
+
 type Project(projFile: string,
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
              ?inlineExprs: Map<string, InlineExpr>,
+             ?precompiledInfo: PrecompiledInfo,
              ?trimRootModule: bool) =
 
     let inlineExprs = defaultArg inlineExprs Map.empty
     let trimRootModule = defaultArg trimRootModule true
+    let precompiledInfo = defaultArg precompiledInfo PrecompiledInfo.Empty
 
     static member From(projFile,
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
                        mkCompiler: Project -> string -> Compiler,
+                       ?precompiledInfo: PrecompiledInfo seq,
                        ?getPlugin: PluginRef -> System.Type,
                        ?trimRootModule) =
 
         let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
         let assemblies = Assemblies(getPlugin, fsharpAssemblies)
+        let precompiledInfo = precompiledInfo |> Option.map PrecompiledInfo.Combine
 
         let implFilesMap =
             fsharpFiles
@@ -121,7 +138,7 @@ type Project(projFile: string,
                 key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFilesMap, assemblies, ?trimRootModule=trimRootModule)
+        Project(projFile, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo, ?trimRootModule=trimRootModule)
             .UpdateInlineExprs(fsharpFiles, mkCompiler)
 
     member this.UpdateInlineExprs(fsharpFiles: FSharpImplementationFileContents list, mkCompiler: Project -> string -> Compiler) =
@@ -131,7 +148,7 @@ type Project(projFile: string,
                 (inlineExprs, FSharp2Fable.Compiler.getInlineExprs com implFile)
                 ||> List.fold (fun inlineExprs (k, v) -> Map.add k v inlineExprs)
             )
-        Project(this.ProjectFile, implFiles, this.Assemblies, inlineExprs, this.TrimRootModule)
+        Project(this.ProjectFile, this.ImplementationFiles, this.Assemblies, inlineExprs, this.PrecompiledInfo, this.TrimRootModule)
 
     member this.Update(fsharpFiles: FSharpImplementationFileContents list, mkCompiler) =
         let implFiles =
@@ -140,13 +157,25 @@ type Project(projFile: string,
                 let file = ImplFile.From(file)
                 Map.add key file implFiles)
 
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.InlineExprs, this.TrimRootModule)
+        Project(this.ProjectFile, implFiles, this.Assemblies, this.InlineExprs, this.PrecompiledInfo, this.TrimRootModule)
             .UpdateInlineExprs(fsharpFiles, mkCompiler)
+
+    member this.IsPrecompiled(normalizedFullPath: string): bool =
+        this.PrecompiledInfo.Sources.ContainsKey(normalizedFullPath)
+
+    member this.GetPrecompiledInfoForThisProject(): PrecompiledInfo =
+        {
+            InlineExprs = this.InlineExprs
+            Sources = this.ImplementationFiles |> Map.map (fun _k v ->
+                {| RootModule = v.RootModule
+                   Entities = List.ofSeq v.Entities.Keys |})
+          }
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
     member _.InlineExprs = inlineExprs
+    member _.PrecompiledInfo = precompiledInfo
     member _.TrimRootModule = trimRootModule
 
 type Log =
@@ -174,6 +203,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
 
     member _.Options = options
+    member _.Project = project
     member _.CurrentFile = currentFile
     member _.Logs = logs.ToArray()
     member _.WatchDependencies = Array.ofSeq watchDependencies
@@ -199,9 +229,12 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 match project.ImplementationFiles.TryValue(fileName) with
                 | Some file -> file.RootModule
                 | None ->
-                    let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
-                    (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
-                    "" // failwith msg
+                    match project.PrecompiledInfo.Sources.TryValue(fileName) with
+                    | Some file -> file.RootModule
+                    | None ->
+                        let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                        (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                        "" // failwith msg
 
         member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
@@ -215,12 +248,21 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.TryGetSourcePath(entityRef: Fable.EntityRef) =
             match entityRef.Path with
             | Fable.SourcePath p -> Some p
-            | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> None
+            | Fable.CoreAssemblyName _ -> None
+            | Fable.AssemblyPath _ ->
+                // TODO: Optimize this search
+                project.PrecompiledInfo.Sources
+                |> Seq.tryPick (fun kv ->
+                    if List.contains entityRef.FullName kv.Value.Entities then Some kv.Key
+                    else None)
 
         member _.GetInlineExpr(memberUniqueName) =
             match project.InlineExprs.TryValue(memberUniqueName) with
             | Some e -> e
-            | None -> failwith ("Cannot find inline member: " + memberUniqueName)
+            | None ->
+                match project.PrecompiledInfo.InlineExprs.TryValue(memberUniqueName) with
+                | Some e -> e
+                | None -> failwith ("Cannot find inline member: " + memberUniqueName)
 
         member _.AddWatchDependency(file) =
             if file <> currentFile then

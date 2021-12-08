@@ -125,15 +125,6 @@ Arguments:
    Docker mounted volumes, and other virtual file systems.
 """
 
-let defaultFileExt language (args: CliArgs) =
-    let fileExt =
-        match args.Value("-o", "--outDir") with
-        | Some _ -> ".js"
-        | None -> CompilerOptionsHelper.DefaultExtension
-    match language with
-        | TypeScript -> Path.replaceExtension ".ts" fileExt
-        | _ -> fileExt
-
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
     |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
@@ -202,27 +193,16 @@ type Runner =
         | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
         | Some configurationArg -> configurationArg
 
-    let define =
-        args.Values "--define"
-        |> List.append [
-            "FABLE_COMPILER"
-            "FABLE_COMPILER_3"
-        ]
-        |> List.distinct
-
-    let fileExt =
-        args.Value("-e", "--extension")
-        |> Option.defaultValue (defaultFileExt language args)
-
-    let compilerOptions =
-        CompilerOptionsHelper.Make(language=language,
-                                   typedArrays = typedArrays,
-                                   fileExtension = fileExt,
-                                   define = define,
-                                   debugMode = (configuration = "Debug"),
-                                   optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   trimRootModule = args.FlagOr("--trimRootModule", true),
-                                   verbosity = verbosity)
+    let compilerOptions = CompilerOptionsHelper.Make(
+        language=language,
+        typedArrays = typedArrays,
+        outDir = Option.isSome outDir,
+        ?fileExtension = args.Value("-e", "--extension"),
+        define = args.Values "--define",
+        debugMode = (configuration = "Debug"),
+        optimizeFSharpAst = args.FlagEnabled "--optimize",
+        trimRootModule = args.FlagOr("--trimRootModule", true),
+        verbosity = verbosity)
 
     let cliArgs =
         { ProjectFile = Path.normalizeFullPath projFile
@@ -230,8 +210,10 @@ type Runner =
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
-          SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
-          SourceMapsRoot = args.Value "--sourceMapsRoot"
+          SourceMapsRoot =
+            args.Value "--sourceMapsRoot"
+            |> Option.orElseWith (fun () ->
+                if args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps" then Some "" else None)
           NoRestore = args.FlagEnabled "--noRestore"
           // TODO: Allow `--cache true` to enable cache even in Release mode?
           NoCache = not compilerOptions.DebugMode || args.FlagEnabled "--noCache"
@@ -262,13 +244,14 @@ type Runner =
 let clean (args: CliArgs) rootDir =
     let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+    let outDir = args.Value("-o", "--outDir")
 
     let fileExt =
         args.Value("-e", "--extension")
-        |> Option.defaultValue (defaultFileExt language args)
+        |> Option.defaultWith (fun () -> CompilerOptionsHelper.DefaultExtension(language, outDir=Option.isSome outDir))
 
     let cleanDir =
-        args.Value("-o", "--outDir")
+        outDir
         |> Option.defaultValue rootDir
         |> IO.Path.GetFullPath
 

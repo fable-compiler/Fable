@@ -4,7 +4,6 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
-open System.Text.Json
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
@@ -17,6 +16,12 @@ type FablePackage =
       DllPath: string
       SourcePaths: string list
       Dependencies: Set<string> }
+    member this.MoveTo(newProjDir: string) =
+        let projName = IO.Path.GetFileName(this.FsprojPath)
+        let oldProjDir = IO.Path.GetDirectoryName(this.FsprojPath)
+        let sources = this.SourcePaths |> List.map (File.moveToNewPath oldProjDir newProjDir)
+        { this with FsprojPath = IO.Path.Combine(newProjDir, projName) |> Path.normalizeFullPath
+                    SourcePaths = sources }
 
 type CacheInfo =
     {
@@ -26,6 +31,7 @@ type CacheInfo =
         SourcePaths: string array
         FSharpOptions: string array
         References: string list
+        Packages: FablePackage list
         FableLibDir: string
         TimestampUTC: DateTime
     }
@@ -34,17 +40,12 @@ type CacheInfo =
 
     static member TryRead(fableModulesPath: string): CacheInfo option =
         try
-            // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson, see also Write
-            let jsonOptions = JsonSerializerOptions()
-            jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-            let cacheInfoJson = IO.File.ReadAllText(CacheInfo.GetPath(fableModulesPath))
-            JsonSerializer.Deserialize<CacheInfo>(cacheInfoJson, jsonOptions) |> Some
+            CacheInfo.GetPath(fableModulesPath) |> Json.read<CacheInfo> |> Some
         with _ -> None
 
     member this.Write(fableModulesPath: string) =
-        let jsonOptions = JsonSerializerOptions()
-        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-        IO.File.WriteAllText(CacheInfo.GetPath(fableModulesPath), JsonSerializer.Serialize(this, jsonOptions))
+        let path = CacheInfo.GetPath(fableModulesPath)
+        Json.write path this
 
 type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
@@ -90,6 +91,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       References: string list
+      Packages: FablePackage list
       ProjectOptions: FSharpProjectOptions }
 
 let isSystemPackage (pkgName: string) =
@@ -265,26 +267,40 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
           PackageReferences = []
           OtherCompilerOptions = [] }
 
-let getBasicCompilerArgs (opts: CrackerOptions) =
+let getBaseFSharpOtherOptions(compilerOpts: CompilerOptions) =
     [|
-        // yield "--debug"
-        // yield "--debug:portable"
-        yield "--noframework"
-        yield "--nologo"
-        yield "--simpleresolution"
-        yield "--nocopyfsharpcore"
-        // yield "--define:DEBUG"
-        for constant in opts.FableOptions.Define do
-            yield "--define:" + constant
-        yield "--optimize" + if opts.FableOptions.OptimizeFSharpAst then "+" else "-"
-        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
-        // yield "--warnaserror:76"
-        yield "--warn:3"
-        yield "--fullpaths"
-        yield "--flaterrors"
+        "--noframework"
+        "--nologo"
+        "--simpleresolution"
+        "--nocopyfsharpcore"
+        // "--nowarn:NU1603,NU1604,NU1605,NU1608"
+        // "--warnaserror:76"
+        "--warn:3"
+        "--fullpaths"
+        "--flaterrors"
         // Since net5.0 there's no difference between app/library
-        // yield "--target:library"
+        // "--target:library"
+        yield! compilerOpts.Define
+        "--optimize" + if compilerOpts.OptimizeFSharpAst then "+" else "-"
     |]
+
+let getPackageFSharpProjectOptions (compilerOpts: CompilerOptions) (mainProjOptions: FSharpProjectOptions) (allPkgs: FablePackage list) (pkg: FablePackage) =
+    let nonDeps =
+        allPkgs |> List.choose (fun p ->
+            if not(pkg.Dependencies.Contains(p.Id))
+            then Some p.Id
+            else None)
+        |> set
+
+    let dllRefs =
+        mainProjOptions.OtherOptions
+        |> Array.filter (fun o ->
+            if o.StartsWith("-r") then
+                not(nonDeps.Contains(getDllName o))
+            else false)
+
+    let otherOptions = Array.append (getBaseFSharpOtherOptions compilerOpts) dllRefs
+    makeProjectOptions pkg.FsprojPath (Array.ofList pkg.SourcePaths) otherOptions
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
@@ -349,7 +365,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
     | _ ->
-        let removed = dllRefs.Remove(projName)
+        let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
@@ -396,12 +412,8 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
-        dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
-            match tryGetFablePackage opts dllPath with
-            | Some pkg ->
-                dllRefs.Remove(dllName) |> ignore
-                Some pkg
-            | None -> None)
+        dllRefs' |> Seq.choose (fun (_dllName, dllPath) ->
+            tryGetFablePackage opts dllPath)
         |> Seq.toList
         |> sortFablePackages
 
@@ -476,65 +488,31 @@ let retryGetCrackedProjects opts =
         | _ -> reraise()
     retry()
 
-// Replace the .fsproj extension with .fableproj for files in fable_modules
-// We do this to avoid conflicts with other F# tooling that scan for .fsproj files
-let changeFsprojToFableproj (path: string) =
-    if path.EndsWith(".fsproj") then
-        IO.Path.ChangeExtension(path, Naming.fableProjExt)
-    else path
+let copyFableLibrary fableModulesDir fableLib =
+    match fableLib with
+    | Some path -> Path.normalizeFullPath path
+    | None ->
+        let assemblyDir =
+            Process.getCurrentAssembly().Location
+            |> Path.GetDirectoryName
 
-let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
-    if File.isDirectoryEmpty target then
-        IO.Directory.CreateDirectory(target) |> ignore
-        if IO.Directory.Exists source |> not then
-            failwith ("Source directory is missing: " + source)
-        let source = source.TrimEnd('/', '\\')
-        let target = target.TrimEnd('/', '\\')
-        for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
-            IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
-        for fromPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
-            let toPath = fromPath.Replace(source, target)
-            let toPath = if replaceFsprojExt then changeFsprojToFableproj toPath else toPath
-            IO.File.Copy(fromPath, toPath, true)
+        let defaultFableLibraryPaths =
+            [ "../../../fable-library/"               // running from nuget tools package
+              "../../../../../build/fable-library/" ] // running from bin/Release/net5
+            |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
 
-let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
-    let fableModulesDir = opts.FableModulesDir
+        let fableLibrarySource =
+            defaultFableLibraryPaths
+            |> List.tryFind IO.Directory.Exists
+            |> Option.defaultValue (List.last defaultFableLibraryPaths)
 
-    let fableLibraryPath =
-        match opts.FableLib with
-        | Some path -> Path.normalizeFullPath path
-        | None ->
-            let assemblyDir =
-                Process.getCurrentAssembly().Location
-                |> Path.GetDirectoryName
+        if File.isDirectoryEmpty fableLibrarySource then
+            failwith $"fable-library directory is empty, please build FableLibrary: %s{fableLibrarySource}"
 
-            let defaultFableLibraryPaths =
-                [ "../../../fable-library/"               // running from nuget tools package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/net5
-                |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
-
-            let fableLibrarySource =
-                defaultFableLibraryPaths
-                |> List.tryFind IO.Directory.Exists
-                |> Option.defaultValue (List.last defaultFableLibraryPaths)
-
-            if File.isDirectoryEmpty fableLibrarySource then
-                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
-
-            Log.verbose(lazy ("fable-library: " + fableLibrarySource))
-            let fableLibraryTarget = IO.Path.Combine(fableModulesDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
-            fableLibraryTarget
-
-    let pkgRefs =
-        pkgs |> List.map (fun pkg ->
-            let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
-            let targetDir = IO.Path.Combine(fableModulesDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist true sourceDir targetDir
-            let fsprojFile = IO.Path.GetFileName(pkg.FsprojPath) |> changeFsprojToFableproj
-            { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) })
-
-    fableLibraryPath, pkgRefs
+        Log.verbose(lazy ("fable-library: " + fableLibrarySource))
+        let fableLibraryTarget = IO.Path.Combine(fableModulesDir, "fable-library")
+        File.copyDirIfNotExists id fableLibrarySource fableLibraryTarget |> ignore
+        fableLibraryTarget
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder sourceFiles =
@@ -573,22 +551,16 @@ let getFullProjectOpts (opts: CrackerOptions) =
         Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
         { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
           References = cacheInfo.References
+          Packages = cacheInfo.Packages
           FableLibDir = cacheInfo.FableLibDir }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
-
-        let fableLibDir, pkgRefs =
-            copyFableLibraryAndPackageSources opts mainProj.PackageReferences
-
-        let pkgRefs =
-            pkgRefs |> List.map (fun pkg ->
-                { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
+        let fableLibDir = copyFableLibrary opts.FableModulesDir opts.FableLib
 
         let sourceFiles =
-            let pkgSources = pkgRefs |> List.collect (fun x -> x.SourcePaths)
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
-            pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
+            refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
 
         let refOptions =
             projRefs
@@ -599,8 +571,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             [|
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
-                yield! getBasicCompilerArgs opts // options from compiler args
-                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
+                yield! getBaseFSharpOtherOptions opts.FableOptions
             |]
             |> Array.distinct
 
@@ -626,8 +597,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
                             else Some("-r:" + r))
             |]
 
-        let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
         let otherOptions = Array.append otherOptions dllRefs
+        let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
+        let pkgRefs =
+            mainProj.PackageReferences |> List.map (fun pkg ->
+                { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
 
         let cacheInfo: CacheInfo =
             {
@@ -638,6 +612,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 FSharpOptions = otherOptions
                 SourcePaths = sourceFiles
                 References = projRefs
+                Packages = pkgRefs
                 TimestampUTC = DateTime.UtcNow
             }
 
@@ -645,4 +620,5 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
           References = projRefs
+          Packages = pkgRefs
           FableLibDir = fableLibDir }

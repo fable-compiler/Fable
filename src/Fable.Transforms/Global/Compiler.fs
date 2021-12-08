@@ -1,10 +1,23 @@
 namespace Fable
 
+open Fable
+
 module Literals =
     let [<Literal>] VERSION = "3.6.3"
 
 type CompilerOptionsHelper =
-    static member DefaultExtension = ".fs.js"
+    static member DefaultDefine(?isDebug: bool) =
+        let isDebug = defaultArg isDebug true
+        [
+            "FABLE_COMPILER"
+            "FABLE_COMPILER_3"
+            if isDebug then "DEBUG"
+        ]
+    static member DefaultExtension(lang: Language, ?outDir: bool) =
+        let outDir = defaultArg outDir false
+        match lang with
+        | JavaScript -> if outDir then ".js" else ".fs.js"
+        | TypeScript -> if outDir then ".ts" else ".fs.ts"
     static member Make(?language,
                        ?typedArrays,
                        ?define,
@@ -13,16 +26,22 @@ type CompilerOptionsHelper =
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays,
-                       ?trimRootModule) =
+                       ?trimRootModule,
+                       ?outDir) =
+        let language = defaultArg language JavaScript
+        let debugMode = defaultArg debugMode true
         {
-            CompilerOptions.Define = defaultArg define []
-            DebugMode = defaultArg debugMode true
-            Language = defaultArg language JavaScript
+            CompilerOptions.Language = language
+            DebugMode = debugMode
+            Define = [
+                yield! CompilerOptionsHelper.DefaultDefine(debugMode)
+                match define with Some d -> yield! d | None -> ()
+            ]
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-            RootModule = defaultArg trimRootModule false
+            RootModule = defaultArg trimRootModule true
             Verbosity = defaultArg verbosity Verbosity.Normal
-            FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
+            FileExtension = defaultArg fileExtension (CompilerOptionsHelper.DefaultExtension(language, ?outDir=outDir))
             ClampByteArrays = defaultArg clampByteArrays false
             TriggeredByDependency = false
         }

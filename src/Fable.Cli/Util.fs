@@ -1,6 +1,7 @@
 namespace Fable.Cli
 
 open System
+open System.Text.Json
 open System.Threading
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
@@ -17,7 +18,6 @@ type CliArgs =
       Configuration: string
       NoRestore: bool
       NoCache: bool
-      SourceMaps: bool
       SourceMapsRoot: string option
       Exclude: string option
       Replace: Map<string, string>
@@ -149,7 +149,27 @@ module File =
 
     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     let isDirectoryEmpty dir =
-        not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+        not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+
+    let copyDirIfNotExists mapTargetPath (source: string) (target: string) =
+        if isDirectoryEmpty target then
+            Directory.CreateDirectory(target) |> ignore
+            if Directory.Exists source |> not then
+                failwith ("Source directory is missing: " + source)
+            let source = source.TrimEnd('/', '\\')
+            let target = target.TrimEnd('/', '\\')
+            for dirPath in Directory.GetDirectories(source, "*", SearchOption.AllDirectories) do
+                Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
+            for fromPath in Directory.GetFiles(source, "*.*", SearchOption.AllDirectories) do
+                let toPath = fromPath.Replace(source, target)
+                let toPath = mapTargetPath toPath
+                File.Copy(fromPath, toPath, true)
+            true
+        else false
+
+    let moveToNewPath sourceBaseDir targetBaseDir path =
+        let rel = Path.GetRelativePath(sourceBaseDir, path)
+        IO.Path.Combine(targetBaseDir, rel) |> Fable.Path.normalizeFullPath
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -394,3 +414,74 @@ module ResultCE =
         member _.ReturnFrom v = v
 
     let result = ResultBuilder()
+
+module Json =
+    open System.IO
+    open System.Text.Json
+
+    // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson
+    let getOptions() =
+        let jsonOptions = JsonSerializerOptions()
+        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
+        jsonOptions
+
+    let read<'T> (path: string) =
+        let bytes = File.ReadAllBytes(path)
+        JsonSerializer.Deserialize<'T>(bytes, getOptions())
+
+    let readAsync<'T> (path: string) =
+        use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+        JsonSerializer.DeserializeAsync<'T>(fileStream, getOptions()).AsTask() |> Async.AwaitTask
+
+    let write (path: string) (data: 'T): unit =
+        use fileStream = new FileStream(path, FileMode.Create)
+        use writer = new Utf8JsonWriter(fileStream)
+        JsonSerializer.Serialize(writer, data, getOptions())
+
+    let writeAsync (path: string) (data: 'T) =
+        use fileStream = new FileStream(path, FileMode.Create)
+        JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions()) |> Async.AwaitTask
+
+module Cache =
+    open Fable
+
+    let getFullDir (opts: CompilerOptions) =
+        let homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        IO.Path.Combine(
+            homeDir,
+            ".fable",
+            opts.Language.ToString(),
+            Literals.VERSION,
+            if opts.DebugMode then "Debug" else "Release"
+        )
+
+    let getFableLibDir (opts: CompilerOptions) =
+        IO.Path.Combine(getFullDir opts, "fable-library")
+
+    let getPkgDirName (opts: CompilerOptions) (pkgId: string) (pkgVersion: string) =
+        match opts.Language with
+        | JavaScript
+        | TypeScript -> pkgId + "." + pkgVersion
+
+    let getPkgFullDir (opts: CompilerOptions) (pkgId: string) (pkgVersion: string) =
+        IO.Path.Combine(getFullDir opts, getPkgDirName opts pkgId pkgVersion)
+
+    // Replace the .fsproj extension with .fableproj for files in fable_modules
+    // We do this to avoid conflicts with other F# tooling that scan for .fsproj files
+    // TODO: We can also skip .fsproj when copying them to fable_modules or cache
+    let changeFsprojToFableproj (path: string) =
+        if path.EndsWith(".fsproj") then
+            IO.Path.ChangeExtension(path, Naming.fableProjExt)
+        else path
+
+    let copyPkgToCacheIfNotExists (opts: CompilerOptions) (pkgFsprojPath: string) (pkgId: string) (pkgVersion: string) =
+        let sourceDir = IO.Path.GetDirectoryName(pkgFsprojPath)
+        let targetDir = getPkgFullDir opts pkgId pkgVersion
+        File.copyDirIfNotExists id sourceDir targetDir, targetDir
+
+    let copyPkgFromCacheToFableModules (opts: CompilerOptions) (fableModulesDir: string) (pkgId: string) (pkgVersion: string) =
+        let cacheDir = getFullDir opts
+        let pkgDir = getPkgDirName opts pkgId pkgVersion
+        let sourceDir = IO.Path.Combine(cacheDir, pkgDir)
+        let targetDir = IO.Path.Combine(fableModulesDir, pkgDir)
+        File.copyDirIfNotExists changeFsprojToFableproj sourceDir targetDir, targetDir
