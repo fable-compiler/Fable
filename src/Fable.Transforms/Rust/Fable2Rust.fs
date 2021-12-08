@@ -3305,7 +3305,8 @@ module Util =
 
     let getIgnoredNames (name: string option) (args: Fable.Ident list) =
         let argNames = args |> List.map (fun arg -> arg.Name)
-        let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
+        let fixedNames = ["matchValue"]
+        let allNames = name |> Option.fold (fun xs x -> x :: xs) (argNames @ fixedNames)
         allNames |> Set.ofList
 
     let hasCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =

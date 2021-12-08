@@ -396,20 +396,20 @@ let ``Seq.iteri works`` () =
     )
     total |> equal 20.
 
-// [<Fact>]
-// let ``Seq.map works`` () =
-//     let xs = [1.]
-//     let ys = xs |> Seq.map ((*) 2.)
-//     ys |> Seq.head
-//     |> equal 2.
+[<Fact>]
+let ``Seq.map works`` () =
+    let xs = [1.]
+    let ys = xs |> Seq.map ((*) 2.)
+    ys |> Seq.head
+    |> equal 2.
 
-// [<Fact>]
-// let ``Seq.map2 works`` () =
-//     let xs = [1.]
-//     let ys = [2.]
-//     let zs = Seq.map2 (*) xs ys
-//     zs |> Seq.head
-//     |> equal 2.
+[<Fact>]
+let ``Seq.map2 works`` () =
+    let xs = [1.]
+    let ys = [2.]
+    let zs = Seq.map2 (*) xs ys
+    zs |> Seq.head
+    |> equal 2.
 
 // [<Fact>]
 // let ``Seq.mapi works`` () =

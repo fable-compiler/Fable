@@ -168,10 +168,8 @@ module Enumerable =
             | None -> None
         fromFunction next
 
-(*
     // Different implementation
-
-    [<CompiledName("Enumerator")>]
+    [<CompiledName("Enumerator2")>] //todo error if "Enumerator" - "An item with the same key has already been added"
     type FromFunctions<'T>(current, movenext, dispose) =
         interface IEnumerator<'T> with
             member _.Current = current()
@@ -185,6 +183,7 @@ module Enumerable =
     let fromFunctions current movenext dispose: IEnumerator<'T> =
         new FromFunctions<'T>(current, movenext, dispose) :> IEnumerator<'T>
 
+(*
     // implementation for languages where arrays are not IEnumerable
 
     let empty<'T>(): IEnumerator<'T> =
@@ -309,7 +308,7 @@ module Enumerable =
         let movenext() = e.MoveNext()
         let dispose() = try e.Dispose() finally f()
         fromFunctions current movenext dispose
-
+*)
     let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable started = false
         let mutable curr = None
@@ -337,7 +336,7 @@ module Enumerable =
                 | None -> finish(); false
                 | Some _ as x -> curr <- x; true
         fromFunctions current movenext dispose
-
+(*
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
         let mutable curr: ('T * 'State) option = None
         let mutable acc: 'State = state
@@ -408,8 +407,8 @@ let ofList (xs: 'T list) =
 //     // | :? list<'T> as a -> a
 //     | _ -> List.ofSeq xs
 
-// let generate create compute dispose =
-//     mkSeq (fun () -> Enumerable.generateWhileSome create compute dispose)
+let generate create compute dispose =
+    mkSeq (fun () -> Enumerable.generateWhileSome create compute dispose)
 
 // let generateIndexed create compute dispose =
 //     mkSeq (fun () ->
@@ -712,11 +711,11 @@ let length (xs: seq<'T>) =
             count <- count + 1
         count
 
-// let map (mapping: 'T -> 'U) (xs: seq<'T>) =
-//     generate
-//         (fun () -> ofSeq xs)
-//         (fun e -> if e.MoveNext() then Some (mapping e.Current) else None)
-//         (fun e -> e.Dispose())
+let map (mapping: 'T -> 'U) (xs: seq<'T>) =
+    generate
+        (fun () -> ofSeq xs)
+        (fun e -> if e.MoveNext() then Some (mapping e.Current) else None)
+        (fun e -> e.Dispose())
 
 // let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>) =
 //     generateIndexed
@@ -727,14 +726,14 @@ let length (xs: seq<'T>) =
 // let indexed (xs: seq<'T>) =
 //     xs |> mapIndexed (fun i x -> (i, x))
 
-// let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
-//     generate
-//         (fun () -> (ofSeq xs, ofSeq ys))
-//         (fun (e1, e2) ->
-//             if e1.MoveNext() && e2.MoveNext()
-//             then Some (mapping e1.Current e2.Current)
-//             else None)
-//         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
+let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
+    generate
+        (fun () -> (ofSeq xs, ofSeq ys))
+        (fun (e1, e2) ->
+            if e1.MoveNext() && e2.MoveNext()
+            then Some (mapping e1.Current e2.Current)
+            else None)
+        (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
 // let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
 //     generateIndexed
