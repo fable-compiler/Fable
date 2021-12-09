@@ -158,6 +158,28 @@ module Enumerable =
             else None
         fromFunction next
 
+    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
+        let mutable finished = false
+        let mutable state = None
+        let dispose() =
+            match state with
+            | None -> ()
+            | Some x ->
+                try closef x
+                finally state <- None
+        let next() =
+            if finished then
+                None
+            else
+                if Option.isNone state then
+                    state <- Some (openf())
+                let res = compute state.Value
+                if Option.isNone res then
+                    finished <- true
+                    dispose()
+                res
+        fromFunction next
+
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
         let mutable acc: 'State = state
         let next() =
@@ -169,7 +191,7 @@ module Enumerable =
         fromFunction next
 
 (*
-    // Different implementation
+    // Alternative implementation
 
     [<CompiledName("Enumerator")>]
     type FromFunctions<'T>(current, movenext, dispose) =
@@ -392,30 +414,18 @@ let ofArray (arr: 'T[]) =
     // arr :> seq<'T>
     mkSeq (fun () -> Enumerable.ofArray arr)
 
-// let toArray (xs: seq<'T>): 'T[] =
-//     match xs with
-//     // | :? array<'T> as a -> a
-//     // | :? list<'T> as a -> Array.ofList a
-//     | _ -> Array.ofSeq xs
-
 let ofList (xs: 'T list) =
     // xs :> seq<'T>
     mkSeq (fun () -> Enumerable.ofList xs)
 
-// let toList (xs: seq<'T>): 'T list =
-//     match xs with
-//     // | :? array<'T> as a -> List.ofArray a
-//     // | :? list<'T> as a -> a
-//     | _ -> List.ofSeq xs
+let generate create compute dispose =
+    mkSeq (fun () -> Enumerable.generateWhileSome create compute dispose)
 
-// let generate create compute dispose =
-//     mkSeq (fun () -> Enumerable.generateWhileSome create compute dispose)
-
-// let generateIndexed create compute dispose =
-//     mkSeq (fun () ->
-//         let mutable i = -1
-//         Enumerable.generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
-//     )
+let generateIndexed create compute dispose =
+    mkSeq (fun () ->
+        let mutable i = -1
+        Enumerable.generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
+    )
 
 // // let inline generateUsing (openf: unit -> ('U :> System.IDisposable)) compute =
 // //     generate openf compute (fun (s: 'U) -> s.Dispose())
@@ -431,15 +441,15 @@ let append (xs: seq<'T>) (ys: seq<'T>) =
 //         |> Enumerable.cast
 //     )
 
-// let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
-//     generate
-//         (fun () -> ofSeq xs)
-//         (fun e ->
-//             let mutable curr = None
-//             while (Option.isNone curr && e.MoveNext()) do
-//                 curr <- chooser e.Current
-//             curr)
-//         (fun e -> e.Dispose())
+let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
+    generate
+        (fun () -> ofSeq xs)
+        (fun e ->
+            let mutable curr = None
+            while (Option.isNone curr && e.MoveNext()) do
+                curr <- chooser e.Current
+            curr)
+        (fun e -> e.Dispose())
 
 // let compareWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) (ys: seq<'T>): int =
 //     use e1 = ofSeq xs
@@ -491,8 +501,8 @@ let append (xs: seq<'T>) (ys: seq<'T>) =
 // let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
 //     concat (unfold (fun i -> if guard() then Some(xs, i + 1) else None) 0)
 
-// let filter f (xs: seq<'T>) =
-//     xs |> choose (fun x -> if f x then Some x else None)
+let filter f (xs: seq<'T>) =
+    xs |> choose (fun x -> if f x then Some x else None)
 
 let exists predicate (xs: seq<'T>) =
     // use e = ofSeq xs
@@ -548,16 +558,6 @@ let find predicate (xs: seq<'T>) =
     | Some x -> x
     | None -> indexNotFound()
 
-// let tryFindBack predicate (xs: seq<'T>) =
-//     xs
-//     |> toArray
-//     |> Array.tryFindBack predicate
-
-// let findBack predicate (xs: seq<'T>) =
-//     match tryFindBack predicate xs with
-//     | Some x -> x
-//     | None -> indexNotFound()
-
 let tryFindIndex predicate (xs: seq<'T>) =
     // use e = ofSeq xs
     let e = ofSeq xs
@@ -574,16 +574,6 @@ let findIndex predicate (xs: seq<'T>) =
     | Some x -> x
     | None -> indexNotFound()
 
-// let tryFindIndexBack predicate (xs: seq<'T>) =
-//     xs
-//     |> toArray
-//     |> Array.tryFindIndexBack predicate
-
-// let findIndexBack predicate (xs: seq<'T>) =
-//     match tryFindIndexBack predicate xs with
-//     | Some x -> x
-//     | None -> indexNotFound()
-
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     // use e = ofSeq xs
     let e = ofSeq xs
@@ -592,8 +582,28 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
         acc <- folder acc e.Current
     acc
 
-// let foldBack folder (xs: seq<'T>) state =
-//     Array.foldBack folder (toArray xs) state
+let toArray (xs: seq<'T>): 'T[] =
+    match xs with
+    // | :? array<'T> as a -> a
+    // | :? list<'T> as a -> Array.ofList a
+    | _ ->
+        // use e = ofSeq xs
+        let e = ofSeq xs
+        let res = ResizeArray()
+        while e.MoveNext() do
+            res.Add(e.Current)
+        res.ToArray()
+
+let toList (xs: seq<'T>): 'T list =
+    match xs with
+    // | :? array<'T> as a -> List.ofArray a
+    // | :? list<'T> as a -> a
+    | _ ->
+        let res = fold (fun acc x -> x::acc) [] xs
+        List.rev res
+
+let foldBack folder (xs: seq<'T>) state =
+    Array.foldBack folder (toArray xs) state
 
 let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>) (ys: seq<'T2>) =
     // use e1 = ofSeq xs
@@ -605,14 +615,34 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>
         acc <- folder acc e1.Current e2.Current
     acc
 
-// let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: seq<'T1>) (ys: seq<'T2>) (state: 'State) =
-//     Array.foldBack2 folder (toArray xs) (toArray ys) state
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: seq<'T1>) (ys: seq<'T2>) (state: 'State) =
+    Array.foldBack2 folder (toArray xs) (toArray ys) state
 
 let forAll predicate xs =
     not (exists (fun x -> not (predicate x)) xs)
 
 let forAll2 predicate xs ys =
     not (exists2 (fun x y -> not (predicate x y)) xs ys)
+
+// let tryFindBack predicate (xs: seq<'T>) =
+//     xs
+//     |> toArray
+//     |> Array.tryFindBack predicate
+
+// let findBack predicate (xs: seq<'T>) =
+//     match tryFindBack predicate xs with
+//     | Some x -> x
+//     | None -> indexNotFound()
+
+// let tryFindIndexBack predicate (xs: seq<'T>) =
+//     xs
+//     |> toArray
+//     |> Array.tryFindIndexBack predicate
+
+// let findIndexBack predicate (xs: seq<'T>) =
+//     match tryFindIndexBack predicate xs with
+//     | Some x -> x
+//     | None -> indexNotFound()
 
 let tryHead (xs: seq<'T>) =
     match xs with
@@ -645,27 +675,20 @@ let isEmpty (xs: seq<'T>) =
         let e = ofSeq xs
         not (e.MoveNext())
 
-// let tryItem index (xs: seq<'T>) =
-//     match xs with
-//     // | :? array<'T> as a -> Array.tryItem index a
-//     // | :? list<'T> as a -> List.tryItem index a
-//     | _ ->
-//         use e = ofSeq xs
-//         let rec loop index =
-//             if not (e.MoveNext()) then None
-//             elif index = 0 then Some e.Current
-//             else loop (index - 1)
-//         loop index
-
 let tryItem index (xs: seq<'T>) =
-    let mutable i = index
-    if i < 0 then None
-    else
-        let e = ofSeq xs
-        while i >= 0 && e.MoveNext() do
-            i <- i - 1
-        if i >= 0 then None
-        else Some e.Current
+    match xs with
+    // | :? array<'T> as a -> Array.tryItem index a
+    // | :? list<'T> as a -> List.tryItem index a
+    | _ ->
+        let mutable i = index
+        if i < 0 then None
+        else
+            // use e = ofSeq xs
+            let e = ofSeq xs
+            while i >= 0 && e.MoveNext() do
+                i <- i - 1
+            if i >= 0 then None
+            else Some e.Current
 
 let item index (xs: seq<'T>) =
     match tryItem index xs with
@@ -712,51 +735,51 @@ let length (xs: seq<'T>) =
             count <- count + 1
         count
 
-// let map (mapping: 'T -> 'U) (xs: seq<'T>) =
-//     generate
-//         (fun () -> ofSeq xs)
-//         (fun e -> if e.MoveNext() then Some (mapping e.Current) else None)
-//         (fun e -> e.Dispose())
+let map (mapping: 'T -> 'U) (xs: seq<'T>) =
+    generate
+        (fun () -> ofSeq xs)
+        (fun e -> if e.MoveNext() then Some (mapping e.Current) else None)
+        (fun e -> e.Dispose())
 
-// let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>) =
-//     generateIndexed
-//         (fun () -> ofSeq xs)
-//         (fun i e -> if e.MoveNext() then Some (mapping i e.Current) else None)
-//         (fun e -> e.Dispose())
+let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>) =
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e -> if e.MoveNext() then Some (mapping i e.Current) else None)
+        (fun e -> e.Dispose())
 
-// let indexed (xs: seq<'T>) =
-//     xs |> mapIndexed (fun i x -> (i, x))
+let indexed (xs: seq<'T>) =
+    xs |> mapIndexed (fun i x -> (i, x))
 
-// let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
-//     generate
-//         (fun () -> (ofSeq xs, ofSeq ys))
-//         (fun (e1, e2) ->
-//             if e1.MoveNext() && e2.MoveNext()
-//             then Some (mapping e1.Current e2.Current)
-//             else None)
-//         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
+let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
+    generate
+        (fun () -> (ofSeq xs, ofSeq ys))
+        (fun (e1, e2) ->
+            if e1.MoveNext() && e2.MoveNext()
+            then Some (mapping e1.Current e2.Current)
+            else None)
+        (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
-// let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
-//     generateIndexed
-//         (fun () -> (ofSeq xs, ofSeq ys))
-//         (fun i (e1, e2) ->
-//             if e1.MoveNext() && e2.MoveNext()
-//             then Some (mapping i e1.Current e2.Current)
-//             else None)
-//         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
+    generateIndexed
+        (fun () -> (ofSeq xs, ofSeq ys))
+        (fun i (e1, e2) ->
+            if e1.MoveNext() && e2.MoveNext()
+            then Some (mapping i e1.Current e2.Current)
+            else None)
+        (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
-// let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
-//     generate
-//         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
-//         (fun (e1, e2, e3) ->
-//             if e1.MoveNext() && e2.MoveNext() && e3.MoveNext()
-//             then Some (mapping e1.Current e2.Current e3.Current)
-//             else None)
-//         (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
+    generate
+        (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
+        (fun (e1, e2, e3) ->
+            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext()
+            then Some (mapping e1.Current e2.Current e3.Current)
+            else None)
+        (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
 
-// let readOnly (xs: seq<'T>) =
-//     checkNonNull "source" xs
-//     map id xs
+let readOnly (xs: seq<'T>) =
+    // checkNonNull "source" xs
+    map id xs
 
 // let cache (xs: seq<'T>) =
 //     let mutable cached = false
