@@ -129,14 +129,14 @@ let ``Seq.append works`` () =
 //     seq {{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }}
 //     |> Seq.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
-// [<Fact>]
-// let ``Seq.choose works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let zs = xs |> Seq.choose (fun x ->
-//         if x > 2. then Some x
-//         else None)
-//     sumFirstTwo zs
-//     |> equal 7.
+[<Fact>]
+let ``Seq.choose works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let zs = xs |> Seq.choose (fun x ->
+        if x > 2. then Some x
+        else None)
+    sumFirstTwo zs
+    |> equal 7.
 
 // [<Fact>]
 // let ``Seq.choose works with generic arguments`` () =
@@ -212,12 +212,12 @@ let ``Seq.exists2 works`` () =
     Seq.exists2 (fun x y -> x * y = 16.) xs ys
     |> equal true
 
-// [<Fact>]
-// let ``Seq.filter works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let ys = xs |> Seq.filter (fun x -> x > 5.)
-//     ys |> Seq.isEmpty
-//     |> equal true
+[<Fact>]
+let ``Seq.filter works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.filter (fun x -> x > 5.)
+    ys |> Seq.isEmpty
+    |> equal true
 
 [<Fact>]
 let ``Seq.find works`` () =
@@ -294,6 +294,19 @@ let ``Seq.fold with tupled arguments works`` () =
             a * i, b + i)
     equal 24 a
     equal 15 b
+
+[<Fact>]
+let ``Seq.foldBack works`` () =
+    let xs = [1; 2; 3; 4]
+    let total = Seq.foldBack (fun x acc -> acc - x) xs 0
+    total |> equal -10
+
+[<Fact>]
+let ``Seq.foldBack2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4]
+    let total = Seq.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 [<Fact>]
 let ``Seq.forall works`` () =
@@ -399,31 +412,44 @@ let ``Seq.iteri works`` () =
 [<Fact>]
 let ``Seq.map works`` () =
     let xs = [1.]
-    let ys = xs |> Seq.map ((*) 2.)
-    ys |> Seq.head
-    |> equal 2.
+    let ys = xs |> Seq.map ((+) 2.)
+    ys |> Seq.head |> equal 3.
 
 [<Fact>]
 let ``Seq.map2 works`` () =
     let xs = [1.]
     let ys = [2.]
-    let zs = Seq.map2 (*) xs ys
-    zs |> Seq.head
-    |> equal 2.
+    let zs = Seq.map2 (+) xs ys
+    zs |> Seq.head |> equal 3.
 
-// [<Fact>]
-// let ``Seq.mapi works`` () =
-//     let xs = [1.]
-//     let ys = xs |> Seq.mapi (fun i x -> float i + x)
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Seq.map3 works`` () =
+    let xs = [1.]
+    let ys = [2.]
+    let zs = [3.]
+    let res = Seq.map3 (fun x y z -> x + y + z) xs ys zs
+    res |> Seq.head |> equal 6.
 
-// [<Fact>]
-// let ``Seq.indexed works`` () =
-//     let xs = seq { "a"; "b"; "c" } |> Seq.indexed
-//     let x = xs |> Seq.tail |> Seq.head
-//     fst x |> equal 1
-//     snd x |> equal "b"
+[<Fact>]
+let ``Seq.mapi works`` () =
+    let xs = [1.]
+    let ys = Seq.mapi (fun i x -> float i + x) xs
+    ys |> Seq.head |> equal 1.
+
+[<Fact>]
+let ``Seq.mapi2 works`` () =
+    let xs = [1.]
+    let ys = [2.]
+    let zs = Seq.mapi2 (fun i x y -> float i + x + y) xs ys
+    zs |> Seq.length |> equal 1
+    zs |> Seq.head |> equal 3.
+
+[<Fact>]
+let ``Seq.indexed works`` () =
+    let xs = seq { "a"; "b"; "c" } |> Seq.indexed
+    let x = xs |> Seq.tail |> Seq.head
+    fst x |> equal 1
+    snd x |> equal "b"
 
 // [<Fact>]
 // let ``Seq.mapFold works`` () =
@@ -727,26 +753,27 @@ let ``Seq.skip works`` () =
 //     with _ -> error <- true
 //     error |> equal true
 
-// [<Fact>]
-// let ``Seq.toArray works`` () =
-//     let xs = [1.; 2.; 3.]
-//     let ys = xs |> Seq.toArray
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Seq.toArray works`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toArray
+    ys.Length |> equal 3
+    ys.[0] + ys.[1] |> equal 3.
 
-// [<Fact>]
-// let ``Seq.toArray works II`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys = xs |> Seq.toArray
-//     xs.[0] <- 2.
-//     ys.[0] + ys.[1] |> equal 3.
+[<Fact>]
+let ``Seq.toArray works II`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = xs |> Seq.toArray
+    xs.[0] <- 2.
+    ys.Length |> equal 3
+    ys.[0] + ys.[1] |> equal 3.
 
-// [<Fact>]
-// let ``Seq.toList works`` () =
-//     let xs = [1.; 2.; 3.]
-//     let ys = xs |> Seq.toList
-//     ys.Head + ys.Tail.Head
-//     |> equal 3.
+[<Fact>]
+let ``Seq.toList works`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toList
+    ys |> List.length |> equal 3
+    ys.Head + ys.Tail.Head |> equal 3.
 
 [<Fact>]
 let ``Seq.tryFind works`` () =
@@ -936,12 +963,12 @@ let ``Seq.tryExactlyOne works`` () =
 //     [1] |> Seq.pairwise |> Seq.toList |> equal []
 //     [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
 
-// [<Fact>]
-// let ``Seq.readonly works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.readonly
-//     |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Seq.readonly works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.readonly
+    ys |> Seq.length |> equal 4
+    ys |> Seq.head |> equal 1.
 
 [<Fact>]
 let ``Seq.singleton works`` () =

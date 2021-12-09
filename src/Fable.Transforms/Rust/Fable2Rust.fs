@@ -1412,7 +1412,7 @@ module Util =
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
             if isNative then
-                args |> List.map (fun arg -> com.TransformAsExpr (ctx, arg))
+                args |> List.map (fun arg -> transformExprMaybeUnwrapRef com ctx arg)
             elif ctx.Typegen.TakingOwnership then
                 args |> List.map (transformLeaveContextByValue com ctx None None)
             else
@@ -3920,7 +3920,7 @@ module Util =
             |> Fable.Path.normalizeFullPath
 
     let isFableLibrary (com: IRustCompiler) =
-        List.contains "FABLE_LIBRARY" com.Options.Define
+        List.contains "FABLE_LIBRARY" com.Options.Define //TODO: does not look in project defines
 
     let isFableLibraryImport (com: IRustCompiler) (path: string) =
         not (isFableLibrary com) && path.StartsWith(com.LibraryDir)
