@@ -6,7 +6,20 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from threading import RLock
 from types import TracebackType
-from typing import Any, Callable, ContextManager, Generic, Iterable, Iterator, List, Optional, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    ContextManager,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sized,
+    Type,
+    TypeVar,
+    Union,
+)
 from urllib.parse import quote, unquote
 
 T = TypeVar("T")
@@ -264,7 +277,18 @@ def int64_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> s
     return int_to_string(i, radix, 64)
 
 
-def clear(col):
+def count(col: Iterable[Any]) -> int:
+    if isinstance(col, Sized):
+        return len(col)
+
+    count = 0
+    for _ in col:
+        count += 1
+
+    return count
+
+
+def clear(col) -> None:
     if isinstance(col, List):
         col.clear()
 

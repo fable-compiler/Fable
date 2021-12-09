@@ -1840,7 +1840,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveAll", Some ar, [arg] ->
         Helper.LibCall(com, "array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
     | "FindIndex", Some ar, [arg] ->
-        Helper.InstanceCall(ar, "index", t, [arg], ?loc=r) |> Some
+        Helper.LibCall(com, "array", "find_index", t, [arg; ar], ?loc=r) |> Some
     | "FindLastIndex", Some ar, [arg] ->
         Helper.LibCall(com, "array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "ForEach", Some ar, [arg] ->

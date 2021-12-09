@@ -40,6 +40,7 @@
     <Compile Include="TestTailCall.fs" />
     <Compile Include="TestTupleType.fs" />
     <Compile Include="TestUnionType.fs" />
+    <Compile Include="TestUri.fs" />
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestMap.fs" />

@@ -420,16 +420,25 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
+    /// This function is a bit complex. Imports and Python is difficult.
+    /// - Python libraries should use relative imports
+    /// - Python program must use absolute imports
+    /// - Python cannot import outside the sub-dirs of the main Program
     let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
-        //printfn "ModulePath: %s" modulePath
+        // printfn "ModulePath: %s" modulePath
+        let isInFableModulesDir = Naming.isInFableHiddenDir modulePath
         let relative =
-            match com.OutputType with
-            | OutputType.Exe -> false
+            let prefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
+            match com.OutputType, prefix, isInFableModulesDir with
+            // If the compiled file is not in a subdir underneath the project file (e.g project reference) then use relative imports. This
+            // is e.g the case when a test project references the library it's testing and the library wants to import own files
+            | _, prefix, false when not (Path.GetDirectoryName(com.ProjectFile).EndsWith(prefix)) -> true
+            | OutputType.Exe, _, _ -> false
             | _ -> true
 
-        //printfn $"Relative: {relative}"
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
+        // printfn $"OutputDir: {com.OutputDir}"
+        // printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
@@ -444,8 +453,7 @@ module Helpers =
         let path =
             match relative, Path.GetDirectoryName(modulePath) with
             | true, "." -> "."
-            | true, path ->
-                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+            | true, path -> path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
             | false, "." -> ""
             | false, _ ->
                 let prefix =
@@ -454,7 +462,6 @@ module Helpers =
                     else
                         ""
                 Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
-        //printfn $"Path: {path}"
 
         match modulePath with
         // Other libraries importing (relative) Fable library modules
@@ -634,7 +641,7 @@ module Util =
             com.GetIdentifierAsExpr(ctx, n)
 
     let get (com: IPythonCompiler) ctx r left memberName subscript =
-        // printfn "get: %A" (left, memberName)
+        // printfn "get: %A" (memberName, subscript)
         match subscript with
         | true ->
             let expr = Expression.constant(memberName)
@@ -644,16 +651,12 @@ module Util =
             Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
-        //printfn "getExpr: %A" (object, expr)
+        //printfn "getExpr: %A" (object)
         match expr with
         | Expression.Constant(value=name) when (name :? string) ->
             let name = name :?> string |> Identifier
             Expression.attribute (value = object, attr = name, ctx = Load), []
-        //| Expression.Name({Id=name}) ->
-        //    Expression.attribute (value = object, attr = name, ctx = Load), []
         | e ->
-        //     let func = Expression.name("getattr")
-        //     Expression.call(func=func, args=[object; e]), []
             Expression.subscript(value = object, slice = e, ctx = Load), []
 
     let rec getParts com ctx (parts: string list) (expr: Expression) =
@@ -1418,7 +1421,7 @@ module Util =
             stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
-        //printfn "transformGet: %A" kind
+        // printfn "transformGet: %A" kind
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
@@ -1449,6 +1452,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet(fieldName,_) ->
+            // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)

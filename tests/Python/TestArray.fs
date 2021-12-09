@@ -674,3 +674,282 @@ let ``test Array.scanBack works`` () =
     let ys = Array.scanBack (-) xs 0.
     ys.[2] + ys.[3]
     |> equal 3.
+
+(*
+[<Fact>]
+let ``test Array.sort works`` () =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    xs |> Array.sort |> Array.take 3 |> Array.sum |> equal 0
+    ys |> Array.sort |> Array.item 1 |> equal "a"
+
+[<Fact>]
+let ``test Array.sort with tuples works`` () =
+    let xs = [|3; 1; 1; -3|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
+*)
+[<Fact>]
+let ``test Array.truncate works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.truncate 2
+    |> Array.last
+    |> equal 2.
+
+    xs.Length |> equal 5 // Make sure there is no side effects
+
+    // Array.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Array.truncate 20 |> Array.length with _ -> -1
+    |> equal 5
+
+(*
+[<Fact>]
+let ``test Array.sortDescending works`` () =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
+    xs.[0] |> equal 3  // Make sure there is no side effects
+
+    let ys = [|"a"; "c"; "B"; "d"|]
+    ys |> Array.sortDescending |> Array.item 1 |> equal "c"
+
+[<Fact>]
+let ``test Array.sortBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortBy (fun x -> -x)
+    ys.[0] + ys.[1]
+    |> equal 7.
+
+[<Fact>]
+let ``test Array.sortByDescending works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortByDescending (fun x -> -x)
+    ys.[0] + ys.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.sortWith works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortWith (fun x y -> int(x - y))
+    ys.[0] + ys.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.sortInPlace works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlace xs
+    xs.[0] + xs.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.sortInPlaceBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceBy (fun x -> -x) xs
+    xs.[0] + xs.[1]
+    |> equal 14.
+
+[<Fact>]
+let ``test Array.sortInPlaceWith works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceWith (fun x y -> int(x - y)) xs
+    xs.[0] + xs.[1]
+    |> equal 3.
+*)
+
+[<Fact>]
+let ``test Array.sum works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sum
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.sumBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sumBy (fun x -> x * 2.)
+    |> equal 6.
+
+[<Fact>]
+let ``test Array.sum with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sum |> equal {x=3;y=30}
+
+[<Fact>]
+let ``test Array.sumBy with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
+
+[<Fact>]
+let ``test Array.sumBy with numeric projection works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+
+[<Fact>]
+let ``test Array.sum with non numeric types works II`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.sum |> equal (MyNumber 6)
+
+[<Fact>]
+let ``test Array.sumBy with non numeric types works II`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
+
+[<Fact>]
+let ``test Array.toList works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toList
+    ys.[0] + ys.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.toSeq works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toSeq
+    ys |> Seq.head
+    |> equal 1.
+
+[<Fact>]
+let ``test Array.tryFind works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFind ((=) 1.)
+    |> Option.isSome |> equal true
+    xs |> Array.tryFind ((=) 3.)
+    |> Option.isSome |> equal false
+
+[<Fact>]
+let ``test Array.tryFindIndex works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFindIndex ((=) 2.)
+    |> equal (Some 1)
+    xs |> Array.tryFindIndex ((=) 3.)
+    |> equal None
+
+[<Fact>]
+let ``test Array.tryPick works`` () =
+    let xs = [|1.; 2.|]
+    let r = xs |> Array.tryPick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    match r with
+    | Some x -> x
+    | None -> 0.
+    |> equal 2.
+
+[<Fact>]
+let ``test Array.unzip works`` () =
+    let xs = [|1., 2.|]
+    let ys, zs = xs |> Array.unzip
+    ys.[0] + zs.[0]
+    |> equal 3.
+
+[<Fact>]
+let ``test Array.unzip3 works`` () =
+    let xs = [|1., 2., 3.|]
+    let ys, zs, ks = xs |> Array.unzip3
+    ys.[0] + zs.[0] + ks.[0]
+    |> equal 6.
+
+[<Fact>]
+let ``test Array.zip works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = Array.zip xs ys
+    let x, y = zs.[0]
+    x + y |> equal 2.
+
+[<Fact>]
+let ``test Array.zip3 works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = [|1.; 2.; 3.|]
+    let ks = Array.zip3 xs ys zs
+    let x, y, z = ks.[0]
+    x + y + z |> equal 3.
+
+[<Fact>]
+let ``test Array as IList indexer has same behaviour`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = xs :> _ System.Collections.Generic.IList
+    ys.[0] <- -3.
+    ys.[0] + ys.[2]
+    |> equal 0.
+
+[<Fact>]
+let ``test Array as IList count has same behaviour`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = xs :> _ System.Collections.Generic.IList
+    ys.Count |> equal 3
+
+[<Fact>]
+let ``test Array as IList Seq.length has same behaviour`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = xs :> _ System.Collections.Generic.IList
+    ys |> Seq.length |> equal 3
+
+[<Fact>]
+let ``test Mapping with typed arrays doesnt coerce`` () =
+    let data = [| 1 .. 12 |]
+    let page size page data =
+        data
+        |> Array.skip ((page-1) * size)
+        |> Array.take size
+    let test1 =
+        [| 1..4 |]
+        |> Array.map (fun x -> page 3 x data)
+    let test2 =
+        [| 1..4 |]
+        |> Seq.map (fun x -> page 3 x data)
+        |> Array.ofSeq
+    test1 |> Array.concat |> Array.sum |> equal 78
+    test2 |> Array.concat |> Array.sum |> equal 78
+
+[<Fact>]
+let ``test Array.item works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.item 2 xs |> equal 3.
+
+[<Fact>]
+let ``test Array.tryItem works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryItem 3 xs |> equal (Some 4.)
+    Array.tryItem 4 xs |> equal None
+    Array.tryItem -1 xs |> equal None
+
+[<Fact>]
+let ``test Array.head works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.head xs |> equal 1.
+
+[<Fact>]
+let ``test Array.tryHead works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryHead xs |> equal (Some 1.)
+    Array.tryHead [||] |> equal None
+
+[<Fact>]
+let ``test Array.last works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.last
+    |> equal 4.
+
+[<Fact>]
+let ``test Array.tryLast works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryLast xs |> equal (Some 4.)
+    Array.tryLast [||] |> equal None
+
+[<Fact>]
+let ``test Array.tail works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tail xs |> Array.length |> equal 3
+
+(*
+[<Fact>]
+let ``test Array.groupBy returns valid array`` () =
+    let xs = [|1; 2|]
+    let actual = Array.groupBy (fun _ -> true) xs
+    let actualKey, actualGroup = actual.[0]
+    let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
+    worked |> equal true
+*)
