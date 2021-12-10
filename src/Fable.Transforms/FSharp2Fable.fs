@@ -1125,7 +1125,7 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
                    isPublic=isPublic,
                    isValue=isValue,
                    isInstance=memb.IsInstanceMember,
-                   isMutable=memb.IsMutable) :> _
+                   isMutable=memb.IsMutable)
 
 // JS-only feature, in Fable 4 it should be abstracted
 let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
@@ -1221,7 +1221,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     let name, _ = getMemberDeclarationName com memb
     let fullDisplayName = memb.TryGetFullDisplayName() |> Option.defaultValue name
     memb.Attributes
-    |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+    |> Seq.map FsAtt.Make
     |> function
     | ImportAtt(selector, path) ->
         let selector =
@@ -1395,16 +1395,18 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                   UsedNames = set ctx.UsedNamesInDeclarationScope }])
 
 let getRootFSharpEntities (file: FSharpImplementationFileContents) =
-    let rec getRootFSharpEntitiesInner decl = seq {
+    let rec getRootFSharpEntitiesInner decl =
         match decl with
         | FSharpImplementationFileDeclaration.Entity (ent, nested) ->
             if ent.IsNamespace then
-                for d in nested do
-                    yield! getRootFSharpEntitiesInner d
-            else ent
-        | _ -> ()
-    }
-    file.Declarations |> Seq.collect getRootFSharpEntitiesInner
+                nested |> List.collect getRootFSharpEntitiesInner 
+            else [ent]
+        | _ -> []
+    try
+        file.Declarations |> List.collect getRootFSharpEntitiesInner
+    with e ->
+        printfn $"Entities: Fail in file {file.FileName} - {e.Message} - {e.StackTrace}"    
+        []
 
 let getRootModule (file: FSharpImplementationFileContents) =
     let rec getRootModuleInner outerEnt decls =
@@ -1415,7 +1417,11 @@ let getRootModule (file: FSharpImplementationFileContents) =
             getRootModuleInner (Some ent) decls
         | _, Some e -> FsEnt.FullName e
         | _, None -> ""
-    getRootModuleInner None file.Declarations
+    try
+        getRootModuleInner None file.Declarations
+    with _ ->
+        printfn $"Root module: Fail in file {file.FileName}"    
+        ""
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
@@ -1598,24 +1604,31 @@ let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
             | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
                 if isInline memb then
-                    let ctx = { Context.Create() with
-                                    PrecompilingInlineFunction = Some memb
-                                    UsedNamesInDeclarationScope = HashSet() }
+                    try
+                        let ctx = { Context.Create() with
+                                        PrecompilingInlineFunction = Some memb
+                                        UsedNamesInDeclarationScope = HashSet() }
 
-                    let ctx, idents =
-                        ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
-                            let ctx, ident = putArgInScope com ctx argId
-                            ctx, ident::idents)
+                        let ctx, idents =
+                            ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
+                                let ctx, ident = putArgInScope com ctx argId
+                                ctx, ident::idents)
 
-                    let inlineExpr =
-                        { Args = List.rev idents
-                          Body = com.Transform(ctx, body)
-                          FileName = file.FileName
-                          ScopeIdents = set ctx.UsedNamesInDeclarationScope }
+                        let inlineExpr =
+                            { Args = List.rev idents
+                              Body = com.Transform(ctx, body)
+                              FileName = file.FileName
+                              ScopeIdents = set ctx.UsedNamesInDeclarationScope }
 
-                    [getMemberUniqueName memb, inlineExpr]
+                        [getMemberUniqueName memb, inlineExpr]
+                    with _ -> []
                 else [])
-    getInlineExprsInner file.Declarations
+
+    try
+        getInlineExprsInner file.Declarations
+    with _ ->
+        printfn $"Inline: Fail in file {file.FileName}"
+        []
 
 let transformFile (com: Compiler) =
     let file = com.GetImplementationFile(com.CurrentFile)

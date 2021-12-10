@@ -79,10 +79,10 @@ type FsUnionCase(uci: FSharpUnionCase) =
         member _.CompiledName = FsUnionCase.CompiledName uci
         member _.UnionCaseFields = uci.Fields |> Seq.mapToList (fun x -> upcast FsField(x))
 
-type FsAtt(att: FSharpAttribute) =
-    interface Fable.Attribute with
-        member _.Entity = FsEnt.Ref att.AttributeType
-        member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
+type FsAtt =
+    static member Make(att: FSharpAttribute): Fable.Attribute = 
+        { Entity = FsEnt.Ref att.AttributeType
+          ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd }
 
 type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
@@ -116,7 +116,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
-            m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+            m.Attributes |> Seq.map FsAtt.Make
 
         // These two properties are only used for member declarations,
         // setting them to false for now
@@ -199,7 +199,7 @@ type FsEnt(ent: FSharpEntity) =
             | _ -> None
 
         member _.Attributes =
-            ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+            ent.Attributes |> Seq.map FsAtt.Make
 
         member _.MembersFunctionsAndValues =
             ent.TryGetMembersFunctionsAndValues() |> Seq.map (fun x ->
@@ -242,7 +242,7 @@ type MemberInfo(?attributes: FSharpAttribute seq,
     interface Fable.MemberInfo with
         member _.Attributes =
             match attributes with
-            | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+            | Some atts -> atts |> Seq.map FsAtt.Make
             | None -> upcast []
         member _.HasSpread = defaultArg hasSpread false
         member _.IsPublic = defaultArg isPublic true
@@ -1498,7 +1498,7 @@ module Util =
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember (com: Compiler) typ (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes
-        |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+        |> Seq.map FsAtt.Make
         |> function
         | GlobalAtt(Some customName) ->
             makeTypedIdent typ customName |> Fable.IdentExpr |> Some

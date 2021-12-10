@@ -2,23 +2,9 @@ namespace rec Fable.AST.Fable
 
 open Fable.AST
 
-type EntityPath =
-    | SourcePath of string
-    | AssemblyPath of string
-    /// Only used to reference entities in core assemblies without a path
-    | CoreAssemblyName of string
-
-type EntityRef =
-    { FullName: string
-      Path: EntityPath }
-
 type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
-
-type Attribute =
-    abstract Entity: EntityRef
-    abstract ConstructorArgs: obj list
 
 type Field =
     abstract Name: string
@@ -34,22 +20,6 @@ type UnionCase =
 
 type GenericParam =
     abstract Name: string
-
-type Parameter =
-    { Name: string option
-      Type: Type }
-
-type MemberInfo =
-    abstract Attributes: Attribute seq
-    abstract HasSpread: bool
-    abstract IsMangled: bool
-    abstract IsPublic: bool
-    abstract IsInstance: bool
-    abstract IsValue: bool
-    abstract IsMutable: bool
-    abstract IsGetter: bool
-    abstract IsSetter: bool
-    abstract IsEnumerator: bool
 
 type MemberFunctionOrValue =
     inherit MemberInfo
@@ -80,6 +50,41 @@ type Entity =
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
     abstract IsMeasure: bool
+
+// ------------------
+// Serializable types
+// ------------------
+
+type EntityPath =
+    | SourcePath of string
+    | AssemblyPath of string
+    /// Only used to reference entities in core assemblies without a path
+    | CoreAssemblyName of string
+
+type EntityRef =
+    { FullName: string
+      Path: EntityPath }
+
+type Parameter =
+    { Name: string option
+      Type: Type }
+
+type Attribute =
+    { Entity: EntityRef
+      ConstructorArgs: obj list }
+
+// TODO: In Fable 4 this should be a record for easier serialization
+type MemberInfo =
+    abstract Attributes: Attribute seq
+    abstract HasSpread: bool
+    abstract IsMangled: bool
+    abstract IsPublic: bool
+    abstract IsInstance: bool
+    abstract IsValue: bool
+    abstract IsMutable: bool
+    abstract IsGetter: bool
+    abstract IsSetter: bool
+    abstract IsEnumerator: bool
 
 type Type =
     | MetaType

@@ -95,9 +95,12 @@ type ImplFile =
             RootModule = FSharp2Fable.Compiler.getRootModule file
         }
 
+type SourceInfo =
+    { RootModule: string; Entities: string list }
+
 type PrecompiledInfo =
     { InlineExprs: Map<string, InlineExpr>
-      Sources: Map<string, {| RootModule: string; Entities: string list |}> }
+      Sources: Map<string, SourceInfo> }
     static member Empty =
         { InlineExprs = Map.empty; Sources = Map.empty }
     static member Combine(infos: PrecompiledInfo seq) =
@@ -167,8 +170,8 @@ type Project(projFile: string,
         {
             InlineExprs = this.InlineExprs
             Sources = this.ImplementationFiles |> Map.map (fun _k v ->
-                {| RootModule = v.RootModule
-                   Entities = List.ofSeq v.Entities.Keys |})
+                { RootModule = v.RootModule
+                  Entities = List.ofSeq v.Entities.Keys })
           }
 
     member _.ProjectFile = projFile

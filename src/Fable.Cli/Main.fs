@@ -42,8 +42,8 @@ module private Util =
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
         |> function
             | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{relativePathToCwd r.DllPath}"
-                |> Log.always; t
+                //Log.always $"Loaded %s{r.TypeFullName} from %s{relativePathToCwd r.DllPath}"
+                t
             | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
 
     let splitVersion (version: string) =
@@ -391,12 +391,9 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
     static member ParseAndCheckPackage(compilerOpts: CompilerOptions, mainProjOptions: FSharpProjectOptions, allPkgs: FablePackage list, pkg: FablePackage) =
         let projectOptions = getPackageFSharpProjectOptions compilerOpts mainProjOptions allPkgs pkg
-        // We don't need caching here so we can skip calculating the hash
-        let mutable i = 0
-        let sourceReader f =
-            i <- i + 1
-            i, lazy File.readAllTextNonBlocking f
         let checker = InteractiveChecker.Create(projectOptions)
+        let fileDic = pkg.SourcePaths |> Seq.map (fun s -> s, File s) |> dict
+        let sourceReader f = fileDic.[f].ReadSource()
         checker.ParseAndCheckProject(pkg.FsprojPath, Array.ofList pkg.SourcePaths, sourceReader)
 
     static member CompilePackages(projCracked: ProjectCracked): Async<PrecompiledInfo list> = async {
@@ -409,49 +406,55 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
         let precompiledInfo = ResizeArray()
 
-        let pkgsToCompile =
-            projCracked.Packages |> List.choose (fun p ->
-                let copied, cacheDir = Cache.copyPkgToCacheIfNotExists compilerOpts p.FsprojPath p.Id p.Version
-                let p = p.MoveTo(cacheDir)
-                if copied then Some p
-                else
-                    let info = IO.Path.Combine(cacheDir, infoName) |> Json.read
-                    precompiledInfo.Add(p, info)
-                    None)
+        let pkgsToCompile, ms =
+            measureTime <| fun () ->
+                projCracked.Packages |> List.choose (fun p ->
+                    let copied, cacheDir = Cache.copyPkgToCacheIfNotExists compilerOpts p.FsprojPath p.Id p.Version
+                    let p = p.MoveTo(cacheDir)
+                    if copied then Some p
+                    else
+                        let info = IO.Path.Combine(cacheDir, infoName) |> MessagePack.read
+                        precompiledInfo.Add(p, info)
+                        None)
 
-        let! pgksChecked =
-            pkgsToCompile |> List.map (fun p -> async {
-                let! r = ProjectChecked.ParseAndCheckPackage(compilerOpts, projCracked.ProjectOptions, projCracked.Packages, p)
-                return p, r
-            })
-            |> Async.Parallel
+        Log.always $"Precompiled info loaded in %i{ms}ms"
 
-        // TODO: Check F# and Fable errors. Remove cached dirs if there's a problem
-        for (pkg, checkResults) in pgksChecked do
-            let dedup = Dedup()
-            let project = Project.From(
-                pkg.FsprojPath,
-                getImplFiles compilerOpts checkResults,
-                checkResults.ProjectContext.GetReferencedAssemblies(),
-                // TODO: Try to remove precompiledInfo that doesn't correspond to dependencies?
-                precompiledInfo = (precompiledInfo |> Seq.map snd),
-                mkCompiler = (fun p f -> CompilerImpl.Make(f, p, fableLibDir, compilerOpts)),
-                getPlugin = loadType,
-                trimRootModule = projCracked.FableOptions.RootModule
-            )
+        let compilePkgs = List.isEmpty pkgsToCompile |> not
+        if compilePkgs then Log.always "Started package compilation..."
 
-            let! _results =
-                pkg.SourcePaths
-                |> List.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-                |> List.map (fun file ->
-                    let com = CompilerImpl.Make(file, project, fableLibDir, compilerOpts)
-                    com.CompileFile(dedup.GetOrAddDeduplicateTargetDir))
-                |> Async.Parallel
+        let! _, ms = measureTimeAsync <| fun () -> async {
+            // TODO: Check F# and Fable errors. Remove cached dirs if there's a problem
+            for pkg in pkgsToCompile do
+                let dedup = Dedup()
 
-            let info = project.GetPrecompiledInfoForThisProject()
-            let infoPath = IO.Path.Combine(IO.Path.GetDirectoryName(pkg.FsprojPath), infoName)
-            do! Json.writeAsync infoPath info
-            precompiledInfo.Add(pkg, info)
+                let! checkResults = ProjectChecked.ParseAndCheckPackage(
+                    compilerOpts, projCracked.ProjectOptions, projCracked.Packages, pkg)
+
+                let project = Project.From(
+                    pkg.FsprojPath,
+                    getImplFiles compilerOpts checkResults,
+                    checkResults.ProjectContext.GetReferencedAssemblies(),
+                    precompiledInfo = (precompiledInfo |> Seq.map snd),
+                    mkCompiler = (fun p f -> CompilerImpl.Make(f, p, fableLibDir, compilerOpts)),
+                    getPlugin = loadType,
+                    trimRootModule = projCracked.FableOptions.RootModule
+                )
+
+                let! _results =
+                    pkg.SourcePaths
+                    |> List.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+                    |> List.map (fun file ->
+                        let com = CompilerImpl.Make(file, project, fableLibDir, compilerOpts)
+                        com.CompileFile(dedup.GetOrAddDeduplicateTargetDir))
+                    |> Async.Parallel
+
+                let info = project.GetPrecompiledInfoForThisProject()
+                let infoPath = IO.Path.Combine(IO.Path.GetDirectoryName(pkg.FsprojPath), infoName)
+                MessagePack.write infoPath info
+                precompiledInfo.Add(pkg, info)
+            }
+
+        if compilePkgs then Log.always $"Package compilation finished in %i{ms}ms"
 
         let fableModulesDir = IO.Path.GetDirectoryName(projCracked.FableLibDir)
         return
