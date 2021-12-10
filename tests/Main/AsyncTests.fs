@@ -263,8 +263,8 @@ let tests =
             let! result = Async.Sequential works
             let ``then`` = DateTimeOffset.Now
             let d = ``then`` - now
-            if d < TimeSpan.FromSeconds 1. then
-                failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
+            if d.TotalSeconds < 1. then
+                failwithf "expected sequential operations to take longer than 1 second, but took %.3f" d.TotalSeconds
             result |> equal [| 1 .. 5 |]
             result |> Seq.sum |> equal _aggregate
         }
