@@ -231,47 +231,47 @@ let ``Seq.findIndex works`` () =
     xs |> Seq.findIndex ((=) 2.)
     |> equal 1
 
-// [<Fact>]
-// let ``Seq.findBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.find ((>) 4.) |> equal 1.
-//     xs |> Seq.findBack ((>) 4.) |> equal 3.
+[<Fact>]
+let ``Seq.findBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.find ((>) 4.) |> equal 1.
+    xs |> Seq.findBack ((>) 4.) |> equal 3.
 
-// [<Fact>]
-// let ``Seq.findBack with option works`` () =
-//     let xs = [Some 1.; None]
-//     xs |> Seq.find Option.isSome |> equal (Some(1.))
-//     xs |> Seq.find Option.isSome |> (fun v -> v.Value) |> equal 1.
-//     xs |> Seq.findBack Option.isNone |> equal None
+[<Fact>]
+let ``Seq.findBack with option works`` () =
+    let xs = [Some 1.; None]
+    xs |> Seq.find Option.isSome |> equal (Some(1.))
+    xs |> Seq.find Option.isSome |> (fun v -> v.Value) |> equal 1.
+    xs |> Seq.findBack Option.isNone |> equal None
 
-// [<Fact>]
-// let ``Seq.findIndexBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.findIndex ((>) 4.) |> equal 0
-//     xs |> Seq.findIndexBack ((>) 4.) |> equal 2
+[<Fact>]
+let ``Seq.findIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.findIndex ((>) 4.) |> equal 0
+    xs |> Seq.findIndexBack ((>) 4.) |> equal 2
 
-// [<Fact>]
-// let ``Seq.tryFindBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
-//     xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
-//     xs |> Seq.tryFindBack ((=) 5.) |> equal None
+[<Fact>]
+let ``Seq.tryFindBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> Seq.tryFindBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``Seq.tryFindBack with option works`` () =
-//     let xs = [Some 1.; None]
-//     xs |> Seq.tryFind Option.isSome |> equal (Some(Some 1.))
-//     xs |> Seq.tryFind Option.isSome |> (fun v -> v.Value.Value) |> equal 1.
-//     xs |> Seq.tryFindBack Option.isNone |> equal (Some None)
-//     xs |> Seq.tryFindBack Option.isNone |> (fun v -> v.Value) |>  equal None
-//     xs |> Seq.tryFindBack (fun v -> match v with Some v -> v = 2. | _ -> false) |> equal None
+[<Fact>]
+let ``Seq.tryFindBack with option works`` () =
+    let xs = [Some 1.; None]
+    xs |> Seq.tryFind Option.isSome |> equal (Some(Some 1.))
+    xs |> Seq.tryFind Option.isSome |> (fun v -> v.Value.Value) |> equal 1.
+    xs |> Seq.tryFindBack Option.isNone |> equal (Some None)
+    xs |> Seq.tryFindBack Option.isNone |> (fun v -> v.Value) |>  equal None
+    xs |> Seq.tryFindBack (fun v -> match v with Some v -> v = 2. | _ -> false) |> equal None
 
-// [<Fact>]
-// let ``Seq.tryFindIndexBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
-//     xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-//     xs |> Seq.tryFindIndexBack ((=) 5.) |> equal None
+[<Fact>]
+let ``Seq.tryFindIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> Seq.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Fact>]
 let ``Seq.fold works`` () =
@@ -578,28 +578,28 @@ let ``Seq.tryItem works`` () =
     Seq.tryItem 4 xs |> equal None
     Seq.tryItem -1 xs |> equal None
 
-// [<Fact>]
-// let ``Seq.ofArray works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = Seq.ofArray xs
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Seq.ofArray works`` () =
+    let xs = [|1.; 2.|]
+    let ys = Seq.ofArray xs
+    ys |> Seq.head
+    |> equal 1.
 
-// [<Fact>]
-// let ``Seq.ofList works`` () =
-//     let xs = [1.; 2.]
-//     let ys = Seq.ofList xs
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Seq.ofList works`` () =
+    let xs = [1.; 2.]
+    let ys = Seq.ofList xs
+    ys |> Seq.head
+    |> equal 1.
 
-// [<Fact>]
-// let ``Seq.pick works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.pick (fun x ->
-//         match x with
-//         | 2. -> Some x
-//         | _ -> None)
-//     |> equal 2.
+[<Fact>]
+let ``Seq.pick works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.pick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    |> equal 2.
 
 // [<Fact>]
 // let ``Seq.range works`` () =
@@ -680,11 +680,17 @@ let ``Seq.tryItem works`` () =
 //     |> Seq.reduce (+)
 //     |> equal 19990000000000002000I
 
-// [<Fact>]
-// let ``Seq.reduce works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.reduce (+)
-//     |> equal 3.
+[<Fact>]
+let ``Seq.reduce works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.reduce (+)
+    |> equal 3.
+
+[<Fact>]
+let ``Seq.reduceBack works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.reduceBack (+)
+    |> equal 3.
 
 // [<Fact>]
 // let ``Seq.scan works`` () =
@@ -791,17 +797,17 @@ let ``Seq.tryFindIndex works`` () =
     |> equal 1
     [1.; 2.] |> Seq.tryFindIndex ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``Seq.tryPick works`` () =
-//     let xs = [1.; 2.]
-//     let r = xs |> Seq.tryPick (fun x ->
-//         match x with
-//         | 2. -> Some x
-//         | _ -> None)
-//     match r with
-//     | Some x -> x
-//     | None -> 0.
-//     |> equal 2.
+[<Fact>]
+let ``Seq.tryPick works`` () =
+    let xs = [1.; 2.]
+    let r = xs |> Seq.tryPick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    match r with
+    | Some x -> x
+    | None -> 0.
+    |> equal 2.
 
 // [<Fact>]
 // let ``Seq.zip works`` () =
@@ -937,17 +943,18 @@ let ``Seq.tryExactlyOne works`` () =
 //     |> Seq.sum
 //     |> equal 90.
 
-// [<Fact>]
-// let ``Seq.last works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> Seq.last
-//     |> equal 4.
+[<Fact>]
+let ``Seq.last works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.last
+    |> equal 4.
 
-// [<Fact>]
-// let ``Seq.tryLast works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     Seq.tryLast xs |> equal (Some 4.)
-//     Seq.tryLast [] |> equal None
+[<Fact>]
+let ``Seq.tryLast works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let empty: float list = []
+    xs |> Seq.tryLast |> equal (Some 4.)
+    empty |> Seq.tryLast |> equal None
 
 // [<Fact>]
 // let ``Seq.pairwise works`` () =
@@ -971,6 +978,17 @@ let ``Seq.readonly works`` () =
     ys |> Seq.head |> equal 1.
 
 [<Fact>]
+let ``Seq.replicate works`` () =
+    let xs = Seq.replicate 3 4
+    xs |> Seq.toArray |> equal [|4;4;4|]
+
+[<Fact>]
+let ``Seq.rev works`` () =
+    let xs = [1; 2; 3]
+    let ys = xs |> Seq.rev
+    ys |> Seq.toArray |> equal [|3;2;1|]
+
+[<Fact>]
 let ``Seq.singleton works`` () =
     let xs = Seq.singleton 1.
     Seq.head xs |> equal 1.
@@ -983,29 +1001,31 @@ let ``Seq.singleton works with None`` () =
     |> Seq.length
     |> equal 1
 
-// [<Fact>]
-// let ``Seq.skipWhile works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.skipWhile (fun i -> i <= 3.)
-//     |> Seq.head
-//     |> equal 4.
+[<Fact>]
+let ``Seq.skipWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.skipWhile (fun i -> i <= 3.)
+    |> Seq.head
+    |> equal 4.
+
+[<Fact>]
+let ``Seq.take works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    let ys = xs |> Seq.take 2
+    ys |> Seq.toArray |> equal [|1.; 2.|]
 
 // [<Fact>]
-// let ``Seq.take works`` () =
+// let ``Seq.take works II`` () =
 //     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.take 2
-//     |> Seq.last
-//     |> equal 2.
 //     // Seq.take should throw an exception if there're not enough elements
 //     try xs |> Seq.take 20 |> Seq.length with _ -> -1
 //     |> equal -1
 
-// [<Fact>]
-// let ``Seq.takeWhile works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.takeWhile (fun i -> i < 3.)
-//     |> Seq.last
-//     |> equal 2.
+[<Fact>]
+let ``Seq.takeWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    let ys = xs |> Seq.takeWhile (fun i -> i < 4.)
+    ys |> Seq.toArray |> equal [|1.; 2.; 3.|]
 
 // [<Fact>]
 // let ``Seq.truncate works`` () =
@@ -1017,12 +1037,12 @@ let ``Seq.singleton works with None`` () =
 //     try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
 //     |> equal 5
 
-// [<Fact>]
-// let ``Seq.where works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.where (fun i -> i <= 3.)
-//     |> Seq.length
-//     |> equal 3
+[<Fact>]
+let ``Seq.where works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.where (fun i -> i <= 3.)
+    |> Seq.length
+    |> equal 3
 
 // [<Fact>]
 // let ``Seq.except works`` () =

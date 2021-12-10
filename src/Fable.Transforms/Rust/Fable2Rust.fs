@@ -2283,13 +2283,19 @@ module Util =
     let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
-        // let bodyExpr = com.TransformAsExpr(ctx, body)
-        // mkTryBlockExpr bodyExpr // TODO: nightly only, enable when stable
         // TODO: transform catch
-        // Temporary: this transforms try/finally as blocks
         match finalizer with
-        | Some finBody -> transformSequential com ctx [body; finBody]
-        | _ -> transformSequential com ctx [body]
+        | Some finBody ->
+            // TODO: Temporary, transforms try/finally as sequential
+            let letIdent = getUniqueNameInDeclarationScope ctx "try_result" |> makeIdent
+            let letValue = body
+            let letBody = Fable.Sequential [finBody; Fable.IdentExpr letIdent]
+            let letExpr = Fable.Let(letIdent, letValue, letBody)
+            letExpr
+        | _ ->
+            body // no finalizer
+        |> transformAsExpr com ctx
+        // |> mkTryBlockExpr // TODO: nightly only, enable when stable
 
     let transformCurriedApply (com: IRustCompiler) ctx range expr args =
         let callee = com.TransformAsExpr(ctx, expr)
@@ -3527,6 +3533,15 @@ module Util =
         |> List.map (fun genParam -> genParam.Name)
         |> makeGenerics
 
+    let getInterfaceMemberNamesSet (com: IRustCompiler) (ent: Fable.Entity) =
+        assert(ent.IsInterface)
+        ent.AllInterfaces
+        |> Seq.collect (fun i ->
+            let e = com.GetEntity(i.Entity)
+            e.MembersFunctionsAndValues)
+        |> Seq.map (fun m -> m.DisplayName)
+        |> Set.ofSeq
+
     let getEntityMemberNamesSet (ent: Fable.Entity) =
         ent.MembersFunctionsAndValues
         |> Seq.map (fun m -> m.DisplayName)
@@ -3625,9 +3640,13 @@ module Util =
                 for iface in ent.AllInterfaces do
                     let ifaceEnt = com.GetEntity(iface.Entity)
                     let ifaceNamesp, ifaceName = splitNameSpace ifaceEnt.FullName
-                    let isNew = com.TryAddInterface (ifaceEnt.FullName, entNamesp + "." + ifaceName)
+                    let ifaceEntFullName =
+                        if ifaceEnt.FullName.StartsWith("System.")
+                        then ifaceEnt.FullName
+                        else entNamesp + "." + ifaceName
+                    let isNew = com.TryAddInterface (ifaceEnt.FullName, ifaceEntFullName)
                     if isNew then
-                        let members = ifaceEnt |> getEntityMemberNamesSet
+                        let members = ifaceEnt |> getInterfaceMemberNamesSet com
                         let filteredMembers =
                             decl.AttachedMembers |> List.filter (fun q -> members |> Set.contains q.Name)
                         let fields = [
@@ -3691,14 +3710,16 @@ module Util =
                         ent.AllInterfaces
                         |> Seq.map (fun i ->
                             let ifaceEnt = com.GetEntity(i.Entity)
-                            let members = ifaceEnt |> getEntityMemberNamesSet
+                            let members = ifaceEnt |> getInterfaceMemberNamesSet com
                             com.GetInterfaceNs ifaceEnt.FullName, members, ifaceEnt)
                         |> Seq.filter (fun (dn, m, p) -> not (interfacesToIgnore |> Set.contains dn)) //temporary, throw out anything not defined such as IComparable etc
                         |> Seq.toList
 
                     let membersNotDefinedInInterfaces =
                         let allIfaceMembers =
-                            ifaces |> Seq.map (fun (_, members, _) -> members) |> Seq.fold Set.union Set.empty
+                            ifaces
+                            |> Seq.map (fun (_, members, _) -> members)
+                            |> Seq.fold Set.union Set.empty
                         ent
                         |> getEntityMemberNamesSet
                         |> Seq.except allIfaceMembers

@@ -34,11 +34,6 @@ let rec sumFirstList (zs: float list) (n: int): float =
 // type MyNumberWrapper =
 //     { MyNumber: MyNumber }
 
-// module List =
-//     let filteri f (xs: 'T list) =
-//         let mutable i = -1
-//         List.filter (fun x -> i <- i + 1; f i x) xs
-
 [<Fact>]
 let ``List.Empty works`` () =
     let xs: int list = []
@@ -73,11 +68,6 @@ let ``List.length works`` () =
 let ``List.item works`` () =
     let xs = [1; 2]
     xs |> List.item 1 |> equal 2
-
-[<Fact>]
-let ``List.toArray works`` () =
-    let xs = 1::2::3::[]
-    List.toArray xs |> equal [|1;2;3|]
 
 // [<Fact>]
 // let ``List option works`` () =
@@ -207,25 +197,26 @@ let ``List.append works II`` () =
 //     |> Seq.sum
 //     |> equal 15
 
-// [<Fact>]
-// let ``List.choose works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let result = xs |> List.choose (fun x ->
-//         if x > 2 then Some x
-//         else None)
-//     result.Head + result.Tail.Head
-//     |> equal 7
+[<Fact>]
+let ``List.choose works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> List.choose (fun x ->
+        if x > 2 then Some x
+        else None)
+    ys |> List.toArray |> equal [|3; 4|]
 
 [<Fact>]
 let ``List.exactlyOne works`` () =
     let xs = [1.]
     xs |> List.exactlyOne
     |> equal 1.
-    // TODO: enable when try/catch works
-    // let xs2 = [1.; 2.]
-    // (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
-    // let xs3: float list = []
-    // (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
+
+// [<Fact>]
+// let ``List.exactlyOne works II`` () =
+//     let xs2 = [1.; 2.]
+//     (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
+//     let xs3: float list = []
+//     (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
 
 [<Fact>]
 let ``List.tryExactlyOne works`` () =
@@ -247,16 +238,18 @@ let ``List.exists2 works`` () =
     List.exists2 (fun x y -> x * y = 16) xs ys
     |> equal true
 
-// [<Fact>]
-// let ``List.filter works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> List.filter (fun x -> x > 5)
-//     equal ys.IsEmpty true
+[<Fact>]
+let ``List.filter works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> List.filter (fun x -> x % 2 = 0)
+    ys |> List.toArray |> equal [|2; 4|]
 
-// [<Fact>]
-// let ``List.filter doesn't work backwards`` () = // See #1672
-//     let li = [1; 2; 3; 4; 5]
-//     li |> List.filteri (fun i _ -> i <> 1) |> equal [1; 3; 4; 5]
+[<Fact>]
+let ``List.filter doesn't work backwards`` () = // See #1672
+    let mutable i = -1
+    let xs = [1; 2; 3; 4; 5]
+    let ys = xs |> List.filter (fun x -> i <- i + 1; i <> 1)
+    ys |> List.toArray |> equal [|1; 3; 4; 5|]
 
 [<Fact>]
 let ``List.find works`` () =
@@ -320,11 +313,10 @@ let ``List.head works`` () =
     |> List.head
     |> equal 1
 
-// [<Fact>]
-// let ``List.init works`` () =
-//     let xs = List.init 4 float
-//     xs.Head + xs.Tail.Head
-//     |> equal 1.
+[<Fact>]
+let ``List.init works`` () =
+    let xs = List.init 4 float
+    xs |> List.toArray |> equal [|0.; 1.; 2.; 3.|]
 
 [<Fact>]
 let ``List.isEmpty works`` () =
@@ -371,21 +363,20 @@ let ``List.iteri2 works`` () =
 let ``List.map works`` () =
     let xs = [1;2;3]
     let ys = xs |> List.map ((*) 2)
-    equal 4 ys.Tail.Head
+    ys |> List.toArray |> equal [|2; 4; 6|]
 
 [<Fact>]
 let ``List.mapi works`` () =
-    let xs = [1]
+    let xs = [1; 2; 3]
     let ys = xs |> List.mapi (fun i x -> i * x)
-    equal 0 ys.Head
+    ys |> List.toArray |> equal [|0; 2; 6|]
 
 [<Fact>]
 let ``List.map2 works`` () =
     let xs = [1;2]
     let ys = [2;3]
-    let zs = List.map2 (fun x y -> x - y) xs ys
-    zs.Head |> equal -1
-    List.length zs |> equal 2
+    let zs = List.map2 (fun x y -> y - x) xs ys
+    zs |> List.toArray |> equal [|1; 1|]
 
 [<Fact>]
 let ``List.ofArray works`` () =
@@ -396,12 +387,12 @@ let ``List.ofArray works`` () =
     let ys1 = List.ofArray xs1
     sumFirstList ys1 3 |> equal 6.
 
-// [<Fact>]
-// let ``List.ofSeq works`` () =
-//     // let xs = [|1; 2|] :> _ seq
-//     let ys = List.ofSeq <| seq { yield 1; yield 2 }
-//     ys.Head |> equal 1
-//     ys.Length |> equal 2
+[<Fact>]
+let ``List.ofSeq works`` () =
+    // let xs = [|1; 2|] :> _ seq
+    let ys = List.ofSeq <| seq { yield 1; yield 2 }
+    ys.Head |> equal 1
+    ys.Length |> equal 2
 
 [<Fact>]
 let ``List.pick works`` () =
@@ -412,22 +403,22 @@ let ``List.pick works`` () =
         | _ -> None)
     |> equal 2
 
-// [<Fact>]
-// let ``List.reduce works`` () =
-//     let xs = [1; 2]
-//     xs |> List.reduce (+)
-//     |> equal 3
+[<Fact>]
+let ``List.reduce works`` () =
+    let xs = [1; 2]
+    xs |> List.reduce (+)
+    |> equal 3
 
-// [<Fact>]
-// let ``List.reduceBack works`` () =
-//     let xs = [1; 2]
-//     xs |> List.reduceBack (+)
-//     |> equal 3
+[<Fact>]
+let ``List.reduceBack works`` () =
+    let xs = [1; 2]
+    xs |> List.reduceBack (+)
+    |> equal 3
 
-// [<Fact>]
-// let ``List.replicate works`` () =
-//     List.replicate 3 3
-//     |> List.sum |> equal 9
+[<Fact>]
+let ``List.replicate works`` () =
+    List.replicate 3 4
+    |> List.toArray |> equal [|4;4;4|]
 
 [<Fact>]
 let ``List.rev works`` () =
@@ -555,57 +546,62 @@ let ``List.rev works`` () =
 //     |> List.sumBy (fun x -> x.MyNumber)
 //     |> equal (MyNumber 12)
 
-// [<Fact>]
-// let ``List.skip works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     let ys = xs |> List.skip 1
-//     ys |> List.head
-//     |> equal 2.
+[<Fact>]
+let ``List.skip works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> List.skip 2
+    |> List.toArray |> equal [|3.; 4.; 5.|]
+
+[<Fact>]
+let ``List.skipWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> List.skipWhile (fun i -> i < 3.)
+    |> List.toArray |> equal [|3.; 4.; 5.|]
+
+[<Fact>]
+let ``List.take works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> List.take 2
+    |> List.toArray |> equal [|1.; 2.|]
 
 // [<Fact>]
-// let ``List.skipWhile works`` () =
+// let ``List.take works II`` () =
 //     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> List.skipWhile (fun i -> i <= 3.)
-//     |> List.head
-//     |> equal 4.
-
-// [<Fact>]
-// let ``List.take works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> List.take 2
-//     |> List.last
-//     |> equal 2.
 //     // List.take should throw an exception if there're not enough elements
 //     try xs |> List.take 20 |> List.length with _ -> -1
 //     |> equal -1
 
-// [<Fact>]
-// let ``List.takeWhile works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> List.takeWhile (fun i -> i < 3.)
-//     |> List.last
-//     |> equal 2.
+[<Fact>]
+let ``List.takeWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> List.takeWhile (fun i -> i < 3.)
+    |> List.toArray |> equal [|1.; 2.|]
 
-// [<Fact>]
-// let ``List.tail works`` () =
-//     let xs = [1; 2]
-//     let ys = xs |> List.tail
-//     equal 1 ys.Length
+[<Fact>]
+let ``List.tail works`` () =
+    let xs = [1; 2; 3]
+    xs |> List.tail
+    |> List.toArray |> equal [|2; 3|]
 
-// [<Fact>]
-// let ``List.toArray works 2`` () =
-//     let ys = List.toArray [1; 2]
-//     ys.[0] + ys.[1] |> equal 3
-//     let xs = [1; 1]
-//     let ys2 = List.toArray (2::xs)
-//     ys2.[0] + ys2.[1] + ys2.[2] |> equal 4
+[<Fact>]
+let ``List.toArray works`` () =
+    let xs = 1::2::3::[]
+    xs |> List.toArray |> equal [|1;2;3|]
 
-// [<Fact>]
-// let ``List.toSeq works`` () =
-//     [1; 2]
-//     |> List.toSeq
-//     |> Seq.tail |> Seq.head
-//     |> equal 2
+[<Fact>]
+let ``List.toArray works II`` () =
+    let ys = List.toArray [1; 2]
+    ys.[0] + ys.[1] |> equal 3
+    let xs = [1; 1]
+    let ys2 = List.toArray (2::xs)
+    ys2.[0] + ys2.[1] + ys2.[2] |> equal 4
+
+[<Fact>]
+let ``List.toSeq works`` () =
+    [1; 2]
+    |> List.toSeq
+    |> Seq.tail |> Seq.head
+    |> equal 2
 
 [<Fact>]
 let ``List.tryPick works`` () =
@@ -659,8 +655,7 @@ let ``List snail to append works`` () =
     let xs = [1; 2; 3; 4]
     let ys = [0]
     let zs = ys @ xs
-    zs.Head + zs.Tail.Head
-    |> equal 1
+    zs |> List.toArray |> equal [|0; 1; 2; 3; 4|]
 
 // [<Fact>]
 // let ``List slice works`` () =
@@ -670,8 +665,14 @@ let ``List snail to append works`` () =
 //     xs.[1..2] |> List.sum |> equal 5
 //     xs.[0..-1] |> List.sum |> equal 0
 
+[<Fact>]
+let ``List.truncate works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let ys = List.truncate 3 xs
+    ys |> List.toArray |> equal [|1;2;3|]
+
 // [<Fact>]
-// let ``List.truncate works`` () =
+// let ``List.truncate works II`` () =
 //     [1..3] = (List.truncate 3 [1..5]) |> equal true
 //     [1..5] = (List.truncate 10 [1..5]) |> equal true
 //     [] = (List.truncate 0 [1..5]) |> equal true
@@ -777,11 +778,11 @@ let ``List snail to append works`` () =
 //     ys |> List.length |> equal 2
 //     ys |> List.head |> fst >= 4 |> equal true
 
-// [<Fact>]
-// let ``List.findBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> List.find ((>) 4.) |> equal 1.
-//     xs |> List.findBack ((>) 4.) |> equal 3.
+[<Fact>]
+let ``List.findBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.find ((>) 4.) |> equal 1.
+    xs |> List.findBack ((>) 4.) |> equal 3.
 
 // [<Fact>]
 // let ``List.findIndexBack works`` () =
@@ -789,19 +790,19 @@ let ``List snail to append works`` () =
 //     xs |> List.findIndex ((>) 4.) |> equal 0
 //     xs |> List.findIndexBack ((>) 4.) |> equal 2
 
-// [<Fact>]
-// let ``List.tryFindBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
-//     xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
-//     xs |> List.tryFindBack ((=) 5.) |> equal None
+[<Fact>]
+let ``List.tryFindBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> List.tryFindBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``List.tryFindIndexBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
-//     xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-//     xs |> List.tryFindIndexBack ((=) 5.) |> equal None
+[<Fact>]
+let ``List.tryFindIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> List.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Fact>]
 let ``List.indexed works`` () =
@@ -810,21 +811,20 @@ let ``List.indexed works`` () =
     fst xs.[2] |> equal 2
     snd xs.[2] |> equal "c"
 
-// [<Fact>]
-// let ``List.map3 works`` () =
-//     let xs = [1;2;3]
-//     let ys = [5;4;3]
-//     let zs = [7;8;9]
-//     let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
-//     List.sum ks
-//     |> equal 6
+[<Fact>]
+let ``List.map3 works`` () =
+    let xs = [1;2;3]
+    let ys = [5;4;3]
+    let zs = [7;8;9]
+    let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
+    ks |> List.toArray |> equal [|1; 2; 3|]
 
-// [<Fact>]
-// let ``List.mapi2 works`` () =
-//     let xs = [7;8;9]
-//     let ys = [5;4;3]
-//     let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
-//     List.sum zs |> equal 16
+[<Fact>]
+let ``List.mapi2 works`` () =
+    let xs = [7;8;9]
+    let ys = [5;4;3]
+    let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
+    zs |> List.toArray |> equal [|0; 4; 12|]
 
 // [<Fact>]
 // let ``List.mapFold works`` () =
@@ -950,21 +950,21 @@ let ``List.tryLast works`` () =
 //     let grouped = xs |> List.groupBy fst
 //     grouped |> equal mapped
 
-// [<Fact>]
-// let ``List.unfold works`` () =
-//     let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
-//     let sum =
-//         match xs with
-//         | n1::n2::n3::[] -> n1 + n2 + n3
-//         | _ -> 0.0
-//     sum |> equal 6.0
+[<Fact>]
+let ``List.unfold works`` () =
+    let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
+    let sum =
+        match xs with
+        | n1::n2::n3::[] -> n1 + n2 + n3
+        | _ -> 0.0
+    sum |> equal 6.0
 
-// [<Fact>]
-// let ``List.splitAt works`` () =
-//     let li = [1;2;3;4]
-//     List.splitAt 0 li |> equal ([], [1;2;3;4])
-//     List.splitAt 3 li |> equal ([1;2;3], [4])
-//     List.splitAt 4 li |> equal ([1;2;3;4], [])
+[<Fact>]
+let ``List.splitAt works`` () =
+    let li = [1;2;3;4]
+    List.splitAt 0 li |> equal ([], [1;2;3;4])
+    List.splitAt 3 li |> equal ([1;2;3], [4])
+    List.splitAt 4 li |> equal ([1;2;3;4], [])
 
 // [<Fact>]
 // let ``List.windowed works`` () = // See #1716

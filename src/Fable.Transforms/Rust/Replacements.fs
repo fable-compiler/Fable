@@ -2102,8 +2102,10 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "ToSeq", [arg] -> Some arg
-    | "OfSeq", [arg] -> toArray r t arg |> Some
+    | "ToSeq", [arg] ->
+        Helper.LibCall(com, "Seq", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "OfSeq", [arg] ->
+        Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "OfList", [arg] ->
         Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", args ->
@@ -2155,15 +2157,16 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
 
 let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "IsEmpty", [x] -> Test(x, ListTest false, r) |> Some
+    | "IsEmpty", [arg] -> Test(arg, ListTest false, r) |> Some
     | "Empty", _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
-    | "Singleton", [x] ->
-        NewList(Some(x, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
+    | "Singleton", [arg] ->
+        NewList(Some(arg, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | "ToSeq", [x] ->
-        //toSeq t x |> Some
+    | "ToSeq", [arg] ->
         Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "OfSeq", [arg] ->
+        Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args

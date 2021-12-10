@@ -363,13 +363,13 @@ let ``Array.append works`` () =
 //     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
 //     |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
-// [<Fact>]
-// let ``Array.choose with ints works`` () =
-//     let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
-//     let result = xs |> Array.choose (fun i ->
-//         if i % 2 = 1 then Some i
-//         else None)
-//     result.Length |> equal 5
+[<Fact>]
+let ``Array.choose with ints works`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+    let result = xs |> Array.choose (fun i ->
+        if i % 2 = 1 then Some i
+        else None)
+    result.Length |> equal 5
 
 // [<Fact>]
 // let ``Array.choose with longs works`` () =
@@ -437,43 +437,43 @@ let ``Array.filter works`` () =
 //     let ys = xs |> Array.filter System.Char.IsLetter
 //     ys.Length |> equal 3
 
-// [<Fact>]
-// let ``Array.find works`` () =
-//     let xs = [|1us; 2us; 3us; 4us|]
-//     xs |> Array.find ((=) 2us)
-//     |> equal 2us
+[<Fact>]
+let ``Array.find works`` () =
+    let xs = [|1us; 2us; 3us; 4us|]
+    xs |> Array.find ((=) 2us)
+    |> equal 2us
 
-// [<Fact>]
-// let ``Array.findIndex works`` () =
-//     let xs = [|1.f; 2.f; 3.f; 4.f|]
-//     xs |> Array.findIndex ((=) 2.f)
-//     |> equal 1
+[<Fact>]
+let ``Array.findIndex works`` () =
+    let xs = [|1.f; 2.f; 3.f; 4.f|]
+    xs |> Array.findIndex ((=) 2.f)
+    |> equal 1
 
-// [<Fact>]
-// let ``Array.findBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.find ((>) 4.) |> equal 1.
-//     xs |> Array.findBack ((>) 4.) |> equal 3.
+[<Fact>]
+let ``Array.findBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.find ((>) 4.) |> equal 1.
+    xs |> Array.findBack ((>) 4.) |> equal 3.
 
-// [<Fact>]
-// let ``Array.findIndexBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.findIndex ((>) 4.) |> equal 0
-//     xs |> Array.findIndexBack ((>) 4.) |> equal 2
+[<Fact>]
+let ``Array.findIndexBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.findIndex ((>) 4.) |> equal 0
+    xs |> Array.findIndexBack ((>) 4.) |> equal 2
 
-// [<Fact>]
-// let ``Array.tryFindBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
-//     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
-//     xs |> Array.tryFindBack ((=) 5.) |> equal None
+[<Fact>]
+let ``Array.tryFindBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> Array.tryFindBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``Array.tryFindIndexBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
-//     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-//     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
+[<Fact>]
+let ``Array.tryFindIndexBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Fact>]
 let ``Array.fold works`` () =
@@ -585,33 +585,33 @@ let ``Array.map doesn't execute side effects twice`` () = // See #1140
     [| i (); i (); i () |] |> Array.map (fun x -> x + 1) |> ignore
     equal 3 c
 
-// [<Fact>]
-// let ``Array.map2 works`` () =
-//     let xs = [|1.|]
-//     let ys = [|2.|]
-//     let zs = Array.map2 (*) xs ys
-//     zs.[0] |> equal 2.
+[<Fact>]
+let ``Array.map2 works`` () =
+    let xs = [|1.|]
+    let ys = [|2.|]
+    let zs = Array.map2 (*) xs ys
+    zs.[0] |> equal 2.
 
-// [<Fact>]
-// let ``Array.map3 works`` () =
-//     let value1 = [|1.|]
-//     let value2 = [|2.|]
-//     let value3 = [|3.|]
-//     let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
-//     zs.[0] |> equal 6.
+[<Fact>]
+let ``Array.map3 works`` () =
+    let value1 = [|1.|]
+    let value2 = [|2.|]
+    let value3 = [|3.|]
+    let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
+    zs.[0] |> equal 6.
 
-// [<Fact>]
-// let ``Array.mapi works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.mapi (fun i x -> float i + x)
-//     ys.[1] |> equal 3.
+[<Fact>]
+let ``Array.mapi works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.mapi (fun i x -> float i + x)
+    ys.[1] |> equal 3.
 
-// [<Fact>]
-// let ``Array.mapi2 works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = [|2.; 3.|]
-//     let zs = Array.mapi2 (fun i x y -> float i + x * y) xs ys
-//     zs.[1] |> equal 7.
+[<Fact>]
+let ``Array.mapi2 works`` () =
+    let xs = [|1.; 2.|]
+    let ys = [|2.; 3.|]
+    let zs = Array.mapi2 (fun i x y -> float i + x * y) xs ys
+    zs.[1] |> equal 7.
 
 // [<Fact>]
 // let ``Array.mapFold works`` () =
@@ -678,14 +678,14 @@ let ``Array.map doesn't execute side effects twice`` () = // See #1140
 //     let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
 //     ys.[0] |> equal 2.
 
-// [<Fact>]
-// let ``Array.pick works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.pick (fun x ->
-//         match x with
-//         | 2. -> Some x
-//         | _ -> None)
-//     |> equal 2.
+[<Fact>]
+let ``Array.pick works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.pick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    |> equal 2.
 
 // [<Fact>]
 // let ``Array.range works`` () =
@@ -767,18 +767,16 @@ let ``Array.rev works`` () =
 //     let ys = [|"a"; "c"; "B"; "d"|]
 //     (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
 
-// [<Fact>]
-// let ``Array.truncate works`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     xs |> Array.truncate 2
-//     |> Array.last
-//     |> equal 2.
-
-//     xs.Length |> equal 5 // Make sure there is no side effects
-
-//     // Array.truncate shouldn't throw an exception if there're not enough elements
-//     try xs |> Array.truncate 20 |> Array.length with _ -> -1
-//     |> equal 5
+[<Fact>]
+let ``Array.truncate works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.truncate 2
+    |> Array.last
+    |> equal 2.
+    xs.Length |> equal 5 // Make sure there is no side effects
+    // Array.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Array.truncate 20 |> Array.length with _ -> -1
+    |> equal 5
 
 // [<Fact>]
 // let ``Array.sortDescending works`` () =
@@ -870,47 +868,52 @@ let ``Array.rev works`` () =
 //     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
 //     |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
-// [<Fact>]
-// let ``Array.toList works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.toList
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Array.toList works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toList
+    ys.[0] + ys.[1]
+    |> equal 3.
 
-// [<Fact>]
-// let ``Array.toSeq works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.toSeq
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``Array.toSeq works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toSeq
+    ys |> Seq.head
+    |> equal 1.
 
-// [<Fact>]
-// let ``Array.tryFind works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.tryFind ((=) 1.)
-//     |> Option.isSome |> equal true
-//     xs |> Array.tryFind ((=) 3.)
-//     |> Option.isSome |> equal false
+[<Fact>]
+let ``Array.tryFind works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFind ((=) 1.)
+    |> Option.isSome |> equal true
+    xs |> Array.tryFind ((=) 3.)
+    |> Option.isSome |> equal false
 
-// [<Fact>]
-// let ``Array.tryFindIndex works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.tryFindIndex ((=) 2.)
-//     |> equal (Some 1)
-//     xs |> Array.tryFindIndex ((=) 3.)
-//     |> equal None
+[<Fact>]
+let ``Array.tryFindIndex works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFindIndex ((=) 2.)
+    |> equal (Some 1)
+    xs |> Array.tryFindIndex ((=) 3.)
+    |> equal None
 
-// [<Fact>]
-// let ``Array.tryPick works`` () =
-//     let xs = [|1.; 2.|]
-//     let r = xs |> Array.tryPick (fun x ->
-//         match x with
-//         | 2. -> Some x
-//         | _ -> None)
-//     match r with
-//     | Some x -> x
-//     | None -> 0.
-//     |> equal 2.
+[<Fact>]
+let ``Array.tryPick works`` () =
+    let xs = [|1.; 2.|]
+    let r = xs |> Array.tryPick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    match r with
+    | Some x -> x
+    | None -> 0.
+    |> equal 2.
+
+[<Fact>]
+let ``Array.unfold works`` () =
+    let xs = 0. |> Array.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
+    xs |> equal [|1.;2.;3.|]
 
 // [<Fact>]
 // let ``Array.unzip works`` () =
@@ -1014,10 +1017,10 @@ let ``Array.tryLast works`` () =
     Array.tryLast xs |> equal (Some 4.)
     Array.tryLast<float> [||] |> equal None
 
-// [<Fact>]
-// let ``Array.tail works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.tail xs |> Array.length |> equal 3
+[<Fact>]
+let ``Array.tail works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tail xs |> Array.length |> equal 3
 
 // [<Fact>]
 // let ``Array.groupBy returns valid array`` () =
@@ -1078,12 +1081,12 @@ let ``Array indexed works`` () =
 //     [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
 //     [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
 
-// [<Fact>]
-// let ``Array.splitAt works`` () =
-//     let ar = [|1;2;3;4|]
-//     Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
-//     Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
-//     Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+[<Fact>]
+let ``Array.splitAt works`` () =
+    let ar = [|1;2;3;4|]
+    Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
+    Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
+    Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
 
 // [<Fact>]
 // let ``Arrays are independent from type of the elements`` () =
@@ -1102,36 +1105,36 @@ let ``Array indexed works`` () =
 //     let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
 //     [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
 
-// [<Fact>]
-// let ``Array.skip works`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     let ys = xs |> Array.skip 1
-//     ys |> Array.head
-//     |> equal 2.
+[<Fact>]
+let ``Array.skip works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    let ys = xs |> Array.skip 1
+    ys |> Array.head |> equal 2.
+
+[<Fact>]
+let ``Array.skipWhile works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    let ys = xs |> Array.skipWhile (fun i -> i <= 3.)
+    ys |> Array.head |> equal 4.
+
+[<Fact>]
+let ``Array.take works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.take 2
+    |> equal [|1.; 2.|]
 
 // [<Fact>]
-// let ``Array.skipWhile works`` () =
+// let ``Array.take works II`` () =
 //     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     xs |> Array.skipWhile (fun i -> i <= 3.)
-//     |> Array.head
-//     |> equal 4.
-
-// [<Fact>]
-// let ``Array.take works`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     xs |> Array.take 2
-//     |> Array.last
-//     |> equal 2.
 //     // Array.take should throw an exception if there're not enough elements
 //     try xs |> Array.take 20 |> Array.length with _ -> -1
 //     |> equal -1
 
-// [<Fact>]
-// let ``Array.takeWhile works`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     xs |> Array.takeWhile (fun i -> i < 3.)
-//     |> Array.last
-//     |> equal 2.
+[<Fact>]
+let ``Array.takeWhile works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.takeWhile (fun i -> i < 4.)
+    |> equal [|1.; 2.; 3.|]
 
 // [<Fact>]
 // let ``Array.windowed works`` () = // See #1716
