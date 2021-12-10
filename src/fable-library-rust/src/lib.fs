@@ -9,7 +9,6 @@ let imports: unit[] = [|
     importAll "./Option.rs"
     importAll "./Array.rs"
     importAll "./List.rs"
-    // importAll "./Enumerable.rs"
     importAll "./Seq.rs"
     importAll "./Util.rs"
 |]
