@@ -1,5 +1,6 @@
 from typing import Any
 
+
 def add_to_set(v: Any, st: set) -> bool:
     if v in st:
         return False
@@ -27,4 +28,4 @@ def get_item_from_dict(map: dict, key: Any) -> Any:
     if key in map:
         return map.get(key)
     else:
-        raise Exception(f"The given key '${key}' was not present in the dictionary.")
+        raise Exception(f"The given key '{key}' was not present in the dictionary.")

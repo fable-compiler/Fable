@@ -20,7 +20,7 @@ module Helpers =
     [<Emit("[None]*$0")>]
     let allocateArray (len: int) : 'T [] = nativeOnly
 
-    [<Emit("[x for i, x in enumerate($0) if i < len]")>]
+    [<Emit("[x for i, x in enumerate($0) if i < $1]")>]
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =

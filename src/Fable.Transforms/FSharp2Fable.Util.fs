@@ -1956,6 +1956,7 @@ module Util =
             else
                 makeCall r t info importExpr
         | body ->
+            let body = Fable.TypeCast(body, t)
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee info (memb: FSharpMemberOrFunctionOrValue) =
