@@ -18,7 +18,7 @@ let inline private transformExprList com ctx xs = trampolineListMap (transformEx
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
 let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
-    let baseEnt = FsEnt baseEnt
+    let baseEnt = FsEnt.Transform(com, baseEnt)
     let argTypes = lazy getArgTypes com baseCons
     let baseArgs = transformExprList com ctx baseArgs |> run
     let genArgs = genArgs |> Seq.map (makeType ctx.GenericArgs)
@@ -161,7 +161,7 @@ let private transformCallee com ctx callee (calleeType: FSharpType) =
     let callee =
         match callee with
         | Some callee -> callee
-        | None -> entityRef com (FsEnt calleeType.TypeDefinition)
+        | None -> FsEnt.Transform(com, calleeType.TypeDefinition) |> entityRef com
     return callee
   }
 
@@ -199,7 +199,7 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                     ent.TryGetMembersFunctionsAndValues()
                     |> Seq.tryFind (fun x -> x.CompiledName = sign.Name)
                     |> function Some m -> hasParamArray m | None -> false
-            let isMangled = isMangledAbstractEntity ent
+            let isMangled = isMangledAbstractEntity com ent
             let name, isGetter, isSetter =
                 if isMangled then
                     let overloadHash =
@@ -475,8 +475,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! args = transformExprList com ctx argExprs
         let entity: Fable.Entity =
             match comp with
-            | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
-            | None -> upcast FsEnt memb.DeclaringEntity.Value
+            | Some comp -> FsEnt.Transform(com, comp.DeclaringEntity.Value)
+            | None -> FsEnt.Transform(com, memb.DeclaringEntity.Value)
         let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
         return (match membOpt with
                 | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
@@ -1022,14 +1022,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
-let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
+let private isIgnoredNonAttachedMember com (meth: FSharpMemberOrFunctionOrValue) =
     Option.isSome meth.LiteralValue
     || meth.Attributes |> Seq.exists (fun att ->
         match att.AttributeType.TryFullName with
         | Some(Atts.global_ | Naming.StartsWith Atts.import _ | Naming.StartsWith Atts.emit _) -> true
         | _ -> false)
     || (match meth.DeclaringEntity with
-        | Some ent -> isGlobalOrImportedEntity (FsEnt ent)
+        | Some ent -> isGlobalOrImportedEntity(FsEnt.Transform(com, ent))
         | None -> false)
 
 let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
@@ -1146,7 +1146,7 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
                 Replacements.makeTypeConst com None typ value)
             |> Seq.toList
         let callInfo = { makeCallInfo None args [] with IsJsConstructor = true }
-        FsEnt(ent) |> entityRef com
+        FsEnt.Transform(com, ent) |> entityRef com
         |> makeCall None Fable.Any callInfo
 
     let applyDecorator (body: Fable.Expr)
@@ -1280,7 +1280,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb
                          UsedNamesInDeclarationScope = HashSet() }
-    if isIgnoredNonAttachedMember memb then
+    if isIgnoredNonAttachedMember com memb then
         if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
@@ -1294,7 +1294,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         if not memb.IsCompilerGenerated then
             match memb.DeclaringEntity with
             | Some declaringEntity ->
-                let declaringEntity = FsEnt declaringEntity :> Fable.Entity
+                let declaringEntity = FsEnt.Transform(com, declaringEntity)
                 if isGlobalOrImportedEntity declaringEntity then ()
                 elif isErasedOrStringEnumEntity declaringEntity then
                     // Ignore abstract members for classes, see #2295
@@ -1402,11 +1402,7 @@ let getRootFSharpEntities (file: FSharpImplementationFileContents) =
                 nested |> List.collect getRootFSharpEntitiesInner 
             else [ent]
         | _ -> []
-    try
-        file.Declarations |> List.collect getRootFSharpEntitiesInner
-    with e ->
-        printfn $"Entities: Fail in file {file.FileName} - {e.Message} - {e.StackTrace}"    
-        []
+    file.Declarations |> List.collect getRootFSharpEntitiesInner
 
 let getRootModule (file: FSharpImplementationFileContents) =
     let rec getRootModuleInner outerEnt decls =
@@ -1417,11 +1413,38 @@ let getRootModule (file: FSharpImplementationFileContents) =
             getRootModuleInner (Some ent) decls
         | _, Some e -> FsEnt.FullName e
         | _, None -> ""
-    try
-        getRootModuleInner None file.Declarations
-    with _ ->
-        printfn $"Root module: Fail in file {file.FileName}"    
-        ""
+    getRootModuleInner None file.Declarations
+
+let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
+    let com = FableCompiler(com) :> IFableCompiler
+
+    let rec getInlineExprsInner decls =
+        decls |> List.collect (function
+            | FSharpImplementationFileDeclaration.InitAction _ -> []
+            | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
+                if isInline memb then
+                    try
+                        let ctx = { Context.Create() with
+                                        PrecompilingInlineFunction = Some memb
+                                        UsedNamesInDeclarationScope = HashSet() }
+
+                        let ctx, idents =
+                            ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
+                                let ctx, ident = putArgInScope com ctx argId
+                                ctx, ident::idents)
+
+                        let inlineExpr =
+                            { Args = List.rev idents
+                              Body = com.Transform(ctx, body)
+                              FileName = file.FileName
+                              ScopeIdents = set ctx.UsedNamesInDeclarationScope }
+
+                        [getMemberUniqueName memb, inlineExpr]
+                    with _ -> []
+                else [])
+
+    getInlineExprsInner file.Declarations
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
@@ -1594,41 +1617,6 @@ type FableCompiler(com: Compiler) =
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
-
-let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
-    let com = FableCompiler(com) :> IFableCompiler
-
-    let rec getInlineExprsInner decls =
-        decls |> List.collect (function
-            | FSharpImplementationFileDeclaration.InitAction _ -> []
-            | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
-                if isInline memb then
-                    try
-                        let ctx = { Context.Create() with
-                                        PrecompilingInlineFunction = Some memb
-                                        UsedNamesInDeclarationScope = HashSet() }
-
-                        let ctx, idents =
-                            ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
-                                let ctx, ident = putArgInScope com ctx argId
-                                ctx, ident::idents)
-
-                        let inlineExpr =
-                            { Args = List.rev idents
-                              Body = com.Transform(ctx, body)
-                              FileName = file.FileName
-                              ScopeIdents = set ctx.UsedNamesInDeclarationScope }
-
-                        [getMemberUniqueName memb, inlineExpr]
-                    with _ -> []
-                else [])
-
-    try
-        getInlineExprsInner file.Declarations
-    with _ ->
-        printfn $"Inline: Fail in file {file.FileName}"
-        []
 
 let transformFile (com: Compiler) =
     let file = com.GetImplementationFile(com.CurrentFile)

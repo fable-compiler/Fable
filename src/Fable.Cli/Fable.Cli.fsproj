@@ -21,7 +21,6 @@
     <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MessagePack.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
     <Compile Include="Globbing.fs" />
@@ -40,8 +39,6 @@
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="MessagePack" Version="2.3.85" />
-    <PackageReference Include="MessagePack.FSharpExtensions" Version="3.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.7" />
   </ItemGroup>
   <ItemGroup>
