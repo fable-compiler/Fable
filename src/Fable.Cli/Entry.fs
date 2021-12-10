@@ -227,6 +227,12 @@ type Runner =
         |> List.append [
             "FABLE_COMPILER"
             "FABLE_COMPILER_3"
+            match language with
+            | Php -> "FABLE_COMPILER_PHP"
+            | Rust -> "FABLE_COMPILER_RUST"
+            | Dart -> "FABLE_COMPILER_DART"
+            | Python -> "FABLE_COMPILER_PY"
+            | JavaScript -> "FABLE_COMPILER_JS"
         ]
         |> List.distinct
 
