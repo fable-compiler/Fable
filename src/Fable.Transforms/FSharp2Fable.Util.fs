@@ -181,17 +181,18 @@ type FsEnt(ent: FSharpEntity) =
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
         let path =
             match ent.Assembly.FileName with
-            // When compiling with netcoreapp target, netstandard only contains redirects
-            // Find the actual assembly name from the entity qualified name
-            | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
-                ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-#if FABLE_COMPILER
-            | Some asmPath when asmPath.EndsWith("Fable.Repl.Lib.dll") ->
-                let sourcePath = FsEnt.SourcePath ent
-                let sourcePath = "fable-repl-lib" + sourcePath.[sourcePath.IndexOf("Fable.Repl.Lib") + 14 ..]
-                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
-#endif
-            | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
+            | Some asmPath ->
+                let dllName = Path.GetFileName(asmPath)
+                match dllName with
+                // When compiling with netcoreapp target, netstandard only contains redirects
+                // Find the actual assembly name from the entity qualified name
+                | "netstandard.dll" ->
+                    ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+                | Naming.fablePrecompileDll ->
+                    let sourcePath = FsEnt.SourcePath ent
+                    Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
+                | _ ->
+                    Path.normalizePath asmPath |> Fable.AssemblyPath
             | None -> FsEnt.SourcePath ent |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
           Path = path }

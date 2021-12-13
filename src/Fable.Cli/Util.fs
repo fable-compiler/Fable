@@ -394,3 +394,102 @@ module ResultCE =
         member _.ReturnFrom v = v
 
     let result = ResultBuilder()
+
+module Json =
+    open System.IO
+    open System.Text.Json
+    open System.Text.Json.Serialization
+
+    type MemberInfoConverter() =
+        inherit JsonConverter<Fable.AST.Fable.MemberInfo>()
+        override _.Read(reader: byref<Utf8JsonReader>, typeToConvert, options) =
+            reader.Read() |> ignore // Skip start array
+            reader.Read() |> ignore // Skip start array for attributes
+            let attributes = ResizeArray<Fable.AST.Fable.Attribute>()
+            while reader.TokenType <> JsonTokenType.StartArray do
+                JsonSerializer.Deserialize(&reader, options)
+                |> attributes.Add
+            let hasSpread = reader.GetBoolean()
+            let isMangled = reader.GetBoolean()
+            let isPublic = reader.GetBoolean()
+            let isInstance = reader.GetBoolean()
+            let isValue = reader.GetBoolean()
+            let isMutable = reader.GetBoolean()
+            let isGetter = reader.GetBoolean()
+            let isSetter = reader.GetBoolean()
+            let isEnumerator = reader.GetBoolean()
+            { new Fable.AST.Fable.MemberInfo with
+                member _.Attributes = attributes
+                member _.HasSpread = hasSpread
+                member _.IsMangled = isMangled
+                member _.IsPublic = isPublic
+                member _.IsInstance = isInstance
+                member _.IsValue = isValue
+                member _.IsMutable = isMutable
+                member _.IsGetter = isGetter
+                member _.IsSetter = isSetter
+                member _.IsEnumerator = isEnumerator }
+
+        override _.Write(writer, value, options) =
+            writer.WriteStartArray()
+            writer.WriteStartArray()
+            for att in value.Attributes do
+                JsonSerializer.Serialize(writer, att, options)
+            writer.WriteEndArray()
+            writer.WriteBooleanValue(value.HasSpread)
+            writer.WriteBooleanValue(value.IsMangled)
+            writer.WriteBooleanValue(value.IsPublic)
+            writer.WriteBooleanValue(value.IsInstance)
+            writer.WriteBooleanValue(value.IsValue)
+            writer.WriteBooleanValue(value.IsMutable)
+            writer.WriteBooleanValue(value.IsGetter)
+            writer.WriteBooleanValue(value.IsSetter)
+            writer.WriteBooleanValue(value.IsEnumerator)
+            writer.WriteEndArray()
+
+    type DoubleConverter() =
+        inherit JsonConverter<float>()
+        override _.Read(reader, typeToConvert, options) =
+            if reader.TokenType = JsonTokenType.String then
+                match reader.GetString() with
+                | "+Infinity" -> Double.PositiveInfinity
+                | "-Infinity" -> Double.NegativeInfinity
+                | _ -> Double.NaN
+            else
+                reader.GetDouble()
+
+        override _.Write(writer, value, options) =
+            if Double.IsPositiveInfinity(value) then
+                writer.WriteStringValue("+Infinity")
+            elif Double.IsNegativeInfinity(value) then
+                writer.WriteStringValue("-Infinity")
+            elif Double.IsNaN(value) then
+                writer.WriteStringValue("NaN")
+            else
+                writer.WriteNumberValue(value)
+
+    // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson
+    let getOptions() =
+        let jsonOptions = JsonSerializerOptions(MaxDepth=Int32.MaxValue)
+        jsonOptions.Converters.Add(DoubleConverter())
+        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
+        jsonOptions
+
+    let read<'T> (path: string) =
+        let bytes = File.ReadAllBytes(path)
+        JsonSerializer.Deserialize<'T>(bytes, getOptions())
+
+    let readAsync<'T> (path: string) = async {
+        use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+        let! result = JsonSerializer.DeserializeAsync<'T>(fileStream, getOptions()).AsTask() |> Async.AwaitTask
+        return result
+    }
+
+    let write (path: string) (data: 'T): unit =
+        use fileStream = new FileStream(path, FileMode.Create)
+        use writer = new Utf8JsonWriter(fileStream)
+        JsonSerializer.Serialize(writer, data, getOptions())
+
+    let writeAsync (path: string) (data: 'T) =
+        use fileStream = new FileStream(path, FileMode.Create)
+        JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions()) |> Async.AwaitTask

@@ -1,6 +1,7 @@
 module Fable.Cli.Main
 
 open System
+open System.Collections.Concurrent
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
@@ -14,6 +15,59 @@ open ProjectCracker
 
 module private Util =
     let newLine = Environment.NewLine
+
+    type PrecompiledInfoImpl(fableModulesDir, rootModules: Map<string, string>, inlineExprHeaders: string[]) =
+        let dic = ConcurrentDictionary<int, Map<string, InlineExpr>>()
+
+        interface PrecompiledInfo with
+            member _.TryGetRootModule(normalizedFullPath) =
+                Map.tryFind normalizedFullPath rootModules
+            member _.TryGetInlineExpr(memberUniqueName) =
+                let index = Array.BinarySearch(inlineExprHeaders, memberUniqueName)
+                let index = if index < 0 then ~~~index else index
+                let map = dic.GetOrAdd(index, fun _ ->
+                    PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, index) |> Json.read
+                )
+                Map.tryFind memberUniqueName map
+
+        static member GetPath(fableModulesDir) =
+            IO.Path.Combine(fableModulesDir, "precompiled_info.json")
+
+        static member GetInlineExprsPath(fableModulesDir, index: int) =
+            IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
+
+        static member Load(fableModulesDir) =
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
+            let info = Json.read<{| RootModules: Map<string, string>; InlineExprHeaders: string[] |}> precompiledInfoPath
+            PrecompiledInfoImpl(fableModulesDir, info.RootModules, info.InlineExprHeaders)
+
+        static member Save(project: Project, fableModulesDir) = async {
+            let inlineExprs =
+                project.InlineExprs
+                |> Seq.map (fun kv -> kv.Key, kv.Value)
+                |> Seq.toArray
+                |> Array.sortBy fst
+                |> Array.chunkBySize 10
+
+            do
+                PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, 0)
+                |> IO.Path.GetDirectoryName
+                |> IO.Directory.CreateDirectory
+                |> ignore
+
+            // I tried to parallelize this but it caused the program to hang (?)
+            for i = 0 to inlineExprs.Length - 1 do
+                let chunk = inlineExprs.[i] |> Map
+                let path = PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, i)
+                Json.write path chunk
+
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
+            let rootModules = project.ImplementationFiles |> Map.map (fun _ v -> v.RootModule)
+            let inlineExprHeaders = inlineExprs |> Array.map (Array.head >> fst)
+            {| RootModules = rootModules
+               InlineExprHeaders = inlineExprHeaders |}
+            |> Json.write precompiledInfoPath
+        }
 
     let loadType (cliArgs: CliArgs) (r: PluginRef): Type =
         /// Prevent ReflectionTypeLoadException
@@ -305,6 +359,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.References = crackerResponse.References
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
+    member _.PrecompiledFiles = crackerResponse.PrecompiledFiles
+    member _.FableLibDir = crackerResponse.FableLibDir
 
     member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
         let opts =
@@ -341,22 +397,24 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
 type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array, project: Project) =
 
-    static let checkProject (config: ProjectCracked) (checker: InteractiveChecker) lastFile = async {
-        Log.always "Started F# compilation..."
+    static member Check(checker: InteractiveChecker, projectFile, files: File[], ?lastFile, ?optimize, ?silent) = async {
+        let silent = defaultArg silent false
+        if not silent then Log.always "Started F# compilation..."
 
         let! checkResults, ms = measureTimeAsync <| fun () ->
             let fileDic =
-                config.SourceFiles
+                files
                 |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
             let sourceReader f = fileDic.[f].ReadSource()
-            let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
-            checker.ParseAndCheckProject(config.ProjectFile, filePaths, sourceReader, ?lastFile=lastFile)
+            let filePaths = files |> Array.map (fun file -> file.NormalizedFullPath)
+            checker.ParseAndCheckProject(projectFile, filePaths, sourceReader, ?lastFile=lastFile)
 
-        Log.always $"F# compilation finished in %i{ms}ms{newLine}"
+        if not silent then Log.always $"F# compilation finished in %i{ms}ms{newLine}"
 
         let implFiles =
-            if config.FableOptions.OptimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-            else checkResults.AssemblyContents.ImplementationFiles
+            match optimize with
+            | Some true -> checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+            | _ -> checkResults.AssemblyContents.ImplementationFiles
 
         return implFiles, checkResults.Diagnostics, lazy checkResults.ProjectContext.GetReferencedAssemblies()
     }
@@ -365,14 +423,108 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
     member _.Checker = checker
     member _.Errors = errors
 
-    static member Init(projCracked: ProjectCracked) = async {
-        let checker = InteractiveChecker.Create(projCracked.ProjectOptions)
-        let! implFiles, errors, assemblies = checkProject projCracked checker None
+    static member CreatePrecompiledAssembly(config: ProjectCracked, outPath: string) = async {
+        let argv = [|
+            "fsc.exe"
+            yield! config.ProjectOptions.OtherOptions
+            "--nowin32manifest" // See https://github.com/fsharp/fsharp-compiler-docs/issues/755
+            "-o"
+            outPath
+            yield! config.PrecompiledFiles
+        |]
+
+        let checker = FSharpChecker.Create()
+
+        let! diagnostics, exitCode = checker.Compile(argv)
+        if exitCode = 0 then
+            return Ok()
+        else
+            return Error diagnostics
+    }
+
+    static member Precompile(projCracked: ProjectCracked, dedup) = async {
+        if Array.isEmpty projCracked.PrecompiledFiles then
+            return None
+        else
+            // 1. Check if precompiled files exist and are up-to-date (and project options)
+            // 2. If not 1, then Fable compilation, .dll and save info (root modules and inline expressions)
+            // 3. Load precompiled info
+
+            let fableModulesDir = IO.Path.GetDirectoryName(projCracked.FableLibDir)
+            let dllPath =
+                IO.Path.Combine(fableModulesDir, Naming.fablePrecompileDll)
+                |> Path.normalizeFullPath
+
+            let arePrecompiledFilesOutdated = true // TODO
+            if arePrecompiledFilesOutdated then
+                Log.always("Precompiling (F#)...")
+                let checker = InteractiveChecker.Create(projCracked.ProjectOptions)
+                let files = projCracked.PrecompiledFiles |> Array.map File
+                let! implFiles, diagnostics, assemblies = ProjectChecked.Check(checker, projCracked.ProjectFile, files, silent=true) // optimize?
+
+                let errors = diagnostics |> Array.filter (fun e -> e.Severity = FSharpDiagnosticSeverity.Error)
+                if not(Array.isEmpty errors) then
+                    failwith "TODO: Handle precompile errors: F#"
+
+                Log.always("Precompiling (Fable)...")
+                // TODO: There's some code duplication here we could refactor
+                let project = Project.From(
+                    projCracked.ProjectFile,
+                    implFiles,
+                    assemblies.Value,
+                    mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)),
+                    getPlugin = loadType projCracked.CliArgs,
+                    trimRootModule = projCracked.FableOptions.RootModule
+                )
+
+                let! results =
+                    projCracked.PrecompiledFiles
+                    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+                    |> Array.map (fun file ->
+                        projCracked.MakeCompiler(file, project)
+                        |> compileFile false projCracked.CliArgs dedup)
+                    |> Async.Parallel
+
+                // TODO: Check also errors in Fable logs
+                let errors = results |> Array.choose (function Error e -> Some e | Ok _ -> None)
+                if not(Array.isEmpty errors) then
+                    failwith "TODO: Handle precompile errors: Fable"
+
+                // Save precompiled info
+                Log.always("Precompiling (save json)...")
+                do! PrecompiledInfoImpl.Save(project, fableModulesDir)
+
+                Log.always("Precompiling (dll)...")
+                match! ProjectChecked.CreatePrecompiledAssembly(projCracked, dllPath) with
+                | Ok() -> ()
+                | Error diagnostics -> return failwith "TODO: Handle precompile errors: dll"
+
+            Log.always("Precompiling (load json)...")
+            let info = PrecompiledInfoImpl.Load(fableModulesDir) :> PrecompiledInfo
+            return Some(dllPath, info)
+    }
+
+    static member Init(projCracked: ProjectCracked, dedup) = async {
+        let! precompiledInfo = ProjectChecked.Precompile(projCracked, dedup)
+
+        let checker =
+            let opts =
+                match precompiledInfo with
+                | None -> projCracked.ProjectOptions
+                | Some(dll, _) ->
+                    let otherOpts = Array.append projCracked.ProjectOptions.OtherOptions [|"-r:" + dll|]
+                    { projCracked.ProjectOptions with OtherOptions = otherOpts }
+            InteractiveChecker.Create(opts)
+
+        let! implFiles, errors, assemblies =
+            ProjectChecked.Check(checker, projCracked.ProjectFile, projCracked.SourceFiles,
+                                 optimize=projCracked.CliArgs.CompilerOptions.OptimizeFSharpAst)
 
         return ProjectChecked(checker, errors, Project.From(
                                 projCracked.ProjectFile,
                                 implFiles,
                                 assemblies.Value,
+                                ?precompiledInfo = (precompiledInfo |> Option.map snd),
                                 mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)),
                                 getPlugin = loadType projCracked.CliArgs,
                                 trimRootModule = projCracked.FableOptions.RootModule))
@@ -380,8 +532,9 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
     member this.Update(projCracked: ProjectCracked, filesToCompile) = async {
         let! implFiles, errors, _ =
-            Some(Array.last filesToCompile)
-            |> checkProject projCracked this.Checker
+            ProjectChecked.Check(this.Checker, projCracked.ProjectFile, projCracked.SourceFiles,
+                optimize = projCracked.CliArgs.CompilerOptions.OptimizeFSharpAst,
+                lastFile = Array.last filesToCompile)
 
         let filesToCompile = set filesToCompile
         let implFiles = implFiles |> List.filter (fun f -> filesToCompile.Contains(f.FileName))
@@ -423,7 +576,7 @@ type State =
       ProjectCrackedAndChecked: (ProjectCracked * ProjectChecked) option
       WatchDependencies: Map<string, string[]>
       PendingFiles: string[]
-      DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
+      DeduplicateDic: ConcurrentDictionary<string, string>
       Watcher: Watcher option
       HasCompiledOnce: bool }
 
@@ -453,7 +606,7 @@ type State =
           ProjectCrackedAndChecked = None
           WatchDependencies = Map.empty
           Watcher = watchDelay |> Option.map Watcher.Create
-          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
+          DeduplicateDic = ConcurrentDictionary()
           PendingFiles = [||]
           HasCompiledOnce = false }
 
@@ -517,7 +670,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // TODO: Use Result here to fail more gracefully if FCS crashes
     let! projChecked =
         match projChecked with
-        | None -> ProjectChecked.Init(projCracked)
+        | None -> ProjectChecked.Init(projCracked, state.GetOrAddDeduplicateTargetDir)
         | Some projChecked when Array.isEmpty filesToCompile -> async.Return projChecked
         | Some projChecked -> projChecked.Update(projCracked, filesToCompile)
 
