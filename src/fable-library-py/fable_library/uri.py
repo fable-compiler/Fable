@@ -1,5 +1,6 @@
 from enum import Enum
 from urllib.parse import urlparse
+from typing import Optional
 
 
 class UriKind(Enum):
@@ -9,8 +10,9 @@ class UriKind(Enum):
 
 
 class Uri:
-    def __init__(self, uri: str, uri_kind=None) -> None:
+    def __init__(self, uri: str, uri_kind: Optional[int] = None) -> None:
         self.res = urlparse(uri)
+        self.kind = UriKind(uri_kind) if uri_kind else UriKind.Absolute
 
     @property
     def is_absolute_uri(self) -> bool:
@@ -26,6 +28,9 @@ class Uri:
 
     @property
     def absolute_uri(self) -> str:
+        if self.kind == UriKind.Relative:
+            raise ValueError("This operation is not supported for a relative URI.")
+
         return self.res.geturl()
 
     @property
@@ -43,3 +48,6 @@ class Uri:
     @property
     def fragment(self) -> str:
         return f"#{self.res.fragment}"
+
+    def __str__(self) -> str:
+        return self.res.geturl()

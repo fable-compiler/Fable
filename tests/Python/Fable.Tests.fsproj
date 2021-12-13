@@ -17,9 +17,16 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
+    <Compile Include="Misc/Util2.fs" />
+    <Compile Include="Misc/Util3.fs" />
+    <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="TestTask.fs" />
     <Compile Include="TestComparison.fs" />
     <Compile Include="TestCustomOperators.fs" />
@@ -29,6 +36,7 @@
     <Compile Include="TestSeqExpression.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestMath.fs" />
+    <Compile Include="TestMisc.fs" />
     <Compile Include="TestFn.fs" />
     <Compile Include="TestEnum.fs" />
     <Compile Include="TestString.fs" />

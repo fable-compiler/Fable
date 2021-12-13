@@ -85,8 +85,8 @@ type Context =
 
 type IPythonCompiler =
     inherit Compiler
-    abstract GetIdentifier: ctx: Context * name: string -> Python.Identifier
-    abstract GetIdentifierAsExpr: ctx: Context * name: string -> Python.Expression
+    abstract GetIdentifier: ctx: Context * name: string -> Identifier
+    abstract GetIdentifierAsExpr: ctx: Context * name: string -> Expression
     abstract GetAllImports: unit -> Import list
     abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression * Statement list
@@ -332,14 +332,14 @@ module Reflection =
 
         let pyTypeof (primitiveType: string) (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list =
             let typeof =
-                let func = Expression.name (Python.Identifier("type"))
-                let str = Expression.name (Python.Identifier("str"))
+                let func = Expression.name (Identifier("type"))
+                let str = Expression.name (Identifier("str"))
                 let typ = Expression.call (func, [expr])
                 Expression.call (str, [typ])
             Expression.compare(typeof, [ Eq ], [ Expression.constant(primitiveType)], ?loc=range), stmts
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list=
-            let func = Expression.name (Python.Identifier("isinstance"))
+            let func = Expression.name (Identifier("isinstance"))
             let args = [ expr; consExpr ]
             Expression.call (func, args), stmts
 
@@ -404,12 +404,12 @@ module Reflection =
 module Helpers =
     let index = (Seq.initInfinite id).GetEnumerator()
 
-    let getUniqueIdentifier (name: string): Python.Identifier =
+    let getUniqueIdentifier (name: string): Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
         let deliminator =
             if Char.IsLower name.[0] then "_" else ""
-        Python.Identifier($"{name}{deliminator}{idx}")
+        Identifier($"{name}{deliminator}{idx}")
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
@@ -420,72 +420,114 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
+    /// Normalize Fable import to be relative to outDir
+    let normalizeModulePath (com: IPythonCompiler) modulePath =
+        printfn "---"
+        printfn "ModulePath: %s" modulePath
+        let fileDir = Path.GetDirectoryName modulePath
+        //printfn "dir: %A" dir
+        let projDir = Path.GetDirectoryName(com.ProjectFile)
+        let modulePathname =
+            match fileDir with
+            | "" | "." -> fileDir
+            | _ -> IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
+        let outDir = com.OutputDir |> Option.defaultValue projDir
+        let currentFile = com.CurrentFile
+
+        //printfn "currentFile: %A" currentFile
+        //printfn "modulePathname: %A" modulePathname
+        printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
+
+        let commonPrefix = Path.getCommonBaseDir [ modulePathname; com.ProjectFile ]
+        //printfn "CommonPrefix: %A" commonPrefix
+        let relativePath =
+            // We know all modules will be placed somewhere in outDir or in a subdir below
+            modulePathname
+                .Replace(outDir, String.Empty)   // Remove outDir from module path
+                .Replace(projDir, String.Empty)  // Remove projectDir from module path
+
+        let relativePath =
+            if commonPrefix.Length > 0 then
+                // Remove any common prefix between module path and project file
+                relativePath.Replace(commonPrefix, String.Empty)
+            else
+                relativePath
+
+        // Cleanup path
+        let relativePath = relativePath.Replace("//", "/")
+        let relativePath =
+            if relativePath.StartsWith("/") then
+                $"./{relativePath.[1..]}"
+            else
+                relativePath
+
+        match fileDir, relativePath with
+        | "", _ -> fileDir
+        | _, "" -> "."
+        | _ ->
+            relativePath
+
     /// This function is a bit complex. Imports and Python is difficult.
-    /// - Python libraries should use relative imports
+    /// - Python libraries should use relative imports.
     /// - Python program must use absolute imports
-    /// - Python cannot import outside the sub-dirs of the main Program
+    /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
+    /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
+    /// a library (fable-modules). Thus we need to handle a lot of corner cases.
+    ///
+    ///
+    ///  - OutDir
+    ///    - fable_modules
+    ///      - fable_library
+    ///      - nuget_library
+    ///    - referenced_project
+    ///      - util.py
+    ///    - subdir
+    ///      - misc.py
+    ///    - program.py
+    ///
     let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
-        // printfn "ModulePath: %s" modulePath
         let isInFableModulesDir = Naming.isInFableHiddenDir modulePath
+        let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
+        //printfn "Prefix: %A" commonPrefix
         let relative =
-            let prefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
-            match com.OutputType, prefix, isInFableModulesDir with
+            match com.OutputType, commonPrefix, isInFableModulesDir with
             // If the compiled file is not in a subdir underneath the project file (e.g project reference) then use relative imports. This
             // is e.g the case when a test project references the library it's testing and the library wants to import own files
             | _, prefix, false when not (Path.GetDirectoryName(com.ProjectFile).EndsWith(prefix)) -> true
             | OutputType.Exe, _, _ -> false
             | _ -> true
 
-        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
-        // printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
+        //printfn $"OutputDir: {com.OutputDir}"
         // printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
                 let fileName = Path.GetFileNameWithoutExtension(modulePath)
                 match fileName with
-                | "" when modulePath.StartsWith(".") ->
-                    modulePath.[1..]
-                | _ ->
-                    fileName |> Naming.applyCaseRule CaseRules.SnakeCase
+                | "" when modulePath.StartsWith(".") -> modulePath.[1..]
+                | _ -> fileName |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
+        let normalizedPath = normalizeModulePath com modulePath
+        printfn "normalizedPath: %A" (relative, normalizedPath)
         let path =
-            match relative, Path.GetDirectoryName(modulePath) with
+            match relative, normalizedPath with
+            | _, "" -> ""
             | true, "." -> "."
-            | true, path -> path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+            | true, path ->
+                //printfn "Path: %A" path
+                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
             | false, "." -> ""
-            | false, _ ->
-                let prefix =
-                    if Naming.isInFableHiddenDir modulePath then
-                        Naming.fableHiddenDir
-                    else
-                        ""
-                Path.GetDirectoryName(modulePath).Replace("../", prefix).Replace("./", "").Replace("/", ".") + "."
+            | false, path ->
+                path.Replace("./", "").Replace("/", ".") + "."
 
-        match modulePath with
-        // Other libraries importing (relative) Fable library modules
-        | name when name.StartsWith("../fable_library") ->
-            $"{path}{moduleName}"
-        // Modules in Fable library
-        | name when name.StartsWith(com.LibraryDir) || name.StartsWith("../fable-library-py/fable_library") ->
-            if relative then
-                $".{moduleName}"
-            else
-                $"{Naming.fableHiddenDir}.fable_library.{moduleName}"
-        | name when name.EndsWith(".fs") ->
-            $"{path}{moduleName}"
-        // Local module references in the same package
-        | name when name = "." ->
-            if relative then
-                $".{moduleName}"
-            else
-                $"{moduleName}" // TODO: how can me make the path for this one?
-        | _ ->
-            // Cannot dashify / clean here since Python modules are separated by dots
-            modulePath
+        let moduleImport = $"{path}{moduleName}"
+        printfn "ModuleImport: %s" moduleImport
+        moduleImport
 
-    let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
+    let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
         let args = args |> List.map fst
         args, stmts
@@ -493,7 +535,7 @@ module Helpers =
     /// A few statements in the generated Python AST do not produce any effect,
     /// and should not be printet.
     let isProductiveStatement (stmt: Python.Statement) =
-        let rec hasNoSideEffects (e: Python.Expression) =
+        let rec hasNoSideEffects (e: Expression) =
             // printfn $"hasNoSideEffects: {e}"
 
             match e with
@@ -524,7 +566,7 @@ module Util =
         | "math" -> com.GetImportExpr(ctx, "math") |> ignore
         | _ -> ()
 
-        Python.Identifier name
+        Identifier name
 
     let (|TransformExpr|) (com: IPythonCompiler) ctx e : Expression * Statement list =
         com.TransformAsExpr(ctx, e)
@@ -607,7 +649,7 @@ module Util =
 
     let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
-        Expression.name (Python.Identifier("None"))
+        Expression.name (Identifier("None"))
 
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
         com.GetIdentifier(ctx, id.Name)
@@ -742,7 +784,7 @@ module Util =
         | _ -> ()
         [ Statement.assign([var], value) ]
 
-    let restElement (var: Python.Identifier) =
+    let restElement (var: Identifier) =
         let var = Expression.name(var)
         Expression.starred(var)
 
@@ -1392,7 +1434,7 @@ module Util =
             | Some finalizer ->
                     finalizer |>
                     transformBlock com ctx None
-                    |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+                    |> List.partition (function | Statement.NonLocal _ -> false | _ -> true )
                 | None -> [], []
 
         stmts @ [ Statement.try'(transformBlock com ctx returnStrategy body, ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
@@ -1412,7 +1454,7 @@ module Util =
             let ifStatement, stmts'' =
                 let block, stmts =
                     com.TransformAsStatements(ctx, ret, elseStmnt)
-                    |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+                    |> List.partition (function | Statement.NonLocal _ -> false | _ -> true )
 
                 match block with
                 | [ ] -> Statement.if'(guardExpr, thenStmnt, ?loc=r), stmts
@@ -1435,15 +1477,15 @@ module Util =
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.call (func, [ left ]), stmts
         | Fable.FieldGet(fieldName="push") ->
-            let attr = Python.Identifier("append")
+            let attr = Identifier("append")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="toLocaleUpperCase") ->
-            let attr = Python.Identifier("upper")
+            let attr = Identifier("upper")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="toLocaleLowerCase") ->
-            let attr = Python.Identifier("lower")
+            let attr = Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
@@ -1596,7 +1638,7 @@ module Util =
 
         let value, stmts = com.TransformAsExpr(ctx, evalExpr)
 
-        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list) : Python.Statement list =
+        let rec ifThenElse (fallThrough: Expression option) (cases: (Statement list * Expression option) list) : Python.Statement list =
             match cases with
             | [] -> []
             | (body, test) :: cases ->
@@ -1666,7 +1708,7 @@ module Util =
         match expr with
         // A single None will be removed (i.e transformCall may return None)
         | Name({Id=Identifier "None"}) -> []
-        | NamedExpr({Target=target; Value=value; Loc=loc }) ->
+        | NamedExpr({Target=target; Value=value; Loc=_ }) ->
             let nonLocals =
                 match target with
                 | Expression.Name({ Id=id }) ->
@@ -1739,8 +1781,8 @@ module Util =
             // Try to group cases with some target index and empty bound values
             // If bound values are non-empty use also a non-empty Guid to prevent grouping
             if List.isEmpty boundValues
-            then idx, System.Guid.Empty
-            else idx, System.Guid.NewGuid())
+            then idx, Guid.Empty
+            else idx, Guid.NewGuid())
         |> List.map (fun ((idx,_), cases) ->
             let caseExprs = cases |> List.map Tuple3.item1
             // If there are multiple cases, it means boundValues are empty
@@ -1865,13 +1907,6 @@ module Util =
                         stmts @ exprAsStatement ctx expr)
              |> transformBody com ctx None
 
-        // let expr =
-        //     Expression.subscript(
-        //         Expression.tuple(exprs),
-        //         Expression.constant(-1))
-        // expr, []
-        //printfn "transformSequenceExpr, body: %A" body
-
         let name = Helpers.getUniqueIdentifier "expr"
         let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
@@ -1893,7 +1928,7 @@ module Util =
                     else
                         exprAsStatement ctx expr)
 
-        let name = Helpers.getUniqueIdentifier ("expr")
+        let name = Helpers.getUniqueIdentifier "expr"
         let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
         let name = Expression.name (name)
@@ -2121,7 +2156,7 @@ module Util =
             let expr', stmts = transformSet com ctx range expr typ value kind
             // printfn "Fable.Set: %A" (expr', value)
             match expr' with
-            | Expression.NamedExpr({ Target = target; Value = value; Loc=loc }) ->
+            | Expression.NamedExpr({ Target = target; Value = value; Loc=_ }) ->
                 let nonLocals =
                     match target with
                     | Expression.Name({Id=id}) -> [ ctx.BoundVars.NonLocals([id]) |> Statement.nonLocal ]
@@ -2180,7 +2215,7 @@ module Util =
                     limit, -1
 
             let step = Expression.constant(step)
-            let iter = Expression.call (Expression.name (Python.Identifier "range"), args = [ start; limit; step ])
+            let iter = Expression.call (Expression.name (Identifier "range"), args = [ start; limit; step ])
             let body = transformBlock com ctx None body
             let target = com.GetIdentifierAsExpr(ctx, var.Name)
 
@@ -2224,7 +2259,7 @@ module Util =
         let isUnit =
             List.tryLast args
             |> Option.map (function
-                | { Type=Fable.GenericParam(_)} -> true
+                | { Type=Fable.GenericParam _ } -> true
                 | _ -> false)
             |> Option.defaultValue false
 
@@ -2262,7 +2297,7 @@ module Util =
             let args = args |> List.map Arg.arg
 
             match args, isUnit with
-            | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
+            | [], true -> Arguments.arguments(args=Arg.arg(Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
             // So we can also receive unit
             | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
             | _ -> Arguments.arguments(args @ tcArgs, defaults=defaults @ tcDefaults)
@@ -2668,14 +2703,14 @@ module Util =
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
-            |> Python.Identifier
+            |> Identifier
             |> Some
         | Some name ->
             match name with
             | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
             |> getUniqueNameInRootScope ctx
-            |> Python.Identifier
+            |> Identifier
             |> Some
 
 module Compiler =

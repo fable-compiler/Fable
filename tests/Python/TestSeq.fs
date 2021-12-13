@@ -711,7 +711,7 @@ let ``test Seq.compareWith works`` () =
     Seq.compareWith (-) xs zs |> equal 1
 
 // FIXME:
-//[<Fact>]
+// [<Fact>]
 // let ``test Seq.countBy works`` () =
 //     let xs = [1; 2; 3; 4]
 //     let ys = xs |> Seq.countBy (fun x -> x % 2)

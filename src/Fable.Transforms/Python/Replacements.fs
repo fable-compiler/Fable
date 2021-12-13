@@ -1575,7 +1575,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
         | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ -> Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb="trunc", ?loc=r) |> Some
+        | _ -> Helper.GlobalCall("math", t, args, i.SignatureArgTypes, memb="trunc", ?loc=r) |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
         Helper.LibCall(com, "util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2369,7 +2369,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Type: PowDouble : float -> int -> float
     // Usage: PowDouble x n
     | "PowDouble", None, _ ->
-        Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb="pow", ?loc=r) |> Some
+        Helper.GlobalCall("math", t, args, i.SignatureArgTypes, memb="pow", ?loc=r) |> Some
     | "PowDecimal", None, _ ->
         Helper.LibCall(com, "decimal", "pow", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
@@ -2767,7 +2767,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | _ -> failwith "Unexpected arg count for Random.Next"
         Helper.LibCall(com, "util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
     | "NextDouble" ->
-        Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
+        Helper.GlobalCall ("math", t, [], [], memb="random") |> Some
     | "NextBytes" ->
         let byteArray =
             match args with
