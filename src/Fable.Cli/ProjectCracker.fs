@@ -28,23 +28,19 @@ type CacheInfo =
         References: string list
         FableLibDir: string
         TimestampUTC: DateTime
+        PrecompiledFilesCount: int
     }
     static member GetPath(fableModulesPath: string) =
         IO.Path.Combine(fableModulesPath, "cache_info.json")
 
     static member TryRead(fableModulesPath: string): CacheInfo option =
         try
-            // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson, see also Write
-            let jsonOptions = JsonSerializerOptions()
-            jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-            let cacheInfoJson = IO.File.ReadAllText(CacheInfo.GetPath(fableModulesPath))
-            JsonSerializer.Deserialize<CacheInfo>(cacheInfoJson, jsonOptions) |> Some
+            CacheInfo.GetPath(fableModulesPath) |> Json.read<CacheInfo> |> Some
         with _ -> None
 
     member this.Write(fableModulesPath: string) =
-        let jsonOptions = JsonSerializerOptions()
-        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-        IO.File.WriteAllText(CacheInfo.GetPath(fableModulesPath), JsonSerializer.Serialize(this, jsonOptions))
+        let path = CacheInfo.GetPath(fableModulesPath)
+        Json.write path this
 
 type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
@@ -90,7 +86,8 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 type CrackerResponse =
     { FableLibDir: string
       References: string list
-      ProjectOptions: FSharpProjectOptions }
+      ProjectOptions: FSharpProjectOptions
+      PrecompiledFiles: string[] }
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -571,9 +568,14 @@ let getFullProjectOpts (opts: CrackerOptions) =
     match cacheInfo with
     | Some cacheInfo ->
         Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
-        { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
+
+        let precompiledFiles = Array.take cacheInfo.PrecompiledFilesCount cacheInfo.SourcePaths
+        let sourceFiles = Array.skip cacheInfo.PrecompiledFilesCount cacheInfo.SourcePaths
+
+        { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles cacheInfo.FSharpOptions
           References = cacheInfo.References
-          FableLibDir = cacheInfo.FableLibDir }
+          FableLibDir = cacheInfo.FableLibDir
+          PrecompiledFiles = precompiledFiles }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
@@ -629,6 +631,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
         let otherOptions = Array.append otherOptions dllRefs
 
+        // TODO: Check --precompile CLI option
+        let precompiledFilesCount = pkgRefs |> List.sumBy (fun p -> p.SourcePaths.Length)
+
         let cacheInfo: CacheInfo =
             {
                 Version = Literals.VERSION
@@ -639,10 +644,15 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 SourcePaths = sourceFiles
                 References = projRefs
                 TimestampUTC = DateTime.UtcNow
+                PrecompiledFilesCount = precompiledFilesCount
             }
 
         cacheInfo.Write(opts.FableModulesDir)
 
+        let precompiledFiles = Array.take precompiledFilesCount sourceFiles
+        let sourceFiles = Array.skip precompiledFilesCount sourceFiles
+
         { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
           References = projRefs
-          FableLibDir = fableLibDir }
+          FableLibDir = fableLibDir
+          PrecompiledFiles = precompiledFiles }
