@@ -243,20 +243,6 @@ module TypeInfo =
     let makeMutTy com (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy ["MutCell"]
 
-    let isCloneable (com: IRustCompiler) t e =
-        match e with
-        | Fable.Extended _ -> false
-        | _ ->
-            match t with
-            | Fable.String -> true
-            | Fable.GenericParam _ -> true
-            | Fable.LambdaType _ -> true
-            | Fable.DelegateType _ -> true
-            | Fable.DeclaredType(entRef, _) ->
-                let ent = com.GetEntity(entRef)
-                ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
-            | _ -> false
-
     let hasAttribute fullName (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
@@ -344,6 +330,23 @@ module TypeInfo =
     //             not ent.IsValueType
     //         | _ -> false
     //     shouldBeRefCountWrapped com t || isPassByRefTy
+
+    let isCloneableType (com: IRustCompiler) t =
+        match t with
+        | Fable.String -> true
+        | Fable.GenericParam _ -> true
+        | Fable.LambdaType _ -> true
+        | Fable.DelegateType _ -> true
+        | Fable.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity(entRef)
+            ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
+        | _ -> false
+
+    let rec isCloneableExpr (com: IRustCompiler) t e =
+        match e with
+        | Fable.Extended _ -> false
+        | Fable.TypeCast(e, t) -> isCloneableExpr com t e
+        | _ -> true
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
@@ -1332,6 +1335,8 @@ module Util =
         let expr = transformExprMaybeUnwrapRef com ctx fableExpr
         let ty = transformType com ctx typ
         match fromType, toType with
+        | t1, t2 when t1 = t2 ->
+            expr // no cast needed
         | Replacements.Numeric, Replacements.Numeric ->
             expr |> mkCastExpr ty
         | Fable.Array _, IEnumerable com _ ->
@@ -1719,14 +1724,16 @@ module Util =
         // let expr = com.TransformAsExpr (ctx, e)
         let expr = transformExprMaybeUnwrapRef com ctx e
         let t = t |> Option.defaultValue e.Type
-        let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx t name e
-
-        if shouldBeRefCountWrapped com t && not isOnlyReference then
-            makeClone expr
-        elif isCloneable com t e && not isOnlyReference then
-            makeClone expr // shouldn't really be using a rchelper as this is NOT an rc
-        elif varAttrs.IsRef then
-            makeClone expr
+        if isCloneableExpr com t e then
+            let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx t name e
+            if shouldBeRefCountWrapped com t && not isOnlyReference then
+                makeClone expr
+            elif isCloneableType com t && not isOnlyReference then
+                makeClone expr // shouldn't really be using a rchelper as this is NOT an rc
+            elif varAttrs.IsRef then
+                makeClone expr
+            else
+                expr
         else
             expr
 (*
@@ -2856,13 +2863,12 @@ module Util =
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range body catch finalizer
 
-        | Fable.Extended(Fable.Throw(TransformExpr com ctx msg, _), _) ->
-            mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
-
         | Fable.Extended(kind, r) ->
             match kind with
-            | Fable.Curry(e, arity) -> transformCurry com ctx e arity
-            | Fable.Throw _
+            | Fable.Curry(e, arity) ->
+                transformCurry com ctx e arity
+            | Fable.Throw(TransformExpr com ctx msg, _) ->
+                mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
             | Fable.Return _
             | Fable.Break _
             | Fable.Debugger ->

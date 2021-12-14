@@ -696,7 +696,8 @@ let toSeq t (expr: Expr) =
     | _ -> TypeCast(expr, t)
 
 let getLength r t (expr: Expr) =
-    TypeCast(Helper.InstanceCall(expr, "len", t, [], ?loc=r), t)
+    let i = Helper.InstanceCall(expr, "len", BclTypes.unativeint, [], ?loc=r)
+    TypeCast(i, t)
 
 let (|ListSingleton|) x = [x]
 
