@@ -422,8 +422,8 @@ module Helpers =
 
     /// Normalize Fable import to be relative to outDir
     let normalizeModulePath (com: IPythonCompiler) modulePath =
-        printfn "---"
-        printfn "ModulePath: %s" modulePath
+        // printfn "---"
+        // printfn "ModulePath: %s" modulePath
         let fileDir = Path.GetDirectoryName modulePath
         //printfn "dir: %A" dir
         let projDir = Path.GetDirectoryName(com.ProjectFile)
@@ -432,11 +432,10 @@ module Helpers =
             | "" | "." -> fileDir
             | _ -> IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
         let outDir = com.OutputDir |> Option.defaultValue projDir
-        let currentFile = com.CurrentFile
 
         //printfn "currentFile: %A" currentFile
         //printfn "modulePathname: %A" modulePathname
-        printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"OutputDir: {com.OutputDir}"
         //printfn $"LibraryDir: {com.LibraryDir}"
 
         let commonPrefix = Path.getCommonBaseDir [ modulePathname; com.ProjectFile ]
@@ -487,25 +486,38 @@ module Helpers =
     ///    - program.py
     ///
     let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
-        let isInFableModulesDir = Naming.isInFableHiddenDir modulePath
         let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
         let normalizedPath = normalizeModulePath com modulePath
         let projDir = Path.GetDirectoryName(com.ProjectFile)
         let fileDir = Path.GetDirectoryName(com.CurrentFile)
 
-        printfn "Prefix: %A" commonPrefix
+        /// True if we import something in a project reference
+        let isProjectReference =
+            let notInProjectDir = (not (projDir.EndsWith(commonPrefix)))
+            // printfn "notInProjectDir: %A" notInProjectDir
+            if normalizedPath.Length > 1 then
+                notInProjectDir
+                // import exists in file dir
+                && IO.Directory.Exists(Path.Combine(fileDir, normalizedPath))
+                // import exists in project dir
+                && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))
+            else
+                notInProjectDir
+
+        // printfn "Prefix: %A" (commonPrefix, isProjectReference)
         let relative =
-            match com.OutputType, commonPrefix, isInFableModulesDir with
+            match com.OutputType, isProjectReference with
             // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
             // relative imports if and only if the normalizedPath exists within that referenced project. This is e.g the
             // case when a test project references the library it's testing and the library wants to import own files
-            | _, prefix, false when (not (projDir.EndsWith(prefix))) && normalizedPath.Length > 1 && (IO.Directory.Exists(Path.Combine(fileDir, normalizedPath)) && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))) -> true
-            | OutputType.Exe, _, _ -> false
+            | _, true  -> true
+            | OutputType.Exe, _ -> false
             | _ -> true
 
-        //printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
+        // printfn $"OutputDir: {com.OutputDir}  "
+        // printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn "normalizedPath: %A" (relative, normalizedPath)
 
         let moduleName =
             let lower =
@@ -515,7 +527,6 @@ module Helpers =
                 | _ -> fileName |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-        printfn "normalizedPath: %A" (relative, normalizedPath)
         let path =
             match relative, normalizedPath with
             | _, "" -> ""
