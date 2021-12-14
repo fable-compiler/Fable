@@ -927,7 +927,8 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Char | String -> makeStrConst "" // TODO: Use null for string?
-    | Number _ | Builtin BclTimeSpan -> makeIntConst 0
+    | Number _ -> makeIntConst 0
+    | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
     | Builtin BclDateTime as t -> Helper.LibCall(com, "date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
@@ -1121,11 +1122,12 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let defaultof (com: ICompiler) ctx (t: Type) =
+let rec defaultof (com: ICompiler) ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
-    | Builtin BclTimeSpan
+    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
+    | Builtin BclTimeSpan -> getZero com ctx t
     | Builtin BclDateTime
     | Builtin BclDateTimeOffset
     | Builtin (BclInt64|BclUInt64)

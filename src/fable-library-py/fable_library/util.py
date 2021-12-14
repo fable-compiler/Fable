@@ -86,7 +86,7 @@ class IEquatable(ABC):
         return hash(self)
 
     @abstractmethod
-    def __eq__(self, other: Any):
+    def __eq__(self, other: Any) -> bool:
         return NotImplemented
 
     @abstractmethod
@@ -103,7 +103,7 @@ class IComparable(IEquatable):
         return 1
 
     @abstractmethod
-    def __lt__(self, other: Any):
+    def __lt__(self, other: Any) -> bool:
         raise NotImplementedError
 
 
@@ -185,7 +185,7 @@ def clamp(comparer: Callable[[T, T], int], value: T, min: T, max: T):
     return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
-def assert_equal(actual, expected, msg=None) -> None:
+def assert_equal(actual, expected, msg: Optional[str]=None) -> None:
     if actual != expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
@@ -218,10 +218,10 @@ def lazy_from_value(v: T) -> Lazy[T]:
     return Lazy(lambda: v)
 
 
-def create_atom(value=None):
+def create_atom(value: Any=None):
     atom = value
 
-    def _(value=None, isSetter=None):
+    def _(value:Any=None, isSetter=None):
         nonlocal atom
 
         if not isSetter:
@@ -498,7 +498,7 @@ class ObjectRef:
     count = 0
 
     @staticmethod
-    def id(o: Any):
+    def id(o: Any) -> int:
         _id = id(o)
         if not _id in ObjectRef.id_map:
             count = ObjectRef.count + 1
@@ -507,11 +507,11 @@ class ObjectRef:
         return ObjectRef.id_map[_id]
 
 
-def safe_hash(x):
+def safe_hash(x: Any) -> int:
     return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
 
 
-def string_hash(s):
+def string_hash(s: str) -> int:
     h = 5381
     for c in s:
         h = (h * 33) ^ ord(c)
@@ -549,13 +549,13 @@ def structural_hash(x: Any) -> int:
 
 def array_hash(xs):
     hashes = []
-    for i, x in enumerate(xs):
+    for x in xs:
         hashes.append(structural_hash(x))
 
     return combine_hash_codes(hashes)
 
 
-def physical_hash(x):
+def physical_hash(x: Any) -> int:
     if hasattr(x, "__hash__") and callable(x.__hash__):
         return hash(x)
 

@@ -4,6 +4,7 @@ open System
 open System.Runtime.InteropServices
 open Fable.Core
 open Util.Testing
+open Util2.Extensions
 
 let [<Literal>] LITERAL_JSON = """{
     "widget": {
@@ -637,3 +638,387 @@ let ``test Multiple namespaces in same file work`` () = // See #1218
 [<Fact>]
 let ``test Inline methods work`` () =
     f 2 3 |> equal 5
+
+[<Fact>]
+let ``test Inline methods with this argument work`` () = // See #638
+    let x = FooModule.FooInline()
+    x.Foo |> equal "FooBar"
+    x.Foofy 4 |> equal "BarBarBarBar"
+
+[<Fact>]
+let ``test Inline properties work`` () =
+    let x = FooModule.FooInline()
+    x.PropertyInline <- 3uy
+    x.PropertyInline |> equal 3uy
+
+[<Fact>]
+let ``test Inline extension methods with this argument work`` () = // See #638
+    let x = FooModule.FooInline()
+    x.Bar2 |> equal "BarBar"
+    x.FoofyPlus 3 |> equal "BarBarBarBarBarBar"
+
+[<Fact>]
+let ``test Inline extension methods in other files can be found`` () = // See #1667
+    "HOLA CARACOLA".StartsWith("hola") |> equal false
+    "HOLA CARACOLA".StartsWithIgnoreCase("hola") |> equal true
+
+[<Fact>]
+let ``test Inline overloaded methods work`` () =
+  let res1 = Type.New(5).Method(false).Method(true).Method()
+  let res2 = Type.New(5).MethodI(false).MethodI(true).MethodI()
+  equal res1.a res2.a
+  counter() |> equal 3
+
+[<Fact>]
+let ``test Inline overloaded methods in other files work`` () =
+  let res1 = MiscTestsHelper.Type.New(5).Method(false).Method(true).Method()
+  let res2 = MiscTestsHelper.Type.New(5).MethodI(false).MethodI(true).MethodI()
+  equal res1.a res2.a
+  MiscTestsHelper.counter() |> equal 3
+
+[<Fact>]
+let ``test Inlined arguments with delayed resolution are only evaluated once`` () =
+    let mutable x = 0
+    let foo() =
+        x <- x + 1
+        10
+    let f = sum (foo())
+    f 20 |> f |> equal 40
+    equal 1 x
+
+[<Fact>]
+let ``test Don't inline values that evaluate multiple times`` () =
+    let li = [1;2;3;4]
+    let res = List.map (FooModule.add FooModule.genericValue) li
+    equal 1 FooModule.genericValueBackend
+    equal [6;7;8;9] res
+
+[<Fact>]
+let ``test Calls to core lib from a subfolder work`` () =
+    Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
+    |> equal "2 + 2 = 4"
+
+[<Fact>]
+let ``test Conversion to delegate works`` () =
+    (System.Func<_,_,_,_> f1).Invoke(1,2,3) |> equal 6
+
+    let f = f1
+    (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
+
+    let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
+    del.Invoke(1,2,3) |> equal 6
+
+    (System.Func<_,_> f2).Invoke(2) |> equal 4
+
+    // See #2400
+    let func1 : Func<int> = Func<int>(fun () -> 8)
+    func1.Invoke() |> equal 8
+
+    let fn2 () = 9
+    let func2 : Func<int> = Func<int>(fn2)
+    func2.Invoke() |> equal 9
+
+    let func2b = Func<unit, int>(fn2)
+    func2b.Invoke() |> equal 9
+
+    let fn2c () () = 9
+    let func2c : Func<int> = Func<int>(fn2c())
+    func2c.Invoke() |> equal 9
+
+    let fn3 i = i + 4
+    let func3 = Func<int, int>(fn3)
+    func3.Invoke(7) |> equal 11
+
+    let fn4 x y = x * y - 3
+    let func4 = Func<int, int, int>(fn4)
+    func4.Invoke(4, 6) |> equal 21
+
+[<Fact>]
+let ``test Conversion to Func<_> works`` () =
+    (System.Func<_> f3).Invoke() |> equal 5
+    let f = Func<_>(fun () -> 6)
+    f.Invoke() |> equal 6
+
+[<Fact>]
+let ``test Conversion to aliased Func<_> works`` () =
+    (MyDelegate f3).Invoke() |> equal 5
+    let f = MyDelegate(fun () -> 6)
+    f.Invoke() |> equal 6
+
+[<Fact>]
+let ``test Conversion to Action<_> works`` () =
+    let f1' = Action<int>(fun i -> myMutableField <- i * 2)
+    let f2' = Action<int>(f4)
+    let f3' = Action<_>(f6 4)
+    f1'.Invoke(1)
+    equal 2 myMutableField
+    f2'.Invoke(8)
+    equal 8 myMutableField
+    f3'.Invoke(10)
+    equal 40 myMutableField
+
+[<Fact>]
+let ``test Multiple active pattern calls work`` () =
+    match " Hello ", " Bye " with
+    | NonEmpty "Hello", NonEmpty "Bye" -> true
+    | _ -> false
+    |> equal true
+
+[<Fact>]
+let ``test ParamArray in object expression works`` () =
+   let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
+   o.Bar("{0} + {0} = {1}", 2, 4)
+   |> equal "2 + 2 = 4"
+
+[<Fact>]
+let ``test Object expression can reference enclosing type and self`` () = // See #158
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.Value <- 2
+    f.Value |> equal 12
+    f2.Test(2) |> equal 22
+
+[<Fact>]
+let ``test Nested object expressions work`` () = // See #158
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20 5"
+
+[<Fact>]
+let ``test References to enclosing type from object expression work`` () = // See #438
+    MyComponent("TestA").works1().doWork() |> equal "TestA-1"
+    MyComponent("TestB").works2().doWork() |> equal "TestB-2"
+    MyComponent("TestC").works3().doWork() |> equal "TestC-3"
+    MyComponent("TestD").works4().doWork() |> equal "TestD-4"
+    MyComponent("TestE").works5().doWork() |> equal "TestE-5"
+
+[<Fact>]
+let ``test Properties in object expression work`` () =
+    let mutable backend = 0
+    let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
+    o.Bar |> equal 0
+    backend <- 5
+    o.Bar |> equal 5
+    o.Bar <- 10
+    o.Bar |> equal 10
+
+[<Fact>]
+let ``test Object expression from class works`` () =
+    let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
+    // TODO: Type testing for object expressions?
+    // match box o with
+    // | :? SomeClass as c -> c.ToString()
+    // | _ -> "Unknown"
+    // |> equal "Hello World"
+    o.ToString() |> equal "Hello World"
+
+[<Fact>]
+let ``test Inlined object expression doesn't change argument this context`` () = // See #1291
+    let t = MyTestClass(42)
+    t.GetNum() |> equal 46
+
+[<Fact>]
+let ``test Object expressions don't optimize members away`` () = // See #1434
+    let o =
+        { new Taster with
+            member __.Starter = 5.5
+            member this.Taste(quality, quantity) =
+                taste this quality quantity
+          interface Eater with
+            member __.Bite() = 25
+        }
+    o.Taste(4., 6.) |> equal 28
+
+[<Fact>]
+let ``test Members are accessible in abstract class constructor inherited by object expr`` () = // See #2139
+    let x = ref 5
+    let obj = { new ObjectExprBase(x) with
+                    override _.dup x = x * x }
+    equal 25 x.contents
+
+[<Fact>]
+let ``test Composition with recursive `this` works`` () =
+    let mutable x = 0
+    RecursiveType(fun f -> x <- f()) |> ignore
+    equal 11 x
+
+[<Fact>]
+let ``test Type extension static methods work`` () =
+    let disposed = ref false
+    let disp = IDisposable.Create(fun () -> disposed.Value <- true)
+    disp.Dispose ()
+    equal true disposed.Value
+
+[<Fact>]
+let ``test Type extension properties work`` () =
+    let c = SomeClass("John")
+    equal "John Smith" c.FullName
+
+[<Fact>]
+let ``test Type extension methods work`` () =
+    let c = SomeClass("John")
+    c.NameTimes(1,2) |> equal "JohnJohnJohn"
+
+[<Fact>]
+let ``test Type extension methods with same name work`` () =
+    let c = AnotherClass(3)
+    equal "3" c.FullName
+
+[<Fact>]
+let ``test Type extension overloads work`` () =
+    let c = AnotherClass(3)
+    c.Overload("3") |> equal "33"
+    c.Overload(3) |> equal 12
+
+[<Fact>]
+let ``test Extending different types with same name and same method works`` () =
+    AnotherClass(5).Value2 |> equal 10
+    NestedModule.AnotherClass(5).Value2 |> equal 40
+
+[<Fact>]
+let ``test Module, members and properties with same name don't clash`` () =
+    StyleBuilderHelper.test() |> equal true
+
+[<Fact>]
+let ``test Module mutable properties work`` () =
+    equal 10 Mutable.prop
+    Mutable.prop <- 5
+    equal 5 Mutable.prop
+
+[<Fact>]
+let ``test Accessing members of parent module with same name works`` () =
+    equal 5 Same.Same.shouldEqual5
+
+[<Fact>]
+let ``test Accessing members of child module with same name works`` () =
+    equal 10 Same.Same.shouldEqual10
+
+[<Fact>]
+let ``test Accessing members with same name as module works`` () =
+    equal 20 Same.Same.shouldEqual20
+
+[<Fact>]
+let ``test Naming values with same name as module works`` () =
+    equal 30 Same.Same.shouldEqual30
+
+[<Fact>]
+let ``test Can access nested recursive function with mangled name`` () =
+    Util.Bar.nestedRecursive 3 |> equal 10
+
+[<Fact>]
+let ``test Can access non nested recursive function with mangled name`` () =
+    Util.nonNestedRecursive "ja" |> equal "jajaja"
+
+[<Fact>]
+let ``test Module members don't conflict with JS names`` () =
+    Util.Int32Array |> Array.sum |> equal 3
+
+[<Fact>]
+let ``test Modules don't conflict with JS names`` () =
+    Util.Float64Array.Float64Array |> Array.sum |> equal 7.
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level values`` () = // See #130
+    equal 10 Util.B.c
+    equal 20 Util.B.D.d
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
+    equal 10 B.c
+    equal 20 B.D.d
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level functions`` () = // See #130
+    equal 4 Util.B.d
+    equal 0 Util.B.D.e
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
+    equal 4 B.d
+    equal 0 B.D.e
+
+[<Fact>]
+let ``test Setting a top-level value doesn't alter values at same level`` () = // See #130
+    equal 15 Util.a
+    equal 25 Util.B.a
+
+[<Fact>]
+let ``test Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
+    equal 15 a
+    equal 25 B.a
+
+[<Fact>]
+let ``test Internal members can be accessed from other modules`` () = // See #163
+    Internal.add 3 2 |> equal 5
+
+[<Fact>]
+let ``test Internal types can be accessed from other modules`` () = // See #163
+    Internal.MyType.Subtract 3 2 |> equal 1
+
+[<Fact>]
+let ``test Type of if-then-else expression is correctly determined when 'then' branch throws`` () =
+    let f () =
+        if false then failwith "error" else 7
+
+    f () |> equal 7
+
+[<Fact>]
+let ``test Type of if-then-else expression is correctly determined when 'else' branch throws`` () =
+    let f () =
+        if true then 7 else failwith "error"
+
+    f () |> equal 7
+
+[<Fact>]
+let ``test Type of try-with expression is correctly determined when 'try' block throws`` () =
+    let f () =
+        try failwith "error" with | _ -> 7
+
+    f () |> equal 7
+
+[<Fact>]
+let ``test Type of try-with expression is correctly determined when exception handler throws`` () =
+    let f () =
+        try 7 with | _ -> failwith "error"
+
+    f () |> equal 7
+
+[<Fact>]
+let ``test use doesn't return on finally clause`` () = // See #211
+    let foo() =
+        use c = new DisposableFoo()
+        c.Foo()
+    foo() |> equal 5
+
+[<Fact>]
+let ``test use calls Dispose at the end of the scope`` () =
+    let cell = ref 0
+    let res =
+        use c = new DisposableBar(cell)
+        !cell
+    res |> equal 10
+    !cell |> equal 20
+
+[<Fact>]
+let ``test use calls Dispose (of an object expression) at the end of the scope`` () =
+    let cell = ref 0
+    let res =
+        use c = createCellDiposable cell
+        !cell
+    res |> equal 10
+    !cell |> equal 20
+
+[<Fact>]
+let ``test Unchecked.defaultof works`` () =
+    Unchecked.defaultof<int> |> equal 0
+    Unchecked.defaultof<int64> |> equal 0L
+    Unchecked.defaultof<bigint> |> equal 0I
+    Unchecked.defaultof<decimal> |> equal 0M
+    Unchecked.defaultof<DateTime> |> equal DateTime.MinValue
+    Unchecked.defaultof<TimeSpan> |> equal (TimeSpan.FromMilliseconds 0.)
+    Unchecked.defaultof<bool> |> equal false
+    Unchecked.defaultof<string> |> equal null
+    Unchecked.defaultof<Guid> |> equal Guid.Empty
+    let x = ValueType()
+    Unchecked.defaultof<ValueType> |> equal x
+    x.X |> equal 0

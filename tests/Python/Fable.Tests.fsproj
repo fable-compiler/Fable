@@ -36,6 +36,7 @@
     <Compile Include="TestSeqExpression.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestMath.fs" />
+    <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="TestMisc.fs" />
     <Compile Include="TestFn.fs" />
     <Compile Include="TestEnum.fs" />

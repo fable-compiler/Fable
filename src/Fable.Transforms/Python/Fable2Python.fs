@@ -489,18 +489,23 @@ module Helpers =
     let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
         let isInFableModulesDir = Naming.isInFableHiddenDir modulePath
         let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
-        //printfn "Prefix: %A" commonPrefix
+        let normalizedPath = normalizeModulePath com modulePath
+        let projDir = Path.GetDirectoryName(com.ProjectFile)
+        let fileDir = Path.GetDirectoryName(com.CurrentFile)
+
+        printfn "Prefix: %A" commonPrefix
         let relative =
             match com.OutputType, commonPrefix, isInFableModulesDir with
-            // If the compiled file is not in a subdir underneath the project file (e.g project reference) then use relative imports. This
-            // is e.g the case when a test project references the library it's testing and the library wants to import own files
-            | _, prefix, false when not (Path.GetDirectoryName(com.ProjectFile).EndsWith(prefix)) -> true
+            // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
+            // relative imports if and only if the normalizedPath exists within that referenced project. This is e.g the
+            // case when a test project references the library it's testing and the library wants to import own files
+            | _, prefix, false when (not (projDir.EndsWith(prefix))) && normalizedPath.Length > 1 && (IO.Directory.Exists(Path.Combine(fileDir, normalizedPath)) && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))) -> true
             | OutputType.Exe, _, _ -> false
             | _ -> true
 
         //printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
         //printfn $"OutputDir: {com.OutputDir}"
-        // printfn $"LibraryDir: {com.LibraryDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
 
         let moduleName =
             let lower =
@@ -510,7 +515,6 @@ module Helpers =
                 | _ -> fileName |> Naming.applyCaseRule CaseRules.SnakeCase
             (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-        let normalizedPath = normalizeModulePath com modulePath
         printfn "normalizedPath: %A" (relative, normalizedPath)
         let path =
             match relative, normalizedPath with
@@ -799,7 +803,12 @@ module Util =
         // printfn "makeClassConstructor: %A" body
         let name = Identifier("__init__")
         let self = Arg.arg("self")
-        let args = { args with Args = self::args.Args }
+        let args =
+            match args.Args with
+            | [ unit ] ->
+                { args with Args = self::args.Args; Defaults=[ Expression.none() ] }
+            | _ ->
+                { args with Args = self::args.Args }
         let body =
             match body with
             | [] -> [ Pass ]
@@ -887,6 +896,16 @@ module Util =
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let expr, stmts' = getExpr com ctx r expr (Expression.constant("tag"))
         expr, stmts @ stmts'
+
+    let wrapIntExpression typ (e: Expression) =
+        match e, typ with
+        | Expression.Constant(value, loc), _ when (value :? int) ->
+            Expression.boolOp(BoolOperator.Or, [e; Expression.constant(0)])
+        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
+        | _, Fable.Number((Int8 | Int16 | Int32),_)
+        | _, Fable.Enum _ ->
+            Expression.boolOp(BoolOperator.Or, [e; Expression.constant(0)])
+        | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) =
         stmts @ [ Statement.return'(e) ]
@@ -1089,7 +1108,14 @@ module Util =
             let args, body =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
 
-            let name = com.GetIdentifier(ctx, prop)
+            let name =
+                let name =
+                    match prop with
+                    | "ToString" -> "__str__"
+                    | _ -> prop
+
+                com.GetIdentifier(ctx, name)
+
             let self = Arg.arg("self")
             let args =
                 match decorators with
@@ -1548,7 +1574,9 @@ module Util =
     let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         // printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-        let value, stmts' = com.TransformAsExpr(ctx, value)
+        let value, stmts' =
+            let value, st = com.TransformAsExpr(ctx, value)
+            value |> wrapIntExpression typ, st
         let ret, stmts'' =
             match kind with
             | Fable.ValueSet ->
@@ -1567,7 +1595,8 @@ module Util =
             let args, body = transformFunction com ctx name args body
             makeArrowFunctionExpression name args body
         | _ ->
-            com.TransformAsExpr(ctx, value)
+            let expr, stmt = com.TransformAsExpr(ctx, value)
+            expr |> wrapIntExpression value.Type, stmt
 
     let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         //printfn "transformBindingAsExpr: %A" (var, value)
@@ -1980,7 +2009,8 @@ module Util =
                 | _ -> failwith $"Array slice with {args.Length} not supported"
             Expression.subscript (left, slice), stmts @ stmts'
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range) ->
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range)
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="ToString"), _, _), info, _, range) ->
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
@@ -2405,11 +2435,9 @@ module Util =
                 | _ -> bases)
 
         let name = com.GetIdentifier(ctx, entName)
-        let classStmt = Statement.classDef(name, body = classBody, bases = bases)
-        classStmt
+        Statement.classDef(name, body = classBody, bases = bases)
 
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
-        // printfn "declareType"
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
@@ -2568,7 +2596,7 @@ module Util =
 
                 yield! (ent.FSharpFields |> List.collecti (fun i field ->
                     let left = get com ctx None thisExpr field.Name false
-                    let right = args.[i]
+                    let right = args.[i] |> wrapIntExpression field.FieldType
                     assign None left right |> exprAsStatement ctx))
             ]
         let args =
