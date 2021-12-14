@@ -995,18 +995,18 @@ let ``test use calls Dispose at the end of the scope`` () =
     let cell = ref 0
     let res =
         use c = new DisposableBar(cell)
-        !cell
+        cell.Value
     res |> equal 10
-    !cell |> equal 20
+    cell.Value |> equal 20
 
 [<Fact>]
 let ``test use calls Dispose (of an object expression) at the end of the scope`` () =
     let cell = ref 0
     let res =
         use c = createCellDiposable cell
-        !cell
+        cell.Value
     res |> equal 10
-    !cell |> equal 20
+    cell.Value |> equal 20
 
 [<Fact>]
 let ``test Unchecked.defaultof works`` () =
