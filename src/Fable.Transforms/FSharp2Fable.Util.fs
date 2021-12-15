@@ -193,7 +193,8 @@ type FsEnt(ent: FSharpEntity) =
                     Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
                 | _ ->
                     Path.normalizePath asmPath |> Fable.AssemblyPath
-            | None -> FsEnt.SourcePath ent |> Fable.SourcePath
+            | None ->
+                FsEnt.SourcePath ent |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
           Path = path }
 
@@ -1895,6 +1896,8 @@ module Util =
             else
                 makeCall r t info importExpr
         | body ->
+            // Check the resolved expression has the expected type, see #2644
+            let body = if t <> body.Type then Fable.TypeCast(body, t, None) else body
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee info (memb: FSharpMemberOrFunctionOrValue) =

@@ -1507,12 +1507,12 @@ type FableCompiler(com: Compiler) =
                 { ident with Name = sanitizedName }
             else ident
 
-        let resolveGenArg (ctx: Context) = function
+        let rec resolveGenArg (ctx: Context) = function
             | Fable.GenericParam name as v ->
                 match Map.tryFind name ctx.GenericArgs with
                 | Some v -> v
                 | None -> v
-            | v -> v
+            | t -> t.MapGenerics(resolveGenArg ctx)
 
         let rec resolveExpr ctx expr =
             expr |> visitFromOutsideIn (function
@@ -1525,6 +1525,11 @@ type FableCompiler(com: Compiler) =
                 | Fable.LetRec(bindings, b) -> Fable.LetRec(bindings |> List.map(fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e), resolveExpr ctx b) |> Some
                 | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
                 | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
+
+                // Resolve type info
+                | Fable.Value(Fable.TypeInfo t, r) ->
+                    let t = resolveGenArg ctx t
+                    Fable.Value(Fable.TypeInfo t, r) |> Some
 
                 // Resolve the unresolved
                 | Fable.Unresolved e ->
@@ -1554,9 +1559,15 @@ type FableCompiler(com: Compiler) =
                         inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
 
                     | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
+                        let resolveArg arg =
+                            let arg = resolveExpr ctx arg
+                            let t = arg.Type
+                            let t' = resolveGenArg ctx t
+                            if t <> t' then Fable.TypeCast(arg, t', None) else arg
+
                         let typ = resolveGenArg ctx typ
-                        let thisArg = thisArg |> Option.map (resolveExpr ctx)
-                        let args = args |> List.map (resolveExpr ctx)
+                        let thisArg = thisArg |> Option.map resolveArg
+                        let args = args |> List.map resolveArg
                         let info = { info with GenericArgs = info.GenericArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v) }
                         match com.TryReplace(ctx, r, typ, info, thisArg, args) with
                         | Some e -> Some e

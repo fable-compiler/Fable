@@ -4,7 +4,6 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
-open System.Text.Json
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
@@ -27,7 +26,7 @@ type CacheInfo =
         FSharpOptions: string array
         References: string list
         FableLibDir: string
-        TimestampUTC: DateTime
+        Timestamp: DateTime
         PrecompiledFilesCount: int
     }
     static member GetPath(fableModulesPath: string) =
@@ -42,7 +41,7 @@ type CacheInfo =
         let path = CacheInfo.GetPath(fableModulesPath)
         Json.write path this
 
-type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
+type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, precompileTo, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir)
     let cacheInfo =
@@ -57,6 +56,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
     member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
+    member _.PrecompileTo: string option = precompileTo
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.BuildDll(normalizedDllPath: string) =
@@ -346,7 +346,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
     | _ ->
-        let removed = dllRefs.Remove(projName)
+        let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
@@ -516,7 +516,7 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 |> Option.defaultValue (List.last defaultFableLibraryPaths)
 
             if File.isDirectoryEmpty fableLibrarySource then
-                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
+                FableError $"fable-library directory is empty, please build FableLibrary: %s{fableLibrarySource}" |> raise
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableModulesDir, "fable-library" + "." + Literals.VERSION)
@@ -540,20 +540,18 @@ let removeFilesInObjFolder sourceFiles =
 
 let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.ProjFile)) then
-        failwith ("File does not exist: " + opts.ProjFile)
+        FableError("Project file does not exist: " + opts.ProjFile) |> raise
 
     let isCacheInfoOutdated (cacheInfo: CacheInfo) =
-        let isFileOld (path: string) =
-            IO.File.Exists(path)
-            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(path).ToUniversalTime()
         [
             cacheInfo.ProjectPath
             yield! cacheInfo.References
         ]
         |> List.forall (fun fsproj ->
-            isFileOld(fsproj)
+            File.existsAndIsOlderThan cacheInfo.Timestamp fsproj
             // If project uses Paket, dependencies may have updated without touching the .fsproj
-            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json") |> isFileOld)
+            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json")
+               |> File.existsAndIsOlderThan cacheInfo.Timestamp)
         |> not
 
     // TODO: Check fable_modules contains all packages
@@ -580,8 +578,12 @@ let getFullProjectOpts (opts: CrackerOptions) =
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
 
-        let fableLibDir, pkgRefs =
-            copyFableLibraryAndPackageSources opts mainProj.PackageReferences
+        // As cacheInfo is missing or invalidated, remove fable_modules to recompile everything
+        try
+            IO.Directory.Delete(opts.FableModulesDir, true)
+            IO.Directory.CreateDirectory(opts.FableModulesDir) |> ignore
+        with _ -> ()
+        let fableLibDir, pkgRefs = copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
         let pkgRefs =
             pkgRefs |> List.map (fun pkg ->
@@ -628,11 +630,23 @@ let getFullProjectOpts (opts: CrackerOptions) =
                             else Some("-r:" + r))
             |]
 
+        let precompiledFilesCount =
+            match opts.PrecompileTo with
+            | None -> 0
+            | Some project ->
+                let pkgCount = pkgRefs |> List.sumBy (fun p -> p.SourcePaths.Length)
+                let projRefCount, projFound =
+                    ((0, false), projRefs) ||> List.fold (fun (count, found) p ->
+                        if found then count, found
+                        else
+                            let count = count + (p.SourceFiles |> List.toArray |> removeFilesInObjFolder |> Array.length)
+                            let projId = IO.Path.GetFileNameWithoutExtension(p.ProjectFile)
+                            let found = String.Equals(projId, project, StringComparison.OrdinalIgnoreCase)
+                            count, found)
+                if projFound then pkgCount + projRefCount else pkgCount
+
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
         let otherOptions = Array.append otherOptions dllRefs
-
-        // TODO: Check --precompile CLI option
-        let precompiledFilesCount = pkgRefs |> List.sumBy (fun p -> p.SourcePaths.Length)
 
         let cacheInfo: CacheInfo =
             {
@@ -643,7 +657,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 FSharpOptions = otherOptions
                 SourcePaths = sourceFiles
                 References = projRefs
-                TimestampUTC = DateTime.UtcNow
+                Timestamp = DateTime.Now
                 PrecompiledFilesCount = precompiledFilesCount
             }
 

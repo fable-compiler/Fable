@@ -23,6 +23,15 @@ module Seq =
 
 [<RequireQualifiedAccess>]
 module Array =
+    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
+        let r1 = ResizeArray()
+        let r2 = ResizeArray()
+        for x in xs do
+            match f x with
+            | Choice1Of2 x -> r1.Add(x)
+            | Choice2Of2 x -> r2.Add(x)
+        r1.ToArray(), r2.ToArray()
+
     let mapToList (f: 'a -> 'b) (xs: 'a array) =
         let mutable li = []
         for i = xs.Length - 1 downto 0 do

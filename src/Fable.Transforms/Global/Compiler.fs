@@ -85,7 +85,7 @@ module CompilerExt =
         member com.GetEntity(entityRef: Fable.EntityRef) =
             match com.TryGetEntity(entityRef) with
             | Some e -> e
-            | None -> failwithf "Cannot find entity %s" entityRef.FullName
+            | None -> failwith $"Cannot find entity %s{entityRef.FullName}"
 
         member com.ToPluginHelper() =
             { new PluginHelper with

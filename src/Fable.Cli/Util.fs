@@ -3,6 +3,8 @@ namespace Fable.Cli
 open System
 open System.Threading
 
+exception FableError of string
+
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
     member _.Args = args
@@ -13,6 +15,7 @@ type CliArgs =
     { ProjectFile: string
       RootDir: string
       OutDir: string option
+      PrecompileTo: string option
       FableLibraryPath: string option
       Configuration: string
       NoRestore: bool
@@ -92,6 +95,16 @@ module Log =
 
 module File =
     open System.IO
+
+    let existsAndIsOlderThan (dt: DateTime) (targetPath: string) =
+        try
+            File.Exists(targetPath) && dt > File.GetLastWriteTime(targetPath)
+        with _ -> false
+
+    let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
+        try
+            File.Exists(targetPath) && File.GetLastWriteTime(sourcePath) < File.GetLastWriteTime(targetPath)
+        with _ -> false
 
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
@@ -400,24 +413,32 @@ module Json =
     open System.Text.Json
     open System.Text.Json.Serialization
 
+    // We cannot change MemberInfo to avoid breaking plugins so we use a specific converter
     type MemberInfoConverter() =
         inherit JsonConverter<Fable.AST.Fable.MemberInfo>()
-        override _.Read(reader: byref<Utf8JsonReader>, typeToConvert, options) =
+        member _.ReadBoolean(reader: byref<Utf8JsonReader>) =
+            let b = reader.GetBoolean()
+            reader.Read() |> ignore
+            b
+
+        override this.Read(reader: byref<Utf8JsonReader>, typeToConvert, options) =
             reader.Read() |> ignore // Skip start array
             reader.Read() |> ignore // Skip start array for attributes
             let attributes = ResizeArray<Fable.AST.Fable.Attribute>()
-            while reader.TokenType <> JsonTokenType.StartArray do
+            while reader.TokenType <> JsonTokenType.EndArray do
                 JsonSerializer.Deserialize(&reader, options)
                 |> attributes.Add
-            let hasSpread = reader.GetBoolean()
-            let isMangled = reader.GetBoolean()
-            let isPublic = reader.GetBoolean()
-            let isInstance = reader.GetBoolean()
-            let isValue = reader.GetBoolean()
-            let isMutable = reader.GetBoolean()
-            let isGetter = reader.GetBoolean()
-            let isSetter = reader.GetBoolean()
-            let isEnumerator = reader.GetBoolean()
+            reader.Read() |> ignore // Skip end array for attributes
+            let hasSpread = this.ReadBoolean(&reader)
+            let isMangled = this.ReadBoolean(&reader)
+            let isPublic = this.ReadBoolean(&reader)
+            let isInstance = this.ReadBoolean(&reader)
+            let isValue = this.ReadBoolean(&reader)
+            let isMutable = this.ReadBoolean(&reader)
+            let isGetter = this.ReadBoolean(&reader)
+            let isSetter = this.ReadBoolean(&reader)
+            let isEnumerator = this.ReadBoolean(&reader)
+            reader.Read() |> ignore // Skip end array
             { new Fable.AST.Fable.MemberInfo with
                 member _.Attributes = attributes
                 member _.HasSpread = hasSpread
@@ -468,22 +489,26 @@ module Json =
             else
                 writer.WriteNumberValue(value)
 
-    // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson
+    // TODO: When upgrading to net6, check if we still need FSharp.SystemTextJson
     let getOptions() =
-        let jsonOptions = JsonSerializerOptions(MaxDepth=Int32.MaxValue)
+        // The default depth (64) is not enough, using 1024 that hopefully
+        // should still prevent StackOverflow exceptions
+        let jsonOptions = JsonSerializerOptions(MaxDepth=1024)
         jsonOptions.Converters.Add(DoubleConverter())
-        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
+        jsonOptions.Converters.Add(MemberInfoConverter())
+        // JsonUnionEncoding.InternalTag serializes unions in a more compact way, as Thoth.Json
+        jsonOptions.Converters.Add(JsonFSharpConverter(unionEncoding = JsonUnionEncoding.InternalTag))
         jsonOptions
 
     let read<'T> (path: string) =
         let bytes = File.ReadAllBytes(path)
         JsonSerializer.Deserialize<'T>(bytes, getOptions())
 
-    let readAsync<'T> (path: string) = async {
-        use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-        let! result = JsonSerializer.DeserializeAsync<'T>(fileStream, getOptions()).AsTask() |> Async.AwaitTask
-        return result
-    }
+    let readAsync<'T> (path: string) =
+        let fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+        JsonSerializer.DeserializeAsync<'T>(fileStream, getOptions())
+            .AsTask()
+            .ContinueWith(fun (t: Tasks.Task<'T>) -> fileStream.Dispose(); t.Result)
 
     let write (path: string) (data: 'T): unit =
         use fileStream = new FileStream(path, FileMode.Create)
@@ -491,5 +516,6 @@ module Json =
         JsonSerializer.Serialize(writer, data, getOptions())
 
     let writeAsync (path: string) (data: 'T) =
-        use fileStream = new FileStream(path, FileMode.Create)
-        JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions()) |> Async.AwaitTask
+        let fileStream = new FileStream(path, FileMode.Create)
+        JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions())
+            .ContinueWith(fun _ -> fileStream.Dispose())

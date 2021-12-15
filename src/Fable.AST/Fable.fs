@@ -45,6 +45,7 @@ type Parameter =
     { Name: string option
       Type: Type }
 
+// TODO: In Fable 4 this should be a record for consistency with other serializable types
 type MemberInfo =
     abstract Attributes: Attribute seq
     abstract HasSpread: bool
@@ -117,7 +118,19 @@ type Type =
         | Tuple gen -> gen
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
-        | _ -> []
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ -> []
+
+    member this.MapGenerics f =
+        match this with
+        | Option gen -> Option(f gen)
+        | Array gen -> Array(f gen)
+        | List gen -> List(f gen)
+        | LambdaType(argType, returnType) -> LambdaType(f argType, f returnType)
+        | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
+        | Tuple gen -> Tuple(List.map f gen)
+        | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen) 
+        | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ -> this
 
 type ActionDecl = {
     Body: Expr
