@@ -57,18 +57,18 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                 { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
             else acc)
 
-    let tryFindEntityByPath (entityRef: Fable.EntityRef) (asm: FSharpAssembly) =
-        let entPath = List.ofArray (entityRef.FullName.Split('.'))
+    let tryFindEntityByPath (entityFullName: string) (asm: FSharpAssembly) =
+        let entPath = List.ofArray (entityFullName.Split('.'))
         asm.Contents.FindEntityByPath(entPath)
         |> Option.map(fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
 
-    member _.TryGetEntityByAssemblyPath(asmPath, entityRef: Fable.EntityRef) =
+    member _.TryGetEntityByAssemblyPath(asmPath, entityFullName) =
         assemblies.TryValue(asmPath)
-        |> Option.bind (tryFindEntityByPath entityRef)
+        |> Option.bind (tryFindEntityByPath entityFullName)
 
-    member _.TryGetEntityByCoreAssemblyName(asmName, entityRef: Fable.EntityRef) =
+    member _.TryGetEntityByCoreAssemblyName(asmName, entityFullName) =
         coreAssemblies.TryValue(asmName)
-        |> Option.bind (tryFindEntityByPath entityRef)
+        |> Option.bind (tryFindEntityByPath entityFullName)
 
     member _.Plugins = plugins
 
@@ -96,6 +96,7 @@ type ImplFile =
         }
 
 type PrecompiledInfo =
+    abstract DllPath: string
     abstract TryGetRootModule: normalizedFullPath: string -> string option
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
@@ -110,6 +111,7 @@ type Project(projFile: string,
     let trimRootModule = defaultArg trimRootModule true
     let precompiledInfo = precompiledInfo |> Option.defaultWith (fun () ->
         { new PrecompiledInfo with
+            member _.DllPath = ""
             member _.TryGetRootModule(_) = None
             member _.TryGetInlineExpr(_) = None })
 
@@ -219,13 +221,15 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
 
         member this.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
-            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef)
-            | Fable.PrecompiledLib(_, path)
-            | Fable.AssemblyPath path -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef)
+            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef.FullName)
+            | Fable.AssemblyPath path
+            | Fable.PrecompiledLib(_, path) -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef.FullName)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
                 project.ImplementationFiles.TryValue(fileName)
                 |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
+                |> Option.orElseWith (fun () ->
+                    project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))
 
         member _.GetInlineExpr(memberUniqueName) =
             match project.InlineExprs.TryValue(memberUniqueName) with

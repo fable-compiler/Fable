@@ -396,7 +396,7 @@ let makeTypeDefinitionInfo r t =
             DeclaredType(ent, genArgs)
         // TODO: Do something with FunctionType and ErasedUnion?
         | t -> t
-    TypeInfo t |> makeValue r
+    makeTypeInfo r t
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -2610,8 +2610,8 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         let args =
             match meth, args with
             // TODO: Parse at compile time if we know the type
-            | "parseEnum", [value] -> [Value(TypeInfo(t), None); value]
-            | "tryParseEnum", [value; refValue] -> [Value(TypeInfo(genArg com ctx r 0 i.GenericArgs), None); value; refValue]
+            | "parseEnum", [value] -> [makeTypeInfo None t; value]
+            | "tryParseEnum", [value; refValue] -> [genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue]
             | _ -> args
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
@@ -3211,7 +3211,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                             Some(ifc.Entity, genArgs)
                         else None)
                     |> function
-                        | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
+                        | Some(ifcEnt, genArgs) -> DeclaredType(ifcEnt, genArgs) |> makeTypeInfo r
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
             | "get_Namespace" -> getTypeFullName false exprType |> splitFulName |> fst |> returnString r
@@ -3224,7 +3224,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 |> BoolConstant |> makeValue r |> Some
             | "GetElementType" ->
                 match exprType with
-                | Array t -> TypeInfo t |> makeValue r |> Some
+                | Array t -> makeTypeInfo r t |> Some
                 | _ -> Null t |> makeValue r |> Some
             | "get_IsGenericType" ->
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
@@ -3247,7 +3247,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     | Tuple _ -> Tuple newGen
                     | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
                     | t -> t
-                TypeInfo exprType |> makeValue exprRange |> Some
+                makeTypeInfo exprRange exprType |> Some
             | _ -> None
         |  _ -> None
     match resolved, thisArg with

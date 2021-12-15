@@ -76,6 +76,8 @@ let knownCliArgs() = [
   ["--trimRootModule"], []
   ["--fableLib"], []
   ["--replace"], []
+  ["--precompile"], []
+  ["--precompileTo"], []
 ]
 
 let printKnownCliArgs() =
@@ -224,17 +226,21 @@ type Runner =
                                    trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
+    let precompileTo =
+        args.Value "--precompileTo"
+        |> Option.orElseWith (fun () -> if args.FlagEnabled "--precompile" then Some "" else None)
+
     let cliArgs =
         { ProjectFile = Path.normalizeFullPath projFile
           FableLibraryPath = args.Value "--fableLib"
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
+          PrecompileTo = precompileTo
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
-          // TODO: Allow `--cache true` to enable cache even in Release mode?
-          NoCache = not compilerOptions.DebugMode || args.FlagEnabled "--noCache"
+          NoCache = args.FlagEnabled "--noCache"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"
