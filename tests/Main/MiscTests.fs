@@ -481,13 +481,19 @@ let tests =
         #if FABLE_COMPILER_3
         x <- x + 2
         #endif
-        #if FABLE_COMPILER_4
+        #if FABLE_COMPILER_3_OR_GREATER
         x <- x + 3
         #endif
-        equal 3 x
+        #if FABLE_COMPILER_4
+        x <- x + 4
+        #endif
+        #if FABLE_COMPILER_5
+        x <- x + 5
+        #endif
+        equal 8 x
 
     testCase "Can check compiler version at runtime" <| fun _ ->
-        Compiler.majorMinorVersion >=  3.0 |> equal true
+        Compiler.majorMinorVersion >=  4.0 |> equal true
         Text.RegularExpressions.Regex.IsMatch(Compiler.version, @"^\d+\.\d+") |> equal true
 
     testCase "Can access compiler options" <| fun _ ->
