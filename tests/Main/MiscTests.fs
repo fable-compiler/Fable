@@ -481,19 +481,16 @@ let tests =
         #if FABLE_COMPILER_3
         x <- x + 2
         #endif
-        #if FABLE_COMPILER_3_OR_GREATER
+        #if FABLE_COMPILER_4
         x <- x + 4
         #endif
-        #if FABLE_COMPILER_4
+        #if FABLE_COMPILER_4_OR_GREATER
         x <- x + 8
         #endif
-        #if FABLE_COMPILER_4_OR_GREATER
+        #if FABLE_COMPILER_5
         x <- x + 16
         #endif
-        #if FABLE_COMPILER_5
-        x <- x + 32
-        #endif
-        equal 29 x
+        equal 13 x
 
     testCase "Can check compiler version at runtime" <| fun _ ->
         Compiler.majorMinorVersion >=  4.0 |> equal true

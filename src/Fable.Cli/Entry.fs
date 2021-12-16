@@ -226,7 +226,6 @@ type Runner =
         args.Values "--define"
         |> List.append [
             "FABLE_COMPILER"
-            "FABLE_COMPILER_3_OR_GREATER"
             "FABLE_COMPILER_4"
             "FABLE_COMPILER_4_OR_GREATER"
             match language with
