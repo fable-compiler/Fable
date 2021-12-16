@@ -144,18 +144,18 @@ let ``test Option.fold works`` () =
     (5, None) ||> Option.fold (*) |> equal 5
     (5, Some 7) ||> Option.fold (*) |> equal 35
 
-// [<Fact>]
-// let ``test Option.foldBack works`` () =
-//     (None, 5) ||> Option.foldBack (*) |> equal 5
-//     (Some 7, 5) ||> Option.foldBack (*) |> equal 35
+[<Fact>]
+let ``test Option.foldBack works`` () =
+    (None, 5) ||> Option.foldBack (*) |> equal 5
+    (Some 7, 5) ||> Option.foldBack (*) |> equal 35
 
 [<Fact>]
 let ``test Option.fold works II`` () =
     folding1 (FoldA (Some (FoldB 1))) [] |> equal [1]
 
-// [<Fact>]
-// let ``test Option.foldBack works II`` ( )=
-//     folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
+[<Fact>]
+let ``test Option.foldBack works II`` ( )=
+    folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
 
 [<Fact>]
 let ``test Option.toArray works`` () =

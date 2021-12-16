@@ -1022,3 +1022,208 @@ let ``test Unchecked.defaultof works`` () =
     let x = ValueType()
     Unchecked.defaultof<ValueType> |> equal x
     x.X |> equal 0
+
+[<Fact>]
+let ``test Unchecked.defaultof works with tuples`` () = // See #2491
+    // TODO: Non-struct tuples
+    // let y: (int*int) = Unchecked.defaultof<_>
+    // equal null (box y)
+    let x: struct (int*int) = Unchecked.defaultof<_>
+    equal (struct(0, 0)) x
+
+[<Fact>]
+let ``test Pattern matching optimization works (switch statement)`` () =
+    let mutable x = ""
+    let i = 4
+    match i with
+    | 1 -> x <- "1"
+    | 2 -> x <- "2"
+    | 3 | 4 -> x <- "3" // Multiple cases are allowed
+    // | 5 | 6 as j -> x <- string j // This prevents the optimization
+    | 4 -> x <- "4" // Unreachable cases are removed
+    | _ -> x <- "?"
+    equal "3" x
+
+    match "Bye" with
+    | "Hi" -> x <- "Bye"
+    | "Bye" -> let h = "Hi" in x <- sprintf "%s there!" h
+    | _ -> x <- "?"
+    equal "Hi there!" x
+
+    // Pattern matching with Int64/UInt64 is not converted to switch
+    match 2L with
+    | 1L -> x <- "1L"
+    | 2L -> x <- "2L"
+    | _ -> x <- "?"
+    equal "2L" x
+
+    // Pattern matching with boolean is not converted to switch
+    match false with
+    | true -> x <- "True"
+    | false -> x <- "False"
+    equal "False" x
+
+    match MyEnum.One with
+    | MyEnum.One -> x <- "One"
+    | MyEnum.Two -> x <- "Two"
+    | _ -> failwith "never"
+    equal "One" x
+
+[<Fact>]
+let ``test Pattern matching optimization works (switch expression)`` () =
+    let i = 4
+    match i with
+    | 1 -> "1"
+    | 2 -> "2"
+    | 3 | 4 -> "3"
+    | _ -> "?"
+    |> equal "3"
+
+    match "Bye" with
+    | "Hi" -> "Bye"
+    | "Bye" -> let h = "Hi" in sprintf "%s there!" h
+    | _ -> "?"
+    |> equal "Hi there!"
+
+    match MyEnum.One with
+    | MyEnum.One -> "One"
+    | MyEnum.Two -> "Two"
+    | _ -> failwith "never"
+    |> equal "One"
+
+[<Fact>]
+let ``test Pattern matching with same result for last pattern and wildcard works`` () = // #2357
+    let x = 10
+    let y =
+        match x with
+        | 1
+        | 2
+        | 3
+        | 4
+        | _ ->
+            sideEffect()
+            5
+    equal 5 y
+
+[<Fact>]
+let ``test FSharpRef can be used in properties`` () = // See #521
+    let r = ref false
+    let x = TestRef r
+    r := true
+    match x with TestRef r2 -> !r2
+    |> equal true
+
+[<Fact>]
+let ``test Recursive values work`` () = // See #237
+    mutableValue |> equal 5
+    recursive1()
+    mutableValue |> equal 10
+
+[<Fact>]
+let ``test Module generic methods without arguments work`` () =
+    let li = empty<string>
+    Seq.length li |> equal 1
+
+[<Fact>]
+let ``test Public members of private modules can be accessed`` () = // See #696
+    MyPrivateModule.publicFoo() |> equal "foo bar"
+
+[<Fact>]
+let ``test Public types of private modules can be accessed`` () = // See #841
+    let thing = MyPrivateModule.Concrete() :> IInterface
+    thing.Member "World" "Hello" |> equal "Hello World"
+
+(*
+[<Fact>]
+let ``test Types declared in signature file work`` () = // See #754
+    let t = Spaces.TRec.Create("haha", "hoho")
+    t.Value |> equal "hahahoho"
+
+[<Fact>]
+let ``test Primary constructor of types from signature files work`` () = // See #571
+    Spaces.Test(true).Status |> equal true
+    Spaces.Test(false).Status |> equal false
+
+[<Fact>]
+let ``test Two types with same name in different folders work`` () = // See #781
+    tempet.SayA.hello "Albert"
+    |> equal "Hello Albert from SayA"
+    tempet.SayB.hello "Albert"
+    |> equal "Hello Albert from SayB"
+*)
+
+[<Fact>]
+let ``test While with isNone doesn't hang with Some ()`` () =
+    Trampoline.run (fun _ -> Trampoline.Break "hello") () |> ignore
+    Trampoline.run (fun _ -> Trampoline.Break 42) () |> ignore
+    Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore
+
+[<Fact>]
+let ``test Removing optional arguments not in tail position works`` () =
+    Internal.MyType.Add(y=6) |> equal 26
+
+[<Fact>]
+let ``test Inlined methods can have optional arguments`` () =
+    StaticClass.Add(2, 3) |> equal 5
+    StaticClass.Add(5) |> equal 7
+
+[<Fact>]
+let ``test DefaultParameterValue works`` () =
+    StaticClass.DefaultParam() |> equal true
+
+[<Fact>]
+let ``test Ignore shouldn't return value`` () = // See #1360
+    let producer () = 7
+    equal (box ()) (box(ignore(producer())))
+
+[<Fact>]
+let ``test Can import files specified via globbing patterns`` () = // See #1942
+    Glob.hello "Albert"
+    |> equal "Hello Albert from Glob"
+
+[<Fact>]
+let ``test Mutable variables can be passed by reference`` () =
+    let a = 1
+    let mutable b = 2
+    incByRef a &b
+    b |> equal 3
+    addInRef a &b |> equal 4
+    b |> equal 3
+    setOutRef a &b
+    b |> equal 1
+
+[<Fact>]
+let ``test Public mutable variables can be passed by reference`` () =
+    let a = 1
+    mutX <- 2
+    incByRef a &mutX
+    mutX |> equal 3
+    addInRef a &mutX |> equal 4
+    mutX |> equal 3
+    setOutRef a &mutX
+    mutX |> equal 1
+
+[<Fact>]
+let ``test Mutable fields can be passed by reference`` () =
+    let a = 1
+    let foo: MutableFoo = { x = 2 }
+    incByRef a &foo.x
+    foo.x |> equal 3
+    addInRef a &foo.x |> equal 4
+    foo.x |> equal 3
+    setOutRef a &foo.x
+    foo.x |> equal 1
+
+[<Fact>]
+let ``test Assigning to unit works`` () =
+    let mutable value = 2
+    let inline doit x (f: 'A -> 'T) =
+        let mutable r = Unchecked.defaultof<_>
+        r <- f x
+        r
+
+    doit "a" (fun a -> a + "b")
+    |> equal "ab"
+
+    doit 2 (fun x -> value <- value + x)
+    value |> equal 4

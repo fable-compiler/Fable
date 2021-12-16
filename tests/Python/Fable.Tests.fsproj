@@ -23,6 +23,7 @@
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Main/Globs/*.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Misc/Util2.fs" />
     <Compile Include="Misc/Util3.fs" />

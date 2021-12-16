@@ -1291,10 +1291,9 @@ module Util =
         | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
     let transformOperation com ctx range opKind: Expression * Statement list =
-        // printfn "transformOperation: %A" opKind
         match opKind with
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
-            expr, stmts
+            Expression.none(), stmts
         | Fable.Unary(UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
             let func = Expression.name("type")
             let args = [ expr ]
