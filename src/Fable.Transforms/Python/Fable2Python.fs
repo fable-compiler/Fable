@@ -430,10 +430,11 @@ module Helpers =
         let modulePathname =
             match fileDir with
             | "" | "." -> fileDir
-            | _ -> IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
+            | _ ->
+                IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
+                |> Path.normalizePath
         let outDir = com.OutputDir |> Option.defaultValue projDir
 
-        //printfn "currentFile: %A" currentFile
         //printfn "modulePathname: %A" modulePathname
         //printfn $"OutputDir: {com.OutputDir}"
         //printfn $"LibraryDir: {com.LibraryDir}"
