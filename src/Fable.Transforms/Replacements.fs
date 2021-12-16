@@ -1403,7 +1403,7 @@ let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[])
     // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
     // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
     let escape (str: string) =
-        str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+        Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
 
     let sb = System.Text.StringBuilder("`")
     let mutable prevIndex = 0
