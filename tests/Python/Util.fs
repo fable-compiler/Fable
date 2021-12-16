@@ -109,3 +109,37 @@ let throwsAnyError (f: unit -> 'a): unit =
 let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
+
+let Int32Array = [|1;2|]
+
+module Float64Array =
+    let Float64Array = [|3.;4.|]
+
+module Foo =
+    let update () = ()
+
+module Bar =
+    let rec nestedRecursive i = update (i+2)
+    and update i = i + 5
+
+let f2 a b = a + b
+
+// Assignment block as expression outside a function is NOT optimized
+f2(let mutable x = 5 in let mutable y = 6 in x + y) |> ignore
+
+let mutable a = 10
+
+module B =
+  let c = a
+  a <- a + 5
+  let mutable a = 20
+  let d = f2 2 2
+  let f2 a b = a - b
+
+  module D =
+    let d = a
+    a <- a + 5
+    let e = f2 2 2
+
+let rec nonNestedRecursive s = update s
+and update s = String.replicate 3 s

@@ -359,7 +359,7 @@ module PrinterExtensions =
         member printer.Print(node: FormattedValue) = printer.Print("(FormattedValue)")
 
         member printer.Print(node: Call) =
-            printer.Print(node.Func)
+            printer.ComplexExpressionWithParens(node.Func)
             printer.Print("(")
             printer.PrintCommaSeparatedList(node.Args)
             if not node.Keywords.IsEmpty then
@@ -462,7 +462,7 @@ module PrinterExtensions =
         member printer.Print(node: IfExp) =
             printer.Print(node.Body)
             printer.Print(" if ")
-            printer.WithParens (node.Test)
+            printer.WithParens(node.Test)
             printer.Print(" else ")
             printer.WithParens(node.OrElse)
 

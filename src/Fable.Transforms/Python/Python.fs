@@ -2,6 +2,7 @@
 namespace rec Fable.AST.Python
 
 open Fable.AST
+open Fable.AST.Python
 
 type Expression =
     | Attribute of Attribute
@@ -1001,8 +1002,8 @@ module PythonExtensions =
 
             Expression.binOp(left, op, right, ?loc=loc)
 
-        static member boolOp(op, values, ?loc) : Expression = { Values = values; Operator = op; Loc=loc } |> BoolOp
-        static member boolOp(op, values, ?loc) : Expression =
+        static member boolOp(op: BoolOperator, values, ?loc) : Expression = { Values = values; Operator = op; Loc=loc } |> BoolOp
+        static member boolOp(op: LogicalOperator, values, ?loc) : Expression =
             let op =
                 match op with
                 | LogicalAnd -> And

@@ -174,7 +174,7 @@ def seq_to_string(self):
     return str + "]"
 
 
-def to_string(x, callStack=0):
+def to_string(x: Any, callStack: int=0) -> str:
     if x is not None:
         # if (typeof x.toString === "function") {
         #    return x.toString();
@@ -193,10 +193,10 @@ def to_string(x, callStack=0):
 
 
 class Exception(Exception):
-    def __init__(self, msg=None):
+    def __init__(self, msg: Optional[str]=None):
         self.msg = msg
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
 
@@ -219,7 +219,7 @@ class FSharpException(Exception, IComparable):
     def __repr__(self) -> str:
         return str(self)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
 
