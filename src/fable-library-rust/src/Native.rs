@@ -13,7 +13,7 @@ pub mod Native {
     use super::*;
 
     pub fn defaultOf<T>() -> T {
-        unsafe { std::mem::zeroed() }
+        unsafe { std::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
     pub fn string(s: &str) -> Rc<str> {

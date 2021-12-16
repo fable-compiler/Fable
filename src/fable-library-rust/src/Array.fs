@@ -40,19 +40,12 @@ let reverse (source: 'T[]): 'T[] =
         res.[len - 1 - i] <- source.[i]
     res
 
-// TODO: (double copy so not efficient) - Probably need a Array.Push() mut equivalent, or vec.push(), or trim.
 let filter (predicate: 'T -> bool) (source: 'T[]): 'T[] =
-    let len = source.Length
-    let target = allocateArray len
-    let mutable targetLen = 0
-    for i = 0 to len - 1 do
+    let res = ResizeArray<'T>()
+    for i = 0 to source.Length - 1 do
         if predicate source.[i] then
-            target.[targetLen] <- source.[i]
-            targetLen <- targetLen + 1
-    let res = allocateArray targetLen
-    for i = 0 to targetLen - 1 do
-        res.[i] <- target.[i]
-    res
+            res.Add(source.[i])
+    res.ToArray()
 
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
     if targetIndex < 0 || targetIndex + count > target.Length then
@@ -219,7 +212,8 @@ let truncate (count: int) (source: 'T[]): 'T[] =
 //     concat mapped cons
 //     // collectImpl mapping source // flatMap not widely available yet
 
-// let where predicate (source: 'T[]) = filterImpl predicate source
+let where predicate (source: 'T[]) =
+    filter predicate source
 
 // let contains (value: 'T) (source: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
 //     let rec loop i =
@@ -230,7 +224,7 @@ let truncate (count: int) (source: 'T[]): 'T[] =
 //             else loop (i + 1)
 //     loop 0
 
-let initialize count initializer =
+let initialize count (initializer: int -> 'T): 'T[] =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
     let res = allocateArray count
     for i = 0 to count - 1 do
@@ -274,20 +268,20 @@ let skip count (source: 'T[]): 'T[] =
     let count = if count < 0 then 0 else count
     getSubArray source count (source.Length - count)
 
-let skipWhile predicate (source: 'T[]): 'T[] =
+let skipWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
     let mutable count = 0
     while count < source.Length && predicate source.[count] do
         count <- count + 1
     getSubArray source count (source.Length - count)
 
-let take count (source: 'T[]) =
+let take count (source: 'T[]): 'T[] =
     if count < 0 then
         invalidArg "count" SR.inputMustBeNonNegative
     if count > source.Length then
         invalidArg "source" SR.inputArrayWasTooShort
     getSubArray source 0 count
 
-let takeWhile predicate (source: 'T[]) =
+let takeWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
     let mutable count = 0
     while count < source.Length && predicate source.[count] do
         count <- count + 1
@@ -372,20 +366,14 @@ let takeWhile predicate (source: 'T[]) =
 //     let i = indexOfImpl source item start
 //     if count.IsSome && i >= start + count.Value then -1 else i
 
-// let partition (f: 'T -> bool) (source: 'T[]) =
-//     let len = source.Length
-//     let res1 = allocateArray len
-//     let res2 = allocateArray len
-//     let mutable iTrue = 0
-//     let mutable iFalse = 0
-//     for i = 0 to len - 1 do
-//         if f source.[i] then
-//             res1.[iTrue] <- source.[i]
-//             iTrue <- iTrue + 1
-//         else
-//             res2.[iFalse] <- source.[i]
-//             iFalse <- iFalse + 1
-//     res1 |> truncate iTrue, res2 |> truncate iFalse
+let partition (predicate: 'T -> bool) (source: 'T[]) =
+    let res1 = ResizeArray<'T>()
+    let res2 = ResizeArray<'T>()
+    for i = 0 to source.Length - 1 do
+        if predicate source.[i]
+        then res1.Add(source.[i])
+        else res2.Add(source.[i])
+    res1.ToArray(), res2.ToArray()
 
 let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
     let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
@@ -430,12 +418,12 @@ let tryFindIndexBack (predicate: 'T -> bool) (source: 'T[]): int option =
         else loop (i - 1) predicate source
     loop (source.Length - 1) predicate source
 
-let findIndexBack predicate (source: 'T[]): int =
+let findIndexBack (predicate: 'T -> bool) (source: 'T[]): int =
     match tryFindIndexBack predicate source with
     | Some res -> res
     | None -> indexNotFound()
 
-let findLastIndex predicate (source: 'T[]): int =
+let findLastIndex (predicate: 'T -> bool) (source: 'T[]): int =
     match tryFindIndexBack predicate source with
     | Some res -> res
     | None -> -1
@@ -459,8 +447,8 @@ let choose (chooser: 'T -> 'U option) (source: 'T[]): 'U[] =
     let res = ResizeArray<'U>()
     for i = 0 to source.Length - 1 do
         match chooser source.[i] with
+        | Some x -> res.Add(x)
         | None -> ()
-        | Some y -> res.Add(y)
     res.ToArray()
 
 let fold folder (state: 'State) (source: 'T[]) =
@@ -469,42 +457,27 @@ let fold folder (state: 'State) (source: 'T[]) =
         acc <- folder acc source.[i]
     acc
 
-let foldIndexed folder (state: 'State) (source: 'T[]) =
-    let mutable acc = state
-    for i = 0 to source.Length - 1 do
-        acc <- folder i acc source.[i]
-    acc
-
-let foldBackIndexed<'T, 'State> folder (source: 'T[]) (state: 'State) =
+let foldBack folder (source: 'T[]) (state: 'State) =
     let mutable acc = state
     let size = source.Length
     for i = 1 to size do
-        acc <- folder (i-1) source.[size - i] acc
+        acc <- folder source.[size - i] acc
     acc
 
-let foldBack<'T, 'State> folder (source: 'T[]) (state: 'State) =
-    foldBackIndexed (fun _ x acc -> folder x acc) source state
-
-let foldIndexed2 folder state (source1: _[]) (source2: _[]) =
+let fold2 folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
     let mutable acc = state
     if source1.Length <> source2.Length then differentLengths()
     for i = 0 to source1.Length - 1 do
-        acc <- folder i acc source1.[i] source2.[i]
+        acc <- folder acc source1.[i] source2.[i]
     acc
 
-let fold2<'T1, 'T2, 'State> folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
-    foldIndexed2 (fun _ acc x y -> folder acc x y) state source1 source2
-
-let foldBackIndexed2<'T1, 'T2, 'State> folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
+let foldBack2 folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
     let mutable acc = state
     if source1.Length <> source2.Length then differentLengths()
     let size = source1.Length
     for i = 1 to size do
-        acc <- folder (i-1) source1.[size - i] source2.[size - i] acc
+        acc <- folder source1.[size - i] source2.[size - i] acc
     acc
-
-let foldBack2<'T1, 'T2, 'State> f (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
-    foldBackIndexed2 (fun _ x y acc -> f x y acc) source1 source2 state
 
 let forAll predicate (source: 'T[]) =
     let mutable i = 0
@@ -514,9 +487,14 @@ let forAll predicate (source: 'T[]) =
         i <- i + 1
     res
 
-let forAll2 predicate source1 source2 =
-    // TODO: stop early
-    fold2 (fun acc x y -> acc && predicate x y) true source1 source2
+let forAll2 predicate (source1: 'T1[]) (source2: 'T2[]) =
+    if source1.Length <> source2.Length then differentLengths()
+    let mutable i = 0
+    let mutable res = true
+    while i < source1.Length && res do
+        res <- predicate source1.[i] source2.[i]
+        i <- i + 1
+    res
 
 let iterate action (source: 'T[]) =
     for i = 0 to source.Length - 1 do
@@ -685,11 +663,20 @@ let splitAt (index: int) (source: 'T[]): 'T[] * 'T[] =
 
 let reduce reduction (source: 'T[]) =
     if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-    foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> source
+    let folder i acc x = if i = 0 then x else reduction acc x
+    let mutable acc = source.[0]
+    for i = 0 to source.Length - 1 do
+        acc <- folder i acc source.[i]
+    acc
 
 let reduceBack reduction (source: 'T[]) =
     if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-    foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) source Unchecked.defaultof<_>
+    let folder i x acc = if i = 0 then x else reduction acc x
+    let size = source.Length
+    let mutable acc = source.[size - 1]
+    for i = 1 to size do
+        acc <- folder (i - 1) source.[size - i] acc
+    acc
 
 // let rec existsOffset predicate (source: 'T[]) index =
 //     if index = source.Length then false

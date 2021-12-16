@@ -1297,6 +1297,12 @@ module Items =
         |> mkItem attrs ident
         |> mkNonPublicItem
 
+    let mkTyAliasItem attrs name ty generics bounds: Item =
+        let ident = mkIdent name
+        ItemKind.TyAlias(Defaultness.Final, generics, mkVec bounds, Some(ty))
+        |> mkItem attrs ident
+        |> mkNonPublicItem
+
     let TODO_ITEM (name: string): Item =
         let attrs = []
         let name = "TODO_ITEM_" + name.Replace(".", "_")

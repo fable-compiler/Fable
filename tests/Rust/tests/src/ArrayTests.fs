@@ -429,13 +429,19 @@ let ``Array.choose with ints works`` () =
 let ``Array.filter works`` () =
     let xs = [|1s; 2s; 3s; 4s|]
     let ys = xs |> Array.filter (fun x -> x > 2s)
-    ys.Length |> equal 2
+    ys |> equal [|3s; 4s|]
 
 // [<Fact>]
 // let ``Array.filter with chars works`` () =
 //     let xs = [|'a'; '2'; 'b'; 'c'|]
 //     let ys = xs |> Array.filter System.Char.IsLetter
 //     ys.Length |> equal 3
+
+[<Fact>]
+let ``Array.where works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = xs |> Array.where (fun x -> x % 2 = 1)
+    ys |> equal [|1; 3|]
 
 [<Fact>]
 let ``Array.find works`` () =
@@ -651,26 +657,24 @@ let ``Array.mapi2 works`` () =
 //     xs |> Array.minBy (fun x -> -x)
 //     |> equal 2.
 
-// Array.ofList is redirected to List.toArray to avoid dependency
-// [<Fact>]
-// let ``Array.ofList works`` () =
-//     let xs = [1.; 2.]
-//     let ys = Array.ofList xs
-//     ys.Length |> equal 2
+[<Fact>]
+let ``Array.ofList works`` () =
+    let xs = [1.; 2.]
+    let ys = Array.ofList xs
+    ys.Length |> equal 2
 
-// Array.ofSeq is redirected to Seq.toArray to avoid dependency
-// [<Fact>]
-// let ``Array.ofSeq works`` () =
-//     let xs = seq { yield 1; yield 2 }
-//     let ys = Array.ofSeq xs
-//     ys.[0] |> equal 1
+[<Fact>]
+let ``Array.ofSeq works`` () =
+    let xs = seq { yield 1; yield 2 }
+    let ys = Array.ofSeq xs
+    ys.[0] |> equal 1
 
-// [<Fact>]
-// let ``Array.partition works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys, zs = xs |> Array.partition (fun x -> x <= 1.)
-//     equal ys [| 1. |]
-//     equal zs [| 2.; 3. |]
+[<Fact>]
+let ``Array.partition works`` () =
+    let xs = [| 1; 2; 3; 4; 5 |]
+    let ys, zs = xs |> Array.partition (fun x -> x % 2 = 0)
+    ys |> equal [| 2; 4 |]
+    zs |> equal [| 1; 3; 5 |]
 
 // [<Fact>]
 // let ``Array.permute works`` () =

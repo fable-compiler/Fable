@@ -254,6 +254,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsFSharpModule = ent.IsFSharpModule
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
+        member _.IsFSharpAbbreviation = ent.IsFSharpAbbreviation
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface

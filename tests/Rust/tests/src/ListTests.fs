@@ -252,6 +252,12 @@ let ``List.filter doesn't work backwards`` () = // See #1672
     ys |> List.toArray |> equal [|1; 3; 4; 5|]
 
 [<Fact>]
+let ``List.where works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> List.where (fun x -> x % 2 = 1)
+    ys |> List.toArray |> equal [|1; 3|]
+
+[<Fact>]
 let ``List.find works`` () =
     [1; 2; 3; 4]
     |> List.find ((=) 2)
@@ -853,13 +859,12 @@ let ``List.mapi2 works`` () =
 //     let xs,_ = List.mapFoldBack f ["a"] "b"
 //     equal "a" xs.Head
 
-// [<Fact>]
-// let ``List.partition works`` () =
-//     let xs = [1; 2; 3; 4; 5; 6]
-//     let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
-//     List.sum zs |> equal 9
-//     equal 2 ys.[0]
-//     equal 5 zs.[2]
+[<Fact>]
+let ``List.partition works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
+    ys |> List.toArray |> equal [| 2; 4 |]
+    zs |> List.toArray |> equal [| 1; 3; 5 |]
 
 // [<Fact>]
 // let ``List.pairwise works`` () =

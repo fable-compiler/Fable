@@ -97,8 +97,9 @@ type Entity =
     abstract IsFSharpModule: bool
     abstract IsFSharpUnion: bool
     abstract IsFSharpRecord: bool
-    abstract IsValueType: bool
+    abstract IsFSharpAbbreviation: bool
     abstract IsFSharpExceptionDeclaration: bool
+    abstract IsValueType: bool
     abstract IsInterface: bool
     abstract IsMeasure: bool
 
