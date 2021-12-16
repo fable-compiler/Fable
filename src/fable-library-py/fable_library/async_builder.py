@@ -6,8 +6,8 @@ from .util import IDisposable
 
 
 class OperationCanceledError(Exception):
-    def __init__(self):
-        super().__init__("The operation was canceled")
+    def __init__(self, msg=None):
+        super().__init__(msg or "The operation was canceled")
 
 
 class CancellationToken:
@@ -24,14 +24,12 @@ class CancellationToken:
     is_cancellation_requested = is_cancelled
 
     def cancel(self):
-        # print("CancellationToken:cancel")
         cancel = False
         with self.lock:
             if not self.cancelled:
                 cancel = True
                 self.cancelled = True
 
-        # print("cancel", cancel)
         if cancel:
             for listener in self.listeners.values():
                 listener()
@@ -66,11 +64,11 @@ class IAsyncContext:
         ...
 
     @abstractmethod
-    def on_error(self, error):
+    def on_error(self, error: Exception):
         ...
 
     @abstractmethod
-    def on_cancel(self, ct):
+    def on_cancel(self, error: OperationCanceledError):
         ...
 
     @property
@@ -107,8 +105,8 @@ class AnonymousAsyncContext:
     def on_error(self, error):
         return self._on_error(error)
 
-    def on_cancel(self, ct):
-        return self._on_cancel(ct)
+    def on_cancel(self, error):
+        return self._on_cancel(error)
 
 
 # type IAsync<'T> = IAsyncContext<'T> -> unit
@@ -132,7 +130,6 @@ class Trampoline:
 
         if self.increment_and_check():
             with self.lock:
-                # print("queueing...")
                 self.queue.append(action)
 
             if not self.running:
@@ -155,11 +152,7 @@ class Trampoline:
 
 
 def protected_cont(f):
-    # print("protected_cont")
-
-    def _protected_cont(ctx):
-        # print("_protected_cont")
-
+    def _protected_cont(ctx: IAsyncContext):
         if ctx.cancel_token.is_cancelled:
             ctx.on_cancel(OperationCanceledError())
 
@@ -176,13 +169,8 @@ def protected_cont(f):
 
 
 def protected_bind(computation, binder):
-    # print("protected_bind")
-
-    def cont(ctx):
-        # print("protected_bind: inner")
-
+    def cont(ctx: IAsyncContext):
         def on_success(x):
-            # print("protected_bind: x", x, binder)
             try:
                 binder(x)(ctx)
             except Exception as err:
@@ -254,8 +242,6 @@ class AsyncBuilder:
         return protected_cont(cont)
 
     def TryWith(self, computation, catchHandler):
-        # print("TryWith")
-
         def fn(ctx):
             def on_error(err):
                 try:
