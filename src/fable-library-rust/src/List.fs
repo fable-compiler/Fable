@@ -405,6 +405,18 @@ let filter (predicate: 'T -> bool) (xs: 'T list) =
         xs <- tail xs
     root
 
+let initialize count (initializer: int -> 'T) =
+    let gen i =
+        if i < count
+        then Some(initializer i, i + 1)
+        else None
+    unfold gen 0
+
+let pairwise (xs: 'T list) =
+    toArray xs
+    |> Array.pairwise
+    |> ofArray
+
 let partition (predicate: 'T -> bool) (xs: 'T list) =
     let mutable root1 = empty()
     let mutable root2 = empty()
@@ -422,23 +434,16 @@ let partition (predicate: 'T -> bool) (xs: 'T list) =
         xs <- tail xs
     root1, root2
 
-let initialize count (initializer: int -> 'T) =
-    let gen i =
-        if i < count
-        then Some(initializer i, i + 1)
-        else None
-    unfold gen 0
-
-let replicate count x =
-    initialize count (fun _ -> x)
-
-let reduce f (xs: 'T list) =
+let reduce reduction (xs: 'T list) =
     if (isEmpty xs) then invalidOp SR.inputListWasEmpty
-    else fold f (head xs) (tail xs)
+    fold reduction (head xs) (tail xs)
 
-let reduceBack f (xs: 'T list) =
+let reduceBack reduction (xs: 'T list) =
     if (isEmpty xs) then invalidOp SR.inputListWasEmpty
-    else foldBack f (tail xs) (head xs)
+    foldBack reduction (tail xs) (head xs)
+
+let replicate count initial =
+    initialize count (fun _ -> initial)
 
 let forAll f (xs: 'T list) =
     //TODO: stop early
@@ -457,17 +462,17 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     | false, false -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
     | _ -> invalidArg "list2" SR.differentLengths
 
-// let unzip xs =
-//     foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty()), (empty()))
+let unzip xs =
+    foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty()), (empty()))
 
-// let unzip3 xs =
-//     foldBack (fun (x, y, z) (lacc, macc, racc) -> cons x lacc, cons y macc, cons z racc) xs ((empty()), (empty()), (empty()))
+let unzip3 xs =
+    foldBack (fun (x, y, z) (lacc, macc, racc) -> cons x lacc, cons y macc, cons z racc) xs ((empty()), (empty()), (empty()))
 
-// let zip xs ys =
-//     map2 (fun x y -> x, y) xs ys
+let zip xs ys =
+    map2 (fun x y -> x, y) xs ys
 
-// let zip3 xs ys zs =
-//     map3 (fun x y z -> x, y, z) xs ys zs
+let zip3 xs ys zs =
+    map3 (fun x y z -> x, y, z) xs ys zs
 
 // let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
 //     let arr = toArray xs
@@ -516,10 +521,10 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
 //     let total = fold folder (averager.GetZero()) xs
 //     averager.DivideByInt(total, count)
 
-// let permute f (xs: 'T list) =
-//     toArray xs
-//     |> Array.permute f
-//     |> ofArray
+let permute (indexMap: int -> int) (xs: 'T list) =
+    toArray xs
+    |> Array.permute indexMap
+    |> ofArray
 
 // let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
 //     toArray xs
@@ -599,11 +604,6 @@ let tryExactlyOne (xs: 'T list) =
 
 let where predicate (xs: 'T list) =
     filter predicate xs
-
-// let pairwise (xs: 'T list) =
-//     toArray xs
-//     |> Array.pairwise
-//     |> ofArray
 
 // let windowed (windowSize: int) (xs: 'T list): 'T list list =
 //     toArray xs

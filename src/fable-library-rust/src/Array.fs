@@ -10,6 +10,7 @@ module SR =
     let inputMustBeNonNegative = "The input must be non-negative"
     let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
     let differentLengths = "Arrays had different lengths"
+    let invalidPermutation = "Not a valid permutation"
 
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
 let inline differentLengths() = failwith SR.differentLengths
@@ -231,22 +232,43 @@ let initialize count (initializer: int -> 'T): 'T[] =
         res.[i] <- initializer i
     res
 
-// let pairwise (source: 'T[]) =
-//     if source.Length < 2 then [||]
-//     else
-//         let count = source.Length - 1
-//         let res = allocateArray count
-//         for i = 0 to count - 1 do
-//             res.[i] <- source.[i], source.[i+1]
-//         res
+let pairwise (source: 'T[]) =
+    if source.Length < 2 then [||]
+    else
+        let len = source.Length - 1
+        let res = allocateArray len
+        for i = 0 to len - 1 do
+            res.[i] <- source.[i], source.[i + 1]
+        res
 
-// let replicate count initial =
-//     // Shorthand version: = initialize count (fun _ -> initial)
-//     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
-//     let res: 'T[] = allocateArray count
-//     for i = 0 to res.Length-1 do
-//         res.[i] <- initial
-//     res
+let partition (predicate: 'T -> bool) (source: 'T[]) =
+    let res1 = ResizeArray<'T>()
+    let res2 = ResizeArray<'T>()
+    for i = 0 to source.Length - 1 do
+        if predicate source.[i]
+        then res1.Add(source.[i])
+        else res2.Add(source.[i])
+    res1.ToArray(), res2.ToArray()
+
+let reduce reduction (source: 'T[]) =
+    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    let folder i acc x = if i = 0 then x else reduction acc x
+    let mutable acc = source.[0]
+    for i = 0 to source.Length - 1 do
+        acc <- folder i acc source.[i]
+    acc
+
+let reduceBack reduction (source: 'T[]) =
+    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    let folder i x acc = if i = 0 then x else reduction acc x
+    let len = source.Length
+    let mutable acc = source.[len - 1]
+    for i = 1 to len do
+        acc <- folder (i - 1) source.[len - i] acc
+    acc
+
+let replicate count initial =
+    initialize count (fun _ -> initial)
 
 // let scan<'T, 'State> folder (state: 'State) (source: 'T[]) =
 //     let res = allocateArray (source.Length + 1)
@@ -366,15 +388,6 @@ let takeWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
 //     let i = indexOfImpl source item start
 //     if count.IsSome && i >= start + count.Value then -1 else i
 
-let partition (predicate: 'T -> bool) (source: 'T[]) =
-    let res1 = ResizeArray<'T>()
-    let res2 = ResizeArray<'T>()
-    for i = 0 to source.Length - 1 do
-        if predicate source.[i]
-        then res1.Add(source.[i])
-        else res2.Add(source.[i])
-    res1.ToArray(), res2.ToArray()
-
 let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
     let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i >= source.Length then None
@@ -459,9 +472,9 @@ let fold folder (state: 'State) (source: 'T[]) =
 
 let foldBack folder (source: 'T[]) (state: 'State) =
     let mutable acc = state
-    let size = source.Length
-    for i = 1 to size do
-        acc <- folder source.[size - i] acc
+    let len = source.Length
+    for i = 1 to len do
+        acc <- folder source.[len - i] acc
     acc
 
 let fold2 folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
@@ -474,9 +487,9 @@ let fold2 folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) =
 let foldBack2 folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) =
     let mutable acc = state
     if source1.Length <> source2.Length then differentLengths()
-    let size = source1.Length
-    for i = 1 to size do
-        acc <- folder source1.[size - i] source2.[size - i] acc
+    let len = source1.Length
+    for i = 1 to len do
+        acc <- folder source1.[len - i] source2.[len - i] acc
     acc
 
 let forAll predicate (source: 'T[]) =
@@ -514,20 +527,20 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
     for i = 0 to source1.Length - 1 do
         action i source1.[i] source2.[i]
 
-// let permute f (source: 'T[]) =
-//     let size = source.Length
-//     let res = copyImpl source
-//     let checkFlags = allocateArray size
-//     iterateIndexed (fun i x ->
-//         let j = f i
-//         if j < 0 || j >= size then
-//             invalidOp "Not a valid permutation"
-//         res.[j] <- x
-//         checkFlags.[j] <- 1) source
-//     let isValid = checkFlags |> forAllImpl ((=) 1)
-//     if not isValid then
-//         invalidOp "Not a valid permutation"
-//     res
+let permute (indexMap: int -> int) (source: 'T[]) =
+    let len = source.Length
+    let res = Array.copy source
+    let checkFlags = allocateArray len
+    iterateIndexed (fun i x ->
+        let j = indexMap i
+        if j < 0 || j >= len then
+            invalidOp SR.invalidPermutation
+        res.[j] <- x
+        checkFlags.[j] <- 1) source
+    let isValid = checkFlags |> forAll ((=) 1)
+    if not isValid then
+        invalidOp SR.invalidPermutation
+    res
 
 // let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
 //     let lower = defaultArg lower 0
@@ -585,43 +598,33 @@ let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State)
     loop state
     res.ToArray()
 
-// let unzip (source: 'T[]) =
-//     let len = source.Length
-//     let res1 = allocateArray len
-//     let res2 = allocateArray len
-//     iterateIndexed (fun i (item1, item2) ->
-//         res1.[i] <- item1
-//         res2.[i] <- item2
-//     ) source
-//     res1, res2
+let unzip (source: ('T1 * 'T2)[]) =
+    let len = source.Length
+    let res1 = allocateArray len
+    let res2 = allocateArray len
+    iterateIndexed (fun i (item1, item2) ->
+        res1.[i] <- item1
+        res2.[i] <- item2
+    ) source
+    res1, res2
 
-// let unzip3 (source: 'T[]) =
-//     let len = source.Length
-//     let res1 = allocateArray len
-//     let res2 = allocateArray len
-//     let res3 = allocateArray len
-//     iterateIndexed (fun i (item1, item2, item3) ->
-//         res1.[i] <- item1
-//         res2.[i] <- item2
-//         res3.[i] <- item3
-//     ) source
-//     res1, res2, res3
+let unzip3 (source: ('T1 * 'T2 * 'T3)[]) =
+    let len = source.Length
+    let res1 = allocateArray len
+    let res2 = allocateArray len
+    let res3 = allocateArray len
+    iterateIndexed (fun i (item1, item2, item3) ->
+        res1.[i] <- item1
+        res2.[i] <- item2
+        res3.[i] <- item3
+    ) source
+    res1, res2, res3
 
-// let zip (source1: 'T[]) (source2: 'U[]) =
-//     // Shorthand version: map2 (fun x y -> x, y) source1 source2
-//     if source1.Length <> source2.Length then differentLengths()
-//     let res = allocateArray source1.Length
-//     for i = 0 to source1.Length - 1 do
-//         res.[i] <- source1.[i], source2.[i]
-//     res
+let zip (source1: 'T1[]) (source2: 'T2[]) =
+    map2 (fun x y -> x, y) source1 source2
 
-// let zip3 (source1: 'T[]) (source2: 'U[]) (source3: 'U[]) =
-//     // Shorthand version: map3 (fun x y z -> x, y, z) source1 source2 source3
-//     if source1.Length <> source2.Length || source2.Length <> source3.Length then differentLengths()
-//     let res = allocateArray source1.Length
-//     for i = 0 to source1.Length - 1 do
-//         res.[i] <- source1.[i], source2.[i], source3.[i]
-//     res
+let zip3 (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) =
+    map3 (fun x y z -> x, y, z) source1 source2 source3
 
 // let chunkBySize (chunkSize: int) (source: 'T[]): 'T[][] =
 //     if chunkSize < 1 then invalidArg "size" "The input must be positive."
@@ -660,23 +663,6 @@ let splitAt (index: int) (source: 'T[]): 'T[] * 'T[] =
 
 // let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
 //     compareWith compare source1 source2 = 0
-
-let reduce reduction (source: 'T[]) =
-    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-    let folder i acc x = if i = 0 then x else reduction acc x
-    let mutable acc = source.[0]
-    for i = 0 to source.Length - 1 do
-        acc <- folder i acc source.[i]
-    acc
-
-let reduceBack reduction (source: 'T[]) =
-    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
-    let folder i x acc = if i = 0 then x else reduction acc x
-    let size = source.Length
-    let mutable acc = source.[size - 1]
-    for i = 1 to size do
-        acc <- folder (i - 1) source.[size - i] acc
-    acc
 
 // let rec existsOffset predicate (source: 'T[]) index =
 //     if index = source.Length then false

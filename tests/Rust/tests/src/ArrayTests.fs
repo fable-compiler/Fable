@@ -676,11 +676,11 @@ let ``Array.partition works`` () =
     ys |> equal [| 2; 4 |]
     zs |> equal [| 1; 3; 5 |]
 
-// [<Fact>]
-// let ``Array.permute works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
-//     ys.[0] |> equal 2.
+[<Fact>]
+let ``Array.permute works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.; 6.|]
+    let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys |> equal [|2.; 1.; 4.; 3.; 6.; 5.|]
 
 [<Fact>]
 let ``Array.pick works`` () =
@@ -736,6 +736,11 @@ let ``Array.reduceBack works`` () =
 //         |]
 //     Array.reduce Array.append strs
 //     |> equal [|"a"; "b"|]
+
+[<Fact>]
+let ``Array.replicate works`` () =
+    Array.replicate 3 4
+    |> equal [|4;4;4|]
 
 [<Fact>]
 let ``Array.rev works`` () =
@@ -919,19 +924,19 @@ let ``Array.unfold works`` () =
     let xs = 0. |> Array.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
     xs |> equal [|1.;2.;3.|]
 
-// [<Fact>]
-// let ``Array.unzip works`` () =
-//     let xs = [|1., 2.|]
-//     let ys, zs = xs |> Array.unzip
-//     ys.[0] + zs.[0]
-//     |> equal 3.
+[<Fact>]
+let ``Array.unzip works`` () =
+    let xs = [|1., 2.|]
+    let ys, zs = xs |> Array.unzip
+    ys.[0] + zs.[0]
+    |> equal 3.
 
-// [<Fact>]
-// let ``Array.unzip3 works`` () =
-//     let xs = [|1., 2., 3.|]
-//     let ys, zs, ks = xs |> Array.unzip3
-//     ys.[0] + zs.[0] + ks.[0]
-//     |> equal 6.
+[<Fact>]
+let ``Array.unzip3 works`` () =
+    let xs = [|1., 2., 3.|]
+    let ys, zs, ks = xs |> Array.unzip3
+    ys.[0] + zs.[0] + ks.[0]
+    |> equal 6.
 
 // [<Fact>]
 // let ``Array.zip works`` () =
@@ -1219,11 +1224,10 @@ let ``Array.tryExactlyOne works`` () =
 //     Array.pairwise [|1|] |> equal [||]
 //     Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
 //     let xs = [|1; 2; 3; 4|]
-//     let xs2 = xs |> Array.pairwise
-//     equal [|(1, 2); (2, 3); (3, 4)|] xs2
-//     xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
-//     |> String.concat ""
-//     |> equal "122334"
+//     let ys = xs |> Array.pairwise
+//     ys |> equal [|(1, 2); (2, 3); (3, 4)|]
+//     // ys |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+//     // |> String.concat "" |> equal "122334"
 
 // [<Fact>]
 // let ``Array.transpose works`` () =

@@ -2060,6 +2060,7 @@ module Util =
         | Fable.TupleIndex index ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
             mkFieldExpr expr (index.ToString())
+            |> makeClone
 
         | Fable.OptionValue ->
             match fableExpr with

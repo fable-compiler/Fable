@@ -633,28 +633,39 @@ let ``List.tryFindIndex works`` () =
     ys.Value |> equal 1
     xs |> List.tryFindIndex ((=) 5) |> equal None
 
-// [<Fact>]
-// let ``List.unzip works`` () =
-//     let xs = [1, 2]
-//     let ys, zs = xs |> List.unzip
-//     ys.Head + zs.Head
-//     |> equal 3
+[<Fact>]
+let ``List.unzip works`` () =
+    let xs = [1, 2]
+    let ys, zs = xs |> List.unzip
+    ys.Head + zs.Head
+    |> equal 3
 
-// [<Fact>]
-// let ``List.unzip3 works`` () =
-//     let xs = [(1, 2, 3); (4, 5, 6)]
-//     let ys, zs, ks = xs |> List.unzip3
-//     ys.[1] + zs.[1] + ks.[1]
-//     |> equal 15
+[<Fact>]
+let ``List.unzip3 works`` () =
+    let xs = [(1, 2, 3); (4, 5, 6)]
+    let ys, zs, ks = xs |> List.unzip3
+    ys.[1] + zs.[1] + ks.[1]
+    |> equal 15
 
-// [<Fact>]
-// let ``List.zip works`` () =
-//     let xs = [1; 2; 3]
-//     let ys = [4; 5; 6]
-//     let zs = List.zip xs ys
-//     let x, y = zs.Tail.Head
-//     equal 2 x
-//     equal 5 y
+[<Fact>]
+let ``List.zip works`` () =
+    let xs = [1; 2; 3]
+    let ys = [4; 5; 6]
+    let zs = List.zip xs ys
+    let x, y = zs.Tail.Head
+    equal 2 x
+    equal 5 y
+
+[<Fact>]
+let ``List.zip3 works`` () =
+    let xs = [1; 2; 3]
+    let ys = [4; 5; 6]
+    let zs = [7; 8; 9]
+    let ks = List.zip3 xs ys zs
+    let x, y, z = List.last ks
+    equal 3 x
+    equal 6 y
+    equal 9 z
 
 [<Fact>]
 let ``List snail to append works`` () =
@@ -695,7 +706,7 @@ let ``List.truncate works`` () =
 // let ``List.collect works`` () =
 //     let xs = [[1]; [2]; [3]; [4]]
 //     let ys = xs |> List.collect id
-//     ys.Head + ys.Tail.Head
+//     ys.Head + ys.Tail.Heads
 //     |> equal 3
 
 //     let list1 = [10.; 20.; 30.]
@@ -868,21 +879,19 @@ let ``List.partition works`` () =
 
 // [<Fact>]
 // let ``List.pairwise works`` () =
-//     List.pairwise<int> [] |> equal []
-//     List.pairwise [1] |> equal []
+//     List.pairwise<int> [] |> List.isEmpty |> equal true
+//     List.pairwise [1] |> List.isEmpty |> equal true
 //     let xs = [1; 2; 3; 4]
-//     let xs2 = xs |> List.pairwise
-//     equal [(1, 2); (2, 3); (3, 4)] xs2
-//     xs2 |> List.map (fun (x, y) -> sprintf "%i%i" x y)
-//     |> String.concat ""
-//     |> equal "122334"
+//     let ys = xs |> List.pairwise
+//     ys |> List.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
+//     // ys |> List.map (fun (x, y) -> sprintf "%i%i" x y)
+//     // |> String.concat "" |> equal "122334"
 
-// [<Fact>]
-// let ``List.permute works`` () =
-//     let xs = [1; 2; 3; 4; 5; 6]
-//     let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
-//     equal 4 ys.[2]
-//     equal 6 ys.[4]
+[<Fact>]
+let ``List.permute works`` () =
+    let xs = [1; 2; 3; 4; 5; 6]
+    let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys |> List.toArray |> equal [| 2; 1; 4; 3; 6; 5 |]
 
 // [<Fact>]
 // let ``List.chunkBySize works`` () =
@@ -897,17 +906,6 @@ let ``List.partition works`` () =
 //     [0..2..9]
 //     |> List.reduce (+)
 //     |> equal 20
-
-// [<Fact>]
-// let ``List.zip3 works`` () =
-//     let xs = [1; 2; 3]
-//     let ys = [4; 5; 6]
-//     let zs = [7; 8; 9]
-//     let ks = List.zip3 xs ys zs
-//     let x, y, z = List.last ks
-//     equal 3 x
-//     equal 6 y
-//     equal 9 z
 
 // [<Fact>]
 // let ``List.tryItem works`` () =
