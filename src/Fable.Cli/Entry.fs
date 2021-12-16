@@ -228,19 +228,14 @@ type Runner =
             "FABLE_COMPILER"
             "FABLE_COMPILER_3_OR_GREATER"
             "FABLE_COMPILER_4"
+            "FABLE_COMPILER_4_OR_GREATER"
             match language with
             | Php -> "FABLE_COMPILER_PHP"
             | Rust -> "FABLE_COMPILER_RUST"
             | Dart -> "FABLE_COMPILER_DART"
-            | Python -> yield! [
-                "FABLE_COMPILER_PY"
-                "FABLE_COMPILER_PYTHON" ]
-            | TypeScript -> yield! [
-                "FABLE_COMPILER_TS"
-                "FABLE_COMPILER_TYPESCRIPT" ]
-            | JavaScript -> yield! [
-                "FABLE_COMPILER_JS"
-                "FABLE_COMPILER_JAVASCRIPT" ]
+            | Python -> "FABLE_COMPILER_PYTHON"
+            | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
+            | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
         ]
         |> List.distinct
 
