@@ -1,7 +1,7 @@
 import re
 
 
-def escape(string: str):
+def escape(string: str) -> str:
     return re.escape(string)
 
 

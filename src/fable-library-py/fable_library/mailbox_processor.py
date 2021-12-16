@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from queue import SimpleQueue
 from threading import RLock
 
@@ -20,7 +19,6 @@ class MailboxProcessor:
     def __init__(self, body, cancellation_token=None):
         self.messages = SimpleQueue()
         self.token = cancellation_token or CancellationToken()
-        self.cancel = False
         self.lock = RLock()
         self.body = body
 
@@ -104,9 +102,9 @@ class MailboxProcessor:
         # Cancellation of async workflows is more tricky in Python than
         # with F# so we check the cancellation token for each process.
         if self.token.is_cancellation_requested:
-            self.cancel, cancel = None, self.cancel
-            if cancel is not None:
-                cancel(OperationCanceledError("Mailbox was cancelled"))
+            self.continuation, cont = None, self.continuation
+            if cont is not None:
+                cont[2](OperationCanceledError("Mailbox was cancelled"))
             return
 
         if self.continuation is None:
@@ -133,7 +131,6 @@ def receive(mbox):
 
 
 def post(mbox, msg):
-    #print("post: ", msg)
     return mbox.post(msg)
 
 
