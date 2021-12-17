@@ -68,22 +68,22 @@ let tail (xs: 'T list) = //xs.Tail
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let length (xs: 'T list) = //xs.Length
-    let rec loop i xs =
+    let rec inner_loop i xs =
         match xs with
         | None -> i
-        | Some node -> loop (i + 1) node.tail
-    loop 0 xs
+        | Some node -> inner_loop (i + 1) node.tail
+    inner_loop 0 xs
 
 // let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-//     let rec loop (xs: 'T list) (ys: 'T list) =
+//     let rec inner_loop (xs: 'T list) (ys: 'T list) =
 //         match (isEmpty xs), (isEmpty ys) with
 //         | true, true -> 0
 //         | true, false -> -1
 //         | false, true -> 1
 //         | false, false ->
 //             let c = comparer (head xs) (head ys)
-//             if c = 0 then loop (tail xs) (tail ys) else c
-//     loop xs ys
+//             if c = 0 then inner_loop (tail xs) (tail ys) else c
+//     inner_loop xs ys
 
 let rec tryLast (xs: 'T list) =
     match xs with
@@ -106,11 +106,11 @@ let ofOption<'T> (opt: 'T option): 'T list =
 let toArray (xs: 'T list) =
     let len = length xs
     let res = Array.zeroCreate len
-    let rec loop (arr: 'T[]) i xs =
+    let rec inner_loop (arr: 'T[]) i xs =
         if not (isEmpty xs) then
             arr.[i] <- (head xs)
-            loop arr (i + 1) (tail xs)
-    loop res 0 xs
+            inner_loop arr (i + 1) (tail xs)
+    inner_loop res 0 xs
     res
 
 // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
@@ -150,27 +150,15 @@ let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 l
     fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     // Array.foldBack2 folder (toArray xs) (toArray ys) state
 
-// let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     // let rec loop i acc (xs: 'T list) =
-//     //     if (isEmpty xs) then acc
-//     //     else loop (i + 1) (folder i acc (head xs)) (tail xs)
-//     // loop 0 state xs
-//     let mutable acc = state
-//     let mutable xs = xs
-//     while not (isEmpty xs) do
-//         acc <- folder acc (head xs)
-//         xs <- (tail xs)
-//     acc
-
 let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
-    let rec loop gen acc (root: 'T list) (xs: 'T list) =
+    let rec inner_loop gen acc (root: 'T list) (xs: 'T list) =
         match gen acc with
         | None -> root
         | Some (x, acc) ->
             let t = xs |> appendConsNoTail x
             let root = if isEmpty root then t else root
-            loop gen acc root t
-    loop gen state (empty()) (empty())
+            inner_loop gen acc root t
+    inner_loop gen state (empty()) (empty())
 
 let iterate action xs =
     fold (fun () x -> action x) () xs
@@ -187,16 +175,6 @@ let iterateIndexed2 action xs ys =
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
 // //     xs :> System.Collections.Generic.IEnumerable<'T>
-
-// let toSeq (xs: 'T list): IEnumerator<'T> =
-//     let mutable curr = xs.root
-//     let next() =
-//         match curr with
-//         | Some node ->
-//             curr <- node.next
-//             Some (node.item)
-//         | None -> None
-//     Enumerable.fromFunction next
 
 let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
     let mutable res = tail
@@ -232,21 +210,14 @@ let ofArray (xs: 'T[]) =
 //     node |> setConsTailEmpty
 //     root |> tail
 
-// let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     let root = (empty())
-//     let mutable node = root |> appendConsNoTail state
-//     let mutable acc = state
-//     let mutable xs = xs
-//     while not (isEmpty xs) do
-//         acc <- folder acc (head xs)
-//         node <- node |> appendConsNoTail acc
-//         xs <- (tail xs)
-//     node |> setConsTailEmpty
-//     root |> tail
+let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    toArray xs
+    |> Array.scan folder state
+    |> ofArray
 
-// let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
-//     Array.scanBack folder (toArray xs) state
-//     |> ofArray
+let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    Array.scanBack folder (toArray xs) state
+    |> ofArray
 
 let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
@@ -327,13 +298,13 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: '
 //     mapFold (fun acc x -> mapping x acc) state (reverse xs)
 
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
-    let rec loop (xs: 'T list) =
+    let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
         if (isEmpty xs) then None
         else
             match chooser (head xs) with
             | Some _  as res -> res
-            | None -> loop (tail xs)
-    loop xs
+            | None -> inner_loop chooser (tail xs)
+    inner_loop chooser xs
 
 let pick (chooser: 'T -> 'U option) (xs: 'T list) =
     match tryPick chooser xs with
@@ -357,13 +328,13 @@ let findBack (predicate: 'T -> bool) (xs: 'T list) =
     | None -> indexNotFound()
 
 let tryFindIndex (predicate: 'T -> bool) (xs: 'T list): int option =
-    let rec loop i (xs: 'T list) =
+    let rec inner_loop i (predicate: 'T -> bool) (xs: 'T list) =
         if (isEmpty xs) then None
         else
             if predicate (head xs)
             then Some i
-            else loop (i + 1) (tail xs)
-    loop 0 xs
+            else inner_loop (i + 1) predicate (tail xs)
+    inner_loop 0 predicate xs
 
 let findIndex (predicate: 'T -> bool) (xs: 'T list): int =
     match tryFindIndex predicate xs with
@@ -379,14 +350,13 @@ let findIndexBack (predicate: 'T -> bool) (xs: 'T list): int =
     | None -> indexNotFound()
 
 let tryItem index (xs: 'T list) =
-    let mutable xs = xs
-    let mutable i = 0
-    while i < index && not (isEmpty xs) do
-        i <- i + 1
-        xs <- tail xs
-    if i < index || index < 0
-    then None
-    else Some (head xs)
+    let rec inner_loop i (xs: 'T list) =
+        if (isEmpty xs) then None
+        else
+            if i = 0 then Some (head xs)
+            elif i < 0 then None
+            else inner_loop (i - 1) (tail xs)
+    inner_loop index xs
 
 let item index (xs: 'T list) = // xs.Item(n)
     match tryItem index xs with

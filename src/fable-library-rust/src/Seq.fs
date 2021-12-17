@@ -553,14 +553,14 @@ let find predicate (xs: seq<'T>) =
     | None -> indexNotFound()
 
 let tryFindIndex predicate (xs: seq<'T>) =
-    let rec loop i (e: Enumerable.IEnumerator<'T>) =
+    let rec inner_loop i predicate (e: Enumerable.IEnumerator<'T>) =
         if e.MoveNext() then
             if predicate e.Current then Some i
-            else loop (i + 1) e
+            else inner_loop (i + 1) predicate e
         else
             None
     use e = ofSeq xs
-    loop 0 e
+    inner_loop 0 predicate e
 
 let findIndex predicate (xs: seq<'T>) =
     match tryFindIndex predicate xs with
@@ -830,20 +830,20 @@ let reverse (xs: seq<'T>) =
         |> ofArray
     )
 
-// let scan folder (state: 'State) (xs: seq<'T>) =
-//     delay (fun () ->
-//         let first = singleton state
-//         let mutable acc = state
-//         let rest = xs |> map (fun x -> acc <- folder acc x; acc)
-//         [| first; rest |] |> concat
-//     )
+let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
+    delay (fun () ->
+        let first = singleton state
+        let mutable acc = state
+        let rest = xs |> map (fun x -> acc <- folder acc x; acc)
+        append first rest
+    )
 
-// let scanBack folder (xs: seq<'T>) (state: 'State) =
-//     delay (fun () ->
-//         let arr = toArray xs
-//         Array.scanBack folder arr state
-//         |> ofArray
-//     )
+let scanBack (folder: 'T -> 'State -> 'State) (xs: seq<'T>) (state: 'State) =
+    delay (fun () ->
+        let arr = toArray xs
+        Array.scanBack folder arr state
+        |> ofArray
+    )
 
 let skip count (xs: seq<'T>) =
     mkSeq (fun () ->
@@ -901,20 +901,20 @@ let takeWhile predicate (xs: seq<'T>) =
             else None)
         (fun e -> e.Dispose())
 
-// let truncate count (xs: seq<'T>) =
-//     generateIndexed
-//         (fun () -> ofSeq xs)
-//         (fun i e ->
-//             if i < count && e.MoveNext()
-//             then Some (e.Current)
-//             else None)
-//         (fun e -> e.Dispose())
+let truncate count (xs: seq<'T>) =
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if i < count && e.MoveNext()
+            then Some (e.Current)
+            else None)
+        (fun e -> e.Dispose())
 
-// let zip (xs: seq<'T1>) (ys: seq<'T2>) =
-//     map2 (fun x y -> (x, y)) xs ys
+let zip (xs: seq<'T1>) (ys: seq<'T2>) =
+    map2 (fun x y -> (x, y)) xs ys
 
-// let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
-//     map3 (fun x y z -> (x, y, z)) xs ys zs
+let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
+    map3 (fun x y z -> (x, y, z)) xs ys zs
 
 // let collect (mapping: 'T -> 'U seq) (xs: seq<'T>) =
 //     delay (fun () ->
@@ -926,13 +926,13 @@ let takeWhile predicate (xs: seq<'T>) =
 let where predicate (xs: seq<'T>) =
     filter predicate xs
 
-// let pairwise (xs: seq<'T>) =
-//     delay (fun () ->
-//         xs
-//         |> toArray
-//         |> Array.pairwise
-//         |> ofArray
-//     )
+let pairwise (xs: seq<'T>) =
+    delay (fun () ->
+        xs
+        |> toArray
+        |> Array.pairwise
+        |> ofArray
+    )
 
 // let splitInto (chunks: int) (xs: seq<'T>): 'T seq seq =
 //     delay (fun () ->
@@ -1015,13 +1015,13 @@ let where predicate (xs: seq<'T>) =
 //         invalidArg "xs" SR.inputSequenceEmpty
 //     else averager.DivideByInt(total, count)
 
-// let permute f (xs: seq<'T>) =
-//     delay (fun () ->
-//         xs
-//         |> toArray
-//         |> Array.permute f
-//         |> ofArray
-//     )
+let permute f (xs: seq<'T>) =
+    delay (fun () ->
+        xs
+        |> toArray
+        |> Array.permute f
+        |> ofArray
+    )
 
 // let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<seq<'T>> =
 //     delay (fun () ->

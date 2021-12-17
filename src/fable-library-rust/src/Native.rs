@@ -20,6 +20,14 @@ pub mod Native {
         Rc::from(s)
     }
 
+    pub fn arrayEmpty<T: Clone>() -> Rc<MutCell<Vec<T>>> {
+        Rc::from(MutCell::from(Vec::new()))
+    }
+
+    pub fn arrayWithCapacity<T: Clone>(capacity: &i32) -> Rc<MutCell<Vec<T>>> {
+        Rc::from(MutCell::from(Vec::with_capacity(*capacity as usize)))
+    }
+
     pub fn arrayFrom<T: Clone>(a: &[T]) -> Rc<MutCell<Vec<T>>> {
         Rc::from(MutCell::from(a.to_vec()))
     }

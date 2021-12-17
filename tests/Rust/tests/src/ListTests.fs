@@ -433,19 +433,19 @@ let ``List.rev works`` () =
     ys.Head |> equal 3
     ys.Length |> equal 3
 
-// [<Fact>]
-// let ``List.scan works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = (0, xs) ||> List.scan (fun acc x -> acc - x)
-//     ys.[3] + ys.[4]
-//     |> equal -16
+[<Fact>]
+let ``List.scan works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = (0, xs) ||> List.scan (fun acc x -> acc - x)
+    ys.[3] + ys.[4]
+    |> equal -16
 
-// [<Fact>]
-// let ``List.scanBack works`` () =
-//     let xs = [1; 2; 3]
-//     let ys = List.scanBack (fun x acc -> acc - x) xs 0
-//     ys.Head + ys.Tail.Head
-//     |> equal -11
+[<Fact>]
+let ``List.scanBack works`` () =
+    let xs = [1; 2; 3]
+    let ys = List.scanBack (fun x acc -> acc - x) xs 0
+    ys.Head + ys.Tail.Head
+    |> equal -11
 
 // [<Fact>]
 // let ``List.sort works`` () =
@@ -877,15 +877,16 @@ let ``List.partition works`` () =
     ys |> List.toArray |> equal [| 2; 4 |]
     zs |> List.toArray |> equal [| 1; 3; 5 |]
 
-// [<Fact>]
-// let ``List.pairwise works`` () =
-//     List.pairwise<int> [] |> List.isEmpty |> equal true
-//     List.pairwise [1] |> List.isEmpty |> equal true
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> List.pairwise
-//     ys |> List.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
-//     // ys |> List.map (fun (x, y) -> sprintf "%i%i" x y)
-//     // |> String.concat "" |> equal "122334"
+[<Fact>]
+let ``List.pairwise works`` () =
+    List.pairwise<int> [] |> List.isEmpty |> equal true
+    List.pairwise [1] |> List.isEmpty |> equal true
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> List.pairwise
+    ys |> List.head |> equal (1, 2)
+    // ys |> List.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
+    // ys |> List.map (fun (x, y) -> sprintf "%i%i" x y)
+    // |> String.concat "" |> equal "122334"
 
 [<Fact>]
 let ``List.permute works`` () =
@@ -907,12 +908,12 @@ let ``List.permute works`` () =
 //     |> List.reduce (+)
 //     |> equal 20
 
-// [<Fact>]
-// let ``List.tryItem works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     List.tryItem 3 xs |> equal (Some 4.)
-//     List.tryItem 4 xs |> equal None
-//     List.tryItem -1 xs |> equal None
+[<Fact>]
+let ``List.tryItem works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryItem 3 xs |> equal (Some 4.)
+    List.tryItem 4 xs |> equal None
+    List.tryItem -1 xs |> equal None
 
 [<Fact>]
 let ``List.tryHead works`` () =

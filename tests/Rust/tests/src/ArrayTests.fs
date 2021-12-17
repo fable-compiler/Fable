@@ -305,10 +305,10 @@ let ``Array.length works with non-numeric arrays`` () =
 
 // [<Fact>]
 // let ``Array.distinctBy with tuples works`` () =
-//         let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
-//         let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
-//         ys |> Array.length |> equal 2
-//         ys |> Array.head |> fst >= 4 |> equal true
+//     let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+//     let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+//     ys |> Array.length |> equal 2
+//     ys |> Array.head |> fst >= 4 |> equal true
 
 // [<Fact>]
 // let ``Array distinctBy works on large array`` () =
@@ -336,11 +336,11 @@ let ``Array.append works`` () =
     let zs1 = Array.append [|5|] xs1
     zs1.[0] + zs1.[1] |> equal 6
 
-// [<Fact>]
-// let ``Array.append works II`` () =
-//     let xs2 = [|"a"; "b"; "c"|]
-//     let zs2 = Array.append [|"x";"y"|] xs2
-//     zs2.[1] + zs2.[3] |> equal "yb"
+[<Fact>]
+let ``Array.append works II`` () =
+    let xs2 = [|"a"; "b"; "c"|]
+    let zs2 = Array.append [|"x";"y"|] xs2
+    zs2.[1] + zs2.[3] |> equal "yb"
 
 // [<Fact>]
 // let ``Array.average works`` () =
@@ -677,6 +677,17 @@ let ``Array.partition works`` () =
     zs |> equal [| 1; 3; 5 |]
 
 [<Fact>]
+let ``Array.pairwise works`` () =
+    Array.pairwise<int> [||] |> equal [||]
+    Array.pairwise [|1|] |> equal [||]
+    Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
+    let xs = [|1; 2; 3; 4|]
+    let ys = xs |> Array.pairwise
+    ys |> equal [|(1, 2); (2, 3); (3, 4)|]
+    // ys |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+    // |> String.concat "" |> equal "122334"
+
+[<Fact>]
 let ``Array.permute works`` () =
     let xs = [|1.; 2.; 3.; 4.; 5.; 6.|]
     let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
@@ -749,19 +760,19 @@ let ``Array.rev works`` () =
     xs |> equal [|1;2;3|] // Make sure there is no side effects
     ys |> equal [|3;2;1|]
 
-// [<Fact>]
-// let ``Array.scan works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let ys = xs |> Array.scan (+) 0.
-//     ys.[2] + ys.[3]
-//     |> equal 9.
+[<Fact>]
+let ``Array.scan works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = xs |> Array.scan (+) 0.
+    ys.[2] + ys.[3]
+    |> equal 9.
 
-// [<Fact>]
-// let ``Array.scanBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let ys = Array.scanBack (-) xs 0.
-//     ys.[2] + ys.[3]
-//     |> equal 3.
+[<Fact>]
+let ``Array.scanBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = Array.scanBack (-) xs 0.
+    ys.[2] + ys.[3]
+    |> equal 3.
 
 // [<Fact>]
 // let ``Array.sort works`` () =
@@ -938,22 +949,22 @@ let ``Array.unzip3 works`` () =
     ys.[0] + zs.[0] + ks.[0]
     |> equal 6.
 
-// [<Fact>]
-// let ``Array.zip works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys = [|1.; 2.; 3.|]
-//     let zs = Array.zip xs ys
-//     let x, y = zs.[0]
-//     x + y |> equal 2.
+[<Fact>]
+let ``Array.zip works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = Array.zip xs ys
+    let x, y = zs.[0]
+    x + y |> equal 2.
 
-// [<Fact>]
-// let ``Array.zip3 works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys = [|1.; 2.; 3.|]
-//     let zs = [|1.; 2.; 3.|]
-//     let ks = Array.zip3 xs ys zs
-//     let x, y, z = ks.[0]
-//     x + y + z |> equal 3.
+[<Fact>]
+let ``Array.zip3 works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = [|1.; 2.; 3.|]
+    let ks = Array.zip3 xs ys zs
+    let x, y, z = ks.[0]
+    x + y + z |> equal 3.
 
 // [<Fact>]
 // let ``Array as IList indexer has same behaviour`` () =
@@ -1206,12 +1217,6 @@ let ``Array.takeWhile works`` () =
 //     [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
 //     [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
 
-// [<Fact>]
-// let ``Array.exactlyOne works`` () =
-//         [|1.|] |> Array.exactlyOne |> equal 1.
-//         (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
-//         (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
-
 [<Fact>]
 let ``Array.tryExactlyOne works`` () =
         [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
@@ -1219,15 +1224,10 @@ let ``Array.tryExactlyOne works`` () =
         [||] |> Array.tryExactlyOne<float> |> equal None
 
 // [<Fact>]
-// let ``Array.pairwise works`` () =
-//     Array.pairwise<int> [||] |> equal [||]
-//     Array.pairwise [|1|] |> equal [||]
-//     Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = xs |> Array.pairwise
-//     ys |> equal [|(1, 2); (2, 3); (3, 4)|]
-//     // ys |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
-//     // |> String.concat "" |> equal "122334"
+// let ``Array.exactlyOne works II`` () =
+//     [|1.|] |> Array.exactlyOne |> equal 1.
+//     (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+//     (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
 
 // [<Fact>]
 // let ``Array.transpose works`` () =
