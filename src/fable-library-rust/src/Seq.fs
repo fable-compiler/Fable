@@ -553,14 +553,14 @@ let find predicate (xs: seq<'T>) =
     | None -> indexNotFound()
 
 let tryFindIndex predicate (xs: seq<'T>) =
-    let rec loop i (e: Enumerable.IEnumerator<'T>) =
+    let rec inner_loop i predicate (e: Enumerable.IEnumerator<'T>) =
         if e.MoveNext() then
             if predicate e.Current then Some i
-            else loop (i + 1) e
+            else inner_loop (i + 1) predicate e
         else
             None
     use e = ofSeq xs
-    loop 0 e
+    inner_loop 0 predicate e
 
 let findIndex predicate (xs: seq<'T>) =
     match tryFindIndex predicate xs with

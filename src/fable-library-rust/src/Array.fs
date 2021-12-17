@@ -208,13 +208,13 @@ let where predicate (source: 'T[]) =
     filter predicate source
 
 // let contains (value: 'T) (source: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-//     let rec loop i =
+//     let rec inner_loop i =
 //         if i >= source.Length
 //         then false
 //         else
 //             if eq.Equals (value, source.[i]) then true
-//             else loop (i + 1)
-//     loop 0
+//             else inner_loop (i + 1)
+//     inner_loop 0
 
 let initialize count (initializer: int -> 'T) =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
@@ -383,11 +383,11 @@ let takeWhile (predicate: 'T -> bool) (source: 'T[]) =
 //     if count.IsSome && i >= start + count.Value then -1 else i
 
 let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
-    let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
+    let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i >= source.Length then None
         elif predicate source.[i] then Some source.[i]
-        else loop (i + 1) predicate source
-    loop 0 predicate source
+        else inner_loop (i + 1) predicate source
+    inner_loop 0 predicate source
 
 let find (predicate: 'T -> bool) (source: 'T[]): 'T =
     match tryFind predicate source with
@@ -395,11 +395,11 @@ let find (predicate: 'T -> bool) (source: 'T[]): 'T =
     | None -> indexNotFound()
 
 let tryFindIndex (predicate: 'T -> bool) (source: 'T[]): int option =
-    let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
+    let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i >= source.Length then None
         elif predicate source.[i] then Some i
-        else loop (i + 1) predicate source
-    loop 0 predicate source
+        else inner_loop (i + 1) predicate source
+    inner_loop 0 predicate source
 
 let findIndex (predicate: 'T -> bool) (source: 'T[]): int =
     match tryFindIndex predicate source with
@@ -407,11 +407,11 @@ let findIndex (predicate: 'T -> bool) (source: 'T[]): int =
     | None -> indexNotFound()
 
 let tryFindBack (predicate: 'T -> bool) (source: 'T[]): 'T option =
-    let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
+    let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i < 0 then None
         elif predicate source.[i] then Some source.[i]
-        else loop (i - 1) predicate source
-    loop (source.Length - 1) predicate source
+        else inner_loop (i - 1) predicate source
+    inner_loop (source.Length - 1) predicate source
 
 let findBack (predicate: 'T -> bool) (source: 'T[]): 'T =
     match tryFindBack predicate source with
@@ -419,11 +419,11 @@ let findBack (predicate: 'T -> bool) (source: 'T[]): 'T =
     | None -> indexNotFound()
 
 let tryFindIndexBack (predicate: 'T -> bool) (source: 'T[]): int option =
-    let rec loop i (predicate: 'T -> bool) (source: 'T[]) =
+    let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i < 0 then None
         elif predicate source.[i] then Some i
-        else loop (i - 1) predicate source
-    loop (source.Length - 1) predicate source
+        else inner_loop (i - 1) predicate source
+    inner_loop (source.Length - 1) predicate source
 
 let findIndexBack (predicate: 'T -> bool) (source: 'T[]): int =
     match tryFindIndexBack predicate source with
@@ -436,14 +436,14 @@ let findLastIndex (predicate: 'T -> bool) (source: 'T[]): int =
     | None -> -1
 
 let tryPick (chooser: 'T -> 'U option) (source: 'T[]): 'U option =
-    let rec loop i (chooser: 'T -> 'U option) (source: 'T[]) =
+    let rec inner_loop i (chooser: 'T -> 'U option) (source: 'T[]) =
         if i >= source.Length then
             None
         else
             match chooser source.[i] with
-            | None -> loop (i + 1) chooser source
+            | None -> inner_loop (i + 1) chooser source
             | res -> res
-    loop 0 chooser source
+    inner_loop 0 chooser source
 
 let pick (chooser: 'T -> 'U option) (source: 'T[]): 'U =
     match tryPick chooser source with
@@ -582,14 +582,14 @@ let permute (indexMap: int -> int) (source: 'T[]) =
 //     res
 
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State) =
-    let res = ResizeArray<'T>()
-    let rec loop state =
+    let rec inner_loop generator state (res: ResizeArray<'T>) =
         match generator state with
         | None -> ()
         | Some (x, s) ->
             res.Add (x)
-            loop s
-    loop state
+            inner_loop generator s res
+    let res = ResizeArray<'T>()
+    inner_loop generator state res
     res
 
 let unzip (source: ('T1 * 'T2)[]) =
