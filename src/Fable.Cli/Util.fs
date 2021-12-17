@@ -15,7 +15,8 @@ type CliArgs =
     { ProjectFile: string
       RootDir: string
       OutDir: string option
-      PrecompileTo: string option
+      Precompile: bool
+      PrecompiledLib: string option
       FableLibraryPath: string option
       Configuration: string
       NoRestore: bool
@@ -162,7 +163,7 @@ module File =
 
     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     let isDirectoryEmpty dir =
-        not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+        not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -302,6 +303,10 @@ module Async =
         return ()
     }
 
+type PathResolver =
+    abstract TryPrecompiledOutPath: path: string -> string option
+    abstract GetOrAddDeduplicateTargetDir: importDir: string * addTargetDir: (Set<string> -> string) -> string
+
 module Imports =
     open System.Text.RegularExpressions
     open Fable
@@ -314,7 +319,7 @@ module Imports =
         let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir =
+    let getTargetAbsolutePath (pathResolver: PathResolver) importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
@@ -322,19 +327,19 @@ module Imports =
         if importPath.StartsWith(outDir) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
-            let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->
+            let targetDir = pathResolver.GetOrAddDeduplicateTargetDir(importDir, fun currentTargetDirs ->
                 let relDir = getRelativePath projDir importDir |> trimPath
                 Path.Combine(outDir, relDir)
                 |> Naming.preventConflicts currentTargetDirs.Contains)
             let importFile = Path.GetFileName(importPath)
             Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath getOrAddDeduplicateTargetDir (importPath: string) targetDir projDir (outDir: string) =
-        let absPath = getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir
+    let getTargetRelativePath pathResolver (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath pathResolver importPath projDir outDir
         let relPath = getRelativePath targetDir absPath
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
+    let getImportPath pathResolver sourcePath targetPath projDir outDir (importPath: string) =
         let macro, importPath =
             let m = Regex.Match(importPath, @"^\${(\w+)}[\/\\]?")
             if m.Success then Some m.Groups.[1].Value, importPath.[m.Length..]
@@ -363,7 +368,7 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelativePath getOrAddDeduplicateTargetDir importPath targetDir projDir outDir
+                then getTargetRelativePath pathResolver importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
 
@@ -421,7 +426,7 @@ module Json =
             reader.Read() |> ignore
             b
 
-        override this.Read(reader: byref<Utf8JsonReader>, typeToConvert, options) =
+        override this.Read(reader: byref<Utf8JsonReader>, _typeToConvert, options) =
             reader.Read() |> ignore // Skip start array
             reader.Read() |> ignore // Skip start array for attributes
             let attributes = ResizeArray<Fable.AST.Fable.Attribute>()
@@ -470,7 +475,7 @@ module Json =
 
     type DoubleConverter() =
         inherit JsonConverter<float>()
-        override _.Read(reader, typeToConvert, options) =
+        override _.Read(reader, _typeToConvert, _options) =
             if reader.TokenType = JsonTokenType.String then
                 match reader.GetString() with
                 | "+Infinity" -> Double.PositiveInfinity
@@ -479,7 +484,7 @@ module Json =
             else
                 reader.GetDouble()
 
-        override _.Write(writer, value, options) =
+        override _.Write(writer, value, _options) =
             if Double.IsPositiveInfinity(value) then
                 writer.WriteStringValue("+Infinity")
             elif Double.IsNegativeInfinity(value) then
@@ -519,3 +524,118 @@ module Json =
         let fileStream = new FileStream(path, FileMode.Create)
         JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions())
             .ContinueWith(fun _ -> fileStream.Dispose())
+
+module Performance =
+    let measure (f: unit -> 'a) =
+        let sw = Diagnostics.Stopwatch.StartNew()
+        let res = f()
+        sw.Stop()
+        res, sw.ElapsedMilliseconds
+
+    let measureAsync (f: unit -> Async<'a>) = async {
+        let sw = Diagnostics.Stopwatch.StartNew()
+        let! res = f()
+        sw.Stop()
+        return res, sw.ElapsedMilliseconds
+    }
+
+// Make sure chunks are sorted the same way when serialized
+// and in Array.BinarySearch below
+type StringOrdinalComparer() =
+    interface System.Collections.Generic.IComparer<string> with
+        member _.Compare(x: string, y: string): int =
+            String.CompareOrdinal(x, y)
+
+type PrecompiledFileJson =
+    { RootModule: string; OutPath: string }
+
+type PrecompiledInfoJson =
+    { CompilerVersion: string
+      CompilerOptions: Fable.CompilerOptions
+      Files: Map<string, PrecompiledFileJson>
+      InlineExprHeaders: string[] }
+
+type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
+    let dic = System.Collections.Concurrent.ConcurrentDictionary<int, Map<string, Fable.InlineExpr>>()
+    let comparer = StringOrdinalComparer()
+    let dllPath = PrecompiledInfoImpl.GetDllPath(dir)
+
+    member _.CompilerVersion = info.CompilerVersion
+    member _.CompilerOptions = info.CompilerOptions
+    member _.Files = info.Files
+    member _.DllPath = dllPath
+
+    member _.TryPrecompiledOuthPath(normalizedFullPath: string) =
+        Map.tryFind normalizedFullPath info.Files
+        |> Option.map (fun f -> f.OutPath)
+
+    static member GetDllPath(dir: string): string =
+        IO.Path.Combine(dir, Fable.Naming.fablePrecompileDll)
+        |> Fable.Path.normalizeFullPath
+
+    interface Fable.Transforms.State.PrecompiledInfo with
+        member _.DllPath = dllPath
+        member _.TryGetRootModule(normalizedFullPath) =
+            Map.tryFind normalizedFullPath info.Files
+            |> Option.map (fun f -> f.RootModule)
+        member _.TryGetInlineExpr(memberUniqueName) =
+            let index = Array.BinarySearch(info.InlineExprHeaders, memberUniqueName, comparer)
+            let index = if index < 0 then ~~~index - 1 else index
+            let map = dic.GetOrAdd(index, fun _ ->
+                PrecompiledInfoImpl.GetInlineExprsPath(dir, index)
+                |> Json.read<(string * Fable.InlineExpr)[]>
+                |> Map
+            )
+            Map.tryFind memberUniqueName map
+
+    static member GetPath(dir) =
+        IO.Path.Combine(dir, "precompiled_info.json")
+
+    static member GetInlineExprsPath(dir, index: int) =
+        IO.Path.Combine(dir, "inline_exprs", $"inline_exprs_{index}.json")
+
+    static member Load(dir: string) =
+        let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+        let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
+        PrecompiledInfoImpl(dir, info)
+
+    static member Save(project: Fable.Transforms.State.Project, outPaths: Map<string, string>, dir, compilerOpts) = async {
+        Log.always($"Saving precompiled info...")
+        let! _, ms = Performance.measureAsync <| fun _ -> async {
+            let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
+
+            let inlineExprs =
+                project.InlineExprs
+                |> Seq.map (fun kv -> kv.Key, kv.Value)
+                |> Seq.toArray
+                |> Array.sortWith (fun (x,_) (y,_) -> comparer.Compare(x, y))
+                |> Array.chunkBySize 100
+
+            do
+                PrecompiledInfoImpl.GetInlineExprsPath(dir, 0)
+                |> IO.Path.GetDirectoryName
+                |> IO.Directory.CreateDirectory
+                |> ignore
+
+            let! _ =
+                // Had some issues with Async.Parallel, this seems to work well
+                Threading.Tasks.Task.WhenAll(inlineExprs |> Array.mapi (fun i chunk ->
+                    let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
+                    Json.writeAsync path chunk))
+                |> Async.AwaitTask
+
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+            let files =
+                project.ImplementationFiles |> Map.map (fun k v ->
+                    match Map.tryFind k outPaths with
+                    | Some outPath -> { RootModule = v.RootModule; OutPath = outPath }
+                    | None -> FableError($"Cannot find out path for precompiled file {k}") |> raise)
+            let inlineExprHeaders = inlineExprs |> Array.map (Array.head >> fst)
+            { CompilerVersion = Fable.Literals.VERSION
+              CompilerOptions = compilerOpts
+              Files = files
+              InlineExprHeaders = inlineExprHeaders }
+            |> Json.write precompiledInfoPath
+        }
+        Log.always($"Precompiled info saved in {ms}ms")
+    }
