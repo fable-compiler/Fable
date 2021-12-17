@@ -137,16 +137,13 @@ module Naming =
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] fableHiddenDir = "fable_modules"
+    let [<Literal>] fableModules = "fable_modules"
     let [<Literal>] fablePrecompileDll = "Fable.Precompiled.dll"
     let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
 
-    let isInFableHiddenDir (file: string) =
-        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
-
-    let umdModules =
-        set ["commonjs"; "amd"; "umd"]
+    let isInFableModules (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableModules)
 
     let isIdentChar index (c: char) =
         let code = int c

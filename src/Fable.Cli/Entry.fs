@@ -72,12 +72,11 @@ let knownCliArgs() = [
   ["--lang"; "--language"], ["Compile to JavaScript (default) or TypeScript (experimental)"]
 
   // Hidden args
+  ["--precompiledLib"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
   ["--replace"], []
-  ["--precompile"], []
-  ["--precompileTo"], []
 ]
 
 let printKnownCliArgs() =
@@ -146,7 +145,7 @@ let argLanguage (args: CliArgs) =
     | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) = result {
+  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?precompile) = result {
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -156,6 +155,7 @@ type Runner =
         |> Path.normalizePath
 
     let watch = defaultArg watch false
+    let precompile = defaultArg precompile false
 
     let fsprojPath =
         fsprojPath
@@ -179,9 +179,15 @@ type Runner =
     let language = argLanguage args
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
+    let precompiledLib = args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
+    do!
+        match outDir, precompiledLib with
+        | None, _ when precompile -> Error("outDir must be specified when precompiling")
+        | _, Some _ when precompile -> Error("Cannot pass precompiledLib when precompiling")
+        | _ -> Ok ()
 
     do!
-        let reservedDirs = [Naming.fableHiddenDir; "obj"]
+        let reservedDirs = [Naming.fableModules; "obj"]
         let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
         if List.contains outDirLast reservedDirs then
             Error($"{outDirLast} is a reserved directory, please use another output directory")
@@ -226,17 +232,14 @@ type Runner =
                                    trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
-    let precompileTo =
-        args.Value "--precompileTo"
-        |> Option.orElseWith (fun () -> if args.FlagEnabled "--precompile" then Some "" else None)
-
     let cliArgs =
         { ProjectFile = Path.normalizeFullPath projFile
           FableLibraryPath = args.Value "--fableLib"
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
-          PrecompileTo = precompileTo
+          Precompile = precompile
+          PrecompiledLib = precompiledLib
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
@@ -303,7 +306,7 @@ let clean (args: CliArgs) rootDir =
         |> Array.filter (fun subdir ->
             ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
         |> Array.iter (fun subdir ->
-            if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
+            if IO.Path.GetFileName(subdir) = Naming.fableModules then
                 IO.Directory.Delete(subdir, true)
                 Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
@@ -359,6 +362,7 @@ let main argv =
         | ["clean"] -> return clean args rootDir
         | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
         | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
+        | ["precompile"] -> return! Runner.Run(args, rootDir, runProc, precompile=true)
         | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
         | [] -> return! Runner.Run(args, rootDir, runProc, watch=args.FlagEnabled("--watch"))
         | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
