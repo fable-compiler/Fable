@@ -3,14 +3,14 @@ module Fable.Tests.ResizeArrayTests
 open Util.Testing
 
 [<Fact>]
-let ``ResizeArray zero creation works`` () =
+let ``ResizeArray creation works`` () =
     let li = ResizeArray<float>()
     li.Count |> equal 0
 
-// [<Fact>]
-// let ``ResizeArray zero creation with size works`` () =
-//     let li = ResizeArray<string>(5)
-//      li.Count |> equal 0
+[<Fact>]
+let ``ResizeArray creation with capacity works`` () =
+    let li = ResizeArray<string>(5)
+    li.Count |> equal 0
 
 // [<Fact>]
 // let ``ResizeArray creation with seq works`` () =

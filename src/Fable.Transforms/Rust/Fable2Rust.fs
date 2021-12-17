@@ -306,6 +306,7 @@ module TypeInfo =
         | Fable.LambdaType _ -> false
         | Fable.DelegateType _ -> false
         | Fable.GenericParam _ -> false
+        | Replacements.Numeric -> false
 
         | Fable.String -> true
         | Fable.Regex -> true
@@ -1331,6 +1332,15 @@ module Util =
         |]
 *)
     let transformCast (com: IRustCompiler) (ctx: Context) typ (fableExpr: Fable.Expr): Rust.Expr =
+        // search the typecast chain for a matching type
+        let rec getNestedExpr typ expr =
+            match expr with
+            | Fable.TypeCast(e, t) when t <> typ -> getNestedExpr t e
+            | _ -> expr
+        let nestedExpr = getNestedExpr typ fableExpr
+        let fableExpr =
+            // optimization to eliminate unnecessary casts
+            if nestedExpr.Type = typ then nestedExpr else fableExpr
         let fromType, toType = fableExpr.Type, typ
         let expr = transformExprMaybeUnwrapRef com ctx fableExpr
         let ty = transformType com ctx typ
@@ -1884,7 +1894,7 @@ module Util =
         // TODO: better implementation, range
         let macro = info.Macro
         let info = info.CallInfo
-        let isNative = info.OptimizableInto = Some "native"
+        let isNative = info.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
         let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
@@ -1899,10 +1909,11 @@ module Util =
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
-        let isNative = callInfo.OptimizableInto = Some "native"
+        let isNative = callInfo.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
+        // let isMutable = callInfo.OptimizableInto |> Option.exists (fun s -> s.Contains("mutable"))
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
-        | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
+        | Fable.Get(callee, Fable.FieldGet(membName, _isMutable), _t, _r) ->
             // this is an instance call
             let namesp, name = splitNameSpace membName
             let callee = transformExprMaybeIdentExpr com ctx range callee
@@ -1917,7 +1928,6 @@ module Util =
                     mkMethodCallExpr name None callee args
                 | _ ->
                     com.TransformAsExpr(ctx, calleeExpr)
-            // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
             | None ->
                 let callee =
                     match callInfo.CallMemberInfo with
@@ -1938,16 +1948,21 @@ module Util =
                         match calleeExpr with
                         | Fable.Import({ Selector = selector; Path = path }, _t, r) ->
                             // imports without args need to have type added to path.
-                            // this is for imports like List.empty, Seq.empty etc.
+                            // this is for imports like Array.empty, Seq.empty etc.
                             let genArgs =
                                 match selector, typ with
+                                | "Native::arrayEmpty", Fable.Array genArg ->
+                                    transformGenArgs com ctx [genArg]
+                                | "Native::arrayWithCapacity", Fable.Array genArg ->
+                                    transformGenArgs com ctx [genArg]
                                 | "Seq::empty", IEnumerable com genArgs ->
-                                    genArgs |> transformGenArgs com ctx
+                                    transformGenArgs com ctx genArgs
                                 | _ -> None
                             transformImport com ctx r selector path genArgs
                         | _ ->
                             com.TransformAsExpr(ctx, calleeExpr)
                 mkCallExpr callee args
+
 (*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false false args with
@@ -4080,7 +4095,9 @@ module Compiler =
                 | false, _ -> dotnetNs
 
             member _.GetEntity(fullName) =
-                com.TryGetEntity(fullName).Value
+                match com.TryGetEntity(fullName) with
+                | Some ent -> ent
+                | None -> failwith $"Missing entity {fullName}"
 
         interface Fable.Compiler with
             member _.Options = com.Options

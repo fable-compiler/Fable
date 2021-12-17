@@ -27,26 +27,21 @@ let inline differentLengths() = failwith SR.differentLengths
 //     let set (source: 'T[]) (index: int) (value: 'T): unit = Array.set source index value
 //     let copy (source: 'T[]): 'T[] = Array.copy source
 
-let inline allocateArray (count: int): 'T[] =
-    Array.create count Unchecked.defaultof<_>
-
 let tryItem (index: int) (source: 'T[]): 'T option =
     if index < 0 || index >= source.Length then None
     else Some source.[index]
 
 let reverse (source: 'T[]): 'T[] =
-    let len = source.Length
-    let res = allocateArray len
-    for i = 0 to len - 1 do
-        res.[len - 1 - i] <- source.[i]
+    let res = Array.copy source
+    System.Array.Reverse(res)
     res
 
-let filter (predicate: 'T -> bool) (source: 'T[]): 'T[] =
+let filter (predicate: 'T -> bool) (source: 'T[]) =
     let res = ResizeArray<'T>()
     for i = 0 to source.Length - 1 do
         if predicate source.[i] then
-            res.Add(source.[i])
-    res.ToArray()
+            res.Add (source.[i])
+    res
 
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
     if targetIndex < 0 || targetIndex + count > target.Length then
@@ -55,12 +50,12 @@ let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
     for i = targetIndex to targetIndex + count - 1 do
         target.[i] <- value
 
-let getSubArray (source: 'T[]) (startIndex: int) (count: int): 'T[] =
+let getSubArray (source: 'T[]) (startIndex: int) (count: int) =
     if startIndex < 0 || startIndex + count > source.Length then
         invalidArg "index" SR.indexOutOfBounds
-    let res = allocateArray count
+    let res = ResizeArray<'T>(count)
     for i = 0 to count - 1 do
-        res.[i] <- source.[startIndex + i]
+        res.Add (source.[startIndex + i])
     res
 
 let exactlyOne (source: 'T[]): 'T =
@@ -94,61 +89,57 @@ let tryLast (source: 'T[]): 'T option =
     then None
     else Some source.[source.Length - 1]
 
-let tail (source: 'T[]): 'T[] =
+let tail (source: 'T[]) =
     if Array.isEmpty source then
         invalidArg "source" SR.inputArrayWasTooShort
     getSubArray source 1 (source.Length - 1)
 
-let append (source1: 'T[]) (source2: 'T[]): 'T[] =
+let append (source1: 'T[]) (source2: 'T[]) =
     let len1 = source1.Length
     let len2 = source2.Length
-    let res = allocateArray (len1 + len2)
+    let res = ResizeArray<'T>(len1 + len2)
     for i = 0 to len1 - 1 do
-        res.[i] <- source1.[i]
+        res.Add (source1.[i])
     for i = 0 to len2 - 1 do
-        res.[i + len1] <- source2.[i]
+        res.Add (source2.[i])
     res
 
-let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]): 'U[] =
+let mapIndexed (mapping: int -> 'T -> 'U) (source: 'T[]) =
     let len = source.Length
-    let target = allocateArray len
+    let res = ResizeArray<'U>(len)
     for i = 0 to len - 1 do
-        target.[i] <- f i source.[i]
-    target
+        res.Add (mapping i source.[i])
+    res
 
-let map (f: 'T -> 'U) (source: 'T[]): 'U[] =
+let map (mapping: 'T -> 'U) (source: 'T[]) =
     let len = source.Length
-    let target = allocateArray len
+    let res = ResizeArray<'U>(len)
     for i = 0 to len - 1 do
-        target.[i] <- f source.[i]
-    target
+        res.Add (mapping source.[i])
+    res
 
-let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]): 'U[] =
+let mapIndexed2 (mapping: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) =
     if source1.Length <> source2.Length then differentLengths()
-    let res = allocateArray source1.Length
-    for i = 0 to source1.Length - 1 do
-        res.[i] <- f i source1.[i] source2.[i]
+    let len = source1.Length
+    let res = ResizeArray<'U>(len)
+    for i = 0 to len - 1 do
+        res.Add (mapping i source1.[i] source2.[i])
     res
 
-let map2 (f: 'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]): 'U[] =
+let map2 (mapping: 'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) =
     if source1.Length <> source2.Length then differentLengths()
-    let res = allocateArray source1.Length
-    for i = 0 to source1.Length - 1 do
-        res.[i] <- f source1.[i] source2.[i]
+    let len = source1.Length
+    let res = ResizeArray<'U>(len)
+    for i = 0 to len - 1 do
+        res.Add (mapping source1.[i] source2.[i])
     res
 
-let mapIndexed3 (f: int->'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]): 'U[] =
+let map3 (mapping: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then differentLengths()
-    let res = allocateArray source1.Length
-    for i = 0 to source1.Length - 1 do
-        res.[i] <- f i source1.[i] source2.[i] source3.[i]
-    res
-
-let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]): 'U[] =
-    if source1.Length <> source2.Length || source2.Length <> source3.Length then differentLengths()
-    let res = allocateArray source1.Length
-    for i = 0 to source1.Length - 1 do
-        res.[i] <- f source1.[i] source2.[i] source3.[i]
+    let len = source1.Length
+    let res = ResizeArray<'U>(len)
+    for i = 0 to len - 1 do
+        res.Add (mapping source1.[i] source2.[i] source3.[i])
     res
 
 // let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (source: 'T[]) =
@@ -177,12 +168,12 @@ let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[
 
 let indexed (source: 'T[]) =
     let len = source.Length
-    let target = Array.create len (0, Unchecked.defaultof<_>)
-    for i = 0 to (len - 1) do
-        target.[i] <- (i, source.[i])
-    target
+    let res = ResizeArray<_>(len)
+    for i = 0 to len - 1 do
+        res.Add (i, source.[i])
+    res
 
-let truncate (count: int) (source: 'T[]): 'T[] =
+let truncate (count: int) (source: 'T[]) =
     let count =
         if count < 0 then 0
         elif count > source.Length then source.Length
@@ -225,20 +216,21 @@ let where predicate (source: 'T[]) =
 //             else loop (i + 1)
 //     loop 0
 
-let initialize count (initializer: int -> 'T): 'T[] =
+let initialize count (initializer: int -> 'T) =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
-    let res = allocateArray count
+    let res = ResizeArray<'T>(count)
     for i = 0 to count - 1 do
-        res.[i] <- initializer i
+        res.Add (initializer i)
     res
 
 let pairwise (source: 'T[]) =
-    if source.Length < 2 then [||]
+    if source.Length < 2 then
+        ResizeArray<_>()
     else
         let len = source.Length - 1
-        let res = allocateArray len
+        let res = ResizeArray<_>(len)
         for i = 0 to len - 1 do
-            res.[i] <- source.[i], source.[i + 1]
+            res.Add (source.[i], source.[i + 1])
         res
 
 let partition (predicate: 'T -> bool) (source: 'T[]) =
@@ -248,7 +240,7 @@ let partition (predicate: 'T -> bool) (source: 'T[]) =
         if predicate source.[i]
         then res1.Add(source.[i])
         else res2.Add(source.[i])
-    res1.ToArray(), res2.ToArray()
+    res1, res2
 
 let reduce reduction (source: 'T[]) =
     if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
@@ -270,40 +262,42 @@ let reduceBack reduction (source: 'T[]) =
 let replicate count initial =
     initialize count (fun _ -> initial)
 
-// let scan<'T, 'State> folder (state: 'State) (source: 'T[]) =
-//     let res = allocateArray (source.Length + 1)
-//     res.[0] <- state
-//     for i = 0 to source.Length - 1 do
-//         res.[i + 1] <- folder res.[i] source.[i]
-//     res
+let scan<'T, 'State> folder (state: 'State) (source: 'T[]) =
+    let len = source.Length
+    let res = Array.create (len + 1) state
+    res.[0] <- state
+    for i = 0 to len - 1 do
+        res.[i + 1] <- folder res.[i] source.[i]
+    res
 
-// let scanBack<'T, 'State> folder (source: 'T[]) (state: 'State) =
-//     let res = allocateArray (source.Length + 1)
-//     res.[source.Length] <- state
-//     for i = source.Length - 1 downto 0 do
-//         res.[i] <- folder source.[i] res.[i + 1]
-//     res
+let scanBack<'T, 'State> folder (source: 'T[]) (state: 'State) =
+    let len = source.Length
+    let res = Array.create (len + 1) state
+    res.[len] <- state
+    for i = len - 1 downto 0 do
+        res.[i] <- folder source.[i] res.[i + 1]
+    res
 
-let skip count (source: 'T[]): 'T[] =
+let skip count (source: 'T[]) =
     if count > source.Length then
         invalidArg "source" SR.inputArrayWasTooShort
     let count = if count < 0 then 0 else count
     getSubArray source count (source.Length - count)
 
-let skipWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
+let skipWhile (predicate: 'T -> bool) (source: 'T[]) =
     let mutable count = 0
     while count < source.Length && predicate source.[count] do
         count <- count + 1
     getSubArray source count (source.Length - count)
 
-let take count (source: 'T[]): 'T[] =
+let take count (source: 'T[]) =
     if count < 0 then
         invalidArg "count" SR.inputMustBeNonNegative
     if count > source.Length then
         invalidArg "source" SR.inputArrayWasTooShort
     getSubArray source 0 count
 
-let takeWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
+let takeWhile (predicate: 'T -> bool) (source: 'T[]) =
     let mutable count = 0
     while count < source.Length && predicate source.[count] do
         count <- count + 1
@@ -456,13 +450,13 @@ let pick (chooser: 'T -> 'U option) (source: 'T[]): 'U =
     | Some res -> res
     | None -> indexNotFound()
 
-let choose (chooser: 'T -> 'U option) (source: 'T[]): 'U[] =
+let choose (chooser: 'T -> 'U option) (source: 'T[]) =
     let res = ResizeArray<'U>()
     for i = 0 to source.Length - 1 do
         match chooser source.[i] with
-        | Some x -> res.Add(x)
+        | Some x -> res.Add (x)
         | None -> ()
-    res.ToArray()
+    res
 
 let fold folder (state: 'State) (source: 'T[]) =
     let mutable acc = state
@@ -530,7 +524,7 @@ let iterateIndexed2 action (source1: 'T[]) (source2: 'T[]) =
 let permute (indexMap: int -> int) (source: 'T[]) =
     let len = source.Length
     let res = Array.copy source
-    let checkFlags = allocateArray len
+    let checkFlags = Array.create len 0
     iterateIndexed (fun i x ->
         let j = indexMap i
         if j < 0 || j >= len then
@@ -587,36 +581,36 @@ let permute (indexMap: int -> int) (source: 'T[]) =
 //             res.[i * len2 + j] <- (xs.[i], ys.[j])
 //     res
 
-let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
+let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State) =
     let res = ResizeArray<'T>()
     let rec loop state =
         match generator state with
         | None -> ()
         | Some (x, s) ->
-            res.Add(x)
+            res.Add (x)
             loop s
     loop state
-    res.ToArray()
+    res
 
 let unzip (source: ('T1 * 'T2)[]) =
     let len = source.Length
-    let res1 = allocateArray len
-    let res2 = allocateArray len
+    let res1 = ResizeArray<_>(len)
+    let res2 = ResizeArray<_>(len)
     iterateIndexed (fun i (item1, item2) ->
-        res1.[i] <- item1
-        res2.[i] <- item2
+        res1.Add (item1)
+        res2.Add (item2)
     ) source
     res1, res2
 
 let unzip3 (source: ('T1 * 'T2 * 'T3)[]) =
     let len = source.Length
-    let res1 = allocateArray len
-    let res2 = allocateArray len
-    let res3 = allocateArray len
+    let res1 = ResizeArray<_>(len)
+    let res2 = ResizeArray<_>(len)
+    let res3 = ResizeArray<_>(len)
     iterateIndexed (fun i (item1, item2, item3) ->
-        res1.[i] <- item1
-        res2.[i] <- item2
-        res3.[i] <- item3
+        res1.Add (item1)
+        res2.Add (item2)
+        res3.Add (item3)
     ) source
     res1, res2, res3
 
@@ -638,7 +632,7 @@ let zip3 (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) =
 //             pushImpl res slice |> ignore
 //         res
 
-let splitAt (index: int) (source: 'T[]): 'T[] * 'T[] =
+let splitAt (index: int) (source: 'T[]) =
     if index < 0 || index > source.Length then
         invalidArg "index" SR.indexOutOfBounds
     getSubArray source 0 index, getSubArray source index (source.Length - index)

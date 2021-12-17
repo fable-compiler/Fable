@@ -232,21 +232,14 @@ let ofArray (xs: 'T[]) =
 //     node |> setConsTailEmpty
 //     root |> tail
 
-// let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     let root = (empty())
-//     let mutable node = root |> appendConsNoTail state
-//     let mutable acc = state
-//     let mutable xs = xs
-//     while not (isEmpty xs) do
-//         acc <- folder acc (head xs)
-//         node <- node |> appendConsNoTail acc
-//         xs <- (tail xs)
-//     node |> setConsTailEmpty
-//     root |> tail
+let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    toArray xs
+    |> Array.scan folder state
+    |> ofArray
 
-// let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
-//     Array.scanBack folder (toArray xs) state
-//     |> ofArray
+let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    Array.scanBack folder (toArray xs) state
+    |> ofArray
 
 let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
@@ -379,14 +372,13 @@ let findIndexBack (predicate: 'T -> bool) (xs: 'T list): int =
     | None -> indexNotFound()
 
 let tryItem index (xs: 'T list) =
-    let mutable xs = xs
-    let mutable i = 0
-    while i < index && not (isEmpty xs) do
-        i <- i + 1
-        xs <- tail xs
-    if i < index || index < 0
-    then None
-    else Some (head xs)
+    let rec loop i (xs: 'T list) =
+        if (isEmpty xs) then None
+        else
+            if i = 0 then Some (head xs)
+            elif i < 0 then None
+            else loop (i - 1) (tail xs)
+    loop index xs
 
 let item index (xs: 'T list) = // xs.Item(n)
     match tryItem index xs with

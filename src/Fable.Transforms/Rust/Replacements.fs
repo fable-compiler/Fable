@@ -19,14 +19,15 @@ type Helper =
         Call(consExpr, { info with IsConstructor = true }, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
-                               ?argTypes: Type list, ?loc: SourceLocation) =
+                               ?argTypes: Type list, ?isMutable: bool, ?loc: SourceLocation) =
         let callee = getAttachedMember callee memb
-        let info = defaultArg argTypes [] |> makeCallInfo None args
+        // let callee = Get(callee, FieldGet(memb, defaultArg isMutable false), Any, callee.Range)
+        let info = makeCallInfo None args (defaultArg argTypes [])
         Call(callee, info, returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
-        let info = defaultArg argTypes [] |> makeCallInfo None args
+        let info = makeCallInfo None args (defaultArg argTypes [])
         Call(callee, info, returnType, loc)
 
     static member LibValue(com, coreModule: string, coreMember: string, returnType: Type) =
@@ -36,17 +37,22 @@ type Helper =
                            ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isJsConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportLib com Any (coreModule + "::" + coreMember) coreModule
         let info = makeCallInfo thisArg args (defaultArg argTypes [])
-        Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+        let info = { info with
+                        HasSpread = defaultArg hasSpread false
+                        IsConstructor = defaultArg isJsConstructor false }
+        Call(callee, info, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list,
-                             ?memb: string, ?isJsConstructor: bool, ?loc: SourceLocation) =
+                             ?memb: string, ?isMutable: bool, ?isJsConstructor: bool, ?loc: SourceLocation) =
         let callee =
             match memb with
-            | Some memb -> getAttachedMember (makeIdentExpr ident) memb
+            | Some memb ->
+                getAttachedMember (makeIdentExpr ident) memb
+                // let callee = Get(callee, FieldGet(memb, defaultArg isMutable false), Any, callee.Range)
             | None -> makeIdentExpr ident
         let info = makeCallInfo None args (defaultArg argTypes [])
-        Call(callee, { info with IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+        let info = { info with IsConstructor = defaultArg isJsConstructor false }
+        Call(callee, info, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         // getAttachedMemberWith loc typ (makeIdentExpr ident) memb
@@ -67,6 +73,9 @@ module Helpers =
 
     let nativeCall expr =
         expr |> asOptimizable "native"
+
+    // let asMutable expr =
+    //     expr |> asOptimizable "mutable,native"
 
     let getMut expr =
         Helper.InstanceCall(expr, "get_mut", expr.Type, [])
@@ -1952,17 +1961,15 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     // Use Any to prevent creation of a typed array (not resizable)
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
     | ".ctor", _, [] ->
-        makeArray (getElementType t) [] |> Some
-    // Don't pass the size to `new Array()` because that would fill the array with null values
-    | ".ctor", _, [ExprType(Number _)] ->
-        makeArray (getElementType t) [] |> Some
+        // makeArray (getElementType t) [] |> Some
+        Helper.LibCall(com, "Native", "arrayEmpty", t, [], ?loc=r) |> Some
+    | ".ctor", _, [ExprTypeAs(Number(Int32, None), idx)] ->
+        Helper.LibCall(com, "Native", "arrayWithCapacity", t, [idx], ?loc=r) |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [ArrayOrListLiteral(vals, typ)] ->
         makeArray typ vals |> Some
     | ".ctor", _, args ->
-        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r)
-        |> asOptimizable "array"
-        |> Some
+        Helper.LibCall(com, "Native", "arrayFrom", t, args, ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [arg] ->
@@ -2098,7 +2105,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | "Reverse", None, [arg] ->
-        Helper.InstanceCall(arg, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.InstanceCall(getMut arg, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =

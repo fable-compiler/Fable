@@ -692,18 +692,18 @@ let ``Seq.reduceBack works`` () =
     xs |> Seq.reduceBack (+)
     |> equal 3.
 
-// [<Fact>]
-// let ``Seq.scan works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let ys = xs |> Seq.scan (+) 0.
-//     sumFirstTwo ys |> equal 1.
+[<Fact>]
+let ``Seq.scan works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.scan (+) 0.
+    sumFirstTwo ys |> equal 1.
 
-// [<Fact>]
-// let ``Seq.scan works with empty input`` () =
-//     let xs = Seq.empty
-//     let ys = xs |> Seq.scan (+) 3
-//     Seq.head ys |> equal 3
-//     Seq.length ys |> equal 1
+[<Fact>]
+let ``Seq.scan works with empty input`` () =
+    let xs = Seq.empty<int>
+    let ys = xs |> Seq.scan (+) 3
+    Seq.head ys |> equal 3
+    Seq.length ys |> equal 1
 
 // [<Fact>]
 // let ``Seq.sort works`` () =
@@ -809,24 +809,24 @@ let ``Seq.tryPick works`` () =
     | None -> 0.
     |> equal 2.
 
-// [<Fact>]
-// let ``Seq.zip works`` () =
-//     let xs = [1.; 2.; 3.]
-//     let ys = [1.; 2.; 3.]
-//     let zs = Seq.zip xs ys
-//     let x, y = zs |> Seq.head
-//     x + y
-//     |> equal 2.
+[<Fact>]
+let ``Seq.zip works`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = Seq.zip xs ys
+    let x, y = zs |> Seq.head
+    x + y
+    |> equal 2.
 
-// [<Fact>]
-// let ``Seq.zip3 works`` () =
-//     let xs = [1.; 2.; 3.]
-//     let ys = [1.; 2.; 3.]
-//     let zs = [1.; 2.; 3.]
-//     let ks = Seq.zip3 xs ys zs
-//     let x, y, z = ks |> Seq.head
-//     x + y + z
-//     |> equal 3.
+[<Fact>]
+let ``Seq.zip3 works`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = [1.; 2.; 3.]
+    let ks = Seq.zip3 xs ys zs
+    let x, y, z = ks |> Seq.head
+    x + y + z
+    |> equal 3.
 
 // [<Fact>]
 // let ``Seq.cache works`` () =
@@ -956,19 +956,25 @@ let ``Seq.tryLast works`` () =
     xs |> Seq.tryLast |> equal (Some 4.)
     empty |> Seq.tryLast |> equal None
 
-// [<Fact>]
-// let ``Seq.pairwise works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> Seq.pairwise
-//     |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
-//     |> String.concat ""
-//     |> equal "122334"
+[<Fact>]
+let ``Seq.pairwise works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.pairwise
+    ys |> Seq.head |> equal (1, 2)
+    // ys |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
+    // |> String.concat "" |> equal "122334"
 
-// [<Fact>]
-// let ``Seq.pairwise works with empty input`` () = // See #1941
-//     ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
-//     [1] |> Seq.pairwise |> Seq.toList |> equal []
-//     [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
+[<Fact>]
+let ``Seq.pairwise works with empty input`` () = // See #1941
+    ([||] : int array) |> Seq.pairwise |> Seq.length |> equal 0
+    [1] |> Seq.pairwise |> Seq.length |> equal 0
+    [1; 2] |> Seq.pairwise |> Seq.head |> equal (1, 2)
+
+[<Fact>]
+let ``Seq.permute works`` () =
+    let xs = [1; 2; 3; 4; 5; 6]
+    let ys = xs |> Seq.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys |> Seq.toArray |> equal [| 2; 1; 4; 3; 6; 5 |]
 
 [<Fact>]
 let ``Seq.readonly works`` () =
