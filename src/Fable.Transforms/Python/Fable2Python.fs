@@ -420,10 +420,11 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-    /// Normalize Fable import to be relative to outDir
+    /// Normalize Fable import to be relative to outDir.
+    /// TODO: decide if nugets referencing fable_library should be relative or absolute. Currently absolute.
     let normalizeModulePath (com: IPythonCompiler) modulePath =
-        // printfn "---"
-        // printfn "ModulePath: %s" modulePath
+        //printfn "---"
+        //printfn "ModulePath: %s" modulePath
         let fileDir = Path.GetDirectoryName modulePath
         //printfn "dir: %A" dir
         let projDir = Path.GetDirectoryName(com.ProjectFile)
@@ -468,18 +469,17 @@ module Helpers =
         | _ ->
             relativePath
 
-    /// This function is a bit complex. Imports and Python is difficult.
+    /// This function is a bit complex. Python imports are difficult.
     /// - Python libraries should use relative imports.
     /// - Python program must use absolute imports
     /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
     /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
     /// a library (fable-modules). Thus we need to handle a lot of corner cases.
     ///
-    ///
     ///  - OutDir
     ///    - fable_modules
-    ///      - fable_library
-    ///      - nuget_library
+    ///      - fable_library (may import itself)
+    ///      - nuget_library (may import fable library)
     ///    - referenced_project
     ///      - util.py
     ///    - subdir
@@ -505,7 +505,7 @@ module Helpers =
             else
                 notInProjectDir
 
-        // printfn "Prefix: %A" (commonPrefix, isProjectReference)
+        //printfn "Prefix: %A" (commonPrefix, isProjectReference)
         let relative =
             match com.OutputType, isProjectReference with
             // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
@@ -518,7 +518,7 @@ module Helpers =
         // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
         // printfn $"OutputDir: {com.OutputDir}  "
         // printfn $"LibraryDir: {com.LibraryDir}"
-        // printfn "normalizedPath: %A" (relative, normalizedPath)
+        //printfn "normalizedPath: %A" (relative, normalizedPath)
 
         let moduleName =
             let lower =
@@ -532,6 +532,8 @@ module Helpers =
             match relative, normalizedPath with
             | _, "" -> ""
             | true, "." -> "."
+            | true, path when path.Contains("fable_modules") ->
+                path.Replace("./", "").Replace("./", ".").Replace("/", ".") + "."
             | true, path ->
                 //printfn "Path: %A" path
                 path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
@@ -540,7 +542,7 @@ module Helpers =
                 path.Replace("./", "").Replace("/", ".") + "."
 
         let moduleImport = $"{path}{moduleName}"
-        // printfn "ModuleImport: %s" moduleImport
+        //printfn "ModuleImport: %s" moduleImport
         moduleImport
 
     let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
@@ -817,7 +819,7 @@ module Util =
         let self = Arg.arg("self")
         let args =
             match args.Args with
-            | [ unit ] ->
+            | [ _unit ] ->
                 { args with Args = self::args.Args; Defaults=[ Expression.none() ] }
             | _ ->
                 { args with Args = self::args.Args }
@@ -911,8 +913,7 @@ module Util =
 
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
-        | Expression.Constant(value, loc), _ when (value :? int) ->
-            Expression.boolOp(BoolOperator.Or, [e; Expression.constant(0)])
+        | Expression.Constant _, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number((Int8 | Int16 | Int32),_)
         | _, Fable.Enum _ ->
@@ -2380,22 +2381,6 @@ module Util =
 //         else
 //             None
 
-//     let getClassImplements com ctx (ent: Fable.Entity) =
-//         let mkNative genArgs typeName =
-//             let id = Identifier.identifier(typeName)
-//             let typeParamInst = makeGenTypeParamInst com ctx genArgs
-//             ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
-// //        let mkImport genArgs moduleName typeName =
-// //            let id = makeImportTypeId com ctx moduleName typeName
-// //            let typeParamInst = makeGenTypeParamInst com ctx genArgs
-// //            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
-//         ent.AllInterfaces |> Seq.choose (fun ifc ->
-//             match ifc.Entity.FullName with
-//             | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
-//             | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
-//             | _ -> None
-//         )
-
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
@@ -2644,7 +2629,7 @@ module Util =
 
         [
             yield! declareType com ctx classEnt classDecl.Name consArgs consBody baseExpr classMembers
-            yield exposedCons
+            exposedCons
         ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
@@ -2727,7 +2712,7 @@ module Util =
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
         [
-            for (moduleName, aliases) in imports do
+            for moduleName, aliases in imports do
                 match moduleName with
                 | Some name ->
                     Statement.importFrom (Some(Identifier(name)), aliases)
@@ -2850,4 +2835,4 @@ module Compiler =
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports com
         let body = importDecls @ rootDecls
-        Module.module' (body)
+        Module.module' body

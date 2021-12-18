@@ -825,7 +825,7 @@ type AST =
 module PythonExtensions =
     type Statement with
         static member break'() : Statement = Break
-        static member continue' (?loc) : Statement = Continue
+        static member continue' ?loc : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
         static member raise(value) : Statement = { Exception=value; Cause=None} |> Raise
