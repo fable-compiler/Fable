@@ -797,23 +797,23 @@ let ``test System.Uri.UnescapeDataString works`` () =
     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
 [<Fact>]
- let ``test System.Uri.EscapeDataString works`` () =
-     System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
-     System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
-     System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
-     |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
+let ``test System.Uri.EscapeDataString works`` () =
+    System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
+    System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
+    System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+    |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
 
- [<Fact>]
- let ``test System.Uri.EscapeUriString works`` () =
-     System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
-     System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
-     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
-     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+[<Fact>]
+let ``test System.Uri.EscapeUriString works`` () =
+    System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
+    System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
+    System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+    |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
 // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
- [<Fact>]
- let ``test Passing Char.IsDigit as a function reference does not make String.filter hang`` () =
-     "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+[<Fact>]
+let ``test Passing Char.IsDigit as a function reference does not make String.filter hang`` () =
+    "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 
 [<Fact>]
 let ``test sprintf with double percent should be unescaped`` () =

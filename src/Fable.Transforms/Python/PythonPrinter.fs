@@ -639,19 +639,19 @@ module PrinterExtensions =
         member printer.Print(node: AST) =
             match node with
             | AST.Expression ex -> printer.Print(ex)
-            | AST.Operator (op) -> printer.Print(op)
-            | AST.BoolOperator (op) -> printer.Print(op)
-            | AST.ComparisonOperator (op) -> printer.Print(op)
-            | AST.UnaryOperator (op) -> printer.Print(op)
-            | AST.ExpressionContext (_) -> ()
-            | AST.Alias (al) -> printer.Print(al)
-            | AST.Module ``mod`` -> printer.Print(``mod``)
-            | AST.Arguments (arg) -> printer.Print(arg)
-            | AST.Keyword (kw) -> printer.Print(kw)
-            | AST.Arg (arg) -> printer.Print(arg)
-            | AST.Statement (st) -> printer.Print(st)
-            | AST.Identifier (id) -> printer.Print(id)
-            | AST.WithItem (wi) -> printer.Print(wi)
+            | AST.Operator op -> printer.Print(op)
+            | AST.BoolOperator op -> printer.Print(op)
+            | AST.ComparisonOperator op -> printer.Print(op)
+            | AST.UnaryOperator op -> printer.Print(op)
+            | AST.ExpressionContext _ -> ()
+            | AST.Alias al -> printer.Print(al)
+            | AST.Module mo -> printer.Print(mo)
+            | AST.Arguments arg -> printer.Print(arg)
+            | AST.Keyword kw -> printer.Print(kw)
+            | AST.Arg arg -> printer.Print(arg)
+            | AST.Statement st -> printer.Print(st)
+            | AST.Identifier id -> printer.Print(id)
+            | AST.WithItem wi -> printer.Print(wi)
 
         member printer.PrintBlock
             (
