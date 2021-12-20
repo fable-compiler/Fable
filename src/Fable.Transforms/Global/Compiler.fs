@@ -62,7 +62,9 @@ type Compiler =
 
 [<AutoOpen>]
 module CompilerExt =
-    let expectedVersionMatchesActual (expected: string) (actual: string) =
+    open System.Collections.Generic
+
+    let private expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
@@ -81,11 +83,22 @@ module CompilerExt =
             )
         with _ -> false
 
+    let private coreAssemblyNames = set Metadata.coreAssemblies
+
     type Compiler with
+        static member CoreAssemblyNames = coreAssemblyNames
+
         member com.GetEntity(entityRef: Fable.EntityRef) =
             match com.TryGetEntity(entityRef) with
             | Some e -> e
-            | None -> failwith $"Cannot find entity %s{entityRef.FullName}"
+            | None ->
+                let category =
+                    match entityRef.Path with
+                    | Fable.CoreAssemblyName _ -> "core"
+                    | Fable.AssemblyPath _ -> "external"
+                    | Fable.PrecompiledLib _ -> "precompiled"
+                    | Fable.SourcePath _ -> "user"                
+                failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
         member com.ToPluginHelper() =
             { new PluginHelper with

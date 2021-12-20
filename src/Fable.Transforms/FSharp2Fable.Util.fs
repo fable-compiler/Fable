@@ -183,14 +183,17 @@ type FsEnt(ent: FSharpEntity) =
             match ent.Assembly.FileName with
             | Some asmPath ->
                 let dllName = Path.GetFileName(asmPath)
+                let dllName = dllName.Substring(0, dllName.Length - 4) // Remove .dll extension
                 match dllName with
                 // When compiling with netcoreapp target, netstandard only contains redirects
-                // Find the actual assembly name from the entity qualified name
-                | "netstandard.dll" ->
+                // We can find the actual assembly name from the entity qualified name
+                | "netstandard" ->
                     ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-                | Naming.fablePrecompileDll ->
+                | Naming.fablePrecompile ->
                     let sourcePath = FsEnt.SourcePath ent
                     Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
+                | dllName when Compiler.CoreAssemblyNames.Contains(dllName) ->
+                    Fable.CoreAssemblyName dllName
                 | _ ->
                     Path.normalizePath asmPath |> Fable.AssemblyPath
             | None ->
@@ -353,13 +356,13 @@ module Helpers =
     let private getEntityMangledName trimRootModule (ent: Fable.EntityRef) =
         let fullName = ent.FullName
         match trimRootModule, ent.Path with
-        | TrimRootModule com, Fable.SourcePath sourcePath ->
+        | TrimRootModule com, (Fable.SourcePath sourcePath | Fable.PrecompiledLib(sourcePath, _)) ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        // Ignore Precompiled libs and other entities for which we don't have implementation file data
-        | TrimRootModule _, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        // Ignore entities for which we don't have implementation file data
+        | TrimRootModule _, (Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
         | NoTrimRootModule, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
@@ -1466,8 +1469,8 @@ module Util =
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
-    let private fixImportedRelativePath (com: Compiler) (path: string) normalizedSourcePath =
-        let file = Path.normalizePathAndEnsureFsExtension normalizedSourcePath
+    let fixImportedRelativePath (com: Compiler) (path: string) sourcePath =
+        let file = Path.normalizePathAndEnsureFsExtension sourcePath
         if file = com.CurrentFile
         then path
         else

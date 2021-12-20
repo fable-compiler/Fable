@@ -180,10 +180,12 @@ type Runner =
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
     let precompiledLib = args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
+    let fableLib = args.Value "--fableLib"
+
     do!
-        match outDir, precompiledLib with
+        match outDir, fableLib with
         | None, _ when precompile -> Error("outDir must be specified when precompiling")
-        | _, Some _ when precompile -> Error("Cannot pass precompiledLib when precompiling")
+        | _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
         | _ -> Ok ()
 
     do!
@@ -234,7 +236,7 @@ type Runner =
 
     let cliArgs =
         { ProjectFile = Path.normalizeFullPath projFile
-          FableLibraryPath = args.Value "--fableLib"
+          FableLibraryPath = fableLib
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
@@ -249,7 +251,7 @@ type Runner =
             args.Values "--replace"
             |> List.map (fun v ->
                 let v = v.Split(':')
-                v.[0], Path.normalizeFullPath v.[1])
+                v.[0], normalizeAbsolutePath v.[1])
             |> Map
           RunProcess = runProc
           CompilerOptions = compilerOptions }
@@ -362,6 +364,7 @@ let main argv =
         | ["clean"] -> return clean args rootDir
         | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
         | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
+        | ["precompile"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, precompile=true)
         | ["precompile"] -> return! Runner.Run(args, rootDir, runProc, precompile=true)
         | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
         | [] -> return! Runner.Run(args, rootDir, runProc, watch=args.FlagEnabled("--watch"))

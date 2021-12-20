@@ -138,7 +138,7 @@ module Naming =
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] fableModules = "fable_modules"
-    let [<Literal>] fablePrecompileDll = "Fable.Precompiled.dll"
+    let [<Literal>] fablePrecompile = "Fable.Precompiled"
     let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
 
@@ -458,7 +458,10 @@ module Path =
         let path1 =
             if path1.Length = 0 then path1
             else (path1.TrimEnd [|'\\';'/'|]) + "/"
-        path1 + (path2.TrimStart [|'\\';'/'|])
+        let path2 =
+            if path2.StartsWith("./") then path2.[2..]
+            else path2.TrimStart [|'\\';'/'|]
+        path1 + path2
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")

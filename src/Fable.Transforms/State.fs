@@ -27,28 +27,26 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
-        let coreAssemblyNames = HashSet Metadata.coreAssemblies
-
         for asm in fsharpAssemblies do
             match asm.FileName with
             | Some path ->
                 let path = Path.normalizePath path
-                let asmName = path.Substring(path.LastIndexOf('/') + 1).Replace(".dll", "")
-                let isCoreAssembly = coreAssemblyNames.Contains(asmName)
-                try
-                    let scanForPlugins =
-                        not isCoreAssembly && asm.Contents.Attributes |> Seq.exists (fun attr ->
-                            attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
-                    if scanForPlugins then
-                       for e in asm.Contents.Entities do
-                               if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
-                                   let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
-                                   plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
-                with _ -> ()
-
-                assemblies.Add(path, asm)
-                if isCoreAssembly then
+                let asmName = path.Substring(path.LastIndexOf('/') + 1)
+                let asmName = asmName.Substring(0, asmName.Length - 4) // Remove .dll extension
+                if Compiler.CoreAssemblyNames.Contains(asmName) then
                     coreAssemblies.Add(asmName, asm)
+                else
+                    try
+                        let scanForPlugins =
+                            asm.Contents.Attributes |> Seq.exists (fun attr ->
+                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
+                        if scanForPlugins then
+                           for e in asm.Contents.Entities do
+                                   if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                                       let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
+                                       plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
+                    with _ -> ()
+                    assemblies.Add(path, asm)
             | None -> ()
 
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
