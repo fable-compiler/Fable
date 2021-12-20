@@ -1526,6 +1526,13 @@ type FableCompiler(com: Compiler) =
                 | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
                 | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
 
+                // Resolve imports. TODO: add test
+                | Fable.Import(info, t, r) as e ->
+                    if Path.isRelativePath info.Path then
+                        let path = fixImportedRelativePath com info.Path inExpr.FileName
+                        Fable.Import({ info with Path = path }, t, r) |> Some  
+                    else Some e
+                
                 // Resolve type info
                 | Fable.Value(Fable.TypeInfo t, r) ->
                     let t = resolveGenArg ctx t

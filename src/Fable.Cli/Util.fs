@@ -51,6 +51,8 @@ type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource
 
 [<RequireQualifiedAccess>]
 module Log =
+    let newLine = Environment.NewLine
+
     let mutable private verbosity = Fable.Verbosity.Normal
 
     /// To be called only at the beginning of the app
@@ -304,7 +306,7 @@ module Async =
     }
 
 type PathResolver =
-    abstract TryPrecompiledOutPath: path: string -> string option
+    abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option
     abstract GetOrAddDeduplicateTargetDir: importDir: string * addTargetDir: (Set<string> -> string) -> string
 
 module Imports =
@@ -552,6 +554,7 @@ type PrecompiledFileJson =
 type PrecompiledInfoJson =
     { CompilerVersion: string
       CompilerOptions: Fable.CompilerOptions
+      FableLibDir: string
       Files: Map<string, PrecompiledFileJson>
       InlineExprHeaders: string[] }
 
@@ -563,14 +566,15 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
     member _.CompilerVersion = info.CompilerVersion
     member _.CompilerOptions = info.CompilerOptions
     member _.Files = info.Files
+    member _.FableLibDir = info.FableLibDir
     member _.DllPath = dllPath
 
-    member _.TryPrecompiledOuthPath(normalizedFullPath: string) =
+    member _.TryPrecompiledOutPath(normalizedFullPath: string) =
         Map.tryFind normalizedFullPath info.Files
         |> Option.map (fun f -> f.OutPath)
 
     static member GetDllPath(dir: string): string =
-        IO.Path.Combine(dir, Fable.Naming.fablePrecompileDll)
+        IO.Path.Combine(dir, Fable.Naming.fablePrecompile + ".dll")
         |> Fable.Path.normalizeFullPath
 
     interface Fable.Transforms.State.PrecompiledInfo with
@@ -595,11 +599,14 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
         IO.Path.Combine(dir, "inline_exprs", $"inline_exprs_{index}.json")
 
     static member Load(dir: string) =
-        let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
-        let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
-        PrecompiledInfoImpl(dir, info)
+        try
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+            let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
+            PrecompiledInfoImpl(dir, info)
+        with
+        | e -> FableError($"Cannot load precompiled info from %s{dir}: %s{e.Message}") |> raise
 
-    static member Save(project: Fable.Transforms.State.Project, outPaths: Map<string, string>, dir, compilerOpts) = async {
+    static member Save(dir, project: Fable.Transforms.State.Project, outPaths: Map<string, string>, compilerOpts, fableLibDir) = async {
         Log.always($"Saving precompiled info...")
         let! _, ms = Performance.measureAsync <| fun _ -> async {
             let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
@@ -634,6 +641,7 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
             { CompilerVersion = Fable.Literals.VERSION
               CompilerOptions = compilerOpts
               Files = files
+              FableLibDir = fableLibDir
               InlineExprHeaders = inlineExprHeaders }
             |> Json.write precompiledInfoPath
         }
