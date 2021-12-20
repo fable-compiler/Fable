@@ -1,4 +1,4 @@
-/// Lazy values and one-time initialization of static data.
+/// Lazy values and one-time initialization.
 
 use core::fmt;
 use crate::MutCell;
@@ -8,7 +8,7 @@ pub struct Lazy<T, F = fn() -> T> {
     init: MutCell<Option<F>>,
 }
 
-impl<T: fmt::Debug + Clone, F> fmt::Debug for Lazy<T, F> {
+impl<T: Clone + fmt::Debug, F> fmt::Debug for Lazy<T, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Lazy").field("cell", &self.cell).field("init", &"..").finish()
     }

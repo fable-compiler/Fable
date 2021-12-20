@@ -215,18 +215,6 @@ module TypeInfo =
         makeFullNamePath fullName genArgs
         |> mkPathTy
 
-    // let isCopyType (_com: IRustCompiler) t =
-    //     match t with
-    //     | Fable.Boolean
-    //     | Fable.Char
-    //     | Fable.Enum _
-    //     | Fable.Number _ -> true
-    //     // TODO: should we consider some dotnet value types?
-    //     // | Fable.DeclaredType (entRef, gargs) ->
-    //     //     let ent = com.GetEntity(entRef)
-    //     //     ent.IsValueType && not (ent.IsFSharpRecord)
-    //     | _ -> false
-
     let primitiveType (name: string): Rust.Ty =
         mkGenericPathTy [name] None
 
@@ -274,23 +262,62 @@ module TypeInfo =
             not (ent |> hasStructuralEquality)
         | _ -> false
 
-    let rec isPrintable (com: IRustCompiler) (ent: Fable.Entity) =
-        let isPrintableType t =
-            match t with
-            | Fable.LambdaType _ -> false
-            | Fable.DelegateType _ -> false
-            // TODO: more unprintable types?
-            | Fable.DeclaredType(entRef, _) ->
-                let ent = com.GetEntity(entRef)
-                isPrintable com ent
-            | _ -> true
+    let isEntityOfType predicate (com: IRustCompiler) (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             ent.UnionCases |> Seq.forall (fun uci ->
                 uci.UnionCaseFields |> List.forall (fun fi ->
-                    isPrintableType fi.FieldType))
+                    predicate com fi.FieldType))
         else
             ent.FSharpFields |> Seq.forall (fun fi ->
-                isPrintableType fi.FieldType)
+                predicate com fi.FieldType)
+
+    let rec isPrintableType (com: IRustCompiler) typ =
+        match typ with
+        // TODO: more unprintable types?
+        | Fable.LambdaType _ -> false
+        | Fable.DelegateType _ -> false
+        | Fable.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity(entRef)
+            isPrintableEntity com ent
+        | _ -> true
+
+    and isPrintableEntity com (ent: Fable.Entity) =
+        isEntityOfType isPrintableType com ent
+
+    let rec isDefaultableType (com: IRustCompiler) typ =
+        match typ with
+        // TODO: more undefaultable types?
+        | Fable.String -> false
+        | Fable.LambdaType _ -> false
+        | Fable.DelegateType _ -> false
+        | Fable.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity(entRef)
+            isDefaultableEntity com ent
+        | _ -> true
+
+    and isDefaultableEntity com (ent: Fable.Entity) =
+        isEntityOfType isDefaultableType com ent
+
+    let rec isCopyableType (com: IRustCompiler) typ =
+        match typ with
+        // TODO: more copyable types?
+        | Fable.Boolean -> true
+        | Fable.Char -> true
+        | Fable.Enum _ -> true
+        | Fable.Number _ -> true
+        | Replacements.Numeric -> true
+        | Fable.Option(genArg, isStruct) ->
+            // isStruct && (isCopyableType com genArg)
+            false // TODO: support ValueOptions as Copy types in Options module
+        | Fable.Tuple(genArgs, isStruct) ->
+            isStruct && (List.forall (isCopyableType com) genArgs)
+        | Fable.DeclaredType (entRef, gargs) ->
+            let ent = com.GetEntity(entRef)
+            isCopyableEntity com ent
+        | _ -> false
+
+    and isCopyableEntity com (ent: Fable.Entity) =
+        ent.IsValueType && (isEntityOfType isCopyableType com ent)
 
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
@@ -310,15 +337,12 @@ module TypeInfo =
 
         | Fable.String -> true
         | Fable.Regex -> true
-        | Fable.Option(_, isStruct) -> true //not isStruct
+        | Fable.Option _ -> not (isCopyableType com t)
         | Fable.Array _ -> true
         | Fable.List _ -> true
-        | Fable.Tuple(_, isStruct) -> not isStruct
+        | Fable.Tuple _ -> not (isCopyableType com t)
         | Fable.AnonymousRecordType _ -> true
-        | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity(entRef)
-            // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
-            not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
+        | Fable.DeclaredType _ -> not (isCopyableType com t)
 
     // let shouldBePassByRefForParam (com: IRustCompiler) t =
     //     let isPassByRefTy =
@@ -1532,6 +1556,10 @@ module Util =
     let makeString com ctx (value: Rust.Expr) =
         makeNativeCall com ctx "Native" "string" None [mkAddrOfExpr value]
 
+    let makeDefaultOf com ctx (typ: Fable.Type) =
+        let genArgs = transformGenArgs com ctx [typ]
+        makeNativeCall com ctx "Native" "defaultOf" genArgs []
+
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
             match value with
@@ -1542,7 +1570,8 @@ module Util =
                 let ty = transformType com ctx typ
                 let genArgs = mkGenericTypeArgs [ty]
                 mkGenericPathExpr [rawIdent "None"] genArgs
-        // if isStruct
+        // // TODO: Support ValueOption as Copy type
+        // if isStruct && (isCopyableType com typ)
         // then expr
         // else expr |> makeRcValue
         expr |> makeRcValue
@@ -1634,7 +1663,7 @@ module Util =
         let genArgs = transformGenArgs com ctx genArgs
         let path = makeFullNamePath ent.FullName genArgs
         let expr = mkStructExpr path fields // TODO: range
-        if ent.IsValueType
+        if isCopyableEntity com ent
         then expr
         else expr |> makeRcValue
 
@@ -1644,7 +1673,7 @@ module Util =
         let unionCase = ent.UnionCases |> List.item tag
         let callee = makeFullNamePathExpr unionCase.FullName genArgs
         let expr = callFunctionTakingOwnership com ctx None callee values
-        if ent.IsValueType
+        if isCopyableEntity com ent
         then expr
         else expr |> makeRcValue
 
@@ -1653,23 +1682,32 @@ module Util =
         expr
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
+        let unimplemented () =
+            $"Value %A{value} is not implemented yet"
+            |> addWarning com [] None
+            TODO_EXPR (sprintf "%A" value)
         match value with
-        // | Fable.BaseValue (None, _) -> Super(None)
-        // | Fable.BaseValue (Some boundIdent, _) -> identAsExpr boundIdent
+        | Fable.BaseValue (None, _) ->
+            // Super(None)
+            unimplemented ()
+        | Fable.BaseValue (Some boundIdent, _) ->
+            // identAsExpr boundIdent
+            unimplemented ()
         | Fable.ThisValue typ -> makeThis com ctx r typ
-        // | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
-        // | Fable.Null _t ->
-        //     // if com.Options.typescript
-        //     //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
-        //     //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
-        //     // else
-        //         Expression.nullLiteral(?loc=r)
+        | Fable.TypeInfo t ->
+            // transformTypeInfo com ctx r Map.empty t
+            unimplemented ()
+        | Fable.Null t ->
+            //TODO: some other representation perhaps?
+            makeDefaultOf com ctx t
         | Fable.UnitConstant -> mkUnitExpr ()
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
         | Fable.NumberConstant (x, kind, _) -> makeNumber kind x
-        // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
+        | Fable.RegexConstant (source, flags) ->
+            // Expression.regExpLiteral(source, flags, ?loc=r)
+            unimplemented ()
         | Fable.NewArray (values, typ) -> makeArray com ctx r typ values
         | Fable.NewArrayFrom (expr, typ) -> makeArrayFrom com ctx r typ expr
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
@@ -1679,9 +1717,6 @@ module Util =
         | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs) -> makeTuple com ctx r values false // temporary
         | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
-
-        // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "%A" value)
 
     let calcVarAttrsAndOnlyRef com ctx t name e =
         let name = name |> Option.defaultValue (getIdentName e)
@@ -1783,33 +1818,36 @@ module Util =
         //     ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
         //         ?returnType=returnType, ?typeParameters=typeParamDecl)
 
-        let members =
-            members |> List.collect (fun memb ->
-                let info = memb.Info
-                let prop, computed = memberFromName memb.Name
-                [prop, computed]
-                // if info.IsValue || (info.IsGetter) then
-                //     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
-                // elif info.IsGetter then
-                //     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
-                // elif info.IsSetter then
-                //     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
-                // elif info.IsEnumerator then
-                //     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
-                //     let iterator =
-                //         let prop, computed = memberFromName "Symbol.iterator"
-                //         let body = enumerator2iterator com ctx
-                //         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
-                //     [method; iterator]
-                // else
-                //     [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
-            )
-
+        // let members =
+        //     members |> List.collect (fun memb ->
+        //         let info = memb.Info
+        //         let prop, computed = memberFromName memb.Name
+        //         [prop, computed]
+        //         // if info.IsValue || (info.IsGetter) then
+        //         //     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
+        //         // elif info.IsGetter then
+        //         //     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
+        //         // elif info.IsSetter then
+        //         //     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
+        //         // elif info.IsEnumerator then
+        //         //     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
+        //         //     let iterator =
+        //         //         let prop, computed = memberFromName "Symbol.iterator"
+        //         //         let body = enumerator2iterator com ctx
+        //         //         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
+        //         //     [method; iterator]
+        //         // else
+        //         //     [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
+        //     )
         //Expression.objectExpression(List.toArray  members)
+
         // TODO:
-        "Object expressions are not implemented yet"
-        |> addError com [] None
-        TODO_EXPR (sprintf "%A" members)
+        if members |> List.isEmpty then
+            mkUnitExpr () // object constructors may be adding this?
+        else
+            "Object expressions are not implemented yet"
+            |> addWarning com [] None
+            TODO_EXPR (sprintf "%A" members)
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -2139,9 +2177,9 @@ module Util =
                 | _ ->
                     failwith "Should not happen"
 
-    let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
+    let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformExprMaybeIdentExpr com ctx range fableExpr
-        let value = transformExprMaybeUnwrapRef com ctx value
+        let value = transformExprMaybeUnwrapRef com ctx fableValue
         match kind with
         | Fable.ValueSet ->
             match fableExpr with
@@ -2186,9 +2224,6 @@ module Util =
         | _ -> [expr]
 
     let makeLetStmt com ctx usages (ident: Fable.Ident) (value: Fable.Expr) =
-        let isRef = false
-        let isMut = false
-        let pat = mkIdentPat ident.Name isRef isMut
         let tyOpt =
             match ident.Type with
             | Fable.LambdaType _
@@ -2209,22 +2244,26 @@ module Util =
                 if ident.IsMutable
                 then ty |> makeMutTy com |> makeRcTy com
                 else ty)
-        let init =
+        let initOpt =
             match value with
+            | Fable.Value(Fable.Null _t, _) ->
+                None // just a declaration, to be initialized later
             | Function (args, body, _name) ->
-                let name = Some (ident.Name)
-                transformLambda com ctx name args body
+                transformLambda com ctx (Some ident.Name) args body
+                |> Some
             | _ ->
                 transformLeaveContextByValue com ctx (Some ident.Type) (Some ident.Name) value
-        let expr =
-            if ident.IsMutable
-            then init |> makeMutValue |> makeRcValue
-            else init
-        let local = mkLocal [] pat tyOpt (Some expr)
+                |> Some
+        let initOpt =
+            initOpt |> Option.map (fun init ->
+                if ident.IsMutable
+                then init |> makeMutValue |> makeRcValue
+                else init)
+        let local = mkIdentLocal [] ident.Name tyOpt initOpt
         // TODO : traverse body and follow references to decide on if this should be wrapped or not]
         let scopedVarAttrs = {
             IsArm = false
-            IsRef = isRef
+            IsRef = false
             // IsMutable = isMut
             // IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
             HasMultipleUses = hasMultipleUses ident.Name usages
@@ -3182,7 +3221,7 @@ module Util =
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
-        |> Seq.toArray
+        |> Seq.toList
 (*
     let getEntityFieldsAsProps (com: IRustCompiler) ctx (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
@@ -3332,7 +3371,7 @@ module Util =
 
     let getIgnoredNames (name: string option) (args: Fable.Ident list) =
         let argNames = args |> List.map (fun arg -> arg.Name)
-        let fixedNames = ["matchValue"]
+        let fixedNames = ["matchValue"] //TODO: find better way to exclude this
         let allNames = name |> Option.fold (fun xs x -> x :: xs) (argNames @ fixedNames)
         allNames |> Set.ofList
 
@@ -3445,6 +3484,7 @@ module Util =
     let makeGenerics genTypeParams =
         let bounds = [
             mkTypeTraitGenericBound ["Clone"] None
+            // mkTypeTraitGenericBound ["Default"] None
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
         genTypeParams
@@ -3571,12 +3611,11 @@ module Util =
     let makeDerivedFrom com (ent: Fable.Entity) =
         let derivedFrom = [
             "Clone"
-            if ent |> hasStructuralEquality then
-                "PartialEq"
-            if ent |> hasStructuralComparison then
-                "PartialOrd"
-            if ent |> isPrintable com then
-                "Debug"
+            if ent |> isCopyableEntity com then "Copy"
+            if ent |> isPrintableEntity com then "Debug"
+            // if ent |> isDefaultableEntity com then "Default"
+            if ent |> hasStructuralEquality then "PartialEq"
+            if ent |> hasStructuralComparison then "PartialOrd"
         ]
         derivedFrom
 
@@ -3631,10 +3670,10 @@ module Util =
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members
 
-    let transformGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
+    let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (declName: string) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
-        let fields = getEntityFieldsAsIdents com ent |> Array.toList
+        let fields = getEntityFieldsAsIdents com ent
         //let exprs = ent.FSharpFields |> List.map (fun f -> f.)
         //ctor |> Option.map (fun x -> transformModuleFunction com ctx x. )
         // let fields = ent.FSharpFields
@@ -3648,7 +3687,7 @@ module Util =
                     fields |> List.map (fun ident -> ident.Type)
                 ), None)
         let info = FSharp2Fable.MemberInfo()
-        let name = decl.Name + "new" //TODO: is this correct?
+        let name = declName + "new" //TODO: is this correct?
         transformAssocMemberFunction com ctx info name fields body
 
     let interfacesToIgnore =
@@ -3696,37 +3735,61 @@ module Util =
         ]
         dependentInterfaceTraits
 
+    let makeUniqueName name (usedNames: Set<string>) =
+        (name, Fable.Naming.NoMemberPart)
+        ||> Fable.Naming.sanitizeIdent (usedNames.Contains)
+
+    let transformImplicitConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
+        let body =
+            match ctor.Body with
+            | Fable.Sequential exprs ->
+                let idents = getEntityFieldsAsIdents com ent
+                let argNames = ctor.Args |> List.map (fun arg -> arg.Name) |> Set.ofList
+                let identMap = idents |> List.map (fun id ->
+                    let uniqueName = makeUniqueName id.Name argNames
+                    id.Name, { id with Name = uniqueName; IsMutable = false }) |> Map.ofList
+                let fieldIdents = idents |> List.map (fun id -> Map.find id.Name identMap)
+                let fields = fieldIdents |> List.map Fable.IdentExpr
+                let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
+                let returnValue = Fable.Value(Fable.NewRecord(fields, ent.Ref, generics), None)
+                // add return value after the body
+                let body = Fable.Sequential (exprs @ [returnValue])
+                // replace `this.field = value` with `field = value` in body
+                let body =
+                    body |> AST.visitFromInsideOut (function
+                        | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet name, t, value, r) ->
+                            let identExpr = identMap |> Map.find name |> Fable.IdentExpr
+                            Fable.Set(identExpr, Fable.ValueSet, t, value, r)
+                        | e -> e)
+                // add field declarations before body
+                let body =
+                    (body, fieldIdents |> List.rev)
+                    ||> List.fold (fun acc ident ->
+                        let nullOfT = Fable.Value(Fable.Null ident.Type, None)
+                        Fable.Let(ident, nullOfT, acc)) // will be transformed as declaration only
+                body
+            | e -> e
+            // TODO: get rid of the extra sequential block somehow as it is creating an unnecessary
+            // clone before returning. Can a nested sequential be flattened into a function body?
+        let ctor = { ctor with Body = body; Name = "new" }
+        let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
+        transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
+
     let transformClassMembers (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
+        let withCurrentScope ctx (usedNames: Set<string>) f =
+            let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+            let result = f ctx
+            ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+            result
+
         let entNamesp, entName = splitNameSpace ent.FullName
         let ctorItem =
             match decl.Constructor with
             | Some ctor ->
-                let body =
-                    match ctor.Body with
-                    | Fable.Sequential [someIrrelevantObjExpr; Fable.Sequential _] ->
-                        let exprs = flattenSequential ctor.Body
-                        let idents = getEntityFieldsAsIdents com ent |> Array.toList
-                        let assignmentsIn = idents |> List.map (Fable.IdentExpr)
-                        let exprs = //fold back over ctor body, seeding with a create record statement for return, throwing out object exprs and converting `this.param` mutations to `let param = param.Clone()`
-                            let generics = ent.GenericParameters |> List.map (fun p -> Fable.Type.GenericParam(p.Name, []))
-                            let returnVal = Fable.Value(Fable.NewRecord (assignmentsIn, ent.Ref, generics), None)
-                            (returnVal, exprs |> List.rev)
-                            ||> List.fold (fun acc -> function
-                                | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet name, t, assignExpr, _) ->
-                                    let ident = idents |> List.find (fun id -> id.Name = name)
-                                    Fable.Let(ident, assignExpr, acc)
-                                | Fable.Value(Fable.ValueKind.UnitConstant, _)
-                                | Fable.ObjectExpr _ -> acc
-                                | x -> Fable.Sequential [acc; x])
-                        exprs
-                    | y -> y
-                    //TODO: get rid of the extra sequential block somehow as it is creating an unnecessary clone before returning. Can a nested sequential be flattened into a function body?
-                let ctor = { ctor with Body = body; Name = "new" }
-                let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
-                transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
+                withCurrentScope ctx ctor.UsedNames <| fun ctx ->
+                    transformImplicitConstructor com ctx ent ctor
             | _ ->
-                // ent.MembersFunctionsAndValues |> makeCompilerGeneratedCtor ?
-                transformGeneratedConstructor com ctx ent decl
+                transformCompilerGeneratedConstructor com ctx ent decl.Name
             |> mkPublicAssocItem
 
         let classImplBlock =
@@ -3781,11 +3844,6 @@ module Util =
             for tFullName, tmethods, tEnt in traitsToRender ->
                 let ctx = { ctx with ScopedTypeParams = tEnt.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
                 let decls = //copied from below. Do we need this? If so refactor to common or something
-                    let withCurrentScope ctx (usedNames: Set<string>) f =
-                        let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
-                        let result = f ctx
-                        ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
-                        result
                     let makeDecl (decl: Fable.MemberDecl) =
                         withCurrentScope ctx decl.UsedNames <| fun ctx ->
                             transformAssocMemberFunction com ctx decl.Info decl.Name decl.Args decl.Body
@@ -3814,16 +3872,16 @@ module Util =
         if ent.IsFSharpAbbreviation then
             transformAbbrev com ctx ent
         elif ent.IsFSharpUnion then
-            transformUnion com ctx ent
+            transformUnion com ctx ent //TODO: union class members
         else
-            let dependentInterfaceTraits =
+            let interfaceTraits =
                 transformClassInterfaces com ctx ent decl
             let classImpls =
                 if ent.IsFSharpUnion || ent.IsFSharpRecord
                 then [] //TODO: generics break stuff at the moment, but this should work for all
                 else transformClassMembers com ctx ent decl
             let classItems = transformClass com ctx ent
-            dependentInterfaceTraits @ classItems @ classImpls
+            interfaceTraits @ classItems @ classImpls
 
 (*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -4058,27 +4116,31 @@ module Compiler =
                 if selector = Fable.Naming.placeholder then
                     "`importMember` must be assigned to a variable"
                     |> addError com [] r
-                let cacheKey = path + "::" + selector
-                let import =
-                    match imports.TryGetValue(cacheKey) with
-                    | true, import -> import
-                    | false, _ ->
-                        let fullPath = getImportFullPath this path
-                        let modName = System.String.Format("import_{0:x}", hash fullPath)
-                        let localIdent = getIdentForImport ctx path selector
-                        let import = {
-                            Selector = selector
-                            LocalIdent = localIdent
-                            ModName = modName
-                            Path = path
-                        }
-                        imports.Add(cacheKey, import)
-                        import
+                if path.Contains("::") then
+                    // direct Rust import
+                    path + "::" + selector
+                else
+                    let cacheKey = path + "::" + selector
+                    let import =
+                        match imports.TryGetValue(cacheKey) with
+                        | true, import -> import
+                        | false, _ ->
+                            let fullPath = getImportFullPath this path
+                            let modName = System.String.Format("import_{0:x}", hash fullPath)
+                            let localIdent = getIdentForImport ctx path selector
+                            let import = {
+                                Selector = selector
+                                LocalIdent = localIdent
+                                ModName = modName
+                                Path = path
+                            }
+                            imports.Add(cacheKey, import)
+                            import
 
-                // if this |> isFableLibrary
-                // then $"{import.Selector}"
-                // else $"{import.LocalIdent}"
-                $"{import.Selector}"
+                    // if this |> isFableLibrary
+                    // then $"{import.Selector}"
+                    // else $"{import.LocalIdent}"
+                    $"{import.Selector}"
 
             member _.GetAllImports() = imports.Values |> List.ofSeq
             member this.TransformAsExpr(ctx, e) = transformAsExpr this ctx e

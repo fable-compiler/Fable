@@ -8,7 +8,7 @@ pub struct MutCell<T: ?Sized> {
     value: UnsafeCell<T>,
 }
 
-impl<T: fmt::Debug + Clone> fmt::Debug for MutCell<T> {
+impl<T: Clone + fmt::Debug> fmt::Debug for MutCell<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MutCell").field(&self.get()).finish()
     }
@@ -28,16 +28,16 @@ impl<T: Default> Default for MutCell<T> {
     }
 }
 
-impl<T: PartialEq + Clone> PartialEq for MutCell<T> {
+impl<T: Clone + PartialEq> PartialEq for MutCell<T> {
     #[inline]
     fn eq(&self, other: &MutCell<T>) -> bool {
         self.get() == other.get()
     }
 }
 
-impl<T: Eq + Clone> Eq for MutCell<T> {}
+impl<T: Clone + Eq> Eq for MutCell<T> {}
 
-impl<T: PartialOrd + Clone> PartialOrd for MutCell<T> {
+impl<T: Clone + PartialOrd> PartialOrd for MutCell<T> {
     #[inline]
     fn partial_cmp(&self, other: &MutCell<T>) -> Option<Ordering> {
         self.get().partial_cmp(&other.get())
@@ -64,7 +64,7 @@ impl<T: PartialOrd + Clone> PartialOrd for MutCell<T> {
     }
 }
 
-impl<T: Ord + Clone> Ord for MutCell<T> {
+impl<T: Clone + Ord> Ord for MutCell<T> {
     #[inline]
     fn cmp(&self, other: &MutCell<T>) -> Ordering {
         self.get().cmp(&other.get())

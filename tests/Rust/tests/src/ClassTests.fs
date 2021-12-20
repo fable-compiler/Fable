@@ -4,9 +4,11 @@ open Util.Testing
 
 type NTest(x: int, y: int) =
     let a = x + y
+    let one = x - x + 1
+    let mutable b = one
     // print "%i %i" x y
     member this.A = a
-    member this.B = 1
+    member this.B = b
     member this.Add m = a + m
     member this.Minus m = a - m
     member this.Mul (c, d) = a * c * d

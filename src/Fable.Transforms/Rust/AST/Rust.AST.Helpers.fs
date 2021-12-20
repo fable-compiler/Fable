@@ -401,10 +401,9 @@ module Locals =
           attrs = mkVec attrs
           tokens = None }
 
-    let mkIdentLocal name init: Local =
+    let mkIdentLocal attrs name ty init: Local =
         let pat = mkIdentPat name false false
-        let ty = None
-        mkLocal [] pat ty (Some init)
+        mkLocal attrs pat ty init
 
 [<AutoOpen>]
 module Statements =
