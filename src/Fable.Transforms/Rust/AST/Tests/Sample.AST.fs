@@ -16,8 +16,8 @@ let stmt1 =
   ["1";"2";"3";"4";"5"]
   |> Seq.map mkIntToken
   |> mkBracketCommaDelimitedMacCall "vec"
-  |> mkMacCallExpr
-  |> mkIdentLocal "a"
+  |> mkMacCallExpr |> Some
+  |> mkIdentLocal [] "a" None
   |> mkLocalStmt
 
 let stmt2 =
