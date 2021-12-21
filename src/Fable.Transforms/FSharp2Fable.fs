@@ -111,16 +111,48 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
             | genArgs -> genArgs |> List.mapi (fun i genArg -> "T" + string i, genArg)
         }
 
-    let resolveMemberCall (entity: Fable.Entity) genArgs membCompiledName isInstance argTypes thisArg args =
-        let genParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
-        let genArgs = List.zip genParamNames genArgs
-        tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
-        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
-
     let thisArg, args, argTypes =
         match argExprs, argTypes with
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
+
+    let rec matchGenericType (genArgs: Map<string, Fable.Type>) (signatureType: Fable.Type, concreteType: Fable.Type) =
+        match signatureType with
+        | Fable.GenericParam name when not(genArgs.ContainsKey(name)) -> Map.add name concreteType genArgs
+        | signatureType ->
+            let signatureTypeGenerics = signatureType.Generics
+            if List.isEmpty signatureTypeGenerics then
+                genArgs
+            else
+                let concreteTypeGenerics = concreteType.Generics
+                if List.sameLength signatureTypeGenerics concreteTypeGenerics then
+                    (genArgs, List.zip signatureTypeGenerics concreteTypeGenerics) ||> List.fold matchGenericType
+                else
+                    genArgs // Unexpected, error?
+
+    let resolveMemberCall (entity: Fable.Entity) (entGenArgs: Fable.Type list) membCompiledName isInstance argTypes thisArg args =
+        let genParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
+        let entGenArgsMap = List.zip genParamNames entGenArgs |> Map
+        tryFindMember com entity entGenArgsMap membCompiledName isInstance argTypes
+        |> Option.map (fun memb ->
+            // Resolve method generic args before making the call, see #2135
+            let genArgsMap =
+                let membParamTypes = memb.CurriedParameterGroups |> Seq.collect (fun group -> group |> Seq.map (fun p -> p.Type)) |> Seq.toList
+                if List.sameLength argTypes membParamTypes then
+                    let argTypes = argTypes @ [typ]
+                    let membParamTypes = membParamTypes @ [memb.ReturnParameter.Type]
+                    (entGenArgsMap, List.zip membParamTypes argTypes) ||> List.fold (fun genArgs (paramType, argType) ->
+                        let paramType = makeType Map.empty paramType
+                        matchGenericType genArgs (paramType, argType))
+                else
+                    Map.empty // Unexpected, error?
+
+            let genArgs = memb.GenericParameters |> Seq.map (fun p ->
+                let name = genParamName p
+                match Map.tryFind name genArgsMap with
+                | Some t -> t
+                | None -> Fable.GenericParam name)
+            makeCallFrom com ctx r typ genArgs thisArg args memb)
 
     sourceTypes |> Seq.tryPick (fun t ->
         match Replacements.tryType t with
@@ -129,7 +161,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
             makeCall com ctx r typ info thisArg args
         | None ->
             match t with
-            | Fable.DeclaredType(entity, genArgs) ->
+            | Fable.DeclaredType(entity, entGenArgs) ->
                 let entity = com.GetEntity(entity)
                 // SRTP only works for records if there are no arguments
                 if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
@@ -140,12 +172,12 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                             Fable.Get(thisArg.Value, Fable.ByKey(Fable.FieldKey key), typ, r) |> Some
                         else None)
                     |> Option.orElseWith (fun () ->
-                        resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
-                else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
-            | Fable.AnonymousRecordType(sortedFieldNames, genArgs)
+                        resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args)
+                else resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args
+            | Fable.AnonymousRecordType(sortedFieldNames, entGenArgs)
                     when isInstance && List.isEmpty args && Option.isSome thisArg ->
                 let fieldName = Naming.removeGetSetPrefix traitName
-                Seq.zip sortedFieldNames genArgs
+                Seq.zip sortedFieldNames entGenArgs
                 |> Seq.tryPick (fun (fi, fiType) ->
                     if fi = fieldName then
                         let key = FsField.Key(fi, fiType) |> Fable.FieldKey

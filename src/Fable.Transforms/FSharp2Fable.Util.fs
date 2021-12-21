@@ -1431,14 +1431,16 @@ module Util =
         Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
+        // Prevent iterating the sequence twice when calculating length
+        let genArgs = Seq.toArray genArgs
+
         let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
             Seq.zip (genParams |> Seq.map genParamName) genArgs
 
-        let genArgsLen = Seq.length genArgs
         match memb.DeclaringEntity with
         // It seems that for F# types memb.GenericParameters contains all generics
         // but for BCL types we need to check the DeclaringEntity generics too
-        | Some ent when genArgsLen > memb.GenericParameters.Count ->
+        | Some ent when genArgs.Length > memb.GenericParameters.Count ->
             Seq.append ent.GenericParameters memb.GenericParameters
         | _ -> upcast memb.GenericParameters
         |> matchGenericParams genArgs
