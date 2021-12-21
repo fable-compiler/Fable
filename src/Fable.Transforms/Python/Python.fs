@@ -97,6 +97,7 @@ type Statement =
     | Raise of Raise
     | Import of Import
     | Assign of Assign
+    | AnnAssign of AnnAssign
     | Return of Return
     | Global of Global
     | NonLocal of NonLocal
@@ -234,6 +235,12 @@ type Assign =
     { Targets: Expression list
       Value: Expression
       TypeComment: string option }
+
+type AnnAssign =
+    { Target: Expression
+      Value: Expression
+      Annotation: Expression
+      Simple: bool }
 
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
@@ -854,6 +861,13 @@ module PythonExtensions =
               Value = value
               TypeComment = typeComment }
             |> Assign
+
+        static member assign(target, value, annotation, ?simple) : Statement =
+            { Target = target
+              Value = value
+              Annotation = annotation
+              Simple = defaultArg simple true }
+            |> AnnAssign
 
         static member return'(?value) : Statement = Return { Value = value }
 
