@@ -106,6 +106,7 @@ module PrinterExtensions =
             | Global st -> printer.Print(st)
             | Import im -> printer.Print(im)
             | Assign st -> printer.Print(st)
+            | AnnAssign st -> printer.Print(st)
             | While wh -> printer.Print(wh)
             | Raise st -> printer.Print(st)
             | Expr st -> printer.Print(st)
@@ -189,11 +190,17 @@ module PrinterExtensions =
             | None -> ()
 
         member printer.Print(assign: Assign) =
-            //printer.PrintOperation(targets.[0], "=", value, None)
-
             for target in assign.Targets do
                 printer.Print(target)
                 printer.Print(" = ")
+
+            printer.Print(assign.Value)
+
+        member printer.Print(assign: AnnAssign) =
+            printer.Print(assign.Target)
+            printer.Print(" : ")
+            printer.Print(assign.Annotation)
+            printer.Print(" = ")
 
             printer.Print(assign.Value)
 
@@ -768,7 +775,9 @@ module PrinterExtensions =
             printer.Print("(")
             printer.Print(args)
             printer.Print(")")
-            printer.PrintOptional(returnType)
+            if returnType.IsSome then
+                printer.Print(" -> ")
+                printer.PrintOptional(returnType)
             printer.Print(":")
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
