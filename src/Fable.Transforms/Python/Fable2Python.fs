@@ -2370,7 +2370,7 @@ module Util =
         //         ?returnType = returnType,
         //         ?typeParameters = typeParameters)
         | _ ->
-            varDeclaration ctx membName (None) expr
+            varDeclaration ctx membName false expr
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
