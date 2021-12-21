@@ -415,7 +415,6 @@ module Helpers =
     let clean (name: string) =
         // printfn $"clean: {name}"
         match name with
-        | "Math" -> "math"
         | "Infinity" -> "float('inf')"
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
@@ -578,11 +577,14 @@ module Util =
     open Reflection
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
-        let name = Helpers.clean name
-
-        match name with
-        | "math" -> com.GetImportExpr(ctx, "math") |> ignore
-        | _ -> ()
+        // printfn "getIdentifier: %A" name
+        let name =
+            match name with
+            //| "this" -> "self"
+            | "math" | "Math" ->
+                com.GetImportExpr(ctx, "math") |> ignore
+                "math"
+            | _ -> Helpers.clean name
 
         Identifier name
 
@@ -884,13 +886,7 @@ module Util =
                     else body
                 None, genTypeParams, args, body
             | Attached(isStatic=true), _
-            | ClassConstructor, _ ->
-                let body =
-                    match body with
-                    // Remove empty object expression on constructor.
-                    | Fable.Sequential(Fable.ObjectExpr([], t, None)::xs) -> Fable.Sequential(xs)
-                    | _ -> body
-                None, ctx.ScopedTypeParams, args, body
+            | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
             | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
             | _ -> None, Set.empty, args, body
 
@@ -2001,8 +1997,10 @@ module Util =
             transformFunction com ctx name args body
             ||> makeArrowFunctionExpression name
 
+        | Fable.ObjectExpr ([], typ, None) ->
+            Expression.none(), []
         | Fable.ObjectExpr (members, typ, baseCall) ->
-          transformObjectExpr com ctx members baseCall
+            transformObjectExpr com ctx members baseCall
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
             let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
@@ -2153,6 +2151,7 @@ module Util =
             let expr', stmts = makeArrowFunctionExpression name args body
             stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
+        | Fable.ObjectExpr ([], _, None) -> [] // Remove empty object expression
         | Fable.ObjectExpr (members, t, baseCall) ->
             let expr, stmts = transformObjectExpr com ctx members baseCall
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
@@ -2311,7 +2310,7 @@ module Util =
                 // Replace args, see NamedTailCallOpportunity constructor
                 let args' =
                     List.zip args tc.Args
-                    |> List.map (fun (id, tcArg) -> com.GetIdentifier(ctx, tcArg))
+                    |> List.map (fun (_id, tcArg) -> com.GetIdentifier(ctx, tcArg))
                 let varDecls =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
@@ -2371,15 +2370,7 @@ module Util =
         //         ?returnType = returnType,
         //         ?typeParameters = typeParameters)
         | _ ->
-            varDeclaration ctx membName isMutable expr
-        // if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
-        // else ExportNamedDeclaration(decl)
-
-//     let makeEntityTypeParamDecl (com: IPythonCompiler) _ctx (ent: Fable.Entity) =
-//         if com.Options.Language = TypeScript then
-//             getEntityGenParams ent |> makeTypeParamDecl
-//         else
-//             None
+            varDeclaration ctx membName false expr
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
@@ -2436,7 +2427,7 @@ module Util =
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
-            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
+            let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let args = Arguments.arguments(genArgs |> Array.mapToList (ident com ctx >> Arg.arg))
@@ -2555,7 +2546,7 @@ module Util =
                     let right =
                         match id.Type with
                         | Fable.Number _ ->
-                            Expression.binOp(identAsExpr com ctx id, BinaryOrBitwise, Expression.constant(0.))
+                            Expression.boolOp(BoolOperator.Or, [identAsExpr com ctx id; Expression.constant(0)])
                         | _ -> identAsExpr com ctx id
 
                     Statement.assign([left], right))
@@ -2817,7 +2808,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        //printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
