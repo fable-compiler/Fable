@@ -469,16 +469,16 @@ let ``test can check compiler version with constant`` () =
     x <- x + 2
     #endif
     #if FABLE_COMPILER_4
-    x <- x + 3
-    #endif
-    #if FABLE_COMPILER_PY
     x <- x + 4
     #endif
-    #if FABLE_COMPILER_JS
-    x <- x + 5
+    #if FABLE_COMPILER_PYTHON
+    x <- x + 8
+    #endif
+    #if FABLE_COMPILER_JAVASCRIPT
+    x <- x + 16
     #endif
 
-    equal 3 x // FIXME: Fix when FABLE_COMPILER_PY is added
+    equal 13 x
 
 [<Fact>]
 let ``test Can check compiler version at runtime`` () =
