@@ -22,6 +22,8 @@ type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
 
+// TODO: In Fable 4 this should be a record as it can be serialized through MemberInfo
+// (also avoid `obj` for ConstructorArgs?)
 type Attribute =
     abstract Entity: EntityRef
     abstract ConstructorArgs: obj list
@@ -128,7 +130,7 @@ type Type =
         | LambdaType(argType, returnType) -> LambdaType(f argType, f returnType)
         | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
         | Tuple gen -> Tuple(List.map f gen)
-        | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen) 
+        | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
         | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
         | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ -> this
 

@@ -12,15 +12,14 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays,
-                       ?trimRootModule) =
+                       ?clampByteArrays) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
             Language = defaultArg language JavaScript
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-            RootModule = defaultArg trimRootModule false
+            RootModule = false
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
@@ -60,6 +59,17 @@ type Compiler =
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit
 
+type InlineExprLazy(f: Compiler -> InlineExpr) =
+    let mutable value: InlineExpr voption = ValueNone
+    member this.Force(com: Compiler) =
+        lock this <| fun () ->
+            match value with
+            | ValueSome v -> v
+            | ValueNone ->
+                let v = f com
+                value <- ValueSome v
+                v
+
 [<AutoOpen>]
 module CompilerExt =
     open System.Collections.Generic
@@ -97,7 +107,7 @@ module CompilerExt =
                     | Fable.CoreAssemblyName _ -> "core"
                     | Fable.AssemblyPath _ -> "external"
                     | Fable.PrecompiledLib _ -> "precompiled"
-                    | Fable.SourcePath _ -> "user"                
+                    | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
         member com.ToPluginHelper() =

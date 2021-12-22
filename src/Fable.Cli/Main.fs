@@ -77,14 +77,13 @@ module private Util =
             | Some r -> $"%s{file}(%i{r.start.line},%i{r.start.column}): (%i{r.``end``.line},%i{r.``end``.column}) %s{severity} %s{log.Tag}: %s{log.Message}"
             | None -> $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
 
-    let logErrors (logs: Log seq) =
-        let rootDir = IO.Directory.GetCurrentDirectory()
+    let logErrors rootDir (logs: Log seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
         |> Seq.iter (fun log -> Log.error(formatLog rootDir log))
 
-    let getFSharpErrorLogs (errors: FSharpDiagnostic array) =
-        errors
+    let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
+        diagnostics
         |> Array.map (fun er ->
             let severity =
                 match er.Severity with
@@ -341,11 +340,10 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
         let sourceFiles = result.ProjectOptions.SourceFiles |> Array.map File
         ProjectCracked(cliArgs, result, sourceFiles)
 
-type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array, project: Project) =
+type ProjectChecked(checker: InteractiveChecker, diagnostics: FSharpDiagnostic array, project: Project) =
 
-    static member Check(checker: InteractiveChecker, projectFile, files: File[], ?lastFile, ?optimize, ?silent) = async {
-        let silent = defaultArg silent false
-        if not silent then Log.always "Started F# compilation..."
+    static member Check(checker: InteractiveChecker, projectFile, files: File[], ?lastFile, ?outFile, ?optimize) = async {
+        Log.always "Started F# compilation..."
 
         let! checkResults, ms = Performance.measureAsync <| fun () ->
             let fileDic =
@@ -355,7 +353,7 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
             let filePaths = files |> Array.map (fun file -> file.NormalizedFullPath)
             checker.ParseAndCheckProject(projectFile, filePaths, sourceReader, ?lastFile=lastFile)
 
-        if not silent then Log.always $"F# compilation finished in %i{ms}ms{Log.newLine}"
+        Log.always $"F# compilation finished in %i{ms}ms{Log.newLine}"
 
         let implFiles =
             match optimize with
@@ -367,7 +365,7 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
     member _.Project = project
     member _.Checker = checker
-    member _.Errors = errors
+    member _.Diagnostics = diagnostics
 
     static member CompileToFile(config: ProjectCracked, outPath: string) = async {
         let argv = [|
@@ -379,9 +377,12 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
             yield! config.SourceFilePaths
         |]
 
-        Log.always("Generating assembly...")
+        Log.always("Generating assembly for precompilation...")
         let! result, ms = Performance.measureAsync <| fun () ->
-            let checker = FSharpChecker.Create()
+            let checker = FSharpChecker.Create(
+                keepAllBackgroundResolutions=false,
+                keepAllBackgroundSymbolUses=false
+            )
             checker.Compile(argv)
         Log.always($"Assembly generated in {ms}ms")
 
@@ -395,15 +396,15 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
             ProjectChecked.Check(checker, projCracked.ProjectFile, projCracked.SourceFiles,
                                  optimize=projCracked.CliArgs.CompilerOptions.OptimizeFSharpAst)
 
-        let project = Project.From(
-            projCracked.ProjectFile,
-            implFiles,
-            assemblies.Value,
-            ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
-            mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)),
-            getPlugin = loadType projCracked.CliArgs,
-            trimRootModule = projCracked.FableOptions.RootModule
-        )
+        let project, ms = Performance.measure <| fun () ->
+            Project.From(
+                projCracked.ProjectFile,
+                implFiles,
+                assemblies.Value,
+                ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
+                getPlugin = loadType projCracked.CliArgs
+            )
+        Log.always($"Fable project created in {ms}ms")
 
         return ProjectChecked(checker, errors, project)
     }
@@ -416,7 +417,7 @@ type ProjectChecked(checker: InteractiveChecker, errors: FSharpDiagnostic array,
 
         let filesToCompile = set filesToCompile
         let implFiles = implFiles |> List.filter (fun f -> filesToCompile.Contains(f.FileName))
-        let project = this.Project.Update(implFiles, mkCompiler = (fun p f -> projCracked.MakeCompiler(f, p)))
+        let project = this.Project.Update(implFiles)
         return ProjectChecked(checker, errors, project)
     }
 
@@ -573,13 +574,28 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             Log.always "Skipped compilation because all generated files are up-to-date!"
             return state, 0
     else
+        let dllPath =
+            match cliArgs.Precompile, cliArgs.OutDir with
+            | true, Some outDir -> PrecompiledInfoImpl.GetDllPath(outDir) |> Some
+            | _ -> None
+
+        // Start .dll assembly generation in parallel
+        let! precompileLogs =
+            match dllPath with
+            | Some dllPath ->
+                Async.StartChild(async {
+                    let! diagnostics, _exitCode = ProjectChecked.CompileToFile(projCracked, dllPath)
+                    return getFSharpDiagnostics diagnostics
+                })
+            | None -> [||] |> async.Return |> async.Return
+
         let! projChecked =
             match projChecked with
             | None -> ProjectChecked.Init(projCracked)
             | Some projChecked when Array.isEmpty filesToCompile -> async.Return projChecked
             | Some projChecked -> projChecked.Update(projCracked, filesToCompile)
 
-        let logs = getFSharpErrorLogs projChecked.Errors
+        let logs = getFSharpDiagnostics projChecked.Diagnostics
         let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
         let! logs, outPaths, state = async {
@@ -621,39 +637,54 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
 
         // Sometimes errors are duplicated
         let logs = Array.distinct logs
-        let filesToCompile = set filesToCompile
-
-        for log in logs do
-            match log.Severity with
-            | Severity.Error -> () // We deal with errors below
-            | Severity.Info | Severity.Warning ->
-                // Ignore warnings from packages in `fable_modules` folder
-                match log.FileName with
-                | Some filename when Naming.isInFableModules(filename) || not(filesToCompile.Contains(filename)) -> ()
-                | _ ->
-                    let formatted = formatLog cliArgs.RootDir log
-                    if log.Severity = Severity.Warning then Log.warning formatted
-                    else Log.always formatted
+        do
+            let filesToCompile = set filesToCompile
+            for log in logs do
+                match log.Severity with
+                | Severity.Error -> () // We deal with errors below
+                | Severity.Info | Severity.Warning ->
+                    // Ignore warnings from packages in `fable_modules` folder
+                    match log.FileName with
+                    | Some filename when Naming.isInFableModules(filename) || not(filesToCompile.Contains(filename)) -> ()
+                    | _ ->
+                        let formatted = formatLog cliArgs.RootDir log
+                        if log.Severity = Severity.Warning then Log.warning formatted
+                        else Log.always formatted
 
         let errorLogs = logs |> Array.filter (fun log -> log.Severity = Severity.Error)
         errorLogs |> Array.iter (formatLog cliArgs.RootDir >> Log.error)
         let hasError = Array.isEmpty errorLogs |> not
 
-        let! hasError = async {
-            if not hasError && cliArgs.Precompile then
-                // outDir must be set when precompiling
-                let outDir = cliArgs.OutDir.Value
-                let dllPath = PrecompiledInfoImpl.GetDllPath(outDir)
-                let! diagnostics, exitCode = ProjectChecked.CompileToFile(projCracked, dllPath)
-                if exitCode <> 0 then
-                    getFSharpErrorLogs diagnostics |> logErrors
-                    return true
-                else
-                    do! PrecompiledInfoImpl.Save(outDir, projChecked.Project, outPaths, cliArgs.CompilerOptions, projCracked.FableLibDir)
-                    return false
-            else
-                return hasError
-        }
+        match hasError, dllPath with
+        | false, Some dllPath ->
+            Log.always($"Saving precompiled info...")
+            let _, ms = Performance.measure <| fun _ ->
+                let inlineExprs =
+                    let file = Array.last filesToCompile
+                    let com = projCracked.MakeCompiler(file, projChecked.Project)
+                    let exprs = projChecked.Project.GetAllInlineExprs(com)
+                    com.Logs |> logErrors cliArgs.RootDir
+                    exprs
+
+                let files =
+                    projChecked.Project.ImplementationFiles |> Map.map (fun k v ->
+                        match Map.tryFind k outPaths with
+                        | Some outPath -> { RootModule = v.RootModule; OutPath = outPath }
+                        | None -> FableError($"Cannot find out path for precompiled file {k}") |> raise)
+
+                PrecompiledInfoImpl.Save(
+                    dllPath = dllPath,
+                    files = files,
+                    inlineExprs = inlineExprs,
+                    compilerOptions = cliArgs.CompilerOptions,
+                    fableLibDir = projCracked.FableLibDir)
+
+            Log.always($"Precompiled info saved in {ms}ms")
+        | _ -> ()
+
+        // Wait for the precompiled logs after saving the precompiled info so it can also be done in parallel
+        let! precompileLogs = precompileLogs
+        precompileLogs |> logErrors cliArgs.RootDir
 
         let exitCode, state =
             match cliArgs.RunProcess with

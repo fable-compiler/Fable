@@ -1530,9 +1530,9 @@ type FableCompiler(com: Compiler) =
                 | Fable.Import(info, t, r) as e ->
                     if Path.isRelativePath info.Path then
                         let path = fixImportedRelativePath com info.Path inExpr.FileName
-                        Fable.Import({ info with Path = path }, t, r) |> Some  
+                        Fable.Import({ info with Path = path }, t, r) |> Some
                     else Some e
-                
+
                 // Resolve type info
                 | Fable.Value(Fable.TypeInfo t, r) ->
                     let t = resolveGenArg ctx t
@@ -1639,32 +1639,35 @@ type FableCompiler(com: Compiler) =
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-let getInlineExprs (com: Compiler) (file: FSharpImplementationFileContents) =
-    let com = FableCompiler(com) :> IFableCompiler
+let getInlineExprs (file: FSharpImplementationFileContents) =
 
     let rec getInlineExprsInner decls =
         decls |> List.collect (function
-            | FSharpImplementationFileDeclaration.InitAction _ -> []
             | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) ->
-                if isInline memb then
-                    let ctx = { Context.Create() with
-                                    PrecompilingInlineFunction = Some memb
-                                    UsedNamesInDeclarationScope = HashSet() }
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) when isInline memb ->
+                let inlineExpr =
+                    InlineExprLazy(fun com ->
+                        let com = FableCompiler(com) :> IFableCompiler
+                        // TODO: We may need to set the InlinePath here
+                        let ctx = { Context.Create() with
+                                        PrecompilingInlineFunction = Some memb
+                                        UsedNamesInDeclarationScope = HashSet() }
 
-                    let ctx, idents =
-                        ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
-                            let ctx, ident = putArgInScope com ctx argId
-                            ctx, ident::idents)
+                        let ctx, idents =
+                            ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
+                                let ctx, ident = putArgInScope com ctx argId
+                                ctx, ident::idents)
 
-                    let inlineExpr =
                         { Args = List.rev idents
                           Body = com.Transform(ctx, body)
                           FileName = file.FileName
-                          ScopeIdents = set ctx.UsedNamesInDeclarationScope }
+                          ScopeIdents = set ctx.UsedNamesInDeclarationScope })
 
-                    [getMemberUniqueName memb, inlineExpr]
-                else [])
+                [getMemberUniqueName memb, inlineExpr]
+
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _ 
+            | FSharpImplementationFileDeclaration.InitAction _ -> []
+        )
     getInlineExprsInner file.Declarations
 
 let transformFile (com: Compiler) =
