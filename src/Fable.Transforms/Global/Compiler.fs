@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "3.6.3"
+    let [<Literal>] VERSION = "4.0.0"
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"

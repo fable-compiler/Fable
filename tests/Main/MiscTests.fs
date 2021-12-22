@@ -447,7 +447,7 @@ type Order =
         quantity : int<kg>
     }
 
-#if !FABLE_COMPILER_JS
+#if !FABLE_COMPILER_JAVASCRIPT
 type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 #endif
 
@@ -460,7 +460,7 @@ let tests =
   testList "Miscellaneous" [
 
 #if FABLE_COMPILER
-#if !FABLE_COMPILER_JS
+#if !FABLE_COMPILER_JAVASCRIPT
     testCase "Fable.JsonProvider works" <| fun _ ->
         let parsed = LiteralJson(ANOTHER_JSON)
         parsed.widget.debug |> equal false
@@ -482,12 +482,18 @@ let tests =
         x <- x + 2
         #endif
         #if FABLE_COMPILER_4
-        x <- x + 3
+        x <- x + 4
         #endif
-        equal 3 x
+        #if FABLE_COMPILER_4_OR_GREATER
+        x <- x + 8
+        #endif
+        #if FABLE_COMPILER_5
+        x <- x + 16
+        #endif
+        equal 13 x
 
     testCase "Can check compiler version at runtime" <| fun _ ->
-        Compiler.majorMinorVersion >=  3.0 |> equal true
+        Compiler.majorMinorVersion >=  4.0 |> equal true
         Text.RegularExpressions.Regex.IsMatch(Compiler.version, @"^\d+\.\d+") |> equal true
 
     testCase "Can access compiler options" <| fun _ ->
