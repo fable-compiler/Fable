@@ -226,7 +226,15 @@ type Runner =
         args.Values "--define"
         |> List.append [
             "FABLE_COMPILER"
-            "FABLE_COMPILER_3"
+            "FABLE_COMPILER_4"
+            "FABLE_COMPILER_4_OR_GREATER"
+            match language with
+            | Php -> "FABLE_COMPILER_PHP"
+            | Rust -> "FABLE_COMPILER_RUST"
+            | Dart -> "FABLE_COMPILER_DART"
+            | Python -> "FABLE_COMPILER_PYTHON"
+            | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
+            | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
         ]
         |> List.distinct
 
