@@ -954,7 +954,7 @@ module PythonExtensions =
               | _ -> failwith $"compare: Operator {op} not supported"
             Expression.compare(left, [op], comparators)
 
-        static member none() =
+        static member none =
             Expression.name (Identifier(name="None"))
 
         static member attribute(value, attr, ?ctx) : Expression =

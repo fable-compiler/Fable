@@ -332,7 +332,11 @@ module PrinterExtensions =
         member printer.Print(node: Subscript) =
             printer.Print(node.Value)
             printer.Print("[")
-            printer.Print(node.Slice)
+            match node.Slice with
+            | Tuple({Elements=elems}) ->
+                printer.PrintCommaSeparatedList(elems)
+            | _ ->
+                printer.Print(node.Slice)
             printer.Print("]")
 
         member printer.Print(node: BinOp) = printer.PrintOperation(node.Left, node.Operator, node.Right)
