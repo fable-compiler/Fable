@@ -1,5 +1,8 @@
 module Fable.Transforms.State
 
+#if !FABLE_COMPILER
+open System.Linq
+#endif
 open Fable
 open Fable.AST
 open System.Collections.Generic
@@ -75,6 +78,7 @@ type ImplFile =
         Ast: FSharpImplementationFileContents
         RootModule: string
         Entities: IReadOnlyDictionary<string, Fable.Entity>
+        InlineExprs: (string * InlineExprLazy) list
     }
     static member From(file: FSharpImplementationFileContents) =
         let entities = Dictionary()
@@ -91,6 +95,7 @@ type ImplFile =
             Ast = file
             Entities = entities
             RootModule = FSharp2Fable.Compiler.getRootModule file
+            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file
         }
 
 type PrecompiledInfo =
@@ -101,12 +106,15 @@ type PrecompiledInfo =
 type Project(projFile: string,
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
-             ?inlineExprs: Map<string, InlineExpr>,
-             ?precompiledInfo: PrecompiledInfo,
-             ?trimRootModule: bool) =
+             ?precompiledInfo: PrecompiledInfo) =
 
-    let inlineExprs = defaultArg inlineExprs Map.empty
-    let trimRootModule = defaultArg trimRootModule true
+    let inlineExprsDic =
+        implFiles
+        |> Map.values
+        |> Seq.map (fun f -> f.InlineExprs)
+        |> Seq.concat
+        |> dict
+
     let precompiledInfo = precompiledInfo |> Option.defaultWith (fun () ->
         { new PrecompiledInfo with
             member _.DllPath = ""
@@ -116,10 +124,8 @@ type Project(projFile: string,
     static member From(projFile,
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
-                       mkCompiler: Project -> string -> Compiler,
                        ?getPlugin: PluginRef -> System.Type,
-                       ?precompiledInfo: PrecompiledInfo,
-                       ?trimRootModule) =
+                       ?precompiledInfo: PrecompiledInfo) =
 
         let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
         let assemblies = Assemblies(getPlugin, fsharpAssemblies)
@@ -131,33 +137,37 @@ type Project(projFile: string,
                 key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo, ?trimRootModule=trimRootModule)
-            .UpdateInlineExprs(fsharpFiles, mkCompiler)
+        Project(projFile, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
 
-    member this.UpdateInlineExprs(fsharpFiles: FSharpImplementationFileContents list, mkCompiler: Project -> string -> Compiler) =
-        let inlineExprs =
-            (Map.empty, fsharpFiles) ||> List.fold (fun inlineExprs implFile ->
-                let com = mkCompiler this implFile.FileName
-                (inlineExprs, FSharp2Fable.Compiler.getInlineExprs com implFile)
-                ||> List.fold (fun inlineExprs (k, v) -> Map.add k v inlineExprs)
-            )
-        Project(this.ProjectFile, this.ImplementationFiles, this.Assemblies, inlineExprs, this.PrecompiledInfo, this.TrimRootModule)
-
-    member this.Update(fsharpFiles: FSharpImplementationFileContents list, mkCompiler) =
+    member this.Update(fsharpFiles: FSharpImplementationFileContents list) =
         let implFiles =
             (this.ImplementationFiles, fsharpFiles) ||> List.fold (fun implFiles file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 let file = ImplFile.From(file)
                 Map.add key file implFiles)
 
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.InlineExprs, this.PrecompiledInfo, this.TrimRootModule)
-            .UpdateInlineExprs(fsharpFiles, mkCompiler)
+        Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
+
+    member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
+        inlineExprsDic.TryValue(memberUniqueName)
+        |> Option.map (fun e -> e.Force(com))
+
+    member _.GetAllInlineExprs(com: Compiler): (string * InlineExpr)[] =
+        let forceChunk chunk =
+            chunk |> List.mapToArray (fun (uniqueName, expr: InlineExprLazy) ->
+                uniqueName, expr.Force(com))
+
+        let inlineExprs =
+            implFiles
+            |> Map.values
+            |> Seq.map (fun f -> f.InlineExprs)
+
+        // We could try to parallelize this, but we should make the compiler thread-safe
+        inlineExprs |> Seq.map forceChunk |> Array.concat
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
-    member _.InlineExprs = inlineExprs
-    member _.TrimRootModule = trimRootModule
     member _.PrecompiledInfo = precompiledInfo
 
 type Log =
@@ -204,20 +214,18 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             | None -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =
-            if not project.TrimRootModule then ""
-            else
-                let fileName = Path.normalizePathAndEnsureFsExtension fileName
-                match project.ImplementationFiles.TryValue(fileName) with
-                | Some file -> file.RootModule
+            let fileName = Path.normalizePathAndEnsureFsExtension fileName
+            match project.ImplementationFiles.TryValue(fileName) with
+            | Some file -> file.RootModule
+            | None ->
+                match project.PrecompiledInfo.TryGetRootModule(fileName) with
+                | Some r -> r
                 | None ->
-                    match project.PrecompiledInfo.TryGetRootModule(fileName) with
-                    | Some r -> r
-                    | None ->
-                        let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
-                        (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
-                        "" // failwith msg
+                    let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                    (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                    "" // failwith msg
 
-        member this.TryGetEntity(entityRef: Fable.EntityRef) =
+        member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
             | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef.FullName)
             | Fable.AssemblyPath path
@@ -229,8 +237,8 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 |> Option.orElseWith (fun () ->
                     project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))
 
-        member _.GetInlineExpr(memberUniqueName) =
-            match project.InlineExprs.TryValue(memberUniqueName) with
+        member this.GetInlineExpr(memberUniqueName) =
+            match project.TryGetInlineExpr(this, memberUniqueName) with
             | Some e -> e
             | None ->
                 match project.PrecompiledInfo.TryGetInlineExpr(memberUniqueName) with

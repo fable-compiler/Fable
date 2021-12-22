@@ -569,7 +569,7 @@ let loadPrecompiledInfo isCache (opts: CrackerOptions) otherOptions sourceFiles 
             | [] -> ()
             | outdated ->
                 let curDir = IO.Directory.GetCurrentDirectory()
-                let outdated = outdated |> List.map (fun f -> "    " + IO.Path.GetRelativePath(curDir, f))
+                let outdated = outdated |> List.map (fun f -> "    " + IO.Path.GetRelativePath(curDir, f)) |> String.concat Log.newLine
                 // TODO: This should likely be an error but make it a warning for now
                 Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
 

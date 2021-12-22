@@ -1,5 +1,7 @@
 namespace Fable.Cli
 
+#nowarn "3391"
+
 open System
 open System.Threading
 
@@ -419,10 +421,47 @@ module Json =
     open System.IO
     open System.Text.Json
     open System.Text.Json.Serialization
+    open System.Collections.Generic
+    open Fable.AST
+
+    // TODO: Check which other parameters are accepted by attributes (arrays?)
+    type AttParam =
+        | Int of int
+        | Float of float
+        | Bool of bool
+        | String of string
+        static member From(values: obj list) =
+            (Ok [], values) ||> List.fold (fun res (v: obj) ->
+                res |> Result.bind (fun acc ->
+                    match v with
+                    | :? int as v -> (Int v)::acc |> Ok
+                    | :? float as v -> (Float v)::acc |> Ok
+                    | :? bool as v -> (Bool v)::acc |> Ok
+                    | :? string as v -> (String v)::acc |> Ok
+                    | _ -> Error $"Cannot serialize attribute param of type %s{v.GetType().FullName}"
+            ))
+            |> function
+                | Ok values -> List.rev values
+                | Error msg -> Log.warning msg; []
+        member this.Value =
+            match this with
+            | Int v -> box v
+            | Float v -> box v
+            | Bool v -> box v
+            | String v -> box v
+
+    type Attribute =
+        { Entity: Fable.EntityRef; Params: AttParam list }
+        static member FromFableAttribute(value: Fable.Attribute) =
+            { Entity = value.Entity; Params = AttParam.From value.ConstructorArgs }
+        static member ToFableAttribute(value: Attribute) =
+            { new Fable.Attribute with
+                  member _.ConstructorArgs = value.Params |> List.map (fun v -> v.Value)
+                  member _.Entity = value.Entity }
 
     // We cannot change MemberInfo to avoid breaking plugins so we use a specific converter
     type MemberInfoConverter() =
-        inherit JsonConverter<Fable.AST.Fable.MemberInfo>()
+        inherit JsonConverter<Fable.MemberInfo>()
         member _.ReadBoolean(reader: byref<Utf8JsonReader>) =
             let b = reader.GetBoolean()
             reader.Read() |> ignore
@@ -431,9 +470,10 @@ module Json =
         override this.Read(reader: byref<Utf8JsonReader>, _typeToConvert, options) =
             reader.Read() |> ignore // Skip start array
             reader.Read() |> ignore // Skip start array for attributes
-            let attributes = ResizeArray<Fable.AST.Fable.Attribute>()
+            let attributes = ResizeArray<Fable.Attribute>()
             while reader.TokenType <> JsonTokenType.EndArray do
-                JsonSerializer.Deserialize(&reader, options)
+                JsonSerializer.Deserialize<Attribute>(&reader, options)
+                |> Attribute.ToFableAttribute
                 |> attributes.Add
             reader.Read() |> ignore // Skip end array for attributes
             let hasSpread = this.ReadBoolean(&reader)
@@ -446,7 +486,7 @@ module Json =
             let isSetter = this.ReadBoolean(&reader)
             let isEnumerator = this.ReadBoolean(&reader)
             reader.Read() |> ignore // Skip end array
-            { new Fable.AST.Fable.MemberInfo with
+            { new Fable.MemberInfo with
                 member _.Attributes = attributes
                 member _.HasSpread = hasSpread
                 member _.IsMangled = isMangled
@@ -461,8 +501,9 @@ module Json =
         override _.Write(writer, value, options) =
             writer.WriteStartArray()
             writer.WriteStartArray()
-            for att in value.Attributes do
-                JsonSerializer.Serialize(writer, att, options)
+            value.Attributes
+            |> Seq.map Attribute.FromFableAttribute
+            |> Seq.iter (fun att -> JsonSerializer.Serialize(writer, att, options))
             writer.WriteEndArray()
             writer.WriteBooleanValue(value.HasSpread)
             writer.WriteBooleanValue(value.IsMangled)
@@ -496,8 +537,40 @@ module Json =
             else
                 writer.WriteNumberValue(value)
 
+    type StringPoolReader(pool: string[]) =
+        inherit JsonConverter<string>()
+        override _.Read(reader, _typeToConvert, _options) =
+            let i = reader.GetInt32()
+            pool.[i]
+
+        override _.Write(writer, value, _options) =
+            failwith "Read only"
+
+    type StringPoolWriter() =
+        inherit JsonConverter<string>()
+        let pool = Dictionary<string, int>()
+
+        member _.GetPool() =
+            pool
+            |> Seq.toArray
+            |> Array.sortBy (fun kv -> kv.Value)
+            |> Array.map (fun kv -> kv.Key)
+
+        override _.Read(reader, _typeToConvert, _options) =
+            failwith "Write only"
+
+        override _.Write(writer, value, _options) =
+            let i =
+                match pool.TryGetValue(value) with
+                | true, i -> i
+                | false, _ ->
+                    let i = pool.Count
+                    pool.Add(value, i)
+                    i
+            writer.WriteNumberValue(i)
+
     // TODO: When upgrading to net6, check if we still need FSharp.SystemTextJson
-    let getOptions() =
+    let private getOptions() =
         // The default depth (64) is not enough, using 1024 that hopefully
         // should still prevent StackOverflow exceptions
         let jsonOptions = JsonSerializerOptions(MaxDepth=1024)
@@ -508,24 +581,41 @@ module Json =
         jsonOptions
 
     let read<'T> (path: string) =
-        let bytes = File.ReadAllBytes(path)
-        JsonSerializer.Deserialize<'T>(bytes, getOptions())
-
-    let readAsync<'T> (path: string) =
-        let fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-        JsonSerializer.DeserializeAsync<'T>(fileStream, getOptions())
-            .AsTask()
-            .ContinueWith(fun (t: Tasks.Task<'T>) -> fileStream.Dispose(); t.Result)
+        let jsonReadOnlySpan: ReadOnlySpan<byte> = File.ReadAllBytes(path)
+        JsonSerializer.Deserialize<'T>(jsonReadOnlySpan, getOptions())
 
     let write (path: string) (data: 'T): unit =
         use fileStream = new FileStream(path, FileMode.Create)
         use writer = new Utf8JsonWriter(fileStream)
         JsonSerializer.Serialize(writer, data, getOptions())
 
-    let writeAsync (path: string) (data: 'T) =
-        let fileStream = new FileStream(path, FileMode.Create)
-        JsonSerializer.SerializeAsync<'T>(fileStream, data, getOptions())
-            .ContinueWith(fun _ -> fileStream.Dispose())
+    let readWithStringPool<'T> (path: string) =
+        let strings =
+            let ext = Path.GetExtension(path)
+            let path = path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
+            let jsonReadOnlySpan: ReadOnlySpan<byte> = File.ReadAllBytes(path)
+            JsonSerializer.Deserialize<string[]>(jsonReadOnlySpan)
+        let options = getOptions()
+        options.Converters.Add(StringPoolReader(strings))
+        let jsonReadOnlySpan: ReadOnlySpan<byte> = File.ReadAllBytes(path)
+        JsonSerializer.Deserialize<'T>(jsonReadOnlySpan, options)
+
+    let writeWithStringPool (path: string) (data: 'T): unit =
+        let pool = StringPoolWriter()
+        do
+            let options = getOptions()
+            options.Converters.Add(pool)
+            use fileStream = new FileStream(path, FileMode.Create)
+            use writer = new Utf8JsonWriter(fileStream)
+            JsonSerializer.Serialize(writer, data, options)
+        do
+            let pool = pool.GetPool()
+            let ext = Path.GetExtension(path)
+            let path = path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
+            use fileStream = new FileStream(path, FileMode.Create)
+            use writer = new Utf8JsonWriter(fileStream)
+            // Only serializing a string array, no need for special options here
+            JsonSerializer.Serialize(writer, pool)
 
 module Performance =
     let measure (f: unit -> 'a) =
@@ -559,7 +649,7 @@ type PrecompiledInfoJson =
       InlineExprHeaders: string[] }
 
 type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
-    let dic = System.Collections.Concurrent.ConcurrentDictionary<int, Map<string, Fable.InlineExpr>>()
+    let dic = System.Collections.Concurrent.ConcurrentDictionary<int, Lazy<Map<string, Fable.InlineExpr>>>()
     let comparer = StringOrdinalComparer()
     let dllPath = PrecompiledInfoImpl.GetDllPath(dir)
 
@@ -579,18 +669,22 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
 
     interface Fable.Transforms.State.PrecompiledInfo with
         member _.DllPath = dllPath
+
         member _.TryGetRootModule(normalizedFullPath) =
             Map.tryFind normalizedFullPath info.Files
             |> Option.map (fun f -> f.RootModule)
+
         member _.TryGetInlineExpr(memberUniqueName) =
             let index = Array.BinarySearch(info.InlineExprHeaders, memberUniqueName, comparer)
             let index = if index < 0 then ~~~index - 1 else index
+            // We use lazy to prevent two threads from deserializing the inline expressions simultaneously
+            // http://reedcopsey.com/2011/01/16/concurrentdictionarytkeytvalue-used-with-lazyt/
             let map = dic.GetOrAdd(index, fun _ ->
-                PrecompiledInfoImpl.GetInlineExprsPath(dir, index)
-                |> Json.read<(string * Fable.InlineExpr)[]>
-                |> Map
-            )
-            Map.tryFind memberUniqueName map
+                lazy
+                    PrecompiledInfoImpl.GetInlineExprsPath(dir, index)
+                    |> Json.readWithStringPool<(string * Fable.InlineExpr)[]>
+                    |> Map)
+            Map.tryFind memberUniqueName map.Value
 
     static member GetPath(dir) =
         IO.Path.Combine(dir, "precompiled_info.json")
@@ -606,44 +700,34 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
         with
         | e -> FableError($"Cannot load precompiled info from %s{dir}: %s{e.Message}") |> raise
 
-    static member Save(dir, project: Fable.Transforms.State.Project, outPaths: Map<string, string>, compilerOpts, fableLibDir) = async {
-        Log.always($"Saving precompiled info...")
-        let! _, ms = Performance.measureAsync <| fun _ -> async {
-            let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
+    static member Save(dllPath: string, files, inlineExprs, compilerOptions, fableLibDir) =
+        let dir = IO.Path.GetDirectoryName(dllPath)
+        let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
 
-            let inlineExprs =
-                project.InlineExprs
-                |> Seq.map (fun kv -> kv.Key, kv.Value)
-                |> Seq.toArray
-                |> Array.sortWith (fun (x,_) (y,_) -> comparer.Compare(x, y))
-                |> Array.chunkBySize 100
+        let inlineExprs =
+            inlineExprs
+            |> Array.sortWith (fun (x,_) (y,_) -> comparer.Compare(x, y))
+            |> Array.chunkBySize 100
+            |> Array.mapi (fun i chunk -> i, chunk)
 
-            do
-                PrecompiledInfoImpl.GetInlineExprsPath(dir, 0)
-                |> IO.Path.GetDirectoryName
-                |> IO.Directory.CreateDirectory
-                |> ignore
+        do
+            PrecompiledInfoImpl.GetInlineExprsPath(dir, 0)
+            |> IO.Path.GetDirectoryName
+            |> IO.Directory.CreateDirectory
+            |> ignore
 
-            let! _ =
-                // Had some issues with Async.Parallel, this seems to work well
-                Threading.Tasks.Task.WhenAll(inlineExprs |> Array.mapi (fun i chunk ->
-                    let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
-                    Json.writeAsync path chunk))
-                |> Async.AwaitTask
+        let _result =
+            Threading.Tasks.Parallel.ForEach(inlineExprs, fun (i, chunk) ->
+                let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
+                Json.writeWithStringPool path chunk)
 
-            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
-            let files =
-                project.ImplementationFiles |> Map.map (fun k v ->
-                    match Map.tryFind k outPaths with
-                    | Some outPath -> { RootModule = v.RootModule; OutPath = outPath }
-                    | None -> FableError($"Cannot find out path for precompiled file {k}") |> raise)
-            let inlineExprHeaders = inlineExprs |> Array.map (Array.head >> fst)
-            { CompilerVersion = Fable.Literals.VERSION
-              CompilerOptions = compilerOpts
-              Files = files
-              FableLibDir = fableLibDir
-              InlineExprHeaders = inlineExprHeaders }
-            |> Json.write precompiledInfoPath
-        }
-        Log.always($"Precompiled info saved in {ms}ms")
-    }
+        let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+        let inlineExprHeaders = inlineExprs |> Array.map (snd >> Array.head >> fst)
+
+        { CompilerVersion = Fable.Literals.VERSION
+          CompilerOptions = compilerOptions
+          Files = files
+          FableLibDir = fableLibDir
+          InlineExprHeaders = inlineExprHeaders }
+        |> Json.write precompiledInfoPath
+

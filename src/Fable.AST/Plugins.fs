@@ -21,7 +21,7 @@ type CompilerOptions =
         Define: string list
         DebugMode: bool
         OptimizeFSharpAst: bool
-        // TODO: Rename this to TrimRootModule in beyond branch
+        // TODO: Remove this option in Fable 4
         RootModule: bool
         Verbosity: Verbosity
         FileExtension: string

@@ -231,7 +231,6 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
     let cliArgs =
