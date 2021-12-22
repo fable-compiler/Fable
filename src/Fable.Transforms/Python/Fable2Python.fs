@@ -293,12 +293,33 @@ module Reflection =
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
 
-    let private typing (com: IPythonCompiler) ctx memberName args =
-        let expr = com.TransformImport(ctx, memberName, "typing")
+    let private fableModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+        let expr = com.TransformImport(ctx, memberName, getLibPath com moduleName)
         match args with
         | [] -> expr
         | [arg] -> Expression.subscript(expr, arg)
         | args -> Expression.subscript(expr, Expression.tuple(args))
+
+    let private pythonModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+        let expr = com.TransformImport(ctx, memberName, moduleName)
+        match memberName, args with
+        | _, [] -> expr
+        | _, [arg] -> Expression.subscript(expr, arg)
+        | "Callable", args ->
+            let returnType = List.last args
+            let args =
+                args
+                |> List.removeAt (args.Length - 1)
+                |> List.choose (function
+                    | Expression.Name({ Id=Identifier "None" }) when args.Length = 2 -> None
+                    | x -> Some x)
+                |> Expression.list
+            Expression.subscript(expr, Expression.tuple([args; returnType]))
+        | _, args ->
+            Expression.subscript(expr, Expression.tuple(args))
+
+    let private typingHint (com: IPythonCompiler) ctx memberName args =
+        pythonModuleHint com ctx "typing"  memberName args
 
     let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -341,23 +362,28 @@ module Reflection =
 
     let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
         let primitiveTypeInfo name =
-           typing com ctx name []
+           typingHint com ctx name []
 
         let literalTypeInfo genArgs =
-            typing com ctx "Literal" genArgs
+            typingHint com ctx "Literal" genArgs
 
         let getNumberKindName kind =
             match kind with
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> "int"
             | Float32 | Float64 -> "float"
 
+        let resolveGenerics generics: Expression list * Statement list =
+            generics |> Array.map (transformTypeInfo com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
+
+        let fableModulesTypeInfo moduleName memberName genArgs =
+            let resolved, stmts = resolveGenerics genArgs
+            fableModuleHint com ctx moduleName memberName resolved, stmts
+
         let numberInfo kind =
             Expression.name (getNumberKindName kind)
         let nonGenericTypeInfo fullname =
             [ Expression.constant(fullname) ]
             |> libReflectionCall com ctx None "class"
-        let resolveGenerics generics: Expression list * Statement list =
-            generics |> Array.map (transformTypeInfo com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
         let genericEntity (fullname: string) (generics: Expression list) =
             libReflectionCall com ctx None "class" [
                 Expression.constant(fullname)
@@ -366,11 +392,11 @@ module Reflection =
             ]
         let genericTypeInfo name genArgs =
             let resolved, stmts = resolveGenerics genArgs
-            typing com ctx name resolved, stmts
+            typingHint com ctx name resolved, stmts
 
         match t with
         | Fable.Measure _
-        | Fable.Any -> primitiveTypeInfo "obj", []
+        | Fable.Any -> primitiveTypeInfo "Any", []
         | Fable.GenericParam(name,_) ->
             com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
             let name = Helpers.clean name
@@ -378,7 +404,7 @@ module Reflection =
             match Map.tryFind name genMap with
             | Some t -> t, []
             | None -> Expression.name(name), []
-        | Fable.Unit    -> Expression.none(), []
+        | Fable.Unit    -> Expression.none, []
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char    -> Expression.name "str", []
         | Fable.String  -> Expression.name "str", []
@@ -401,16 +427,15 @@ module Reflection =
                 |> Expression.list
             [ Expression.constant(entRef.FullName); numberInfo numberKind; cases ]
             |> libReflectionCall com ctx None "enum", []
-        | Fable.Number(kind,_) ->
-            numberInfo kind, []
+        | Fable.Number(kind,_) -> numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo "lambda" [|argType; returnType|]
+            genericTypeInfo "Callable" [| argType; returnType |]
         | Fable.DelegateType(argTypes, returnType) ->
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "tuple" (List.toArray genArgs)
+        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "Tuple" (List.toArray genArgs)
         | Fable.Option(genArg,_)   -> genericTypeInfo "Optional" [|genArg|]
         | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
-        | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
+        | Fable.List genArg     -> fableModulesTypeInfo "list" "FSharpList" [| genArg |]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex, []
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_, []
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -592,7 +617,6 @@ module Util =
     open Reflection
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
-        // printfn "getIdentifier: %A" name
         let name =
             match name with
             //| "this" -> "self"
@@ -803,7 +827,7 @@ module Util =
             |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
             |> List.map (function
                 | i, Some value -> Expression.name(i, Store), value, i
-                | i, _ -> Expression.name(i, Store), Expression.none (), i)
+                | i, _ -> Expression.name(i, Store), Expression.none, i)
             |> List.unzip3
             |> fun (ids, values, ids') ->
                 ctx.BoundVars.Bind(ids')
@@ -841,7 +865,7 @@ module Util =
         let args =
             match args.Args with
             | [ _unit ] ->
-                { args with Args = self::args.Args; Defaults=[ Expression.none() ] }
+                { args with Args = self::args.Args; Defaults=[ Expression.none ] }
             | _ ->
                 { args with Args = self::args.Args }
         let body =
@@ -869,7 +893,7 @@ module Util =
         Expression.emit (value, args, ?loc=range)
 
     let undefined range: Expression =
-        Expression.none()
+        Expression.none
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -941,11 +965,14 @@ module Util =
     let makeArrowFunctionExpression (name: string option) (args: Arguments) (body: Statement list) : Expression * Statement list =
         let args =
             match args.Args with
-            | [] -> Arguments.arguments(args=[ Arg.arg(Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | [] -> Arguments.arguments(args=[ Arg.arg(Identifier("_unit")) ], defaults=[ Expression.none ])
             | _ -> args
 
         match body with
-            | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
+            | [ Statement.Return({Value=Some expr}) ] ->
+                // Remove annotations from lambda expressions
+                let args = { args with Args = args.Args |> List.map(fun arg -> { arg with Annotation = None })}
+                Expression.lambda(args, expr), []
             | _ ->
                 let ident = name |> Option.map Identifier |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "arrow")
                 let func = FunctionDef.Create(name = ident, args = args, body = body)
@@ -1310,7 +1337,7 @@ module Util =
     let transformOperation com ctx range opKind: Expression * Statement list =
         match opKind with
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
-            Expression.none(), stmts
+            Expression.none, stmts
         | Fable.Unary(UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
             let func = Expression.name("type")
             let args = [ expr ]
@@ -1404,7 +1431,7 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
-            Expression.none(), Statement.assign([Expression.subscript(value, right)], arg) :: stmts @ stmts' @ stmts''
+            Expression.none, Statement.assign([Expression.subscript(value, right)], arg) :: stmts @ stmts' @ stmts''
         | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
             callFunction range callee' [] kw, stmts @ stmts'
 
@@ -1635,7 +1662,7 @@ module Util =
             let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
 
-            let decl = Statement.assign([varName], Expression.none ())
+            let decl = Statement.assign([varName], Expression.none)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             List.append [ decl ] body
         else
@@ -1652,11 +1679,11 @@ module Util =
         | Fable.OptionTest nonEmpty ->
             let op = if nonEmpty then BinaryUnequalStrict else BinaryEqualStrict
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.compare(expr, op, [Expression.none()], ?loc=range), stmts
+            Expression.compare(expr, op, [Expression.none], ?loc=range), stmts
         | Fable.ListTest nonEmpty ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             // let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            // Expression.binaryExpression(op, get None expr "tail", Expression.none(), ?loc=range)
+            // Expression.binaryExpression(op, get None expr "tail", Expression.none, ?loc=range)
             let expr =
                 let expr = libCall com ctx range "list" "isEmpty" [ expr ]
                 if nonEmpty then Expression.unaryOp(UnaryNot, expr, ?loc=range) else expr
@@ -2018,7 +2045,7 @@ module Util =
             ||> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr ([], typ, None) ->
-            Expression.none(), []
+            Expression.none, []
         | Fable.ObjectExpr (members, typ, baseCall) ->
             transformObjectExpr com ctx members baseCall
 
@@ -2351,7 +2378,7 @@ module Util =
                         match arg.Type with
                         | Fable.Option _ -> true
                         | _ -> false)
-                    |> List.map(fun _ -> Expression.none())
+                    |> List.map(fun _ -> Expression.none)
                 let args' =
                     args
                     |> List.map (fun id ->
@@ -2361,9 +2388,9 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], true -> Arguments.arguments(args=Arg.arg(Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
+            | [], true -> Arguments.arguments(args=Arg.arg(Identifier("_unit"))::tcArgs, defaults=Expression.none::tcDefaults)
             // So we can also receive unit
-            | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
+            | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none::tcDefaults)
             | _ -> Arguments.arguments(args @ tcArgs, defaults=defaults @ tcDefaults)
 
         arguments, body
@@ -2783,7 +2810,7 @@ module Compiler =
                 | true, i ->
                     match i.LocalIdent with
                     | Some localIdent -> Expression.identifier(localIdent)
-                    | None -> Expression.none()
+                    | None -> Expression.none
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
                     // printfn "localId: %A" localId
@@ -2809,7 +2836,7 @@ module Compiler =
 
                     match localId with
                     | Some localId -> Expression.identifier(localId)
-                    | None -> Expression.none()
+                    | None -> Expression.none
 
             member _.GetAllImports() = imports.Values :> Import seq |> List.ofSeq
             member _.GetAllTypeVars() = typeVars
