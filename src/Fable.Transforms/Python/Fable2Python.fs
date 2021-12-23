@@ -598,14 +598,14 @@ module Annotation =
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
 
-    let private fableModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+    let private fableModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
         let expr = com.TransformImport(ctx, memberName, getLibPath com moduleName)
         match args with
         | [] -> expr
         | [arg] -> Expression.subscript(expr, arg)
         | args -> Expression.subscript(expr, Expression.tuple(args))
 
-    let private pythonModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+    let private pythonModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
         let expr = com.TransformImport(ctx, memberName, moduleName)
         match memberName, args with
         | _, [] -> expr
@@ -624,10 +624,27 @@ module Annotation =
             Expression.subscript(expr, Expression.tuple(args))
 
     let private typingHint (com: IPythonCompiler) ctx memberName args =
-        pythonModuleHint com ctx "typing"  memberName args
+        pythonModuleAnnotation com ctx "typing"  memberName args
 
+    let makeGenTypeParamInst com ctx (genArgs: Fable.Type list) =
+        match genArgs with
+        | [] -> []
+        | _  ->
+            genArgs
+            |> List.map (typeAnnotation com ctx)
+            |> List.map fst
 
-    let transformTypeHint (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
+    let makeGenericTypeAnnotation (com: IPythonCompiler) ctx (genArgs: Fable.Type list) (id: string) =
+        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
+
+        let typeParamInst = makeGenTypeParamInst com ctx genArgs
+        let name = Expression.name id
+        if typeParamInst.IsEmpty then
+            name
+        else
+            Expression.subscript(name, Expression.tuple typeParamInst)
+
+    let typeAnnotation (com: IPythonCompiler) ctx t: Expression * Statement list =
         let literalTypeInfo genArgs =
             typingHint com ctx "Literal" genArgs
 
@@ -637,15 +654,15 @@ module Annotation =
             | Float32 | Float64 -> "float"
 
         let resolveGenerics generics: Expression list * Statement list =
-            generics |> Array.map (transformTypeHint com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
+            generics |> List.map (typeAnnotation com ctx) |> Helpers.unzipArgs
 
         let fableModuleTypeInfo moduleName memberName genArgs =
             let resolved, stmts = resolveGenerics genArgs
-            fableModuleHint com ctx moduleName memberName resolved, stmts
+            fableModuleAnnotation com ctx moduleName memberName resolved, stmts
 
         let pythonModuleTypeHint moduleName memberName genArgs =
             let resolved, stmts = resolveGenerics genArgs
-            pythonModuleHint com ctx moduleName memberName resolved, stmts
+            pythonModuleAnnotation com ctx moduleName memberName resolved, stmts
 
         let typingModuleTypeHint name genArgs =
            pythonModuleTypeHint "typing" name genArgs
@@ -661,20 +678,18 @@ module Annotation =
                 if not(List.isEmpty generics) then
                     Expression.list(generics)
             ]
-        let genericTypeInfo name genArgs =
+        let genericTypeAnnotation name genArgs =
             let resolved, stmts = resolveGenerics genArgs
             typingHint com ctx name resolved, stmts
 
         match t with
         | Fable.Measure _
-        | Fable.Any -> typingModuleTypeHint "Any" [||]
+        | Fable.Any -> typingModuleTypeHint "Any" []
         | Fable.GenericParam(name,_) ->
             com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
             let name = Helpers.clean name
             com.AddTypeVar name
-            match Map.tryFind name genMap with
-            | Some t -> t, []
-            | None -> Expression.name(name), []
+            Expression.name(name), []
         | Fable.Unit    -> Expression.none, []
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char    -> Expression.name "str", []
@@ -700,41 +715,32 @@ module Annotation =
             |> libReflectionCall com ctx None "enum", []
         | Fable.Number(kind,_) -> numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo "Callable" [| argType; returnType |]
-        | Fable.Option(genArg,_)   -> genericTypeInfo "Optional" [| genArg |]
-        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "Tuple" (List.toArray genArgs)
+            genericTypeAnnotation "Callable" [ argType; returnType ]
+        | Fable.Option(genArg,_)   -> genericTypeAnnotation "Optional" [ genArg ]
+        | Fable.Tuple(genArgs,_)   -> genericTypeAnnotation "Tuple" genArgs
         | Fable.Array genArg ->
             match genArg with
-            | Fable.Type.Number(UInt8, _) ->
-                typingModuleTypeHint "ByteString" [||]
+            | Fable.Type.Number(UInt8, _) -> typingModuleTypeHint "ByteString" []
             | Fable.Type.Number(Int8, _)
             | Fable.Type.Number(Int16, _)
             | Fable.Type.Number(UInt16, _)
             | Fable.Type.Number(Int32, _)
             | Fable.Type.Number(UInt32, _)
             | Fable.Type.Number(Float32, _)
-            | Fable.Type.Number(Float64, _) ->
-                pythonModuleTypeHint "array" "array" [||]
-            | _ ->
-                typingModuleTypeHint "List" [| genArg |]
-        | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [| genArg |]
-        | _ ->
-            typingModuleTypeHint "Any" [||]
-(*
-        | Fable.DelegateType(argTypes, returnType) ->
-            genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Regex           -> nonGenericTypeInfo Types.regex, []
-        | Fable.MetaType        -> nonGenericTypeInfo Types.type_, []
-        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-            let genArgs, stmts = resolveGenerics (List.toArray genArgs)
-            List.zip (List.ofArray fieldNames) genArgs
-            |> List.map (fun (k, t) -> Expression.list[ Expression.constant(k); t ])
-            |> libReflectionCall com ctx None "anonRecord", stmts
-        | Fable.DeclaredType(entRef, generics) ->
-            let fullName = entRef.FullName
-            match fullName, generics with
+            | Fable.Type.Number(Float64, _) -> pythonModuleTypeHint "array" "array" []
+            | _ -> typingModuleTypeHint "List" [ genArg ]
+        | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [ genArg ]
+        | Fable.AnonymousRecordType _ ->
+            Expression.name("dict"), [] // TODO: use TypedDict?
+        | Fable.DeclaredType(ent, genArgs) ->
+            //match ent.FullName with
+            match ent.FullName, genArgs with
             | Replacements.BuiltinEntity kind ->
                 match kind with
+                | Replacements.BclDecimal ->
+                    pythonModuleTypeHint "decimal" "Decimal" [ ]
+                | _ -> typingModuleTypeHint "Any" []
+(*
                 | Replacements.BclGuid
                 | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
@@ -744,51 +750,42 @@ module Annotation =
                 | Replacements.BclTimer
                 | Replacements.BclInt64
                 | Replacements.BclUInt64
-                | Replacements.BclDecimal
                 | Replacements.BclBigInt -> genericEntity fullName [], []
                 | Replacements.BclHashSet gen
                 | Replacements.FSharpSet gen ->
                     let gens, stmts = transformTypeInfo com ctx r genMap gen
                     genericEntity fullName [ gens ], stmts
-                | Replacements.BclDictionary(key, value)
-                | Replacements.BclKeyValuePair(key, value)
-                | Replacements.FSharpMap(key, value) ->
-                    let keys, stmts = transformTypeInfo com ctx r genMap key
-                    let values, stmts' = transformTypeInfo com ctx r genMap value
-                    genericEntity fullName [
-                        keys
-                        values
-                    ], stmts @ stmts'
-                | Replacements.FSharpResult(ok, err) ->
-                    let ent = com.GetEntity(entRef)
-                    let ok', stmts = transformTypeInfo com ctx r genMap ok
-                    let err', stmts' = transformTypeInfo com ctx r genMap err
-                    let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
-                    expr, stmts @ stmts' @ stmts''
-                | Replacements.FSharpChoice gen ->
-                    let ent = com.GetEntity(entRef)
-                    let gen, stmts = List.map (transformTypeInfo com ctx r genMap) gen |> Helpers.unzipArgs
-                    let expr, stmts' = gen |> transformUnionReflectionInfo com ctx r ent
-                    expr, stmts @ stmts'
-                | Replacements.FSharpReference gen ->
-                    let ent = com.GetEntity(entRef)
-                    let gen, stmts = transformTypeInfo com ctx r genMap gen
-                    let expr, stmts' = [ gen ] |> transformRecordReflectionInfo com ctx r ent
-                    expr, stmts @ stmts'
+            | Types.ienumerableGeneric ->
+                makeNativeTypeAnnotation com ctx genArgs "IterableIterator"
+            | Types.result ->
+                makeUnionTypeAnnotation com ctx genArgs
+            | entName when entName.StartsWith(Types.choiceNonGeneric) ->
+                makeUnionTypeAnnotation com ctx genArgs
+                *)
             | _ ->
-                let ent = com.GetEntity(entRef)
-                let generics, stmts = generics |> List.map (transformTypeInfo com ctx r genMap) |> Helpers.unzipArgs
-                /// Check if the entity is actually declared in JS code
-                if ent.IsInterface
-                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                    || FSharp2Fable.Util.isReplacementCandidate ent then
-                    genericEntity ent.FullName generics, stmts
+                let ent = com.GetEntity(ent)
+                if ent.IsInterface then
+                    typingModuleTypeHint "Any" []
                 else
-                    let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
-                    let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
-                    Expression.call(callee, generics), stmts @ stmts'
-                    *)
+                    match Lib.tryPyConstructor com ctx ent with
+                    | Some (entRef, stmts) ->
+                        match entRef with
+                        (*
+                        | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
+                            match str with
+                            | "number" -> NumberTypeAnnotation
+                            | "boolean" -> BooleanTypeAnnotation
+                            | "string" -> StringTypeAnnotation
+                            | _ -> AnyTypeAnnotation*)
+                        | Expression.Name {Id = Identifier id } ->
+                            makeGenericTypeAnnotation com ctx genArgs id, []
+                        // TODO: Resolve references to types in nested modules
+                        | _ -> typingModuleTypeHint "Any" []
+                    | None -> typingModuleTypeHint "Any" []
+
+
+        | _ ->
+            typingModuleTypeHint "Any" []
 
 
 module Util =
@@ -1848,8 +1845,8 @@ module Util =
         else
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = com.GetIdentifierAsExpr(ctx, var.Name) // Expression.name(var.Name)
-            let t, stmts' = transformTypeHint com ctx None Map.empty var.Type
-            let decl = varDeclaration ctx varName (Some t) value
+            let ta, stmts' = typeAnnotation com ctx var.Type
+            let decl = varDeclaration ctx varName (Some ta) value
             stmts @ decl
 
     let transformTest (com: IPythonCompiler) ctx range kind expr: Expression * Statement list =
@@ -2562,8 +2559,8 @@ module Util =
                 let args' =
                     args
                     |> List.map (fun id ->
-                        let annotation, _ = transformTypeHint com ctx None Map.empty id.Type
-                        Arg.arg(ident com ctx id, annotation=annotation))
+                        let ta, _ = typeAnnotation com ctx id.Type
+                        Arg.arg(ident com ctx id, annotation=ta))
                 args', defaults, body
 
         let arguments =
@@ -2676,7 +2673,7 @@ module Util =
 
         //printfn "Arsg: %A" args
         let name = com.GetIdentifier(ctx, membName)
-        let returns, _ = transformTypeHint com ctx None Map.empty body.Type
+        let returns, _ = typeAnnotation com ctx body.Type
         let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returns)
         let expr = Expression.name (name)
         info.Attributes
@@ -2936,20 +2933,25 @@ module Util =
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
-                    //printfn "modules: %A" (moduleName, im.LocalIdent.Value)
                     let (Identifier local) = im.LocalIdent.Value
                     if moduleName <> local then
                         Some moduleName, Alias.alias(im.LocalIdent.Value)
                     else
                         None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
-                    // printfn "transformImports: %A" (moduleName, name)
                     let name = Naming.toSnakeCase name
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
                     None, Alias.alias(Identifier(moduleName), ?asname=im.LocalIdent))
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
+            |> List.sortBy (function
+                // Need to make sure we get imports such as __future__ first
+                | Some moduleName, _ -> moduleName.ToLower()
+                | None, { Name=(name) }::xs -> name.Name
+                | _ -> "")
+
+
         [
             for moduleName, aliases in imports do
                 match moduleName with
