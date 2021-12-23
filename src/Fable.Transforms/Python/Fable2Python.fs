@@ -115,211 +115,11 @@ module Lib =
         let entRef = PY.Replacements.pyConstructor com ent
         com.TransformAsExpr(ctx, entRef)
 
-module Helpers =
-    let index = (Seq.initInfinite id).GetEnumerator()
-
-    let getUniqueIdentifier (name: string): Identifier =
-        do index.MoveNext() |> ignore
-        let idx = index.Current.ToString()
-        let deliminator =
-            if Char.IsLower name.[0] then "_" else ""
-        Identifier($"{name}{deliminator}{idx}")
-
-    /// Replaces all '$' and `.`with '_'
-    let clean (name: string) =
-        // printfn $"clean: {name}"
-        match name with
-        | "Infinity" -> "float('inf')"
-        | _ ->
-            (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-
-    /// Normalize Fable import to be relative to outDir.
-    /// TODO: decide if nugets referencing fable_library should be relative or absolute. Currently absolute.
-    let normalizeModulePath (com: IPythonCompiler) modulePath =
-        //printfn "---"
-        //printfn "ModulePath: %s" modulePath
-        let fileDir = Path.GetDirectoryName modulePath
-        //printfn "dir: %A" dir
-        let projDir = Path.GetDirectoryName(com.ProjectFile)
-        let modulePathname =
-            match fileDir with
-            | "" | "." -> fileDir
-            | _ ->
-                IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
-                |> Path.normalizePath
-        let outDir = com.OutputDir |> Option.defaultValue projDir
-
-        //printfn "modulePathname: %A" modulePathname
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
-
-        let commonPrefix = Path.getCommonBaseDir [ modulePathname; com.ProjectFile ]
-        //printfn "CommonPrefix: %A" commonPrefix
-        let relativePath =
-            // We know all modules will be placed somewhere in outDir or in a subdir below
-            modulePathname
-                .Replace(outDir, String.Empty)   // Remove outDir from module path
-                .Replace(projDir, String.Empty)  // Remove projectDir from module path
-
-        let relativePath =
-            if commonPrefix.Length > 0 then
-                // Remove any common prefix between module path and project file
-                relativePath.Replace(commonPrefix, String.Empty)
-            else
-                relativePath
-
-        // Cleanup path
-        let relativePath = relativePath.Replace("//", "/")
-        let relativePath =
-            if relativePath.StartsWith("/") then
-                $"./{relativePath.[1..]}"
-            else
-                relativePath
-
-        match fileDir, relativePath with
-        | "", _ -> fileDir
-        | _, "" -> "."
-        | _ ->
-            relativePath
-
-    /// This function is a bit complex. Python imports are difficult.
-    /// - Python libraries should use relative imports.
-    /// - Python program must use absolute imports
-    /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
-    /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
-    /// a library (fable-modules). Thus we need to handle a lot of corner cases.
-    ///
-    ///  - OutDir
-    ///    - fable_modules
-    ///      - fable_library (may import itself)
-    ///      - nuget_library (may import fable library)
-    ///    - referenced_project
-    ///      - util.py
-    ///    - subdir
-    ///      - misc.py
-    ///    - program.py
-    ///
-    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
-        let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
-        let normalizedPath = normalizeModulePath com modulePath
-        let projDir = Path.GetDirectoryName(com.ProjectFile)
-        let fileDir = Path.GetDirectoryName(com.CurrentFile)
-
-        /// True if we import something in a project reference
-        let isProjectReference =
-            let notInProjectDir = (not (projDir.EndsWith(commonPrefix)))
-            // printfn "notInProjectDir: %A" notInProjectDir
-            if normalizedPath.Length > 1 then
-                notInProjectDir
-                // import exists in file dir
-                && IO.Directory.Exists(Path.Combine(fileDir, normalizedPath))
-                // import exists in project dir
-                && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))
-            else
-                notInProjectDir
-
-        //printfn "Prefix: %A" (commonPrefix, isProjectReference)
-        let relative =
-            match com.OutputType, isProjectReference with
-            // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
-            // relative imports if and only if the normalizedPath exists within that referenced project. This is e.g the
-            // case when a test project references the library it's testing and the library wants to import own files
-            | _, true  -> true
-            | OutputType.Exe, _ -> false
-            | _ -> true
-
-        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
-        // printfn $"OutputDir: {com.OutputDir}  "
-        // printfn $"LibraryDir: {com.LibraryDir}"
-        //printfn "normalizedPath: %A" (relative, normalizedPath)
-
-        let moduleName =
-            let lower =
-                let fileName = Path.GetFileNameWithoutExtension(modulePath)
-                match fileName with
-                | "" when modulePath.StartsWith(".") -> modulePath.[1..]
-                | _ -> fileName |> Naming.applyCaseRule CaseRules.SnakeCase
-            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-
-        let path =
-            match relative, normalizedPath with
-            | _, "" -> ""
-            | true, "." -> "."
-            | true, path when path.Contains("fable_modules") ->
-                path.Replace("./", "").Replace("./", ".").Replace("/", ".") + "."
-            | true, path ->
-                //printfn "Path: %A" path
-                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
-            | false, "." -> ""
-            | false, path ->
-                path.Replace("./", "").Replace("/", ".") + "."
-
-        let moduleImport = $"{path}{moduleName}"
-        //printfn "ModuleImport: %s" moduleImport
-        moduleImport
-
-    let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
-        let stmts = args |> List.map snd |> List.collect id
-        let args = args |> List.map fst
-        args, stmts
-
-    /// A few statements in the generated Python AST do not produce any effect,
-    /// and should not be printet.
-    let isProductiveStatement (stmt: Python.Statement) =
-        let rec hasNoSideEffects (e: Expression) =
-            // printfn $"hasNoSideEffects: {e}"
-
-            match e with
-            | Constant _ -> true
-            | Dict { Keys = keys } -> keys.IsEmpty // Empty object
-            | Name _ -> true // E.g `void 0` is translated to Name(None)
-            | _ -> false
-
-        match stmt with
-        // Remove `self = self`
-        | Statement.Assign { Targets = [ Name {Id=Identifier(x)}]; Value = Name {Id=Identifier(y)}} when x = y -> None
-        | Expr expr ->
-            if hasNoSideEffects expr.Value then
-                None
-            else
-                Some stmt
-        | _ -> Some stmt
-
-
-// TODO: This is too implementation-dependent, ideally move it to Replacements
 module Reflection =
     open Lib
 
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
-
-    let private fableModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
-        let expr = com.TransformImport(ctx, memberName, getLibPath com moduleName)
-        match args with
-        | [] -> expr
-        | [arg] -> Expression.subscript(expr, arg)
-        | args -> Expression.subscript(expr, Expression.tuple(args))
-
-    let private pythonModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
-        let expr = com.TransformImport(ctx, memberName, moduleName)
-        match memberName, args with
-        | _, [] -> expr
-        | _, [arg] -> Expression.subscript(expr, arg)
-        | "Callable", args ->
-            let returnType = List.last args
-            let args =
-                args
-                |> List.removeAt (args.Length - 1)
-                |> List.choose (function
-                    | Expression.Name({ Id=Identifier "None" }) when args.Length = 2 -> None
-                    | x -> Some x)
-                |> Expression.list
-            Expression.subscript(expr, Expression.tuple([args; returnType]))
-        | _, args ->
-            Expression.subscript(expr, Expression.tuple(args))
-
-    let private typingHint (com: IPythonCompiler) ctx memberName args =
-        pythonModuleHint com ctx "typing"  memberName args
 
     let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -362,52 +162,37 @@ module Reflection =
 
     let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
         let primitiveTypeInfo name =
-           typingHint com ctx name []
-
-        let literalTypeInfo genArgs =
-            typingHint com ctx "Literal" genArgs
-
-        let getNumberKindName kind =
-            match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> "int"
-            | Float32 | Float64 -> "float"
-
-        let resolveGenerics generics: Expression list * Statement list =
-            generics |> Array.map (transformTypeInfo com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
-
-        let fableModulesTypeInfo moduleName memberName genArgs =
-            let resolved, stmts = resolveGenerics genArgs
-            fableModuleHint com ctx moduleName memberName resolved, stmts
-
+           libValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
-            Expression.name (getNumberKindName kind)
+            getNumberKindName kind
+            |> primitiveTypeInfo
         let nonGenericTypeInfo fullname =
             [ Expression.constant(fullname) ]
             |> libReflectionCall com ctx None "class"
+        let resolveGenerics generics: Expression list * Statement list =
+            generics |> Array.map (transformTypeInfo com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
+        let genericTypeInfo name genArgs =
+            let resolved, stmts = resolveGenerics genArgs
+            libReflectionCall com ctx None name resolved, stmts
         let genericEntity (fullname: string) (generics: Expression list) =
             libReflectionCall com ctx None "class" [
                 Expression.constant(fullname)
                 if not(List.isEmpty generics) then
                     Expression.list(generics)
             ]
-        let genericTypeInfo name genArgs =
-            let resolved, stmts = resolveGenerics genArgs
-            typingHint com ctx name resolved, stmts
-
         match t with
         | Fable.Measure _
-        | Fable.Any -> primitiveTypeInfo "Any", []
+        | Fable.Any -> primitiveTypeInfo "obj", []
         | Fable.GenericParam(name,_) ->
-            com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
-            let name = Helpers.clean name
-            com.AddTypeVar name
             match Map.tryFind name genMap with
             | Some t -> t, []
-            | None -> Expression.name(name), []
-        | Fable.Unit    -> Expression.none, []
-        | Fable.Boolean -> Expression.name "bool", []
-        | Fable.Char    -> Expression.name "str", []
-        | Fable.String  -> Expression.name "str", []
+            | None ->
+                Replacements.genericTypeInfoError name |> addError com [] r
+                Expression.none, []
+        | Fable.Unit    -> primitiveTypeInfo "unit", []
+        | Fable.Boolean -> primitiveTypeInfo "bool", []
+        | Fable.Char    -> primitiveTypeInfo "char", []
+        | Fable.String  -> primitiveTypeInfo "string", []
         | Fable.Enum entRef ->
             let ent = com.GetEntity(entRef)
             let mutable numberKind = Int32
@@ -427,15 +212,16 @@ module Reflection =
                 |> Expression.list
             [ Expression.constant(entRef.FullName); numberInfo numberKind; cases ]
             |> libReflectionCall com ctx None "enum", []
-        | Fable.Number(kind,_) -> numberInfo kind, []
+        | Fable.Number(kind,_) ->
+            numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo "Callable" [| argType; returnType |]
+            genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.DelegateType(argTypes, returnType) ->
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "Tuple" (List.toArray genArgs)
-        | Fable.Option(genArg,_)   -> genericTypeInfo "Optional" [|genArg|]
+        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "tuple" (List.toArray genArgs)
+        | Fable.Option(genArg,_)   -> genericTypeInfo "option" [|genArg|]
         | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
-        | Fable.List genArg     -> fableModulesTypeInfo "list" "FSharpList" [| genArg |]
+        | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex, []
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_, []
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -612,9 +398,380 @@ module Reflection =
                     | None ->
                         warnAndEvalToFalse ent.FullName, []
 
+module Helpers =
+    let index = (Seq.initInfinite id).GetEnumerator()
+
+    let getUniqueIdentifier (name: string): Identifier =
+        do index.MoveNext() |> ignore
+        let idx = index.Current.ToString()
+        let deliminator =
+            if Char.IsLower name.[0] then "_" else ""
+        Identifier($"{name}{deliminator}{idx}")
+
+    /// Replaces all '$' and `.`with '_'
+    let clean (name: string) =
+        // printfn $"clean: {name}"
+        match name with
+        | "Infinity" -> "float('inf')"
+        | _ ->
+            (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+
+    /// Normalize Fable import to be relative to outDir.
+    /// TODO: decide if nugets referencing fable_library should be relative or absolute. Currently absolute.
+    let normalizeModulePath (com: IPythonCompiler) modulePath =
+        //printfn "---"
+        //printfn "ModulePath: %s" modulePath
+        let fileDir = Path.GetDirectoryName modulePath
+        //printfn "dir: %A" dir
+        let projDir = Path.GetDirectoryName(com.ProjectFile)
+        let modulePathname =
+            match fileDir with
+            | "" | "." -> fileDir
+            | _ ->
+                IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
+                |> Path.normalizePath
+        let outDir = com.OutputDir |> Option.defaultValue projDir
+
+        //printfn "modulePathname: %A" modulePathname
+        //printfn $"OutputDir: {com.OutputDir}"
+        //printfn $"LibraryDir: {com.LibraryDir}"
+
+        let commonPrefix = Path.getCommonBaseDir [ modulePathname; com.ProjectFile ]
+        //printfn "CommonPrefix: %A" commonPrefix
+        let relativePath =
+            // We know all modules will be placed somewhere in outDir or in a subdir below
+            modulePathname
+                .Replace(outDir, String.Empty)   // Remove outDir from module path
+                .Replace(projDir, String.Empty)  // Remove projectDir from module path
+
+        let relativePath =
+            if commonPrefix.Length > 0 then
+                // Remove any common prefix between module path and project file
+                relativePath.Replace(commonPrefix, String.Empty)
+            else
+                relativePath
+
+        // Cleanup path
+        let relativePath = relativePath.Replace("//", "/")
+        let relativePath =
+            if relativePath.StartsWith("/") then
+                $"./{relativePath.[1..]}"
+            else
+                relativePath
+
+        match fileDir, relativePath with
+        | "", _ -> fileDir
+        | _, "" -> "."
+        | _ ->
+            relativePath
+
+    /// This function is a bit complex. Python imports are difficult.
+    /// - Python libraries should use relative imports.
+    /// - Python program must use absolute imports
+    /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
+    /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
+    /// a library (fable-modules). Thus we need to handle a lot of corner cases.
+    ///
+    ///  - OutDir
+    ///    - fable_modules
+    ///      - fable_library (may import itself)
+    ///      - nuget_library (may import fable library)
+    ///    - referenced_project
+    ///      - util.py
+    ///    - subdir
+    ///      - misc.py
+    ///    - program.py
+    ///
+    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
+        let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
+        let normalizedPath = normalizeModulePath com modulePath
+        let projDir = Path.GetDirectoryName(com.ProjectFile)
+        let fileDir = Path.GetDirectoryName(com.CurrentFile)
+
+        /// True if we import something in a project reference
+        let isProjectReference =
+            let notInProjectDir = (not (projDir.EndsWith(commonPrefix)))
+            // printfn "notInProjectDir: %A" notInProjectDir
+            if normalizedPath.Length > 1 then
+                notInProjectDir
+                // import exists in file dir
+                && IO.Directory.Exists(Path.Combine(fileDir, normalizedPath))
+                // import exists in project dir
+                && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))
+            else
+                notInProjectDir
+
+        //printfn "Prefix: %A" (commonPrefix, isProjectReference)
+        let relative =
+            match com.OutputType, isProjectReference with
+            // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
+            // relative imports if and only if the normalizedPath exists within that referenced project. This is e.g the
+            // case when a test project references the library it's testing and the library wants to import own files
+            | _, true  -> true
+            | OutputType.Exe, _ -> false
+            | _ -> true
+
+        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
+        // printfn $"OutputDir: {com.OutputDir}  "
+        // printfn $"LibraryDir: {com.LibraryDir}"
+        //printfn "normalizedPath: %A" (relative, normalizedPath)
+
+        let moduleName =
+            let lower =
+                let fileName = Path.GetFileNameWithoutExtension(modulePath)
+                match fileName with
+                | "" when modulePath.StartsWith(".") -> modulePath.[1..]
+                | _ -> fileName |> Naming.applyCaseRule CaseRules.SnakeCase
+            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+
+        let path =
+            match relative, normalizedPath with
+            | _, "" -> ""
+            | true, "." -> "."
+            | true, path when path.Contains("fable_modules") ->
+                path.Replace("./", "").Replace("./", ".").Replace("/", ".") + "."
+            | true, path ->
+                //printfn "Path: %A" path
+                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+            | false, "." -> ""
+            | false, path ->
+                path.Replace("./", "").Replace("/", ".") + "."
+
+        let moduleImport = $"{path}{moduleName}"
+        //printfn "ModuleImport: %s" moduleImport
+        moduleImport
+
+    let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
+        let stmts = args |> List.map snd |> List.collect id
+        let args = args |> List.map fst
+        args, stmts
+
+    /// A few statements in the generated Python AST do not produce any effect,
+    /// and should not be printet.
+    let isProductiveStatement (stmt: Python.Statement) =
+        let rec hasNoSideEffects (e: Expression) =
+            // printfn $"hasNoSideEffects: {e}"
+
+            match e with
+            | Constant _ -> true
+            | Dict { Keys = keys } -> keys.IsEmpty // Empty object
+            | Name _ -> true // E.g `void 0` is translated to Name(None)
+            | _ -> false
+
+        match stmt with
+        // Remove `self = self`
+        | Statement.Assign { Targets = [ Name {Id=Identifier(x)}]; Value = Name {Id=Identifier(y)}} when x = y -> None
+        | Expr expr ->
+            if hasNoSideEffects expr.Value then
+                None
+            else
+                Some stmt
+        | _ -> Some stmt
+
+// https://www.python.org/dev/peps/pep-0484/
+module TypeHint =
+    open Lib
+
+    let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
+        libCall com ctx r "reflection" (memberName + "_type") args
+
+    let private fableModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+        let expr = com.TransformImport(ctx, memberName, getLibPath com moduleName)
+        match args with
+        | [] -> expr
+        | [arg] -> Expression.subscript(expr, arg)
+        | args -> Expression.subscript(expr, Expression.tuple(args))
+
+    let private pythonModuleHint (com: IPythonCompiler) ctx moduleName memberName args =
+        let expr = com.TransformImport(ctx, memberName, moduleName)
+        match memberName, args with
+        | _, [] -> expr
+        | _, [arg] -> Expression.subscript(expr, arg)
+        | "Callable", args ->
+            let returnType = List.last args
+            let args =
+                args
+                |> List.removeAt (args.Length - 1)
+                |> List.choose (function
+                    | Expression.Name({ Id=Identifier "None" }) when args.Length = 2 -> None
+                    | x -> Some x)
+                |> Expression.list
+            Expression.subscript(expr, Expression.tuple([args; returnType]))
+        | _, args ->
+            Expression.subscript(expr, Expression.tuple(args))
+
+    let private typingHint (com: IPythonCompiler) ctx memberName args =
+        pythonModuleHint com ctx "typing"  memberName args
+
+
+    let transformTypeHint (com: IPythonCompiler) ctx r (genMap: Map<string, Expression>) t: Expression * Statement list =
+        let literalTypeInfo genArgs =
+            typingHint com ctx "Literal" genArgs
+
+        let getNumberKindName kind =
+            match kind with
+            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> "int"
+            | Float32 | Float64 -> "float"
+
+        let resolveGenerics generics: Expression list * Statement list =
+            generics |> Array.map (transformTypeHint com ctx r genMap) |> List.ofArray |> Helpers.unzipArgs
+
+        let fableModuleTypeInfo moduleName memberName genArgs =
+            let resolved, stmts = resolveGenerics genArgs
+            fableModuleHint com ctx moduleName memberName resolved, stmts
+
+        let pythonModuleTypeHint moduleName memberName genArgs =
+            let resolved, stmts = resolveGenerics genArgs
+            pythonModuleHint com ctx moduleName memberName resolved, stmts
+
+        let typingModuleTypeHint name genArgs =
+           pythonModuleTypeHint "typing" name genArgs
+
+        let numberInfo kind =
+            Expression.name (getNumberKindName kind)
+        let nonGenericTypeInfo fullname =
+            [ Expression.constant(fullname) ]
+            |> libReflectionCall com ctx None "class"
+        let genericEntity (fullname: string) (generics: Expression list) =
+            libReflectionCall com ctx None "class" [
+                Expression.constant(fullname)
+                if not(List.isEmpty generics) then
+                    Expression.list(generics)
+            ]
+        let genericTypeInfo name genArgs =
+            let resolved, stmts = resolveGenerics genArgs
+            typingHint com ctx name resolved, stmts
+
+        match t with
+        | Fable.Measure _
+        | Fable.Any -> typingModuleTypeHint "Any" [||]
+        | Fable.GenericParam(name,_) ->
+            com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
+            let name = Helpers.clean name
+            com.AddTypeVar name
+            match Map.tryFind name genMap with
+            | Some t -> t, []
+            | None -> Expression.name(name), []
+        | Fable.Unit    -> Expression.none, []
+        | Fable.Boolean -> Expression.name "bool", []
+        | Fable.Char    -> Expression.name "str", []
+        | Fable.String  -> Expression.name "str", []
+        | Fable.Enum entRef ->
+            let ent = com.GetEntity(entRef)
+            let mutable numberKind = Int32
+            let cases =
+                ent.FSharpFields |> Seq.choose (fun fi ->
+                    // F# seems to include a field with this name in the underlying type
+                    match fi.Name with
+                    | "value__" ->
+                        match fi.FieldType with
+                        | Fable.Number(kind,_) -> numberKind <- kind
+                        | _ -> ()
+                        None
+                    | name ->
+                        let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+                        Expression.list([ Expression.constant(name); Expression.constant(value) ]) |> Some)
+                |> Seq.toList
+                |> Expression.list
+            [ Expression.constant(entRef.FullName); numberInfo numberKind; cases ]
+            |> libReflectionCall com ctx None "enum", []
+        | Fable.Number(kind,_) -> numberInfo kind, []
+        | Fable.LambdaType(argType, returnType) ->
+            genericTypeInfo "Callable" [| argType; returnType |]
+        | Fable.Option(genArg,_)   -> genericTypeInfo "Optional" [| genArg |]
+        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "Tuple" (List.toArray genArgs)
+        | Fable.Array genArg ->
+            match genArg with
+            | Fable.Type.Number(UInt8, _) ->
+                typingModuleTypeHint "ByteString" [||]
+            | Fable.Type.Number(Int8, _)
+            | Fable.Type.Number(Int16, _)
+            | Fable.Type.Number(UInt16, _)
+            | Fable.Type.Number(Int32, _)
+            | Fable.Type.Number(UInt32, _)
+            | Fable.Type.Number(Float32, _)
+            | Fable.Type.Number(Float64, _) ->
+                pythonModuleTypeHint "array" "array" [| genArg |]
+            | _ ->
+                typingModuleTypeHint "List" [| genArg |]
+        | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [| genArg |]
+        | _ ->
+            typingModuleTypeHint "Any" [||]
+(*
+        | Fable.DelegateType(argTypes, returnType) ->
+            genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
+        | Fable.Regex           -> nonGenericTypeInfo Types.regex, []
+        | Fable.MetaType        -> nonGenericTypeInfo Types.type_, []
+        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+            let genArgs, stmts = resolveGenerics (List.toArray genArgs)
+            List.zip (List.ofArray fieldNames) genArgs
+            |> List.map (fun (k, t) -> Expression.list[ Expression.constant(k); t ])
+            |> libReflectionCall com ctx None "anonRecord", stmts
+        | Fable.DeclaredType(entRef, generics) ->
+            let fullName = entRef.FullName
+            match fullName, generics with
+            | Replacements.BuiltinEntity kind ->
+                match kind with
+                | Replacements.BclGuid
+                | Replacements.BclTimeSpan
+                | Replacements.BclDateTime
+                | Replacements.BclDateTimeOffset
+                | Replacements.BclDateOnly
+                | Replacements.BclTimeOnly
+                | Replacements.BclTimer
+                | Replacements.BclInt64
+                | Replacements.BclUInt64
+                | Replacements.BclDecimal
+                | Replacements.BclBigInt -> genericEntity fullName [], []
+                | Replacements.BclHashSet gen
+                | Replacements.FSharpSet gen ->
+                    let gens, stmts = transformTypeInfo com ctx r genMap gen
+                    genericEntity fullName [ gens ], stmts
+                | Replacements.BclDictionary(key, value)
+                | Replacements.BclKeyValuePair(key, value)
+                | Replacements.FSharpMap(key, value) ->
+                    let keys, stmts = transformTypeInfo com ctx r genMap key
+                    let values, stmts' = transformTypeInfo com ctx r genMap value
+                    genericEntity fullName [
+                        keys
+                        values
+                    ], stmts @ stmts'
+                | Replacements.FSharpResult(ok, err) ->
+                    let ent = com.GetEntity(entRef)
+                    let ok', stmts = transformTypeInfo com ctx r genMap ok
+                    let err', stmts' = transformTypeInfo com ctx r genMap err
+                    let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
+                    expr, stmts @ stmts' @ stmts''
+                | Replacements.FSharpChoice gen ->
+                    let ent = com.GetEntity(entRef)
+                    let gen, stmts = List.map (transformTypeInfo com ctx r genMap) gen |> Helpers.unzipArgs
+                    let expr, stmts' = gen |> transformUnionReflectionInfo com ctx r ent
+                    expr, stmts @ stmts'
+                | Replacements.FSharpReference gen ->
+                    let ent = com.GetEntity(entRef)
+                    let gen, stmts = transformTypeInfo com ctx r genMap gen
+                    let expr, stmts' = [ gen ] |> transformRecordReflectionInfo com ctx r ent
+                    expr, stmts @ stmts'
+            | _ ->
+                let ent = com.GetEntity(entRef)
+                let generics, stmts = generics |> List.map (transformTypeInfo com ctx r genMap) |> Helpers.unzipArgs
+                /// Check if the entity is actually declared in JS code
+                if ent.IsInterface
+                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+                    || FSharp2Fable.Util.isReplacementCandidate ent then
+                    genericEntity ent.FullName generics, stmts
+                else
+                    let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+                    let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
+                    Expression.call(callee, generics), stmts @ stmts'
+                    *)
+
+
 module Util =
     open Lib
     open Reflection
+    open TypeHint
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
         let name =
@@ -836,7 +993,7 @@ module Util =
         [ Statement.assign([ids], values) ]
 
     let varDeclaration (ctx: Context) (var: Expression) (typ: Expression option) value =
-        printfn "varDeclaration: %A" (var, value, typ)
+        //printfn "varDeclaration: %A" (var, value, typ)
         match var with
         | Name({Id=id}) -> ctx.BoundVars.Bind([id])
         | _ -> ()
@@ -1668,7 +1825,7 @@ module Util =
         else
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = com.GetIdentifierAsExpr(ctx, var.Name) // Expression.name(var.Name)
-            let t, stmts' = transformTypeInfo com ctx None Map.empty var.Type
+            let t, stmts' = transformTypeHint com ctx None Map.empty var.Type
             let decl = varDeclaration ctx varName (Some t) value
             stmts @ decl
 
@@ -2382,7 +2539,7 @@ module Util =
                 let args' =
                     args
                     |> List.map (fun id ->
-                        let annotation, _ = transformTypeInfo com ctx None Map.empty id.Type
+                        let annotation, _ = transformTypeHint com ctx None Map.empty id.Type
                         Arg.arg(ident com ctx id, annotation=annotation))
                 args', defaults, body
 
@@ -2492,7 +2649,7 @@ module Util =
 
         //printfn "Arsg: %A" args
         let name = com.GetIdentifier(ctx, membName)
-        let returns, _ = transformTypeInfo com ctx None Map.empty body.Type
+        let returns, _ = transformTypeHint com ctx None Map.empty body.Type
         let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returns)
         let expr = Expression.name (name)
         info.Attributes
@@ -2644,7 +2801,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
-        // printfn "transformClassWithImplicitConstructor: %A" cons.Body
+        printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
         let consArgs, consBody =
@@ -2707,7 +2864,7 @@ module Util =
                     decls
 
         | Fable.ClassDeclaration decl ->
-            // printfn "Class: %A" decl
+            printfn "Class: %A" decl
             let ent = decl.Entity
 
             let classMembers =
