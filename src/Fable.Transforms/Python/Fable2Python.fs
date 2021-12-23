@@ -598,14 +598,14 @@ module Annotation =
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
 
-    let private fableModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
+    let fableModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
         let expr = com.TransformImport(ctx, memberName, getLibPath com moduleName)
         match args with
         | [] -> expr
         | [arg] -> Expression.subscript(expr, arg)
         | args -> Expression.subscript(expr, Expression.tuple(args))
 
-    let private pythonModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
+    let pythonModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
         let expr = com.TransformImport(ctx, memberName, moduleName)
         match memberName, args with
         | _, [] -> expr
@@ -1050,7 +1050,7 @@ module Util =
             | [] -> [ Pass ]
             | _ -> body
 
-        FunctionDef.Create(name, args, body = body)
+        FunctionDef.Create(name, args, body = body, returns=Expression.none)
 
     let callFunction r funcExpr (args: Expression list) (kw: Keyword list) =
         Expression.call(funcExpr, args, kw=kw, ?loc=r)
@@ -1111,13 +1111,15 @@ module Util =
             | _ -> None, Set.empty, args, body
 
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
+        let returnType, stmts = typeAnnotation com ctx body.Type
         let args, body = transformFunction com ctx funcName args body
+
         let args =
             let len = args.Args.Length
             if not hasSpread || len = 0 then args
             else { args with VarArg = Some { args.Args.[len-1] with Annotation = None } ; Args = args.Args.[..len-2] }
 
-        args, body
+        args, body, returnType
 
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
@@ -1155,18 +1157,18 @@ module Util =
                 let func = FunctionDef.Create(name = ident, args = args, body = body)
                 Expression.name ident, [ func ]
 
-    let makeFunction name (args: Arguments, (body: Expression)) : Statement =
+    let makeFunction name (args: Arguments, body: Expression, returnType) : Statement =
         // printfn "Name: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        FunctionDef.Create(name = name, args = args, body = body)
+        FunctionDef.Create(name = name, args = args, body = body, returns=returnType)
 
-    let makeFunctionExpression (com: IPythonCompiler) ctx name (args, (body: Expression)) : Expression * Statement list=
+    let makeFunctionExpression (com: IPythonCompiler) ctx name (args, body: Expression, returnType: Expression) : Expression * Statement list=
         let ctx = { ctx with BoundVars = ctx.BoundVars.EnterScope() }
 
         let name =
             name |> Option.map (fun name -> com.GetIdentifier(ctx, name))
             |> Option.defaultValue (Helpers.getUniqueIdentifier "expr")
-        let func = makeFunction name (args, body)
+        let func = makeFunction name (args, body, returnType)
         Expression.name(name), [ func ]
 
     let optimizeTailCall (com: IPythonCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
@@ -1337,7 +1339,7 @@ module Util =
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
         // printfn "transformObjectExpr: %A" baseCall
         let makeMethod prop hasSpread args body decorators =
-            let args, body =
+            let args, body, returnType =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
 
             let name =
@@ -1354,7 +1356,7 @@ module Util =
                 // Remove extra parameters from getters, i.e _unit=None
                 | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
                 | _ -> { args with Args = self::args.Args }
-            FunctionDef.Create(name, args, body, decorators)
+            FunctionDef.Create(name, args, body, decorators, returns=returnType)
 
         let interfaces =
             members
@@ -2658,23 +2660,25 @@ module Util =
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
+            let ta =
+                fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
+
             let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let args = Arguments.arguments(genArgs |> Array.mapToList (ident com ctx >> Arg.arg))
-            let expr, stmts' = makeFunctionExpression com ctx None (args, body)
+            let expr, stmts' = makeFunctionExpression com ctx None (args, body, ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
         stmts @ [typeDeclaration ] @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
-        let args, body' =
+        let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         //printfn "Arsg: %A" args
         let name = com.GetIdentifier(ctx, membName)
-        let returns, _ = typeAnnotation com ctx body.Type
-        let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returns)
+        let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returnType)
         let expr = Expression.name (name)
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
@@ -2714,7 +2718,7 @@ module Util =
                 [ Expression.name("property") ]
             else
                 [ Expression.name($"{memb.Name}.setter") ]
-        let args, body =
+        let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key =
             memberFromName com ctx memb.Name
@@ -2734,7 +2738,7 @@ module Util =
                 [ Statement.assign([Expression.name(key)], x ) ]
             | _ -> failwith "Statements not supported for static class properties"
         else
-            FunctionDef.Create(key, arguments, body = body, decoratorList=decorators)
+            FunctionDef.Create(key, arguments, body = body, decoratorList=decorators, returns=returnType)
             |> List.singleton
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
@@ -2746,10 +2750,10 @@ module Util =
                 [Expression.name("staticmethod")]
             else
                 []
-        let makeMethod name args body decorators =
+        let makeMethod name args body decorators returnType =
             let key = memberFromName com ctx name |> nameFromKey com ctx
-            FunctionDef.Create(key, args, body = body, decoratorList=decorators)
-        let args, body =
+            FunctionDef.Create(key, args, body = body, decoratorList=decorators, returns=returnType)
+        let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         let self = Arg.arg("self")
         let arguments =
@@ -2758,9 +2762,9 @@ module Util =
             else
                 { args with Args = self::args.Args }
         [
-            yield makeMethod memb.Name arguments body decorators
+            yield makeMethod memb.Name arguments body decorators returnType
             if memb.Info.IsEnumerator then
-                yield makeMethod "__iter__" (Arguments.arguments([self])) (enumerator2iterator com ctx) decorators
+                yield makeMethod "__iter__" (Arguments.arguments([self])) (enumerator2iterator com ctx) decorators returnType
         ]
 
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -2828,14 +2832,14 @@ module Util =
         // printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
-        let consArgs, consBody =
+        let consArgs, consBody, returnType =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
 
         let exposedCons =
             let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier(p.Arg))
             let exposedConsBody = Expression.call(classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
-            makeFunction name (consArgs, exposedConsBody)
+            makeFunction name (consArgs, exposedConsBody, returnType)
 
         let baseExpr, consBody =
             classDecl.BaseCall
