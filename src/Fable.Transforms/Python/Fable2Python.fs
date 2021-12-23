@@ -569,8 +569,31 @@ module Helpers =
         | _ -> Some stmt
 
 // https://www.python.org/dev/peps/pep-0484/
-module TypeHint =
+module Annotation =
     open Lib
+
+    let getEntityGenParams (ent: Fable.Entity) =
+        ent.GenericParameters
+        |> Seq.map (fun x -> x.Name)
+        |> Set.ofSeq
+
+    let makeTypeParamDecl (com: IPythonCompiler) ctx (genParams: Set<string>) =
+        if (Set.isEmpty genParams) then
+            []
+        else
+            com.GetImportExpr(ctx, "typing", "Generic") |> ignore
+            com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
+
+            let genParams =
+                genParams
+                |> Set.toList
+                |> List.map (fun genParam ->
+                    let arg = Util.getUniqueNameInRootScope (ctx: Context) genParam
+                    com.AddTypeVar(arg)
+                    Expression.name(arg))
+
+            let generic = Expression.name "Generic"
+            [ Expression.subscript(generic, Expression.tuple genParams) ]
 
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
@@ -691,7 +714,7 @@ module TypeHint =
             | Fable.Type.Number(UInt32, _)
             | Fable.Type.Number(Float32, _)
             | Fable.Type.Number(Float64, _) ->
-                pythonModuleTypeHint "array" "array" [| genArg |]
+                pythonModuleTypeHint "array" "array" [||]
             | _ ->
                 typingModuleTypeHint "List" [| genArg |]
         | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [| genArg |]
@@ -771,7 +794,7 @@ module TypeHint =
 module Util =
     open Lib
     open Reflection
-    open TypeHint
+    open Annotation
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
         let name =
@@ -2579,6 +2602,9 @@ module Util =
         | _ ->
             varDeclaration ctx membName None expr
 
+    let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
+        getEntityGenParams ent |> makeTypeParamDecl com ctx
+
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
@@ -2606,6 +2632,7 @@ module Util =
 
     let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) (baseExpr: Expression option) classMembers =
         // printfn "declareClassType: %A" consBody
+        let generics = makeEntityTypeParamDecl com ctx ent
         let classCons = makeClassConstructor consArgs consBody
         let classFields = Array.empty
         let classMembers = List.append [ classCons ] classMembers
@@ -2629,7 +2656,7 @@ module Util =
                 | _ -> bases)
 
         let name = com.GetIdentifier(ctx, entName)
-        Statement.classDef(name, body = classBody, bases = bases)
+        Statement.classDef(name, body = classBody, bases = bases @ generics)
 
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
@@ -2801,7 +2828,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
-        printfn "transformClassWithImplicitConstructor: %A" classDecl
+        // printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
         let consArgs, consBody =
@@ -2864,7 +2891,7 @@ module Util =
                     decls
 
         | Fable.ClassDeclaration decl ->
-            printfn "Class: %A" decl
+            // printfn "Class: %A" decl
             let ent = decl.Entity
 
             let classMembers =
@@ -2886,8 +2913,11 @@ module Util =
                 else
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformTypeVars (com: IPythonCompiler) (typeVars: HashSet<string>) =
+    let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
         [
+            if typeVars.Count > 0 then
+                com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
+
             for var in typeVars do
                 let targets = Expression.name(var) |> List.singleton
                 let func = Expression.name("TypeVar")
@@ -3047,6 +3077,6 @@ module Compiler =
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports com
-        let typeVars = com.GetAllTypeVars() |> transformTypeVars com
+        let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let body = importDecls @ typeVars @ rootDecls
         Module.module' body
