@@ -797,6 +797,7 @@ module PrinterExtensions =
             | Name _
             | Call _
             | List (_, _)
+            | Subscript _
             | Attribute _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 
