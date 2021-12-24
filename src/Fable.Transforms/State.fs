@@ -1,12 +1,15 @@
 module Fable.Transforms.State
 
-#if !FABLE_COMPILER
-open System.Linq
-#endif
 open Fable
 open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
+
+#if !FABLE_COMPILER
+open System.Collections.Concurrent
+#else
+type ConcurrentBag<'T> = ResizeArray<'T>
+#endif
 
 type IDictionary<'Key, 'Value> with
     member this.TryValue(key: 'Key) =
@@ -132,7 +135,8 @@ type Project(projFile: string,
 
         let implFilesMap =
             fsharpFiles
-            |> List.map (fun file ->
+            |> List.toArray
+            |> Array.Parallel.map (fun file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 key, ImplFile.From(file))
             |> Map
@@ -153,17 +157,13 @@ type Project(projFile: string,
         |> Option.map (fun e -> e.Force(com))
 
     member _.GetAllInlineExprs(com: Compiler): (string * InlineExpr)[] =
-        let forceChunk chunk =
-            chunk |> List.mapToArray (fun (uniqueName, expr: InlineExprLazy) ->
-                uniqueName, expr.Force(com))
-
-        let inlineExprs =
-            implFiles
-            |> Map.values
-            |> Seq.map (fun f -> f.InlineExprs)
-
-        // We could try to parallelize this, but we should make the compiler thread-safe
-        inlineExprs |> Seq.map forceChunk |> Array.concat
+        implFiles
+        |> Map.values
+        |> Seq.map (fun f -> f.InlineExprs)
+        |> Seq.toArray
+        |> Array.Parallel.map (List.mapToArray (fun (uniqueName, expr) ->
+            uniqueName, expr.Force(com)))
+        |> Array.concat
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
@@ -187,17 +187,19 @@ type Log =
     static member MakeError(msg, ?fileName, ?range, ?tag) =
         Log.Make(Severity.Error, msg, ?fileName=fileName, ?range=range, ?tag=tag)
 
-/// Type with utilities for compiling F# files to JS
-/// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string) =
-    let logs = ResizeArray<Log>()
-    let watchDependencies = HashSet<string>()
+/// Type with utilities for compiling F# files to JS.
+/// One instance is created per file.
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string, ?watchDependencies) =
+    // Make this a concurrent bag in case we use the same compiler instance in parallel (see GetAllInlineExprs)
+    let logs = ConcurrentBag<Log>()
+    let watchDependencies = defaultArg watchDependencies false
+    let watchDependenciesSet = HashSet<string>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
 
     member _.Options = options
     member _.CurrentFile = currentFile
     member _.Logs = logs.ToArray()
-    member _.WatchDependencies = Array.ofSeq watchDependencies
+    member _.WatchDependencies = Array.ofSeq watchDependenciesSet
 
     interface Compiler with
         member _.Options = options
@@ -246,8 +248,8 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 | None -> failwith ("Cannot find inline member: " + memberUniqueName)
 
         member _.AddWatchDependency(file) =
-            if file <> currentFile then
-                watchDependencies.Add(file) |> ignore
+            if watchDependencies && file <> currentFile then
+                watchDependenciesSet.Add(file) |> ignore
 
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             Log.Make(severity, msg, ?range=range, ?fileName=fileName, ?tag=tag)

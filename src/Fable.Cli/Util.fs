@@ -707,7 +707,7 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
         let inlineExprs =
             inlineExprs
             |> Array.sortWith (fun (x,_) (y,_) -> comparer.Compare(x, y))
-            |> Array.chunkBySize 100
+            |> Array.chunkBySize 500 // This number is taken a bit arbitrarily based on tests
             |> Array.mapi (fun i chunk -> i, chunk)
 
         do
@@ -716,10 +716,9 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
             |> IO.Directory.CreateDirectory
             |> ignore
 
-        let _result =
-            Threading.Tasks.Parallel.ForEach(inlineExprs, fun (i, chunk) ->
-                let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
-                Json.writeWithStringPool path chunk)
+        inlineExprs |> Array.Parallel.iter (fun (i, chunk) ->
+            let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
+            Json.writeWithStringPool path chunk)
 
         let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
         let inlineExprHeaders = inlineExprs |> Array.map (snd >> Array.head >> fst)
@@ -730,4 +729,3 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
           FableLibDir = fableLibDir
           InlineExprHeaders = inlineExprHeaders }
         |> Json.write precompiledInfoPath
-
