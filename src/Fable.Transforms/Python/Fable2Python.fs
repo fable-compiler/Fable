@@ -1,3 +1,4 @@
+
 module rec Fable.Transforms.Fable2Python
 
 open System
@@ -64,7 +65,7 @@ type BoundVars =
             for ident in idents do
                 let (Identifier name) = ident
                 if not (this.LocalScope.Contains name) && this.EnclosingScope.Contains name then
-                    yield ident
+                    ident
                 else
                     this.Bind(name)
         ]
@@ -634,7 +635,7 @@ module Annotation =
             |> List.map (typeAnnotation com ctx)
             |> List.map fst
 
-    let makeGenericTypeAnnotation (com: IPythonCompiler) ctx (genArgs: Fable.Type list) (id: string) =
+    let makeGenericTypeAnnotation (com: IPythonCompiler) ctx (id: string) (genArgs: Fable.Type list)  =
         pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
 
         let typeParamInst = makeGenTypeParamInst com ctx genArgs
@@ -643,6 +644,16 @@ module Annotation =
             name
         else
             Expression.subscript(name, Expression.tuple typeParamInst)
+
+    let makeGenericTypeAnnotation' (com: IPythonCompiler) ctx (id: string) (genArgs: string list)  =
+        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
+
+        let name = Expression.name id
+        if genArgs.IsEmpty then
+            name
+        else
+            let genArgs = genArgs |> List.map Expression.name
+            Expression.subscript(name, Expression.tuple genArgs)
 
     let typeAnnotation (com: IPythonCompiler) ctx t: Expression * Statement list =
         let literalTypeInfo genArgs =
@@ -778,15 +789,22 @@ module Annotation =
                             | "string" -> StringTypeAnnotation
                             | _ -> AnyTypeAnnotation*)
                         | Expression.Name {Id = Identifier id } ->
-                            makeGenericTypeAnnotation com ctx genArgs id, []
+                            makeGenericTypeAnnotation com ctx id genArgs, []
                         // TODO: Resolve references to types in nested modules
                         | _ -> typingModuleTypeHint "Any" []
                     | None -> typingModuleTypeHint "Any" []
-
-
         | _ ->
             typingModuleTypeHint "Any" []
 
+    let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
+        let argTypes = args |> List.map (fun id -> id.Type)
+        let genTypeParams = Util.getGenericTypeParams (argTypes @ [body.Type])
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+        let args', body' = com.TransformFunction(ctx, name, args, body)
+        let returnType, stmts = typeAnnotation com ctx body.Type
+        let typeParamDecl = [] // makeTypeParamDecl com ctx newTypeParams
+        args', stmts @ body', returnType, typeParamDecl
 
 module Util =
     open Lib
@@ -1111,15 +1129,13 @@ module Util =
             | _ -> None, Set.empty, args, body
 
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
-        let returnType, stmts = typeAnnotation com ctx body.Type
-        let args, body = transformFunction com ctx funcName args body
-
+        let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx funcName args body
         let args =
             let len = args.Args.Length
             if not hasSpread || len = 0 then args
             else { args with VarArg = Some { args.Args.[len-1] with Annotation = None } ; Args = args.Args.[..len-2] }
 
-        args, body, returnType
+        args, body, returnType, typeParamDecl
 
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
@@ -1339,7 +1355,7 @@ module Util =
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
         // printfn "transformObjectExpr: %A" baseCall
         let makeMethod prop hasSpread args body decorators =
-            let args, body, returnType =
+            let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
 
             let name =
@@ -2660,9 +2676,7 @@ module Util =
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
-            let ta =
-                fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
-
+            let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
             let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
@@ -2670,16 +2684,17 @@ module Util =
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
+
         stmts @ [typeDeclaration ] @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
-        let args, body', returnType =
+        let args, body', returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         //printfn "Arsg: %A" args
         let name = com.GetIdentifier(ctx, membName)
         let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returnType)
-        let expr = Expression.name (name)
+        let expr = Expression.name name
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
@@ -2718,7 +2733,7 @@ module Util =
                 [ Expression.name("property") ]
             else
                 [ Expression.name($"{memb.Name}.setter") ]
-        let args, body, returnType =
+        let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key =
             memberFromName com ctx memb.Name
@@ -2753,7 +2768,7 @@ module Util =
         let makeMethod name args body decorators returnType =
             let key = memberFromName com ctx name |> nameFromKey com ctx
             FunctionDef.Create(key, args, body = body, decoratorList=decorators, returns=returnType)
-        let args, body, returnType =
+        let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         let self = Arg.arg("self")
         let arguments =
@@ -2832,11 +2847,20 @@ module Util =
         // printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
-        let consArgs, consBody, returnType =
+        let consArgs, consBody, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
 
+        let returnType =
+            // change constructor's return type from None to entity type
+            let genParams = getEntityGenParams classEnt
+            let returnType = makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq)
+            //let typeParamDecl = makeTypeParamDecl com ctx genParams //|> mergeTypeParamDecls typeParamDecl
+            returnType
+
         let exposedCons =
-            let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier(p.Arg))
+            let argExprs =
+                consArgs.Args
+                |> List.map (fun p -> Expression.identifier(p.Arg))
             let exposedConsBody = Expression.call(classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
             makeFunction name (consArgs, exposedConsBody, returnType)
@@ -2949,12 +2973,18 @@ module Util =
                     None, Alias.alias(Identifier(moduleName), ?asname=im.LocalIdent))
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
-            |> List.sortBy (function
-                // Need to make sure we get imports such as __future__ first
-                | Some moduleName, _ -> moduleName.ToLower()
-                | None, { Name=(name) }::xs -> name.Name
-                | _ -> "")
-
+            |> List.sortBy (fun name ->
+                let name =
+                    match name with
+                    | Some moduleName, _ -> moduleName.ToLower()
+                    | None, { Name=name }::_ -> name.Name
+                    | _ -> ""
+                match name with
+                | name when name.StartsWith("__") -> "A" + name
+                | name when name.StartsWith("fable") -> "C" + name
+                | name when name.StartsWith(".") -> "D" + name
+                | _ -> "B" + name
+                )
 
         [
             for moduleName, aliases in imports do
@@ -2987,7 +3017,7 @@ module Compiler =
 
     type PythonCompiler (com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = Dictionary<string,  Import>()
+        let imports = Dictionary<string, Import>()
 
         let typeVars : HashSet<string> = HashSet ()
 
