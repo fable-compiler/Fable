@@ -3348,6 +3348,9 @@ let private replacedModules =
     "System.Text.StringBuilder", bclType
     Types.array, arrays
     Types.list, lists
+    // JS cannot parallelize synchronous actions so for now redirect to "standard" array module
+    // TODO: Other languages may want to implement it
+    "Microsoft.FSharp.Collections.ArrayModule.Parallel", arrayModule
     "Microsoft.FSharp.Collections.ArrayModule", arrayModule
     "Microsoft.FSharp.Collections.ListModule", listModule
     "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
