@@ -6,9 +6,9 @@ module Testing =
 #if FABLE_COMPILER
     open Fable.Core
 
-    [<Emit("assert_eq")>]
+    [<Emit("assert_eq!")>]
     let inline AssertAreEqual(actual: 'T, expected: 'T): unit = nativeOnly
-    [<Emit("assert_ne")>]
+    [<Emit("assert_ne!")>]
     let inline AssertNotEqual(actual: 'T, expected: 'T): unit = nativeOnly
 
     let inline equal expected actual: unit = AssertAreEqual(actual, expected)
