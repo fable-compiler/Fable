@@ -57,6 +57,32 @@ let ``Integer division doesn't produce floats`` () =
 let ``Infix modulo can be generated`` () =
     4 % 3 |> equal 1
 
+// [<Fact>]
+// let ``Math.DivRem works with ints`` () =
+//     Math.DivRem(5, 2) |> equal (2, 1)
+//     Math.DivRem(4, 2) |> equal (2, 0)
+
+// [<Fact>]
+// let ``Math.DivRem works with ints and ref`` () =
+//     let rem = ref -1
+//     Math.DivRem(5, 2, rem) |> equal 2
+//     rem.Value |> equal 1
+//     Math.DivRem(4, 2, rem) |> equal 2
+//     rem.Value |> equal 0
+
+// [<Fact>]
+// let ``Math.DivRem works with longs`` () =
+//     Math.DivRem(5L, 2L) |> equal (2L, 1L)
+//     Math.DivRem(4L, 2L) |> equal (2L, 0L)
+
+// [<Fact>]
+// let ``Math.DivRem works with longs and ref`` () =
+//     let rem = ref -1L
+//     Math.DivRem(5L, 2L, rem) |> equal 2L
+//     rem.Value |> equal 1L
+//     Math.DivRem(4L, 2L, rem) |> equal 2L
+//     rem.Value |> equal 0L
+
 [<Fact>]
 let ``Evaluation order is preserved by generated code`` () =
     (4 - 2) * 2 + 1 |> equal 5
@@ -105,6 +131,221 @@ let ``Zero fill shift right (>>>) for uint32`` () = // See #646
 [<Fact>]
 let ``UInt64 multiplication with 0 returns uint`` () = // See #1480
     0x0UL * 0x1UL |> equal 0x0UL
+
+// [<Fact>]
+// let ``Decimal literals can be generated`` () =
+//     0M |> equal System.Decimal.Zero
+//     1M |> equal System.Decimal.One
+//     -1M |> equal System.Decimal.MinusOne
+//     79228162514264337593543950335M |> equal System.Decimal.MaxValue
+//     -79228162514264337593543950335M |> equal System.Decimal.MinValue
+
+// [<Fact>]
+// let ``Decimal.ToString works`` () =
+//     string 001.23456M |> equal "1.23456"
+//     string 1.23456M |> equal "1.23456"
+//     string 0.12345M |> equal "0.12345"
+//     string 0.01234M |> equal "0.01234"
+//     string 0.00123M |> equal "0.00123"
+//     string 0.00012M |> equal "0.00012"
+//     string 0.00001M |> equal "0.00001"
+//     string 0.00000M |> equal "0.00000"
+//     string 0.12300M |> equal "0.12300"
+//     string 0.0M |> equal "0.0"
+//     string 0M |> equal "0"
+//     string 1M |> equal "1"
+//     string -1M |> equal "-1"
+//     string 00000000000000000000000000000.M |> equal "0"
+//     string 0.0000000000000000000000000000M |> equal "0.0000000000000000000000000000"
+//     string 79228162514264337593543950335M |> equal "79228162514264337593543950335"
+//     string -79228162514264337593543950335M |> equal "-79228162514264337593543950335"
+
+// [<Fact>]
+// let ``Decimal precision is kept`` () =
+//     let items = [ 290.8M
+//                     290.8M
+//                     337.12M
+//                     6.08M
+//                     -924.8M ]
+//     List.sum items |> equal 0M
+
+// [<Fact>]
+// let ``Decimal max precision is kept`` () =
+//     let pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286M
+//     string pi |> equal "3.1415926535897932384626433833"
+
+// [<Fact>]
+// let ``Decimal average precision is kept`` () =
+//     let items = [1M; 2M; 5M]
+//     List.average items |> equal 2.6666666666666666666666666667M
+
+// [<Fact>]
+// let ``Decimal division precision is kept`` () =
+//     string (8M / 3M) |> equal "2.6666666666666666666666666667"
+
+// [<Fact>]
+// let ``Decimal division works`` () =
+//     let a = decimal 0.00001
+//     let b = 1000.M
+//     let c = decimal 0.00000001
+//     a / b |> equal c
+
+// [<Fact>]
+// let ``Decimal Infix add works`` () =
+//     4.0868M + 2.289348M |> equal 6.376148M
+
+// [<Fact>]
+// let ``Decimal Infix subtract works`` () =
+//     4.0868M - 2.289348M |> equal 1.797452M
+
+// [<Fact>]
+// let ``Decimal Infix multiply works`` () =
+//     4.0868M * 2.289348M |> equal 9.3561074064M
+
+// [<Fact>]
+// let ``Decimal Infix divide works`` () =
+//     4M / 2M |> equal 2M
+
+// [<Fact>]
+// let ``Decimal Infix modulo works`` () =
+//     4.0868M % 2.289348M |> equal 1.797452M
+
+// [<Fact>]
+// let ``Decimal.Add works`` () =
+//     Decimal.Add(4.0868M, 2.289348M) |> equal 6.376148M
+
+// [<Fact>]
+// let ``Decimal.Subtract works`` () =
+//     Decimal.Subtract(4.0868M, 2.289348M) |> equal 1.797452M
+
+// [<Fact>]
+// let ``Decimal.Multiply works`` () =
+//     Decimal.Multiply(4.0868M, 2.289348M) |> equal 9.3561074064M
+
+// [<Fact>]
+// let ``Decimal.Divide works`` () =
+//     Decimal.Divide(4M, 2M) |> equal 2M
+
+// [<Fact>]
+// let ``Decimal.Remainder works`` () =
+//     Decimal.Remainder(4.0868M, 2.289348M) |> equal 1.797452M
+
+// [<Fact>]
+// let ``Decimal.Negate works`` () =
+//     Decimal.Negate(4M) |> equal -4M
+
+// [<Fact>]
+// let ``Decimal Evaluation order is preserved by generated code`` () =
+//     (4.4567M - 2.2234M) * 2.6492M + 1.2493M |> equal 7.16575836M
+
+// [<Fact>]
+// let ``Decimal constructors work`` () =
+//     let d = 1.2493M
+//     let bits = Decimal.GetBits(d)
+//     let d2 = Decimal(bits)
+//     let d3 = Decimal(bits.[0], bits.[1], bits.[2], false, 4uy)
+//     d2 |> equal d
+//     d3 |> equal d
+
+// [<Fact>]
+// let ``Decimal GetBits works`` () =
+//     let d = Decimal([| -1; -1; -2; 0 |])
+//     let bits = Decimal.GetBits(d)
+//     let d2 = Decimal(bits)
+//     let d3 = Decimal(bits.[0], bits.[1], bits.[2], true, 0uy)
+//     d2 |> equal d
+//     d3 |> equal -d
+
+// [<Fact>]
+// let ``Decimal abs works`` () =
+//     abs -4M |> equal 4M
+
+// [<Fact>]
+// let ``Decimal round works`` () =
+//     round 11.0M |> equal 11.M
+//     round 11.01M |> equal 11.M
+//     round 11.25M |> equal 11.M
+//     round 11.50M |> equal 12.M
+//     round 11.75M |> equal 12.M
+//     round -11.0M |> equal -11.M
+//     round -11.01M |> equal -11.M
+//     round -11.25M |> equal -11.M
+//     round -11.50M |> equal -12.M
+//     round -11.75M |> equal -12.M
+//     Math.Round 1.425M |> equal 1.M
+//     Math.Round -1.425M |> equal -1.M
+//     Math.Round 1.546M |> equal 2.M
+//     Math.Round -1.546M |> equal -2.M
+
+// [<Fact>]
+// let ``Decimal round half to even works`` () =
+//     round 1.5M |> equal 2.M
+//     round 2.5M |> equal 2.M
+//     round 3.5M |> equal 4.M
+//     round -1.5M |> equal -2.M
+//     round -2.5M |> equal -2.M
+//     round -3.5M |> equal -4.M
+
+// [<Fact>]
+// let ``Decimal round with digits works`` () =
+//     Math.Round(1.426M, 3) |> equal 1.426M
+//     Math.Round(1.426M, 2) |> equal 1.43M
+//     Math.Round(1.426M, 1) |> equal 1.4M
+//     Math.Round(-1.426M, 3) |> equal -1.426M
+//     Math.Round(-1.426M, 2) |> equal -1.43M
+//     Math.Round(-1.426M, 1) |> equal -1.4M
+
+// [<Fact>]
+// let ``Decimal truncate works`` () =
+//     truncate 11.0M |> equal 11.M
+//     truncate 11.01M |> equal 11.M
+//     truncate 11.25M |> equal 11.M
+//     truncate 11.50M |> equal 11.M
+//     truncate 11.75M |> equal 11.M
+//     truncate -11.0M |> equal -11.M
+//     truncate -11.01M |> equal -11.M
+//     truncate -11.25M |> equal -11.M
+//     truncate -11.50M |> equal -11.M
+//     truncate -11.75M |> equal -11.M
+//     Math.Truncate -12.5M |> equal -12.M
+//     Math.Truncate 1.425M |> equal 1.M
+//     Math.Truncate -1.425M |> equal -1.M
+//     Math.Truncate 1.546M |> equal 1.M
+//     Math.Truncate -1.546M |> equal -1.M
+
+// [<Fact>]
+// let ``Decimal ceil works`` () =
+//     ceil 11.0M |> equal 11.M
+//     ceil 11.01M |> equal 12.M
+//     ceil 11.25M |> equal 12.M
+//     ceil 11.50M |> equal 12.M
+//     ceil 11.75M |> equal 12.M
+//     ceil -11.0M |> equal -11.M
+//     ceil -11.01M |> equal -11.M
+//     ceil -11.25M |> equal -11.M
+//     ceil -11.50M |> equal -11.M
+//     ceil -11.75M |> equal -11.M
+//     Math.Ceiling 11.25M |> equal 12.M
+//     Math.Ceiling -11.25M |> equal -11.M
+
+// [<Fact>]
+// let ``Decimal floor works`` () =
+//     floor 11.0M |> equal 11.M
+//     floor 11.01M |> equal 11.M
+//     floor 11.25M |> equal 11.M
+//     floor 11.50M |> equal 11.M
+//     floor 11.75M |> equal 11.M
+//     floor -11.0M |> equal -11.M
+//     floor -11.01M |> equal -12.M
+//     floor -11.25M |> equal -12.M
+//     floor -11.50M |> equal -12.M
+//     floor -11.75M |> equal -12.M
+//     Math.Floor 11.25M |> equal 11.M
+//     Math.Floor -11.25M |> equal -12.M
+
+// [<Fact>]
+// let ``Decimal pown works`` () =
+//     pown 2.2M 3 |> equal 10.648M
 
 [<Fact>]
 let ``Int64 Infix add can be generated`` () =
@@ -161,6 +402,74 @@ let ``UInt64 Bitwise shift right can be generated`` () = // See #1482
 let ``Int64 abs works`` () =
     abs -4L |> equal 4L
 
+// [<Fact>]
+// let ``Big integers addition works`` () =
+//     let x = 59823749821707124891298739821798327321028091380980I
+//     let y = bigint 1L
+//     let z = 1I
+//     (x + y + z) |> equal 59823749821707124891298739821798327321028091380982I
+
+// [<Fact>]
+// let ``BigInt Infix add can be generated`` () =
+//     4I + 2I |> equal 6I
+
+// [<Fact>]
+// let ``BigInt Infix subtract can be generated`` () =
+//     4I - 2I |> equal 2I
+
+// [<Fact>]
+// let ``BigInt Infix multiply can be generated`` () =
+//     4I * 2I |> equal 8I
+
+// [<Fact>]
+// let ``BigInt Infix divide can be generated`` () =
+//     4I / 2I |> equal 2I
+
+// [<Fact>]
+// let ``BigInt Integer division doesn't produce floats`` () =
+//     5. / 2. |> equal 2.5
+//     5I / 2I |> equal 2I
+//     5I / 3I |> equal 1I
+//     // float 5I / 2. |> equal 2.5
+
+// [<Fact>]
+// let ``BigInt Infix modulo can be generated`` () =
+//     4I % 3I |> equal 1I
+
+// [<Fact>]
+// let ``BigInt.DivRem works`` () = // See #1744
+//     let quotient,remainder = bigint.DivRem(5I,2I)
+//     2I |> equal quotient
+//     1I |> equal remainder
+
+// [<Fact>]
+// let ``BigInt Evaluation order is preserved by generated code`` () =
+//     (4I - 2I) * 2I + 1I |> equal 5I
+
+// [<Fact>]
+// let ``BigInt Bitwise and can be generated`` () =
+//     6I &&& 2I |> equal 2I
+
+// [<Fact>]
+// let ``BigInt Bitwise or can be generated`` () =
+//     4I ||| 2I |> equal 6I
+
+// [<Fact>]
+// let ``BigInt Bitwise xor can be generated`` () =
+//     6I ^^^ 2I |> equal 4I
+
+// [<Fact>]
+// let ``BigInt Bitwise shift left can be generated`` () =
+//     4I <<< 2 |> equal 16I
+
+// [<Fact>]
+// let ``BigInt Bitwise shift right can be generated`` () =
+//     4I >>> 2 |> equal 1I
+
+// [<Fact>]
+// let ``BigInt abs works`` () =
+//     abs -4I |> equal 4I
+
 [<Fact>]
 let ``abs works`` () =
     abs -4 |> equal 4
@@ -184,9 +493,13 @@ let ``floor works`` () =
     floor -11.75 |> equal -12.
     Math.Floor 11.25 |> equal 11.
 
-// [<Fact>]
-// let ``pown works`` () =
-//     pown 2.2 3 |> checkTo3dp 10648.
+[<Fact>]
+let ``pown works`` () =
+    pown 2.2 3 |> checkTo3dp 10648.
+
+[<Fact>]
+let ``pow works`` () =
+    2.2 ** 3.0 |> checkTo3dp 10648.
 
 [<Fact>]
 let ``sqrt works`` () =
@@ -206,14 +519,14 @@ let ``sqrt matches .net core implementation`` () =
 // let ``Double.Parse works with IFormatProvider`` () =
 //     // culture compiles to { } for now and it is ignored on the call-site
 //     let culture = Globalization.CultureInfo.InvariantCulture
-//     let result = Double.Parse(``10.5``, culture)
+//     let result = Double.Parse("10.5", culture)
 //     result |> equal 10.5
 
 // [<Fact>]
 // let ``Single.Parse works with IFormatProvider`` () =
 //     // culture compiles to { } for now and it is ignored on the call-site
 //     let culture = Globalization.CultureInfo.InvariantCulture
-//     let result = Single.Parse(``10.5``, culture)
+//     let result = Single.Parse("10.5", culture)
 //     float result |> equal 10.5
 
 [<Fact>]
@@ -228,9 +541,9 @@ let ``asin works`` () =
 let ``atan works`` () =
     atan 0.25 |> checkTo3dp 244.
 
-// [<Fact>]
-// let ``atan2 works`` () =
-//     atan2 90. 15. |> checkTo3dp 1405.
+[<Fact>]
+let ``atan2 works`` () =
+    atan2 90. 15. |> checkTo3dp 1405.
 
 [<Fact>]
 let ``cos works`` () =
@@ -299,9 +612,9 @@ let ``E works`` () =
 let ``Math.abs works`` () =
     Math.Abs -4 |> equal 4
 
-// [<Fact>]
-// let ``Math.pown works`` () =
-//     Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
+[<Fact>]
+let ``Math.pow works`` () =
+    Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
 
 [<Fact>]
 let ``Math.sqrt works`` () =
@@ -350,9 +663,9 @@ let ``Math.asin works`` () =
 let ``Math.atan works`` () =
     Math.Atan 0.25 |> checkTo3dp 244.
 
-// [<Fact>]
-// let ``Math.atan2 works`` () =
-//     Math.Atan2(90., 15.) |> checkTo3dp 1405.
+[<Fact>]
+let ``Math.atan2 works`` () =
+    Math.Atan2(90., 15.) |> checkTo3dp 1405.
 
 [<Fact>]
 let ``Math.cos works`` () =
@@ -375,8 +688,43 @@ let ``Math.log works`` () =
     Math.Log 232.12 |> checkTo3dp 5447.
 
 [<Fact>]
+let ``Math.log with base works`` () =
+    Math.Log(8.0, 2.0) |> checkTo3dp 3000.
+
+[<Fact>]
+let ``Math.log2 works`` () =
+    Math.Log2 8.0 |> checkTo3dp 3000.
+
+[<Fact>]
 let ``Math.log10 works`` () =
     Math.Log10 232.12 |> checkTo3dp 2365.
+
+// [<Fact>]
+// let ``incr works`` () =
+//     let i = ref 5
+//     incr i
+//     !i |> equal 6
+
+// [<Fact>]
+// let ``decr works`` () =`
+//     let i = ref 5
+//     decr i
+//     !i |> equal 4
+
+// [<Fact>]
+// let ``System.Random works`` () =
+//     let rnd = Random()
+//     let x = rnd.Next(5)
+//     (x >= 0 && x < 5) |> equal true
+//     let y = rnd.NextDouble()
+//     (y >= 0.0 && y < 1.0) |> equal true
+
+// // Note: Test could fail sometime during life of universe, if it picks all zeroes.
+// [<Fact>]
+// let ``System.Random.NextBytes works`` () =
+//     let buffer = Array.create 16 0uy // guid-sized buffer
+//     Random().NextBytes(buffer)
+//     buffer = Array.create 16 0uy |> equal false
 
 [<Fact>]
 let ``Long integers equality works`` () =
@@ -385,6 +733,8 @@ let ``Long integers equality works`` () =
     let z = 6L
     (x = y) |> equal true
     (y = z) |> equal false
+    (y = x) |> equal true
+    (z = x) |> equal false
 
 // [<Fact>]
 // let ``Long integers comparison works`` () =
@@ -393,4 +743,113 @@ let ``Long integers equality works`` () =
 //     let z = 6L
 //     compare x y |> equal 0
 //     compare y z |> equal -1
+//     compare y x |> equal 0
 //     compare z x |> equal 1
+
+// [<Fact>]
+// let ``bigint equality works`` () =
+//     let a = 9007199254740992I
+//     let b = 9007199254740993I
+//     (a = b) |> equal false
+
+// [<Fact>]
+// let ``Big integers equality works`` () =
+//     let x = 59823749821707124891298739821798327321028091380980I
+//     let y = 59823749821707124891298739821798327321028091380980I
+//     let z = 59823749821707124891298739821798327321028091380981I
+//     (x = y) |> equal true
+//     (y = z) |> equal false
+//     equals y x |> equal true
+//     equals z x |> equal false
+
+// [<Fact>]
+// let ``Big integers comparison works`` () =
+//     let x = 5I
+//     let y = 5I
+//     let z = 6I
+//     compare x y |> equal 0
+//     compare y z |> equal -1
+//     compare y x |> equal 0
+//     compare z x |> equal 1
+
+// [<Fact>]
+// let ``Big integer to byte array works`` () =
+//     // values with high bit both 0 and 1 for different array lengths
+//     32767I.ToByteArray() |> equal [|255uy; 127uy|]
+//     32768I.ToByteArray() |> equal [|0uy; 128uy; 0uy|]
+//     -32768I.ToByteArray() |> equal [|0uy; 128uy|]
+//     -32769I.ToByteArray() |> equal [|255uy; 127uy; 255uy|]
+//     // large numbers
+//     111222333444555666777888999I.ToByteArray() |> equal [|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|]
+//     -111222333444555666777888999I.ToByteArray() |> equal [|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|]
+
+// [<Fact>]
+// let ``Big integer from byte array works`` () =
+//     // values with high bit both 0 and 1 for different array lengths
+//     Numerics.BigInteger([|255uy; 127uy|]) |> equal 32767I
+//     Numerics.BigInteger([|0uy; 128uy; 0uy|]) |> equal 32768I
+//     Numerics.BigInteger([|0uy; 128uy|]) |> equal -32768I
+//     Numerics.BigInteger([|255uy; 127uy; 255uy|]) |> equal -32769I
+//     // large numbers
+//     Numerics.BigInteger([|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|]) |> equal 111222333444555666777888999I
+//     Numerics.BigInteger([|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|]) |> equal -111222333444555666777888999I
+
+// [<Fact>]
+// let ``Member values of decimal type can be compared`` () = // See #747
+//     1M < 2M |> equal true
+//     1M > 2M |> equal false
+
+// [<Fact>]
+// let ``Sign operator works`` () = // See #1311
+//     sign 1 |> equal 1
+//     sign 34 |> equal 1
+//     sign 1L |> equal 1
+//     sign 36L |> equal 1
+//     sign 1. |> equal 1
+//     sign 89 |> equal 1
+//     sign 1 |> equal 1
+//     sign 0 |> equal 0
+//     sign 0L |> equal 0
+//     sign 0. |> equal 0
+//     sign -1 |> equal -1
+//     sign -56 |> equal -1
+//     sign -1L |> equal -1
+//     sign -72L |> equal -1
+//     sign -1. |> equal -1
+//     sign -89. |> equal -1
+
+// [<Fact>]
+// let ``Formatting of decimal works`` () =
+
+//     let formatNumber (d:decimal) =
+//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+
+//     formatNumber 0.0M |> equal "0,00"
+//     formatNumber 0.020M |> equal "0,02"
+//     formatNumber 0.20M |> equal "0,20"
+//     formatNumber 2.0M |> equal "2,00"
+
+
+// [<Fact>]
+// let ``Formatting of decimal works with inline`` () =
+
+//     let inline formatNumber (d:decimal) =
+//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+
+//     formatNumber 0.0M |> equal "0,00"
+//     formatNumber 0.020M |> equal "0,02"
+//     formatNumber 0.20M |> equal "0,20"
+//     formatNumber 2.0M |> equal "2,00"
+
+// [<Fact>]
+// let ``Formatting of € works with inline`` () =
+
+//     let inline formatNumber (d:decimal) =
+//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+
+//     let inline formatEuro (d:decimal) = (formatNumber d) + " €"
+
+//     formatEuro 0.0M |> equal "0,00 €"
+//     formatEuro 0.020M |> equal "0,02 €"
+//     formatEuro 0.20M |> equal "0,20 €"
+//     formatEuro 2.0M |> equal "2,00 €"

@@ -102,6 +102,7 @@ type Entity =
     abstract IsValueType: bool
     abstract IsInterface: bool
     abstract IsMeasure: bool
+    abstract IsEnum: bool
 
 type Type =
     | Measure of fullname: string

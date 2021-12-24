@@ -56,7 +56,7 @@ type Helper =
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         // getAttachedMemberWith loc typ (makeIdentExpr ident) memb
-        makeIdentExpr (ident + "::" + memb)
+        makeTypedIdentExpr typ (ident + "::" + memb)
 
 module Helpers =
     let resolveArgTypes argTypes (genArgs: (string * Type) list) =
@@ -379,6 +379,9 @@ let makeLongInt r t (x: int64) =
     // let unsigned = BoolConstant (not signed)
     // let args = [makeValue None lowBits; makeValue None highBits; makeValue None unsigned]
     // Helper.LibCall(com, "Long", "fromBits", t, args, ?loc=r)
+
+    // to get around the lack of 64-bit integers in Fable AST,
+    // repreaent 64-bit integers as floats wrapped in enum const
     let d = System.BitConverter.Int64BitsToDouble(x)
     let c = NumberConstant (d, Float64, None)
     match t with
@@ -1563,7 +1566,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
         match args with
-        | thisArg::restArgs -> Helper.InstanceCall(thisArg, meth, t, restArgs, ?loc=r)
+        | thisArg::restArgs -> Helper.InstanceCall(thisArg, meth, t, restArgs, ?loc=r) |> nativeCall
         | _ -> "Missing argument." |> addErrorAndReturnNull com ctx.InlinePath r
 
     match i.CompiledName, args with
@@ -1647,13 +1650,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             makeThrow r t (error (s "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
-    | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
+    | ("Pow" | "PowInteger" | "op_Exponentiation"), _ ->
         let argTypes = resolveArgTypes i.SignatureArgTypes i.GenericArgs
         match argTypes with
         | Builtin BclDecimal::_  ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | Number((Float32 | Float64), _)::_ ->
-            math r t args i.SignatureArgTypes "powf" |> Some
+            let meth = if i.CompiledName = "PowInteger" then "powi" else "powf"
+            math r t args i.SignatureArgTypes meth |> Some
         | _ ->
             math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), _ ->
@@ -1665,10 +1669,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             let meth = if meth = "ceiling" then "ceil" else meth
             math r t args i.SignatureArgTypes meth |> Some
     | "Log", [arg1; arg2] ->
-        // "Math.log($0) / Math.log($1)"
-        let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "ln"
-        let divisor = math None t [arg2] (List.skip 1 i.SignatureArgTypes) "ln"
-        makeBinOp r t dividend divisor BinaryDivide |> Some
+        math r t args i.SignatureArgTypes "log" |> Some
     | "Log", [arg] ->
         math r t args i.SignatureArgTypes "ln" |> Some
     | "Abs", _ ->
@@ -1676,9 +1677,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Builtin (BclDecimal as bt)::_  ->
             Helper.LibCall(com, coreModFor bt, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
-    | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
-    | "Cos", _ | "Cosh", _ | "Exp", _ | "Log10", _
-    | "Sin", _ | "Sinh", _ | "Sqrt", _ | "Tan", _ | "Tanh", _ ->
+    | ("Acos" | "Asin" | "Atan" | "Atan2" | "Cos" | "Cosh" | "Exp"), _
+    | ("Log2" | "Log10"| "Sin" | "Sinh" | "Sqrt" | "Tan" | "Tanh"), _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Round", [arg] ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
@@ -1725,8 +1725,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
     | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max"|"Clamp" as meth), _ ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", Naming.lowerFirst meth, t, f::args, i.SignatureArgTypes, ?loc=r) |> Some
+        math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Not", [operand] -> // TODO: Check custom operator?
         makeUnOp r t operand UnaryNot |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
@@ -1887,7 +1886,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "CompareOrdinal", None, _ ->
         Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc=r) |> Some
     | "Format", None, _ ->
-        "format" |> emitFormat com r t i thisArg args |> Some
+        "format!" |> emitFormat com r t i thisArg args |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes,
                         hasSpread=i.HasSpread, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2759,14 +2758,14 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_Out" -> typedObjExpr t [] |> Some // empty object
-    | "Write" -> "print" |> emitFormat com r t i thisArg args |> Some
-    | "WriteLine" -> "println" |> emitFormat com r t i thisArg args |> Some
+    | "Write" -> "print!" |> emitFormat com r t i thisArg args |> Some
+    | "WriteLine" -> "println!" |> emitFormat com r t i thisArg args |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Write" -> "print" |> emitFormat com r t i thisArg args |> Some
-    | "WriteLine" -> "println" |> emitFormat com r t i thisArg args |> Some
+    | "Write" -> "print!" |> emitFormat com r t i thisArg args |> Some
+    | "WriteLine" -> "println!" |> emitFormat com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
         let unit = Value(Null Unit, None)

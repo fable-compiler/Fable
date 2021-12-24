@@ -259,6 +259,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
         member _.IsMeasure = ent.IsMeasure
+        member _.IsEnum = ent.IsEnum
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
@@ -1614,7 +1615,7 @@ module Util =
     let isAttachMembersEntity (com: Fable.Compiler) (ent: FSharpEntity) =
         not ent.IsFSharpModule && (
             // com.Options.Language = Php ||
-            com.Options.Language = Rust ||
+            com.Options.Language = Rust || // attach all members for Rust
             ent.Attributes |> Seq.exists (fun att ->
                 // Should we make sure the attribute is not an alias?
                 match att.AttributeType.TryFullName with
