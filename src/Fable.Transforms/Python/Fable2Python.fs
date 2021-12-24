@@ -726,7 +726,8 @@ module Annotation =
             |> libReflectionCall com ctx None "enum", []
         | Fable.Number(kind,_) -> numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
-            genericTypeAnnotation "Callable" [ argType; returnType ]
+            let argTypes, returnType = Util.uncurryLambdaType t
+            genericTypeAnnotation "Callable" (argTypes @ [ returnType ])
         | Fable.Option(genArg,_)   -> genericTypeAnnotation "Optional" [ genArg ]
         | Fable.Tuple(genArgs,_)   -> genericTypeAnnotation "Tuple" genArgs
         | Fable.Array genArg ->
@@ -803,8 +804,7 @@ module Annotation =
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
         let args', body' = com.TransformFunction(ctx, name, args, body)
         let returnType, stmts = typeAnnotation com ctx body.Type
-        let typeParamDecl = [] // makeTypeParamDecl com ctx newTypeParams
-        args', stmts @ body', returnType, typeParamDecl
+        args', stmts @ body', returnType
 
 module Util =
     open Lib
@@ -1010,10 +1010,11 @@ module Util =
 
     /// Immediately Invoked Function Expression
     let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
-        let _, body = com.TransformFunction(ctx, None, [], expr)
         // Use an arrow function in case we need to capture `this`
         let args = Arguments.arguments ()
-        let afe, stmts = makeArrowFunctionExpression None args body
+        let afe, stmts =
+            transformFunctionWithAnnotations com ctx None [] expr
+            |||> makeArrowFunctionExpression None
         Expression.call(afe, []), stmts
 
     let multiVarDeclaration (ctx: Context) (variables: (Identifier * Expression option) list) =
@@ -1129,13 +1130,13 @@ module Util =
             | _ -> None, Set.empty, args, body
 
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
-        let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx funcName args body
+        let args, body, returnType = transformFunctionWithAnnotations com ctx funcName args body
         let args =
             let len = args.Args.Length
             if not hasSpread || len = 0 then args
             else { args with VarArg = Some { args.Args.[len-1] with Annotation = None } ; Args = args.Args.[..len-2] }
 
-        args, body, returnType, typeParamDecl
+        args, body, returnType
 
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
@@ -1157,7 +1158,7 @@ module Util =
     let wrapExprInBlockWithReturn (e, stmts) =
         stmts @ [ Statement.return'(e) ]
 
-    let makeArrowFunctionExpression (name: string option) (args: Arguments) (body: Statement list) : Expression * Statement list =
+    let makeArrowFunctionExpression (name: string option) (args: Arguments) (body: Statement list) returnType : Expression * Statement list =
         let args =
             match args.Args with
             | [] -> Arguments.arguments(args=[ Arg.arg(Identifier("_unit")) ], defaults=[ Expression.none ])
@@ -1170,7 +1171,7 @@ module Util =
                 Expression.lambda(args, expr), []
             | _ ->
                 let ident = name |> Option.map Identifier |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "arrow")
-                let func = FunctionDef.Create(name = ident, args = args, body = body)
+                let func = FunctionDef.Create(name = ident, args = args, body = body, returns=returnType)
                 Expression.name ident, [ func ]
 
     let makeFunction name (args: Arguments, body: Expression, returnType) : Statement =
@@ -1355,7 +1356,7 @@ module Util =
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
         // printfn "transformObjectExpr: %A" baseCall
         let makeMethod prop hasSpread args body decorators =
-            let args, body, returnType, typeParamDecl =
+            let args, body, returnType =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
 
             let name =
@@ -1841,8 +1842,8 @@ module Util =
         match value with
         | Function(args, body) ->
             let name = Some var.Name
-            let args, body = transformFunction com ctx name args body
-            makeArrowFunctionExpression name args body
+            transformFunctionWithAnnotations com ctx name args body
+            |||> makeArrowFunctionExpression name
         | _ ->
             let expr, stmt = com.TransformAsExpr(ctx, value)
             expr |> wrapIntExpression value.Type, stmt
@@ -2232,12 +2233,12 @@ module Util =
             transformTest com ctx range kind expr
 
         | Fable.Lambda(arg, body, name) ->
-            transformFunction com ctx name [arg] body
-            ||> makeArrowFunctionExpression name
+            transformFunctionWithAnnotations com ctx name [arg] body
+            |||> makeArrowFunctionExpression name
 
         | Fable.Delegate(args, body, name) ->
-            transformFunction com ctx name args body
-            ||> makeArrowFunctionExpression name
+            transformFunctionWithAnnotations com ctx name args body
+            |||> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr ([], typ, None) ->
             Expression.none, []
@@ -2384,13 +2385,15 @@ module Util =
             stmts @ (expr |> resolveExpr ctx Fable.Boolean returnStrategy)
 
         | Fable.Lambda(arg, body, name) ->
-            let args, body = transformFunction com ctx name [arg] body
-            let expr', stmts = makeArrowFunctionExpression name args body
+            let expr', stmts =
+                transformFunctionWithAnnotations com ctx name [arg] body
+                |||> makeArrowFunctionExpression name
             stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.Delegate(args, body, name) ->
-            let args, body = transformFunction com ctx name args body
-            let expr', stmts = makeArrowFunctionExpression name args body
+            let expr', stmts =
+                transformFunctionWithAnnotations com ctx name args body
+                |||> makeArrowFunctionExpression name
             stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.ObjectExpr ([], _, None) -> [] // Remove empty object expression
@@ -2688,7 +2691,7 @@ module Util =
         stmts @ [typeDeclaration ] @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
-        let args, body', returnType, typeParamDecl =
+        let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         //printfn "Arsg: %A" args
@@ -2733,7 +2736,7 @@ module Util =
                 [ Expression.name("property") ]
             else
                 [ Expression.name($"{memb.Name}.setter") ]
-        let args, body, returnType, typeParamDecl =
+        let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key =
             memberFromName com ctx memb.Name
@@ -2768,7 +2771,7 @@ module Util =
         let makeMethod name args body decorators returnType =
             let key = memberFromName com ctx name |> nameFromKey com ctx
             FunctionDef.Create(key, args, body = body, decoratorList=decorators, returns=returnType)
-        let args, body, returnType, typeParamDecl =
+        let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         let self = Arg.arg("self")
         let arguments =
@@ -2847,7 +2850,7 @@ module Util =
         // printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
-        let consArgs, consBody, returnType, typeParamDecl =
+        let consArgs, consBody, returnType =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
 
         let returnType =
