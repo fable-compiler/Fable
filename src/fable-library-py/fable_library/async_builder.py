@@ -4,8 +4,6 @@ from collections import deque
 from threading import Timer, Lock, RLock
 from typing import Dict, Callable, Any, Optional, TypeVar, Generic
 
-from numpy import trapz
-
 from .util import IDisposable
 
 T = TypeVar("T")
