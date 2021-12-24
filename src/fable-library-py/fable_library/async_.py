@@ -1,6 +1,8 @@
 from threading import Timer
+from typing import Callable
 from .async_builder import (
     CancellationToken,
+    IAsync,
     IAsyncContext,
     OperationCanceledError,
     Trampoline,
@@ -29,7 +31,7 @@ def create_cancellation_token(arg=None):
     return token
 
 
-def cancel(token: CancellationToken):
+def cancel(token: CancellationToken) -> None:
     token.cancel()
 
 
@@ -38,7 +40,7 @@ def cancel_after(token: CancellationToken, ms: int):
     timer.start()
 
 
-def sleep(millisecondsDueTime: int):
+def sleep(millisecondsDueTime: int) -> Callable[[IAsyncContext], None]:
     def cont(ctx: IAsyncContext):
         def cancel():
             timer.cancel()
@@ -56,7 +58,7 @@ def sleep(millisecondsDueTime: int):
     return protected_cont(cont)
 
 
-def ignore(computation):
+def ignore(computation: Callable[[IAsyncContext], None]) -> Callable[[IAsyncContext], None]:
     return protected_bind(computation, lambda _x: protected_return())
 
 
@@ -74,7 +76,7 @@ def catch_async(work):
     return protected_cont(cont)
 
 
-def from_continuations(f):
+def from_continuations(f) -> Callable[[IAsyncContext], None]:
     def cont(ctx: IAsyncContext):
         f([ctx.on_success, ctx.on_error, ctx.on_cancel])
 
@@ -83,7 +85,7 @@ def from_continuations(f):
 
 def start_with_continuations(
     computation, continuation=None, exception_continuation=None, cancellation_continuation=None, cancellation_token=None
-):
+) -> Callable[[IAsyncContext], None]:
     trampoline = Trampoline()
 
     ctx = IAsyncContext.create(
@@ -97,9 +99,9 @@ def start_with_continuations(
     return computation(ctx)
 
 
-def start(computation, cancellation_token=None):
+def start(computation, cancellation_token=None) -> Callable[[IAsyncContext], None]:
     return start_with_continuations(computation, cancellation_token=cancellation_token)
 
 
-def start_immediate(computation, cancellation_token=None):
+def start_immediate(computation, cancellation_token=None) -> Callable[[IAsyncContext], None]:
     return start(computation, cancellation_token)
