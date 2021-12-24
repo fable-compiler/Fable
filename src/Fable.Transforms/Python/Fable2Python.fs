@@ -562,6 +562,7 @@ module Helpers =
         match stmt with
         // Remove `self = self`
         | Statement.Assign { Targets = [ Name {Id=Identifier(x)}]; Value = Name {Id=Identifier(y)}} when x = y -> None
+        | Statement.AnnAssign { Target = Name {Id=Identifier(x)}; Value = Name {Id=Identifier(y)}} when x = y -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -1863,10 +1864,10 @@ module Util =
             List.append [ decl ] body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, var.Name) // Expression.name(var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, var.Name)
             let ta, stmts' = typeAnnotation com ctx var.Type
             let decl = varDeclaration ctx varName (Some ta) value
-            stmts @ decl
+            stmts @ stmts' @ decl
 
     let transformTest (com: IPythonCompiler) ctx range kind expr: Expression * Statement list =
         match kind with
@@ -2262,23 +2263,22 @@ module Util =
                 | _ -> failwith $"Array slice with {args.Length} not supported"
             Expression.subscript (left, slice), stmts @ stmts'
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range)
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="ToString"), _, _), info, _, range) ->
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName=name), _, _), _info, _, _range) when name.ToLower() = "tostring" ->
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), { Args=[arg]}, _, range) ->
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), { Args=[arg]}, _, _range) ->
             let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [Eq], [right]), stmts @ stmts'
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="split"), _, _), { Args=[Fable.Value(kind=Fable.StringConstant(""))]}, _, range) ->
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="split"), _, _), { Args=[Fable.Value(kind=Fable.StringConstant(""))]}, _, _range) ->
             let func = Expression.name("list")
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ value ]), stmts
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="charCodeAt"), _, _), info, _, range) ->
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="charCodeAt"), _, _), _info, _, _range) ->
             let func = Expression.name("ord")
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ value ]), stmts
@@ -2297,7 +2297,7 @@ module Util =
 
         | Fable.IfThenElse(TransformExpr com ctx (guardExpr, stmts),
                            TransformExpr com ctx (thenExpr, stmts'),
-                           TransformExpr com ctx (elseExpr, stmts''), r) ->
+                           TransformExpr com ctx (elseExpr, stmts''), _r) ->
             Expression.ifExp (guardExpr, thenExpr, elseExpr), stmts @ stmts' @ stmts''
 
         | Fable.DecisionTree(expr, targets) ->
@@ -2356,7 +2356,7 @@ module Util =
             addError com [] e.Range "Unexpected unresolved expression"
             []
 
-        | Fable.Extended(kind, r) ->
+        | Fable.Extended(kind, _r) ->
             match kind with
             | Fable.Curry(e, arity) ->
                 let expr, stmts = transformCurry com ctx e arity
@@ -3099,7 +3099,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.Declarations
+
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
