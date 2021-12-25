@@ -62,19 +62,19 @@ is_letter_mask = (
 is_digit_mask = 1 << UnicodeCategory.DecimalDigitNumber.value
 
 
-def is_letter2(s: str, index: int):
+def is_letter2(s: str, index: int) -> bool:
     test = 1 << getUnicodeCategory2(s, index)
     return (test & is_letter_mask) != 0
 
 
-def is_digit2(s: str, index: int):
+def is_digit2(s: str, index: int) -> bool:
     test = 1 << getUnicodeCategory2(s, index)
     return (test & is_digit_mask) != 0
 
 
-def is_digit(s: str):
+def is_digit(s: str) -> bool:
     return s.isdigit()
 
 
-def is_letter(s: str):
+def is_letter(s: str) -> bool:
     return s.isalpha()

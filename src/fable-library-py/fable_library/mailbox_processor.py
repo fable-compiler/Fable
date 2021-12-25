@@ -2,22 +2,29 @@ from __future__ import annotations
 
 from queue import SimpleQueue
 from threading import RLock
+from typing import Optional, Callable, TypeVar, Generic, Any
 
-from .async_builder import CancellationToken, OperationCanceledError
-from .async_ import from_continuations, start_immediate
+from .async_builder import CancellationToken, IAsync
+from .async_ import start_immediate, from_continuations
 
 
-class AsyncReplyChannel:
-    def __init__(self, fn) -> None:
+Msg = TypeVar("Msg")
+Reply = TypeVar("Reply")
+
+
+class AsyncReplyChannel(Generic[Reply]):
+    def __init__(self, fn: Callable[[Any], None]) -> None:
         self.fn = fn
 
-    def reply(self, r) -> None:
+    def reply(self, r: Any) -> None:
         self.fn(r)
 
 
-class MailboxProcessor:
-    def __init__(self, body, cancellation_token=None):
-        self.messages = SimpleQueue()
+class MailboxProcessor(Generic[Msg]):
+    def __init__(
+        self, body: Callable[[MailboxProcessor[Msg]], None], cancellation_token: Optional[CancellationToken] = None
+    ):
+        self.messages: SimpleQueue[Msg] = SimpleQueue()
         self.token = cancellation_token or CancellationToken()
         self.lock = RLock()
         self.body = body
@@ -25,7 +32,7 @@ class MailboxProcessor:
         # Holds the continuation i.e the `done` callback of Async.from_continuations returned by `receive`.
         self.continuation = None
 
-    def post(self, msg) -> None:
+    def post(self, msg: Msg) -> None:
         """Post a message synchronously to the mailbox processor.
 
         This method is not asynchronous since it's very fast to execute.
@@ -41,7 +48,7 @@ class MailboxProcessor:
         self.messages.put(msg)
         self.__process_events()
 
-    def post_and_async_reply(self, build_message):
+    def post_and_async_reply(self, build_message: Callable[[AsyncReplyChannel[Reply]], Msg]) -> IAsync[Reply]:
         """Post a message asynchronously to the mailbox processor and
         wait for the reply.
 
@@ -62,12 +69,12 @@ class MailboxProcessor:
             if result is not None and continuation is not None:
                 continuation(result)
 
-        def reply_callback(res):
+        def reply_callback(res: Reply):
             nonlocal result
             result = res
             check_completion()
 
-        reply_channel = AsyncReplyChannel(reply_callback)
+        reply_channel: AsyncReplyChannel[Reply] = AsyncReplyChannel(reply_callback)
         self.messages.put(build_message(reply_channel))
         self.__process_events()
 
@@ -78,7 +85,7 @@ class MailboxProcessor:
 
         return from_continuations(callback)
 
-    def receive(self):
+    def receive(self) -> IAsync[Msg]:
         """Receive message from mailbox.
 
         Returns:
@@ -98,7 +105,7 @@ class MailboxProcessor:
 
         return from_continuations(callback)
 
-    def __process_events(self):
+    def __process_events(self) -> None:
         # Cancellation of async workflows is more tricky in Python than
         # with F# so we check the cancellation token for each process.
         if self.token.is_cancellation_requested:
@@ -126,19 +133,21 @@ class MailboxProcessor:
         return mbox
 
 
-def receive(mbox):
+def receive(mbox: MailboxProcessor[Msg]) -> IAsync[Msg]:
     return mbox.receive()
 
 
-def post(mbox, msg):
+def post(mbox: MailboxProcessor[Msg], msg: Msg):
     return mbox.post(msg)
 
 
-def start_instance(mbox):
-    start_immediate(mbox.body(mbox))
+def start_instance(mbox: MailboxProcessor[Any]) -> IAsync[Any]:
+    return start_immediate(mbox.body(mbox))
 
 
-def start(body, cancellationToken=None):
+def start(
+    body: Callable[[MailboxProcessor[Msg]], None], cancellationToken: Optional[CancellationToken] = None
+) -> MailboxProcessor[Msg]:
     mbox = MailboxProcessor(body, cancellationToken)
     start_instance(mbox)
     return mbox

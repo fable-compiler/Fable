@@ -12,11 +12,11 @@ T = TypeVar("T")
 
 
 class FSharpRef(Generic[T]):
-    def __init__(self, contentsOrGetter, setter=None) -> None:
+    def __init__(self, contentsOrGetter: Union_[T, Callable[[], T]], setter: Optional[Callable[[T], None]] = None) -> None:
 
         contents = contentsOrGetter
 
-        def set_contents(value):
+        def set_contents(value: T):
             nonlocal contents
             contents = value
 
@@ -92,7 +92,7 @@ class Union(IComparable):
         return self.tag < other.tag
 
 
-def record_equals(self, other):
+def record_equals(self: Record, other: Record) -> bool:
     if self is other:
         return True
 
@@ -102,7 +102,7 @@ def record_equals(self, other):
     return a == b
 
 
-def record_compare_to(self, other):
+def record_compare_to(self: Record, other: Record):
     if self is other:
         return 0
 
@@ -116,7 +116,7 @@ def record_compare_to(self, other):
         return 0
 
 
-def record_to_string(self):
+def record_to_string(self: Record) -> str:
     return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
@@ -157,7 +157,7 @@ class Attribute:
     pass
 
 
-def seq_to_string(self):
+def seq_to_string(self: Iterable[Any]) -> str:
     str = "["
 
     for count, x in enumerate(self):
@@ -174,7 +174,7 @@ def seq_to_string(self):
     return str + "]"
 
 
-def to_string(x: Any, callStack: int=0) -> str:
+def to_string(x: Any, callStack: int = 0) -> str:
     if x is not None:
         # if (typeof x.toString === "function") {
         #    return x.toString();
@@ -193,7 +193,7 @@ def to_string(x: Any, callStack: int=0) -> str:
 
 
 class Exception(Exception):
-    def __init__(self, msg: Optional[str]=None):
+    def __init__(self, msg: Optional[str] = None):
         self.msg = msg
 
     def __eq__(self, other: Any) -> bool:
@@ -249,8 +249,8 @@ class FSharpException(Exception, IComparable):
     def __hash__(self) -> int:
         return hash(self.Data0)
 
-    def GetHashCode(self):
-        recordGetHashCode(self)
+    def GetHashCode(self) -> int:
+        return recordGetHashCode(self)
 
     def Equals(self, other: FSharpException):
         return record_equals(self, other)

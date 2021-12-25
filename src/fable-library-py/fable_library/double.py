@@ -1,7 +1,9 @@
+from typing import Any
+
 from .types import FSharpRef
 
 
-def parse(value):
+def parse(value: Any) -> float:
     try:
         return float(value)
     except Exception:
