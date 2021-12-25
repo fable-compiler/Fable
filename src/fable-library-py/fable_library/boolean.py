@@ -1,3 +1,5 @@
+from typing import Any
+
 from .types import FSharpRef
 
 
@@ -13,9 +15,9 @@ def try_parse(string: str, defValue: FSharpRef[bool]) -> bool:
     return False
 
 
-def parse(value):
-    defValue = FSharpRef(False)
-    if try_parse(value, defValue):
-        return defValue.contents
+def parse(value: Any) -> bool:
+    def_value: FSharpRef[bool] = FSharpRef(False)
+    if try_parse(value, def_value):
+        return def_value.contents
 
     raise ValueError(f"String '{value}' was not recognized as a valid Boolean.")

@@ -185,13 +185,7 @@ def max(comparer, x, y):
 
 def clamp(comparer: Callable[[T, T], int], value: T, min: T, max: T):
     # return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
-    return (
-        min
-        if (comparer(value, min) < 0)
-        else max
-        if comparer(value, max) > 0
-        else value
-    )
+    return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
 def assert_equal(actual, expected, msg: Optional[str] = None) -> None:
@@ -252,13 +246,13 @@ def create_obj(fields):
     return obj
 
 
-def tohex(val, nbits=None):
+def tohex(val: int, nbits: Optional[int] = None) -> str:
     if nbits:
         val = (val + (1 << nbits)) % (1 << nbits)
     return "{:x}".format(val)
 
 
-def int_to_string(i: int, radix: int = 10, bitsize=None) -> str:
+def int_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
@@ -366,7 +360,7 @@ def get_enumerator(o: Any) -> Enumerator[T]:
 CURRIED_KEY = "__CURRIED__"
 
 
-def uncurry(arity: int, f: Callable):
+def uncurry(arity: int, f: Callable[..., Callable[..., Any]]) -> Callable[..., Any]:
     # f may be a function option with None value
     if f is None:
         return f
@@ -390,7 +384,7 @@ def uncurry(arity: int, f: Callable):
     return uncurriedFn
 
 
-def curry(arity: int, fn: Callable) -> Callable:
+def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any]]:
     if fn is None or arity == 1:
         return fn
 
@@ -404,13 +398,9 @@ def curry(arity: int, fn: Callable) -> Callable:
     elif arity == 4:
         return lambda a1: lambda a2: lambda a3: lambda a4: fn(a1, a2, a3, a4)
     elif arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
-            a1, a2, a3, a4, a5
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(a1, a2, a3, a4, a5)
     elif arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
-            a1, a2, a3, a4, a5, a6
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(a1, a2, a3, a4, a5, a6)
     elif arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             a1, a2, a3, a4, a5, a6, a7
@@ -423,7 +413,7 @@ def curry(arity: int, fn: Callable) -> Callable:
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
 
 
-def partial_apply(arity: int, fn: Callable, args: List) -> Any:
+def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Any:
     if not fn:
         return
 
@@ -447,13 +437,9 @@ def partial_apply(arity: int, fn: Callable, args: List) -> Any:
     if arity == 4:
         return lambda a1: lambda a2: lambda a3: lambda a4: fn(args + [a1, a2, a3, a4])
     if arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
-            args + [a1, a2, a3, a4, a5]
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(args + [a1, a2, a3, a4, a5])
     if arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
-            args + [a1, a2, a3, a4, a5, a6]
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(args + [a1, a2, a3, a4, a5, a6])
     if arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             args + [a1, a2, a3, a4, a5, a6, a7]
@@ -462,16 +448,14 @@ def partial_apply(arity: int, fn: Callable, args: List) -> Any:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
             args + [a1, a2, a3, a4, a5, a6, a7, a8]
         )
-    raise ValueError(
-        f"Partially applying to more than 8-arity is not supported: {arity}"
-    )
+    raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
 
 
-def is_array_like(x):
+def is_array_like(x: Any) -> bool:
     return hasattr(x, "__len__") and callable(x.__len__)
 
 
-def is_disposable(x: Any):
+def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
@@ -527,13 +511,7 @@ class ObjectRef:
 
 
 def safe_hash(x: Any) -> int:
-    return (
-        0
-        if x is None
-        else x.GetHashCode()
-        if is_hashable(x)
-        else number_hash(ObjectRef.id(x))
-    )
+    return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
 
 
 def string_hash(s: str) -> int:
@@ -593,11 +571,7 @@ def round(value, digits=0):
     i = math.floor(n)
     f = n - i
     e = 1e-8
-    r = (
-        (i if (i % 2 == 0) else i + 1)
-        if (f > 0.5 - e and f < 0.5 + e)
-        else builtins.round(n)
-    )
+    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
     return r / m if digits else r
 
 

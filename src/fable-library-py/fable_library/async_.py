@@ -1,5 +1,6 @@
 from threading import Timer
-from typing import Callable
+from typing import Any, Callable, List, Optional, TypeVar, Union
+
 from .async_builder import (
     CancellationToken,
     IAsync,
@@ -13,15 +14,13 @@ from .async_builder import (
 )
 from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore
 
-
-class Async:
-    pass
+T = TypeVar("T")
 
 
 default_cancellation_token = CancellationToken()
 
 
-def create_cancellation_token(arg=None):
+def create_cancellation_token(arg: Union[int, bool, None] = None) -> CancellationToken:
     cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
     if isinstance(arg, int):
@@ -35,13 +34,13 @@ def cancel(token: CancellationToken) -> None:
     token.cancel()
 
 
-def cancel_after(token: CancellationToken, ms: int):
+def cancel_after(token: CancellationToken, ms: int) -> None:
     timer = Timer(ms / 1000.0, token.cancel)
     timer.start()
 
 
-def sleep(millisecondsDueTime: int) -> Callable[[IAsyncContext], None]:
-    def cont(ctx: IAsyncContext):
+def sleep(millisecondsDueTime: int) -> IAsync[T]:
+    def cont(ctx: IAsyncContext[T]):
         def cancel():
             timer.cancel()
             ctx.on_cancel(OperationCanceledError())
@@ -58,16 +57,16 @@ def sleep(millisecondsDueTime: int) -> Callable[[IAsyncContext], None]:
     return protected_cont(cont)
 
 
-def ignore(computation: Callable[[IAsyncContext], None]) -> Callable[[IAsyncContext], None]:
-    return protected_bind(computation, lambda _x: protected_return())
+def ignore(computation: IAsync[T]) -> IAsync[None]:
+    return protected_bind(computation, lambda _x=None: protected_return())
 
 
-def catch_async(work):
-    def cont(ctx: IAsyncContext):
-        def on_success(x):
+def catch_async(work: IAsync[T]) -> IAsync[T]:
+    def cont(ctx: IAsyncContext[T]):
+        def on_success(x: Optional[T] = None):
             ctx.on_success(Choice_makeChoice1Of2(x))
 
-        def on_error(err):
+        def on_error(err: Exception):
             ctx.on_success(Choice_makeChoice2Of2(err))
 
         ctx_ = IAsyncContext.create(on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
@@ -76,8 +75,8 @@ def catch_async(work):
     return protected_cont(cont)
 
 
-def from_continuations(f) -> Callable[[IAsyncContext], None]:
-    def cont(ctx: IAsyncContext):
+def from_continuations(f: Callable[[List[Callable[[Any], None]]], None]) -> Callable[[IAsyncContext[Any]], None]:
+    def cont(ctx: IAsyncContext[Any]):
         f([ctx.on_success, ctx.on_error, ctx.on_cancel])
 
     return protected_cont(cont)

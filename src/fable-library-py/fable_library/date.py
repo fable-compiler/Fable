@@ -1,5 +1,6 @@
-from datetime import datetime, timezone, tzinfo
 import re
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from .types import FSharpRef
 from .util import DateKind
@@ -7,11 +8,13 @@ from .util import DateKind
 formatRegExp = re.compile(r"(\w)\1*")
 
 
-def op_subtraction(x, y):
+def op_subtraction(x: datetime, y: datetime) -> timedelta:
     return x - y
 
 
-def create(year, month, day, h=0, m=0, s=0, ms=0, kind=None):
+def create(
+    year: int, month: int, day: int, h: int = 0, m: int = 0, s: int = 0, ms: int = 0, kind: Optional[DateKind] = None
+) -> datetime:
     if kind == DateKind.UTC:
         date = datetime(
             year=year, month=month, day=day, hour=h, minute=m, second=s, microsecond=ms * 1000, tzinfo=timezone.utc
@@ -22,11 +25,11 @@ def create(year, month, day, h=0, m=0, s=0, ms=0, kind=None):
     return date
 
 
-def year(d):
+def year(d: datetime) -> int:
     return d.year
 
 
-def date_to_string_with_custom_format(date, format, utc):
+def date_to_string_with_custom_format(date: datetime, format: str, utc) -> str:
     def match(m):
         match = m.group()
         m = match[:1]
@@ -115,7 +118,7 @@ def date_to_string_with_custom_format(date, format, utc):
 #         return dateToStringWithCustomFormat(d, format, True)
 
 
-def date_to_string_with_kind(date, format=None):
+def date_to_string_with_kind(date: datetime, format: Optional[str] = None) -> str:
     utc = date.tzinfo == timezone.utc
     if not format:
         return date.isoformat() if utc else str(date)
@@ -134,26 +137,26 @@ def date_to_string_with_kind(date, format=None):
         return date_to_string_with_custom_format(date, format, utc)
 
 
-def to_string(date, format=None, provider=None):
+def to_string(date: datetime, format: Optional[str] = None, provider=None) -> str:
     if date.tzinfo:
         return date_to_string_with_offset(date, format)
 
     return date_to_string_with_kind(date, format)
 
 
-def now():
+def now() -> datetime:
     return datetime.now()
 
 
-def utc_now():
+def utc_now() -> datetime:
     return datetime.utcnow()
 
 
-def to_local_time(date):
+def to_local_time(date: datetime) -> datetime:
     return date.astimezone()
 
 
-def compare(x, y):
+def compare(x: datetime, y: datetime) -> int:
     if x == y:
         return 0
 
@@ -163,23 +166,23 @@ def compare(x, y):
     return 1
 
 
-def equals(x, y):
+def equals(x: datetime, y: datetime) -> bool:
     return x == y
 
 
-def max_value():
+def max_value() -> datetime:
     return datetime.max
 
 
-def min_value():
+def min_value() -> datetime:
     return datetime.min
 
 
-def op_addition(x, y):
+def op_addition(x: datetime, y: datetime) -> datetime:
     return x + y
 
 
-def parse(string: str, detectUTC=False) -> datetime:
+def parse(string: str, detectUTC: bool = False) -> datetime:
     from dateutil import parser
 
     return parser.parse(string)
