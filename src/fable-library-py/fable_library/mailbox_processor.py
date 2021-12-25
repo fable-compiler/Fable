@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from queue import SimpleQueue
 from threading import RLock
-from typing import Optional, Callable, TypeVar, Generic, Any
+from typing import Optional, Callable, TypeVar, Generic, Any, List
 
-from .async_builder import CancellationToken, IAsync
+from .async_builder import CancellationToken, IAsync, OperationCanceledError
 from .async_ import start_immediate, from_continuations
 
 
@@ -78,7 +78,7 @@ class MailboxProcessor(Generic[Msg]):
         self.messages.put(build_message(reply_channel))
         self.__process_events()
 
-        def callback(conts):
+        def callback(conts: List[Callable[[Any], None]]) -> None:
             nonlocal continuation
             continuation = conts
             check_completion()
@@ -95,7 +95,7 @@ class MailboxProcessor(Generic[Msg]):
             the timeout is exceeded.
         """
 
-        def callback(conts):
+        def callback(conts: List[Callable[[Any], None]]):
             if self.continuation:
                 raise Exception("Receive can only be called once!")
 
@@ -127,8 +127,10 @@ class MailboxProcessor(Generic[Msg]):
             cont[0](msg)
 
     @staticmethod
-    def start(body, cancellation_token=None):
-        mbox = MailboxProcessor(body, cancellation_token)
+    def start(
+        body: Callable[[MailboxProcessor[Msg]], None], cancellation_token: Optional[CancellationToken] = None
+    ) -> MailboxProcessor[Msg]:
+        mbox: MailboxProcessor[Msg] = MailboxProcessor(body, cancellation_token)
         start_immediate(body(mbox))
         return mbox
 
