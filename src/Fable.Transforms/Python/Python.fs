@@ -957,6 +957,9 @@ module PythonExtensions =
         static member none =
             Expression.name (Identifier(name="None"))
 
+        static member any =
+            Expression.name (Identifier(name="Any"))
+
         static member attribute(value, attr, ?ctx) : Expression =
             { Value = value
               Attr = attr
