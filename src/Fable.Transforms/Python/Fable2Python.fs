@@ -1355,7 +1355,7 @@ module Util =
         | None, _ -> None
 
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
-        // printfn "transformObjectExpr: %A" baseCall
+        //printfn "transformObjectExpr: %A" baseCall
         let makeMethod prop hasSpread args body decorators =
             let args, body, returnType =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
@@ -2822,7 +2822,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        // printfn "transformClassWithCompilerGeneratedConstructor"
+        //printfn "transformClassWithCompilerGeneratedConstructor"
         let fieldIds = getEntityFieldsAsIdents com ent
         let args = fieldIds |> Array.map (fun id -> com.GetIdentifier(ctx, id.Name) |> Expression.name)
         let baseExpr =
@@ -2842,7 +2842,10 @@ module Util =
             ]
         let args =
             fieldIds
-            |> Array.mapToList (ident com ctx >> Arg.arg)
+            |> Array.mapToList (fun id ->
+                let ta, _ = typeAnnotation com ctx id.Type
+                let identifier = ident com ctx id
+                Arg.arg(identifier, annotation=ta))
             |> (fun args -> Arguments.arguments(args=args))
         declareType com ctx ent entName args body baseExpr classMembers
 
@@ -2857,7 +2860,6 @@ module Util =
             // change constructor's return type from None to entity type
             let genParams = getEntityGenParams classEnt
             let returnType = makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq)
-            //let typeParamDecl = makeTypeParamDecl com ctx genParams //|> mergeTypeParamDecls typeParamDecl
             returnType
 
         let exposedCons =
