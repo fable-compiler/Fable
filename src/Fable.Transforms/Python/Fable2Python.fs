@@ -646,16 +646,6 @@ module Annotation =
         else
             Expression.subscript(name, Expression.tuple typeParamInst)
 
-    let makeGenericTypeAnnotation' (com: IPythonCompiler) ctx (id: string) (genArgs: string list)  =
-        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
-
-        let name = Expression.name id
-        if genArgs.IsEmpty then
-            name
-        else
-            let genArgs = genArgs |> List.map Expression.name
-            Expression.subscript(name, Expression.tuple genArgs)
-
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
         let getNumberKindName kind =
             match kind with
@@ -746,12 +736,14 @@ module Annotation =
             | Fable.Type.Number(Int32, _)
             | Fable.Type.Number(UInt32, _)
             | Fable.Type.Number(Float32, _)
-            | Fable.Type.Number(Float64, _) -> pythonModuleTypeHint "array" "array" []
+            | Fable.Type.Number(Float64, _) -> typingModuleTypeHint "MutableSequence" [ genArg ]
             | _ -> typingModuleTypeHint "List" [ genArg ]
         | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [ genArg ] repeatedGenerics
         | Fable.AnonymousRecordType _ ->
             Expression.name("dict"), [] // TODO: use TypedDict?
         | Fable.DeclaredType(ent, genArgs) ->
+            // printfn "DeclaredType: %A" ent.FullName
+
             match ent.FullName, genArgs with
             | Replacements.BuiltinEntity kind ->
                 match kind with
@@ -1139,7 +1131,7 @@ module Util =
         // printfn "getMemberArgsAndBody: %A" hasSpread
         let funcName, genTypeParams, args, body =
             match kind, args with
-            | Attached(isStatic=false), (thisArg::args) ->
+            | Attached(isStatic=false), thisArg::args ->
                 let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
@@ -1199,7 +1191,7 @@ module Util =
                 Expression.name ident, [ func ]
 
     let makeFunction name (args: Arguments, body: Expression, returnType) : Statement =
-        // printfn "Name: %A" name
+        // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
         FunctionDef.Create(name = name, args = args, body = body, returns=returnType)
 
@@ -2706,9 +2698,11 @@ module Util =
         let reflectionDeclaration, stmts =
             let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
             let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)
+            let args = genArgs |> Array.mapToList (fun id -> Arg.arg(ident com ctx id, annotation=ta))
+            let args = Arguments.arguments(args)
+
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
-            let args = Arguments.arguments(genArgs |> Array.mapToList (ident com ctx >> Arg.arg))
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
@@ -2719,7 +2713,7 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        //printfn "Arsg: %A" args
+        // printfn "transformModuleFunction %A" (membName, args)
         let name = com.GetIdentifier(ctx, membName)
         let stmt = FunctionDef.Create(name = name, args = args, body = body', returns=returnType)
         let expr = Expression.name name
@@ -2869,8 +2863,7 @@ module Util =
             fieldIds
             |> Array.mapToList (fun id ->
                 let ta, _ = typeAnnotation com ctx None id.Type
-                let identifier = ident com ctx id
-                Arg.arg(identifier, annotation=ta))
+                Arg.arg(ident com ctx id, annotation=ta))
             |> (fun args -> Arguments.arguments(args=args))
         declareType com ctx ent entName args body baseExpr classMembers
 
@@ -2881,11 +2874,11 @@ module Util =
         let consArgs, consBody, returnType =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
 
+        // Change constructor's return type from None to entity type. Note we cannot return
+        // "T" here since a TypeVar "T" cannot appear only once in generic Python function
         let returnType =
-            // change constructor's return type from None to entity type
-            let genParams = getEntityGenParams classEnt
-            let returnType = makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq)
-            returnType
+            let genParams = getEntityGenParams classEnt |> Set.toList |> List.map (fun _ -> Fable.Any)
+            makeGenericTypeAnnotation com ctx classDecl.Name genParams None
 
         let exposedCons =
             let argExprs =
