@@ -1354,10 +1354,11 @@ let private addUsedRootName com name (usedRootNames: Set<string>) =
         |> addError com [] None
     Set.add name usedRootNames
 
-// Entities that are not output to JS
+// Entities that are not output to other languages
+// Interfaces should be part of the AST, see #2673
 let private isIgnoredLeafEntity (ent: FSharpEntity) =
-    ent.IsInterface
-    || ent.IsEnum
+    // ent.IsInterface
+    ent.IsEnum
     || ent.IsMeasure
     || ent.IsFSharpAbbreviation
     || ent.IsDelegate
@@ -1665,7 +1666,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
 
                 [getMemberUniqueName memb, inlineExpr]
 
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _ 
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _
             | FSharpImplementationFileDeclaration.InitAction _ -> []
         )
     getInlineExprsInner declarations
