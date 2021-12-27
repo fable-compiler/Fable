@@ -78,12 +78,13 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
 
 type ImplFile =
     {
-        Ast: FSharpImplementationFileContents
+        Declarations: FSharpImplementationFileDeclaration list
         RootModule: string
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExprLazy) list
     }
     static member From(file: FSharpImplementationFileContents) =
+        let declarations = file.Declarations
         let entities = Dictionary()
         let rec loop (ents: FSharpEntity seq) =
             for e in ents do
@@ -93,12 +94,12 @@ type ImplFile =
                     entities.Add(fableEnt.FullName, fableEnt)
                     loop e.NestedEntities
 
-        FSharp2Fable.Compiler.getRootFSharpEntities file |> loop
+        FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop
         {
-            Ast = file
+            Declarations = file.Declarations
             Entities = entities
-            RootModule = FSharp2Fable.Compiler.getRootModule file
-            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file
+            RootModule = FSharp2Fable.Compiler.getRootModule declarations
+            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
         }
 
 type PrecompiledInfo =
@@ -124,7 +125,7 @@ type Project(projFile: string,
             member _.TryGetRootModule(_) = None
             member _.TryGetInlineExpr(_) = None })
 
-    static member From(projFile,
+    static member From(projFile: string,
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
                        ?getPlugin: PluginRef -> System.Type,
@@ -143,27 +144,24 @@ type Project(projFile: string,
 
         Project(projFile, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
 
-    member this.Update(fsharpFiles: FSharpImplementationFileContents list) =
+    member this.Update(file: FSharpImplementationFileContents) =
         let implFiles =
-            (this.ImplementationFiles, fsharpFiles) ||> List.fold (fun implFiles file ->
-                let key = Path.normalizePathAndEnsureFsExtension file.FileName
-                let file = ImplFile.From(file)
-                Map.add key file implFiles)
-
+            let key = Path.normalizePathAndEnsureFsExtension file.FileName
+            let file = ImplFile.From(file)
+            Map.add key file this.ImplementationFiles
         Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
 
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
         inlineExprsDic.TryValue(memberUniqueName)
-        |> Option.map (fun e -> e.Force(com))
+        |> Option.map (fun e -> e.Calculate(com))
 
-    member _.GetAllInlineExprs(com: Compiler): (string * InlineExpr)[] =
-        implFiles
-        |> Map.values
-        |> Seq.map (fun f -> f.InlineExprs)
-        |> Seq.toArray
-        |> Array.Parallel.map (List.mapToArray (fun (uniqueName, expr) ->
-            uniqueName, expr.Force(com)))
-        |> Array.concat
+    member _.GetFileInlineExprs(com: Compiler): (string * InlineExpr)[] =
+        match Map.tryFind com.CurrentFile implFiles with
+        | None -> [||]
+        | Some implFile ->
+            implFile.InlineExprs
+            |> List.mapToArray (fun (uniqueName, expr) ->
+                uniqueName, expr.Calculate(com))
 
     member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
@@ -212,7 +210,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.GetImplementationFile(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
             match Map.tryFind fileName project.ImplementationFiles with
-            | Some file -> file.Ast
+            | Some file -> file.Declarations
             | None -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =

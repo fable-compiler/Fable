@@ -51,7 +51,7 @@ type Compiler =
     abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
-    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
+    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
@@ -61,7 +61,7 @@ type Compiler =
 
 type InlineExprLazy(f: Compiler -> InlineExpr) =
     let mutable value: InlineExpr voption = ValueNone
-    member this.Force(com: Compiler) =
+    member this.Calculate(com: Compiler) =
         lock this <| fun () ->
             match value with
             | ValueSome v -> v
@@ -69,11 +69,8 @@ type InlineExprLazy(f: Compiler -> InlineExpr) =
                 let v = f com
                 value <- ValueSome v
                 v
-
 [<AutoOpen>]
 module CompilerExt =
-    open System.Collections.Generic
-
     let private expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
