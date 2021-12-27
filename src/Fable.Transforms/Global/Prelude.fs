@@ -504,11 +504,13 @@ module Path =
         normalizePath (GetFullPath path)
 
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
-    let normalizePathAndEnsureFsExtension (path: string) =
-        let path = normalizePath path
+    let ensureFsExtension (path: string) =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    let normalizePathAndEnsureFsExtension (path: string) =
+        normalizePath path |> ensureFsExtension
 
     let replaceExtension (newExt: string) (path: string) =
         let i = path.LastIndexOf(".")

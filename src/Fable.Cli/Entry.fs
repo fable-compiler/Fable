@@ -239,6 +239,7 @@ type Runner =
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
+          IsWatch = watch
           Precompile = precompile
           PrecompiledLib = precompiledLib
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"

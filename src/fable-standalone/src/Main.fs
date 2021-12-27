@@ -325,5 +325,5 @@ let init () =
             let res = results :?> ParseAndCheckResults
             let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
-            AstPrint.printFSharpDecls "" implFile.Ast.Declarations |> String.concat "\n"
+            AstPrint.printFSharpDecls "" implFile.Declarations |> String.concat "\n"
   }

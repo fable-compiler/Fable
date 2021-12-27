@@ -17,6 +17,7 @@ type CliArgs =
     { ProjectFile: string
       RootDir: string
       OutDir: string option
+      IsWatch: bool
       Precompile: bool
       PrecompiledLib: string option
       FableLibraryPath: string option
@@ -54,12 +55,26 @@ type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource
 [<RequireQualifiedAccess>]
 module Log =
     let newLine = Environment.NewLine
+    let isCi = String.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) |> not
 
     let mutable private verbosity = Fable.Verbosity.Normal
 
     /// To be called only at the beginning of the app
     let makeVerbose() =
         verbosity <- Fable.Verbosity.Verbose
+
+    let isVerbose() =
+        verbosity = Fable.Verbosity.Verbose
+
+    let inSameLineIfNotCI (msg: string) =
+        if not isCi then
+            let curCursorLeft = Console.CursorLeft
+            Console.SetCursorPosition(0, Console.CursorTop)
+            Console.Out.Write(msg)
+            let diff = curCursorLeft - msg.Length
+            if diff > 0 then
+                Console.Out.Write(String.replicate diff " ")
+                Console.SetCursorPosition(msg.Length, Console.CursorTop)
 
     let alwaysWithColor color (msg: string) =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
@@ -648,10 +663,10 @@ type PrecompiledInfoJson =
       Files: Map<string, PrecompiledFileJson>
       InlineExprHeaders: string[] }
 
-type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
+type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
     let dic = System.Collections.Concurrent.ConcurrentDictionary<int, Lazy<Map<string, Fable.InlineExpr>>>()
     let comparer = StringOrdinalComparer()
-    let dllPath = PrecompiledInfoImpl.GetDllPath(dir)
+    let dllPath = PrecompiledInfoImpl.GetDllPath(fableModulesDir)
 
     member _.CompilerVersion = info.CompilerVersion
     member _.CompilerOptions = info.CompilerOptions
@@ -663,8 +678,8 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
         Map.tryFind normalizedFullPath info.Files
         |> Option.map (fun f -> f.OutPath)
 
-    static member GetDllPath(dir: string): string =
-        IO.Path.Combine(dir, Fable.Naming.fablePrecompile + ".dll")
+    static member GetDllPath(fableModulesDir: string): string =
+        IO.Path.Combine(fableModulesDir, Fable.Naming.fablePrecompile + ".dll")
         |> Fable.Path.normalizeFullPath
 
     interface Fable.Transforms.State.PrecompiledInfo with
@@ -681,7 +696,7 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
             // http://reedcopsey.com/2011/01/16/concurrentdictionarytkeytvalue-used-with-lazyt/
             let map = dic.GetOrAdd(index, fun _ ->
                 lazy
-                    PrecompiledInfoImpl.GetInlineExprsPath(dir, index)
+                    PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, index)
                     |> Json.readWithStringPool<(string * Fable.InlineExpr)[]>
                     |> Map)
             Map.tryFind memberUniqueName map.Value
@@ -689,8 +704,8 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
     static member GetPath(dir) =
         IO.Path.Combine(dir, "precompiled_info.json")
 
-    static member GetInlineExprsPath(dir, index: int) =
-        IO.Path.Combine(dir, "inline_exprs", $"inline_exprs_{index}.json")
+    static member GetInlineExprsPath(fableModulesDir, index: int) =
+        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
 
     static member Load(dir: string) =
         try
@@ -700,8 +715,7 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
         with
         | e -> FableError($"Cannot load precompiled info from %s{dir}: %s{e.Message}") |> raise
 
-    static member Save(dllPath: string, files, inlineExprs, compilerOptions, fableLibDir) =
-        let dir = IO.Path.GetDirectoryName(dllPath)
+    static member Save(files, inlineExprs, compilerOptions, fableModulesDir, fableLibDir) =
         let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
 
         let inlineExprs =
@@ -711,16 +725,16 @@ type PrecompiledInfoImpl(dir: string, info: PrecompiledInfoJson) =
             |> Array.mapi (fun i chunk -> i, chunk)
 
         do
-            PrecompiledInfoImpl.GetInlineExprsPath(dir, 0)
+            PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, 0)
             |> IO.Path.GetDirectoryName
             |> IO.Directory.CreateDirectory
             |> ignore
 
         inlineExprs |> Array.Parallel.iter (fun (i, chunk) ->
-            let path = PrecompiledInfoImpl.GetInlineExprsPath(dir, i)
+            let path = PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, i)
             Json.writeWithStringPool path chunk)
 
-        let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+        let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
         let inlineExprHeaders = inlineExprs |> Array.map (snd >> Array.head >> fst)
 
         { CompilerVersion = Fable.Literals.VERSION

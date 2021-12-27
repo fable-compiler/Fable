@@ -1427,7 +1427,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                 { Body = e
                   UsedNames = set ctx.UsedNamesInDeclarationScope }])
 
-let getRootFSharpEntities (file: FSharpImplementationFileContents) =
+let rec getRootFSharpEntities (declarations: FSharpImplementationFileDeclaration list) =
     let rec getRootFSharpEntitiesInner decl = seq {
         match decl with
         | FSharpImplementationFileDeclaration.Entity (ent, nested) ->
@@ -1437,9 +1437,9 @@ let getRootFSharpEntities (file: FSharpImplementationFileContents) =
             else ent
         | _ -> ()
     }
-    file.Declarations |> Seq.collect getRootFSharpEntitiesInner
+    Seq.collect getRootFSharpEntitiesInner declarations
 
-let getRootModule (file: FSharpImplementationFileContents) =
+let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
     let rec getRootModuleInner outerEnt decls =
         match decls, outerEnt with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)], _ when ent.IsFSharpModule || ent.IsNamespace ->
@@ -1448,7 +1448,7 @@ let getRootModule (file: FSharpImplementationFileContents) =
             getRootModuleInner (Some ent) decls
         | _, Some e -> FsEnt.FullName e
         | _, None -> ""
-    getRootModuleInner None file.Declarations
+    getRootModuleInner None declarations
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
@@ -1639,7 +1639,7 @@ type FableCompiler(com: Compiler) =
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-let getInlineExprs (file: FSharpImplementationFileContents) =
+let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration list) =
 
     let rec getInlineExprsInner decls =
         decls |> List.collect (function
@@ -1660,7 +1660,7 @@ let getInlineExprs (file: FSharpImplementationFileContents) =
 
                         { Args = List.rev idents
                           Body = com.Transform(ctx, body)
-                          FileName = file.FileName
+                          FileName = fileName
                           ScopeIdents = set ctx.UsedNamesInDeclarationScope })
 
                 [getMemberUniqueName memb, inlineExpr]
@@ -1668,15 +1668,15 @@ let getInlineExprs (file: FSharpImplementationFileContents) =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _ 
             | FSharpImplementationFileDeclaration.InitAction _ -> []
         )
-    getInlineExprsInner file.Declarations
+    getInlineExprsInner declarations
 
 let transformFile (com: Compiler) =
-    let file = com.GetImplementationFile(com.CurrentFile)
-    let usedRootNames = getUsedRootNames com Set.empty file.Declarations
+    let declarations = com.GetImplementationFile(com.CurrentFile)
+    let usedRootNames = getUsedRootNames com Set.empty declarations
     let ctx = Context.Create(usedRootNames)
     let com = FableCompiler(com)
     let rootDecls =
-        transformDeclarations com ctx file.Declarations
+        transformDeclarations com ctx declarations
         |> List.map (function
             | Fable.ClassDeclaration decl as classDecl ->
                 com.TryGetAttachedMembers(decl.Entity.FullName)

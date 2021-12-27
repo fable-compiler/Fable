@@ -28,24 +28,24 @@ type CacheInfo =
         FableLibDir: string
         Timestamp: DateTime
     }
-    static member GetPath(fableModulesPath: string) =
-        IO.Path.Combine(fableModulesPath, "cache_info.json")
+    static member GetPath(fableModulesPath: string, isDebug: bool) =
+        IO.Path.Combine(fableModulesPath, $"""project_cracked{if isDebug then "_debug" else ""}.json""")
 
-    static member TryRead(fableModulesPath: string): CacheInfo option =
+    static member TryRead(fableModulesPath: string, isDebug): CacheInfo option =
         try
-            CacheInfo.GetPath(fableModulesPath) |> Json.read<CacheInfo> |> Some
+            CacheInfo.GetPath(fableModulesPath, isDebug) |> Json.read<CacheInfo> |> Some
         with _ -> None
 
-    member this.Write(fableModulesPath: string) =
-        let path = CacheInfo.GetPath(fableModulesPath)
+    member this.Write(fableModulesPath: string, isDebug) =
+        let path = CacheInfo.GetPath(fableModulesPath, isDebug)
         Json.write path this
 
-type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
+type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir)
     let cacheInfo =
         if noCache then None
-        else CacheInfo.TryRead(fableModulesDir)
+        else CacheInfo.TryRead(fableModulesDir, fableOpts.DebugMode)
 
     member _.CacheInfo = cacheInfo
     member _.FableModulesDir = fableModulesDir
@@ -71,7 +71,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
             Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
-    static member GetFableModulesDir(projFile: string, outDir: string option) =
+    static member GetFableModulesDir(projFile: string, outDir: string option): string =
         let fableModulesDir =
             let baseDir = outDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
             IO.Path.Combine(baseDir, Naming.fableModules)
@@ -84,6 +84,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
 
 type CrackerResponse =
     { FableLibDir: string
+      FableModulesDir: string
       References: string list
       ProjectOptions: FSharpProjectOptions
       PrecompiledInfo: PrecompiledInfoImpl option
@@ -622,6 +623,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
         { ProjectOptions = makeProjectOptions opts.ProjFile otherOptions sourcePaths
           References = cacheInfo.References
           FableLibDir = cacheInfo.FableLibDir
+          FableModulesDir = opts.FableModulesDir
           PrecompiledInfo = precompiledInfo
           CacheInvalidated = false }
 
@@ -696,10 +698,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 Timestamp = DateTime.Now
             }
 
-        cacheInfo.Write(opts.FableModulesDir)
+        cacheInfo.Write(opts.FableModulesDir, opts.FableOptions.DebugMode)
 
         { ProjectOptions = makeProjectOptions opts.ProjFile otherOptions sourcePaths
           References = projRefs
           FableLibDir = fableLibDir
+          FableModulesDir = opts.FableModulesDir
           PrecompiledInfo = precompiledInfo
           CacheInvalidated = true }
