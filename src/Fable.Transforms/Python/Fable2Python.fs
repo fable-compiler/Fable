@@ -2809,8 +2809,20 @@ module Util =
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            let args=fieldIds.[0] |> ident com ctx |> Arg.arg |> List.singleton
-            let varargs = fieldIds.[1] |> ident com ctx |> Arg.arg
+            let args =
+                fieldIds.[0]
+                |> ident com ctx
+                |> (fun id ->
+                    let ta, _ = typeAnnotation com ctx None fieldIds.[0].Type
+                    Arg.arg(id, annotation=ta))
+                |> List.singleton
+            let varargs =
+                fieldIds.[1]
+                |> ident com ctx
+                |> (fun id ->
+                    let gen = getGenericTypeParams [fieldIds.[1].Type] |> Set.toList |> List.tryHead
+                    let ta = Expression.name (gen |> Option.defaultValue "Any")
+                    Arg.arg(id, annotation=ta))
             Arguments.arguments(args=args, vararg=varargs)
 
         let body =
@@ -2822,9 +2834,12 @@ module Util =
                         match id.Type with
                         | Fable.Number _ ->
                             Expression.boolOp(BoolOperator.Or, [identAsExpr com ctx id; Expression.constant(0)])
+                        | Fable.Array _ ->
+                            // Convert varArg from tuple to list. TODO: we might need to do this other places as well.
+                            Expression.call(Expression.name("list"), [identAsExpr com ctx id])
                         | _ -> identAsExpr com ctx id
-
-                    Statement.assign([left], right))
+                    let ta,_ = typeAnnotation com ctx None id.Type
+                    Statement.assign(left, right, ta))
             ]
         let cases =
             let expr, stmts =
@@ -2836,7 +2851,9 @@ module Util =
             let name = Identifier("cases")
             let body = stmts @ [ Statement.return'(expr) ]
             let decorators = [ Expression.name("staticmethod") ]
-            Statement.functionDef(name, Arguments.arguments [ ], body = body, decoratorList=decorators)
+            let value = com.GetImportExpr(ctx, "typing", "List")
+            let returnType = Expression.subscript(value, Expression.name("str"))
+            Statement.functionDef(name, Arguments.arguments(), body = body, returns=returnType, decoratorList=decorators)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = List.append [ cases ] classMembers
