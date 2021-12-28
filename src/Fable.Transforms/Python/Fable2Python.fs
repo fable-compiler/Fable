@@ -739,6 +739,7 @@ module Annotation =
             | Fable.Type.Number(Float64, _) -> typingModuleTypeHint "MutableSequence" [ genArg ]
             | _ -> typingModuleTypeHint "List" [ genArg ]
         | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [ genArg ] repeatedGenerics
+        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.AnonymousRecordType _ ->
             Expression.name("dict"), [] // TODO: use TypedDict?
         | Fable.DeclaredType(ent, genArgs) ->
@@ -795,6 +796,43 @@ module Annotation =
                         typingModuleTypeHint "Any" []
         | _ ->
             typingModuleTypeHint "Any" []
+
+    let makeImportTypeId (com: IPythonCompiler) ctx moduleName typeName =
+        let expr = com.GetImportExpr(ctx, getLibPath com moduleName, typeName)
+        match expr with
+        | Expression.Name({Id=Identifier id}) -> id
+        | _ -> typeName
+
+    let makeImportTypeAnnotation com ctx genArgs moduleName typeName =
+        let id = makeImportTypeId com ctx moduleName typeName
+        makeGenericTypeAnnotation com ctx id genArgs None
+
+    let makeBuiltinTypeAnnotation com ctx kind =
+        match kind with
+        | Replacements.BclGuid -> Expression.name("str"), []
+        | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "types" "FSharpRef", []
+        (*
+        | Replacements.BclTimeSpan -> NumberTypeAnnotation
+        | Replacements.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclTimeOnly -> NumberTypeAnnotation
+        | Replacements.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
+        | Replacements.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
+        | Replacements.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
+        | Replacements.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
+        | Replacements.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Replacements.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
+        | Replacements.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
+        | Replacements.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
+        | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
+        | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
+        | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Fable.Core" "FSharpResult$2"
+        | Replacements.FSharpChoice genArgs ->
+            $"FSharpChoice${List.length genArgs}"
+            |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
+        *)
+        | _ -> Expression.any, []
 
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
