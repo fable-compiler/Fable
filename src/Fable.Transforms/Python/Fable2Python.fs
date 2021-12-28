@@ -32,7 +32,7 @@ type Import =
 
 type ITailCallOpportunity =
     abstract Label: string
-    abstract Args: string list
+    abstract Args: Arg list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type UsedNames =
@@ -857,12 +857,16 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
+    type NamedTailCallOpportunity(com: IPythonCompiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
         // TODO: Local unique ident names
-        let argIds = discardUnitArg args |> List.map (fun arg ->
-            getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
+        let argIds =
+            discardUnitArg args
+            |> List.map (fun arg ->
+                let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
+                let ta, _ = typeAnnotation com ctx None arg.Type
+                Arg.arg(name, ta))
         interface ITailCallOpportunity with
             member _.Label = name
             member _.Args = argIds
@@ -1220,7 +1224,7 @@ module Util =
                     else tempVars
                 checkCrossRefs tempVars allArgs rest
         ctx.OptimizeTailCall()
-        let zippedArgs = List.zip tc.Args args
+        let zippedArgs = List.zip (tc.Args |> List.map(fun { Arg=Identifier id } -> id)) args
         let tempVars = checkCrossRefs Map.empty args zippedArgs
         let tempVarReplacements = tempVars |> Map.map (fun _ v -> makeIdentExpr v)
         [
@@ -2536,9 +2540,11 @@ module Util =
             match ctx.TailCallOpportunity with
             | Some tc ->
                 tc.Args
-                |> List.map (fun x ->
-                    let name = x.Substring(0, x.Length-4)
-                    Arg.arg(name), Expression.name(name))
+                |> List.map (fun arg ->
+                    let (Identifier name) = arg.Arg
+                    let name = name.Substring(0, name.Length-4)
+                    printfn "Annotation: %A" arg
+                    Arg.arg(name, ?annotation=arg.Annotation), Expression.name(name))
                 |> List.unzip
             | _ -> [], []
 
@@ -2572,13 +2578,13 @@ module Util =
                 // Replace args, see NamedTailCallOpportunity constructor
                 let args' =
                     List.zip args tc.Args
-                    |> List.map (fun (_id, tcArg) ->
+                    |> List.map (fun (_id, {Arg=Identifier tcArg}) ->
                         let id = com.GetIdentifier(ctx, tcArg)
                         let ta, _ = typeAnnotation com ctx (Some repeatedGenerics) _id.Type
                         Arg.arg(id, annotation=ta))
                 let varDecls =
                     List.zip args tc.Args
-                    |> List.map (fun (id, tcArg) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
+                    |> List.map (fun (id, {Arg=Identifier tcArg}) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
                     |> multiVarDeclaration ctx
 
                 let body = varDecls @ body
