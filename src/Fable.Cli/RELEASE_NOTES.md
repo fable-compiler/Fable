@@ -1,3 +1,7 @@
+### 3.7.0-beta-002
+
+* Performance improvements
+
 ### 3.7.0-beta-001
 
 * Add precompile command
