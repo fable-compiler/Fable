@@ -442,15 +442,6 @@ type FunctionDef =
       Returns: Expression option
       TypeComment: string option }
 
-    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
-        { Name = name
-          Args = args
-          Body = body
-          DecoratorList = defaultArg decoratorList []
-          Returns = returns
-          TypeComment = typeComment }
-        |> FunctionDef
-
 /// global and nonlocal statements. names is a list of raw strings.
 ///
 /// ```py
@@ -855,6 +846,15 @@ module PythonExtensions =
               DecoratorList = defaultArg decoratorList []
               Loc = loc }
             |> ClassDef
+
+        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { FunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> FunctionDef
 
         static member assign(targets, value, ?typeComment) : Statement =
             { Targets = targets
