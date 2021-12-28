@@ -680,7 +680,7 @@ module Annotation =
         let genericTypeAnnotation name genArgs =
             let resolved, stmts = resolveGenerics genArgs None
             typingHint com ctx name resolved, stmts
-
+        // printfn "typeAnnotation: %A" t
         match t with
         | Fable.Measure _
         | Fable.Any -> typingModuleTypeHint "Any" []
@@ -743,7 +743,6 @@ module Annotation =
             Expression.name("dict"), [] // TODO: use TypedDict?
         | Fable.DeclaredType(ent, genArgs) ->
             // printfn "DeclaredType: %A" ent.FullName
-
             match ent.FullName, genArgs with
             | Replacements.BuiltinEntity kind ->
                 match kind with
@@ -775,7 +774,12 @@ module Annotation =
             | _ ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    typingModuleTypeHint "Any" []
+                    let name =
+                        ent.FullName.Split('.')
+                        |> Array.last
+                        |> (fun name -> name.Replace("`", "_"))
+                        |> Helpers.clean
+                    makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
                 else
                     match Lib.tryPyConstructor com ctx ent with
                     | Some (entRef, stmts) ->
@@ -1041,7 +1045,7 @@ module Util =
 
         [
             match typ with
-            | Some typ -> Statement.assign(var, value, typ)
+            | Some typ -> Statement.assign(var, value, annotation=typ)
             | _ -> Statement.assign([var], value)
         ]
 
@@ -1057,7 +1061,7 @@ module Util =
         Statement.expr(callSuper args)
 
     let makeClassConstructor (args: Arguments) body =
-        printfn "makeClassConstructor: %A" body
+        // printfn "makeClassConstructor: %A" body
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args =
@@ -2616,7 +2620,7 @@ module Util =
         let main = Expression.call(funcExpr, [ args ]) |> Statement.expr |> List.singleton
         Statement.if'(test, main)
 
-    let declareModuleMember ctx isPublic (membName: Identifier) isMutable (expr: Expression) =
+    let declareModuleMember ctx isPublic (membName: Identifier) typ (expr: Expression) =
         let membName = Expression.name(membName)
         match expr with
         // | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
@@ -2633,7 +2637,7 @@ module Util =
         //         ?returnType = returnType,
         //         ?typeParameters = typeParameters)
         | _ ->
-            varDeclaration ctx membName None expr
+            varDeclaration ctx membName typ expr
 
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent |> makeTypeParamDecl com ctx
@@ -2703,7 +2707,7 @@ module Util =
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
-            expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
+            expr |> declareModuleMember ctx ent.IsPublic name None, stmts @ stmts'
 
         stmts @ [typeDeclaration ] @ reflectionDeclaration
 
@@ -2906,8 +2910,6 @@ module Util =
 
     let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) =
         let classIdent = com.GetIdentifier(ctx, classDecl.Name)
-        printfn "-------------------"
-        printfn "Interface: %A" classDecl.Name
         let members =
             classEnt.MembersFunctionsAndValues
             |> List.ofSeq
@@ -2917,20 +2919,11 @@ module Util =
 
         let classMembers = [
             for memb in members do
-                printfn "---"
-                printfn "MemberOrValue: %A" memb.DisplayName
-
                 com.GetImportExpr(ctx, "abc", "abstractmethod") |> ignore
                 let decorators = [
-                    if memb.IsInstance then
-                        printfn "-- IsInstance"
-                    if memb.IsPublic then
-                        printfn "-- IsPublic"
                     if memb.IsValue || memb.IsGetter then
-                        printfn "-- isGetter"
                         Expression.name("property")
                     if memb.IsSetter then
-                        printfn "-- isSetter"
                         Expression.name($"{memb.DisplayName}.setter")
 
                     Expression.name("abstractmethod") // Must be after @property
@@ -2956,7 +2949,6 @@ module Util =
 
             for ref in classEnt.AllInterfaces |> List.ofSeq |> List.map (fun int -> int.Entity) do
                 let entity = com.GetEntity(ref)
-                printfn "Path: %A" (entity)
                 match entity.FullName with
                 | "System.IDisposable" ->
                     let iDisposable = libValue com ctx "util" "IDisposable"
@@ -2993,7 +2985,8 @@ module Util =
                     if decl.Info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
-                        stmts @ declareModuleMember ctx decl.Info.IsPublic name decl.Info.IsMutable value
+                        let ta, _ = typeAnnotation com ctx None decl.Body.Type
+                        stmts @ declareModuleMember ctx decl.Info.IsPublic name (Some ta) value
                     else
                         transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
 
@@ -3005,7 +2998,7 @@ module Util =
         | Fable.ClassDeclaration decl ->
             // printfn "Class: %A" decl
             let ent = com.GetEntity(decl.Entity)
-            printfn "Class: %A" ent
+            // printfn "Class: %A" ent
 
             let classMembers =
                 decl.AttachedMembers
