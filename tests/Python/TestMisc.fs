@@ -1229,7 +1229,7 @@ let ``test Assigning to unit works`` () =
     value |> equal 4
 
 
-type Test(l: int, r: int) =
+type TestInliningMutation(l: int, r: int) =
     let mutable left = 0
 
     let call() =
@@ -1242,5 +1242,5 @@ type Test(l: int, r: int) =
 
 [<Fact>]
 let ``test Mutating variables is not postponed`` =
-    Test(1, 2).Run() |> equal 3
-    Test(15, 25).Run() |> equal 40
+    TestInliningMutation(1, 2).Run() |> equal 3
+    TestInliningMutation(15, 25).Run() |> equal 40
