@@ -1227,3 +1227,20 @@ let ``test Assigning to unit works`` () =
 
     doit 2 (fun x -> value <- value + x)
     value |> equal 4
+
+
+type Test(l: int, r: int) =
+    let mutable left = 0
+
+    let call() =
+        left <- l
+        r
+
+    member __.Run() =
+        let right = call()
+        left + right
+
+[<Fact>]
+let ``test Mutating variables is not postponed`` =
+    Test(1, 2).Run() |> equal 3
+    Test(15, 25).Run() |> equal 40
