@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="tests/common/Util.fs" />
+    <Compile Include="tests/common/Interfaces.fs" />
     <Compile Include="tests/src/AnonRecordTests.fs" />
     <Compile Include="tests/src/ArithmeticTests.fs" />
     <Compile Include="tests/src/ArrayTests.fs" />
