@@ -12,15 +12,13 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays,
-                       ?trimRootModule) =
+                       ?clampByteArrays) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
             Language = defaultArg language JavaScript
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-            TrimRootModule = defaultArg trimRootModule true
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
@@ -60,7 +58,7 @@ type Compiler =
     abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
-    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
+    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
@@ -68,9 +66,19 @@ type Compiler =
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit
 
+type InlineExprLazy(f: Compiler -> InlineExpr) =
+    let mutable value: InlineExpr voption = ValueNone
+    member this.Calculate(com: Compiler) =
+        lock this <| fun () ->
+            match value with
+            | ValueSome v -> v
+            | ValueNone ->
+                let v = f com
+                value <- ValueSome v
+                v
 [<AutoOpen>]
 module CompilerExt =
-    let expectedVersionMatchesActual (expected: string) (actual: string) =
+    let private expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
@@ -89,11 +97,22 @@ module CompilerExt =
             )
         with _ -> false
 
+    let private coreAssemblyNames = set Metadata.coreAssemblies
+
     type Compiler with
+        static member CoreAssemblyNames = coreAssemblyNames
+
         member com.GetEntity(entityRef: Fable.EntityRef) =
             match com.TryGetEntity(entityRef) with
             | Some e -> e
-            | None -> failwithf "Cannot find entity %s" entityRef.FullName
+            | None ->
+                let category =
+                    match entityRef.Path with
+                    | Fable.CoreAssemblyName _ -> "core"
+                    | Fable.AssemblyPath _ -> "external"
+                    | Fable.PrecompiledLib _ -> "precompiled"
+                    | Fable.SourcePath _ -> "user"
+                failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
         member com.ToPluginHelper() =
             { new PluginHelper with

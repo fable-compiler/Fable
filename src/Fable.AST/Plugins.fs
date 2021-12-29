@@ -34,7 +34,6 @@ type CompilerOptions =
         Define: string list
         DebugMode: bool
         OptimizeFSharpAst: bool
-        TrimRootModule: bool
         Verbosity: Verbosity
         FileExtension: string
         TriggeredByDependency: bool

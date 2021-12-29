@@ -397,7 +397,7 @@ let makeTypeDefinitionInfo r t =
             DeclaredType(ent, genArgs)
         // TODO: Do something with FunctionType and ErasedUnion?
         | t -> t
-    TypeInfo t |> makeValue r
+    makeTypeInfo r t
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -1408,7 +1408,7 @@ let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[])
     // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
     // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
     let escape (str: string) =
-        str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+        Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
 
     let sb = System.Text.StringBuilder("`")
     let mutable prevIndex = 0
@@ -2631,8 +2631,8 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         let args =
             match meth, args with
             // TODO: Parse at compile time if we know the type
-            | "parseEnum", [value] -> [Value(TypeInfo(t), None); value]
-            | "tryParseEnum", [value; refValue] -> [Value(TypeInfo(genArg com ctx r 0 i.GenericArgs), None); value; refValue]
+            | "parseEnum", [value] -> [makeTypeInfo None t; value]
+            | "tryParseEnum", [value; refValue] -> [genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue]
             | _ -> args
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
@@ -3232,7 +3232,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                             Some(ifc.Entity, genArgs)
                         else None)
                     |> function
-                        | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
+                        | Some(ifcEnt, genArgs) -> DeclaredType(ifcEnt, genArgs) |> makeTypeInfo r
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
             | "get_Namespace" -> getTypeFullName false exprType |> splitFulName |> fst |> returnString r
@@ -3245,7 +3245,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 |> BoolConstant |> makeValue r |> Some
             | "GetElementType" ->
                 match exprType with
-                | Array t -> TypeInfo t |> makeValue r |> Some
+                | Array t -> makeTypeInfo r t |> Some
                 | _ -> Null t |> makeValue r |> Some
             | "get_IsGenericType" ->
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
@@ -3268,7 +3268,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     | Tuple (_, isStruct) -> Tuple(newGen, isStruct)
                     | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
                     | t -> t
-                TypeInfo exprType |> makeValue exprRange |> Some
+                makeTypeInfo exprRange exprType |> Some
             | _ -> None
         |  _ -> None
     match resolved, thisArg with
@@ -3369,6 +3369,9 @@ let private replacedModules =
     "System.Text.StringBuilder", bclType
     Types.array, arrays
     Types.list, lists
+    // JS cannot parallelize synchronous actions so for now redirect to "standard" array module
+    // TODO: Other languages may want to implement it
+    "Microsoft.FSharp.Collections.ArrayModule.Parallel", arrayModule
     "Microsoft.FSharp.Collections.ArrayModule", arrayModule
     "Microsoft.FSharp.Collections.ListModule", listModule
     "Microsoft.FSharp.Collections.HashIdentity", fsharpModule

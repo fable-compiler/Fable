@@ -203,18 +203,23 @@ type FsEnt(ent: FSharpEntity) =
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
         let path =
             match ent.Assembly.FileName with
-            // When compiling with netcoreapp target, netstandard only contains redirects
-            // Find the actual assembly name from the entity qualified name
-            | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
-                ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-#if FABLE_COMPILER
-            | Some asmPath when asmPath.EndsWith("Fable.Repl.Lib.dll") ->
-                let sourcePath = FsEnt.SourcePath ent
-                let sourcePath = "fable-repl-lib" + sourcePath.[sourcePath.IndexOf("Fable.Repl.Lib") + 14 ..]
-                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
-#endif
-            | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
-            | None -> FsEnt.SourcePath ent |> Fable.SourcePath
+            | Some asmPath ->
+                let dllName = Path.GetFileName(asmPath)
+                let dllName = dllName.Substring(0, dllName.Length - 4) // Remove .dll extension
+                match dllName with
+                // When compiling with netcoreapp target, netstandard only contains redirects
+                // We can find the actual assembly name from the entity qualified name
+                | "netstandard" ->
+                    ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+                | Naming.fablePrecompile ->
+                    let sourcePath = FsEnt.SourcePath ent
+                    Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
+                | dllName when Compiler.CoreAssemblyNames.Contains(dllName) ->
+                    Fable.CoreAssemblyName dllName
+                | _ ->
+                    Path.normalizePath asmPath |> Fable.AssemblyPath
+            | None ->
+                FsEnt.SourcePath ent |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
           Path = path }
 
@@ -372,16 +377,16 @@ module Helpers =
         | TrimRootModule of Compiler
         | NoTrimRootModule
 
-    let private getEntityMangledName trimRootModule (entRef: Fable.EntityRef) =
-        let fullName = entRef.FullName
-        match trimRootModule, entRef.Path with
-        | TrimRootModule com, Fable.SourcePath sourcePath ->
+    let private getEntityMangledName trimRootModule (ent: Fable.EntityRef) =
+        let fullName = ent.FullName
+        match trimRootModule, ent.Path with
+        | TrimRootModule com, (Fable.SourcePath sourcePath | Fable.PrecompiledLib(sourcePath, _)) ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        // Ignore Precompiled libs and other entities for which we don't have implementation file data
-        | TrimRootModule _, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        // Ignore entities for which we don't have implementation file data
+        | TrimRootModule _, (Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
         | NoTrimRootModule, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
@@ -1495,14 +1500,16 @@ module Util =
         Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
+        // Prevent iterating the sequence twice when calculating length
+        let genArgs = Seq.toArray genArgs
+
         let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
             Seq.zip (genParams |> Seq.map genParamName) genArgs
 
-        let genArgsLen = Seq.length genArgs
         match memb.DeclaringEntity with
         // It seems that for F# types memb.GenericParameters contains all generics
         // but for BCL types we need to check the DeclaringEntity generics too
-        | Some ent when genArgsLen > memb.GenericParameters.Count ->
+        | Some ent when genArgs.Length > memb.GenericParameters.Count ->
             Seq.append ent.GenericParameters memb.GenericParameters
         | _ -> upcast memb.GenericParameters
         |> matchGenericParams genArgs
@@ -1526,8 +1533,8 @@ module Util =
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
-    let private fixImportedRelativePath (com: Compiler) (path: string) normalizedSourcePath =
-        let file = Path.normalizePathAndEnsureFsExtension normalizedSourcePath
+    let fixImportedRelativePath (com: Compiler) (path: string) sourcePath =
+        let file = Path.normalizePathAndEnsureFsExtension sourcePath
         if file = com.CurrentFile
         then path
         else
@@ -1659,10 +1666,10 @@ module Util =
         let error msg =
             $"%s{msg}: %s{ent.FullName}"
             |> addErrorAndReturnNull com [] None
-        match ent.IsInterface, ent.Ref.SourcePath with
-        | true, _ -> error "Cannot reference an interface"
-        | _, None -> error "Cannot reference entity from .dll reference, Fable packages must include F# sources"
-        | _, Some file ->
+        match com.Options.Language, ent.IsInterface, ent.Ref.SourcePath with
+        | JavaScript, true, _ -> error "Cannot reference an interface in JS"
+        | _, _, None -> error "Cannot reference entity from .dll reference, Fable packages must include F# sources"
+        | _, _, Some file ->
             let entityName = (getEntityDeclarationName com ent.Ref) + suffix
             if file = com.CurrentFile then
                 makeTypedIdentExpr (getEntityType ent) entityName
@@ -1953,12 +1960,13 @@ module Util =
                 | _, args -> args
             // Don't apply args either if this is a class getter, see #2329
             if List.isEmpty args || info.CallMemberInfo |> Option.map (fun i -> i.IsGetter) |> Option.defaultValue false then
-                // Set IsCompilerGenerated=true to prevent Fable removing args of surrounding function
+                // Set UserImport(inline=true) to prevent Fable removing args of surrounding function
                 Fable.Import({ importInfo with Kind = Fable.UserImport true }, ti, r)
             else
                 makeCall r t info importExpr
         | body ->
-            let body = Fable.TypeCast(body, t)
+            // Check the resolved expression has the expected type, see #2644
+            let body = if t <> body.Type then Fable.TypeCast(body, t) else body
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee info (memb: FSharpMemberOrFunctionOrValue) =
@@ -2065,6 +2073,17 @@ module Util =
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
+
+    let makeCallInfoFrom (com: IFableCompiler) (ctx: Context) r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
+        {
+            ThisArg = callee
+            Args = transformOptionalArguments com ctx r memb genArgs args
+            SignatureArgTypes = getArgTypes com memb
+            HasSpread = hasParamArray memb
+            IsConstructor = false
+            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
+            OptimizableInto = None
+        }
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)

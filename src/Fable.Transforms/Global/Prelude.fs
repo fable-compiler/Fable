@@ -21,8 +21,20 @@ module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
+    let chooseToList (f: 'a -> 'b option) (xs: 'a seq) =
+        ([], xs) ||> Seq.fold (fun li x -> match f x with Some x -> x::li | None -> li) |> List.rev
+
 [<RequireQualifiedAccess>]
 module Array =
+    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
+        let r1 = ResizeArray()
+        let r2 = ResizeArray()
+        for x in xs do
+            match f x with
+            | Choice1Of2 x -> r1.Add(x)
+            | Choice2Of2 x -> r2.Add(x)
+        r1.ToArray(), r2.ToArray()
+
     let mapToList (f: 'a -> 'b) (xs: 'a array) =
         let mutable li = []
         for i = xs.Length - 1 downto 0 do
@@ -128,15 +140,13 @@ module Naming =
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] fableHiddenDir = "fable_modules"
+    let [<Literal>] fableModules = "fable_modules"
+    let [<Literal>] fablePrecompile = "Fable.Precompiled"
     let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
 
-    let isInFableHiddenDir (file: string) =
-        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
-
-    let umdModules =
-        set ["commonjs"; "amd"; "umd"]
+    let isInFableModules (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableModules)
 
     let isIdentChar index (c: char) =
         let code = int c
@@ -456,7 +466,10 @@ module Path =
         let path1 =
             if path1.Length = 0 then path1
             else (path1.TrimEnd [|'\\';'/'|]) + "/"
-        path1 + (path2.TrimStart [|'\\';'/'|])
+        let path2 =
+            if path2.StartsWith("./") then path2.[2..]
+            else path2.TrimStart [|'\\';'/'|]
+        path1 + path2
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")
@@ -499,11 +512,13 @@ module Path =
         normalizePath (GetFullPath path)
 
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
-    let normalizePathAndEnsureFsExtension (path: string) =
-        let path = normalizePath path
+    let ensureFsExtension (path: string) =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    let normalizePathAndEnsureFsExtension (path: string) =
+        normalizePath path |> ensureFsExtension
 
     let replaceExtension (newExt: string) (path: string) =
         let i = path.LastIndexOf(".")

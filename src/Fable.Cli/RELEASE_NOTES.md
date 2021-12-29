@@ -1,3 +1,7 @@
+### 3.7.0-beta-001
+
+* Add precompile command
+
 ### 3.6.3
 
 * New FSharp.Core 6 APIs: updateAt/insertAt/insertManyAt/removeAt/removeManyAt

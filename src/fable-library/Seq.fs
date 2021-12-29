@@ -588,7 +588,6 @@ type CachedSeq<'T>(cleanup,res:seq<'T>) =
     member _.Clear() = cleanup()
 
 // Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
-// TODO: lock is removed to compile to JS but it may be necessary for other languages
 let cache (source: seq<'T>) =
     checkNonNull "source" source
     // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
@@ -635,7 +634,7 @@ let cache (source: seq<'T>) =
             // i being the next position to be returned
             // A lock is needed over the reads to prefix.Count since the list may be being resized
             // NOTE: we could change to a reader/writer lock here
-            // lock prefix <| fun () ->
+            lock prefix <| fun () ->
                 if i < prefix.Count then
                     Some (prefix.[i],i+1)
                 else
@@ -645,7 +644,7 @@ let cache (source: seq<'T>) =
                     else
                         None) 0
     let cleanup() =
-    //    lock prefix <| fun () ->
+       lock prefix <| fun () ->
            prefix.Clear()
            match enumeratorR with
            | Some (Some e) -> e.Dispose()

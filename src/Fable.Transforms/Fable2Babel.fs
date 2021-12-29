@@ -228,6 +228,7 @@ module Reflection =
                 let ent = com.GetEntity(entRef)
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 // Check if the entity is actually declared in JS code
+                // TODO: Interfaces should be declared when generating Typescript
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -326,7 +327,11 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    warnAndEvalToFalse "interfaces"
+                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
+                    | Some typeExpr ->
+                        let typeExpr = com.TransformAsExpr(ctx, typeExpr)
+                        jsInstanceof typeExpr expr
+                    | None -> warnAndEvalToFalse "interfaces"
                 else
                     match tryJsConstructor com ctx ent with
                     | Some cons ->
@@ -2086,8 +2091,7 @@ module Util =
         let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
         declareType com ctx ent entName args body baseExpr classMembers
 
-    let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
-        let classEnt = com.GetEntity(classDecl.Entity)
+    let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
         let classIdent = Expression.identifier(classDecl.Name)
         let consArgs, consBody, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
@@ -2155,26 +2159,29 @@ module Util =
                 else decls
 
         | Fable.ClassDeclaration decl ->
-            let ent = decl.Entity
+            let entRef = decl.Entity
+            let ent = com.GetEntity(entRef)
+            if ent.IsInterface then
+                // TODO: Add type annotation for Typescript
+                []
+            else
+                let classMembers =
+                    decl.AttachedMembers
+                    |> List.toArray
+                    |> Array.collect (fun memb ->
+                        withCurrentScope ctx memb.UsedNames <| fun ctx ->
+                            if memb.Info.IsGetter || memb.Info.IsSetter then
+                                transformAttachedProperty com ctx memb
+                            else
+                                transformAttachedMethod com ctx memb)
 
-            let classMembers =
-                decl.AttachedMembers
-                |> List.toArray
-                |> Array.collect (fun memb ->
-                    withCurrentScope ctx memb.UsedNames <| fun ctx ->
-                        if memb.Info.IsGetter || memb.Info.IsSetter then
-                            transformAttachedProperty com ctx memb
-                        else
-                            transformAttachedMethod com ctx memb)
-
-            match decl.Constructor with
-            | Some cons ->
-                withCurrentScope ctx cons.UsedNames <| fun ctx ->
-                    transformClassWithImplicitConstructor com ctx decl classMembers cons
-            | None ->
-                let ent = com.GetEntity(ent)
-                if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
-                else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                match decl.Constructor with
+                | Some cons ->
+                    withCurrentScope ctx cons.UsedNames <| fun ctx ->
+                        transformClassWithImplicitConstructor com ctx ent decl classMembers cons
+                | None ->
+                    if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
+                    else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import seq): ModuleDeclaration list =
         let statefulImports = ResizeArray()

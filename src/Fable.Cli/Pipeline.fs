@@ -7,11 +7,12 @@ open Fable.Transforms
 open Fable.Transforms.State
 
 module Js =
-    type BabelWriter(cliArgs: CliArgs, dedupTargetDir, sourcePath: string, targetPath: string) =
+    type BabelWriter(cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+        let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
         let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
@@ -22,10 +23,15 @@ module Js =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                let path =
+                    // TODO: Check precompiled out path for other languages too
+                    match pathResolver.TryPrecompiledOutPath(sourceDir, path) with
+                    | Some path -> Imports.getRelativePath sourceDir path
+                    | None -> path
+                let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    File.changeFsExtension isInFableHiddenDir path fileExt
+                    let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
+                    File.changeFsExtension isInFableModules path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
@@ -38,14 +44,14 @@ module Js =
         member _.SourceMap =
             mapGenerator.Force().toJSON()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Babel.Compiler.transformFile com
 
         let! sourceMap = async {
-            use writer = new BabelWriter(cliArgs, dedupTargetDir, com.CurrentFile, outPath)
+            use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
             do! BabelPrinter.run writer babel
             return if cliArgs.SourceMaps then Some writer.SourceMap else None
         }
@@ -60,7 +66,7 @@ module Js =
     }
 
 module Python =
-    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
+    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, pathResolver) =
         let fileExt = ".py"
         let targetDir = Path.GetDirectoryName(targetPath)
         // PEP8: Modules should have short, all-lowercase names
@@ -81,7 +87,7 @@ module Python =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
         let python =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
@@ -89,14 +95,14 @@ module Python =
 
         let map = { new PythonPrinter.SourceMapGenerator with
                         member _.AddMapping(_,_,_,_,_) = () }
-        let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
+        let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
         do! PythonPrinter.run writer map python
         match com.OutputType with
         | OutputType.Library ->
             // Make sure we include an empty `__init__.py` in every directory of a library
             let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
             if not (IO.File.Exists(outPath)) then
-                let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
+                let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, pathResolver)
                 do! PythonPrinter.run writer map { Body = [] }
 
         | _ -> ()
@@ -118,7 +124,7 @@ module Php =
 module Dart =
     open Fable.Transforms.Dart
 
-    type DartWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
+    type DartWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
@@ -131,29 +137,29 @@ module Dart =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    File.changeFsExtension isInFableHiddenDir path fileExt
+                    let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
+                    File.changeFsExtension isInFableModules path fileExt
                 else path
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
         let _imports, fable =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Extended.Compiler.transformFile com
 
-        use writer = new DartWriter(com, cliArgs, dedupTargetDir, outPath)
+        use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
         do! DartPrinter.run writer fable
     }
 
 module Rust =
     open Fable.Transforms.Rust
 
-    type RustWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
+    type RustWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
@@ -163,25 +169,25 @@ module Rust =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
         let crate =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Rust.Compiler.transformFile com
 
-        use writer = new RustWriter(com, cliArgs, dedupTargetDir, outPath)
+        use writer = new RustWriter(com, cliArgs, pathResolver, outPath)
         do! RustPrinter.run writer crate
     }
 
-let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) =
+let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) =
     match com.Options.Language with
-    | JavaScript | TypeScript -> Js.compileFile com cliArgs dedupTargetDir outPath
-    | Python -> Python.compileFile com cliArgs dedupTargetDir outPath
+    | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver outPath
+    | Python -> Python.compileFile com cliArgs pathResolver outPath
     | Php -> Php.compileFile com outPath
-    | Dart -> Dart.compileFile com cliArgs dedupTargetDir outPath
-    | Rust -> Rust.compileFile com cliArgs dedupTargetDir outPath
+    | Dart -> Dart.compileFile com cliArgs pathResolver outPath
+    | Rust -> Rust.compileFile com cliArgs pathResolver outPath

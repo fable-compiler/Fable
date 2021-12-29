@@ -22,6 +22,8 @@ type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
 
+// TODO: In Fable 4 this should be a record as it can be serialized through MemberInfo
+// (also avoid `obj` for ConstructorArgs?)
 type Attribute =
     abstract Entity: EntityRef
     abstract ConstructorArgs: obj list
@@ -60,6 +62,7 @@ type Parameter =
     { Name: string option
       Type: Type }
 
+// TODO: In Fable 4 this should be a record for consistency with other serializable types
 type MemberInfo =
     abstract Attributes: Attribute seq
     abstract HasSpread: bool
@@ -136,7 +139,19 @@ type Type =
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
         // TODO: Check numbers with measure?
-        | _ -> []
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ | Measure _ -> []
+
+    member this.MapGenerics f =
+        match this with
+        | Option(gen, isStruct) -> Option(f gen, isStruct)
+        | Array gen -> Array(f gen)
+        | List gen -> List(f gen)
+        | LambdaType(argType, returnType) -> LambdaType(f argType, f returnType)
+        | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
+        | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
+        | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
+        | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ | Measure _ -> this
 
 type ActionDecl = {
     Body: Expr

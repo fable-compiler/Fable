@@ -7,10 +7,10 @@ open System.Globalization
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+#endif
 
 module M =
     let f x = nameof x
-#endif
 
 // LINE SEPARATOR char doesn't cause an error #1283
 let LINE_SEPARATOR = "\u2028"
@@ -213,8 +213,8 @@ let tests =
             let o = obj()
             o?self <- o
             sprintf "%A" o |> ignore
+#endif
 
-// TODO!!! Enable these in .NET when CI supports net5.0
       testCase "F# nameof works" <| fun () ->
           M.f 12 |> equal "x"
           nameof M |> equal "M"
@@ -238,7 +238,44 @@ let tests =
                  Country = "The United Kingdom" |}
           $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
           |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
-#endif
+
+      testCase "Interpolated strings keep empty lines" <| fun () ->
+        let s1 = $"""1
+
+
+    {1+1}
+
+
+3"""
+        let s2 = """1
+
+
+    2
+
+
+3"""
+        equal s1 s2
+        equal s1.Length s2.Length
+        equal 13 s1.Length
+
+      testCase "Can use backslash is interpolated strings" <| fun () ->
+        $"\n{1+1}\n" |> equal """
+2
+"""
+
+      testCase "Backslash is escaped in interpolated strings" <| fun () -> // See #2649
+            $"\\" |> equal @"\"
+            $"\\".Length |> equal 1
+            $@"\" |> equal @"\"
+            $@"\".Length |> equal 1
+            @$"\" |> equal @"\"
+            @$"\".Length |> equal 1
+            $"\\{4}" |> equal @"\4"
+            $"\\{4}".Length |> equal 2
+            $@"\{4}" |> equal @"\4"
+            $@"\{4}".Length |> equal 2
+            @$"\{4}" |> equal @"\4"
+            @$"\{4}".Length |> equal 2
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->
             let xs = ["Hi"; "Hello"; "Hola"]
