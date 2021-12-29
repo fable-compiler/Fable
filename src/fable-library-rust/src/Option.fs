@@ -40,7 +40,7 @@ let filter<'T> (predicate: 'T -> bool) (opt: 'T option): 'T option =
     | Some x -> if predicate x then opt else None
     | None -> None
 
-let flatten<'T> (opt: Option<'T option>): 'T option =
+let flatten<'T> (opt: 'T option option): 'T option =
     match opt with
     | Some x -> x
     | None -> None

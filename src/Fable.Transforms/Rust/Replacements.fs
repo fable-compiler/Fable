@@ -2236,37 +2236,13 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | _ -> None
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let toArray r t arg =
-        Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), _ ->
-        // Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
-        None // TODO:
-    | ("ToObj" | "ToNullable"), _ ->
-        // Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
-        None // TODO:
+    | ("OfObj" | "OfNullable"), _ -> None // TODO:
+    | ("ToObj" | "ToNullable"), _ -> None // TODO:
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    // | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
-    //     Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "ToArray", [arg] ->
-    //     toArray r t arg |> Some
-    // | "ToList", [arg] ->
-    //     let args = args |> List.replaceLast (toArray None t)
-    //     Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
-    // | "FoldBack", [folder; opt; state] ->
-    //     Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("DefaultValue" | "OrElse"), _ ->
-    //     Helper.LibCall(com, "Option", "defaultValue", t, args, ?loc=r) |> Some
-    // | ("DefaultWith" | "OrElseWith"), _ ->
-    //     Helper.LibCall(com, "Option", "defaultWith", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
-    //     let meth = Naming.lowerFirst meth
-    //     let args = args |> List.replaceLast (toArray None t)
-    //     let args = injectArg com ctx r "Seq" meth i.GenericArgs args
-    //     Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", [arg] ->
         Helper.LibCall(com, "List", "ofOption", t, args, ?loc=r) |> Some
     | meth, args ->
@@ -3384,6 +3360,7 @@ let private replacedModules =
     Types.valueOption, options
     "System.Nullable`1", nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule
+    "Microsoft.FSharp.Core.ValueOptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
@@ -3556,7 +3533,10 @@ let tryType = function
     | Number(kind, uom) -> Some(getNumberFullName uom kind, parseNum, [])
     | String -> Some(Types.string, strings, [])
     | Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option(genArg, _) -> Some(Types.option, options, [genArg])
+    | Option(genArg, isStruct) ->
+        if isStruct
+        then Some(Types.valueOption, options, [genArg])
+        else Some(Types.option, options, [genArg])
     | Array genArg -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->

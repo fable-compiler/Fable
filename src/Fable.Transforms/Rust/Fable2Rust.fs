@@ -326,9 +326,6 @@ module TypeInfo =
         | Fable.String
         | Fable.Regex
             -> false
-        | Fable.Option(genArg, isStruct) ->
-            // TODO: support value options as Copy types (for generic types)
-            false // isStruct && (isCopyableType com entNames genArg)
         | Fable.Tuple(genArgs, isStruct) ->
             // support struct tuples as Copy types
             isStruct && (List.forall (isCopyableType com entNames) genArgs)
@@ -377,24 +374,25 @@ module TypeInfo =
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
-        | Fable.Measure _ -> false
-        | Fable.MetaType -> false
-        | Fable.Any -> false
-        | Fable.Unit -> false
-        | Fable.Boolean -> false
-        | Fable.Char -> false
-        | Fable.Number _ -> false
-        | Fable.Enum _ -> false
-        | Fable.LambdaType _ -> false
-        | Fable.DelegateType _ -> false
-        | Fable.GenericParam _ -> false
-        | Replacements.Numeric -> false
+        | Fable.Measure _
+        | Fable.MetaType
+        | Fable.Any
+        | Fable.Unit
+        | Fable.Boolean
+        | Fable.Char
+        | Fable.Number _
+        | Replacements.Numeric
+        | Fable.Enum _
+        | Fable.LambdaType _
+        | Fable.DelegateType _
+        | Fable.GenericParam _
+        | Fable.Option _
+        | Fable.List _
+            -> false
 
         | Fable.String -> true
         | Fable.Regex -> true
-        | Fable.Option _ -> not (isCopyableType com Set.empty t)
         | Fable.Array _ -> true
-        | Fable.List _ -> true
         | Fable.Tuple _ -> not (isCopyableType com Set.empty t)
         | Fable.AnonymousRecordType _ -> true
         | Fable.DeclaredType _ -> not (isCopyableType com Set.empty t)
@@ -413,10 +411,14 @@ module TypeInfo =
 
     let isCloneableType (com: IRustCompiler) t =
         match t with
-        | Fable.String -> true
-        | Fable.GenericParam _ -> true
-        | Fable.LambdaType _ -> true
-        | Fable.DelegateType _ -> true
+        | Fable.String
+        | Fable.GenericParam _
+        | Fable.LambdaType _
+        | Fable.DelegateType _
+        | Fable.Option _
+        | Fable.List _
+            -> true
+
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
@@ -1639,11 +1641,11 @@ module Util =
                 let ty = transformType com ctx typ
                 let genArgs = mkGenericTypeArgs [ty]
                 mkGenericPathExpr [rawIdent "None"] genArgs
-        // // TODO: Support ValueOption as Copy type
-        // if isStruct && (isCopyableType com typ)
+        // // support ValueOption as Copy type
+        // if isStruct
         // then expr
         // else expr |> makeRcValue
-        expr |> makeRcValue
+        expr // all options are value options
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
         let genArgs =
@@ -1842,7 +1844,7 @@ module Util =
             if shouldBeRefCountWrapped com t && not isOnlyReference then
                 makeClone expr
             elif isCloneableType com t && not isOnlyReference then
-                makeClone expr // shouldn't really be using a rchelper as this is NOT an rc
+                makeClone expr // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
                 makeClone expr
             else
