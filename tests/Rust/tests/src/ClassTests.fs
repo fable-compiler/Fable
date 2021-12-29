@@ -73,13 +73,13 @@ let ``Class fluent/builder internal clone pattern should work`` () =
     res |> equal 42
 
 type WithCrossModuleInterface(m: int) =
-    interface Fable.Tests.InterfaceTests.IHasAdd with
+    interface Common.Interfaces.IHasAdd with
       member this.Add x y = x + y + m
 
 [<Fact>]
 let ``Class interface from another module works`` () =
     let a = WithCrossModuleInterface(1)
-    let res = (a :> Fable.Tests.InterfaceTests.IHasAdd).Add 2 1
+    let res = (a :> Common.Interfaces.IHasAdd).Add 2 1
     res |> equal 4
     //let res2 = Fable.Tests.InterfaceTests.doAddWithInterface(a) // todo: this breaks because duplicate interface + module not imported
     //res2 |> equal 8

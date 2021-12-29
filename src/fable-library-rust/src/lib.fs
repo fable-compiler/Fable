@@ -1,4 +1,4 @@
-module Fable.Library.Rust
+module Fable_Library_Rust
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
