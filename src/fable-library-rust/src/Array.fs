@@ -36,13 +36,6 @@ let reverse (source: 'T[]): 'T[] =
     System.Array.Reverse(res)
     res
 
-let filter (predicate: 'T -> bool) (source: 'T[]) =
-    let res = ResizeArray<'T>()
-    for i = 0 to source.Length - 1 do
-        if predicate source.[i] then
-            res.Add (source.[i])
-    res
-
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
     if targetIndex < 0 || targetIndex + count > target.Length then
         invalidArg "index" SR.indexOutOfBounds
@@ -142,29 +135,26 @@ let map3 (mapping: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3
         res.Add (mapping source1.[i] source2.[i] source3.[i])
     res
 
-// let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (source: 'T[]) =
-//     match source.Length with
-//     | 0 -> [||], state
-//     | len ->
-//         let mutable acc = state
-//         let res = allocateArray len
-//         for i = 0 to source.Length - 1 do
-//             let h,s = mapping acc source.[i]
-//             res.[i] <- h
-//             acc <- s
-//         res, acc
+let mapFold (mapping: 'State -> 'T -> 'U * 'State) state (source: 'T[]) =
+    let mutable acc = state
+    let len = source.Length
+    let res = ResizeArray<'U>(len)
+    for i = 0 to len - 1 do
+        let m = mapping acc source.[i]
+        res.Add (fst m)
+        acc <- (snd m)
+    res, acc
 
-// let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (source: 'T[]) state =
-//     match source.Length with
-//     | 0 -> [||], state
-//     | len ->
-//         let mutable acc = state
-//         let res = allocateArray len
-//         for i = source.Length - 1 downto 0 do
-//             let h,s = mapping source.[i] acc
-//             res.[i] <- h
-//             acc <- s
-//         res, acc
+let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (source: 'T[]) state =
+    let mutable acc = state
+    let len = source.Length
+    let res = ResizeArray<'U>(len)
+    for i = len - 1 downto 0 do
+        let m = mapping source.[i] acc
+        res.Add (fst m)
+        acc <- (snd m)
+    res.Reverse()
+    res, acc
 
 let indexed (source: 'T[]) =
     let len = source.Length
@@ -173,12 +163,13 @@ let indexed (source: 'T[]) =
         res.Add (i, source.[i])
     res
 
-let truncate (count: int) (source: 'T[]) =
-    let count =
-        if count < 0 then 0
-        elif count > source.Length then source.Length
-        else count
-    getSubArray source 0 count
+let choose (chooser: 'T -> 'U option) (source: 'T[]) =
+    let res = ResizeArray<'U>()
+    for i = 0 to source.Length - 1 do
+        match chooser source.[i] with
+        | Some x -> res.Add (x)
+        | None -> ()
+    res
 
 // let concat (arrays: 'T[] seq): 'T[] =
 //     let arrays =
@@ -204,17 +195,32 @@ let truncate (count: int) (source: 'T[]) =
 //     concat mapped cons
 //     // collectImpl mapping source // flatMap not widely available yet
 
-let where predicate (source: 'T[]) =
-    filter predicate source
+let exists predicate (source: 'T[]) =
+    let mutable i = 0
+    let mutable res = false
+    while i < source.Length && not res do
+        res <- predicate source.[i]
+        i <- i + 1
+    res
 
-// let contains (value: 'T) (source: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-//     let rec inner_loop i =
-//         if i >= source.Length
-//         then false
-//         else
-//             if eq.Equals (value, source.[i]) then true
-//             else inner_loop (i + 1)
-//     inner_loop 0
+let exists2 predicate (source1: 'T1[]) (source2: 'T2[]) =
+    if source1.Length <> source2.Length then differentLengths()
+    let mutable i = 0
+    let mutable res = false
+    while i < source1.Length && not res do
+        res <- predicate source1.[i] source2.[i]
+        i <- i + 1
+    res
+
+let contains<'T when 'T: equality> (value: 'T) (source: 'T[]) =
+    exists (fun x -> x = value) source
+
+let filter (predicate: 'T -> bool) (source: 'T[]) =
+    let res = ResizeArray<'T>()
+    for i = 0 to source.Length - 1 do
+        if predicate source.[i] then
+            res.Add (source.[i])
+    res
 
 let initialize count (initializer: int -> 'T) =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
@@ -301,6 +307,13 @@ let takeWhile (predicate: 'T -> bool) (source: 'T[]) =
     let mutable count = 0
     while count < source.Length && predicate source.[count] do
         count <- count + 1
+    getSubArray source 0 count
+
+let truncate (count: int) (source: 'T[]) =
+    let count =
+        if count < 0 then 0
+        elif count > source.Length then source.Length
+        else count
     getSubArray source 0 count
 
 // let addInPlace (x: 'T) (source: 'T[]) =
@@ -450,14 +463,6 @@ let pick (chooser: 'T -> 'U option) (source: 'T[]): 'U =
     | Some res -> res
     | None -> indexNotFound()
 
-let choose (chooser: 'T -> 'U option) (source: 'T[]) =
-    let res = ResizeArray<'U>()
-    for i = 0 to source.Length - 1 do
-        match chooser source.[i] with
-        | Some x -> res.Add (x)
-        | None -> ()
-    res
-
 let fold folder (state: 'State) (source: 'T[]) =
     let mutable acc = state
     for i = 0 to source.Length - 1 do
@@ -557,20 +562,20 @@ let permute (indexMap: int -> int) (source: 'T[]) =
 //     sortInPlaceWithImpl comparer xs
 //     xs
 
-// let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-//     sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyImpl xs)
-
-// let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-//     sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyImpl xs)
-
-// let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-//     sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyImpl xs)
-
-// let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-//     sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyImpl xs)
-
 // let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
 //     sortInPlaceWith comparer (copyImpl xs)
+
+// let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
+//     sortWith (fun x y -> comparer.Compare(x, y)) xs
+
+// let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
+//     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
+
+// let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
+//     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+
+// let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
+//     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
 // let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
 //     let len1 = xs.Length
@@ -637,41 +642,26 @@ let splitAt (index: int) (source: 'T[]) =
         invalidArg "index" SR.indexOutOfBounds
     getSubArray source 0 index, getSubArray source index (source.Length - index)
 
-// let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-//     if isNull source1 then
-//         if isNull source2 then 0 else -1
-//     elif isNull source2 then
-//         1
-//     else
-//         let mutable i = 0
-//         let mutable res = 0
-//         let length1 = source1.Length
-//         let length2 = source2.Length
-//         if length1 > length2 then 1
-//         elif length1 < length2 then -1
-//         else
-//             while i < length1 && res = 0 do
-//                 res <- comparer source1.[i] source2.[i]
-//                 i <- i + 1
-//             res
+let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    // if isNull source1 then
+    //     if isNull source2 then 0 else -1
+    // elif isNull source2 then
+    //     1
+    // else
+        let mutable i = 0
+        let mutable res = 0
+        let length1 = source1.Length
+        let length2 = source2.Length
+        if length1 > length2 then 1
+        elif length1 < length2 then -1
+        else
+            while i < length1 && res = 0 do
+                res <- comparer source1.[i] source2.[i]
+                i <- i + 1
+            res
 
 // let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
 //     compareWith compare source1 source2 = 0
-
-// let rec existsOffset predicate (source: 'T[]) index =
-//     if index = source.Length then false
-//     else predicate source.[index] || existsOffset predicate source (index+1)
-
-// let exists predicate source =
-//     existsOffset predicate source 0
-
-// let rec existsOffset2 predicate (source1: _[]) (source2: _[]) index =
-//     if index = source1.Length then false
-//     else predicate source1.[index] source2.[index] || existsOffset2 predicate source1 source2 (index+1)
-
-// let rec exists2 predicate (source1: _[]) (source2: _[]) =
-//     if source1.Length <> source2.Length then differentLengths()
-//     existsOffset2 predicate source1 source2 0
 
 // let sum (source: 'T[]) ([<Inject>] adder: IGenericAdder<'T>): 'T =
 //     let mutable acc = adder.GetZero()
@@ -685,17 +675,17 @@ let splitAt (index: int) (source: 'T[]) =
 //         acc <- adder.Add(acc, projection source.[i])
 //     acc
 
-// let maxBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
+let maxBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T[]): 'T =
+    reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
 
-// let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) xs
+let max<'T when 'T: comparison> (xs: 'T[]): 'T =
+    reduce (fun x y -> if x > y then x else y) xs
 
-// let minBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
+let minBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T[]): 'T =
+    reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
 
-// let min (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
+let min<'T when 'T: comparison> (xs: 'T[]): 'T =
+    reduce (fun x y -> if x < y then x else y) xs
 
 // let average (source: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
 //     if Array.isEmpty source then
@@ -718,6 +708,9 @@ let splitAt (index: int) (source: 'T[]) =
 
 // Redirected to Seq.ofArray to avoid dependency (see Replacements)
 // let toSeq (source: 'T[]) = Seq.ofArray
+
+let where predicate (source: 'T[]) =
+    filter predicate source
 
 // let windowed (windowSize: int) (source: 'T[]): 'T[][] =
 //     if windowSize <= 0 then

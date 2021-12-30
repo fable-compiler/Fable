@@ -1,10 +1,7 @@
 module Fable.Tests.InterfaceTests
 
 open Util.Testing
-
-//PROBLEM - Interfaces are not on the AST - this is erased
-type IHasAdd =
-    abstract Add: x: int -> y: int -> int
+open Common.Interfaces
 
 type Adder(m: int) =
     interface IHasAdd with

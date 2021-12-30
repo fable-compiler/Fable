@@ -1246,9 +1246,9 @@ module Items =
         ItemKind.Mod(Unsafety.No, ModKind.Unloaded)
         |> mkItem attrs ident
 
-    let mkTraitItem attrs name fields bounds generics: Item =
+    let mkTraitItem attrs name items bounds generics: Item =
         let ident = mkIdent name
-        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec fields)
+        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec items)
         |> mkItem attrs ident
 
     let mkEnumItem attrs name variants generics: Item =

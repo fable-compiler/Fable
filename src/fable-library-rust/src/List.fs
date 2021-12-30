@@ -74,16 +74,14 @@ let length (xs: 'T list) = //xs.Length
         | Some node -> inner_loop (i + 1) node.tail
     inner_loop 0 xs
 
-// let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-//     let rec inner_loop (xs: 'T list) (ys: 'T list) =
-//         match (isEmpty xs), (isEmpty ys) with
-//         | true, true -> 0
-//         | true, false -> -1
-//         | false, true -> 1
-//         | false, false ->
-//             let c = comparer (head xs) (head ys)
-//             if c = 0 then inner_loop (tail xs) (tail ys) else c
-//     inner_loop xs ys
+let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> 0
+    | true, false -> -1
+    | false, true -> 1
+    | false, false ->
+        let c = comparer (head xs) (head ys)
+        if c = 0 then compareWith comparer (tail xs) (tail ys) else c
 
 let rec tryLast (xs: 'T list) =
     match xs with
@@ -150,6 +148,22 @@ let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 l
     fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     // Array.foldBack2 folder (toArray xs) (toArray ys) state
 
+let rec forAll predicate (xs: 'T list) =
+    if isEmpty xs then true
+    else
+        if predicate (head xs)
+        then forAll predicate (tail xs)
+        else false
+
+let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> true
+    | false, false ->
+        if predicate (head xs) (head ys)
+        then forAll2 predicate (tail xs) (tail ys)
+        else false
+    | _ -> invalidArg "list2" SR.differentLengths
+
 let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
     let rec inner_loop gen acc (root: 'T list) (xs: 'T list) =
         match gen acc with
@@ -210,15 +224,6 @@ let ofArray (xs: 'T[]) =
 //     node |> setConsTailEmpty
 //     root |> tail
 
-let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-    toArray xs
-    |> Array.scan folder state
-    |> ofArray
-
-let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
-    Array.scanBack folder (toArray xs) state
-    |> ofArray
-
 let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
 
@@ -248,9 +253,25 @@ let choose (chooser: 'T -> 'U option) (xs: 'T list) =
 //     node |> setConsTailEmpty
 //     root |> tail
 
-// let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
-//     tryFindIndex (fun v -> eq.Equals (value, v)) xs
-//     |> Option.isSome
+let rec exists predicate (xs: 'T list) =
+    if isEmpty xs then false
+    else
+        if predicate (head xs) then true
+        else exists predicate (tail xs)
+
+let rec exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> false
+    | false, false ->
+        if predicate (head xs) (head ys) then true
+        else exists2 predicate (tail xs) (tail ys)
+    | _ -> invalidArg "list2" SR.differentLengths
+
+let contains<'T when 'T: equality> (value: 'T) (xs: 'T list) =
+    exists (fun x -> x = value) xs
+
+let filter (predicate: 'T -> bool) (xs: 'T list) =
+    xs |> choose (fun x -> if predicate x then Some x else None)
 
 let map (mapping: 'T -> 'U) (xs: 'T list) =
     let gen xs =
@@ -285,17 +306,24 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: '
         else Some(mapping (head xs) (head ys) (head zs), (tail xs, tail ys, tail zs))
     unfold gen (xs, ys, zs)
 
-// let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T list) =
-//     let folder (node: 'Result list, st) x =
-//         let r, st = mapping st x
-//         node |> appendConsNoTail r, st
-//     let root = (empty())
-//     let node, state = fold folder (root, state) xs
-//     node |> setConsTailEmpty
-//     root |> tail, state
+let mapFold (mapping: 'State -> 'T -> 'U * 'State) (state: 'State) (xs: 'T list) =
+    let mutable acc = state
+    let gen xs =
+        if (isEmpty xs) then None
+        else
+            let m = mapping acc (head xs)
+            acc <- snd m
+            Some(fst m, tail xs)
+    unfold gen xs, acc
 
-// let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
-//     mapFold (fun acc x -> mapping x acc) state (reverse xs)
+let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'State) =
+    let mutable ys = empty()
+    let folder acc x =
+        let m = mapping x acc
+        ys <- cons (fst m) ys
+        snd m
+    let st = fold folder state (reverse xs)
+    ys, st
 
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
     let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
@@ -363,18 +391,6 @@ let item index (xs: 'T list) = // xs.Item(n)
     | None -> invalidArg "index" SR.indexOutOfBounds
     | Some x -> x
 
-let filter (predicate: 'T -> bool) (xs: 'T list) =
-    let mutable root = empty()
-    let mutable acc = root
-    let mutable xs = xs
-    while not (isEmpty xs) do
-        let x = head xs
-        if predicate x then
-            acc <- acc |> appendConsNoTail x
-            if isEmpty root then root <- acc
-        xs <- tail xs
-    root
-
 let initialize count (initializer: int -> 'T) =
     let gen i =
         if i < count
@@ -415,23 +431,6 @@ let reduceBack reduction (xs: 'T list) =
 let replicate count initial =
     initialize count (fun _ -> initial)
 
-let forAll f (xs: 'T list) =
-    //TODO: stop early
-    fold (fun acc x -> acc && f x) true xs
-
-let forAll2 f (xs: 'T1 list) (ys: 'T2 list) =
-    //TODO: stop early
-    fold2 (fun acc x y -> acc && f x y) true xs ys
-
-let exists f (xs: 'T list) =
-    tryFindIndex f xs |> Option.isSome
-
-let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
-    match (isEmpty xs), (isEmpty ys) with
-    | true, true -> false
-    | false, false -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
-    | _ -> invalidArg "list2" SR.differentLengths
-
 let unzip xs =
     foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty()), (empty()))
 
@@ -446,8 +445,8 @@ let zip3 xs ys zs =
 
 // let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
 //     let arr = toArray xs
-//     Array.sortInPlaceWith comparer arr // Note: In JS this sort is stable
-//     arr |> ofArray
+//     Array.sortInPlaceWith comparer arr
+//     ofArray arr
 
 // let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
 //     sortWith (fun x y -> comparer.Compare(x, y)) xs
@@ -467,17 +466,17 @@ let zip3 xs ys zs =
 // let sumBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'U>): 'U =
 //     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-// let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
+let maxBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T list): 'T =
+    reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
 
-// let max xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) xs
+let max<'T when 'T: comparison> (xs: 'T list): 'T =
+    reduce (fun x y -> if x > y then x else y) xs
 
-// let minBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
+let minBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T list): 'T =
+    reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
 
-// let min (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
+let min<'T when 'T: comparison> (xs: 'T list): 'T =
+    reduce (fun x y -> if x < y then x else y) xs
 
 // let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
 //     let mutable count = 0
@@ -511,6 +510,15 @@ let permute (indexMap: int -> int) (xs: 'T list) =
 //         ) ys) xs
 //     node |> setConsTailEmpty
 //     root |> tail
+
+let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    toArray xs
+    |> Array.scan folder state
+    |> ofArray
+
+let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    Array.scanBack folder (toArray xs) state
+    |> ofArray
 
 let rec skip count (xs: 'T list) =
     if count <= 0 then xs

@@ -70,6 +70,7 @@ type MemberInfo =
     abstract IsMutable: bool
     abstract IsGetter: bool
     abstract IsSetter: bool
+    abstract IsProperty: bool
     abstract IsEnumerator: bool
 
 type MemberFunctionOrValue =

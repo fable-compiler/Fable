@@ -233,7 +233,8 @@ def protected_bind(computation: Callable[[IAsyncContext[T]], None], binder: Call
 
 
 def protected_return(value: Optional[T] = None) -> IAsync[T]:
-    return protected_cont(lambda ctx: ctx.on_success(value))
+    f : Callable[[IAsyncContext[T]], None] = lambda ctx: ctx.on_success(value)
+    return protected_cont(f)
 
 
 class AsyncBuilder:
@@ -241,7 +242,8 @@ class AsyncBuilder:
         return protected_bind(computation, binder)
 
     def Combine(self, computation1: IAsync[Any], computation2: IAsync[T]) -> IAsync[T]:
-        return self.Bind(computation1, lambda _=None: computation2)
+        binder: Callable[[Optional[T]], IAsync[T]] = lambda _: computation2
+        return self.Bind(computation1, binder)
 
     def Delay(self, generator: Callable[[], IAsync[T]]) -> IAsync[T]:
         return protected_cont(lambda ctx: generator()(ctx))
@@ -311,11 +313,13 @@ class AsyncBuilder:
         return protected_cont(fn)
 
     def Using(self, resource: D, binder: Callable[[D], IAsync[U]]) -> IAsync[U]:
-        return self.TryFinally(binder(resource), lambda _=None: resource.Dispose())
+        compensation: Callable[[], None] = lambda: resource.Dispose()
+        return self.TryFinally(binder(resource), compensation)
 
-    def While(self, guard: Callable[[], bool], computation: IAsync[Any]) -> IAsync[Any]:
+    def While(self, guard: Callable[[], bool], computation: IAsync[None]) -> IAsync[None]:
         if guard():
-            return self.Bind(computation, lambda _=None: self.While(guard, computation))
+            binder: Callable[[Optional[None]], IAsync[None]] = lambda _: self.While(guard, computation)
+            return self.Bind(computation, binder)
         else:
             return self.Return()
 

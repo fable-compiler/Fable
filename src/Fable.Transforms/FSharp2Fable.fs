@@ -1334,11 +1334,13 @@ let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
     Set.add name usedRootNames
 
 // Entities that are not output to JS
-let private isIgnoredLeafEntity (ent: FSharpEntity) =
+let private isIgnoredLeafEntity (com: Compiler) (ent: FSharpEntity) =
     ent.IsInterface
+    && com.Options.Language <> Rust
+    && com.Options.Language <> Python
     || ent.IsEnum
     || ent.IsMeasure
-    || ent.IsFSharpAbbreviation
+    || ent.IsFSharpAbbreviation //&& com.Options.Language <> Rust
     || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
 
@@ -1348,7 +1350,7 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
         match decl with
         | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
             match sub with
-            | [] when isIgnoredLeafEntity ent -> usedNames
+            | [] when isIgnoredLeafEntity com ent -> usedNames
             | [] ->
                 let entRef = FsEnt.Ref ent
                 let ent = com.GetEntity(entRef)
@@ -1382,7 +1384,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
         match fsDecl with
         | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
             match sub with
-            | [] when isIgnoredLeafEntity ent -> []
+            | [] when isIgnoredLeafEntity com ent -> []
             | [] ->
                 let entRef = FsEnt.Ref ent
                 let ent = (com :> Compiler).GetEntity(entRef)
