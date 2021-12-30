@@ -402,6 +402,12 @@ module Reflection =
 module Helpers =
     let index = (Seq.initInfinite id).GetEnumerator()
 
+    let removeNamespace (fullName: string) =
+        fullName.Split('.')
+        |> Array.last
+        |> (fun name -> name.Replace("`", "_"))
+        |> Helpers.clean
+
     let getUniqueIdentifier (name: string): Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
@@ -741,9 +747,12 @@ module Annotation =
         | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [ genArg ] repeatedGenerics
         | Fable.AnonymousRecordType _ ->
             Expression.name("dict"), [] // TODO: use TypedDict?
-        | Fable.DeclaredType(ent, genArgs) ->
-            // printfn "DeclaredType: %A" ent.FullName
-            match ent.FullName, genArgs with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            // printfn "DeclaredType: %A" entRef.FullName
+            match entRef.FullName, genArgs with
+            | Types.result, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
             | Replacements.BuiltinEntity kind ->
                 match kind with
                 | Replacements.BclDecimal ->
@@ -764,21 +773,33 @@ module Annotation =
                 | Replacements.FSharpSet gen ->
                     let gens, stmts = transformTypeInfo com ctx r genMap gen
                     genericEntity fullName [ gens ], stmts
-            | Types.ienumerableGeneric ->
-                makeNativeTypeAnnotation com ctx genArgs "IterableIterator"
-            | Types.result ->
-                makeUnionTypeAnnotation com ctx genArgs
             | entName when entName.StartsWith(Types.choiceNonGeneric) ->
                 makeUnionTypeAnnotation com ctx genArgs
                 *)
+            | Types.ienumerator, _ ->
+                let resolved, stmts = typingModuleTypeHint "Any" []
+                pythonModuleAnnotation com ctx "typing"  "Iterator" [ resolved ], stmts
+            | Types.ienumeratorGeneric, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                pythonModuleAnnotation com ctx "typing"  "Iterator" resolved, stmts
+            | Types.ienumerable, _ ->
+                let resolved, stmts = typingModuleTypeHint "Any" []
+                pythonModuleAnnotation com ctx "typing"  "Iterator" [ resolved ], stmts
+            | Types.ienumerableGeneric, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                pythonModuleAnnotation com ctx "typing"  "Iterable" resolved, stmts
+            | Types.idisposable, _ ->
+                libValue com ctx "util" "IDisposable", []
             | _ ->
-                let ent = com.GetEntity(ent)
+                let ent = com.GetEntity(entRef)
                 if ent.IsInterface then
-                    let name =
-                        ent.FullName.Split('.')
-                        |> Array.last
-                        |> (fun name -> name.Replace("`", "_"))
-                        |> Helpers.clean
+                    let name = Helpers.removeNamespace ent.FullName
+                    match entRef.SourcePath with
+                    | Some path when path <> com.CurrentFile ->
+                        // this is just to import the interface
+                        let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                        com.GetImportExpr(ctx, importPath, name) |> ignore
+                    | _ -> ()
                     makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
                 else
                     match Lib.tryPyConstructor com ctx ent with
@@ -2543,7 +2564,6 @@ module Util =
                 |> List.map (fun arg ->
                     let (Identifier name) = arg.Arg
                     let name = name.Substring(0, name.Length-4)
-                    printfn "Annotation: %A" arg
                     Arg.arg(name, ?annotation=arg.Annotation), Expression.name(name))
                 |> List.unzip
             | _ -> [], []
@@ -2932,7 +2952,7 @@ module Util =
         ]
 
     let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) =
-        let classIdent = com.GetIdentifier(ctx, classDecl.Name)
+        let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
         let members =
             classEnt.MembersFunctionsAndValues
             |> List.ofSeq
