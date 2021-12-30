@@ -27,7 +27,7 @@ module Naming =
         | CaseRules.None | _ -> name
 
     let toSnakeCase (name: string) =
-        if Char.IsLower(name.[0]) then
+        if name.Length > 0 && Char.IsLower(name.[0]) then
             Naming.applyCaseRule CaseRules.SnakeCase name
         else
             name

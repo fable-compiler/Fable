@@ -1335,7 +1335,9 @@ let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
 
 // Entities that are not output to JS
 let private isIgnoredLeafEntity (com: Compiler) (ent: FSharpEntity) =
-    ent.IsInterface && com.Options.Language <> Rust
+    ent.IsInterface
+    && com.Options.Language <> Rust
+    && com.Options.Language <> Python
     || ent.IsEnum
     || ent.IsMeasure
     || ent.IsFSharpAbbreviation //&& com.Options.Language <> Rust
