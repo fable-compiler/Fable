@@ -899,7 +899,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, None), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
@@ -909,10 +909,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
-    | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
+    | List t ->
+        let f = makeComparerFunction com ctx t
+        Helper.LibCall(com, "List", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
+    // | Tuple _ ->
+    //     Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
 
@@ -1720,10 +1721,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com ctx r left right |> Some
-    | (Operators.lessThan | "Lt"), [left; right] -> compareIf com ctx r left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> compareIf com ctx r left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
-    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
+    | (Operators.lessThan | "Lt"), [left; right] -> makeEqOp r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> makeEqOp r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [left; right] -> makeEqOp r left right BinaryGreater |> Some
+    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> makeEqOp r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max"|"Clamp" as meth), _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Not", [operand] -> // TODO: Check custom operator?

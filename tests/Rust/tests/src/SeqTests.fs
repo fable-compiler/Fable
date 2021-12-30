@@ -21,11 +21,11 @@ let sumFirstTwo (xs: seq<float>) =
 // type DummyUnion = Number of int
 // type ExceptFoo = { Bar:string }
 
-// type Point =
-//     { x: int; y: int }
-//     static member Zero = { x=0; y=0 }
-//     static member Neg(p: Point) = { x = -p.x; y = -p.y }
-//     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
+type Point =
+    { x: int; y: int }
+    static member Zero = { x=0; y=0 }
+    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
 // type MyNumber =
 //     | MyNumber of int
@@ -62,7 +62,7 @@ let ``Seq.length with arrays works`` () =
 
 [<Fact>]
 let ``Seq.length with lists works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     Seq.length xs |> equal 4
 
 [<Fact>]
@@ -72,7 +72,7 @@ let ``Seq.length with seq works`` () =
 
 [<Fact>]
 let ``Seq.delay works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = Seq.delay (fun () -> xs :> _ seq)
     Seq.length ys |> equal 4
 
@@ -91,7 +91,7 @@ let ``Seq.empty works`` () =
 
 [<Fact>]
 let ``Seq.append works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = [5.; 6.; 7.]
     let zs = Seq.append xs ys
     Seq.length zs |> equal 7
@@ -131,7 +131,7 @@ let ``Seq.append works`` () =
 
 [<Fact>]
 let ``Seq.choose works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let zs = xs |> Seq.choose (fun x ->
         if x > 2. then Some x
         else None)
@@ -200,40 +200,46 @@ let ``Seq.concat works II`` () =
 //     seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
 
 [<Fact>]
+let ``Seq.contains works`` () =
+    let xs = seq {1; 2; 3; 4}
+    xs |> Seq.contains 2 |> equal true
+    xs |> Seq.contains 0 |> equal false
+
+[<Fact>]
 let ``Seq.exists works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.exists (fun x -> x = 2.)
     |> equal true
 
 [<Fact>]
 let ``Seq.exists2 works`` () =
-    let xs = [1.; 2.; 3.; 4.]
-    let ys = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
+    let ys = seq {1.; 2.; 3.; 4.}
     Seq.exists2 (fun x y -> x * y = 16.) xs ys
     |> equal true
 
 [<Fact>]
 let ``Seq.filter works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = xs |> Seq.filter (fun x -> x > 5.)
     ys |> Seq.isEmpty
     |> equal true
 
 [<Fact>]
 let ``Seq.find works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.find ((=) 2.)
     |> equal 2.
 
 [<Fact>]
 let ``Seq.findIndex works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.findIndex ((=) 2.)
     |> equal 1
 
 [<Fact>]
 let ``Seq.findBack works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.find ((>) 4.) |> equal 1.
     xs |> Seq.findBack ((>) 4.) |> equal 3.
 
@@ -246,13 +252,13 @@ let ``Seq.findBack with option works`` () =
 
 [<Fact>]
 let ``Seq.findIndexBack works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.findIndex ((>) 4.) |> equal 0
     xs |> Seq.findIndexBack ((>) 4.) |> equal 2
 
 [<Fact>]
 let ``Seq.tryFindBack works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
     xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
     xs |> Seq.tryFindBack ((=) 5.) |> equal None
@@ -268,14 +274,14 @@ let ``Seq.tryFindBack with option works`` () =
 
 [<Fact>]
 let ``Seq.tryFindIndexBack works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
     xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
     xs |> Seq.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Fact>]
 let ``Seq.fold works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let total = xs |> Seq.fold (+) 0.
     total |> equal 10.
 
@@ -310,13 +316,13 @@ let ``Seq.foldBack2 works`` () =
 
 [<Fact>]
 let ``Seq.forall works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     Seq.forall (fun x -> x < 5.) xs
     |> equal true
 
 [<Fact>]
 let ``Seq.forall2 works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = [1.; 2.; 3.; 4.]
     Seq.forall2 (=) xs ys
     |> equal true
@@ -335,7 +341,7 @@ let ``Seq.forall2 works`` () =
 
 [<Fact>]
 let ``Seq.head works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     Seq.head xs |> equal 1.
 
 [<Fact>]
@@ -348,7 +354,7 @@ let ``Seq.head with option works`` () =
 
 [<Fact>]
 let ``Seq.tryHead works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     Seq.tryHead xs |> equal (Some 1.)
     // Seq.tryHead [] |> equal None // TODO: untyped
     Seq.tryHead ([] :> seq<float>) |> equal None
@@ -364,7 +370,7 @@ let ``Seq.tryHead with option works`` () =
 
 [<Fact>]
 let ``Seq.tail works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = Seq.tail xs
     Seq.length ys |> equal 3
     Seq.head ys |> equal 2.
@@ -384,7 +390,7 @@ let ``Seq.isEmpty works`` () =
 
 [<Fact>]
 let ``Seq.iter works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let mutable total = 0.
     xs |> Seq.iter (fun x ->
         total <- total + x
@@ -393,7 +399,7 @@ let ``Seq.iter works`` () =
 
 [<Fact>]
 let ``Seq.iter2 works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let mutable total = 0.
     Seq.iter2 (fun x y ->
         total <- total + x + y
@@ -402,7 +408,7 @@ let ``Seq.iter2 works`` () =
 
 [<Fact>]
 let ``Seq.iteri works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let mutable total = 0.
     xs |> Seq.iteri (fun i x ->
         total <- total + (float i) * x
@@ -451,79 +457,79 @@ let ``Seq.indexed works`` () =
     fst x |> equal 1
     snd x |> equal "b"
 
-// [<Fact>]
-// let ``Seq.mapFold works`` () =
-//     let xs = [1y; 2y; 3y; 4y]
-//     let result = xs |> Seq.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
-//     fst result |> Seq.sum |> equal 20y
-//     snd result |> equal 10y
+[<Fact>]
+let ``Seq.mapFold works`` () =
+    let xs = [1y; 2y; 3y; 4y]
+    let res = xs |> Seq.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst res |> Seq.toArray |> equal [|2y; 4y; 6y; 8y|]
+    snd res |> equal 10y
 
-// [<Fact>]
-// let ``Seq.mapFoldBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let result = Seq.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
-//     fst result |> Seq.sum |> equal -20.
-//     snd result |> equal -10.
+[<Fact>]
+let ``Seq.mapFoldBack works`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    let res = Seq.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst res |> Seq.toArray |> equal [|-2.; -4.; -6.; -8.|]
+    snd res |> equal -10.
 
-// [<Fact>]
-// let ``Seq.max works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.max
-//     |> equal 2.
+[<Fact>]
+let ``Seq.max works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.max
+    |> equal 2.
 
-// [<Fact>]
-// let ``Seq.maxBy works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.maxBy (fun x -> -x)
-//     |> equal 1.
+[<Fact>]
+let ``Seq.maxBy works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.maxBy (fun x -> -x)
+    |> equal 1.
 
-// [<Fact>]
-// let ``Seq.min works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.min
-//     |> equal 1.
+[<Fact>]
+let ``Seq.min works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.min
+    |> equal 1.
 
-// [<Fact>]
-// let ``Seq.minBy works`` () =
-//     let xs = [1.; 2.]
-//     xs |> Seq.minBy (fun x -> -x)
-//     |> equal 2.
+[<Fact>]
+let ``Seq.minBy works`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.minBy (fun x -> -x)
+    |> equal 2.
 
-// [<Fact>]
-// let ``Seq.max with non numeric types works`` () =
-//     let p1 = {x=1; y=1}
-//     let p2 = {x=2; y=2}
-//     [p1; p2] |> Seq.max |> equal p2
+[<Fact>]
+let ``Seq.max with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.max |> equal p2
 
-// [<Fact>]
-// let ``Seq.maxBy with non numeric types works`` () =
-//     let p1 = {x=1; y=1}
-//     let p2 = {x=2; y=2}
-//     [p1; p2] |> Seq.maxBy Point.Neg |> equal p1
+[<Fact>]
+let ``Seq.maxBy with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.maxBy Point.Neg |> equal p1
 
-// [<Fact>]
-// let ``Seq.min with non numeric types works`` () =
-//     let p1 = {x=1; y=1}
-//     let p2 = {x=2; y=2}
-//     [p1; p2] |> Seq.min |> equal p1
+[<Fact>]
+let ``Seq.min with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.min |> equal p1
 
-// [<Fact>]
-// let ``Seq.minBy with non numeric types works`` () =
-//     let p1 = {x=1; y=1}
-//     let p2 = {x=2; y=2}
-//     [p1; p2] |> Seq.minBy Point.Neg |> equal p2
+[<Fact>]
+let ``Seq.minBy with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.minBy Point.Neg |> equal p2
 
-// [<Fact>]
-// let ``Seq.maxBy with numeric projection works`` () =
-//     let p1 = {x=1; y=2}
-//     let p2 = {x=2; y=1}
-//     [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
+[<Fact>]
+let ``Seq.maxBy with numeric projection works`` () =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
 
-// [<Fact>]
-// let ``Seq.minBy with numeric projection works`` () =
-//     let p1 = {x=1; y=2}
-//     let p2 = {x=2; y=1}
-//     [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
+[<Fact>]
+let ``Seq.minBy with numeric projection works`` () =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
 
 // [<Fact>]
 // let ``Seq.sum works`` () =
@@ -573,7 +579,7 @@ let ``Seq.item works`` () =
 
 [<Fact>]
 let ``Seq.tryItem works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     Seq.tryItem 3 xs |> equal (Some 4.)
     Seq.tryItem 4 xs |> equal None
     Seq.tryItem -1 xs |> equal None
@@ -694,7 +700,7 @@ let ``Seq.reduceBack works`` () =
 
 [<Fact>]
 let ``Seq.scan works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = xs |> Seq.scan (+) 0.
     sumFirstTwo ys |> equal 1.
 
@@ -847,14 +853,14 @@ let ``Seq.zip3 works`` () =
 //     let ys = Seq.cast<int> xs
 //     ys |> Seq.head |> equal 1
 
-// [<Fact>]
-// let ``Seq.compareWith works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = [1; 2; 3; 5]
-//     let zs = [1; 2; 3; 3]
-//     Seq.compareWith (-) xs xs |> equal 0
-//     Seq.compareWith (-) xs ys |> equal -1
-//     Seq.compareWith (-) xs zs |> equal 1
+[<Fact>]
+let ``Seq.compareWith works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 5]
+    let zs = [1; 2; 3; 3]
+    Seq.compareWith (-) xs xs |> equal 0
+    Seq.compareWith (-) xs ys |> equal -1
+    Seq.compareWith (-) xs zs |> equal 1
 
 // [<Fact>]
 // let ``Seq.countBy works`` () =
@@ -945,13 +951,13 @@ let ``Seq.tryExactlyOne works`` () =
 
 [<Fact>]
 let ``Seq.last works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     xs |> Seq.last
     |> equal 4.
 
 [<Fact>]
 let ``Seq.tryLast works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let empty: float list = []
     xs |> Seq.tryLast |> equal (Some 4.)
     empty |> Seq.tryLast |> equal None
@@ -978,7 +984,7 @@ let ``Seq.permute works`` () =
 
 [<Fact>]
 let ``Seq.readonly works`` () =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = seq {1.; 2.; 3.; 4.}
     let ys = xs |> Seq.readonly
     ys |> Seq.length |> equal 4
     ys |> Seq.head |> equal 1.

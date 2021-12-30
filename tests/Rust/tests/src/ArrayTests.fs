@@ -366,18 +366,18 @@ let ``Array.append works II`` () =
 [<Fact>]
 let ``Array.choose with ints works`` () =
     let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
-    let result = xs |> Array.choose (fun i ->
+    let res = xs |> Array.choose (fun i ->
         if i % 2 = 1 then Some i
         else None)
-    result.Length |> equal 5
+    res.Length |> equal 5
 
 // [<Fact>]
 // let ``Array.choose with longs works`` () =
 //     let xs = [|1L; 2L; 3L; 4L|]
-//     let result = xs |> Array.choose (fun x ->
+//     let res = xs |> Array.choose (fun x ->
 //         if x > 2L then Some x
 //         else None)
-//     result.[0] + result.[1]
+//     res.[0] + res.[1]
 //     |> equal 7L
 
 // [<Fact>]
@@ -412,18 +412,24 @@ let ``Array.choose with ints works`` () =
 //     |> List.ofArray
 //     |> equal [ "One"; "Two" ]
 
-// [<Fact>]
-// let ``Array.exists works`` () =
-//     let xs = [|1u; 2u; 3u; 4u|]
-//     xs |> Array.exists (fun x -> x = 2u)
-//     |> equal true
+[<Fact>]
+let ``Array.contains works`` () =
+    let xs = [|1; 2; 3; 4|]
+    xs |> Array.contains 2 |> equal true
+    xs |> Array.contains 0 |> equal false
 
-// [<Fact>]
-// let ``Array.exists2 works`` () =
-//     let xs = [|1UL; 2UL; 3UL; 4UL|]
-//     let ys = [|1UL; 2UL; 3UL; 4UL|]
-//     Array.exists2 (fun x y -> x * y = 16UL) xs ys
-//     |> equal true
+[<Fact>]
+let ``Array.exists works`` () =
+    let xs = [|1u; 2u; 3u; 4u|]
+    xs |> Array.exists (fun x -> x = 2u)
+    |> equal true
+
+[<Fact>]
+let ``Array.exists2 works`` () =
+    let xs = [|1UL; 2UL; 3UL; 4UL|]
+    let ys = [|1UL; 2UL; 3UL; 4UL|]
+    Array.exists2 (fun x y -> x * y = 16UL) xs ys
+    |> equal true
 
 [<Fact>]
 let ``Array.filter works`` () =
@@ -572,6 +578,15 @@ let ``Array.iteri2 works`` () =
     ) xs xs
     total |> equal 40.
 
+[<Fact>]
+let ``Array.compareWith works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 5|]
+    let zs = [|1; 2; 3; 3|]
+    Array.compareWith (-) xs xs |> equal 0
+    Array.compareWith (-) xs ys |> equal -1
+    Array.compareWith (-) xs zs |> equal 1
+
 // [<Fact>]
 // let ``Array.countBy works`` () =
 //     let xs = [|1; 2; 3; 4|]
@@ -619,43 +634,43 @@ let ``Array.mapi2 works`` () =
     let zs = Array.mapi2 (fun i x y -> float i + x * y) xs ys
     zs.[1] |> equal 7.
 
-// [<Fact>]
-// let ``Array.mapFold works`` () =
-//     let xs = [|1y; 2y; 3y; 4y|]
-//     let result = xs |> Array.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
-//     fst result |> Array.sum |> equal 20y
-//     snd result |> equal 10y
+[<Fact>]
+let ``Array.mapFold works`` () =
+    let xs = [|1y; 2y; 3y; 4y|]
+    let res = xs |> Array.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst res |> equal [|2y; 4y; 6y; 8y|]
+    snd res |> equal 10y
 
-// [<Fact>]
-// let ``Array.mapFoldBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let result = Array.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
-//     fst result |> Array.sum |> equal -20.
-//     snd result |> equal -10.
+[<Fact>]
+let ``Array.mapFoldBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let res = Array.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst res |> equal [|-2.; -4.; -6.; -8.|]
+    snd res |> equal -10.
 
-// [<Fact>]
-// let ``Array.max works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.max
-//     |> equal 2.
+[<Fact>]
+let ``Array.max works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.max
+    |> equal 2.
 
-// [<Fact>]
-// let ``Array.maxBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.maxBy (fun x -> -x)
-//     |> equal 1.
+[<Fact>]
+let ``Array.maxBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.maxBy (fun x -> -x)
+    |> equal 1.
 
-// [<Fact>]
-// let ``Array.min works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.min
-//     |> equal 1.
+[<Fact>]
+let ``Array.min works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.min
+    |> equal 1.
 
-// [<Fact>]
-// let ``Array.minBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.minBy (fun x -> -x)
-//     |> equal 2.
+[<Fact>]
+let ``Array.minBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.minBy (fun x -> -x)
+    |> equal 2.
 
 [<Fact>]
 let ``Array.ofList works`` () =

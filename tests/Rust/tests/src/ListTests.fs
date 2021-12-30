@@ -488,29 +488,29 @@ let ``List.scanBack works`` () =
 //     ys.Head + ys.Tail.Head
 //     |> equal 3
 
-// [<Fact>]
-// let ``List.max works`` () =
-//     let xs = [1; 2]
-//     xs |> List.max
-//     |> equal 2
+[<Fact>]
+let ``List.max works`` () =
+    let xs = [1; 2]
+    xs |> List.max
+    |> equal 2
 
-// [<Fact>]
-// let ``List.maxBy works`` () =
-//     let xs = [1; 2]
-//     xs |> List.maxBy (fun x -> -x)
-//     |> equal 1
+[<Fact>]
+let ``List.maxBy works`` () =
+    let xs = [1; 2]
+    xs |> List.maxBy (fun x -> -x)
+    |> equal 1
 
-// [<Fact>]
-// let ``List.min works`` () =
-//     let xs = [1; 2]
-//     xs |> List.min
-//     |> equal 1
+[<Fact>]
+let ``List.min works`` () =
+    let xs = [1; 2]
+    xs |> List.min
+    |> equal 1
 
-// [<Fact>]
-// let ``List.minBy works`` () =
-//     let xs = [1; 2]
-//     xs |> List.minBy (fun x -> -x)
-//     |> equal 2
+[<Fact>]
+let ``List.minBy works`` () =
+    let xs = [1; 2]
+    xs |> List.minBy (fun x -> -x)
+    |> equal 2
 
 // [<Fact>]
 // let ``List.sum works`` () =
@@ -730,11 +730,11 @@ let ``List.truncate works`` () =
 //     sumFirstList ys1 7
 //     |> equal 28.
 
-// [<Fact>]
-// let ``List.contains works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> List.contains 2 |> equal true
-//     xs |> List.contains 0 |> equal false
+[<Fact>]
+let ``List.contains works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> List.contains 2 |> equal true
+    xs |> List.contains 0 |> equal false
 
 // [<Fact>]
 // let ``List.contains lambda doesn't clash`` () =
@@ -843,19 +843,19 @@ let ``List.mapi2 works`` () =
     let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
     zs |> List.toArray |> equal [|0; 4; 12|]
 
-// [<Fact>]
-// let ``List.mapFold works`` () =
-//     let xs = [1y; 2y; 3y; 4y]
-//     let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
-//     fst result |> List.sum |> equal 20y
-//     snd result |> equal 10y
+[<Fact>]
+let ``List.mapFold works`` () =
+    let xs = [1y; 2y; 3y; 4y]
+    let res = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst res |> List.toArray |> equal [|2y; 4y; 6y; 8y|]
+    snd res |> equal 10y
 
-// [<Fact>]
-// let ``List.mapFoldBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
-//     fst result |> List.sum |> equal -20.
-//     snd result |> equal -10.
+[<Fact>]
+let ``List.mapFoldBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let res = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst res |> List.toArray |> equal [|-2.; -4.; -6.; -8.|]
+    snd res |> equal -10.
 
 // // TODO: Runtime uncurry to arity 2
 // [<Fact>]
@@ -931,6 +931,15 @@ let ``List.tryLast works`` () =
     let xs = [1.; 2.; 3.; 4.]
     List.tryLast xs |> equal (Some 4.)
     List.tryLast<float> [] |> equal None
+
+[<Fact>]
+let ``List.compareWith works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 5]
+    let zs = [1; 2; 3; 3]
+    List.compareWith (-) xs xs |> equal 0
+    List.compareWith (-) xs ys |> equal -1
+    List.compareWith (-) xs zs |> equal 1
 
 // [<Fact>]
 // let ``List.countBy works`` () =
