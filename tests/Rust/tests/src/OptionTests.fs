@@ -195,11 +195,11 @@ let ``Option.bind works`` () =
         fun () -> match value with Some x -> value <- None; Some x | None -> None
     getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
 
-// [<Fact>]
-// let ``Option.contains works`` () =
-//     Some "test" |> Option.contains "test" |> equal true
-//     Some "123" |> Option.contains "test" |> equal false
-//     None |> Option.contains "test" |> equal false
+[<Fact>]
+let ``Option.contains works`` () =
+    Some "test" |> Option.contains "test" |> equal true
+    Some "123" |> Option.contains "test" |> equal false
+    None |> Option.contains "test" |> equal false
 
 [<Fact>]
 let ``Option.filter works`` () =

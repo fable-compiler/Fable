@@ -451,28 +451,21 @@ let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
             curr)
         (fun e -> e.Dispose())
 
-// let compareWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) (ys: seq<'T>): int =
-//     use e1 = ofSeq xs
-//     use e2 = ofSeq ys
-//     let mutable c = 0
-//     let mutable b1 = e1.MoveNext()
-//     let mutable b2 = e2.MoveNext()
-//     while c = 0 && b1 && b2 do
-//         c <- comparer e1.Current e2.Current
-//         if c = 0 then
-//             b1 <- e1.MoveNext()
-//             b2 <- e2.MoveNext()
-//     if c <> 0 then c
-//     elif b1 then 1
-//     elif b2 then -1
-//     else 0
-
-// let contains (value: 'T) (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) =
-//     use e = ofSeq xs
-//     let mutable found = false
-//     while (not found && e.MoveNext()) do
-//         found <- comparer.Equals(value, e.Current)
-//     found
+let compareWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) (ys: seq<'T>): int =
+    use e1 = ofSeq xs
+    use e2 = ofSeq ys
+    let mutable c = 0
+    let mutable b1 = e1.MoveNext()
+    let mutable b2 = e2.MoveNext()
+    while c = 0 && b1 && b2 do
+        c <- comparer e1.Current e2.Current
+        if c = 0 then
+            b1 <- e1.MoveNext()
+            b2 <- e2.MoveNext()
+    if c <> 0 then c
+    elif b1 then 1
+    elif b2 then -1
+    else 0
 
 // let enumerateFromFunctions create moveNext current =
 //     generate
@@ -501,24 +494,6 @@ let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
 // let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
 //     concat (unfold (fun i -> if guard() then Some(xs, i + 1) else None) 0)
 
-let filter f (xs: seq<'T>) =
-    xs |> choose (fun x -> if f x then Some x else None)
-
-let exists predicate (xs: seq<'T>) =
-    use e = ofSeq xs
-    let mutable found = false
-    while (not found && e.MoveNext()) do
-        found <- predicate e.Current
-    found
-
-let exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: seq<'T1>) (ys: seq<'T2>) =
-    use e1 = ofSeq xs
-    use e2 = ofSeq ys
-    let mutable found = false
-    while (not found && e1.MoveNext() && e2.MoveNext()) do
-        found <- predicate e1.Current e2.Current
-    found
-
 let exactlyOne (xs: seq<'T>) =
     use e = ofSeq xs
     if e.MoveNext() then
@@ -538,6 +513,27 @@ let tryExactlyOne (xs: seq<'T>) =
         else Some v
     else
         None
+
+let exists predicate (xs: seq<'T>) =
+    use e = ofSeq xs
+    let mutable found = false
+    while (not found && e.MoveNext()) do
+        found <- predicate e.Current
+    found
+
+let exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: seq<'T1>) (ys: seq<'T2>) =
+    use e1 = ofSeq xs
+    use e2 = ofSeq ys
+    let mutable found = false
+    while (not found && e1.MoveNext() && e2.MoveNext()) do
+        found <- predicate e1.Current e2.Current
+    found
+
+let contains<'T when 'T: equality> (value: 'T) (xs: seq<'T>) =
+    xs |> exists (fun x -> x = value)
+
+let filter f (xs: seq<'T>) =
+    xs |> choose (fun x -> if f x then Some x else None)
 
 let tryFind predicate (xs: seq<'T>)  =
     use e = ofSeq xs
@@ -765,6 +761,14 @@ let readOnly (xs: seq<'T>) =
     // checkNonNull "source" xs
     map id xs
 
+let mapFold (mapping: 'State -> 'T -> 'U * 'State) state (xs: seq<'T>) =
+    let arr, state = Array.mapFold mapping state (toArray xs)
+    readOnly (ofArray arr), state
+
+let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: seq<'T>) state =
+    let arr, state = Array.mapFoldBack mapping (toArray xs) state
+    readOnly (ofArray arr), state
+
 // let cache (xs: seq<'T>) =
 //     let mutable cached = false
 //     let xsCache = ResizeArray()
@@ -782,14 +786,6 @@ let readOnly (xs: seq<'T>) =
 //         let mapping x = ysCache |> map (fun y -> (x, y))
 //         concat (map mapping xs)
 //     )
-
-// let mapFold (mapping: 'State -> 'T -> 'Result * 'State) state (xs: seq<'T>) =
-//     let arr, state = Array.mapFold mapping state (toArray xs)
-//     readOnly arr, state
-
-// let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: seq<'T>) state =
-//     let arr, state = Array.mapFoldBack mapping (toArray xs) state
-//     readOnly arr, state
 
 let tryPick chooser (xs: seq<'T>) =
     use e = ofSeq xs
@@ -923,9 +919,6 @@ let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
 //         |> concat
 //     )
 
-let where predicate (xs: seq<'T>) =
-    filter predicate xs
-
 let pairwise (xs: seq<'T>) =
     delay (fun () ->
         xs
@@ -942,6 +935,9 @@ let pairwise (xs: seq<'T>) =
 //         |> Array.map ofArray
 //         |> ofArray
 //     )
+
+let where predicate (xs: seq<'T>) =
+    filter predicate xs
 
 // let windowed windowSize (xs: seq<'T>): 'T seq seq =
 //     delay (fun () ->
@@ -965,8 +961,8 @@ let pairwise (xs: seq<'T>) =
 // let sortWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) =
 //     delay (fun () ->
 //         let arr = toArray xs
-//         Array.sortInPlaceWith comparer arr // Note: In JS this sort is stable
-//         arr |> ofArray
+//         Array.sortInPlaceWith comparer arr
+//         ofArray arr
 //     )
 
 // let sort (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
@@ -987,17 +983,17 @@ let pairwise (xs: seq<'T>) =
 // let sumBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] adder: IGenericAdder<'U>): 'U =
 //     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-// let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
+let maxBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: seq<'T>): 'T =
+    reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
 
-// let max xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) xs
+let max<'T when 'T: comparison> (xs: seq<'T>): 'T =
+    reduce (fun x y -> if x > y then x else y) xs
 
-// let minBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
-//     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
+let minBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: seq<'T>): 'T =
+    reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
 
-// let min (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
-//     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
+let min<'T when 'T: comparison> (xs: seq<'T>): 'T =
+    reduce (fun x y -> if x < y then x else y) xs
 
 // let average (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'T>): 'T =
 //     let mutable count = 0

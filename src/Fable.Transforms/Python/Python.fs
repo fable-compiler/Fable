@@ -1,9 +1,13 @@
-// fsharplint:disable MemberNames InterfaceNames
+/// Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to better match
+/// with the Python AST docs.
 namespace rec Fable.AST.Python
+
+// fsharplint:disable MemberNames InterfaceNames
 
 open Fable.AST
 open Fable.AST.Python
 
+/// https://docs.python.org/3/library/ast.html#expressions
 type Expression =
     | Attribute of Attribute
     | Subscript of Subscript
@@ -84,6 +88,7 @@ type Identifier =
         let (Identifier name) = this
         name
 
+/// https://docs.python.org/3/library/ast.html#statements
 type Statement =
     | Pass
     | Break
@@ -206,36 +211,17 @@ type Arguments =
 /// or List within targets.
 ///
 /// type_comment is an optional string with the type annotation as a comment.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('a = b = 1'), indent=4)) # Multiple assignment
-/// Module(
-///     body=[
-///         Assign(
-///             targets=[
-///                 Name(id='a', ctx=Store()),
-///                 Name(id='b', ctx=Store())],
-///             value=Constant(value=1))],
-///     type_ignores=[])
-///
-/// >>> print(ast.dump(ast.parse('a,b = c'), indent=4)) # Unpacking
-/// Module(
-///     body=[
-///         Assign(
-///             targets=[
-///                 Tuple(
-///                     elts=[
-///                         Name(id='a', ctx=Store()),
-///                         Name(id='b', ctx=Store())],
-///                     ctx=Store())],
-///             value=Name(id='c', ctx=Load()))],
-///     type_ignores=[])
-/// ```
+/// https://docs.python.org/3/library/ast.html#ast.Assign
 type Assign =
     { Targets: Expression list
       Value: Expression
       TypeComment: string option }
 
+/// An assignment with a type annotation. target is a single node and can be a Name, a Attribute or a Subscript.
+/// annotation is the annotation, such as a Constant or Name node. value is a single optional node. simple is a
+/// boolean integer set to True for a Name node in target that do not appear in between parenthesis and are hence
+/// pure names and not expressions.
+/// https://docs.python.org/3/library/ast.html#ast.AnnAssign
 type AnnAssign =
     { Target: Expression
       Value: Expression
@@ -245,17 +231,6 @@ type AnnAssign =
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
 /// Lambda, a Yield or YieldFrom node.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('-a'), indent=4))
-/// Module(
-///     body=[
-///         Expr(
-///             value=UnaryOp(
-///                 op=USub(),
-///                 operand=Name(id='a', ctx=Load())))],
-///     type_ignores=[])
-///```
 type Expr = { Value: Expression }
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
@@ -263,27 +238,6 @@ type Expr = { Value: Expression }
 /// are executed if the loop finishes normally, rather than via a break statement.
 ///
 /// type_comment is an optional string with the type annotation as a comment.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse("""
-/// ... for x in y:
-/// ...     ...
-/// ... else:
-/// ...     ...
-/// ... """), indent=4))
-/// Module(
-///     body=[
-///         For(
-///             target=Name(id='x', ctx=Store()),
-///             iter=Name(id='y', ctx=Load()),
-///             body=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))],
-///             orelse=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))])],
-///     type_ignores=[])
-///```
 type For =
     { Target: Expression
       Iterator: Expression
@@ -299,26 +253,6 @@ type AsyncFor =
       TypeComment: string option }
 
 /// A while loop. test holds the condition, such as a Compare node.
-///
-/// ```py
-/// >> print(ast.dump(ast.parse("""
-/// ... while x:
-/// ...    ...
-/// ... else:
-/// ...    ...
-/// ... """), indent=4))
-/// Module(
-///     body=[
-///         While(
-///             test=Name(id='x', ctx=Load()),
-///             body=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))],
-///             orelse=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))])],
-///     type_ignores=[])
-/// ```
 type While =
     { Test: Expression
       Body: Statement list
@@ -441,15 +375,6 @@ type FunctionDef =
       DecoratorList: Expression list
       Returns: Expression option
       TypeComment: string option }
-
-    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
-        { Name = name
-          Args = args
-          Body = body
-          DecoratorList = defaultArg decoratorList []
-          Returns = returns
-          TypeComment = typeComment }
-        |> FunctionDef
 
 /// global and nonlocal statements. names is a list of raw strings.
 ///
@@ -855,6 +780,15 @@ module PythonExtensions =
               DecoratorList = defaultArg decoratorList []
               Loc = loc }
             |> ClassDef
+
+        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { FunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> FunctionDef
 
         static member assign(targets, value, ?typeComment) : Statement =
             { Targets = targets

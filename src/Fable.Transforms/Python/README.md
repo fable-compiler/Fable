@@ -70,7 +70,8 @@ lifted up into the nearest statement block.
 
 ## Object Expressions
 
-Currently translated to classes. TODO: should we use dicts here?
+Currently translated to classes since they can be used to implement an interface and have methods etc. They are more like
+anonymous classes.
 
 ## Sequence Expressions
 
@@ -79,7 +80,7 @@ expressions. You cannot assign to e.g. an object property.
 
 ## Type Annotations
 
-The generated Python code is currently without type annotation. Python types and F# types are not fully compatible (Ref:
+The generated Python code is now with type annotation. Python types and F# types are not fully compatible (Ref:
 https://github.com/microsoft/pyright/issues/1264)
 
 E.g:
@@ -101,7 +102,12 @@ However, this gives errors in [Pyright](https://github.com/microsoft/pyright) ty
 TypeVar "TSource" appears only once in generic function signature Pylance(reportInvalidTypeVarUse)
 (type variable) TSource
 
-But I expect that Python will eventually get things right, so we should start generating type annotations.
+Thus we currently check that the generic parameters are used more than once. If not they will be translated as `Any`.
+
+```py
+def length(source: List[Any]) -> int:
+    return 42
+```
 
 ## Program vs Library
 

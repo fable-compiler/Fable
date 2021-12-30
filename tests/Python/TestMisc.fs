@@ -1266,3 +1266,17 @@ let ``test Mutating variables is not postponed (classes) `` () =
 
     for (l, r, ``l + r``) in ``inlineData PR #2683`` do
         runCase l r ``l + r``
+[<Fact>]
+let ``test incr and decr works`` () =
+    let value = ref 42
+    let f x =
+        incr x
+        x.Value
+
+    let g x =
+        decr x
+        x.Value
+
+
+    f value |> equal 43
+    g value |> equal 42

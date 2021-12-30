@@ -110,6 +110,33 @@ class IComparable(IEquatable):
         raise NotImplementedError
 
 
+class IComparer(Generic[T]):
+    """Defines a method that a type implements to compare two objects.
+
+    https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
+    """
+
+    @abstractmethod
+    def Compare(self, y: T) -> int:
+        ...
+
+
+class IEqualityComparer(Generic[T]):
+    def Equals(self, y: T) -> bool:
+        return self == y
+
+    def GetHashCode(self) -> int:
+        return hash(self)
+
+    @abstractmethod
+    def __eq__(self, other: Any) -> bool:
+        return NotImplemented
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        raise NotImplementedError
+
+
 class DateKind(Enum):
     Unspecified = 0
     UTC = 1
