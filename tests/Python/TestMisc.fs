@@ -1227,3 +1227,18 @@ let ``test Assigning to unit works`` () =
 
     doit 2 (fun x -> value <- value + x)
     value |> equal 4
+
+[<Fact>]
+let ``test incr and decr works`` () =
+    let value = ref 42
+    let f x =
+        incr x
+        x.Value
+
+    let g x =
+        decr x
+        x.Value
+
+
+    f value |> equal 43
+    g value |> equal 42

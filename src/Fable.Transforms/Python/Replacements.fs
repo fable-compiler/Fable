@@ -1596,7 +1596,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_ColonEquals", [o; v] -> setReference r o v |> Some
     | "Ref", [arg] -> newReference com r t arg |> Some
     | ("Increment"|"Decrement"), _ ->
-        if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
+        if i.CompiledName = "Increment" then "$0.contents +=1" else "$0.contents -=1"
         |> emitJsExpr r t args |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "list", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
