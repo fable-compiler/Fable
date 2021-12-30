@@ -2988,6 +2988,9 @@ module Util =
                 let returnType, _ = typeAnnotation com ctx None memb.ReturnParameter.Type
                 let body = [ Statement.expr(Expression.name("...")) ]
                 Statement.functionDef(name, args, body, returns=returnType, decoratorList=decorators)
+
+            if members.IsEmpty then
+                Statement.Pass
         ]
 
         let bases = [
