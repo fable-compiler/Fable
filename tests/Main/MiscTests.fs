@@ -278,11 +278,9 @@ type TestInliningMutation(l: int, r: int) =
             left <- l
             r
 
-        member __.Run() =
+        member _.Run() =
             let right = call()
             left + right
-
-let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
 
 module Extensions =
     type IDisposable with
@@ -1198,6 +1196,8 @@ let tests =
         value |> equal 4
 
     testCase "Mutating variables is not postponed (functions)" <| fun () ->
+        let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
+
         let runCase (l: int) (r: int) (expect: int) =
             let mutable left = 0
             let call() =
@@ -1214,6 +1214,8 @@ let tests =
             runCase l r ``l + r``
 
     testCase "Mutating variables is not postponed (classes)" <| fun () ->
+        let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
+
         let runCase (l: int) (r: int) (expect: int) =
             TestInliningMutation(l, r).Run() |> equal expect
             TestInliningMutation(l, r).Run() |> equal expect
