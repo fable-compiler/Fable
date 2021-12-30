@@ -1,27 +1,28 @@
 from __future__ import annotations
 
+import array
 from abc import abstractstaticmethod
-from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from typing import Union as Union_
 from typing import cast
-import array
 
-from .util import IComparable, equals
+from .util import IComparable
 
 T = TypeVar("T")
 
 
 class FSharpRef(Generic[T]):
-    def __init__(self, contentsOrGetter: Union_[T, Callable[[], T]], setter: Optional[Callable[[T], None]] = None) -> None:
-
-        contents = contentsOrGetter
+    def __init__(
+        self, contentsOrGetter: Union_[T, Callable[[], T]], setter: Optional[Callable[[T], None]] = None
+    ) -> None:
+        contents = cast(T, contentsOrGetter)
 
         def set_contents(value: T):
             nonlocal contents
             contents = value
 
         if callable(setter):
-            self.getter = contentsOrGetter
+            self.getter = cast(Callable[[], T], contentsOrGetter)
             self.setter = setter
         else:
             self.getter = lambda: contents
@@ -32,14 +33,14 @@ class FSharpRef(Generic[T]):
         return self.getter()
 
     @contents.setter
-    def contents(self, v) -> None:
+    def contents(self, v: T) -> None:
         self.setter(v)
 
 
 class Union(IComparable):
     def __init__(self):
         self.tag: int
-        self.fields: Tuple[int, ...] = ()
+        self.fields: List[Any] = []
 
     @abstractstaticmethod
     def cases() -> List[str]:
@@ -48,9 +49,6 @@ class Union(IComparable):
     @property
     def name(self) -> str:
         return self.cases()[self.tag]
-
-    def to_JSON(self) -> str:
-        raise NotImplementedError
 
     def __str__(self) -> str:
         if not len(self.fields):
@@ -120,14 +118,11 @@ def record_to_string(self: Record) -> str:
     return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
-def recordGetHashCode(self):
+def record_get_hashcode(self: Record) -> int:
     return hash(*self.values())
 
 
 class Record(IComparable):
-    # def toJSON(self) -> str:
-    #    return record_to_JSON(self)
-
     def __str__(self) -> str:
         return record_to_string(self)
 
@@ -135,7 +130,7 @@ class Record(IComparable):
         return str(self)
 
     def GetHashCode(self) -> int:
-        return recordGetHashCode(self)
+        return record_get_hashcode(self)
 
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
@@ -150,7 +145,7 @@ class Record(IComparable):
         return self.Equals(other)
 
     def __hash__(self) -> int:
-        return recordGetHashCode(self)
+        return record_get_hashcode(self)
 
 
 class Attribute:
@@ -210,10 +205,7 @@ class FSharpException(Exception, IComparable):
     def __init__(self):
         self.Data0: Any = None
 
-    # def toJSON(self):
-    #    return record_to_JSON(self)
-
-    def __str__(self):
+    def __str__(self) -> str:
         return record_to_string(self)
 
     def __repr__(self) -> str:
@@ -250,7 +242,7 @@ class FSharpException(Exception, IComparable):
         return hash(self.Data0)
 
     def GetHashCode(self) -> int:
-        return recordGetHashCode(self)
+        return record_get_hashcode(self)
 
     def Equals(self, other: FSharpException):
         return record_equals(self, other)

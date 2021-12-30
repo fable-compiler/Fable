@@ -776,6 +776,9 @@ module Annotation =
             | entName when entName.StartsWith(Types.choiceNonGeneric) ->
                 makeUnionTypeAnnotation com ctx genArgs
                 *)
+            | Types.equalityComparer, _ ->
+                let resolved, stmts = typingModuleTypeHint "Any" []
+                pythonModuleAnnotation com ctx "util"  "IEqualityComparer" [ resolved ], stmts
             | Types.ienumerator, _ ->
                 let resolved, stmts = typingModuleTypeHint "Any" []
                 pythonModuleAnnotation com ctx "typing"  "Iterator" [ resolved ], stmts
