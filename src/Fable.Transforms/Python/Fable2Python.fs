@@ -860,7 +860,8 @@ module Annotation =
             $"FSharpChoice${List.length genArgs}"
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         *)
-        | _ -> Expression.any, []
+        | _ ->
+            pythonModuleAnnotation com ctx "typing" "Any" [], []
 
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
