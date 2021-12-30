@@ -5,10 +5,10 @@ let bind<'T, 'U> (binder: 'T -> 'U option) (opt: 'T option): 'U option =
     | Some x -> binder x
     | None -> None
 
-// let contains<'T when 'T: equality> (value: 'T) (opt: 'T option): bool =
-//     match opt with
-//     | Some x -> x = value
-//     | None -> false
+let contains<'T when 'T: equality> (value: 'T) (opt: 'T option): bool =
+    match opt with
+    | Some x -> x = value
+    | None -> false
 
 let count<'T> (opt: 'T option): int =
     match opt with
@@ -40,7 +40,7 @@ let filter<'T> (predicate: 'T -> bool) (opt: 'T option): 'T option =
     | Some x -> if predicate x then opt else None
     | None -> None
 
-let flatten<'T> (opt: Option<'T option>): 'T option =
+let flatten<'T> (opt: 'T option option): 'T option =
     match opt with
     | Some x -> x
     | None -> None
