@@ -1008,7 +1008,6 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ ->
         Helper.LibCall(com, "Native", "defaultOf", t, [])
-        // Helper.GlobalCall("Native::defaultOf", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -2412,7 +2411,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         if operation = "op_Explicit" then Some arg // TODO
         else applyOp com ctx r t operation args i.SignatureArgTypes i.GenericArgs |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
-    | "GenericZero", _ -> getZero com ctx t |> Some
+    | "GenericZero", _ -> Helper.LibCall(com, "Native", "getZero", t, []) |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure"
     | "Int16WithMeasure"
@@ -2882,7 +2881,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | _ -> failwith "Unexpected arg count for Random.Next"
         Helper.LibCall(com, "Util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
     | "NextDouble" ->
-        Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
+        Helper.GlobalCall("Math", t, [], memb="random") |> Some
     | "NextBytes" ->
         let byteArray =
             match args with

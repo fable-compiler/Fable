@@ -1,8 +1,8 @@
 module Util
 
-let equals<'T when 'T: equality> (x: 'T) (y: 'T) =
+let equals (x: 'T) (y: 'T): bool =
     x = y
 
-let compare<'T when 'T: comparison> (x: 'T) (y: 'T) =
+let compare (x: 'T) (y: 'T): int =
     if x = y then 0
     else if x < y then -1 else 1

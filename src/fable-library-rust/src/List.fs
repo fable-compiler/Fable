@@ -74,15 +74,6 @@ let length (xs: 'T list) = //xs.Length
         | Some node -> inner_loop (i + 1) node.tail
     inner_loop 0 xs
 
-let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-    match (isEmpty xs), (isEmpty ys) with
-    | true, true -> 0
-    | true, false -> -1
-    | false, true -> 1
-    | false, false ->
-        let c = comparer (head xs) (head ys)
-        if c = 0 then compareWith comparer (tail xs) (tail ys) else c
-
 let rec tryLast (xs: 'T list) =
     match xs with
     | None -> None
@@ -213,17 +204,6 @@ let ofArray (xs: 'T[]) =
 // //         node |> setConsTailEmpty
 // //         root |> tail
 
-// let concat (lists: seq<'T list>) =
-//     let root = (empty())
-//     let mutable node = root
-//     let action xs = node <- fold (fun acc x -> acc |> appendConsNoTail x) node xs
-//     match lists with
-//     | :? array<'T list> as xs -> Array.iter action xs
-//     | :? list<'T list> as xs -> iterate action xs
-//     | _ -> for xs in lists do action xs
-//     node |> setConsTailEmpty
-//     root |> tail
-
 let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
 
@@ -240,18 +220,14 @@ let choose (chooser: 'T -> 'U option) (xs: 'T list) =
         xs <- (tail xs)
     root
 
-// let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-//     let root = (empty())
-//     let mutable node = root
-//     let mutable ys = xs
-//     while not (isEmpty ys) do
-//         let mutable zs = mapping (head ys)
-//         while not (isEmpty zs) do
-//             node <- node |> appendConsNoTail (head zs)
-//             zs <- (tail zs)
-//         ys <- (tail ys)
-//     node |> setConsTailEmpty
-//     root |> tail
+let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> 0
+    | true, false -> -1
+    | false, true -> 1
+    | false, false ->
+        let c = comparer (head xs) (head ys)
+        if c = 0 then compareWith comparer (tail xs) (tail ys) else c
 
 let rec exists predicate (xs: 'T list) =
     if isEmpty xs then false
@@ -267,7 +243,7 @@ let rec exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
         else exists2 predicate (tail xs) (tail ys)
     | _ -> invalidArg "list2" SR.differentLengths
 
-let contains<'T when 'T: equality> (value: 'T) (xs: 'T list) =
+let contains (value: 'T) (xs: 'T list) =
     exists (fun x -> x = value) xs
 
 let filter (predicate: 'T -> bool) (xs: 'T list) =
@@ -324,6 +300,34 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'St
         snd m
     let st = fold folder state (reverse xs)
     ys, st
+
+// let concat (lists: seq<'T list>) =
+//     let root = (empty())
+//     let mutable node = root
+//     let action xs = node <- fold (fun acc x -> acc |> appendConsNoTail x) node xs
+//     match lists with
+//     | :? array<'T list> as xs -> Array.iter action xs
+//     | :? list<'T list> as xs -> iterate action xs
+//     | _ -> for xs in lists do action xs
+//     node |> setConsTailEmpty
+//     root |> tail
+
+// let collect (mapping: 'T -> 'U list) (xs: 'T list) =
+//     xs
+//     |> map mapping
+//     |> concat
+//
+//     let root = (empty())
+//     let mutable node = root
+//     let mutable ys = xs
+//     while not (isEmpty ys) do
+//         let mutable zs = mapping (head ys)
+//         while not (isEmpty zs) do
+//             node <- node |> appendConsNoTail (head zs)
+//             zs <- (tail zs)
+//         ys <- (tail ys)
+//     node |> setConsTailEmpty
+//     root |> tail
 
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
     let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
@@ -460,22 +464,24 @@ let zip3 xs ys zs =
 // let sortByDescending (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
 //     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
-// let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
-//     fold (fun acc x -> adder.Add(acc, x)) (adder.GetZero()) xs
+let inline sum (xs: ^T list): ^T =
+    let zero = LanguagePrimitives.GenericZero< ^T>
+    fold (fun acc x -> acc + x) zero xs
 
-// let sumBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'U>): 'U =
-//     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
+let inline sumBy (projection: 'T -> ^U) (xs: 'T list): ^U =
+    let zero = LanguagePrimitives.GenericZero< ^U>
+    fold (fun acc x -> acc + (projection x)) zero xs
 
-let maxBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T list): 'T =
+let maxBy (projection: 'T -> 'U) (xs: 'T list): 'T =
     reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
 
-let max<'T when 'T: comparison> (xs: 'T list): 'T =
+let max (xs: 'T list): 'T =
     reduce (fun x y -> if x > y then x else y) xs
 
-let minBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T list): 'T =
+let minBy (projection: 'T -> 'U) (xs: 'T list): 'T =
     reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
 
-let min<'T when 'T: comparison> (xs: 'T list): 'T =
+let min (xs: 'T list): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
 // let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =

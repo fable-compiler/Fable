@@ -17,11 +17,11 @@ let inc_elem2 (a: _[]) i =
     a.[i] <- a.[i] + 1
     a
 
-// type Point =
-//     { x: int; y: int }
-//     static member Zero = { x=0; y=0 }
-//     static member Neg(p: Point) = { x = -p.x; y = -p.y }
-//     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
+type Point =
+    { x: int; y: int }
+    static member Zero = { x=0; y=0 }
+    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
 // type MyNumber =
 //     | MyNumber of int
@@ -864,17 +864,17 @@ let ``Array.truncate works`` () =
 //     xs.[0] + xs.[1]
 //     |> equal 3.
 
-// [<Fact>]
-// let ``Array.sum works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.sum
-//     |> equal 3.
+[<Fact>]
+let ``Array.sum works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sum
+    |> equal 3.
 
-// [<Fact>]
-// let ``Array.sumBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.sumBy (fun x -> x * 2.)
-//     |> equal 6.
+[<Fact>]
+let ``Array.sumBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sumBy (fun x -> x * 2.)
+    |> equal 6.
 
 // [<Fact>]
 // let ``Array.sum with non numeric types works`` () =
@@ -888,11 +888,11 @@ let ``Array.truncate works`` () =
 //     let p2 = {x=2; y=20}
 //     [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
-// [<Fact>]
-// let ``Array.sumBy with numeric projection works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+[<Fact>]
+let ``Array.sumBy with numeric projection works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
 
 // [<Fact>]
 // let ``Array.sum with non numeric types works II`` () =

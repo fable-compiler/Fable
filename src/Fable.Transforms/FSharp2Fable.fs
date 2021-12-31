@@ -1297,7 +1297,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
         []
-    elif isInline memb then
+    elif isInline memb && (com.Options.Language <> Rust || isNonPublicMember memb) then
         []
     elif memb.IsImplicitConstructor then
         transformImplicitConstructor com ctx memb args body
