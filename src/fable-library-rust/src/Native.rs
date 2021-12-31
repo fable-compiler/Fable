@@ -16,6 +16,10 @@ pub mod Native {
         unsafe { std::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
+    pub fn getZero<T: Default>() -> T {
+        Default::default()
+    }
+
     pub fn string(s: &str) -> Rc<str> {
         Rc::from(s)
     }

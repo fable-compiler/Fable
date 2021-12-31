@@ -147,6 +147,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsEnumerator = false
 
         member _.HasSpread = Helpers.hasParamArray m
+        member _.IsInline = Helpers.isInline m
         member _.IsPublic = Helpers.isPublicMember m
         // NOTE: Using memb.IsValue doesn't work for function values
         // See isModuleValueForDeclarations below
@@ -264,6 +265,7 @@ type FsEnt(ent: FSharpEntity) =
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
+                    ?isInline: bool,
                     ?isPublic: bool,
                     ?isInstance: bool,
                     ?isValue: bool,
@@ -279,6 +281,7 @@ type MemberInfo(?attributes: FSharpAttribute seq,
             | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
             | None -> upcast []
         member _.HasSpread = defaultArg hasSpread false
+        member _.IsInline = defaultArg isInline false
         member _.IsPublic = defaultArg isPublic true
         member _.IsInstance = defaultArg isInstance true
         member _.IsValue = defaultArg isValue false
@@ -532,6 +535,11 @@ module Helpers =
         if memb.IsCompilerGenerated
         then false
         else not memb.Accessibility.IsPrivate
+
+    let isNonPublicMember (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsCompilerGenerated
+        then true
+        else not memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
         { start = { line = r.StartLine; column = r.StartColumn }

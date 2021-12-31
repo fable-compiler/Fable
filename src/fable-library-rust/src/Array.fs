@@ -97,6 +97,35 @@ let append (source1: 'T[]) (source2: 'T[]) =
         res.Add (source2.[i])
     res
 
+let choose (chooser: 'T -> 'U option) (source: 'T[]) =
+    let res = ResizeArray<'U>()
+    for i = 0 to source.Length - 1 do
+        match chooser source.[i] with
+        | Some x -> res.Add (x)
+        | None -> ()
+    res
+
+let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    let length1 = source1.Length
+    let length2 = source2.Length
+    let mutable i = 0
+    let mutable result = 0
+    if length1 < length2 then
+        while i < source1.Length && result = 0 do
+            result <- comparer source1.[i] source2.[i]
+            i <- i + 1
+    else
+        while i < source2.Length && result = 0 do
+            result <- comparer source1.[i] source2.[i]
+            i <- i + 1
+    if result <> 0 then result
+    elif length1 = length2 then 0
+    elif length1 < length2 then -1
+    else 1
+
+// let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+//     compareWith compare source1 source2 = 0
+
 let mapIndexed (mapping: int -> 'T -> 'U) (source: 'T[]) =
     let len = source.Length
     let res = ResizeArray<'U>(len)
@@ -163,14 +192,6 @@ let indexed (source: 'T[]) =
         res.Add (i, source.[i])
     res
 
-let choose (chooser: 'T -> 'U option) (source: 'T[]) =
-    let res = ResizeArray<'U>()
-    for i = 0 to source.Length - 1 do
-        match chooser source.[i] with
-        | Some x -> res.Add (x)
-        | None -> ()
-    res
-
 // let concat (arrays: 'T[] seq): 'T[] =
 //     let arrays =
 //         if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
@@ -212,7 +233,7 @@ let exists2 predicate (source1: 'T1[]) (source2: 'T2[]) =
         i <- i + 1
     res
 
-let contains<'T when 'T: equality> (value: 'T) (source: 'T[]) =
+let contains (value: 'T) (source: 'T[]) =
     exists (fun x -> x = value) source
 
 let filter (predicate: 'T -> bool) (source: 'T[]) =
@@ -642,66 +663,45 @@ let splitAt (index: int) (source: 'T[]) =
         invalidArg "index" SR.indexOutOfBounds
     getSubArray source 0 index, getSubArray source index (source.Length - index)
 
-let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-    // if isNull source1 then
-    //     if isNull source2 then 0 else -1
-    // elif isNull source2 then
-    //     1
-    // else
-        let mutable i = 0
-        let mutable res = 0
-        let length1 = source1.Length
-        let length2 = source2.Length
-        if length1 > length2 then 1
-        elif length1 < length2 then -1
-        else
-            while i < length1 && res = 0 do
-                res <- comparer source1.[i] source2.[i]
-                i <- i + 1
-            res
+let inline sum (source: ^T[]): ^T =
+    let mutable acc = LanguagePrimitives.GenericZero< ^T>
+    for i = 0 to source.Length - 1 do
+        acc <- acc + source.[i]
+    acc
 
-// let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-//     compareWith compare source1 source2 = 0
+let inline sumBy (projection: 'T -> ^U) (source: 'T[]): ^U =
+    let mutable acc = LanguagePrimitives.GenericZero< ^U>
+    for i = 0 to source.Length - 1 do
+        acc <- acc + (projection source.[i])
+    acc
 
-// let sum (source: 'T[]) ([<Inject>] adder: IGenericAdder<'T>): 'T =
-//     let mutable acc = adder.GetZero()
-//     for i = 0 to source.Length - 1 do
-//         acc <- adder.Add(acc, source.[i])
-//     acc
-
-// let sumBy (projection: 'T -> 'T2) (source: 'T[]) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
-//     let mutable acc = adder.GetZero()
-//     for i = 0 to source.Length - 1 do
-//         acc <- adder.Add(acc, projection source.[i])
-//     acc
-
-let maxBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T[]): 'T =
+let maxBy (projection: 'T -> 'U) (xs: 'T[]): 'T =
     reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
 
-let max<'T when 'T: comparison> (xs: 'T[]): 'T =
+let max (xs: 'T[]): 'T =
     reduce (fun x y -> if x > y then x else y) xs
 
-let minBy<'T, 'U when 'U: comparison> (projection: 'T -> 'U) (xs: 'T[]): 'T =
+let minBy (projection: 'T -> 'U) (xs: 'T[]): 'T =
     reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
 
-let min<'T when 'T: comparison> (xs: 'T[]): 'T =
+let min (xs: 'T[]): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
-// let average (source: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
+// let inline average (source: 'T[]) =
 //     if Array.isEmpty source then
 //         invalidArg "source" SR.inputArrayWasEmpty
-//     let mutable total = averager.GetZero()
+//     let mutable acc = LanguagePrimitives.GenericZero< ^T>
 //     for i = 0 to source.Length - 1 do
-//         total <- averager.Add(total, source.[i])
-//     averager.DivideByInt(total, source.Length)
+//         acc <- Checked.(+) acc source.[i]
+//     LanguagePrimitives.DivideByInt< ^T> acc source.Length
 
-// let averageBy (projection: 'T -> 'T2) (source: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>): 'T2 =
+// let inline averageBy (projection: 'T -> ^U) (source: 'T[]) : ^U =
 //     if Array.isEmpty source then
 //         invalidArg "source" SR.inputArrayWasEmpty
-//     let mutable total = averager.GetZero()
+//     let mutable acc = LanguagePrimitives.GenericZero< ^U>
 //     for i = 0 to source.Length - 1 do
-//         total <- averager.Add(total, projection source.[i])
-//     averager.DivideByInt(total, source.Length)
+//         acc <- Checked.(+) acc (projection source.[i])
+//     LanguagePrimitives.DivideByInt< ^U> acc source.Length
 
 // Redirected to List.ofArray to avoid dependency (see Replacements)
 // let toList (source: 'T[]) = List.ofArray

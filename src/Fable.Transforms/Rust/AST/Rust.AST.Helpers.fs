@@ -933,6 +933,11 @@ module Generic =
         |> GenericArgs.Parenthesized
         |> Some
 
+    let mkConstraintArgs (constraints: (string * Ty) seq): GenericArgs option =
+        constraints
+        |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
+        |> mkGenericArgs
+
 [<AutoOpen>]
 module Bounds =
 
