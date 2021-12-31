@@ -376,7 +376,7 @@ class Enumerator(IEnumerator[T]):
         return
 
 
-def get_enumerator(o: Any) -> Enumerator[T]:
+def get_enumerator(o: Iterable[T]) -> Enumerator[T]:
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
@@ -440,7 +440,7 @@ def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
 
 
-def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Any:
+def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callable[..., Any]:
     if not fn:
         return
 
@@ -486,14 +486,14 @@ def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
-def dispose(x: Union[Disposable, ContextManager]):
+def dispose(x: Union[Disposable, ContextManager[Any]]) -> None:
     """Helper to dispose objects.
 
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.
     For more info see: https://www.python.org/dev/peps/pep-0310/
     """
     try:
-        x.Dispose()
+        x.Dispose()  # type: ignore
     except AttributeError as ex:
         try:
             x.__exit__(None, None, None)
@@ -508,8 +508,8 @@ def is_hashable(x: Any) -> bool:
 def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
-
-def to_iterator(en):
+# TODO: rename to to_iterable?
+def to_iterator(en: IEnumerable[T]) -> Iterable[T]:
     class Iterator:
         def __iter__(self):
             return self
@@ -577,8 +577,8 @@ def structural_hash(x: Any) -> int:
     return hash(x)
 
 
-def array_hash(xs):
-    hashes = []
+def array_hash(xs: List[Any]) -> int:
+    hashes: List[int] = []
     for x in xs:
         hashes.append(structural_hash(x))
 
@@ -592,7 +592,7 @@ def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value, digits=0):
+def round(value: float, digits: int = 0):
     m = pow(10, digits)
     n = +(value * m if digits else value)
     i = math.floor(n)
@@ -615,5 +615,5 @@ def escape_uri_string(s: str) -> str:
     return quote(s, safe="&?:/!=")
 
 
-def ignore(a: Any = None):
+def ignore(a: Any = None) -> None:
     return

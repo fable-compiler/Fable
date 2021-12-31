@@ -423,13 +423,12 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-    /// Normalize Fable import to be relative to outDir.
+    /// Normalize Fable import to be relative to compiled file in outDir.
     /// TODO: decide if nugets referencing fable_library should be relative or absolute. Currently absolute.
     let normalizeModulePath (com: IPythonCompiler) modulePath =
-        //printfn "---"
-        //printfn "ModulePath: %s" modulePath
+        // printfn "---"
+        // printfn "ModulePath: %s" modulePath
         let fileDir = Path.GetDirectoryName modulePath
-        //printfn "dir: %A" dir
         let projDir = Path.GetDirectoryName(com.ProjectFile)
         let modulePathname =
             match fileDir with
@@ -439,12 +438,13 @@ module Helpers =
                 |> Path.normalizePath
         let outDir = com.OutputDir |> Option.defaultValue projDir
 
-        //printfn "modulePathname: %A" modulePathname
-        //printfn $"OutputDir: {com.OutputDir}"
-        //printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn "modulePathname: %A" modulePathname
+        // printfn $"OutputDir: {com.OutputDir}"
+        // printfn $"LibraryDir: {com.LibraryDir}"
+        // printfn $"CurrentFile: {com.CurrentFile}"
+        // printfn $"ProjectFile: {com.ProjectFile}"
 
         let commonPrefix = Path.getCommonBaseDir [ modulePathname; com.ProjectFile ]
-        //printfn "CommonPrefix: %A" commonPrefix
         let relativePath =
             // We know all modules will be placed somewhere in outDir or in a subdir below
             modulePathname
@@ -460,17 +460,22 @@ module Helpers =
 
         // Cleanup path
         let relativePath = relativePath.Replace("//", "/")
-        let relativePath =
-            if relativePath.StartsWith("/") then
-                $"./{relativePath.[1..]}"
-            else
-                relativePath
 
-        match fileDir, relativePath with
-        | "", _ -> fileDir
+        // Relative path from current file (up) to project dir
+        let fileRelative =
+            let commonPrefix = Path.getCommonBaseDir [ com.CurrentFile; com.ProjectFile ]
+            Path.GetDirectoryName(com.CurrentFile.Replace(commonPrefix, String.Empty)).Split('/')
+            |> Array.filter (fun x -> x.Length > 0)
+            |> Array.map (fun _ -> "..")
+            |> String.concat "/"
+        // printfn "fileRelative: %A" fileRelative
+
+        // printfn "mod, rel: %A" (modulePathname, relativePath)
+        match modulePathname, relativePath with
+        | "", _
+        | ".", _ -> fileDir
         | _, "" -> "."
-        | _ ->
-            relativePath
+        | _ -> Path.Combine(fileRelative, relativePath)
 
     /// This function is a bit complex. Python imports are difficult.
     /// - Python libraries should use relative imports.
@@ -521,7 +526,7 @@ module Helpers =
         // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
         // printfn $"OutputDir: {com.OutputDir}  "
         // printfn $"LibraryDir: {com.LibraryDir}"
-        //printfn "normalizedPath: %A" (relative, normalizedPath)
+        // printfn "normalizedPath: %A" (relative, normalizedPath)
 
         let moduleName =
             let lower =
@@ -535,18 +540,20 @@ module Helpers =
             match relative, normalizedPath with
             | _, "" -> ""
             | true, "." -> "."
-            | true, path when path.Contains("fable_modules") ->
-                path.Replace("./", "").Replace("./", ".").Replace("/", ".") + "."
             | true, path ->
-                //printfn "Path: %A" path
-                path.Replace("../", "..").Replace("./", ".").Replace("/", ".") + "."
+                path  // translate path to Python relative syntax
+                    .Replace("../../../", "....")
+                    .Replace("../../", "...")
+                    .Replace("../", "..")
+                    .Replace("./", ".")
+                    .Replace("/", ".")
+                    .Replace("...fable_modules.", "..") // attempted relative import beyond top-level package
+                + "."
             | false, "." -> ""
             | false, path ->
-                path.Replace("./", "").Replace("/", ".") + "."
+                path.Replace("../", "").Replace("./", "").Replace("/", ".") + "."
 
-        let moduleImport = $"{path}{moduleName}"
-        //printfn "ModuleImport: %s" moduleImport
-        moduleImport
+        $"{path}{moduleName}"
 
     let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
@@ -3033,7 +3040,6 @@ module Util =
         ]
 
         let bases = [
-            com.GetImportExpr(ctx, "typing", "Protocol")
 
             for ref in classEnt.AllInterfaces |> List.ofSeq |> List.map (fun int -> int.Entity) do
                 let entity = com.GetEntity(ref)
@@ -3042,8 +3048,13 @@ module Util =
                     let iDisposable = libValue com ctx "util" "IDisposable"
                     iDisposable
                 | name when name <> classEnt.FullName ->
-                    Expression.name(name)
+                    Expression.name(Helpers.removeNamespace name)
                 | _ -> ()
+
+            // Only add Protocol base if no interfaces (since the included interfaces will be protocols themselves)
+            if Seq.isEmpty classEnt.AllInterfaces then
+                com.GetImportExpr(ctx, "typing", "Protocol")
+
             for gen in classEnt.GenericParameters do
                 com.AddTypeVar(gen.Name)
                 Expression.subscript(com.GetImportExpr(ctx, "typing", "Generic"), Expression.name(gen.Name))
