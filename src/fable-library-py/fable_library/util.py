@@ -10,6 +10,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Dict,
     Generic,
     Iterable,
     Iterator,
@@ -453,27 +454,24 @@ def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callab
         return fn
 
     if arity == 1:
-        # Wrap arguments to make sure .concat doesn't destruct arrays. Example
-        # [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
-        # [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return lambda a1: fn(args + [a1])
+        return lambda a1: fn(*args, a1)
     if arity == 2:
-        return lambda a1: lambda a2: fn(args + [a1, a2])
+        return lambda a1: lambda a2: fn(*args, a1, a2)
     if arity == 3:
-        return lambda a1: lambda a2: lambda a3: fn(args + [a1, a2, a3])
+        return lambda a1: lambda a2: lambda a3: fn(*args, a1, a2, a3)
     if arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: fn(args + [a1, a2, a3, a4])
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(*args, a1, a2, a3, a4)
     if arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(args + [a1, a2, a3, a4, a5])
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(*args, a1, a2, a3, a4, a5)
     if arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(args + [a1, a2, a3, a4, a5, a6])
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(*args, a1, a2, a3, a4, a5, a6)
     if arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
-            args + [a1, a2, a3, a4, a5, a6, a7]
+            *args, a1, a2, a3, a4, a5, a6, a7
         )
     if arity == 8:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
-            args + [a1, a2, a3, a4, a5, a6, a7, a8]
+            *args, a1, a2, a3, a4, a5, a6, a7, a8
         )
     raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
 
@@ -508,6 +506,7 @@ def is_hashable(x: Any) -> bool:
 def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
+
 # TODO: rename to to_iterable?
 def to_iterator(en: IEnumerable[T]) -> Iterable[T]:
     class Iterator:
@@ -524,7 +523,7 @@ def to_iterator(en: IEnumerable[T]) -> Iterable[T]:
 
 
 class ObjectRef:
-    id_map = dict()
+    id_map : Dict[int, int]= dict()
     count = 0
 
     @staticmethod

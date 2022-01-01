@@ -1,4 +1,3 @@
-from argparse import ArgumentError
 import re
 import locale
 from base64 import b64encode, b64decode
@@ -16,9 +15,9 @@ from .reg_exp import escape
 T = TypeVar("T")
 
 
-fsFormatRegExp: Pattern[str] = re.compile(r"(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)")
-interpolate_regexp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
-format_regexp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
+_fs_format_regexp: Pattern[str] = re.compile(r"(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)")
+_interpolate_regexp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
+_format_regexp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
 
 
 IPrintfFormatContinuation = Callable[[Callable[[str], Any]], Callable[[str], Any]]
@@ -122,11 +121,11 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
     return rep
 
 
-def interpolate(string: str, values: Any) -> str:
+def interpolate(string: str, values: List[Any]) -> str:
     valIdx = 0
     strIdx = 0
     result = ""
-    matches = interpolate_regexp.finditer(string)
+    matches = _interpolate_regexp.finditer(string)
     for match in matches:
         # The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
         # Note: we don't use negative lookbehind because some browsers don't support it yet
@@ -149,7 +148,7 @@ def format_once(str2: str, rep: Any):
         once: str = format_replacement(rep, flags, padLength, precision, format)
         return prefix + once.replace("%", "%%")
 
-    ret = fsFormatRegExp.sub(match, str2, count=1)
+    ret = _fs_format_regexp.sub(match, str2, count=1)
     return ret
 
 
@@ -159,7 +158,7 @@ def create_printer(string: str, cont: Callable[..., Any]):
         for arg in args:
             strCopy = format_once(strCopy, arg)
 
-        if fsFormatRegExp.search(strCopy):
+        if _fs_format_regexp.search(strCopy):
             return create_printer(strCopy, cont)
         return cont(strCopy.replace("%%", "%"))
 
@@ -168,7 +167,7 @@ def create_printer(string: str, cont: Callable[..., Any]):
 
 def fs_format(str: str):
     def _(cont: Callable[..., Any]):
-        if fsFormatRegExp.search(str):
+        if _fs_format_regexp.search(str):
             return create_printer(str, cont)
         return cont(str)
 
@@ -237,7 +236,7 @@ def format(string: str, *args: Any) -> str:
 
         return str(rep)
 
-    return format_regexp.sub(match, string)
+    return _format_regexp.sub(match, string)
 
 
 def initialize(n: int, f: Callable[[int], str]) -> str:
@@ -297,7 +296,7 @@ def from_base64string(b64encoded: str) -> bytes:
 def pad_left(string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False) -> str:
     ch = ch or " "
     length = length - len(string)
-    for i in range(length):
+    for _ in range(length):
         string = string + ch if isRight else ch + string
 
     return string
@@ -332,7 +331,9 @@ def get_char_at_index(input: str, index: int):
     return input[index]
 
 
-def split(string: str, splitters: Union[str, List[str]], count: Optional[int] = None, removeEmpty: int = 0):
+def split(
+    string: str, splitters: Union[str, List[str]], count: Optional[int] = None, removeEmpty: int = 0
+) -> List[str]:
     """Split string
 
     Returns a string array that contains the substrings in this instance
@@ -354,7 +355,7 @@ def split(string: str, splitters: Union[str, List[str]], count: Optional[int] = 
     splitters = [escape(x) for x in splitters] or [" "]
 
     i = 0
-    splits = []
+    splits: List[str] = []
     matches = re.finditer("|".join(splitters), string)
     for m in matches:
         if count is not None and count <= 1:
@@ -376,7 +377,7 @@ def split(string: str, splitters: Union[str, List[str]], count: Optional[int] = 
     return splits
 
 
-def trim(string: str, *chars: str):
+def trim(string: str, *chars: str) -> str:
     if not len(chars):
         return string.strip()
 
@@ -384,21 +385,21 @@ def trim(string: str, *chars: str):
     return re.sub(pattern + "$", "", re.sub("^" + pattern, "", string))
 
 
-def trim_start(string: str, *chars: str):
+def trim_start(string: str, *chars: str) -> str:
     if not len(chars):
         return string.lstrip()
 
     return re.sub("^[" + escape("".join(chars)) + "]+", "", string)
 
 
-def trim_end(string: str, *chars: str):
+def trim_end(string: str, *chars: str) -> str:
     if not len(chars):
         return string.rstrip()
 
     return re.sub("[" + escape("".join(chars)) + "]+$", "", string)
 
 
-def filter(pred: Callable[[str], bool], x: str):
+def filter(pred: Callable[[str], bool], x: str) -> str:
     return "".join(c for c in x if pred(c))
 
 
