@@ -468,6 +468,8 @@ module Helpers =
             |> Array.filter (fun x -> x.Length > 0)
             |> Array.map (fun _ -> "..")
             |> String.concat "/"
+            // If empty path, then we're in the same dir
+            |> (fun str -> if str.Length = 0 then "." else str)
         // printfn "fileRelative: %A" fileRelative
 
         // printfn "mod, rel: %A" (modulePathname, relativePath)
