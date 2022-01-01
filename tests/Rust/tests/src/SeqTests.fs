@@ -107,17 +107,17 @@ let ``Seq.append works`` () =
 //     let xs = Seq.empty<float>
 //     (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``Seq.average works`` () =
-//     let xs = seq {1.; 2.; 3.; 4.}
-//     Seq.average xs
-//     |> equal 2.5
+[<Fact>]
+let ``Seq.average works`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.average xs
+    |> equal 2.5
 
-// [<Fact>]
-// let ``Seq.averageBy works`` () =
-//     let xs = seq {1.; 2.; 3.; 4.}
-//     Seq.averageBy ((*) 2.) xs
-//     |> equal 5.
+[<Fact>]
+let ``Seq.averageBy works`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.averageBy ((*) 2.) xs
+    |> equal 5.
 
 // [<Fact>]
 // let ``Seq.average works with custom types`` () =

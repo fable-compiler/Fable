@@ -899,6 +899,10 @@ module Generic =
         { span = DUMMY_SP
           args = mkVec args }
 
+    let mkGenericTypeArg (ty: Ty): AngleBracketedArg =
+        let genericArg = GenericArg.Type(ty)
+        AngleBracketedArg.Arg(genericArg)
+
     let mkAssocTyConstraintArg name ty genArgs: AngleBracketedArg =
         let tyConstraint: AssocTyConstraint = {
             id = DUMMY_NODE_ID
@@ -919,7 +923,7 @@ module Generic =
             |> Some
 
     let mkGenericTypeArgs (tys: Ty seq): GenericArgs option =
-        let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
+        let args = tys |> Seq.map mkGenericTypeArg
         mkGenericArgs args
 
     let mkParenArgs inputs output: GenericArgs option =
@@ -933,9 +937,12 @@ module Generic =
         |> GenericArgs.Parenthesized
         |> Some
 
-    let mkConstraintArgs (constraints: (string * Ty) seq): GenericArgs option =
-        constraints
-        |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
+    let mkConstraintArgs (tys: Ty seq) (constraints: (string * Ty) seq): GenericArgs option =
+        let tyArgs = tys |> Seq.map mkGenericTypeArg
+        let constraintArgs =
+            constraints
+            |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
+        Seq.append tyArgs constraintArgs
         |> mkGenericArgs
 
 [<AutoOpen>]

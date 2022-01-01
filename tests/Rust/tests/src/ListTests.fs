@@ -747,16 +747,16 @@ let ``List.contains works`` () =
 //     (modifyList l 1) |> List.contains 1 |> equal false
 //     (modifyList l 5) |> List.contains 5 |> equal true
 
-// [<Fact>]
-// let ``List.average works`` () =
-//     List.average [1.; 2.; 3.; 4.]
-//     |> equal 2.5
+[<Fact>]
+let ``List.average works`` () =
+    List.average [1.; 2.; 3.; 4.]
+    |> equal 2.5
 
-// [<Fact>]
-// let ``List.averageBy works`` () =
-//     [1.; 2.; 3.; 4.]
-//     |> List.averageBy (fun x -> x * 2.)
-//     |> equal 5.
+[<Fact>]
+let ``List.averageBy works`` () =
+    [1.; 2.; 3.; 4.]
+    |> List.averageBy (fun x -> x * 2.)
+    |> equal 5.
 
 // [<Fact>]
 // let ``List.average works with custom types`` () =

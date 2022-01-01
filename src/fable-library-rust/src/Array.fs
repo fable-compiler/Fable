@@ -687,21 +687,21 @@ let minBy (projection: 'T -> 'U) (xs: 'T[]): 'T =
 let min (xs: 'T[]): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
-// let inline average (source: 'T[]) =
-//     if Array.isEmpty source then
-//         invalidArg "source" SR.inputArrayWasEmpty
-//     let mutable acc = LanguagePrimitives.GenericZero< ^T>
-//     for i = 0 to source.Length - 1 do
-//         acc <- Checked.(+) acc source.[i]
-//     LanguagePrimitives.DivideByInt< ^T> acc source.Length
+let inline average (source: 'T[]): 'T =
+    if Array.isEmpty source then
+        invalidArg "source" SR.inputArrayWasEmpty
+    let mutable total = LanguagePrimitives.GenericZero< ^T>
+    for i = 0 to source.Length - 1 do
+        total <- total + source.[i]
+    LanguagePrimitives.DivideByInt< ^T> total source.Length
 
-// let inline averageBy (projection: 'T -> ^U) (source: 'T[]) : ^U =
-//     if Array.isEmpty source then
-//         invalidArg "source" SR.inputArrayWasEmpty
-//     let mutable acc = LanguagePrimitives.GenericZero< ^U>
-//     for i = 0 to source.Length - 1 do
-//         acc <- Checked.(+) acc (projection source.[i])
-//     LanguagePrimitives.DivideByInt< ^U> acc source.Length
+let inline averageBy (projection: 'T -> ^U) (source: 'T[]): ^U =
+    if Array.isEmpty source then
+        invalidArg "source" SR.inputArrayWasEmpty
+    let mutable total = LanguagePrimitives.GenericZero< ^U>
+    for i = 0 to source.Length - 1 do
+        total <- total + (projection source.[i])
+    LanguagePrimitives.DivideByInt< ^U> total source.Length
 
 // Redirected to List.ofArray to avoid dependency (see Replacements)
 // let toList (source: 'T[]) = List.ofArray

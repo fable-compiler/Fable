@@ -342,17 +342,17 @@ let ``Array.append works II`` () =
     let zs2 = Array.append [|"x";"y"|] xs2
     zs2.[1] + zs2.[3] |> equal "yb"
 
-// [<Fact>]
-// let ``Array.average works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.average xs
-//     |> equal 2.5
+[<Fact>]
+let ``Array.average works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.average xs
+    |> equal 2.5
 
-// [<Fact>]
-// let ``Array.averageBy works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.averageBy (fun x -> x * 2.) xs
-//     |> equal 5.
+[<Fact>]
+let ``Array.averageBy works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.averageBy (fun x -> x * 2.) xs
+    |> equal 5.
 
 // [<Fact>]
 // let ``Array.average works with custom types`` () =

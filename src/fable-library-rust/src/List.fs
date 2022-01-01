@@ -103,7 +103,7 @@ let toArray (xs: 'T list) =
     res
 
 // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     if (isEmpty xs) then state
+//     if isEmpty xs then state
 //     else fold folder (folder state (head xs)) (tail xs)
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
@@ -251,13 +251,13 @@ let filter (predicate: 'T -> bool) (xs: 'T list) =
 
 let map (mapping: 'T -> 'U) (xs: 'T list) =
     let gen xs =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else Some(mapping (head xs), tail xs)
     unfold gen xs
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
     let gen (i, xs) =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else Some(mapping i (head xs), (i + 1, tail xs))
     unfold gen (0, xs)
 
@@ -285,7 +285,7 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: '
 let mapFold (mapping: 'State -> 'T -> 'U * 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
     let gen xs =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else
             let m = mapping acc (head xs)
             acc <- snd m
@@ -331,7 +331,7 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'St
 
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
     let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else
             match chooser (head xs) with
             | Some _  as res -> res
@@ -361,7 +361,7 @@ let findBack (predicate: 'T -> bool) (xs: 'T list) =
 
 let tryFindIndex (predicate: 'T -> bool) (xs: 'T list): int option =
     let rec inner_loop i (predicate: 'T -> bool) (xs: 'T list) =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else
             if predicate (head xs)
             then Some i
@@ -383,7 +383,7 @@ let findIndexBack (predicate: 'T -> bool) (xs: 'T list): int =
 
 let tryItem index (xs: 'T list) =
     let rec inner_loop i (xs: 'T list) =
-        if (isEmpty xs) then None
+        if isEmpty xs then None
         else
             if i = 0 then Some (head xs)
             elif i < 0 then None
@@ -425,11 +425,11 @@ let partition (predicate: 'T -> bool) (xs: 'T list) =
     root1, root2
 
 let reduce reduction (xs: 'T list) =
-    if (isEmpty xs) then invalidOp SR.inputListWasEmpty
+    if isEmpty xs then invalidOp SR.inputListWasEmpty
     fold reduction (head xs) (tail xs)
 
 let reduceBack reduction (xs: 'T list) =
-    if (isEmpty xs) then invalidOp SR.inputListWasEmpty
+    if isEmpty xs then invalidOp SR.inputListWasEmpty
     foldBack reduction (tail xs) (head xs)
 
 let replicate count initial =
@@ -484,17 +484,21 @@ let minBy (projection: 'T -> 'U) (xs: 'T list): 'T =
 let min (xs: 'T list): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
-// let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-//     let mutable count = 0
-//     let folder acc x = count <- count + 1; averager.Add(acc, x)
-//     let total = fold folder (averager.GetZero()) xs
-//     averager.DivideByInt(total, count)
+let inline average (xs: 'T list): 'T =
+    if isEmpty xs then invalidOp SR.inputListWasEmpty
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^T>
+    let folder acc x = count <- count + 1; acc + x
+    let total = fold folder zero xs
+    LanguagePrimitives.DivideByInt< ^T> total count
 
-// let averageBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] averager: IGenericAverager<'U>): 'U =
-//     let mutable count = 0
-//     let inline folder acc x = count <- count + 1; averager.Add(acc, f x)
-//     let total = fold folder (averager.GetZero()) xs
-//     averager.DivideByInt(total, count)
+let inline averageBy (projection: 'T -> ^U) (xs: 'T list) : ^U =
+    if isEmpty xs then invalidOp SR.inputListWasEmpty
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^U>
+    let folder acc x = count <- count + 1; acc + (projection x)
+    let total = fold folder zero xs
+    LanguagePrimitives.DivideByInt< ^U> total count
 
 let permute (indexMap: int -> int) (xs: 'T list) =
     toArray xs
@@ -529,11 +533,11 @@ let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
 let rec skip count (xs: 'T list) =
     if count <= 0 then xs
     else
-        if (isEmpty xs) then invalidArg "list" SR.notEnoughElements
+        if isEmpty xs then invalidArg "list" SR.notEnoughElements
         skip (count - 1) (tail xs)
 
 let rec skipWhile (predicate: 'T -> bool) (xs: 'T list) =
-    if (isEmpty xs) then xs
+    if isEmpty xs then xs
     elif not (predicate (head xs)) then xs
     else skipWhile predicate (tail xs)
 
@@ -541,7 +545,7 @@ let take count (xs: 'T list) =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
     let gen (i, xs: 'T list) =
         if i > 0 then
-            if (isEmpty xs) then invalidArg "list" SR.notEnoughElements
+            if isEmpty xs then invalidArg "list" SR.notEnoughElements
             Some(head xs, (i - 1, tail xs))
         else None
     unfold gen (count, xs)

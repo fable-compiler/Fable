@@ -1464,6 +1464,8 @@ module Util =
             libCall com ctx None [] "Seq" "ofArray" [fableExpr]
         | Fable.List _, IEnumerable com _ ->
             libCall com ctx None [] "Seq" "ofList" [fableExpr]
+        | _, Fable.GenericParam(name, _constraints) ->
+            makeCall [name; "from"] None [expr] // e.g. T::from(value)
         | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
         // TODO: other casts?
@@ -3547,42 +3549,56 @@ module Util =
     //     | t ->
     //         t.Generics |> List.collect (getGenParamNames isMut)
 
-    let makeTypeBound argName (constraint_: Fable.Constraint) =
-        let makeGenBound name =
-            mkTypeTraitGenericBound [name] None
-        let makeOpGenBound op =
-            // makes op type bound, e.g. T: Add(Output=T)
+    let makeTypeBounds argName (constraints: Fable.Constraint list) =
+        let makeGenBound name tyNames =
+            // makes gen type bound, e.g. T: From(i32), or T: Default
+            let tys = tyNames |> List.map (fun tyName ->
+                mkGenericPathTy [tyName] None)
+            let genArgs = mkConstraintArgs tys []
+            mkTypeTraitGenericBound [name] genArgs
+
+        let makeOpBound op =
+            // makes ops type bound, e.g. T: Add(Output=T)
             let ty = mkGenericPathTy [argName] None
-            let genArgs = mkConstraintArgs ["Output", ty]
+            let genArgs = mkConstraintArgs [] ["Output", ty]
             mkTypeTraitGenericBound ["core";"ops"; op] genArgs
 
-        match constraint_ with
-        | Fable.Constraint.HasMember(membName, isStatic) ->
-            match membName, isStatic with
-            | Operators.addition, true -> makeOpGenBound "Add" |> Some
-            | Operators.divideByInt, true -> makeOpGenBound "Div" |> Some
-            | "get_Zero", true -> makeGenBound "Default" |> Some
-            | _ -> None
-        | Fable.Constraint.CoercesTo(targetType) -> None
-        | Fable.Constraint.IsNullable -> None
-        | Fable.Constraint.IsValueType -> None
-        | Fable.Constraint.IsReferenceType -> None
-        | Fable.Constraint.HasDefaultConstructor -> None
-        | Fable.Constraint.HasComparison -> makeGenBound "PartialOrd" |> Some
-        | Fable.Constraint.HasEquality -> makeGenBound "PartialEq" |> Some
-        | Fable.Constraint.IsUnmanaged -> None
-        | Fable.Constraint.IsEnum -> None
+        let makeConstraint = function
+            | Fable.Constraint.HasMember(membName, isStatic) ->
+                match membName, isStatic with
+                | Operators.addition, true -> [makeOpBound "Add"]
+                | Operators.subtraction, true -> [makeOpBound "Sub"]
+                | Operators.multiply, true -> [makeOpBound "Mul"]
+                | Operators.division, true -> [makeOpBound "Div"]
+                | Operators.modulus, true -> [makeOpBound "Rem"]
+                | Operators.unaryNegation, true -> [makeOpBound "Neg"]
+                | Operators.divideByInt, true ->
+                    [makeOpBound "Div"; makeGenBound "From" ["i32"]]
+                | "get_Zero", true -> [makeGenBound "Default" []]
+                | _ -> []
+            | Fable.Constraint.CoercesTo(targetType) -> []
+            | Fable.Constraint.IsNullable -> []
+            | Fable.Constraint.IsValueType -> []
+            | Fable.Constraint.IsReferenceType -> []
+            | Fable.Constraint.HasDefaultConstructor -> []
+            | Fable.Constraint.HasComparison -> [makeGenBound "PartialOrd" []]
+            | Fable.Constraint.HasEquality -> [makeGenBound "PartialEq" []]
+            | Fable.Constraint.IsUnmanaged -> []
+            | Fable.Constraint.IsEnum -> []
+
+        constraints
+        |> List.distinct
+        |> List.collect makeConstraint
 
     let makeGenerics (genParams: Fable.Type list) =
         let defaultBounds = [
             mkTypeTraitGenericBound ["Clone"] None
-            // mkTypeTraitGenericBound ["Default"] None
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
         genParams
         |> List.choose (function
             | Fable.GenericParam(name, constraints) ->
-                let bounds = constraints |> List.distinct |> List.choose (makeTypeBound name)
+                let bounds = makeTypeBounds name constraints
                 let p = mkGenericParamFromName [] name (bounds @ defaultBounds)
                 Some p
             | _ -> None)

@@ -997,21 +997,21 @@ let minBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
 let min (xs: 'T seq): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
-// let average (xs: 'T seq) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-//     let mutable count = 0
-//     let folder acc x = count <- count + 1; averager.Add(acc, x)
-//     let total = fold folder (averager.GetZero()) xs
-//     if count = 0 then
-//         invalidArg "xs" SR.inputSequenceEmpty
-//     else averager.DivideByInt(total, count)
+let inline average (xs: 'T seq): 'T =
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^T>
+    let folder acc x = count <- count + 1; acc + x
+    let total = fold folder zero xs
+    if count = 0 then invalidOp SR.inputSequenceEmpty
+    LanguagePrimitives.DivideByInt< ^T> total count
 
-// let averageBy (projection: 'T -> 'U) (xs: 'T seq) ([<Inject>] averager: IGenericAverager<'U>): 'U =
-//     let mutable count = 0
-//     let inline folder acc x = count <- count + 1; averager.Add(acc, projection x)
-//     let total = fold folder (averager.GetZero()) xs
-//     if count = 0 then
-//         invalidArg "xs" SR.inputSequenceEmpty
-//     else averager.DivideByInt(total, count)
+let inline averageBy (projection: 'T -> ^U) (xs: 'T seq) : ^U =
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^U>
+    let folder acc x = count <- count + 1; acc + (projection x)
+    let total = fold folder zero xs
+    if count = 0 then invalidOp SR.inputSequenceEmpty
+    LanguagePrimitives.DivideByInt< ^U> total count
 
 let permute f (xs: 'T seq) =
     delay (fun () ->

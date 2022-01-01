@@ -763,11 +763,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
-        | (Operators.division | Operators.divideByInt), [left; right] ->
-            match argTypes with
-            // Floor result of integer divisions (see #172)
-            // | Number(Integer,_)::_ -> binOp BinaryDivide left right |> fastIntFloor
-            | _ -> binOp BinaryDivide left right
+        | Operators.division, [left; right] -> binOp BinaryDivide left right
+        | Operators.divideByInt, [left; right] ->
+            binOp BinaryDivide left (TypeCast(right, t))
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [left; right] ->
