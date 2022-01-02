@@ -479,14 +479,14 @@ module Helpers =
         | _, "" -> "."
         | _ -> Path.Combine(fileRelative, relativePath)
 
-    /// This function is a bit complex. Python imports are difficult.
+    /// This function is a bit complex. Python imports are a bit tricky.
     /// - Python libraries should use relative imports.
     /// - Python program must use absolute imports
     /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
     /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
     /// a library (fable-modules). Thus we need to handle a lot of corner cases.
     ///
-    ///  - OutDir
+    ///  - outDir
     ///    - fable_modules
     ///      - fable_library (may import itself)
     ///      - nuget_library (may import fable library)
@@ -755,8 +755,10 @@ module Annotation =
             | _ -> typingModuleTypeHint "List" [ genArg ]
         | Fable.List genArg     -> fableModuleTypeInfo "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
-        | Fable.AnonymousRecordType _ ->
-            Expression.name("dict"), [] // TODO: use TypedDict?
+        | Fable.AnonymousRecordType (_, genArgs) ->
+            let value = Expression.name("dict")
+            let any, stmts = typingModuleTypeHint "Any" []
+            Expression.subscript(value, Expression.tuple([ Expression.name "str"; any ])), stmts
         | Fable.DeclaredType(entRef, genArgs) ->
             // printfn "DeclaredType: %A" entRef.FullName
             match entRef.FullName, genArgs with
