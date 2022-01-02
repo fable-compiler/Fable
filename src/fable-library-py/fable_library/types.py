@@ -6,34 +6,34 @@ from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from typing import Union as Union_
 from typing import cast
 
-from .util import IComparable
+from .util import IComparable, compare
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-class FSharpRef(Generic[T]):
+class FSharpRef(Generic[_T]):
     def __init__(
-        self, contentsOrGetter: Union_[T, Callable[[], T]], setter: Optional[Callable[[T], None]] = None
+        self, contentsOrGetter: Union_[_T, Callable[[], _T]], setter: Optional[Callable[[_T], None]] = None
     ) -> None:
-        contents = cast(T, contentsOrGetter)
+        contents = cast(_T, contentsOrGetter)
 
-        def set_contents(value: T):
+        def set_contents(value: _T):
             nonlocal contents
             contents = value
 
         if callable(setter):
-            self.getter = cast(Callable[[], T], contentsOrGetter)
+            self.getter = cast(Callable[[], _T], contentsOrGetter)
             self.setter = setter
         else:
             self.getter = lambda: contents
             self.setter = set_contents
 
     @property
-    def contents(self) -> T:
+    def contents(self) -> _T:
         return self.getter()
 
     @contents.setter
-    def contents(self, v: T) -> None:
+    def contents(self, v: _T) -> None:
         self.setter(v)
 
 
@@ -85,7 +85,7 @@ class Union(IComparable):
 
     def __lt__(self, other: Any) -> bool:
         if self.tag == other.tag:
-            return self.fields < other.fields
+            return True if compare(self.fields, other.fields) < 0 else False
 
         return self.tag < other.tag
 
