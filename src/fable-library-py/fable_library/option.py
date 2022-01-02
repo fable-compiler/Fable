@@ -104,6 +104,7 @@ __all__ = [
     "map2",
     "map3",
     "of_nullable",
+    "Option",
     "some",
     "Some",
     "to_array",

@@ -17,6 +17,7 @@ from typing import (
     List,
     Optional,
     Sized,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -181,7 +182,7 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
 
 def compare_arrays(xs: List[Any], ys: List[Any]):
     if xs is None:
-        return 0 if y is None else 1
+        return 0 if ys is None else 1
 
     if ys is None:
         return -1
@@ -314,14 +315,8 @@ def create_atom(value: Optional[_T] = None) -> Callable[[Optional[_T], Optional[
     return _
 
 
-def create_obj(fields):
-    # TODO: return dict(filelds) ?
-    obj = {}
-
-    for k, v in fields:
-        obj[k] = v
-
-    return obj
+def create_obj(fields: List[Tuple[Any, Any]]):
+    return dict(fields)
 
 
 def tohex(val: int, nbits: Optional[int] = None) -> str:
@@ -400,6 +395,10 @@ class IEnumerable(Iterable[_T]):
     @abstractmethod
     def GetEnumerator(self) -> Iterator[_T]:
         ...
+
+
+class ICollection(IEnumerable[_T]):
+    pass
 
 
 class Enumerator(IEnumerator[_T]):

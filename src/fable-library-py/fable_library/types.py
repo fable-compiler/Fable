@@ -13,16 +13,16 @@ _T = TypeVar("_T")
 
 class FSharpRef(Generic[_T]):
     def __init__(
-        self, contentsOrGetter: Union_[_T, Callable[[], _T]], setter: Optional[Callable[[_T], None]] = None
+        self, contents_or_getter: Union_[None, _T, Callable[[], _T]], setter: Optional[Callable[[_T], None]] = None
     ) -> None:
-        contents = cast(_T, contentsOrGetter)
+        contents = cast(_T, contents_or_getter)
 
         def set_contents(value: _T):
             nonlocal contents
             contents = value
 
         if callable(setter):
-            self.getter = cast(Callable[[], _T], contentsOrGetter)
+            self.getter = cast(Callable[[], _T], contents_or_getter)
             self.setter = setter
         else:
             self.getter = lambda: contents
@@ -100,7 +100,7 @@ def record_equals(self: Record, other: Record) -> bool:
     return a == b
 
 
-def record_compare_to(self: Record, other: Record):
+def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 

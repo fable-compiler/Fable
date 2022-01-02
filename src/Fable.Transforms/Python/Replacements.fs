@@ -1631,9 +1631,9 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
             getAttachedMember thisArg memb |> makeCall r t info |> Some
         | _ -> None
     match i.CompiledName with
-    | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
+    | "ToUpper" -> icall r t args i.SignatureArgTypes "upper"
     | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "upper"
-    | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
+    | "ToLower" -> icall r t args i.SignatureArgTypes "lower"
     | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "lower"
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
@@ -1703,9 +1703,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
-    | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
+    | ReplaceName [ "ToUpper",          "upper"
                     "ToUpperInvariant", "upper"
-                    "ToLower",          "toLocaleLowerCase"
+                    "ToLower",          "lower"
                     "ToLowerInvariant", "lower" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "IndexOf", Some c, _ ->
