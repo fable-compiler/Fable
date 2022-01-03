@@ -797,6 +797,11 @@ module Annotation =
             | entName when entName.StartsWith(Types.choiceNonGeneric) ->
                 makeUnionTypeAnnotation com ctx genArgs
                 *)
+            | Types.fsharpAsyncGeneric, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                fableModuleAnnotation com ctx "async_builder"  "Async" resolved, stmts
+            | Types.taskGeneric, _ ->
+                typingModuleTypeHint "Awaitable" genArgs
             | Types.icomparable, _ ->
                 let resolved, stmts = typingModuleTypeHint "Any" []
                 fableModuleAnnotation com ctx "util" "IComparable" [ resolved ], stmts
@@ -896,7 +901,7 @@ module Annotation =
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
         let genTypeParams = Util.getGenericTypeParams (argTypes @ [body.Type])
-        let newTypeParams = Set.difference (genTypeParams) ctx.ScopedTypeParams
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
 
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
@@ -1157,13 +1162,13 @@ module Util =
     let callSuperAsStatement (args: Expression list) =
         Statement.expr(callSuper args)
 
-    let makeClassConstructor (args: Arguments) (unitArg: bool) body =
+    let makeClassConstructor (args: Arguments) (isOptional: bool) body =
         // printfn "makeClassConstructor: %A" body
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args =
             match args.Args with
-            | [ _unit ] when unitArg ->
+            | [ _unit ] when isOptional ->
                 { args with Args = self::args.Args; Defaults=[ Expression.none ] }
             | _ ->
                 { args with Args = self::args.Args }
@@ -1282,10 +1287,17 @@ module Util =
             | _ -> args
 
         match body with
-            | [ Statement.Return({Value=Some expr}) ] ->
-                // Remove annotations from lambda expressions
-                let args = { args with Args = args.Args |> List.map(fun arg -> { arg with Annotation = None })}
-                Expression.lambda(args, expr), []
+//            | [ Statement.Return({Value=Some expr}) ] ->
+//                let fn = Expression.name(Helpers.getUniqueIdentifier "lambda")
+//                // Remove annotations from lambda expressions
+//                let args' = { args with Args = args.Args |> List.map(fun arg -> { arg with Annotation = None })}
+//                let lambda = Expression.lambda(args', expr)
+//                // Add separate assignment annotation
+//                let taArgs = args.Args |> List.choose (fun arg -> arg.Annotation)
+//                printfn "Args: %A" args
+//                let ta = pythonModuleAnnotation com ctx "typing" "Callable" (taArgs @ [ returnType ])
+//                let stmts = [Statement.assign(fn, lambda, ta)]
+//                fn, stmts
             | _ ->
                 let ident = name |> Option.map Identifier |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "arrow")
                 let func = Statement.functionDef(name = ident, args = args, body = body, returns=returnType)
@@ -2755,10 +2767,10 @@ module Util =
                 prop)
             |> Seq.toArray
 
-    let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (unitArg: bool) (consBody: Statement list) (baseExpr: Expression option) classMembers =
+    let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (isOptional: bool) (consBody: Statement list) (baseExpr: Expression option) classMembers =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
-        let classCons = makeClassConstructor consArgs unitArg consBody
+        let classCons = makeClassConstructor consArgs isOptional consBody
         let classFields = Array.empty
         let classMembers = classCons @ classMembers
         //printfn "ClassMembers: %A" classMembers
@@ -2783,8 +2795,8 @@ module Util =
         let name = com.GetIdentifier(ctx, entName)
         Statement.classDef(name, body = classBody, bases = bases @ generics)
 
-    let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (unitArg: bool) (consBody: Statement list) baseExpr classMembers : Statement list =
-        let typeDeclaration = declareClassType com ctx ent entName consArgs unitArg consBody baseExpr classMembers
+    let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (isOptional: bool) (consBody: Statement list) baseExpr classMembers : Statement list =
+        let typeDeclaration = declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
             let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
             let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)

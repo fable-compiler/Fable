@@ -369,7 +369,7 @@ def clear(col: Optional[List[Any]]) -> None:
         col.clear()
 
 
-class IEnumerator(Generic[_T], IDisposable):
+class IEnumerator(Iterator[_T], IDisposable):
     @abstractmethod
     def Current(self) -> _T:
         ...
@@ -390,11 +390,19 @@ class IEnumerator(Generic[_T], IDisposable):
             "System_Collections.IEnumerator_Reset": self.Reset,
         }[name]
 
+    def __next__(self) -> _T:
+        if not self.MoveNext():
+            raise StopIteration
+        return self.Current()
+
 
 class IEnumerable(Iterable[_T]):
     @abstractmethod
-    def GetEnumerator(self) -> Iterator[_T]:
+    def GetEnumerator(self) -> IEnumerator[_T]:
         ...
+
+    def __iter__(self) -> Iterator[_T]:
+        return self.GetEnumerator()
 
 
 class ICollection(IEnumerable[_T]):

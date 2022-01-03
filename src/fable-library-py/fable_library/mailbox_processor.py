@@ -4,7 +4,7 @@ from queue import SimpleQueue
 from threading import RLock
 from typing import Optional, Callable, TypeVar, Generic, Any, List
 
-from .async_builder import CancellationToken, IAsync, OperationCanceledError
+from .async_builder import CancellationToken, Async, OperationCanceledError
 from .async_ import start_immediate, from_continuations
 
 
@@ -48,7 +48,7 @@ class MailboxProcessor(Generic[Msg]):
         self.messages.put(msg)
         self.__process_events()
 
-    def post_and_async_reply(self, build_message: Callable[[AsyncReplyChannel[Reply]], Msg]) -> IAsync[Reply]:
+    def post_and_async_reply(self, build_message: Callable[[AsyncReplyChannel[Reply]], Msg]) -> Async[Reply]:
         """Post a message asynchronously to the mailbox processor and
         wait for the reply.
 
@@ -85,7 +85,7 @@ class MailboxProcessor(Generic[Msg]):
 
         return from_continuations(callback)
 
-    def receive(self) -> IAsync[Msg]:
+    def receive(self) -> Async[Msg]:
         """Receive message from mailbox.
 
         Returns:
@@ -135,7 +135,7 @@ class MailboxProcessor(Generic[Msg]):
         return mbox
 
 
-def receive(mbox: MailboxProcessor[Msg]) -> IAsync[Msg]:
+def receive(mbox: MailboxProcessor[Msg]) -> Async[Msg]:
     return mbox.receive()
 
 
@@ -143,7 +143,7 @@ def post(mbox: MailboxProcessor[Msg], msg: Msg):
     return mbox.post(msg)
 
 
-def start_instance(mbox: MailboxProcessor[Any]) -> IAsync[Any]:
+def start_instance(mbox: MailboxProcessor[Any]) -> Async[Any]:
     return start_immediate(mbox.body(mbox))
 
 

@@ -1,9 +1,10 @@
+from asyncio import Task, ensure_future
 from threading import Timer
-from typing import Any, Callable, List, Optional, TypeVar, Union
+from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union
 
 from .async_builder import (
     CancellationToken,
-    IAsync,
+    Async,
     IAsyncContext,
     OperationCanceledError,
     Trampoline,
@@ -12,9 +13,9 @@ from .async_builder import (
     protected_cont,
     protected_return,
 )
-from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore
+from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore , F# generated from Choice.fs
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
 default_cancellation_token = CancellationToken()
@@ -39,8 +40,8 @@ def cancel_after(token: CancellationToken, ms: int) -> None:
     timer.start()
 
 
-def sleep(millisecondsDueTime: int) -> IAsync[T]:
-    def cont(ctx: IAsyncContext[T]):
+def sleep(millisecondsDueTime: int) -> Async[_T]:
+    def cont(ctx: IAsyncContext[_T]):
         def cancel():
             timer.cancel()
             ctx.on_cancel(OperationCanceledError())
@@ -57,17 +58,20 @@ def sleep(millisecondsDueTime: int) -> IAsync[T]:
     return protected_cont(cont)
 
 
-def ignore(computation: IAsync[T]) -> IAsync[None]:
-    return protected_bind(computation, lambda _x=None: protected_return())
+def ignore(computation: Async[_T]) -> Async[None]:
+    def binder(_: Optional[_T] = None) -> Async[None]:
+        return protected_return()
+
+    return protected_bind(computation, binder)
 
 
-def catch_async(work: IAsync[T]) -> IAsync[T]:
-    def cont(ctx: IAsyncContext[T]):
-        def on_success(x: Optional[T] = None):
-            ctx.on_success(Choice_makeChoice1Of2(x))
+def catch_async(work: Async[_T]) -> Async[_T]:
+    def cont(ctx: IAsyncContext[_T]) -> None:
+        def on_success(x: Optional[_T] = None):
+            ctx.on_success(Choice_makeChoice1Of2(x))  # type: ignore
 
         def on_error(err: Exception):
-            ctx.on_success(Choice_makeChoice2Of2(err))
+            ctx.on_success(Choice_makeChoice2Of2(err))  # type: ignore
 
         ctx_ = IAsyncContext.create(on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
         work(ctx_)
@@ -76,15 +80,35 @@ def catch_async(work: IAsync[T]) -> IAsync[T]:
 
 
 def from_continuations(f: Callable[[List[Callable[[Any], None]]], None]) -> Callable[[IAsyncContext[Any]], None]:
-    def cont(ctx: IAsyncContext[Any]):
+    def cont(ctx: IAsyncContext[Any]) -> None:
         f([ctx.on_success, ctx.on_error, ctx.on_cancel])
 
     return protected_cont(cont)
 
 
+def await_task(task: Awaitable[_T]) -> Async[_T]:
+    continuation: List[Callable[[Any], None]] = []
+    task = ensure_future(task)
+
+    def done(tsk: Task[_T]) -> None:
+        value = tsk.result()
+        continuation[0](value)
+
+    def callback(conts: List[Callable[[Any], None]]) -> None:
+        nonlocal continuation
+        continuation = conts
+
+    task.add_done_callback(done)
+    return from_continuations(callback)
+
+
 def start_with_continuations(
-    computation, continuation=None, exception_continuation=None, cancellation_continuation=None, cancellation_token=None
-) -> Callable[[IAsyncContext], None]:
+    computation: Callable[[IAsyncContext[_T]], Async[_T]],
+    continuation: Optional[Callable[[Optional[_T]], None]] = None,
+    exception_continuation: Optional[Callable[[Exception], None]] = None,
+    cancellation_continuation: Optional[Callable[[OperationCanceledError], None]] = None,
+    cancellation_token: Optional[CancellationToken] = None,
+) -> Callable[[IAsyncContext[_T]], None]:
     trampoline = Trampoline()
 
     ctx = IAsyncContext.create(
@@ -98,9 +122,13 @@ def start_with_continuations(
     return computation(ctx)
 
 
-def start(computation, cancellation_token=None) -> Callable[[IAsyncContext], None]:
+def start(
+    computation: Callable[[IAsyncContext[_T]], Async[_T]], cancellation_token: Optional[CancellationToken] = None
+) -> Async[_T]:
     return start_with_continuations(computation, cancellation_token=cancellation_token)
 
 
-def start_immediate(computation, cancellation_token=None) -> Callable[[IAsyncContext], None]:
+def start_immediate(
+    computation: Callable[[IAsyncContext[_T]], Async[_T]], cancellation_token: Optional[CancellationToken] = None
+) -> Async[_T]:
     return start(computation, cancellation_token)

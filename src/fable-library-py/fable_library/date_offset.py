@@ -3,7 +3,7 @@ from datetime import datetime
 from .types import FSharpRef
 
 
-def parse(string: str, detectUTC=False) -> datetime:
+def parse(string: str, detectUTC: bool = False) -> datetime:
     from dateutil import parser
 
     return parser.parse(string)

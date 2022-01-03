@@ -90,7 +90,7 @@ class Union(IComparable):
         return self.tag < other.tag
 
 
-def record_equals(self: Record, other: Record) -> bool:
+def record_equals(self: _T, other: _T) -> bool:
     if self is other:
         return True
 
