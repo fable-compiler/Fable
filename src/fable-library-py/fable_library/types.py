@@ -169,11 +169,8 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Any, callStack: int = 0) -> str:
+def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     if x is not None:
-        # if (typeof x.toString === "function") {
-        #    return x.toString();
-
         if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
 
@@ -242,13 +239,13 @@ class FSharpException(Exception, IComparable):
         return hash(self.Data0)
 
     def GetHashCode(self) -> int:
-        return record_get_hashcode(self)
+        return hash(self)
 
     def Equals(self, other: FSharpException):
         return record_equals(self, other)
 
     def CompareTo(self, other: FSharpException):
-        return record_compare_to(self, other)
+        return compare(self.Data0, other.Data0)
 
 
 def Int8Array(lst: List[int]):

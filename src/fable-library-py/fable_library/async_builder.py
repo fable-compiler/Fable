@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections import deque
 from threading import Lock, RLock, Timer
-from typing import Any, Callable, Dict, Generic, Iterable, Optional, Protocol, TypeVar
+from typing import Any, Callable, Dict, Generic, Iterable, Optional, Protocol, TypeVar, overload
 
 from .util import IDisposable
 
@@ -18,14 +18,22 @@ class OperationCanceledError(Exception):
 
 
 class _Listener(Protocol):
-    def __call__(self, state: Optional[Any] = None) -> None:
+    @overload
+    def __call__(self) -> None:
+        ...
+
+    @overload
+    def __call__(self, state: Any) -> None:
+        ...
+
+    def __call__(self, __state: Optional[Any] = None) -> None:
         ...
 
 
 class CancellationToken:
     def __init__(self, cancelled: bool = False):
         self.cancelled = cancelled
-        self.listeners: Dict[int, _Listener] = {}
+        self.listeners: Dict[int, Callable[[], None]] = {}
         self.idx = 0
         self.lock = RLock()
 
@@ -46,7 +54,7 @@ class CancellationToken:
             for listener in self.listeners.values():
                 listener()
 
-    def add_listener(self, f: _Listener) -> int:
+    def add_listener(self, f: Callable[[], None]) -> int:
         with self.lock:
             id = self.idx
             self.idx = self.idx + 1
@@ -60,7 +68,7 @@ class CancellationToken:
 
     def register(self, f: _Listener, state: Optional[Any] = None) -> None:
         if state:
-            id = self.add_listener(lambda state=None: f(state))
+            id = self.add_listener(lambda: f(state))
         else:
             id = self.add_listener(f)
 

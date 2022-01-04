@@ -245,7 +245,7 @@ def equal_arrays_with(xs: List[_T], ys: List[_T], eq: Callable[[_T, _T], bool]) 
     return True
 
 
-def equal_arrays(x, y):
+def equal_arrays(x: List[_T], y: List[_T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
@@ -370,25 +370,29 @@ def clear(col: Optional[List[Any]]) -> None:
 
 
 class IEnumerator(Iterator[_T], IDisposable):
-    @abstractmethod
     def Current(self) -> _T:
-        ...
+        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
 
-    @abstractmethod
     def MoveNext(self) -> bool:
+        return self.System_Collections_IEnumerator_MoveNext()
+
+    def Reset(self) -> None:
+        return self.System_Collections_IEnumerator_Reset()
+
+    @abstractmethod
+    def System_Collections_Generic_IEnumerator_00601_get_Current(self) -> _T:
+        ...
+
+    def System_Collections_IEnumerator_get_Current(self) -> Any:
+        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
+
+    @abstractmethod
+    def System_Collections_IEnumerator_MoveNext(self) -> bool:
         ...
 
     @abstractmethod
-    def Reset(self) -> None:
+    def System_Collections_IEnumerator_Reset(self) -> None:
         ...
-
-    def __getattr__(self, name: str):
-        return {
-            "System_Collections_Generic_IEnumerator_00601_get_Current": self.Current,
-            "System_Collections.IEnumerator_get_Current": self.Current,
-            "System_Collections_IEnumerator_MoveNext": self.MoveNext,
-            "System_Collections.IEnumerator_Reset": self.Reset,
-        }[name]
 
     def __next__(self) -> _T:
         if not self.MoveNext():
@@ -414,12 +418,12 @@ class Enumerator(IEnumerator[_T]):
         self.iter = iter
         self.current = None
 
-    def Current(self):
+    def System_Collections_Generic_IEnumerator_00601_get_Current(self):
         if self.current is not None:
             return self.current
         return None
 
-    def MoveNext(self) -> bool:
+    def System_Collections_IEnumerator_MoveNext(self) -> bool:
         try:
             cur = next(self.iter)
             self.current = cur
@@ -427,7 +431,7 @@ class Enumerator(IEnumerator[_T]):
         except StopIteration:
             return False
 
-    def Reset(self) -> None:
+    def System_Collections_IEnumerator_Reset(self) -> None:
         raise Exception("Python iterators cannot be reset")
 
     def Dispose(self) -> None:
@@ -461,12 +465,12 @@ def uncurry(arity: int, f: Callable[..., Callable[..., Any]]) -> Callable[..., A
     }
 
     try:
-        uncurriedFn = fns[arity]
+        uncurried_fn = cast(Callable[..., Any], fns[arity])
     except Exception:
         raise Exception(f"Uncurrying to more than 8-arity is not supported: {arity}")
 
     setattr(f, CURRIED_KEY, f)
-    return uncurriedFn
+    return uncurried_fn
 
 
 def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any]]:
@@ -500,7 +504,7 @@ def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any
 
 def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callable[..., Any]:
     if not fn:
-        return
+        raise ValueError("partially_apply: Missing function")
 
     if hasattr(fn, CURRIED_KEY):
         fn = getattr(fn, CURRIED_KEY)
@@ -564,8 +568,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-# TODO: rename to to_iterable?
-def to_iterator(en: IEnumerable[_T]) -> Iterable[_T]:
+def to_iterator(en: IEnumerator[_T]) -> Iterator[_T]:
     class Iterator:
         def __iter__(self):
             return self

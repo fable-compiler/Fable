@@ -1140,7 +1140,7 @@ module Util =
         [ Statement.assign([ids], values) ]
 
     let varDeclaration (ctx: Context) (var: Expression) (typ: Expression option) value =
-        //printfn "varDeclaration: %A" (var, value, typ)
+        // printfn "varDeclaration: %A" (var, value, typ)
         match var with
         | Name({Id=id}) -> ctx.BoundVars.Bind([id])
         | _ -> ()
@@ -1174,7 +1174,8 @@ module Util =
                 { args with Args = self::args.Args }
 
         match body with
-        | [] -> []
+        | []
+        | [ Statement.Pass ] -> []
         | _ -> [ Statement.functionDef(name, args, body = body, returns=Expression.none) ]
 
     let callFunction r funcExpr (args: Expression list) (kw: Keyword list) =
@@ -1506,7 +1507,7 @@ module Util =
 
         let interfaces =
             match typ with
-            | Fable.Any -> []
+            | Fable.Any -> [] // Don't inherit from Any
             | _ ->
                 let ta, _ = typeAnnotation com ctx None typ
                 [ ta ]
@@ -1975,10 +1976,10 @@ module Util =
         if isPyStatement ctx false value then
             let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
-
-            let decl = Statement.assign([varName], Expression.none)
+            let ta, stmts = typeAnnotation com ctx None var.Type
+            let decl = Statement.assign(varName, Expression.none, ta)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
-            List.append [ decl ] body
+            stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = com.GetIdentifierAsExpr(ctx, var.Name)
@@ -2787,7 +2788,6 @@ module Util =
                 match interfaces with
                 // Add IDisposable as ABC.
                 | xs when List.contains "System.IDisposable" xs ->
-                    //com.GetImportExpr(ctx, "fable_modules.fable_library.util", "IDisposable") |> ignore
                     let iDisposable = libValue com ctx "util" "IDisposable"
                     iDisposable::bases
                 | _ -> bases)
@@ -2874,7 +2874,8 @@ module Util =
         if isStatic && isGetter then
             match body with
             | [Statement.Return({Value=Some x})] ->
-                [ Statement.assign([Expression.name(key)], x ) ]
+                let ta, stmts = typeAnnotation com ctx None memb.Body.Type
+                stmts @ [ Statement.assign(Expression.name(key), x, ta) ]
             | _ -> failwith "Statements not supported for static class properties"
         else
             Statement.functionDef(key, arguments, body = body, decoratorList=decorators, returns=returnType)
