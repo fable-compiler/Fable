@@ -1,3 +1,7 @@
+### 3.7.0-beta-003
+
+* Fix precompile errors
+
 ### 3.7.0-beta-002
 
 * Performance improvements
