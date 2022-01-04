@@ -327,7 +327,7 @@ let testJs(minify) =
     runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
 let testReact() =
-    runFableWithArgs "tests/React" []
+    runFableWithArgs "tests/React" ["--noCache"]
     runInDir "tests/React" "npm i && npm test"
 
 let testCompiler() =

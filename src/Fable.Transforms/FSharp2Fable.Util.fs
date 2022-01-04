@@ -1568,21 +1568,20 @@ module Util =
             | Some(Naming.StartsWith Atts.emit _ | Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false)
 
-    let private isFromDllRef (ent: Fable.Entity) =
+    let private isFromDllNotPrecompiled (ent: Fable.Entity) =
         match ent.Ref.Path with
         | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
-        | Fable.SourcePath _ -> false
-        // This helper is only used for replacement candidates, so we discard precompiled libs
+        | Fable.SourcePath _
         | Fable.PrecompiledLib _ -> false
 
-    let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
-        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
+    let private isReplacementCandidatePrivate isFromDll (entFullName: string) =
+        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll
         // When compiling Fable itself, Fable.Core entities will be part of the code base,
         // but still need to be replaced
         else entFullName.StartsWith("Fable.Core.")
 
     let isReplacementCandidate (ent: Fable.Entity) =
-        isReplacementCandidatePrivate (isFromDllRef ent) ent.FullName
+        isReplacementCandidatePrivate (isFromDllNotPrecompiled ent) ent.FullName
 
     let isReplacementCandidateFrom (ent: FSharpEntity) =
         let isFromDllRef = Option.isSome ent.Assembly.FileName
@@ -1617,7 +1616,7 @@ module Util =
         match tryGlobalOrImportedEntity com ent with
         | Some _importedEntity as entOpt -> entOpt
         | None ->
-            if isFromDllRef ent
+            if isFromDllNotPrecompiled ent
             then None
             else Some (entityRef com ent)
 

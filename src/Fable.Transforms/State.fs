@@ -228,6 +228,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 project.ImplementationFiles.TryValue(fileName)
                 |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
                 |> Option.orElseWith (fun () ->
+                    // Check also the precompiled dll because this may come from a precompiled inline expr
                     project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))
 
         member this.GetInlineExpr(memberUniqueName) =

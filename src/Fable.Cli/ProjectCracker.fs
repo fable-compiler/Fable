@@ -42,7 +42,7 @@ type CacheInfo =
 
 type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
-    let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir)
+    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projFile, outDir)
     let cacheInfo =
         if noCache then None
         else CacheInfo.TryRead(fableModulesDir, fableOpts.DebugMode)
@@ -71,10 +71,14 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
             Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
-    static member GetFableModulesDir(projFile: string, outDir: string option): string =
+    static member GetFableModulesFromDir(baseDir: string): string =
+        IO.Path.Combine(baseDir, Naming.fableModules)
+
+    static member GetFableModulesFromProject(projFile: string, outDir: string option): string =
         let fableModulesDir =
-            let baseDir = outDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
-            IO.Path.Combine(baseDir, Naming.fableModules)
+            outDir
+            |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
+            |> CrackerOptions.GetFableModulesFromDir
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
@@ -524,7 +528,7 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableModulesDir, "fable-library" + "." + Literals.VERSION)
             copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
-            fableLibraryTarget
+            Path.normalizeFullPath fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
@@ -552,7 +556,7 @@ let loadPrecompiledInfo isCache (opts: CrackerOptions) otherOptions sourceFiles 
     match opts.PrecompiledLib with
     | Some precompiledLib ->
         // Load PrecompiledInfo
-        let info = PrecompiledInfoImpl.Load(precompiledLib)
+        let info = CrackerOptions.GetFableModulesFromDir(precompiledLib) |> PrecompiledInfoImpl.Load
 
         // Check if precompiled compiler version and options match
         if info.CompilerVersion <> Literals.VERSION then

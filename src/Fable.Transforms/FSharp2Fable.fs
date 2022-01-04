@@ -1526,6 +1526,11 @@ type FableCompiler(com: Compiler) =
                 | Fable.LetRec(bindings, b) -> Fable.LetRec(bindings |> List.map(fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e), resolveExpr ctx b) |> Some
                 | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
                 | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
+                | Fable.ObjectExpr(members, t, baseCall) ->
+                    let members = members |> List.map (fun m ->
+                        { m with Args = List.map (resolveIdent ctx) m.Args
+                                 Body = resolveExpr ctx m.Body })                        
+                    Fable.ObjectExpr(members, resolveGenArg ctx t, baseCall |> Option.map (resolveExpr ctx)) |> Some
 
                 // Resolve imports. TODO: add test
                 | Fable.Import(info, t, r) as e ->

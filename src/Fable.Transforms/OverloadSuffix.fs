@@ -91,23 +91,27 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType
         let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
         if t.IsStructTupleType then "struct " + genArgs
         else genArgs
-      elif t.IsFunctionType
-    then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " -> "
+    elif t.IsFunctionType then
+        t.GenericArguments
+        |> Seq.map (getTypeFastFullName genParams)
+        |> String.concat " -> "
     elif t.IsAnonRecordType then
         Seq.zip t.AnonRecordTypeDetails.SortedFieldNames t.GenericArguments
         |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
         |> String.concat "; "
-    elif t.HasTypeDefinition
-    then
+    elif t.HasTypeDefinition then
         let tdef = t.TypeDefinition
-        let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
-        if tdef.IsArrayType
-        then genArgs + "[]"
-        // elif tdef.IsByRef // Ignore byref
-        // then genArgs
+        let genArgs = t.GenericArguments |> Seq.mapToList (getTypeFastFullName genParams)
+        if tdef.IsArrayType then String.concat "," genArgs + "[]"
+        // elif tdef.IsByRef then genArgs // Ignore byref
         else
-            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-            defaultArg tdef.TryFullName tdef.LogicalName + genArgs
+            let fullName = defaultArg tdef.TryFullName tdef.LogicalName
+            match fullName, genArgs with
+            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2", [measure; "Microsoft.FSharp.Core.CompilerServices.MeasureOne"] -> measure
+            | _ ->
+                let genArgs = String.concat "," genArgs
+                let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+                fullName + genArgs
     else Types.object
 
 // From https://stackoverflow.com/a/37449594

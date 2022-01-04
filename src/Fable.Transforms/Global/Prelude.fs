@@ -490,9 +490,18 @@ module Path =
         if i < 0 then ""
         else normPath.Substring(0, i)
 
-    let GetFullPath (path: string) =
+    let GetFullPath (path: string): string =
 #if FABLE_COMPILER
-        path //TODO: proper implementation
+        // In the REPL we just remove the dot dirs as in foo/.././bar > bar
+        let rec removeDotDirs acc parts =
+            match acc, parts with
+            | _, [] -> List.rev acc |> String.concat "/"
+            | _, "."::rest -> removeDotDirs acc rest
+            | _parent::acc, ".."::rest -> removeDotDirs acc rest
+            | acc, part::rest -> removeDotDirs (part::acc) rest
+        path.Split('/')
+        |> Array.toList
+        |> removeDotDirs []
 #else
         IO.Path.GetFullPath(path)
 #endif

@@ -329,8 +329,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             match triggeredByDependency with
             | Some t -> { cliArgs.CompilerOptions with TriggeredByDependency = t }
             | None -> cliArgs.CompilerOptions
-        let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, opts, fableLibDir, watchDependencies=cliArgs.IsWatch, ?outDir=cliArgs.OutDir)
+        CompilerImpl(currentFile, project, opts, crackerResponse.FableLibDir, watchDependencies=cliArgs.IsWatch, ?outDir=cliArgs.OutDir)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
@@ -842,8 +841,9 @@ let startCompilation state = async {
 
                     loop { state with Watcher = Some { watcher with OnChange = onChange } })
 
-            // The watcher will remain active so we don't really need the reply channel
-            agent.PostAndAsyncReply(fun _ -> Changes(DateTime.UtcNow, changes))
+            // The watcher will remain active so we don't really need the reply channel, but leave loop on fatal errors
+            agent.PostAndAsyncReply(fun _ -> Changes(DateTime.UtcNow, changes)) |> ignore
+            Async.FromContinuations(fun (_onSuccess, onError, _onCancel) -> agent.Error.Add(onError))
 
     match exitCode with
     | 0 -> return Ok()

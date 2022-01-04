@@ -377,7 +377,11 @@ module Imports =
             getRelativePath targetDir importPath
         | Some macro, _ ->
             failwith $"Unknown import macro: {macro}"
-        | None, None -> importPath
+        | None, None ->
+            if isAbsolutePath importPath then
+                let sourceDir = Path.GetDirectoryName(sourcePath)
+                getRelativePath sourceDir importPath
+            else importPath
         | None, Some outDir ->
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
@@ -701,19 +705,19 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
                     |> Map)
             Map.tryFind memberUniqueName map.Value
 
-    static member GetPath(dir) =
-        IO.Path.Combine(dir, "precompiled_info.json")
+    static member GetPath(fableModulesDir) =
+        IO.Path.Combine(fableModulesDir, "precompiled_info.json")
 
     static member GetInlineExprsPath(fableModulesDir, index: int) =
         IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
 
-    static member Load(dir: string) =
+    static member Load(fableModulesDir: string) =
         try
-            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(dir)
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
             let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
-            PrecompiledInfoImpl(dir, info)
+            PrecompiledInfoImpl(fableModulesDir, info)
         with
-        | e -> FableError($"Cannot load precompiled info from %s{dir}: %s{e.Message}") |> raise
+        | e -> FableError($"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}") |> raise
 
     static member Save(files, inlineExprs, compilerOptions, fableModulesDir, fableLibDir) =
         let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
