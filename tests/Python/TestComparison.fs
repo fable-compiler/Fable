@@ -342,14 +342,11 @@ let ``test max works with records`` () =
     let r2 = {a=1; b=2}
     max r1 r2 |> equal r2
 
-
-// TODO:
-// [<Fact>]
-// let ``test min with objects implementing IComparable works`` () =
-//     let c1 = MyTest(5)
-//     let c2 = MyTest(5)
-//     Object.ReferenceEquals(min c1 c2, c2) |> equal true
-
+[<Fact>]
+let ``test min with objects implementing IComparable works`` () =
+    let c1 = MyTest(5)
+    let c2 = MyTest(5)
+    Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
 [<Fact>]
 let ``test clamp works`` () =
@@ -396,17 +393,16 @@ let ``test isNull with objects works`` () =
     let s2: String = "hello"
     isNull s2 |> equal false
 
-// TODO:
-// [<Fact>]
-// let ``test Classes must use identity hashing by default`` () =
-//     let x = MyClass(5)
-//     let y = MyClass(5)
-//     let h1 = hash(box x)
-//     let h2 = hash(box y)
-//     x.Value <- 8
-//     let h3 = hash(box x)
-//     h1 = h2 |> equal false
-//     h1 = h3 |> equal true
+[<Fact>]
+let ``test Classes must use identity hashing by default`` () =
+    let x = MyClass(5)
+    let y = MyClass(5)
+    let h1 = hash(box x)
+    let h2 = hash(box y)
+    x.Value <- 8
+    let h3 = hash(box x)
+    h1 = h2 |> equal false
+    h1 = h3 |> equal true
 
 // #if FABLE_COMPILER
 // [<Fact>]

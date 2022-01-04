@@ -120,6 +120,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         let typeOpt =
             match com.Options.Language with
             | Rust -> Rust.Replacements.tryType t
+            | Python -> PY.Replacements.tryType t
             | _ -> Replacements.tryType t
         match typeOpt with
         | Some(entityFullName, makeCall, genArgs) ->
@@ -518,6 +519,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let expr =
             match com.Options.Language with
             | Rust -> Rust.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+            | Python -> PY.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
             | _ -> Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
         return expr
 

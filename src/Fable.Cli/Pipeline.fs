@@ -81,6 +81,20 @@ module Python =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
 
+    // Writes __init__ files to all directories. This mailbox serializes and dedups.
+    let initFileWriter =
+        new MailboxProcessor<string>(fun mb -> async {
+            let rec loop (seen: Set<string>) = async  {
+                let! outPath = mb.Receive()
+                if (not (seen |> Set.contains outPath || (IO.File.Exists(outPath)))) then
+                    do! IO.File.WriteAllTextAsync(outPath, "") |> Async.AwaitTask
+
+                return! loop (seen.Add outPath)
+            }
+            return! loop (set [])
+        })
+    initFileWriter.Start()
+
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
         let python =
             FSharp2Fable.Compiler.transformFile com
@@ -95,9 +109,7 @@ module Python =
         | OutputType.Library ->
             // Make sure we include an empty `__init__.py` in every directory of a library
             let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
-            if not (IO.File.Exists(outPath)) then
-                let writer = new PythonFileWriter(String.Empty, outPath, cliArgs, dedupTargetDir)
-                do! PythonPrinter.run writer map { Body = [] }
+            initFileWriter.Post(outPath)
 
         | _ -> ()
     }

@@ -14,9 +14,9 @@ def try_parse(string: str, def_value: FSharpRef[uuid.UUID]) -> bool:
         return False
 
 
-def to_string(guid: uuid.UUID):
+def to_string(guid: uuid.UUID) -> str:
     return str(guid)
 
 
-def new_guid():
+def new_guid() -> uuid.UUID:
     return uuid.uuid4()
