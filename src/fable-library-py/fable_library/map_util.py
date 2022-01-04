@@ -1,5 +1,7 @@
 from typing import Any
 
+from .map import FSharpMap  # type: ignore
+
 
 def add_to_set(v: Any, st: set) -> bool:
     if v in st:
@@ -16,9 +18,11 @@ def add_to_dict(di, k: Any, v: Any) -> None:
     di[k] = v
 
 
-def try_get_value(map: dict, key: Any, default_value: Any) -> bool:
-    if key in map:
-        default_value.contents = map.get(key)
+def try_get_value(map: FSharpMap, key: Any, default_value: Any) -> bool:
+    print([map], key)
+    if key in map.keys():
+
+        default_value.contents = map[key]
         return True
 
     return False
