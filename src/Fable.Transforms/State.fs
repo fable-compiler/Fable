@@ -5,12 +5,6 @@ open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
 
-#if !FABLE_COMPILER
-open System.Collections.Concurrent
-#else
-type ConcurrentBag<'T> = ResizeArray<'T>
-#endif
-
 type IDictionary<'Key, 'Value> with
     member this.TryValue(key: 'Key) =
         match this.TryGetValue(key) with
@@ -186,10 +180,9 @@ type Log =
         Log.Make(Severity.Error, msg, ?fileName=fileName, ?range=range, ?tag=tag)
 
 /// Type with utilities for compiling F# files to JS.
-/// One instance is created per file.
+/// Not thread-safe, an instance must be created per file
 type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string, ?watchDependencies) =
-    // Make this a concurrent bag in case we use the same compiler instance in parallel (see GetAllInlineExprs)
-    let logs = ConcurrentBag<Log>()
+    let logs = ResizeArray<Log>()
     let watchDependencies = defaultArg watchDependencies false
     let watchDependenciesSet = HashSet<string>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')

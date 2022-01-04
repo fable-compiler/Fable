@@ -271,6 +271,17 @@ type RecursiveType(subscribe) as self =
     member __.Add2(i) = self.MultiplyFoo(i) + 2
     member __.MultiplyFoo(i) = i * foo
 
+type TestInliningMutation(l: int, r: int) =
+        let mutable left = 0
+
+        let call() =
+            left <- l
+            r
+
+        member _.Run() =
+            let right = call()
+            left + right
+
 module Extensions =
     type IDisposable with
         static member Create(f) =
@@ -1177,4 +1188,32 @@ let tests =
 
         doit 2 (fun x -> value <- value + x)
         value |> equal 4
+
+    testCase "Mutating variables is not postponed (functions)" <| fun () ->
+        let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
+
+        let runCase (l: int) (r: int) (expect: int) =
+            let mutable left = 0
+            let call() =
+                left <- l
+                r
+
+            let run() =
+                let right = call()
+                left + right
+
+            run() |> equal expect
+
+        for (l, r, ``l + r``) in ``inlineData PR #2683`` do
+            runCase l r ``l + r``
+
+    testCase "Mutating variables is not postponed (classes)" <| fun () ->
+        let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
+
+        let runCase (l: int) (r: int) (expect: int) =
+            TestInliningMutation(l, r).Run() |> equal expect
+            TestInliningMutation(l, r).Run() |> equal expect
+
+        for (l, r, ``l + r``) in ``inlineData PR #2683`` do
+            runCase l r ``l + r``
   ]

@@ -141,6 +141,18 @@ let noSideEffectBeforeIdent identName expr =
                 sideEffect <- true
                 true
             else false
+        // If the field is mutable we cannot inline, see #2683
+        | Get(e, ByKey(FieldKey fi), _, _) ->
+            if fi.IsMutable then
+                sideEffect <- true
+                true
+            else findIdentOrSideEffect e
+        // We don't have enough information here, so just assume there's a side effect just in case
+        | Get(_, ByKey(ExprKey _), _, _) ->
+            sideEffect <- true
+            true
+        | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue _), _, _) ->
+            findIdentOrSideEffect e
         | Import _ | Lambda _ | Delegate _ -> false
         // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
         | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
@@ -175,7 +187,6 @@ let noSideEffectBeforeIdent identName expr =
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e,_,_)
-        | Get(e,_,_,_)
         | Test(e,_,_)
         | Curry(e,_,_,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->
@@ -192,7 +203,6 @@ let noSideEffectBeforeIdent identName expr =
             result || findIdentOrSideEffect e)
 
     findIdentOrSideEffect expr && not sideEffect
-
 
 let canInlineArg identName value body =
     (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
