@@ -406,7 +406,7 @@ let empty () =
     // delay (fun () -> Array.empty :> 'T seq)
     mkSeq (fun () -> Enumerable.empty())
 
-let singleton x =
+let singleton (x: 'T) =
     // delay (fun () -> (Array.singleton x) :> 'T seq)
     mkSeq (fun () -> Enumerable.singleton x)
 
@@ -570,6 +570,7 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T seq) =
     acc
 
 let toArray (xs: 'T seq): 'T[] =
+    // TODO: optimize to avoid double-copy
     match xs with
     // | :? array<'T> as a -> a
     // | :? list<'T> as a -> Array.ofList a
@@ -580,6 +581,7 @@ let toArray (xs: 'T seq): 'T[] =
         res.ToArray()
 
 let toList (xs: 'T seq): 'T list =
+    // TODO: optimize to avoid reverse
     match xs with
     // | :? array<'T> as a -> List.ofArray a
     // | :? list<'T> as a -> a
@@ -769,12 +771,10 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T seq) state =
     let arr, state = Array.mapFoldBack mapping (toArray xs) state
     readOnly (ofArray arr), state
 
-// let collect (mapping: 'T -> 'U seq) (xs: 'T seq) =
-//     delay (fun () ->
-//         xs
-//         |> map mapping
-//         |> concat
-//     )
+let collect (mapping: 'T -> 'U seq) (xs: 'T seq) =
+    delay (fun () ->
+        concat (map mapping xs)
+    )
 
 // let cache (xs: 'T seq) =
 //     let mutable cached = false
@@ -958,24 +958,24 @@ let where predicate (xs: 'T seq) =
 //         |> ofArray
 //     )
 
-// let sortWith (comparer: 'T -> 'T -> int) (xs: 'T seq) =
-//     delay (fun () ->
-//         let arr = toArray xs
-//         Array.sortInPlaceWith comparer arr
-//         ofArray arr
-//     )
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T seq) =
+    delay (fun () ->
+        let arr = toArray xs
+        Array.sortInPlaceWith comparer arr
+        ofArray arr
+    )
 
-// let sort (xs: 'T seq) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-//     sortWith (fun x y -> comparer.Compare(x, y)) xs
+let sort (xs: 'T seq) =
+    sortWith compare xs
 
-// let sortBy (projection: 'T -> 'U) (xs: 'T seq) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
+let sortBy (projection: 'T -> 'U) (xs: 'T seq) =
+    sortWith (fun x y -> compare (projection x) (projection y)) xs
 
-// let sortDescending (xs: 'T seq) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-//     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+let sortDescending (xs: 'T seq) =
+    sortWith (fun x y -> (compare x y) * -1) xs
 
-// let sortByDescending (projection: 'T -> 'U) (xs: 'T seq) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
+let sortByDescending (projection: 'T -> 'U) (xs: 'T seq) =
+    sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
 let inline sum (xs: ^T seq): ^T =
     let zero = LanguagePrimitives.GenericZero< ^T>
@@ -997,21 +997,21 @@ let minBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
 let min (xs: 'T seq): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
-// let average (xs: 'T seq) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-//     let mutable count = 0
-//     let folder acc x = count <- count + 1; averager.Add(acc, x)
-//     let total = fold folder (averager.GetZero()) xs
-//     if count = 0 then
-//         invalidArg "xs" SR.inputSequenceEmpty
-//     else averager.DivideByInt(total, count)
+let inline average (xs: 'T seq): 'T =
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^T>
+    let folder acc x = count <- count + 1; acc + x
+    let total = fold folder zero xs
+    if count = 0 then invalidOp SR.inputSequenceEmpty
+    LanguagePrimitives.DivideByInt< ^T> total count
 
-// let averageBy (projection: 'T -> 'U) (xs: 'T seq) ([<Inject>] averager: IGenericAverager<'U>): 'U =
-//     let mutable count = 0
-//     let inline folder acc x = count <- count + 1; averager.Add(acc, projection x)
-//     let total = fold folder (averager.GetZero()) xs
-//     if count = 0 then
-//         invalidArg "xs" SR.inputSequenceEmpty
-//     else averager.DivideByInt(total, count)
+let inline averageBy (projection: 'T -> ^U) (xs: 'T seq) : ^U =
+    let mutable count = 0
+    let zero = LanguagePrimitives.GenericZero< ^U>
+    let folder acc x = count <- count + 1; acc + (projection x)
+    let total = fold folder zero xs
+    if count = 0 then invalidOp SR.inputSequenceEmpty
+    LanguagePrimitives.DivideByInt< ^U> total count
 
 let permute f (xs: 'T seq) =
     delay (fun () ->

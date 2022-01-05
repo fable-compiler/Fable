@@ -447,46 +447,45 @@ let ``List.scanBack works`` () =
     ys.Head + ys.Tail.Head
     |> equal -11
 
-// [<Fact>]
-// let ``List.sort works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     let ys = ["a"; "c"; "B"; "d"]
-//     xs |> List.sort |> List.take 3 |> List.sum |> equal 0
-//     ys |> List.sort |> List.item 1 |> equal "a"
+[<Fact>]
+let ``List.sort works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    let ys = ["a"; "c"; "B"; "d"]
+    xs |> List.sort |> List.take 3 |> List.sum |> equal 0
+    ys |> List.sort |> List.item 1 |> equal "a"
 
-// [<Fact>]
-// let ``List.sort with tuples works`` () =
-//     let xs = [3; 1; 1; -3]
-//     let ys = ["a"; "c"; "B"; "d"]
-//     (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
+[<Fact>]
+let ``List.sort with tuples works`` () =
+    let xs = [3; 1; 1; -3]
+    let ys = ["a"; "c"; "B"; "d"]
+    (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
 
-// [<Fact>]
-// let ``List.sortBy works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortBy (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 7
+[<Fact>]
+let ``List.sortBy works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortBy (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 7
 
-// [<Fact>]
-// let ``List.sortWith works`` () =
-//     let xs = [3; 4; 1; 2]
-//     let ys = xs |> List.sortWith (fun x y -> int(x - y))
-//     ys.Head + ys.Tail.Head
-//     |> equal 3
+[<Fact>]
+let ``List.sortWith works`` () =
+    let xs = [3; 4; 1; 2]
+    let ys = xs |> List.sortWith (fun x y -> int(x - y))
+    ys |> List.toArray |> equal [|1; 2; 3; 4|]
 
-// [<Fact>]
-// let ``List.sortDescending works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-//     let ys = ["a"; "c"; "B"; "d"]
-//     ys |> List.sortDescending |> List.item 1 |> equal "c"
+[<Fact>]
+let ``List.sortDescending works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"
 
-// [<Fact>]
-// let ``List.sortByDescending works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortByDescending (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 3
+[<Fact>]
+let ``List.sortByDescending works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortByDescending (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 3
 
 [<Fact>]
 let ``List.max works`` () =
@@ -702,33 +701,26 @@ let ``List.truncate works`` () =
 //     let res = testListChoose [ Some [ "a" ] ]
 //     equal ["a"] res
 
-// [<Fact>]
-// let ``List.collect works`` () =
-//     let xs = [[1]; [2]; [3]; [4]]
-//     let ys = xs |> List.collect id
-//     ys.Head + ys.Tail.Heads
-//     |> equal 3
+[<Fact>]
+let ``List.collect works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.collect id
+    ys.Head + ys.Tail.Head |> equal 3
+    let list1 = [10.; 20.; 30.]
+    let collectList = List.collect (fun x -> [x*1.; x*2.; x*3.]) list1
+    sumFirstList collectList 9 |> equal 360.
+    let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys = xs |> List.collect id
+    sumFirstList ys 5 |> equal 15.
 
-//     let list1 = [10.; 20.; 30.]
-//     let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
-//     sumFirstList collectList 9 |> equal 360.
-
-//     let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
-//     let ys = xs |> List.collect id
-//     sumFirstList ys 5
-//     |> equal 15.
-
-// [<Fact>]
-// let ``List.concat works`` () =
-//     let xs = [[1]; [2]; [3]; [4]]
-//     let ys = xs |> List.concat
-//     ys.Head  + ys.Tail.Head
-//     |> equal 3
-
-//     let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
-//     let ys1 = xs1 |> List.concat
-//     sumFirstList ys1 7
-//     |> equal 28.
+[<Fact>]
+let ``List.concat works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.concat
+    ys.Head  + ys.Tail.Head |> equal 3
+    let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+    let ys1 = xs1 |> List.concat
+    sumFirstList ys1 7 |> equal 28.
 
 [<Fact>]
 let ``List.contains works`` () =
@@ -747,16 +739,16 @@ let ``List.contains works`` () =
 //     (modifyList l 1) |> List.contains 1 |> equal false
 //     (modifyList l 5) |> List.contains 5 |> equal true
 
-// [<Fact>]
-// let ``List.average works`` () =
-//     List.average [1.; 2.; 3.; 4.]
-//     |> equal 2.5
+[<Fact>]
+let ``List.average works`` () =
+    List.average [1.; 2.; 3.; 4.]
+    |> equal 2.5
 
-// [<Fact>]
-// let ``List.averageBy works`` () =
-//     [1.; 2.; 3.; 4.]
-//     |> List.averageBy (fun x -> x * 2.)
-//     |> equal 5.
+[<Fact>]
+let ``List.averageBy works`` () =
+    [1.; 2.; 3.; 4.]
+    |> List.averageBy (fun x -> x * 2.)
+    |> equal 5.
 
 // [<Fact>]
 // let ``List.average works with custom types`` () =
