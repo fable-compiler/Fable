@@ -30,7 +30,17 @@ type CliArgs =
       Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
-    member this.ProjectFileAsRelativePath = IO.Path.GetRelativePath(this.RootDir, this.ProjectFile)
+
+    member this.ProjectFileAsRelativePath =
+        IO.Path.GetRelativePath(this.RootDir, this.ProjectFile)
+
+    member this.RunProcessEnv =
+        let nodeEnv =
+            match this.Configuration with
+            | "Release" -> "production"
+            // | "Debug"
+            | _ -> "development"
+        [ "NODE_ENV", nodeEnv ]
 
 type private TypeInThisAssembly = class end
 

@@ -106,8 +106,10 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType
         // elif tdef.IsByRef then genArgs // Ignore byref
         else
             let fullName = defaultArg tdef.TryFullName tdef.LogicalName
+            // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
             match fullName, genArgs with
-            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2", [measure; "Microsoft.FSharp.Core.CompilerServices.MeasureOne"] -> measure
+            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2",
+                [measure; "Microsoft.FSharp.Core.CompilerServices.MeasureOne"] -> measure
             | _ ->
                 let genArgs = String.concat "," genArgs
                 let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
