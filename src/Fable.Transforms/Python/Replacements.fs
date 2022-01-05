@@ -1886,7 +1886,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveRange", Some ar, args ->
         Helper.LibCall(com, "array", "remove_many_at", t, args @ [ar], ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(ar, "pop", t, [idx; makeIntConst 1], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "pop", t, [idx], ?loc=r) |> Some
     | "Reverse", Some ar, [] ->
         Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
