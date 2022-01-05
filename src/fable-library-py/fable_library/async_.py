@@ -103,12 +103,12 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
 
 
 def start_with_continuations(
-    computation: Callable[[IAsyncContext[_T]], Async[_T]],
+    computation: Callable[[IAsyncContext[_T]], None],
     continuation: Optional[Callable[[Optional[_T]], None]] = None,
     exception_continuation: Optional[Callable[[Exception], None]] = None,
     cancellation_continuation: Optional[Callable[[OperationCanceledError], None]] = None,
     cancellation_token: Optional[CancellationToken] = None,
-) -> Callable[[IAsyncContext[_T]], None]:
+) -> None:
     trampoline = Trampoline()
 
     ctx = IAsyncContext.create(
@@ -123,12 +123,12 @@ def start_with_continuations(
 
 
 def start(
-    computation: Callable[[IAsyncContext[_T]], Async[_T]], cancellation_token: Optional[CancellationToken] = None
-) -> Async[_T]:
+    computation: Callable[[IAsyncContext[Any]], None], cancellation_token: Optional[CancellationToken] = None
+) -> None:
     return start_with_continuations(computation, cancellation_token=cancellation_token)
 
 
 def start_immediate(
-    computation: Callable[[IAsyncContext[_T]], Async[_T]], cancellation_token: Optional[CancellationToken] = None
-) -> Async[_T]:
+    computation: Callable[[IAsyncContext[Any]], None], cancellation_token: Optional[CancellationToken] = None
+) -> None:
     return start(computation, cancellation_token)

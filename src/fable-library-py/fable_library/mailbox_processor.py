@@ -22,7 +22,9 @@ class AsyncReplyChannel(Generic[Reply]):
 
 class MailboxProcessor(Generic[Msg]):
     def __init__(
-        self, body: Callable[[MailboxProcessor[Msg]], None], cancellation_token: Optional[CancellationToken] = None
+        self,
+        body: Callable[[MailboxProcessor[Msg]], Async[None]],
+        cancellation_token: Optional[CancellationToken] = None,
     ):
         self.messages: SimpleQueue[Msg] = SimpleQueue()
         self.token = cancellation_token or CancellationToken()
@@ -67,7 +69,7 @@ class MailboxProcessor(Generic[Msg]):
 
         def check_completion() -> None:
             if result is not None and continuation is not None:
-                continuation(result)
+                continuation[0](result)
 
         def reply_callback(res: Reply):
             nonlocal result
@@ -128,7 +130,7 @@ class MailboxProcessor(Generic[Msg]):
 
     @staticmethod
     def start(
-        body: Callable[[MailboxProcessor[Msg]], None], cancellation_token: Optional[CancellationToken] = None
+        body: Callable[[MailboxProcessor[Msg]], Async[None]], cancellation_token: Optional[CancellationToken] = None
     ) -> MailboxProcessor[Msg]:
         mbox: MailboxProcessor[Msg] = MailboxProcessor(body, cancellation_token)
         start_immediate(body(mbox))
@@ -143,12 +145,13 @@ def post(mbox: MailboxProcessor[Msg], msg: Msg):
     return mbox.post(msg)
 
 
-def start_instance(mbox: MailboxProcessor[Any]) -> Async[Any]:
-    return start_immediate(mbox.body(mbox))
+def start_instance(mbox: MailboxProcessor[Any]) -> None:
+    body = mbox.body(mbox)
+    return start_immediate(body)
 
 
 def start(
-    body: Callable[[MailboxProcessor[Msg]], None], cancellationToken: Optional[CancellationToken] = None
+    body: Callable[[MailboxProcessor[Msg]], Async[None]], cancellationToken: Optional[CancellationToken] = None
 ) -> MailboxProcessor[Msg]:
     mbox = MailboxProcessor(body, cancellationToken)
     start_instance(mbox)

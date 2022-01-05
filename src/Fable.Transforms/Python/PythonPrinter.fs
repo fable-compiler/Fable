@@ -200,9 +200,11 @@ module PrinterExtensions =
             printer.Print(assign.Target)
             printer.Print(" : ")
             printer.Print(assign.Annotation)
-            printer.Print(" = ")
-
-            printer.Print(assign.Value)
+            match assign.Value with
+            | Some value ->
+                printer.Print(" = ")
+                printer.Print(value)
+            | _ -> ()
 
         member printer.Print(expr: Expr) = printer.Print(expr.Value)
 

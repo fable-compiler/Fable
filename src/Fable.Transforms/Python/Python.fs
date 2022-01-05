@@ -102,12 +102,12 @@ type Statement =
     | Raise of Raise
     | Import of Import
     | Assign of Assign
-    | AnnAssign of AnnAssign
     | Return of Return
     | Global of Global
     | NonLocal of NonLocal
     | ClassDef of ClassDef
     | AsyncFor of AsyncFor
+    | AnnAssign of AnnAssign
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
@@ -224,7 +224,7 @@ type Assign =
 /// https://docs.python.org/3/library/ast.html#ast.AnnAssign
 type AnnAssign =
     { Target: Expression
-      Value: Expression
+      Value: Expression option
       Annotation: Expression
       Simple: bool }
 
@@ -796,13 +796,13 @@ module PythonExtensions =
               TypeComment = typeComment }
             |> Assign
 
-        static member assign(target, value, annotation, ?simple) : Statement =
+        static member assign(target, annotation, ?value, ?simple) : Statement =
             { Target = target
               Value = value
               Annotation = annotation
               Simple = defaultArg simple true }
             |> AnnAssign
-
+        
         static member return'(?value) : Statement = Return { Value = value }
 
         static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =

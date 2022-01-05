@@ -575,11 +575,9 @@ module Helpers =
         args, stmts
 
     /// A few statements in the generated Python AST do not produce any effect,
-    /// and should not be printet.
-    let isProductiveStatement (stmt: Python.Statement) =
+    /// and should not be printed.
+    let isProductiveStatement (stmt: Statement) =
         let rec hasNoSideEffects (e: Expression) =
-            // printfn $"hasNoSideEffects: {e}"
-
             match e with
             | Constant _ -> true
             | Dict { Keys = keys } -> keys.IsEmpty // Empty object
@@ -589,7 +587,7 @@ module Helpers =
         match stmt with
         // Remove `self = self`
         | Statement.Assign { Targets = [ Name {Id=Identifier(x)}]; Value = Name {Id=Identifier(y)}} when x = y -> None
-        | Statement.AnnAssign { Target = Name {Id=Identifier(x)}; Value = Name {Id=Identifier(y)}} when x = y -> None
+        | Statement.AnnAssign { Target = Name {Id=Identifier(x)}; Value = Some (Name {Id=Identifier(y)} )} when x = y -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -1142,12 +1140,12 @@ module Util =
     let varDeclaration (ctx: Context) (var: Expression) (typ: Expression option) value =
         // printfn "varDeclaration: %A" (var, value, typ)
         match var with
-        | Name({Id=id}) -> ctx.BoundVars.Bind([id])
+        | Name({Id=id}) -> do ctx.BoundVars.Bind([id])
         | _ -> ()
 
         [
             match typ with
-            | Some typ -> Statement.assign(var, value, annotation=typ)
+            | Some typ -> Statement.assign(var, annotation=typ, value=value)
             | _ -> Statement.assign([var], value)
         ]
 
@@ -1156,7 +1154,7 @@ module Util =
         Expression.starred(var)
 
     let callSuper (args: Expression list) =
-        let super = Expression.name ("super().__init__")
+        let super = Expression.name("super().__init__")
         Expression.call(super, args)
 
     let callSuperAsStatement (args: Expression list) =
@@ -1376,7 +1374,7 @@ module Util =
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr com ctx boundIdent, []
         | Fable.ThisValue _ -> Expression.identifier("self"), []
         | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
-        | Fable.Null _t -> Expression.identifier("None", ?loc=r), []
+        | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
         | Fable.BoolConstant x -> Expression.constant(x, ?loc=r), []
         | Fable.CharConstant x -> Expression.constant(string x, ?loc=r), []
@@ -1973,11 +1971,12 @@ module Util =
         expr |> assign None (identAsExpr com ctx var), stmts
 
     let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        // printfn "transformBindingAsStatements: %A" (var, value)
         if isPyStatement ctx false value then
             let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
             let ta, stmts = typeAnnotation com ctx None var.Type
-            let decl = Statement.assign(varName, Expression.none, ta)
+            let decl = Statement.assign(varName, ta)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             stmts @ [ decl ] @ body
         else
@@ -2875,7 +2874,7 @@ module Util =
             match body with
             | [Statement.Return({Value=Some x})] ->
                 let ta, stmts = typeAnnotation com ctx None memb.Body.Type
-                stmts @ [ Statement.assign(Expression.name(key), x, ta) ]
+                stmts @ [ Statement.assign(Expression.name(key), ta, x) ]
             | _ -> failwith "Statements not supported for static class properties"
         else
             Statement.functionDef(key, arguments, body = body, decoratorList=decorators, returns=returnType)
@@ -2941,7 +2940,7 @@ module Util =
                             Expression.call(Expression.name("list"), [identAsExpr com ctx id])
                         | _ -> identAsExpr com ctx id
                     let ta,_ = typeAnnotation com ctx None id.Type
-                    Statement.assign(left, right, ta))
+                    Statement.assign(left, ta, right))
             ]
         let cases =
             let expr, stmts =
