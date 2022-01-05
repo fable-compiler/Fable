@@ -34,9 +34,9 @@ type Point =
 // type MyNumberWrapper =
 //     { MyNumber: MyNumber }
 
-// type Things =
-//     { MainThing: int
-//       OtherThing: string }
+type Things =
+    { MainThing: int
+      OtherThing: string }
 
 [<Fact>]
 let ``Array expressions works`` () =
@@ -138,7 +138,8 @@ let ``Array.copy works`` () =
 
 // [<Fact>]
 // let ``Pattern matching with arrays works`` () =
-//     match [||] with [||] -> true | _ -> false
+//     let empty = Array.empty<int>
+//     match empty with [||] -> true | _ -> false
 //     |> equal true
 //     match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
 //     |> equal 1
@@ -371,46 +372,44 @@ let ``Array.choose with ints works`` () =
         else None)
     res.Length |> equal 5
 
-// [<Fact>]
-// let ``Array.choose with longs works`` () =
-//     let xs = [|1L; 2L; 3L; 4L|]
-//     let res = xs |> Array.choose (fun x ->
-//         if x > 2L then Some x
-//         else None)
-//     res.[0] + res.[1]
-//     |> equal 7L
+[<Fact>]
+let ``Array.choose with longs works`` () =
+    let xs = [|1L; 2L; 3L; 4L|]
+    let res = xs |> Array.choose (fun x ->
+        if x > 2L then Some x
+        else None)
+    res.[0] + res.[1]
+    |> equal 7L
 
-// [<Fact>]
-// let ``Array.choose must construct array of output type`` () = // See #1658
-//     let source = [|1; 3; 5; 7|]
-//     let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
-//     target.[3].MainThing |> equal 7
+[<Fact>]
+let ``Array.choose must construct array of output type`` () = // See #1658
+    let source = [|1; 3; 5; 7|]
+    let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
+    target.[3].MainThing |> equal 7
 
-// [<Fact>]
-// let ``Array.collect works`` () =
-//     let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
-//     let ys = xs |> Array.collect id
-//     ys.[0] + ys.[1]
-//     |> equal 3
+[<Fact>]
+let ``Array.collect works`` () =
+    let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
+    let ys = xs |> Array.collect id
+    ys.[0] + ys.[1] |> equal 3
+    let xs1 = [|[|1.; 2.|]; [|3.|]; [|4.; 5.; 6.;|]; [|7.|]|]
+    let ys1 = xs1 |> Array.collect id
+    ys1.[0] + ys1.[1] + ys1.[2] + ys1.[3] + ys1.[4]
+    |> equal 15.
 
-//     let xs1 = [|[|1.; 2.|]; [|3.|]; [|4.; 5.; 6.;|]; [|7.|]|]
-//     let ys1 = xs1 |> Array.collect id
-//     ys1.[0] + ys1.[1] + ys1.[2] + ys1.[3] + ys1.[4]
-//     |> equal 15.
+[<Fact>]
+let ``Array.concat works`` () =
+    let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
+    let ys = xs |> Array.concat
+    ys.[0] + ys.[1]
+    |> equal 3.
 
-// [<Fact>]
-// let ``Array.concat works`` () =
-//     let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
-//     let ys = xs |> Array.concat
-//     ys.[0] + ys.[1]
-//     |> equal 3.
-
-// [<Fact>]
-// let ``Array.concat works with strings`` () =
-//     [| [| "One" |]; [| "Two" |] |]
-//     |> Array.concat
-//     |> List.ofArray
-//     |> equal [ "One"; "Two" ]
+[<Fact>]
+let ``Array.concat works with strings`` () =
+    [| [| "One" |]; [| "Two" |] |]
+    |> Array.concat
+    |> List.ofArray
+    |> equal [ "One"; "Two" ]
 
 [<Fact>]
 let ``Array.contains works`` () =
@@ -738,30 +737,16 @@ let ``Array.reduceBack works`` () =
     xs |> Array.reduceBack (-)
     |> equal -2.
 
-// [<Fact>]
-// let ``Array.reduce Array.append works`` () = // See #2372
-//     let nums =
-//         [|
-//             [| 0 |]
-//             [| 1 |]
-//         |]
-//     Array.reduce Array.append nums |> equal [|0; 1|]
-
-//     let nums2d =
-//         [|
-//             [| [| 0 |] |]
-//             [| [| 1 |] |]
-//         |]
-//     Array.reduce Array.append nums2d
-//     |> equal [|[|0|]; [|1|]|]
-
-//     let strs =
-//         [|
-//             [| "a" |]
-//             [| "b" |]
-//         |]
-//     Array.reduce Array.append strs
-//     |> equal [|"a"; "b"|]
+[<Fact>]
+let ``Array.reduce Array.append works`` () = // See #2372
+    let nums = [| [| 0 |]; [| 1 |] |]
+    Array.reduce Array.append nums |> equal [|0; 1|]
+    let nums2d = [| [| [| 0 |] |]; [| [| 1 |] |] |]
+    Array.reduce Array.append nums2d
+    |> equal [|[|0|]; [|1|]|]
+    let strs = [| [| "a" |]; [| "b" |] |]
+    Array.reduce Array.append strs
+    |> equal [|"a"; "b"|]
 
 [<Fact>]
 let ``Array.replicate works`` () =
@@ -789,92 +774,73 @@ let ``Array.scanBack works`` () =
     ys.[2] + ys.[3]
     |> equal 3.
 
-// [<Fact>]
-// let ``Array.sort works`` () =
-//     let xs = [|3; 4; 1; -3; 2; 10|]
-//     let ys = [|"a"; "c"; "B"; "d"|]
-//     xs |> Array.sort |> Array.take 3 |> Array.sum |> equal 0
-//     ys |> Array.sort |> Array.item 1 |> equal "a"
-
-// [<Fact>]
-// let ``Array.sort with tuples works`` () =
-//     let xs = [|3; 1; 1; -3|]
-//     let ys = [|"a"; "c"; "B"; "d"|]
-//     (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
+[<Fact>]
+let ``Array.sort works`` () =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    xs |> Array.sort |> equal [|-3; 1; 2; 3; 4; 10|]
+    ys |> Array.sort |> equal [|"B"; "a"; "c"; "d"|]
+    xs.[0] |> equal 3 // Make sure there is no side effects
 
 [<Fact>]
-let ``Array.truncate works`` () =
-    let xs = [|1.; 2.; 3.; 4.; 5.|]
-    xs |> Array.truncate 2
-    |> Array.last
-    |> equal 2.
-    xs.Length |> equal 5 // Make sure there is no side effects
-    // Array.truncate shouldn't throw an exception if there're not enough elements
-    try xs |> Array.truncate 20 |> Array.length with _ -> -1
-    |> equal 5
+let ``Array.sort with tuples works`` () =
+    let xs = [|3; 1; 1; -3|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
 
-// [<Fact>]
-// let ``Array.sortDescending works`` () =
-//     let xs = [|3; 4; 1; -3; 2; 10|]
-//     xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
-//     xs.[0] |> equal 3  // Make sure there is no side effects
+[<Fact>]
+let ``Array.sortDescending works`` () =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    xs |> Array.sortDescending |> equal [|10; 4; 3; 2; 1; -3|]
+    ys |> Array.sortDescending |> equal [|"d"; "c"; "a"; "B"|]
+    xs.[0] |> equal 3 // Make sure there is no side effects
 
-//     let ys = [|"a"; "c"; "B"; "d"|]
-//     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
+[<Fact>]
+let ``Array.sortBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortBy (fun x -> -x)
+    ys.[0] + ys.[1] |> equal 7.
 
-// [<Fact>]
-// let ``Array.sortBy works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortBy (fun x -> -x)
-//     ys.[0] + ys.[1]
-//     |> equal 7.
+[<Fact>]
+let ``Array.sortByDescending works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortByDescending (fun x -> -x)
+    ys.[0] + ys.[1] |> equal 3.
 
-// [<Fact>]
-// let ``Array.sortByDescending works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortByDescending (fun x -> -x)
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Array.sortWith works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortWith (fun x y -> int(x - y))
+    ys |> equal [|1.; 2.; 3.; 4.|]
 
-// [<Fact>]
-// let ``Array.sortWith works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortWith (fun x y -> int(x - y))
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Array.sortInPlace works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlace xs
+    xs.[0] + xs.[1] |> equal 3.
 
-// [<Fact>]
-// let ``Array.sortInPlace works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlace xs
-//     xs.[0] + xs.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Array.sortInPlaceBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceBy (fun x -> -x) xs
+    xs.[0] + xs.[1] |> equal 14.
 
-// [<Fact>]
-// let ``Array.sortInPlaceBy works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlaceBy (fun x -> -x) xs
-//     xs.[0] + xs.[1]
-//     |> equal 14.
-
-// [<Fact>]
-// let ``Array.sortInPlaceWith works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlaceWith (fun x y -> int(x - y)) xs
-//     xs.[0] + xs.[1]
-//     |> equal 3.
+[<Fact>]
+let ``Array.sortInPlaceWith works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceWith (fun x y -> int(x - y)) xs
+    xs |> equal [|1.; 2.; 3.; 4.; 10.|]
 
 [<Fact>]
 let ``Array.sum works`` () =
     let xs = [|1.; 2.|]
-    xs |> Array.sum
-    |> equal 3.
+    xs |> Array.sum |> equal 3.
 
 [<Fact>]
 let ``Array.sumBy works`` () =
     let xs = [|1.; 2.|]
-    xs |> Array.sumBy (fun x -> x * 2.)
-    |> equal 6.
+    xs |> Array.sumBy (fun x -> x * 2.) |> equal 6.
 
 // [<Fact>]
 // let ``Array.sum with non numeric types works`` () =
@@ -896,7 +862,8 @@ let ``Array.sumBy with numeric projection works`` () =
 
 // [<Fact>]
 // let ``Array.sum with non numeric types works II`` () =
-//     [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.sum |> equal (MyNumber 6)
+//     [|MyNumber 1; MyNumber 2; MyNumber 3|]
+//     |> Array.sum |> equal (MyNumber 6)
 
 // [<Fact>]
 // let ``Array.sumBy with non numeric types works II`` () =
@@ -916,6 +883,17 @@ let ``Array.toSeq works`` () =
     let ys = xs |> Array.toSeq
     ys |> Seq.head
     |> equal 1.
+
+[<Fact>]
+let ``Array.truncate works`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.truncate 2
+    |> Array.last
+    |> equal 2.
+    xs.Length |> equal 5 // Make sure there is no side effects
+    // Array.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Array.truncate 20 |> Array.length with _ -> -1
+    |> equal 5
 
 [<Fact>]
 let ``Array.tryFind works`` () =

@@ -94,13 +94,12 @@ let ofOption<'T> (opt: 'T option): 'T list =
 
 let toArray (xs: 'T list) =
     let len = length xs
-    let res = Array.zeroCreate len
-    let rec inner_loop (arr: 'T[]) i xs =
-        if not (isEmpty xs) then
-            arr.[i] <- (head xs)
-            inner_loop arr (i + 1) (tail xs)
-    inner_loop res 0 xs
-    res
+    let res = ResizeArray<_>(len)
+    let mutable xs = xs
+    while not (isEmpty xs) do
+        res.Add (head xs)
+        xs <- tail xs
+    res.ToArray()
 
 // let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 //     if isEmpty xs then state
@@ -111,7 +110,7 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let mutable xs = xs
     while not (isEmpty xs) do
         acc <- folder acc (head xs)
-        xs <- (tail xs)
+        xs <- tail xs
     acc
 
 let reverse (xs: 'T list) =
@@ -131,8 +130,8 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list
     let mutable ys = ys
     while not (isEmpty xs) && not (isEmpty ys) do
         acc <- folder acc (head xs) (head ys)
-        xs <- (tail xs)
-        ys <- (tail ys)
+        xs <- tail xs
+        ys <- tail ys
     acc
 
 let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
@@ -179,7 +178,9 @@ let iterateIndexed2 action xs ys =
 
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
-// //     xs :> System.Collections.Generic.IEnumerable<'T>
+
+// Redirected to Seq.toList to avoid dependency (see Replacements)
+// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
 
 let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
     let mutable res = tail
@@ -190,19 +191,6 @@ let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 
 let ofArray (xs: 'T[]) =
     ofArrayWithTail xs (empty())
-
-// Redirected to Seq.toList to avoid dependency (see Replacements)
-// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
-// //     match xs with
-// //     | :? array<'T> as xs -> ofArray xs
-// //     | :? list<'T> as xs -> xs
-// //     | _ ->
-// //         let root = (empty())
-// //         let mutable node = root
-// //         for x in xs do
-// //             node <- node |> appendConsNoTail x
-// //         node |> setConsTailEmpty
-// //         root |> tail
 
 let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
@@ -217,7 +205,22 @@ let choose (chooser: 'T -> 'U option) (xs: 'T list) =
             acc <- acc |> appendConsNoTail x
             if isEmpty root then root <- acc
         | None -> ()
-        xs <- (tail xs)
+        xs <- tail xs
+    root
+
+// see Seq.concatLists for concatenating sequence of lists
+let concat<'T> (sources: 'T list list) =
+    let mutable root = empty()
+    let mutable acc = root
+    let mutable xs = sources
+    let mutable ys = empty()
+    while not (isEmpty xs) do
+        ys <- head xs
+        while not (isEmpty ys) do
+            acc <- acc |> appendConsNoTail (head ys)
+            if isEmpty root then root <- acc
+            ys <- tail ys
+        xs <- tail xs
     root
 
 let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
@@ -261,6 +264,9 @@ let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
         else Some(mapping i (head xs), (i + 1, tail xs))
     unfold gen (0, xs)
 
+let collect (mapping: 'T -> 'U list) (xs: 'T list) =
+    concat (map mapping xs)
+
 let indexed xs =
     mapIndexed (fun i x -> (i, x)) xs
 
@@ -301,33 +307,11 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'St
     let st = fold folder state (reverse xs)
     ys, st
 
-// let concat (lists: seq<'T list>) =
-//     let root = (empty())
-//     let mutable node = root
-//     let action xs = node <- fold (fun acc x -> acc |> appendConsNoTail x) node xs
-//     match lists with
-//     | :? array<'T list> as xs -> Array.iter action xs
-//     | :? list<'T list> as xs -> iterate action xs
-//     | _ -> for xs in lists do action xs
-//     node |> setConsTailEmpty
-//     root |> tail
+// Redirected to Seq.concatLists to avoid dependency (see Replacements)
+// let concat (arrays: 'T[] seq) = Seq.concatLists
 
-// let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-//     xs
-//     |> map mapping
-//     |> concat
-//
-//     let root = (empty())
-//     let mutable node = root
-//     let mutable ys = xs
-//     while not (isEmpty ys) do
-//         let mutable zs = mapping (head ys)
-//         while not (isEmpty zs) do
-//             node <- node |> appendConsNoTail (head zs)
-//             zs <- (tail zs)
-//         ys <- (tail ys)
-//     node |> setConsTailEmpty
-//     root |> tail
+// Redirected to Seq.collectLists to avoid dependency (see Replacements)
+// let collect (mapping: 'T -> 'U list) (xs: 'T list) = Seq.collectLists
 
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
     let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
@@ -352,7 +336,9 @@ let find (predicate: 'T -> bool) (xs: 'T list) =
     | None -> indexNotFound()
 
 let tryFindBack (predicate: 'T -> bool) (xs: 'T list) =
-    xs |> toArray |> Array.tryFindBack predicate
+    xs
+    |> toArray
+    |> Array.tryFindBack predicate
 
 let findBack (predicate: 'T -> bool) (xs: 'T list) =
     match tryFindBack predicate xs with
@@ -370,15 +356,17 @@ let tryFindIndex (predicate: 'T -> bool) (xs: 'T list): int option =
 
 let findIndex (predicate: 'T -> bool) (xs: 'T list): int =
     match tryFindIndex predicate xs with
-    | Some x -> x
+    | Some i -> i
     | None -> indexNotFound()
 
 let tryFindIndexBack (predicate: 'T -> bool) (xs: 'T list): int option =
-    xs |> toArray |> Array.tryFindIndexBack predicate
+    xs
+    |> toArray
+    |> Array.tryFindIndexBack predicate
 
 let findIndexBack (predicate: 'T -> bool) (xs: 'T list): int =
     match tryFindIndexBack predicate xs with
-    | Some x -> x
+    | Some i -> i
     | None -> indexNotFound()
 
 let tryItem index (xs: 'T list) =
@@ -447,22 +435,22 @@ let zip xs ys =
 let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
-// let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
-//     let arr = toArray xs
-//     Array.sortInPlaceWith comparer arr
-//     ofArray arr
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
+    let arr = toArray xs
+    Array.sortInPlaceWith comparer arr
+    ofArray arr
 
-// let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-//     sortWith (fun x y -> comparer.Compare(x, y)) xs
+let sort (xs: 'T list) =
+    sortWith compare xs
 
-// let sortBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
+let sortBy (projection: 'T -> 'U) (xs: 'T list) =
+    sortWith (fun x y -> compare (projection x) (projection y)) xs
 
-// let sortDescending (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-//     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+let sortDescending (xs: 'T list) =
+    sortWith (fun x y -> (compare x y) * -1) xs
 
-// let sortByDescending (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
+let sortByDescending (projection: 'T -> 'U) (xs: 'T list) =
+    sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
 let inline sum (xs: ^T list): ^T =
     let zero = LanguagePrimitives.GenericZero< ^T>

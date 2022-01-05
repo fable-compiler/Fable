@@ -1,16 +1,17 @@
 #![allow(non_snake_case)]
 
 // import at crate root level
-pub(crate) mod Mutable;
 pub(crate) mod Lazy;
+pub(crate) mod Mutable;
 
 // re-export at crate root level
 pub use std::rc::Rc;
-pub use Mutable::*;
 pub use Lazy::*;
+pub use Mutable::*;
 
 pub mod Native {
     use super::*;
+    use core::cmp::Ordering;
 
     pub fn defaultOf<T>() -> T {
         unsafe { std::mem::zeroed() } // will panic on Rc/Arc/Box
@@ -18,6 +19,15 @@ pub mod Native {
 
     pub fn getZero<T: Default>() -> T {
         Default::default()
+    }
+
+    pub fn compare<T>(comparer: &Rc<impl Fn(&T, &T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
+        let comp = comparer.clone();
+        move |x, y| match comp(x, y) {
+            i if i < 0 => Ordering::Less,
+            i if i > 0 => Ordering::Greater,
+            _ => Ordering::Equal,
+        }
     }
 
     pub fn string(s: &str) -> Rc<str> {
@@ -44,5 +54,4 @@ pub mod Native {
     pub fn arrayCopy<T: Clone>(a: &Rc<MutCell<Vec<T>>>) -> Rc<MutCell<Vec<T>>> {
         Rc::from(MutCell::from(a.get_mut().to_vec()))
     }
-
 }

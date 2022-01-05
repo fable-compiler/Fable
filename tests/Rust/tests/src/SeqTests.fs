@@ -159,40 +159,38 @@ let ``Seq.concat works II`` () =
 
 // [<Fact>]
 // let ``Seq.concat works III`` () =
-//     let xs = [[1.]; [2.]; [3.]; [4.]] //TODO: cast inner items to seq
+//     //TODO: make it work without casting inner items to seq
+//     let xs = [[1.]; [2.]; [3.]; [4.]]
 //     let ys = xs |> Seq.concat
 //     Seq.length ys |> equal 4
 //     sumFirstTwo ys |> equal 3.
 
-// [<Fact>]
-// let ``Seq.collect works`` () =
-//     let xs = [[1.]; [2.]; [3.]; [4.]]
-//     let ys = xs |> Seq.collect id
-//     sumFirstTwo ys
-//     |> equal 3.
+[<Fact>]
+let ``Seq.collect works`` () =
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> List.map List.toSeq |> Seq.collect id
+    sumFirstTwo ys |> equal 3.
+    let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys1 = xs1 |> List.map List.toSeq |> Seq.collect id
+    ys1 |> Seq.toArray |> equal [|1.;2.;3.;4.;5.;6.;7.|]
 
-//     let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
-//     let ys1 = xs1 |> Seq.collect id
-//     sumFirstSeq ys1 5
-//     |> equal 15.
-
-// [<Fact>]
-// let ``Seq.collect works with Options`` () =
-//     let xss = [[Some 1; Some 2]; [None; Some 3]]
-//     Seq.collect id xss
-//     |> Seq.sumBy (function
-//         | Some n -> n
-//         | None -> 0
-//     )
-//     |> equal 6
-
-//     seq {
-//         for xs in xss do
-//             for x in xs do
-//                 x
-//     }
-//     |> Seq.length
-//     |> equal 4
+[<Fact>]
+let ``Seq.collect works with Options`` () =
+    let xss = [[Some 1; Some 2]; [None; Some 3]]
+    xss |> List.map List.toSeq
+    |> Seq.collect id
+    |> Seq.sumBy (function
+        | Some n -> n
+        | None -> 0
+    )
+    |> equal 6
+    seq {
+        for xs in xss do
+            for x in xs do
+                x
+    }
+    |> Seq.length
+    |> equal 4
 
 // [<Fact>]
 // let ``Seq.chunkBySize works`` () =
@@ -357,7 +355,7 @@ let ``Seq.tryHead works`` () =
     let xs = seq {1.; 2.; 3.; 4.}
     Seq.tryHead xs |> equal (Some 1.)
     // Seq.tryHead [] |> equal None // TODO: untyped
-    Seq.tryHead ([] :> seq<float>) |> equal None
+    Seq.tryHead<float> [] |> equal None
 
 [<Fact>]
 let ``Seq.tryHead with option works`` () =
@@ -386,7 +384,7 @@ let ``Seq.isEmpty works`` () =
     let xs = [1]
     Seq.isEmpty xs |> equal false
     // Seq.isEmpty [] |> equal true //TODO: untyped
-    Seq.isEmpty ([] :> seq<int>) |> equal true
+    Seq.isEmpty<int> [] |> equal true
 
 [<Fact>]
 let ``Seq.iter works`` () =
@@ -711,39 +709,45 @@ let ``Seq.scan works with empty input`` () =
     Seq.head ys |> equal 3
     Seq.length ys |> equal 1
 
-// [<Fact>]
-// let ``Seq.sort works`` () =
-//     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-//     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-//     xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
-//     ys |> Seq.sort |> Seq.item 1 |> equal "a"
+[<Fact>]
+let ``Seq.sort works`` () =
+    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+    xs |> Seq.sort |> Seq.toArray |> equal [|-3; 1; 2; 3; 4; 10|]
+    ys |> Seq.sort |> Seq.toArray |> equal [|"B"; "a"; "c"; "d"|]
 
-// [<Fact>]
-// let ``Seq.sort with tuples works`` () =
-//     let xs = seq {3; 1; 1; -3}
-//     let ys = seq {"a"; "c"; "B"; "d"}
-//     (xs, ys) ||> Seq.zip |> Seq.sort |> Seq.item 1 |> equal (1, "B")
+[<Fact>]
+let ``Seq.sort with tuples works`` () =
+    let xs = seq {3; 1; 1; -3}
+    let ys = seq {"a"; "c"; "B"; "d"}
+    (xs, ys) ||> Seq.zip |> Seq.sort |> Seq.item 1 |> equal (1, "B")
 
-// [<Fact>]
-// let ``Seq.sortDescending works`` () =
-//     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-//     xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
-//     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-//     ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
+[<Fact>]
+let ``Seq.sortDescending works`` () =
+    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
+    let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+    ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
 
-// [<Fact>]
-// let ``Seq.sortBy works`` () =
-//     let xs = [3.; 1.; 4.; 2.]
-//     let ys = xs |> Seq.sortBy (fun x -> -x)
-//     sumFirstTwo ys
-//     |> equal 7.
+[<Fact>]
+let ``Seq.sortBy works`` () =
+    let xs = [3.; 1.; 4.; 2.]
+    let ys = xs |> Seq.sortBy (fun x -> -x)
+    sumFirstTwo ys
+    |> equal 7.
 
-// [<Fact>]
-// let ``Seq.sortByDescending works`` () =
-//     let xs = [3.; 1.; 4.; 2.]
-//     let ys = xs |> Seq.sortByDescending (fun x -> -x)
-//     sumFirstTwo ys
-//     |> equal 3.
+[<Fact>]
+let ``Seq.sortByDescending works`` () =
+    let xs = [3.; 1.; 4.; 2.]
+    let ys = xs |> Seq.sortByDescending (fun x -> -x)
+    sumFirstTwo ys
+    |> equal 3.
+
+[<Fact>]
+let ``Seq.sortWith works`` () =
+    let xs = [3; 4; 1; 2]
+    let ys = xs |> Seq.sortWith (fun x y -> int(x - y))
+    ys |> Seq.toArray |> equal [|1; 2; 3; 4|]
 
 [<Fact>]
 let ``Seq.skip works`` () =
@@ -1039,15 +1043,15 @@ let ``Seq.takeWhile works`` () =
     let ys = xs |> Seq.takeWhile (fun i -> i < 4.)
     ys |> Seq.toArray |> equal [|1.; 2.; 3.|]
 
-// [<Fact>]
-// let ``Seq.truncate works`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.truncate 2
-//     |> Seq.last
-//     |> equal 2.
-//     // Seq.truncate shouldn't throw an exception if there're not enough elements
-//     try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
-//     |> equal 5
+[<Fact>]
+let ``Seq.truncate works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.truncate 2
+    |> Seq.last
+    |> equal 2.
+    // Seq.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
+    |> equal 5
 
 [<Fact>]
 let ``Seq.where works`` () =

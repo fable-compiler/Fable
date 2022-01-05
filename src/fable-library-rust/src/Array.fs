@@ -46,7 +46,7 @@ let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): unit =
 let getSubArray (source: 'T[]) (startIndex: int) (count: int) =
     if startIndex < 0 || startIndex + count > source.Length then
         invalidArg "index" SR.indexOutOfBounds
-    let res = ResizeArray<'T>(count)
+    let res = ResizeArray<_>(count)
     for i = 0 to count - 1 do
         res.Add (source.[startIndex + i])
     res
@@ -90,7 +90,7 @@ let tail (source: 'T[]) =
 let append (source1: 'T[]) (source2: 'T[]) =
     let len1 = source1.Length
     let len2 = source2.Length
-    let res = ResizeArray<'T>(len1 + len2)
+    let res = ResizeArray<_>(len1 + len2)
     for i = 0 to len1 - 1 do
         res.Add (source1.[i])
     for i = 0 to len2 - 1 do
@@ -192,29 +192,20 @@ let indexed (source: 'T[]) =
         res.Add (i, source.[i])
     res
 
-// let concat (arrays: 'T[] seq): 'T[] =
-//     let arrays =
-//         if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
-//         else arrayFrom arrays
-//     match arrays.Length with
-//     | 0 -> [||]
-//     | 1 -> arrays.[0]
-//     | _ ->
-//         let mutable totalIdx = 0
-//         let mutable totalLength = 0
-//         for arr in arrays do
-//             totalLength <- totalLength + arr.Length
-//         let res = allocateArray totalLength
-//         for arr in arrays do
-//             for j = 0 to (arr.Length - 1) do
-//                 res.[totalIdx] <- arr.[j]
-//                 totalIdx <- totalIdx + 1
-//         res
+// see Seq.concatArrays for concatenating sequence of arrays
+let concat (sources: 'T[][]) =
+    let mutable len = 0
+    for arr in sources do
+        len <- len + arr.Length
+    let res = ResizeArray<_>(len)
+    for arr in sources do
+        for x in arr do
+            res.Add x
+    res
 
-// let collect (mapping: 'T -> 'U[]) (source: 'T[]): 'U[] =
-//     let mapped = map mapping source Unchecked.defaultof<_>
-//     concat mapped cons
-//     // collectImpl mapping source // flatMap not widely available yet
+let collect (mapping: 'T -> 'U[]) (source: 'T[]) =
+    let sources = (map mapping source).ToArray()
+    concat sources
 
 let exists predicate (source: 'T[]) =
     let mutable i = 0
@@ -237,7 +228,7 @@ let contains (value: 'T) (source: 'T[]) =
     exists (fun x -> x = value) source
 
 let filter (predicate: 'T -> bool) (source: 'T[]) =
-    let res = ResizeArray<'T>()
+    let res = ResizeArray<_>()
     for i = 0 to source.Length - 1 do
         if predicate source.[i] then
             res.Add (source.[i])
@@ -245,7 +236,7 @@ let filter (predicate: 'T -> bool) (source: 'T[]) =
 
 let initialize count (initializer: int -> 'T) =
     if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
-    let res = ResizeArray<'T>(count)
+    let res = ResizeArray<_>(count)
     for i = 0 to count - 1 do
         res.Add (initializer i)
     res
@@ -261,12 +252,12 @@ let pairwise (source: 'T[]) =
         res
 
 let partition (predicate: 'T -> bool) (source: 'T[]) =
-    let res1 = ResizeArray<'T>()
-    let res2 = ResizeArray<'T>()
+    let res1 = ResizeArray<_>()
+    let res2 = ResizeArray<_>()
     for i = 0 to source.Length - 1 do
         if predicate source.[i]
-        then res1.Add(source.[i])
-        else res2.Add(source.[i])
+        then res1.Add (source.[i])
+        else res2.Add (source.[i])
     res1, res2
 
 let reduce reduction (source: 'T[]) =
@@ -411,11 +402,6 @@ let truncate (count: int) (source: 'T[]) =
 // //               Array.blit src 0 trg i src.Length
 // //               loopi (i + src.Length) in loopi 0
 
-// let indexOf (source: 'T[]) (item: 'T) (start: int option) (count: int option) =
-//     let start = defaultArg start 0
-//     let i = indexOfImpl source item start
-//     if count.IsSome && i >= start + count.Value then -1 else i
-
 let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
     let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
         if i >= source.Length then None
@@ -425,7 +411,7 @@ let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
 
 let find (predicate: 'T -> bool) (source: 'T[]): 'T =
     match tryFind predicate source with
-    | Some res -> res
+    | Some x -> x
     | None -> indexNotFound()
 
 let tryFindIndex (predicate: 'T -> bool) (source: 'T[]): int option =
@@ -437,8 +423,13 @@ let tryFindIndex (predicate: 'T -> bool) (source: 'T[]): int option =
 
 let findIndex (predicate: 'T -> bool) (source: 'T[]): int =
     match tryFindIndex predicate source with
-    | Some res -> res
+    | Some i -> i
     | None -> indexNotFound()
+
+let indexOf (source: 'T[]) (item: 'T) = //(start: int option) (count: int option) =
+    match tryFindIndex (fun x -> x = item) source with
+    | Some i -> i
+    | None -> -1
 
 let tryFindBack (predicate: 'T -> bool) (source: 'T[]): 'T option =
     let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
@@ -573,30 +564,38 @@ let permute (indexMap: int -> int) (source: 'T[]) =
 //     for i = 0 to length do
 //         target.[i + lower] <- source.[i]
 
-// let sortInPlaceBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
-//     sortInPlaceWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs
+let sortInPlaceWith (comparer: 'T -> 'T -> int) (source: 'T[]): unit =
+    System.Array.Sort(source, comparer)
 
-// let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) =
-//     sortInPlaceWithImpl (fun x y -> comparer.Compare(x, y)) xs
+let sortInPlace (source: 'T[]): unit =
+    sortInPlaceWith compare source
 
-// let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]) =
-//     sortInPlaceWithImpl comparer xs
-//     xs
+let sortInPlaceBy (projection: 'T -> 'U) (source: 'T[]): unit =
+    sortInPlaceWith (fun x y -> compare (projection x) (projection y)) source
 
-// let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
-//     sortInPlaceWith comparer (copyImpl xs)
+// let sortInPlaceWithComparer (source: 'T[]) (comparer: IComparer<'T>): 'T[] =
+//     sortInPlaceWith (fun x y -> comparer.Compare(x, y)) source
 
-// let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-//     sortWith (fun x y -> comparer.Compare(x, y)) xs
+let sort (source: 'T[]): 'T[] =
+    let res = Array.copy source
+    sortInPlace res
+    res
 
-// let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
+let sortBy (projection: 'T -> 'U) (source: 'T[]): 'T[] =
+    let res = Array.copy source
+    sortInPlaceBy projection res
+    res
 
-// let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-//     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+let sortWith (comparer: 'T -> 'T -> int) (source: 'T[]): 'T[] =
+    let res = Array.copy source
+    sortInPlaceWith comparer res
+    res
 
-// let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-//     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
+let sortDescending (source: 'T[]): 'T[] =
+    sortWith (fun x y -> (compare x y) * -1) source
+
+let sortByDescending (projection: 'T -> 'U) (source: 'T[]): 'T[] =
+    sortWith (fun x y -> (compare (projection x) (projection y)) * -1) source
 
 // let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
 //     let len1 = xs.Length
@@ -607,14 +606,14 @@ let permute (indexMap: int -> int) (source: 'T[]) =
 //             res.[i * len2 + j] <- (xs.[i], ys.[j])
 //     res
 
-let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State) =
+let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let rec inner_loop generator state (res: ResizeArray<'T>) =
         match generator state with
         | None -> ()
         | Some (x, s) ->
             res.Add (x)
             inner_loop generator s res
-    let res = ResizeArray<'T>()
+    let res = ResizeArray<_>()
     inner_loop generator state res
     res
 

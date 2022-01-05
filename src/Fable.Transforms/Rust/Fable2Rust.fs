@@ -3024,7 +3024,8 @@ module Util =
         | Fable.Extended(kind, r) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                transformCurry com ctx e arity
+                // transformCurry com ctx e arity //TODO: check arity, if curry is needed
+                transformAsExpr com ctx e
             | Fable.Throw(TransformExpr com ctx msg, _) ->
                 mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
             | Fable.Return _
@@ -3581,8 +3582,10 @@ module Util =
             | Fable.Constraint.IsValueType -> []
             | Fable.Constraint.IsReferenceType -> []
             | Fable.Constraint.HasDefaultConstructor -> []
-            | Fable.Constraint.HasComparison -> [makeGenBound "PartialOrd" []]
-            | Fable.Constraint.HasEquality -> [makeGenBound "PartialEq" []]
+            | Fable.Constraint.HasComparison ->
+                [makeGenBound "PartialOrd" []] //; makeGenBound "Ord" []]
+            | Fable.Constraint.HasEquality ->
+                [makeGenBound "PartialEq" []] //; makeGenBound "Eq" []]
             | Fable.Constraint.IsUnmanaged -> []
             | Fable.Constraint.IsEnum -> []
 
@@ -3720,8 +3723,8 @@ module Util =
             if ent |> isCopyableEntity com Set.empty then "Copy"
             if ent |> isPrintableEntity com Set.empty then "Debug"
             // if ent |> isDefaultableEntity com Set.empty then "Default"
-            if ent |> isEquatableEntity com Set.empty then "PartialEq"
-            if ent |> isComparableEntity com Set.empty then "PartialOrd"
+            if ent |> isEquatableEntity com Set.empty then "PartialEq" //; "Eq"
+            if ent |> isComparableEntity com Set.empty then "PartialOrd" //; "Ord"
         ]
         derivedFrom
 
