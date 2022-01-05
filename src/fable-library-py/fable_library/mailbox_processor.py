@@ -32,7 +32,7 @@ class MailboxProcessor(Generic[Msg]):
         self.body = body
 
         # Holds the continuation i.e the `done` callback of Async.from_continuations returned by `receive`.
-        self.continuation = None
+        self.continuation: List[Callable[[Any], None]] = []
 
     def post(self, msg: Msg) -> None:
         """Post a message synchronously to the mailbox processor.
@@ -111,7 +111,7 @@ class MailboxProcessor(Generic[Msg]):
         # Cancellation of async workflows is more tricky in Python than
         # with F# so we check the cancellation token for each process.
         if self.token.is_cancellation_requested:
-            self.continuation, cont = None, self.continuation
+            self.continuation, cont = [], self.continuation
             if cont is not None:
                 cont[2](OperationCanceledError("Mailbox was cancelled"))
             return
@@ -123,7 +123,7 @@ class MailboxProcessor(Generic[Msg]):
             if self.messages.empty():
                 return
             msg = self.messages.get()
-            self.continuation, cont = None, self.continuation
+            self.continuation, cont = [], self.continuation
 
         if cont is not None:
             cont[0](msg)

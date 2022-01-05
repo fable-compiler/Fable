@@ -16,6 +16,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Protocol,
     Sized,
     Tuple,
     Type,
@@ -25,7 +26,15 @@ from typing import (
 )
 from urllib.parse import quote, unquote
 
+
+class SupportsLessThan(Protocol):
+    @abstractmethod
+    def __lt__(self, __other: Any) -> bool:
+        raise NotImplementedError
+
+
 _T = TypeVar("_T")
+_TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
 
 class ObjectDisposedException(Exception):
@@ -249,7 +258,7 @@ def equal_arrays(x: List[_T], y: List[_T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives(x: _T, y: _T) -> int:
+def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int:
     return 0 if x == y else (-1 if x < y else 1)
 
 

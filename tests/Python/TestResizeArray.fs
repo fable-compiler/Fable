@@ -233,13 +233,13 @@ let ``test ResizeArray.Exists works`` () =
     xs.Exists (fun a -> a < 1) |> equal false
     xs.Exists (fun a -> a = 3) |> equal true
 
+*)
 [<Fact>]
 let ``test ResizeArray.RemoveAt works`` () =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.RemoveAt(2)
     equal 4. li.[2]
-*)
 [<Fact>]
 let ``test ResizeArray.Insert works`` () =
     let li = ResizeArray<_>()
@@ -297,13 +297,9 @@ let ``test ResizeArray.ToArray works`` () =
     equal 3. li.[0]
     equal 2. ar.[0]
 (*
+*)
 [<Fact>]
 let ``test ResizeArray.Item is undefined when index is out of range`` () =
     let xs = ResizeArray [0]
-    #if FABLE_COMPILER
-    isNull <| box (xs.Item 1)
-    #else
     try (xs.Item 1) |> ignore; false with _ -> true
-    #endif
     |> equal true
-*)
