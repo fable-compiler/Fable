@@ -147,6 +147,18 @@ let noSideEffectBeforeIdent identName expr =
                 sideEffect <- true
                 true
             else false
+        // If the field is mutable we cannot inline, see #2683
+        | Get(e, FieldGet(_, isMutable), _, _) ->
+            if isMutable then
+                sideEffect <- true
+                true
+            else findIdentOrSideEffect e
+        // We don't have enough information here, so just assume there's a side effect just in case
+        | Get(_, ExprGet _, _, _) ->
+            sideEffect <- true
+            true
+        | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue _), _, _) ->
+            findIdentOrSideEffect e
         | Import _ | Lambda _ | Delegate _ -> false
         | Extended((Return _|Throw _|Break _|Debugger),_) -> true
         | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
@@ -182,7 +194,6 @@ let noSideEffectBeforeIdent identName expr =
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e,_)
-        | Get(e,_,_,_)
         | Test(e,_,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->
             findIdentOrSideEffect cond || findIdentOrSideEffect thenExpr || findIdentOrSideEffect elseExpr
@@ -198,7 +209,6 @@ let noSideEffectBeforeIdent identName expr =
             result || findIdentOrSideEffect e)
 
     findIdentOrSideEffect expr && not sideEffect
-
 
 let canInlineArg identName value body =
     (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)

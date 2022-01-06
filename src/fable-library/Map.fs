@@ -656,10 +656,10 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         | None -> false
 
     member __.Keys: ICollection<'Key> =
-        MapTree.toSeq tree |> Seq.map (fun kvp -> kvp.Key) |> ResizeArray :> _
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
 
     member __.Values: ICollection<'Value> =
-        MapTree.toSeq tree |> Seq.map (fun kvp -> kvp.Value) |> ResizeArray :> _
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
 
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS

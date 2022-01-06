@@ -1,3 +1,15 @@
+### 3.7.0-beta-004
+
+* Fix watch mode and runFast optimization
+
+### 3.7.0-beta-003
+
+* Fix precompile errors
+
+### 3.7.0-beta-002
+
+* Performance improvements
+
 ### 3.7.0-beta-001
 
 * Add precompile command

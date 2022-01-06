@@ -2902,25 +2902,17 @@ let globalization (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (
         ObjectExpr([], t, None) |> Some
     | _ -> None
 
-let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" -> ObjectExpr ([], t, None) |> Some
-    | "Next" ->
-        let min, max =
-            match args with
-            | [] -> makeIntConst 0, makeIntConst System.Int32.MaxValue
-            | [max] -> makeIntConst 0, max
-            | [min; max] -> min, max
-            | _ -> failwith "Unexpected arg count for Random.Next"
-        Helper.LibCall(com, "Util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
-    | "NextDouble" ->
-        Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
-    | "NextBytes" ->
-        let byteArray =
-            match args with
-            | [b] -> b
-            | _ -> failwith "Unexpected arg count for Random.NextBytes"
-        Helper.LibCall(com, "Util", "randomBytes", t, [byteArray], [byteArray.Type], ?loc=r) |> Some
+let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        match args with
+        | [] -> Helper.LibCall(com, "Random", "nonSeeded", t, [], [], ?loc=r) |> Some
+        | args -> Helper.LibCall(com, "Random", "seeded", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // Not yet supported
+    | ("NextIn64" | "NextSingle"), _ -> None
+    | meth, Some thisArg ->
+        let meth = if meth = "Next" then $"Next{List.length args}" else meth
+        Helper.InstanceCall(thisArg, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

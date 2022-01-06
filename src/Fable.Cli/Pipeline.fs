@@ -44,25 +44,26 @@ module Js =
         member _.SourceMap =
             mapGenerator.Force().toJSON()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Babel.Compiler.transformFile com
 
-        let! sourceMap = async {
-            use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
-            do! BabelPrinter.run writer babel
-            return if cliArgs.SourceMaps then Some writer.SourceMap else None
-        }
+        if not isSilent then
+            let! sourceMap = async {
+                use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
+                do! BabelPrinter.run writer babel
+                return if cliArgs.SourceMaps then Some writer.SourceMap else None
+            }
 
-        match sourceMap with
-        | Some sourceMap ->
-            let mapPath = outPath + ".map"
-            do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-            use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-            do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
-        | None -> ()
+            match sourceMap with
+            | Some sourceMap ->
+                let mapPath = outPath + ".map"
+                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
+            | None -> ()
     }
 
 module Python =
@@ -196,9 +197,9 @@ module Rust =
         do! RustPrinter.run writer crate
     }
 
-let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) =
+let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
     match com.Options.Language with
-    | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver outPath
+    | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver isSilent outPath
     | Python -> Python.compileFile com cliArgs pathResolver outPath
     | Php -> Php.compileFile com outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver outPath
