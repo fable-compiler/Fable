@@ -28,6 +28,7 @@
     <Compile Include="Seq.fs" />
     <Compile Include="Seq2.fs" />
     <Compile Include="Range.fs" />
+    <Compile Include="Random.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
   </ItemGroup>
