@@ -1596,7 +1596,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_ColonEquals", [o; v] -> setReference r o v |> Some
     | "Ref", [arg] -> newReference com r t arg |> Some
     | ("Increment"|"Decrement"), _ ->
-        if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
+        if i.CompiledName = "Increment" then "$0.contents +=1" else "$0.contents -=1"
         |> emitJsExpr r t args |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "list", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -1631,9 +1631,9 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
             getAttachedMember thisArg memb |> makeCall r t info |> Some
         | _ -> None
     match i.CompiledName with
-    | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
+    | "ToUpper" -> icall r t args i.SignatureArgTypes "upper"
     | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "upper"
-    | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
+    | "ToLower" -> icall r t args i.SignatureArgTypes "lower"
     | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "lower"
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
@@ -1703,9 +1703,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
-    | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
+    | ReplaceName [ "ToUpper",          "upper"
                     "ToUpperInvariant", "upper"
-                    "ToLower",          "toLocaleLowerCase"
+                    "ToLower",          "lower"
                     "ToLowerInvariant", "lower" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "IndexOf", Some c, _ ->
@@ -1886,7 +1886,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveRange", Some ar, args ->
         Helper.LibCall(com, "array", "remove_many_at", t, args @ [ar], ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(ar, "pop", t, [idx; makeIntConst 1], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "pop", t, [idx], ?loc=r) |> Some
     | "Reverse", Some ar, [] ->
         Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->

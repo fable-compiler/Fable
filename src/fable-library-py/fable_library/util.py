@@ -10,19 +10,31 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Dict,
     Generic,
     Iterable,
     Iterator,
     List,
     Optional,
+    Protocol,
     Sized,
+    Tuple,
     Type,
     TypeVar,
     Union,
+    cast,
 )
 from urllib.parse import quote, unquote
 
-T = TypeVar("T")
+
+class SupportsLessThan(Protocol):
+    @abstractmethod
+    def __lt__(self, __other: Any) -> bool:
+        raise NotImplementedError
+
+
+_T = TypeVar("_T")
+_TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
 
 class ObjectDisposedException(Exception):
@@ -98,7 +110,7 @@ class IEquatable(ABC):
 
 
 class IComparable(IEquatable):
-    def CompareTo(self, other: Any):
+    def CompareTo(self, other: Any) -> int:
         if self < other:
             return -1
         elif self == other:
@@ -107,6 +119,33 @@ class IComparable(IEquatable):
 
     @abstractmethod
     def __lt__(self, other: Any) -> bool:
+        raise NotImplementedError
+
+
+class IComparer(Generic[_T]):
+    """Defines a method that a type implements to compare two objects.
+
+    https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
+    """
+
+    @abstractmethod
+    def Compare(self, y: _T) -> int:
+        ...
+
+
+class IEqualityComparer(Generic[_T]):
+    def Equals(self, y: _T) -> bool:
+        return self == y
+
+    def GetHashCode(self) -> int:
+        return hash(self)
+
+    @abstractmethod
+    def __eq__(self, other: Any) -> bool:
+        return NotImplemented
+
+    @abstractmethod
+    def __hash__(self) -> int:
         raise NotImplementedError
 
 
@@ -124,6 +163,51 @@ def is_comparable(x: Any) -> bool:
     return hasattr(x, "CompareTo") and callable(x.CompareTo)
 
 
+def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
+    """Compare Python dicts with string keys.
+
+    Python cannot do this natively.
+    """
+    x_keys = x.keys()
+    y_keys = y.keys()
+
+    if len(x_keys) != len(y_keys):
+        return -1 if len(x_keys) < len(y_keys) else 1
+
+    x_keys = sorted(x_keys)
+    y_keys = sorted(y_keys)
+
+    j = 0
+    for i, key in enumerate(x_keys):
+        if key != y_keys[i]:
+            return -1 if key < y_keys[i] else 1
+        else:
+            j = compare(x[key], y[key])
+            if j != 0:
+                return j
+
+    return 0
+
+
+def compare_arrays(xs: List[Any], ys: List[Any]):
+    if xs is None:
+        return 0 if ys is None else 1
+
+    if ys is None:
+        return -1
+
+    if len(xs) != len(ys):
+        return -1 if len(xs) < len(ys) else 1
+
+    j = 0
+    for i, x in enumerate(xs):
+        j = compare(x, ys[i])
+        if j != 0:
+            return j
+
+    return 0
+
+
 def compare(a: Any, b: Any) -> int:
     if a is b:
         return 0
@@ -137,6 +221,13 @@ def compare(a: Any, b: Any) -> int:
     if is_comparable(a):
         return a.CompareTo(b)
 
+    if isinstance(a, dict):
+        return compare_dicts(cast(dict[str, Any], a), b)
+
+    if isinstance(a, List):
+        return compare_arrays(cast(List[Any], a), b)
+
+    # TODO: the last tests here are not reliable since the methods may rise NotImplementedError
     if hasattr(a, "__eq__") and callable(a.__eq__) and a == b:
         return 0
 
@@ -146,11 +237,7 @@ def compare(a: Any, b: Any) -> int:
     return 1
 
 
-def compare_arrays(a, b):
-    return compare(a, b)
-
-
-def equal_arrays_with(xs: List[T], ys: List[T], eq: Callable[[T, T], bool]) -> bool:
+def equal_arrays_with(xs: List[_T], ys: List[_T], eq: Callable[[_T, _T], bool]) -> bool:
     if xs is None:
         return ys is None
 
@@ -167,49 +254,50 @@ def equal_arrays_with(xs: List[T], ys: List[T], eq: Callable[[T, T], bool]) -> b
     return True
 
 
-def equal_arrays(x, y):
+def equal_arrays(x: List[_T], y: List[_T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives(x, y) -> int:
+def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int:
     return 0 if x == y else (-1 if x < y else 1)
 
 
-def min(comparer, x, y):
+def min(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
     return x if comparer(x, y) < 0 else y
 
 
-def max(comparer, x, y):
+def max(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
     return x if comparer(x, y) > 0 else y
 
 
-def clamp(comparer: Callable[[T, T], int], value: T, min: T, max: T):
+def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
     # return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
     return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
-def assert_equal(actual, expected, msg: Optional[str] = None) -> None:
+def assert_equal(actual: Any, expected: Any, msg: Optional[str] = None) -> None:
     if actual != expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
-def assert_not_equal(actual: T, expected: T, msg: Optional[str] = None) -> None:
+def assert_not_equal(actual: _T, expected: _T, msg: Optional[str] = None) -> None:
     if actual == expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
-class Lazy(Generic[T]):
-    def __init__(self, factory: Callable[[], T]):
+class Lazy(Generic[_T]):
+    def __init__(self, factory: Callable[[], _T]):
         self.factory = factory
-        self.is_value_created = False
-        self.created_value = None
+        self.is_value_created: bool = False
+        self.created_value: Optional[_T] = None
 
     @property
-    def Value(self):
+    def Value(self) -> _T:
         if not self.is_value_created:
             self.created_value = self.factory()
             self.is_value_created = True
 
+        assert self.created_value is not None
         return self.created_value
 
     @property
@@ -217,14 +305,14 @@ class Lazy(Generic[T]):
         return self.is_value_created
 
 
-def lazy_from_value(v: T) -> Lazy[T]:
+def lazy_from_value(v: _T) -> Lazy[_T]:
     return Lazy(lambda: v)
 
 
-def create_atom(value: Any = None):
+def create_atom(value: Optional[_T] = None) -> Callable[[Optional[_T], Optional[Callable[[Any], None]]], _T]:
     atom = value
 
-    def _(value: Any = None, isSetter=None):
+    def _(value: Optional[_T] = None, isSetter: Optional[Callable[[_T], None]] = None):
         nonlocal atom
 
         if not isSetter:
@@ -236,14 +324,8 @@ def create_atom(value: Any = None):
     return _
 
 
-def create_obj(fields):
-    # TODO: return dict(filelds) ?
-    obj = {}
-
-    for k, v in fields:
-        obj[k] = v
-
-    return obj
+def create_obj(fields: List[Tuple[Any, Any]]):
+    return dict(fields)
 
 
 def tohex(val: int, nbits: Optional[int] = None) -> str:
@@ -291,50 +373,66 @@ def count(col: Iterable[Any]) -> int:
     return count
 
 
-def clear(col) -> None:
+def clear(col: Optional[List[Any]]) -> None:
     if isinstance(col, List):
         col.clear()
 
 
-class IEnumerator(Generic[T], IDisposable):
-    @abstractmethod
-    def Current(self) -> T:
-        ...
+class IEnumerator(Iterator[_T], IDisposable):
+    def Current(self) -> _T:
+        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
 
-    @abstractmethod
     def MoveNext(self) -> bool:
-        ...
+        return self.System_Collections_IEnumerator_MoveNext()
 
-    @abstractmethod
     def Reset(self) -> None:
-        ...
+        return self.System_Collections_IEnumerator_Reset()
 
-    def __getattr__(self, name: str):
-        return {
-            "System_Collections_Generic_IEnumerator_00601_get_Current": self.Current,
-            "System_Collections.IEnumerator_get_Current": self.Current,
-            "System_Collections_IEnumerator_MoveNext": self.MoveNext,
-            "System_Collections.IEnumerator_Reset": self.Reset,
-        }[name]
-
-
-class IEnumerable(Iterable[T]):
     @abstractmethod
-    def GetEnumerator(self) -> Iterator[T]:
+    def System_Collections_Generic_IEnumerator_00601_get_Current(self) -> _T:
         ...
 
+    def System_Collections_IEnumerator_get_Current(self) -> Any:
+        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
 
-class Enumerator(IEnumerator[T]):
-    def __init__(self, iter: Iterator[T]) -> None:
+    @abstractmethod
+    def System_Collections_IEnumerator_MoveNext(self) -> bool:
+        ...
+
+    @abstractmethod
+    def System_Collections_IEnumerator_Reset(self) -> None:
+        ...
+
+    def __next__(self) -> _T:
+        if not self.MoveNext():
+            raise StopIteration
+        return self.Current()
+
+
+class IEnumerable(Iterable[_T]):
+    @abstractmethod
+    def GetEnumerator(self) -> IEnumerator[_T]:
+        ...
+
+    def __iter__(self) -> Iterator[_T]:
+        return self.GetEnumerator()
+
+
+class ICollection(IEnumerable[_T]):
+    pass
+
+
+class Enumerator(IEnumerator[_T]):
+    def __init__(self, iter: Iterator[_T]) -> None:
         self.iter = iter
         self.current = None
 
-    def Current(self):
+    def System_Collections_Generic_IEnumerator_00601_get_Current(self):
         if self.current is not None:
             return self.current
         return None
 
-    def MoveNext(self) -> bool:
+    def System_Collections_IEnumerator_MoveNext(self) -> bool:
         try:
             cur = next(self.iter)
             self.current = cur
@@ -342,14 +440,14 @@ class Enumerator(IEnumerator[T]):
         except StopIteration:
             return False
 
-    def Reset(self) -> None:
+    def System_Collections_IEnumerator_Reset(self) -> None:
         raise Exception("Python iterators cannot be reset")
 
     def Dispose(self) -> None:
         return
 
 
-def get_enumerator(o: Any) -> Enumerator[T]:
+def get_enumerator(o: Iterable[_T]) -> Enumerator[_T]:
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
@@ -376,12 +474,12 @@ def uncurry(arity: int, f: Callable[..., Callable[..., Any]]) -> Callable[..., A
     }
 
     try:
-        uncurriedFn = fns[arity]
+        uncurried_fn = cast(Callable[..., Any], fns[arity])
     except Exception:
         raise Exception(f"Uncurrying to more than 8-arity is not supported: {arity}")
 
     setattr(f, CURRIED_KEY, f)
-    return uncurriedFn
+    return uncurried_fn
 
 
 def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any]]:
@@ -413,9 +511,9 @@ def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
 
 
-def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Any:
+def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callable[..., Any]:
     if not fn:
-        return
+        raise ValueError("partially_apply: Missing function")
 
     if hasattr(fn, CURRIED_KEY):
         fn = getattr(fn, CURRIED_KEY)
@@ -426,27 +524,24 @@ def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Any:
         return fn
 
     if arity == 1:
-        # Wrap arguments to make sure .concat doesn't destruct arrays. Example
-        # [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
-        # [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return lambda a1: fn(args + [a1])
+        return lambda a1: fn(*args, a1)
     if arity == 2:
-        return lambda a1: lambda a2: fn(args + [a1, a2])
+        return lambda a1: lambda a2: fn(*args, a1, a2)
     if arity == 3:
-        return lambda a1: lambda a2: lambda a3: fn(args + [a1, a2, a3])
+        return lambda a1: lambda a2: lambda a3: fn(*args, a1, a2, a3)
     if arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: fn(args + [a1, a2, a3, a4])
+        return lambda a1: lambda a2: lambda a3: lambda a4: fn(*args, a1, a2, a3, a4)
     if arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(args + [a1, a2, a3, a4, a5])
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(*args, a1, a2, a3, a4, a5)
     if arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(args + [a1, a2, a3, a4, a5, a6])
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(*args, a1, a2, a3, a4, a5, a6)
     if arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
-            args + [a1, a2, a3, a4, a5, a6, a7]
+            *args, a1, a2, a3, a4, a5, a6, a7
         )
     if arity == 8:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
-            args + [a1, a2, a3, a4, a5, a6, a7, a8]
+            *args, a1, a2, a3, a4, a5, a6, a7, a8
         )
     raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
 
@@ -459,14 +554,14 @@ def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
-def dispose(x: Union[Disposable, ContextManager]):
+def dispose(x: Union[Disposable, ContextManager[Any]]) -> None:
     """Helper to dispose objects.
 
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.
     For more info see: https://www.python.org/dev/peps/pep-0310/
     """
     try:
-        x.Dispose()
+        x.Dispose()  # type: ignore
     except AttributeError as ex:
         try:
             x.__exit__(None, None, None)
@@ -482,7 +577,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator(en):
+def to_iterator(en: IEnumerator[_T]) -> Iterator[_T]:
     class Iterator:
         def __iter__(self):
             return self
@@ -497,7 +592,7 @@ def to_iterator(en):
 
 
 class ObjectRef:
-    id_map = dict()
+    id_map: Dict[int, int] = dict()
     count = 0
 
     @staticmethod
@@ -550,8 +645,8 @@ def structural_hash(x: Any) -> int:
     return hash(x)
 
 
-def array_hash(xs):
-    hashes = []
+def array_hash(xs: List[Any]) -> int:
+    hashes: List[int] = []
     for x in xs:
         hashes.append(structural_hash(x))
 
@@ -565,7 +660,7 @@ def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value, digits=0):
+def round(value: float, digits: int = 0):
     m = pow(10, digits)
     n = +(value * m if digits else value)
     i = math.floor(n)
@@ -588,5 +683,6 @@ def escape_uri_string(s: str) -> str:
     return quote(s, safe="&?:/!=")
 
 
-def ignore(a: Any = None):
+def ignore(a: Any = None) -> None:
+    """Ignore argument, returns None."""
     return

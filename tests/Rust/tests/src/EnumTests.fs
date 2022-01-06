@@ -20,8 +20,8 @@ let myRootValue =
     | _ -> -1
 
 module EnumOperations =
-    let inline enumOfValue1<'T,'U when 'U: enum<'T>> (value: 'T) : 'U = LanguagePrimitives.EnumOfValue<'T,'U>(value)
-    let inline enumOfValue2 value = LanguagePrimitives.EnumOfValue value
+    let inline internal enumOfValue1<'T,'U when 'U: enum<'T>> (value: 'T) : 'U = LanguagePrimitives.EnumOfValue<'T,'U>(value)
+    let inline internal enumOfValue2 value = LanguagePrimitives.EnumOfValue value
     // let enumOfValue3 value = LanguagePrimitives.EnumOfValue value
     // let enumOfValue4 = LanguagePrimitives.EnumOfValue
 

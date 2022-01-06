@@ -1,5 +1,7 @@
 module Fable.Tests.Misc
 
+#nowarn "40" //  warning FSHARP: This and other recursive references to the object(s) being defined will be checked for initialization-soundness at runtime through the use of a delayed reference.
+
 open System
 open System.Runtime.InteropServices
 open Fable.Core
@@ -1109,8 +1111,8 @@ let ``test Pattern matching with same result for last pattern and wildcard works
 let ``test FSharpRef can be used in properties`` () = // See #521
     let r = ref false
     let x = TestRef r
-    r := true
-    match x with TestRef r2 -> !r2
+    r.Value <- true
+    match x with TestRef r2 -> r2.Value
     |> equal true
 
 [<Fact>]
@@ -1227,3 +1229,18 @@ let ``test Assigning to unit works`` () =
 
     doit 2 (fun x -> value <- value + x)
     value |> equal 4
+
+[<Fact>]
+let ``test incr and decr works`` () =
+    let value = ref 42
+    let f x =
+        incr x
+        x.Value
+
+    let g x =
+        decr x
+        x.Value
+
+
+    f value |> equal 43
+    g value |> equal 42

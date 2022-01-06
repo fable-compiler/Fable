@@ -67,12 +67,14 @@ type MemberInfo =
     abstract Attributes: Attribute seq
     abstract HasSpread: bool
     abstract IsMangled: bool
+    abstract IsInline: bool
     abstract IsPublic: bool
     abstract IsInstance: bool
     abstract IsValue: bool
     abstract IsMutable: bool
     abstract IsGetter: bool
     abstract IsSetter: bool
+    abstract IsProperty: bool
     abstract IsEnumerator: bool
 
 type MemberFunctionOrValue =

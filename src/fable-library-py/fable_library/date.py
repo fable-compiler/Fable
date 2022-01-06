@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Match, Optional
 
 from .types import FSharpRef
 from .util import DateKind
@@ -29,8 +29,8 @@ def year(d: datetime) -> int:
     return d.year
 
 
-def date_to_string_with_custom_format(date: datetime, format: str, utc) -> str:
-    def match(m):
+def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
+    def match(m: Match[str]) -> str:
         match = m.group()
         m = match[:1]
         print(match)

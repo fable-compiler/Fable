@@ -899,6 +899,10 @@ module Generic =
         { span = DUMMY_SP
           args = mkVec args }
 
+    let mkGenericTypeArg (ty: Ty): AngleBracketedArg =
+        let genericArg = GenericArg.Type(ty)
+        AngleBracketedArg.Arg(genericArg)
+
     let mkAssocTyConstraintArg name ty genArgs: AngleBracketedArg =
         let tyConstraint: AssocTyConstraint = {
             id = DUMMY_NODE_ID
@@ -919,7 +923,7 @@ module Generic =
             |> Some
 
     let mkGenericTypeArgs (tys: Ty seq): GenericArgs option =
-        let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
+        let args = tys |> Seq.map mkGenericTypeArg
         mkGenericArgs args
 
     let mkParenArgs inputs output: GenericArgs option =
@@ -932,6 +936,14 @@ module Generic =
         genArgs
         |> GenericArgs.Parenthesized
         |> Some
+
+    let mkConstraintArgs (tys: Ty seq) (constraints: (string * Ty) seq): GenericArgs option =
+        let tyArgs = tys |> Seq.map mkGenericTypeArg
+        let constraintArgs =
+            constraints
+            |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
+        Seq.append tyArgs constraintArgs
+        |> mkGenericArgs
 
 [<AutoOpen>]
 module Bounds =
@@ -1246,9 +1258,9 @@ module Items =
         ItemKind.Mod(Unsafety.No, ModKind.Unloaded)
         |> mkItem attrs ident
 
-    let mkTraitItem attrs name fields bounds generics: Item =
+    let mkTraitItem attrs name items bounds generics: Item =
         let ident = mkIdent name
-        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec fields)
+        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec items)
         |> mkItem attrs ident
 
     let mkEnumItem attrs name variants generics: Item =

@@ -1,45 +1,46 @@
 from __future__ import annotations
 
+import array
 from abc import abstractstaticmethod
-from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from typing import Union as Union_
 from typing import cast
-import array
 
-from .util import IComparable, equals
+from .util import IComparable, compare
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-class FSharpRef(Generic[T]):
-    def __init__(self, contentsOrGetter: Union_[T, Callable[[], T]], setter: Optional[Callable[[T], None]] = None) -> None:
+class FSharpRef(Generic[_T]):
+    def __init__(
+        self, contents_or_getter: Union_[None, _T, Callable[[], _T]], setter: Optional[Callable[[_T], None]] = None
+    ) -> None:
+        contents = cast(_T, contents_or_getter)
 
-        contents = contentsOrGetter
-
-        def set_contents(value: T):
+        def set_contents(value: _T):
             nonlocal contents
             contents = value
 
         if callable(setter):
-            self.getter = contentsOrGetter
+            self.getter = cast(Callable[[], _T], contents_or_getter)
             self.setter = setter
         else:
             self.getter = lambda: contents
             self.setter = set_contents
 
     @property
-    def contents(self) -> T:
+    def contents(self) -> _T:
         return self.getter()
 
     @contents.setter
-    def contents(self, v) -> None:
+    def contents(self, v: _T) -> None:
         self.setter(v)
 
 
 class Union(IComparable):
     def __init__(self):
         self.tag: int
-        self.fields: Tuple[int, ...] = ()
+        self.fields: List[Any] = []
 
     @abstractstaticmethod
     def cases() -> List[str]:
@@ -48,9 +49,6 @@ class Union(IComparable):
     @property
     def name(self) -> str:
         return self.cases()[self.tag]
-
-    def to_JSON(self) -> str:
-        raise NotImplementedError
 
     def __str__(self) -> str:
         if not len(self.fields):
@@ -87,12 +85,12 @@ class Union(IComparable):
 
     def __lt__(self, other: Any) -> bool:
         if self.tag == other.tag:
-            return self.fields < other.fields
+            return True if compare(self.fields, other.fields) < 0 else False
 
         return self.tag < other.tag
 
 
-def record_equals(self: Record, other: Record) -> bool:
+def record_equals(self: _T, other: _T) -> bool:
     if self is other:
         return True
 
@@ -102,7 +100,7 @@ def record_equals(self: Record, other: Record) -> bool:
     return a == b
 
 
-def record_compare_to(self: Record, other: Record):
+def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
@@ -120,14 +118,11 @@ def record_to_string(self: Record) -> str:
     return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
-def recordGetHashCode(self):
+def record_get_hashcode(self: Record) -> int:
     return hash(*self.values())
 
 
 class Record(IComparable):
-    # def toJSON(self) -> str:
-    #    return record_to_JSON(self)
-
     def __str__(self) -> str:
         return record_to_string(self)
 
@@ -135,7 +130,7 @@ class Record(IComparable):
         return str(self)
 
     def GetHashCode(self) -> int:
-        return recordGetHashCode(self)
+        return record_get_hashcode(self)
 
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
@@ -150,7 +145,7 @@ class Record(IComparable):
         return self.Equals(other)
 
     def __hash__(self) -> int:
-        return recordGetHashCode(self)
+        return record_get_hashcode(self)
 
 
 class Attribute:
@@ -174,11 +169,8 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Any, callStack: int = 0) -> str:
+def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     if x is not None:
-        # if (typeof x.toString === "function") {
-        #    return x.toString();
-
         if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
 
@@ -210,10 +202,7 @@ class FSharpException(Exception, IComparable):
     def __init__(self):
         self.Data0: Any = None
 
-    # def toJSON(self):
-    #    return record_to_JSON(self)
-
-    def __str__(self):
+    def __str__(self) -> str:
         return record_to_string(self)
 
     def __repr__(self) -> str:
@@ -250,13 +239,13 @@ class FSharpException(Exception, IComparable):
         return hash(self.Data0)
 
     def GetHashCode(self) -> int:
-        return recordGetHashCode(self)
+        return hash(self)
 
     def Equals(self, other: FSharpException):
         return record_equals(self, other)
 
     def CompareTo(self, other: FSharpException):
-        return record_compare_to(self, other)
+        return compare(self.Data0, other.Data0)
 
 
 def Int8Array(lst: List[int]):

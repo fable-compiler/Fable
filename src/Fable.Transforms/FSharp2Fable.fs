@@ -152,6 +152,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         let typeOpt =
             match com.Options.Language with
             | Rust -> Rust.Replacements.tryType t
+            | Python -> PY.Replacements.tryType t
             | _ -> Replacements.tryType t
         match typeOpt with
         | Some(entityFullName, makeCall, genArgs) ->
@@ -550,6 +551,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let expr =
             match com.Options.Language with
             | Rust -> Rust.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+            | Python -> PY.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
             | _ -> Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
         return expr
 
@@ -1329,7 +1331,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
         []
-    elif isInline memb then
+    elif isInline memb && (com.Options.Language <> Rust || isNonPublicMember memb) then
         []
     elif memb.IsImplicitConstructor then
         transformImplicitConstructor com ctx memb args body
@@ -1371,7 +1373,7 @@ let private isIgnoredLeafEntity (ent: FSharpEntity) =
     // ent.IsInterface
     ent.IsEnum
     || ent.IsMeasure
-    || ent.IsFSharpAbbreviation
+    || ent.IsFSharpAbbreviation //&& com.Options.Language <> Rust
     || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
 

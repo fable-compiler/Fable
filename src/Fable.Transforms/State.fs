@@ -82,11 +82,10 @@ type ImplFile =
         let entities = Dictionary()
         let rec loop (ents: FSharpEntity seq) =
             for e in ents do
-                if e.IsFSharpAbbreviation then ()
-                else
-                    let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
-                    entities.Add(fableEnt.FullName, fableEnt)
-                    loop e.NestedEntities
+                let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
+                if not e.IsFSharpAbbreviation || not (entities.ContainsKey(fableEnt.FullName)) then
+                    entities.[fableEnt.FullName] <- fableEnt
+                loop e.NestedEntities
 
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop
         {

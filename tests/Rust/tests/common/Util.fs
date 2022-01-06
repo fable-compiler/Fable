@@ -3,6 +3,7 @@ module Fable.Tests.Util
 open System
 
 module Testing =
+
 #if FABLE_COMPILER
     open Fable.Core
 

@@ -147,6 +147,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsEnumerator = false
 
         member _.HasSpread = Helpers.hasParamArray m
+        member _.IsInline = Helpers.isInline m
         member _.IsPublic = Helpers.isPublicMember m
         // NOTE: Using memb.IsValue doesn't work for function values
         // See isModuleValueForDeclarations below
@@ -155,6 +156,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsMutable = m.IsMutable
         member _.IsGetter = m.IsPropertyGetterMethod
         member _.IsSetter = m.IsPropertySetterMethod
+        member _.IsProperty = m.IsProperty
 
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
@@ -268,12 +270,14 @@ type FsEnt(ent: FSharpEntity) =
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
+                    ?isInline: bool,
                     ?isPublic: bool,
                     ?isInstance: bool,
                     ?isValue: bool,
                     ?isMutable: bool,
                     ?isGetter: bool,
                     ?isSetter: bool,
+                    ?isProperty: bool,
                     ?isEnumerator: bool,
                     ?isMangled: bool) =
     interface Fable.MemberInfo with
@@ -282,12 +286,14 @@ type MemberInfo(?attributes: FSharpAttribute seq,
             | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
             | None -> upcast []
         member _.HasSpread = defaultArg hasSpread false
+        member _.IsInline = defaultArg isInline false
         member _.IsPublic = defaultArg isPublic true
         member _.IsInstance = defaultArg isInstance true
         member _.IsValue = defaultArg isValue false
         member _.IsMutable = defaultArg isMutable false
         member _.IsGetter = defaultArg isGetter false
         member _.IsSetter = defaultArg isSetter false
+        member _.IsProperty = defaultArg isProperty false
         member _.IsEnumerator = defaultArg isEnumerator false
         member _.IsMangled = defaultArg isMangled false
 
@@ -397,7 +403,7 @@ module Helpers =
         name.Replace(' ','_').Replace('`','_')
 
     let getEntityDeclarationName (com: Compiler) (entRef: Fable.EntityRef) =
-        let entityName = getEntityMangledName (TrimRootModule com) entRef |> cleanNameAsJsIdentifier
+        let entityName = getEntityMangledName (TrimRootModule com) entRef
         let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
@@ -441,7 +447,8 @@ module Helpers =
             | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.sanitizeIdent (fun _ -> false) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
-        sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
+        let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
+        sanitizedName, hasOverloadSuffix
 
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (memb: FSharpMemberOrFunctionOrValue): string =
@@ -533,6 +540,11 @@ module Helpers =
         if memb.IsCompilerGenerated
         then false
         else not memb.Accessibility.IsPrivate
+
+    let isNonPublicMember (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsCompilerGenerated
+        then true
+        else not memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
         { start = { line = r.StartLine; column = r.StartColumn }
@@ -1705,7 +1717,10 @@ module Util =
 
     let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
-        let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
+        let memberName, hasOverloadSuffix =
+            match com.Options.Language with
+            | Rust -> memb.FullName, false //TODO: overload suffix
+            | _ -> getMemberDeclarationName com memb
         let file =
             memb.DeclaringEntity
             |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)

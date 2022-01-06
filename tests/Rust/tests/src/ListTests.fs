@@ -17,11 +17,11 @@ let rec sumFirstList (zs: float list) (n: int): float =
     | 1 -> zs.Head
     | _ -> zs.Head + sumFirstList zs.Tail (n-1)
 
-// type Point =
-//     { x: int; y: int }
-//     static member Zero = { x=0; y=0 }
-//     static member Neg(p: Point) = { x = -p.x; y = -p.y }
-//     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
+type Point =
+    { x: int; y: int }
+    static member Zero = { x=0; y=0 }
+    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
 // type MyNumber =
 //     | MyNumber of int
@@ -447,80 +447,79 @@ let ``List.scanBack works`` () =
     ys.Head + ys.Tail.Head
     |> equal -11
 
-// [<Fact>]
-// let ``List.sort works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     let ys = ["a"; "c"; "B"; "d"]
-//     xs |> List.sort |> List.take 3 |> List.sum |> equal 0
-//     ys |> List.sort |> List.item 1 |> equal "a"
+[<Fact>]
+let ``List.sort works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    let ys = ["a"; "c"; "B"; "d"]
+    xs |> List.sort |> List.take 3 |> List.sum |> equal 0
+    ys |> List.sort |> List.item 1 |> equal "a"
 
-// [<Fact>]
-// let ``List.sort with tuples works`` () =
-//     let xs = [3; 1; 1; -3]
-//     let ys = ["a"; "c"; "B"; "d"]
-//     (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
+[<Fact>]
+let ``List.sort with tuples works`` () =
+    let xs = [3; 1; 1; -3]
+    let ys = ["a"; "c"; "B"; "d"]
+    (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
 
-// [<Fact>]
-// let ``List.sortBy works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortBy (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 7
+[<Fact>]
+let ``List.sortBy works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortBy (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 7
 
-// [<Fact>]
-// let ``List.sortWith works`` () =
-//     let xs = [3; 4; 1; 2]
-//     let ys = xs |> List.sortWith (fun x y -> int(x - y))
-//     ys.Head + ys.Tail.Head
-//     |> equal 3
+[<Fact>]
+let ``List.sortWith works`` () =
+    let xs = [3; 4; 1; 2]
+    let ys = xs |> List.sortWith (fun x y -> int(x - y))
+    ys |> List.toArray |> equal [|1; 2; 3; 4|]
 
-// [<Fact>]
-// let ``List.sortDescending works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-//     let ys = ["a"; "c"; "B"; "d"]
-//     ys |> List.sortDescending |> List.item 1 |> equal "c"
+[<Fact>]
+let ``List.sortDescending works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"
 
-// [<Fact>]
-// let ``List.sortByDescending works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortByDescending (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 3
+[<Fact>]
+let ``List.sortByDescending works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortByDescending (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 3
 
-// [<Fact>]
-// let ``List.max works`` () =
-//     let xs = [1; 2]
-//     xs |> List.max
-//     |> equal 2
+[<Fact>]
+let ``List.max works`` () =
+    let xs = [1; 2]
+    xs |> List.max
+    |> equal 2
 
-// [<Fact>]
-// let ``List.maxBy works`` () =
-//     let xs = [1; 2]
-//     xs |> List.maxBy (fun x -> -x)
-//     |> equal 1
+[<Fact>]
+let ``List.maxBy works`` () =
+    let xs = [1; 2]
+    xs |> List.maxBy (fun x -> -x)
+    |> equal 1
 
-// [<Fact>]
-// let ``List.min works`` () =
-//     let xs = [1; 2]
-//     xs |> List.min
-//     |> equal 1
+[<Fact>]
+let ``List.min works`` () =
+    let xs = [1; 2]
+    xs |> List.min
+    |> equal 1
 
-// [<Fact>]
-// let ``List.minBy works`` () =
-//     let xs = [1; 2]
-//     xs |> List.minBy (fun x -> -x)
-//     |> equal 2
+[<Fact>]
+let ``List.minBy works`` () =
+    let xs = [1; 2]
+    xs |> List.minBy (fun x -> -x)
+    |> equal 2
 
-// [<Fact>]
-// let ``List.sum works`` () =
-//     [1; 2] |> List.sum
-//     |> equal 3
+[<Fact>]
+let ``List.sum works`` () =
+    [1; 2] |> List.sum
+    |> equal 3
 
-// [<Fact>]
-// let ``List.sumBy works`` () =
-//     [1; 2] |> List.sumBy (fun x -> x*2)
-//     |> equal 6
+[<Fact>]
+let ``List.sumBy works`` () =
+    [1; 2] |> List.sumBy (fun x -> x*2)
+    |> equal 6
 
 // [<Fact>]
 // let ``List.sum with non numeric types works`` () =
@@ -534,11 +533,11 @@ let ``List.scanBack works`` () =
 //     let p2 = {x=2; y=20}
 //     [p1; p2] |> List.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
 
-// [<Fact>]
-// let ``List.sumBy with numeric projection works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
+[<Fact>]
+let ``List.sumBy with numeric projection works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
 
 // [<Fact>]
 // let ``List.sum with non numeric types works II`` () =
@@ -702,39 +701,32 @@ let ``List.truncate works`` () =
 //     let res = testListChoose [ Some [ "a" ] ]
 //     equal ["a"] res
 
-// [<Fact>]
-// let ``List.collect works`` () =
-//     let xs = [[1]; [2]; [3]; [4]]
-//     let ys = xs |> List.collect id
-//     ys.Head + ys.Tail.Heads
-//     |> equal 3
+[<Fact>]
+let ``List.collect works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.collect id
+    ys.Head + ys.Tail.Head |> equal 3
+    let list1 = [10.; 20.; 30.]
+    let collectList = List.collect (fun x -> [x*1.; x*2.; x*3.]) list1
+    sumFirstList collectList 9 |> equal 360.
+    let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys = xs |> List.collect id
+    sumFirstList ys 5 |> equal 15.
 
-//     let list1 = [10.; 20.; 30.]
-//     let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
-//     sumFirstList collectList 9 |> equal 360.
+[<Fact>]
+let ``List.concat works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.concat
+    ys.Head  + ys.Tail.Head |> equal 3
+    let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+    let ys1 = xs1 |> List.concat
+    sumFirstList ys1 7 |> equal 28.
 
-//     let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
-//     let ys = xs |> List.collect id
-//     sumFirstList ys 5
-//     |> equal 15.
-
-// [<Fact>]
-// let ``List.concat works`` () =
-//     let xs = [[1]; [2]; [3]; [4]]
-//     let ys = xs |> List.concat
-//     ys.Head  + ys.Tail.Head
-//     |> equal 3
-
-//     let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
-//     let ys1 = xs1 |> List.concat
-//     sumFirstList ys1 7
-//     |> equal 28.
-
-// [<Fact>]
-// let ``List.contains works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> List.contains 2 |> equal true
-//     xs |> List.contains 0 |> equal false
+[<Fact>]
+let ``List.contains works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> List.contains 2 |> equal true
+    xs |> List.contains 0 |> equal false
 
 // [<Fact>]
 // let ``List.contains lambda doesn't clash`` () =
@@ -747,16 +739,16 @@ let ``List.truncate works`` () =
 //     (modifyList l 1) |> List.contains 1 |> equal false
 //     (modifyList l 5) |> List.contains 5 |> equal true
 
-// [<Fact>]
-// let ``List.average works`` () =
-//     List.average [1.; 2.; 3.; 4.]
-//     |> equal 2.5
+[<Fact>]
+let ``List.average works`` () =
+    List.average [1.; 2.; 3.; 4.]
+    |> equal 2.5
 
-// [<Fact>]
-// let ``List.averageBy works`` () =
-//     [1.; 2.; 3.; 4.]
-//     |> List.averageBy (fun x -> x * 2.)
-//     |> equal 5.
+[<Fact>]
+let ``List.averageBy works`` () =
+    [1.; 2.; 3.; 4.]
+    |> List.averageBy (fun x -> x * 2.)
+    |> equal 5.
 
 // [<Fact>]
 // let ``List.average works with custom types`` () =
@@ -843,19 +835,19 @@ let ``List.mapi2 works`` () =
     let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
     zs |> List.toArray |> equal [|0; 4; 12|]
 
-// [<Fact>]
-// let ``List.mapFold works`` () =
-//     let xs = [1y; 2y; 3y; 4y]
-//     let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
-//     fst result |> List.sum |> equal 20y
-//     snd result |> equal 10y
+[<Fact>]
+let ``List.mapFold works`` () =
+    let xs = [1y; 2y; 3y; 4y]
+    let res = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst res |> List.toArray |> equal [|2y; 4y; 6y; 8y|]
+    snd res |> equal 10y
 
-// [<Fact>]
-// let ``List.mapFoldBack works`` () =
-//     let xs = [1.; 2.; 3.; 4.]
-//     let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
-//     fst result |> List.sum |> equal -20.
-//     snd result |> equal -10.
+[<Fact>]
+let ``List.mapFoldBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let res = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst res |> List.toArray |> equal [|-2.; -4.; -6.; -8.|]
+    snd res |> equal -10.
 
 // // TODO: Runtime uncurry to arity 2
 // [<Fact>]
@@ -931,6 +923,15 @@ let ``List.tryLast works`` () =
     let xs = [1.; 2.; 3.; 4.]
     List.tryLast xs |> equal (Some 4.)
     List.tryLast<float> [] |> equal None
+
+[<Fact>]
+let ``List.compareWith works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 5]
+    let zs = [1; 2; 3; 3]
+    List.compareWith (-) xs xs |> equal 0
+    List.compareWith (-) xs ys |> equal -1
+    List.compareWith (-) xs zs |> equal 1
 
 // [<Fact>]
 // let ``List.countBy works`` () =

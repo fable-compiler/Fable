@@ -71,8 +71,8 @@ def lambda_type(argType: TypeInfo, returnType: TypeInfo):
     return TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType])
 
 
-def delegate_type(*generics):
-    return TypeInfo("System.Func` %d" % len(generics), list(generics))
+def delegate_type(*generics: TypeInfo) -> TypeInfo:
+    return TypeInfo("System.Func`%d" % len(generics), list(generics))
 
 
 def record_type(
@@ -132,8 +132,8 @@ def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
     return t1.fullname == t2.fullname and equal_arrays_with(t1.generics, t2.generics, equals)
 
 
-def is_generic_type(t):
-    return t.generics is not None and len(t.generics)
+def is_generic_type(t: TypeInfo) -> bool:
+    return t.generics is not None and len(t.generics) > 0
 
 
 def get_generic_type_definition(t):
@@ -148,7 +148,7 @@ def make_generic_type(t: TypeInfo, generics: List[TypeInfo]) -> TypeInfo:
     return TypeInfo(t.fullname, generics, t.construct, t.parent, t.fields, t.cases)
 
 
-def create_instance(t: TypeInfo, consArgs: List) -> Any:
+def create_instance(t: TypeInfo, consArgs: List[Any]) -> Any:
     # TODO: Check if consArgs length is same as t.construct?
     # (Arg types can still be different)
     if callable(t.construct):
@@ -310,7 +310,7 @@ def get_record_elements(t: TypeInfo) -> List[FieldInfo]:
         raise ValueError(f"{t.fullname} is not an F# record type")
 
 
-def get_record_fields(v: Any) -> List:
+def get_record_fields(v: Any) -> List[str]:
     if isinstance(v, dict):
         return list(v.values())
 
@@ -354,7 +354,6 @@ def make_tuple(values: List, _t: TypeInfo) -> Any:
 
 
 def make_union(uci: CaseInfo, values: List) -> Any:
-
     expectedLength = len(uci.fields or [])
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")

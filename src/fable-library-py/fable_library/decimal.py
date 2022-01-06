@@ -52,9 +52,9 @@ def parse(string: str):
     return Decimal(string)
 
 
-def try_parse(string: str, defValue: FSharpRef[float]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
     try:
-        defValue.contents = parse(string)
+        def_value.contents = parse(string)
         return True
     except Exception:
         return False

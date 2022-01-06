@@ -503,24 +503,28 @@ module Json =
             reader.Read() |> ignore // Skip end array for attributes
             let hasSpread = this.ReadBoolean(&reader)
             let isMangled = this.ReadBoolean(&reader)
+            let isInline = this.ReadBoolean(&reader)
             let isPublic = this.ReadBoolean(&reader)
             let isInstance = this.ReadBoolean(&reader)
             let isValue = this.ReadBoolean(&reader)
             let isMutable = this.ReadBoolean(&reader)
             let isGetter = this.ReadBoolean(&reader)
             let isSetter = this.ReadBoolean(&reader)
+            let isProperty = this.ReadBoolean(&reader)
             let isEnumerator = this.ReadBoolean(&reader)
             reader.Read() |> ignore // Skip end array
             { new Fable.MemberInfo with
                 member _.Attributes = attributes
                 member _.HasSpread = hasSpread
                 member _.IsMangled = isMangled
+                member _.IsInline = isInline
                 member _.IsPublic = isPublic
                 member _.IsInstance = isInstance
                 member _.IsValue = isValue
                 member _.IsMutable = isMutable
                 member _.IsGetter = isGetter
                 member _.IsSetter = isSetter
+                member _.IsProperty = isProperty
                 member _.IsEnumerator = isEnumerator }
 
         override _.Write(writer, value, options) =
@@ -532,12 +536,14 @@ module Json =
             writer.WriteEndArray()
             writer.WriteBooleanValue(value.HasSpread)
             writer.WriteBooleanValue(value.IsMangled)
+            writer.WriteBooleanValue(value.IsInline)
             writer.WriteBooleanValue(value.IsPublic)
             writer.WriteBooleanValue(value.IsInstance)
             writer.WriteBooleanValue(value.IsValue)
             writer.WriteBooleanValue(value.IsMutable)
             writer.WriteBooleanValue(value.IsGetter)
             writer.WriteBooleanValue(value.IsSetter)
+            writer.WriteBooleanValue(value.IsProperty)
             writer.WriteBooleanValue(value.IsEnumerator)
             writer.WriteEndArray()
 

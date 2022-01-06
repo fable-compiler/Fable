@@ -763,11 +763,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
-        | (Operators.division | Operators.divideByInt), [left; right] ->
-            match argTypes with
-            // Floor result of integer divisions (see #172)
-            // | Number(Integer,_)::_ -> binOp BinaryDivide left right |> fastIntFloor
-            | _ -> binOp BinaryDivide left right
+        | Operators.division, [left; right] -> binOp BinaryDivide left right
+        | Operators.divideByInt, [left; right] ->
+            binOp BinaryDivide left (TypeCast(right, t))
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [left; right] ->
@@ -899,7 +897,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, None), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
@@ -909,10 +907,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
-    | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
+    | List t ->
+        let f = makeComparerFunction com ctx t
+        Helper.LibCall(com, "List", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
+    // | Tuple _ ->
+    //     Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
 
@@ -1007,7 +1006,6 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ ->
         Helper.LibCall(com, "Native", "defaultOf", t, [])
-        // Helper.GlobalCall("Native::defaultOf", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -1720,10 +1718,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com ctx r left right |> Some
-    | (Operators.lessThan | "Lt"), [left; right] -> compareIf com ctx r left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> compareIf com ctx r left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
-    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
+    | (Operators.lessThan | "Lt"), [left; right] -> makeEqOp r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> makeEqOp r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [left; right] -> makeEqOp r left right BinaryGreater |> Some
+    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> makeEqOp r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max"|"Clamp" as meth), _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Not", [operand] -> // TODO: Check custom operator?
@@ -1968,7 +1966,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ArrayOrListLiteral(vals, typ)] ->
         makeArray typ vals |> Some
     | ".ctor", _, args ->
-        Helper.LibCall(com, "Native", "arrayFrom", t, args, ?loc=r) |> Some
+        // Helper.LibCall(com, "Native", "arrayFrom", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [arg] ->
@@ -1999,8 +1998,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; getZero com ctx t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
-        let left = Helper.InstanceCall(ar, "findIndex", Number(Int32, None), [arg], ?loc=r)
-        makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
+        Helper.LibCall(com, "Array", "exists", t, [arg; ar], i.SignatureArgTypes, ?loc=r) |> Some
     | "FindLast", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; getZero com ctx t], ?loc=r) |> Some
@@ -2010,14 +2008,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetRange", Some ar, [idx; cnt] ->
         Helper.LibCall(com, "Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
-    | "Contains", Some (MaybeCasted(ar)), [arg] ->
-        match ar.Type with
-        | Array _ ->
-            Helper.LibCall(com, "Array", "contains", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ ->
-            Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
-    | "IndexOf", Some ar, args ->
-        Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Contains", Some ar, [arg] ->
+        Helper.LibCall(com, "Array", "contains", t, [arg; ar], i.SignatureArgTypes, ?loc=r) |> Some
+    | "IndexOf", Some ar, [arg] ->
+        Helper.LibCall(com, "Array", "indexOf", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
         Helper.InstanceCall(getMut ar, "insert", t, [toNativeIndex idx; arg], ?loc=r) |> nativeCall |> Some
     | "InsertRange", Some ar, [idx; arg] ->
@@ -2029,11 +2023,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Reverse", Some ar, [] ->
         Helper.InstanceCall(getMut ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
-        Helper.InstanceCall(getMut ar, "sort", t, args, ?loc=r) |> Some
-    | "Sort", Some ar, [ExprType(DelegateType _)] ->
-        Helper.InstanceCall(getMut ar, "sort_by", t, args, ?loc=r) |> nativeCall |> Some
-    | "Sort", Some ar, [arg] ->
-        Helper.LibCall(com, "Array", "sortInPlace", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
+        // can't use .sort() as it needs T: Ord
+        Helper.LibCall(com, "Array", "sortInPlace", t, [ar], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Sort", Some ar, [ExprType(DelegateType _) as comparer] ->
+        let cmp = Helper.LibCall(com, "Native", "compare", t, [comparer], ?loc=r)
+        Helper.InstanceCall(getMut ar, "sort_by", t, [cmp], ?loc=r) |> Some
+    // | "Sort", Some ar, [arg] ->
+    //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
         Helper.LibCall(com, "Native", "arrayCopy", t, [ar], ?loc=r) |> Some
     | _ -> None
@@ -2100,11 +2096,19 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "ConvertAll", None, [source; mapping] ->
         Helper.LibCall(com, "Array", "map", t, [mapping; source], ?loc=r) |> Some
-    | "IndexOf", None, args ->
+    | "IndexOf", None, [ar; arg] ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
-    | "Reverse", None, [arg] ->
-        Helper.InstanceCall(getMut arg, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Reverse", None, [ar] ->
+        Helper.InstanceCall(getMut ar, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Sort", None, [ar] ->
+        // can't use .sort() as it needs T: Ord
+        Helper.LibCall(com, "Array", "sortInPlace", t, [ar], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Sort", None, [ar; ExprType(DelegateType _) as comparer] ->
+        let cmp = Helper.LibCall(com, "Native", "compare", t, [comparer], ?loc=r)
+        Helper.InstanceCall(getMut ar, "sort_by", t, [cmp], ?loc=r) |> Some
+    // | "Sort", None, [ar; arg] ->
+    //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2131,6 +2135,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "Native", "arrayCopy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
+    | "Concat", [arg] ->
+        let arg = Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
+        Helper.LibCall(com, "Array", "concat", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
     //     let args, thisArg = List.splitLast args
     //     let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -2174,6 +2181,9 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "OfSeq", [arg] ->
         Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Concat", [arg] ->
+        let arg = Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r)
+        Helper.LibCall(com, "List", "concat", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -2236,37 +2246,13 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | _ -> None
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let toArray r t arg =
-        Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), _ ->
-        // Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
-        None // TODO:
-    | ("ToObj" | "ToNullable"), _ ->
-        // Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
-        None // TODO:
+    | ("OfObj" | "OfNullable"), _ -> None // TODO:
+    | ("ToObj" | "ToNullable"), _ -> None // TODO:
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    // | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
-    //     Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "ToArray", [arg] ->
-    //     toArray r t arg |> Some
-    // | "ToList", [arg] ->
-    //     let args = args |> List.replaceLast (toArray None t)
-    //     Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
-    // | "FoldBack", [folder; opt; state] ->
-    //     Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("DefaultValue" | "OrElse"), _ ->
-    //     Helper.LibCall(com, "Option", "defaultValue", t, args, ?loc=r) |> Some
-    // | ("DefaultWith" | "OrElseWith"), _ ->
-    //     Helper.LibCall(com, "Option", "defaultWith", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
-    //     let meth = Naming.lowerFirst meth
-    //     let args = args |> List.replaceLast (toArray None t)
-    //     let args = injectArg com ctx r "Seq" meth i.GenericArgs args
-    //     Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", [arg] ->
         Helper.LibCall(com, "List", "ofOption", t, args, ?loc=r) |> Some
     | meth, args ->
@@ -2435,7 +2421,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         if operation = "op_Explicit" then Some arg // TODO
         else applyOp com ctx r t operation args i.SignatureArgTypes i.GenericArgs |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
-    | "GenericZero", _ -> getZero com ctx t |> Some
+    | "GenericZero", _ -> Helper.LibCall(com, "Native", "getZero", t, []) |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure"
     | "Int16WithMeasure"
@@ -2905,7 +2891,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | _ -> failwith "Unexpected arg count for Random.Next"
         Helper.LibCall(com, "Util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
     | "NextDouble" ->
-        Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
+        Helper.GlobalCall("Math", t, [], memb="random") |> Some
     | "NextBytes" ->
         let byteArray =
             match args with
@@ -3384,6 +3370,7 @@ let private replacedModules =
     Types.valueOption, options
     "System.Nullable`1", nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule
+    "Microsoft.FSharp.Core.ValueOptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
@@ -3556,7 +3543,10 @@ let tryType = function
     | Number(kind, uom) -> Some(getNumberFullName uom kind, parseNum, [])
     | String -> Some(Types.string, strings, [])
     | Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option(genArg, _) -> Some(Types.option, options, [genArg])
+    | Option(genArg, isStruct) ->
+        if isStruct
+        then Some(Types.valueOption, options, [genArg])
+        else Some(Types.option, options, [genArg])
     | Array genArg -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->
