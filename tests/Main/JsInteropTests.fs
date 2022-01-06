@@ -168,6 +168,11 @@ type Record = {
     InnerRecord: InnerRecord
 }
 
+[<Global("Array")>]
+type JsArray =
+    abstract push: item: obj -> unit
+    abstract length: int
+
 [<StringEnum>]
 type MyStrings =
     | Vertical
@@ -301,6 +306,15 @@ let tests =
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
 
 #if FABLE_COMPILER
+    testCase "Can type test interfaces decorated with Global" <| fun () ->
+        let ar = ResizeArray [| 1; 2; 3 |] |> box
+        match ar with
+        | :? JsArray as ar ->
+            ar.length |> equal 3
+            ar.push("4")
+            ar.length |> equal 4
+        | _ -> failwith "Not an array"
+
     testCase "Decorators work" <| fun () ->
         myComplexAdder 3 4 |> equal 7
         myComplexAdder 6 7 |> equal 13

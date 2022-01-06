@@ -4,7 +4,6 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
-open System.Text.Json
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
@@ -28,31 +27,26 @@ type CacheInfo =
         References: string list
         FableLibDir: string
         OutputType: string option
-        TimestampUTC: DateTime
+        Timestamp: DateTime
     }
-    static member GetPath(fableModulesPath: string) =
-        IO.Path.Combine(fableModulesPath, "cache_info.json")
+    static member GetPath(fableModulesPath: string, isDebug: bool) =
+        IO.Path.Combine(fableModulesPath, $"""project_cracked{if isDebug then "_debug" else ""}.json""")
 
-    static member TryRead(fableModulesPath: string): CacheInfo option =
+    static member TryRead(fableModulesPath: string, isDebug): CacheInfo option =
         try
-            // TODO: When upgrading to net6 we shouldn't need FSharp.SystemTextJson, see also Write
-            let jsonOptions = JsonSerializerOptions()
-            jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-            let cacheInfoJson = IO.File.ReadAllText(CacheInfo.GetPath(fableModulesPath))
-            JsonSerializer.Deserialize<CacheInfo>(cacheInfoJson, jsonOptions) |> Some
+            CacheInfo.GetPath(fableModulesPath, isDebug) |> Json.read<CacheInfo> |> Some
         with _ -> None
 
-    member this.Write(fableModulesPath: string) =
-        let jsonOptions = JsonSerializerOptions()
-        jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
-        IO.File.WriteAllText(CacheInfo.GetPath(fableModulesPath), JsonSerializer.Serialize(this, jsonOptions))
+    member this.Write(fableModulesPath: string, isDebug) =
+        let path = CacheInfo.GetPath(fableModulesPath, isDebug)
+        Json.write path this
 
-type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
+type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
-    let fableModulesDir = CrackerOptions.GetFableModulesDir(projFile, outDir, fableOpts.Language)
+    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projFile, outDir)
     let cacheInfo =
         if noCache then None
-        else CacheInfo.TryRead(fableModulesDir)
+        else CacheInfo.TryRead(fableModulesDir, fableOpts.DebugMode)
 
     member _.CacheInfo = cacheInfo
     member _.FableModulesDir = fableModulesDir
@@ -62,6 +56,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
     member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
+    member _.PrecompiledLib: string option = precompiledLib
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.BuildDll(normalizedDllPath: string) =
@@ -77,11 +72,14 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
             Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
-    static member GetFableModulesDir(projFile: string, outDir: string option, lang) =
+    static member GetFableModulesFromDir(baseDir: string): string =
+        IO.Path.Combine(baseDir, Naming.fableModules)
+
+    static member GetFableModulesFromProject(projFile: string, outDir: string option): string =
         let fableModulesDir =
-            let baseDir = outDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
-            let dirName = Naming.fableHiddenDir
-            IO.Path.Combine(baseDir, dirName)
+            outDir
+            |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
+            |> CrackerOptions.GetFableModulesFromDir
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
@@ -91,9 +89,12 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
 
 type CrackerResponse =
     { FableLibDir: string
+      FableModulesDir: string
       References: string list
       ProjectOptions: FSharpProjectOptions
-      OutputType: string option }
+      OutputType: string option
+      PrecompiledInfo: PrecompiledInfoImpl option
+      CacheInvalidated: bool }
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -112,11 +113,11 @@ type CrackedFsproj =
       OtherCompilerOptions: string list
       OutputType: string option }
 
-let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
+let makeProjectOptions project otherOptions sources: FSharpProjectOptions =
     { ProjectId = None
       ProjectFileName = project
-      SourceFiles = Array.distinct sources
       OtherOptions = otherOptions
+      SourceFiles = Array.distinct sources
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
@@ -165,7 +166,9 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
             let pkgId = metadata |> child "id"
             let fsprojPath =
                 match Map.tryFind pkgId opts.Replace with
-                | Some fsprojPath -> fsprojPath
+                | Some replaced ->
+                    if replaced.EndsWith(".fsproj") then replaced
+                    else tryFileWithPattern replaced "*.fsproj" |> Option.defaultValue fsprojPath
                 | None -> fsprojPath
             { Id = pkgId
               Version = metadata |> child "version"
@@ -327,13 +330,13 @@ let getSourcesFromFablePkg (projFile: string) =
     |> List.concat
     |> List.collect (fun fileName ->
         Path.Combine(projDir, fileName)
-        |> Path.normalizeFullPath
         |> function
         | path when (path.Contains("*") || path.Contains("?")) ->
             match !! path |> List.ofSeq with
             | [] -> [ path ]
             | globResults -> globResults
-        | path -> [ path ])
+        | path -> [ path ]
+        |> List.map Path.normalizeFullPath)
 
 let private isUsefulOption (opt : string) =
     [ "--define"
@@ -354,7 +357,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
     | _ ->
-        let removed = dllRefs.Remove(projName)
+        let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
@@ -536,7 +539,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         Log.verbose(lazy ("fable-library: " + fableLibrarySource))
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
         copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
-        fableLibraryTarget
+        Path.normalizeFullPath fableLibraryTarget
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
     let pkgRefs =
@@ -567,22 +570,67 @@ let removeFilesInObjFolder sourceFiles =
     let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
+let loadPrecompiledInfo isCache (opts: CrackerOptions) otherOptions sourceFiles =
+    // Sources in fable_modules correspond to packages and they're qualified with the version
+    // (e.g. fable_modules/Fable.Promise.2.1.0/Promise.fs) so we assume they're the same wherever they are
+    // TODO: Check if this holds true also for Python which may not include the version number in the path
+    let normalizePath (path: string) =
+        let i = path.IndexOf(Naming.fableModules)
+        if i >= 0 then path.[i..] else path
+
+    match opts.PrecompiledLib with
+    | Some precompiledLib ->
+        // Load PrecompiledInfo
+        let info = CrackerOptions.GetFableModulesFromDir(precompiledLib) |> PrecompiledInfoImpl.Load
+
+        // Check if precompiled compiler version and options match
+        if info.CompilerVersion <> Literals.VERSION then
+            FableError($"Library was precompiled using Fable v{info.CompilerVersion} but you're using v{Literals.VERSION}. Please use same version.") |> raise
+
+        // Sometimes it may be necessary to use different options for the precompiled lib so don't throw an error here
+        //if info.CompilerOptions <> opts.FableOptions then
+        //    FableError($"Library was precompiled using different compiler options. Please use same options.") |> raise
+
+        // Check if precompiled files are up-to-date
+        info.Files |> Seq.choose (fun (KeyValue(file, { OutPath = outPath })) ->
+            if File.existsAndIsNewerThanSource file outPath then None else Some file)
+        |> Seq.toList
+        |> function
+            | [] -> ()
+            | outdated ->
+                let curDir = IO.Directory.GetCurrentDirectory()
+                let outdated = outdated |> List.map (fun f -> "    " + IO.Path.GetRelativePath(curDir, f)) |> String.concat Log.newLine
+                // TODO: This should likely be an error but make it a warning for now
+                Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
+
+        // If not cache, remove precompiled files from sources and add reference to precompiled .dll to other options
+        let otherOptions, sourceFiles =
+            if isCache then
+                otherOptions, sourceFiles
+            else
+                let otherOptions = Array.append otherOptions [|"-r:" + info.DllPath|]
+                let precompiledFiles = Map.keys info.Files |> Seq.map normalizePath |> set
+                let sourceFiles = sourceFiles |> Array.filter (fun path ->
+                    normalizePath path |> precompiledFiles.Contains |> not)
+                otherOptions, sourceFiles
+        Some info, otherOptions, sourceFiles
+    | None ->
+        None, otherOptions, sourceFiles
+
 let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.ProjFile)) then
-        failwith ("File does not exist: " + opts.ProjFile)
+        FableError("Project file does not exist: " + opts.ProjFile) |> raise
 
     let isCacheInfoOutdated (cacheInfo: CacheInfo) =
-        let isFileOld (path: string) =
-            IO.File.Exists(path)
-            && cacheInfo.TimestampUTC > IO.File.GetLastWriteTime(path).ToUniversalTime()
         [
             cacheInfo.ProjectPath
             yield! cacheInfo.References
         ]
         |> List.forall (fun fsproj ->
-            isFileOld(fsproj)
+            File.existsAndIsOlderThan cacheInfo.Timestamp fsproj
             // If project uses Paket, dependencies may have updated without touching the .fsproj
-            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json") |> isFileOld)
+            && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json")
+               |> File.existsAndIsOlderThan cacheInfo.Timestamp)
         |> not
 
     // TODO: Check fable_modules contains all packages
@@ -597,26 +645,31 @@ let getFullProjectOpts (opts: CrackerOptions) =
     match cacheInfo with
     | Some cacheInfo ->
         Log.always $"Retrieving project options from cache, in case of issues run `dotnet fable clean` or try `--noCache` option."
-        { ProjectOptions = makeProjectOptions opts.ProjFile cacheInfo.SourcePaths cacheInfo.FSharpOptions
+
+        let precompiledInfo, otherOptions, sourcePaths =
+            loadPrecompiledInfo true opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
+
+        { ProjectOptions = makeProjectOptions opts.ProjFile otherOptions sourcePaths
           References = cacheInfo.References
           FableLibDir = cacheInfo.FableLibDir
-          OutputType = cacheInfo.OutputType }
+          OutputType = cacheInfo.OutputType
+          FableModulesDir = opts.FableModulesDir
+          PrecompiledInfo = precompiledInfo
+          CacheInvalidated = false }
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
-            | Python ->
-                copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
-            | _ ->
-                copyFableLibraryAndPackageSources opts mainProj.PackageReferences
+            | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
+            | _ -> copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
         let pkgRefs =
             pkgRefs |> List.map (fun pkg ->
                 { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
 
-        let sourceFiles =
+        let sourcePaths =
             let pkgSources = pkgRefs |> List.collect (fun x -> x.SourcePaths)
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
@@ -660,6 +713,13 @@ let getFullProjectOpts (opts: CrackerOptions) =
         let outputType = mainProj.OutputType
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
         let otherOptions = Array.append otherOptions dllRefs
+        let precompiledInfo, otherOptions, sourcePaths =
+            loadPrecompiledInfo false opts otherOptions sourcePaths
+
+        let fableLibDir =
+            match precompiledInfo with
+            | Some info -> info.FableLibDir
+            | None -> fableLibDir
 
         let cacheInfo: CacheInfo =
             {
@@ -668,15 +728,18 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 FableOptions = opts.FableOptions
                 ProjectPath = opts.ProjFile
                 FSharpOptions = otherOptions
-                SourcePaths = sourceFiles
+                SourcePaths = sourcePaths
                 References = projRefs
                 OutputType = outputType
-                TimestampUTC = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow
             }
 
-        cacheInfo.Write(opts.FableModulesDir)
+        cacheInfo.Write(opts.FableModulesDir, opts.FableOptions.DebugMode)
 
-        { ProjectOptions = makeProjectOptions opts.ProjFile sourceFiles otherOptions
+        { ProjectOptions = makeProjectOptions opts.ProjFile otherOptions sourcePaths
           References = projRefs
           FableLibDir = fableLibDir
-          OutputType = outputType }
+          OutputType = outputType
+          FableModulesDir = opts.FableModulesDir
+          PrecompiledInfo = precompiledInfo
+          CacheInvalidated = true }

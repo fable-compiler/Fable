@@ -73,6 +73,7 @@ let knownCliArgs() = [
                              "Support for TypeScript, Php and Python is experimental."]
 
   // Hidden args
+  ["--precompiledLib"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
@@ -161,7 +162,7 @@ let argLanguage (args: CliArgs) =
     | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) = result {
+  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?precompile) = result {
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -171,6 +172,7 @@ type Runner =
         |> Path.normalizePath
 
     let watch = defaultArg watch false
+    let precompile = defaultArg precompile false
 
     let fsprojPath =
         fsprojPath
@@ -197,9 +199,17 @@ type Runner =
 
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
+    let precompiledLib = args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
+    let fableLib = args.Value "--fableLib"
 
     do!
-        let reservedDirs = [Naming.fableHiddenDir; "obj"]
+        match outDir, fableLib with
+        | None, _ when precompile -> Error("outDir must be specified when precompiling")
+        | _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
+        | _ -> Ok ()
+
+    do!
+        let reservedDirs = [Naming.fableModules; "obj"]
         let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
         if List.contains outDirLast reservedDirs then
             Error($"{outDirLast} is a reserved directory, please use another output directory")
@@ -249,26 +259,27 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                                   trimRootModule = args.FlagOr("--trimRootModule", true),
                                    verbosity = verbosity)
 
     let cliArgs =
         { ProjectFile = Path.normalizeFullPath projFile
-          FableLibraryPath = args.Value "--fableLib"
+          FableLibraryPath = fableLib
           RootDir = rootDir
           Configuration = configuration
           OutDir = outDir
+          IsWatch = watch
+          Precompile = precompile
+          PrecompiledLib = precompiledLib
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
-          // TODO: Allow `--cache true` to enable cache even in Release mode?
-          NoCache = not compilerOptions.DebugMode || args.FlagEnabled "--noCache"
+          NoCache = args.FlagEnabled "--noCache"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"
             |> List.map (fun v ->
                 let v = v.Split(':')
-                v.[0], Path.normalizeFullPath v.[1])
+                v.[0], normalizeAbsolutePath v.[1])
             |> Map
           RunProcess = runProc
           CompilerOptions = compilerOptions }
@@ -325,7 +336,7 @@ let clean (args: CliArgs) rootDir =
         |> Array.filter (fun subdir ->
             ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
         |> Array.iter (fun subdir ->
-            if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
+            if IO.Path.GetFileName(subdir) = Naming.fableModules then
                 IO.Directory.Delete(subdir, true)
                 Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
@@ -379,6 +390,8 @@ let main argv =
         | ["clean"] -> return clean args rootDir
         | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
         | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
+        | ["precompile"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, precompile=true)
+        | ["precompile"] -> return! Runner.Run(args, rootDir, runProc, precompile=true)
         | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
         | [] -> return! Runner.Run(args, rootDir, runProc, watch=args.FlagEnabled("--watch"))
         | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."

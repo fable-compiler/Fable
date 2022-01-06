@@ -69,9 +69,15 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
             |> String.concat "; "
         "{|" + fields + "|}"
     | Fable.DeclaredType(tdef, genArgs) ->
-        let genArgs = genArgs |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
-        let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-        tdef.FullName + genArgs
+        let genArgs = genArgs |> Seq.mapToList (getTypeFastFullName genParams)
+        // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
+        match tdef.FullName, genArgs with
+        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2",
+            [measure; "Microsoft.FSharp.Core.CompilerServices.MeasureOne"] -> measure
+        | _ ->
+            let genArgs = String.concat "," genArgs
+            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+            tdef.FullName + genArgs
     | Fable.MetaType -> Types.type_
     | Fable.Any -> Types.object
     | Fable.Unit -> Types.unit

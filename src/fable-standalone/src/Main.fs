@@ -132,11 +132,6 @@ let makeCompiler fableLibrary typedArrays language fsharpOptions project fileNam
     let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
     CompilerImpl(fileName, project, options, fableLibrary)
 
-// Compiler used to precompile inlined functions, fable-library dir can be empty
-// because replacements won't be resolved yet
-let makePreCompiler fsharpOptions project fileName: Compiler =
-    makeCompiler "" None JavaScript fsharpOptions project fileName
-
 let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
@@ -147,8 +142,7 @@ let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpChec
     Project.From(
         projectOptions.ProjectFileName,
         implFiles,
-        checkResults.ProjectContext.GetReferencedAssemblies(),
-        makePreCompiler projectOptions.OtherOptions)
+        checkResults.ProjectContext.GetReferencedAssemblies())
 
 let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
     let checkResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
@@ -368,5 +362,5 @@ let init () =
             let res = results :?> ParseAndCheckResults
             let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
-            AstPrint.printFSharpDecls "" implFile.Ast.Declarations |> String.concat "\n"
+            AstPrint.printFSharpDecls "" implFile.Declarations |> String.concat "\n"
   }

@@ -588,6 +588,19 @@ let reflectionTests = [
     typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
     typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
     typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
+
+  testCase "GetType and typeof return the same Type instance for primitive types" <| fun () ->
+    let inline getTypeGeneric (x: 'T) =
+      x.GetType() 
+
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<uint32>) |> equal false
+    obj.ReferenceEquals(getTypeGeneric 2u, typeof<uint32>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2uy, typeof<byte>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2s, typeof<int16>) |> equal true
+
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<uint32>) |> equal false
 ]
 
 #if FABLE_COMPILER
