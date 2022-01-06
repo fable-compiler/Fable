@@ -163,7 +163,7 @@ def is_comparable(x: Any) -> bool:
     return hasattr(x, "CompareTo") and callable(x.CompareTo)
 
 
-def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
+def compare_dicts(x: Dict[str, Any], y: dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 
     Python cannot do this natively.
@@ -222,7 +222,7 @@ def compare(a: Any, b: Any) -> int:
         return a.CompareTo(b)
 
     if isinstance(a, dict):
-        return compare_dicts(cast(dict[str, Any], a), b)
+        return compare_dicts(cast(Dict[str, Any], a), b)
 
     if isinstance(a, List):
         return compare_arrays(cast(List[Any], a), b)
