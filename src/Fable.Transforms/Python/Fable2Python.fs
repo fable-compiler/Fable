@@ -670,6 +670,23 @@ module Annotation =
         else
             Expression.subscript(name, Expression.tuple typeParamInst)
 
+    let makeGenericTypeAnnotation' (com: IPythonCompiler) ctx (id: string) (genArgs: string list) (repeatedGenerics: Set<string> option) =
+        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
+
+        let name = Expression.name id
+        if genArgs.IsEmpty then
+            name
+        else
+            let genArgs =
+                match repeatedGenerics with
+                | Some generics ->
+                    let genArgs = genArgs |> Set.ofList |> Set.intersect generics |> Set.toList
+                    if genArgs.IsEmpty then [ typingHint com ctx "Any" [] ]
+                    else genArgs |> List.map (fun name -> com.AddTypeVar(ctx, name))
+                | _ ->
+                    genArgs |> List.map (fun name -> com.AddTypeVar(ctx, name))
+            Expression.subscript(name, Expression.tuple genArgs)
+
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
         let getNumberKindName kind =
             match kind with
@@ -692,15 +709,6 @@ module Annotation =
 
         let numberInfo kind =
             Expression.name (getNumberKindName kind)
-        let nonGenericTypeInfo fullname =
-            [ Expression.constant(fullname) ]
-            |> libReflectionCall com ctx None "class"
-        let genericEntity (fullname: string) (generics: Expression list) =
-            libReflectionCall com ctx None "class" [
-                Expression.constant(fullname)
-                if not(List.isEmpty generics) then
-                    Expression.list(generics)
-            ]
         let genericTypeAnnotation name genArgs =
             let resolved, stmts = resolveGenerics genArgs None
             typingHint com ctx name resolved, stmts
@@ -1171,9 +1179,9 @@ module Util =
             | _ ->
                 { args with Args = self::args.Args }
 
-        match body with
-        | []
-        | [ Statement.Pass ] -> []
+        match args.Args, body with
+        | [], []
+        | [], [ Statement.Pass ] -> [] // Remove empty `__init__` with no arguments
         | _ -> [ Statement.functionDef(name, args, body = body, returns=Expression.none) ]
 
     let callFunction r funcExpr (args: Expression list) (kw: Keyword list) =
@@ -2961,7 +2969,7 @@ module Util =
         declareType com ctx ent entName args isOptional body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        //printfn "transformClassWithCompilerGeneratedConstructor"
+        // printfn "transformClassWithCompilerGeneratedConstructor"
         let fieldIds = getEntityFieldsAsIdents com ent
         let args = fieldIds |> Array.map (fun id -> com.GetIdentifier(ctx, id.Name) |> Expression.name)
         let isOptional = Helpers.isOptional fieldIds || ent.IsFSharpRecord || ent.IsValueType
@@ -2996,11 +3004,11 @@ module Util =
             getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
         let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
-        // Change constructor's return type from None to entity type. Note we cannot return
-        // "T" here since a TypeVar "T" cannot appear only once in generic Python function
+        // Change exposed constructor's return type from None to entity type.
         let returnType =
-            let genParams = getEntityGenParams classEnt |> Set.toList |> List.map (fun _ -> Fable.Any)
-            makeGenericTypeAnnotation com ctx classDecl.Name genParams None
+            let availableGenerics = cons.Args |> List.map (fun arg -> arg.Type) |> getGenericTypeParams
+            let genParams = getEntityGenParams classEnt
+            makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq) (Some availableGenerics)
 
         let exposedCons =
             let argExprs =
