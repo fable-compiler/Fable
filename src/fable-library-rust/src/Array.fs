@@ -1,6 +1,7 @@
 module Array
 
-// open System.Collections.Generic
+// For optimization, functions may return ResizeArray instead of Array.
+// That's fine, because they both have the same representation in Rust.
 
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the array."
@@ -8,6 +9,7 @@ module SR =
     let inputArrayWasTooLong = "The input array was too long"
     let inputArrayWasTooShort = "The input array has not enough elements"
     let inputMustBeNonNegative = "The input must be non-negative"
+    let inputMustBePositive = "The input must be positive"
     let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
     let differentLengths = "Arrays had different lengths"
     let invalidPermutation = "Not a valid permutation"
@@ -15,17 +17,17 @@ module SR =
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
 let inline differentLengths() = failwith SR.differentLengths
 
-// module NativeImpl =
-//     let empty (): 'T[] = Array.empty
-//     let create (count: int) (value: 'T): 'T[] = Array.create count value
-//     let zeroCreate (count: int): 'T[] = Array.zeroCreate count
-//     let singleton (value: 'T): 'T[] = Array.singleton value
-//     let isEmpty (source: 'T[]): bool = Array.isEmpty source
-//     let length (source: 'T[]): int = Array.length source
-//     let item (index: int) (source: 'T[]): 'T = Array.item index source
-//     let get (source: 'T[]) (index: int): 'T = Array.get source index
-//     let set (source: 'T[]) (index: int) (value: 'T): unit = Array.set source index value
-//     let copy (source: 'T[]): 'T[] = Array.copy source
+// native implementations
+let inline empty (): 'T[] = Array.empty
+let inline create (count: int) (value: 'T): 'T[] = Array.create count value
+let inline zeroCreate (count: int): 'T[] = Array.zeroCreate count
+let inline singleton (value: 'T): 'T[] = Array.singleton value
+let inline isEmpty (source: 'T[]): bool = Array.isEmpty source
+let inline length (source: 'T[]): int = Array.length source
+let inline item (index: int) (source: 'T[]): 'T = Array.item index source
+let inline get (source: 'T[]) (index: int): 'T = Array.get source index
+let inline set (source: 'T[]) (index: int) (value: 'T): unit = Array.set source index value
+let inline copy (source: 'T[]): 'T[] = Array.copy source
 
 let tryItem (index: int) (source: 'T[]): 'T option =
     if index < 0 || index >= source.Length then None
@@ -53,7 +55,7 @@ let getSubArray (source: 'T[]) (startIndex: int) (count: int) =
 
 let exactlyOne (source: 'T[]): 'T =
     if source.Length = 1 then source.[0]
-    elif Array.isEmpty source
+    elif isEmpty source
     then invalidArg "source" SR.inputArrayWasEmpty
     else invalidArg "source" SR.inputArrayWasTooLong
 
@@ -63,27 +65,27 @@ let tryExactlyOne (source: 'T[]): 'T option =
     else None
 
 let head (source: 'T[]): 'T =
-    if Array.isEmpty source
+    if isEmpty source
     then invalidArg "source" SR.inputArrayWasEmpty
     else source.[0]
 
 let tryHead (source: 'T[]): 'T option =
-    if Array.isEmpty source
+    if isEmpty source
     then None
     else Some source.[0]
 
 let last (source: 'T[]): 'T =
-    if Array.isEmpty source
+    if isEmpty source
     then invalidArg "source" SR.inputArrayWasEmpty
     else source.[source.Length - 1]
 
 let tryLast (source: 'T[]): 'T option =
-    if Array.isEmpty source
+    if isEmpty source
     then None
     else Some source.[source.Length - 1]
 
 let tail (source: 'T[]) =
-    if Array.isEmpty source then
+    if isEmpty source then
         invalidArg "source" SR.inputArrayWasTooShort
     getSubArray source 1 (source.Length - 1)
 
@@ -192,7 +194,7 @@ let indexed (source: 'T[]) =
         res.Add (i, source.[i])
     res
 
-// see Seq.concatArrays for concatenating sequence of arrays
+// Array.concat will first call Seq.toArray if needed, see Replacements
 let concat (sources: 'T[][]) =
     let mutable len = 0
     for arr in sources do
@@ -261,7 +263,7 @@ let partition (predicate: 'T -> bool) (source: 'T[]) =
     res1, res2
 
 let reduce reduction (source: 'T[]) =
-    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    if isEmpty source then invalidOp SR.inputArrayWasEmpty
     let folder i acc x = if i = 0 then x else reduction acc x
     let mutable acc = source.[0]
     for i = 0 to source.Length - 1 do
@@ -269,7 +271,7 @@ let reduce reduction (source: 'T[]) =
     acc
 
 let reduceBack reduction (source: 'T[]) =
-    if Array.isEmpty source then invalidOp SR.inputArrayWasEmpty
+    if isEmpty source then invalidOp SR.inputArrayWasEmpty
     let folder i x acc = if i = 0 then x else reduction acc x
     let len = source.Length
     let mutable acc = source.[len - 1]
@@ -363,44 +365,11 @@ let truncate (count: int) (source: 'T[]) =
 //             count
 //     countRemoveAll 0
 
-// // TODO: Check array lengths
-// let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-//     let diff = targetIndex - sourceIndex
-//     for i = sourceIndex to sourceIndex + count - 1 do
-//         target.[i + diff] <- source.[i]
-
-// // More performant method to copy arrays, see #2352
-// let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-//     try
-//         Helpers.copyToTypedArray source sourceIndex target targetIndex count
-//     with _ ->
-//         // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
-//         copyTo source sourceIndex target targetIndex count
-
-// // Performance test for above method
-// // let numloops = 10000
-
-// // do
-// //     let src: uint8[] = Array.allocateArray 16384
-// //     let trg: uint8[] = Array.allocateArray 131072
-
-// //     measureTime <| fun () ->
-// //         for _ in 1 .. numloops do
-// //           let rec loopi i =
-// //             if i < trg.Length then
-// //               Array.blit src 0 trg i src.Length
-// //               loopi (i + src.Length) in loopi 0
-
-// // do
-// //     let src: char[] = Array.allocateArray 16384
-// //     let trg: char[] = Array.allocateArray 131072
-
-// //     measureTime <| fun () ->
-// //         for _ in 1 .. numloops do
-// //           let rec loopi i =
-// //             if i < trg.Length then
-// //               Array.blit src 0 trg i src.Length
-// //               loopi (i + src.Length) in loopi 0
+// TODO: Check array lengths
+let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
+    let diff = targetIndex - sourceIndex
+    for i = sourceIndex to sourceIndex + count - 1 do
+        target.[i + diff] <- source.[i]
 
 let tryFind (predicate: 'T -> bool) (source: 'T[]): 'T option =
     let rec inner_loop i (predicate: 'T -> bool) (source: 'T[]) =
@@ -426,7 +395,7 @@ let findIndex (predicate: 'T -> bool) (source: 'T[]): int =
     | Some i -> i
     | None -> indexNotFound()
 
-let indexOf (source: 'T[]) (item: 'T) = //(start: int option) (count: int option) =
+let indexOf (source: 'T[]) (item: 'T) =
     match tryFindIndex (fun x -> x = item) source with
     | Some i -> i
     | None -> -1
@@ -597,14 +566,14 @@ let sortDescending (source: 'T[]): 'T[] =
 let sortByDescending (projection: 'T -> 'U) (source: 'T[]): 'T[] =
     sortWith (fun x y -> (compare (projection x) (projection y)) * -1) source
 
-// let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
-//     let len1 = xs.Length
-//     let len2 = ys.Length
-//     let res = allocateArray (len1 * len2)
-//     for i = 0 to xs.Length-1 do
-//         for j = 0 to ys.Length-1 do
-//             res.[i * len2 + j] <- (xs.[i], ys.[j])
-//     res
+let allPairs (xs: 'T1[]) (ys: 'T2[]) =
+    let len1 = xs.Length
+    let len2 = ys.Length
+    let res = ResizeArray<_>(len1 * len2)
+    for i = 0 to len1 - 1 do
+        for j = 0 to len2 - 1 do
+            res.Add ((xs.[i], ys.[j]))
+    res
 
 let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let rec inner_loop generator state (res: ResizeArray<'T>) =
@@ -645,31 +614,32 @@ let zip (source1: 'T1[]) (source2: 'T2[]) =
 let zip3 (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) =
     map3 (fun x y z -> x, y, z) source1 source2 source3
 
-// let chunkBySize (chunkSize: int) (source: 'T[]): 'T[][] =
-//     if chunkSize < 1 then invalidArg "size" "The input must be positive."
-//     if Array.isEmpty source then [| [||] |]
-//     else
-//         let res: 'T[][] = [||]
-//         // add each chunk to the res
-//         for x = 0 to int(System.Math.Ceiling(float(source.Length) / float(chunkSize))) - 1 do
-//             let start = x * chunkSize
-//             let slice = getSubArray source start chunkSize
-//             pushImpl res slice |> ignore
-//         res
+let chunkBySize (chunkSize: int) (source: 'T[]) =
+    if chunkSize <= 0 then
+        invalidArg "size" SR.inputMustBePositive
+    let len = source.Length
+    let chunkCount = (len - 1) / chunkSize + 1
+    let res = ResizeArray<_>(chunkCount)
+    for i = 0 to chunkCount - 1 do
+        let start = i * chunkSize
+        let csize = System.Math.Min(chunkSize, len - start)
+        let slice = getSubArray source start csize
+        res.Add (slice)
+    res
 
 let splitAt (index: int) (source: 'T[]) =
     if index < 0 || index > source.Length then
         invalidArg "index" SR.indexOutOfBounds
     getSubArray source 0 index, getSubArray source index (source.Length - index)
 
-let inline sum (source: ^T[]): ^T =
-    let mutable acc = LanguagePrimitives.GenericZero< ^T>
+let inline sum (source: 'T[]): 'T =
+    let mutable acc = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         acc <- acc + source.[i]
     acc
 
-let inline sumBy (projection: 'T -> ^U) (source: 'T[]): ^U =
-    let mutable acc = LanguagePrimitives.GenericZero< ^U>
+let inline sumBy (projection: 'T -> 'U) (source: 'T[]): 'U =
+    let mutable acc = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         acc <- acc + (projection source.[i])
     acc
@@ -687,73 +657,86 @@ let min (xs: 'T[]): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
 let inline average (source: 'T[]): 'T =
-    if Array.isEmpty source then
+    if isEmpty source then
         invalidArg "source" SR.inputArrayWasEmpty
-    let mutable total = LanguagePrimitives.GenericZero< ^T>
+    let mutable total = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         total <- total + source.[i]
-    LanguagePrimitives.DivideByInt< ^T> total source.Length
+    LanguagePrimitives.DivideByInt total source.Length
 
-let inline averageBy (projection: 'T -> ^U) (source: 'T[]): ^U =
-    if Array.isEmpty source then
+let inline averageBy (projection: 'T -> 'U) (source: 'T[]): 'U =
+    if isEmpty source then
         invalidArg "source" SR.inputArrayWasEmpty
-    let mutable total = LanguagePrimitives.GenericZero< ^U>
+    let mutable total = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         total <- total + (projection source.[i])
-    LanguagePrimitives.DivideByInt< ^U> total source.Length
+    LanguagePrimitives.DivideByInt total source.Length
+
+// Option.toArray redirects here to avoid dependency (see Replacements)
+let ofOption<'T> (opt: 'T option): 'T[] =
+    match opt with
+    | Some x -> Array.singleton x
+    | None -> Array.empty
+
+// Redirected to List.toArray to avoid dependency (see Replacements)
+// let ofList (xs: 'T list): 'T[] = List.toArray
+
+// Redirected to Seq.toArray to avoid dependency (see Replacements)
+// let ofSeq (xs: 'T seq): 'T[] = Seq.toArray
 
 // Redirected to List.ofArray to avoid dependency (see Replacements)
-// let toList (source: 'T[]) = List.ofArray
+// let toList (source: 'T[]): 'T list = List.ofArray
 
 // Redirected to Seq.ofArray to avoid dependency (see Replacements)
-// let toSeq (source: 'T[]) = Seq.ofArray
+// let toSeq (source: 'T[]): 'T seq = Seq.ofArray
 
 let where predicate (source: 'T[]) =
     filter predicate source
 
-// let windowed (windowSize: int) (source: 'T[]): 'T[][] =
-//     if windowSize <= 0 then
-//         failwith "windowSize must be positive"
-//     let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> allocateArray
-//     for i = windowSize to source.Length do
-//         res.[i - windowSize] <- source.[i-windowSize..i-1]
-//     res
+let windowed (windowSize: int) (source: 'T[]) =
+    if windowSize <= 0 then
+        invalidArg "size" SR.inputMustBePositive
+    let len = System.Math.Max(0, source.Length - windowSize + 1)
+    let res = ResizeArray<_>(len)
+    for i = 0 to len - 1 do
+        let slice = getSubArray source i windowSize
+        res.Add (slice)
+    res
 
-// let splitInto (chunks: int) (source: 'T[]): 'T[][] =
-//     if chunks < 1 then
-//         invalidArg "chunks" "The input must be positive."
-//     if Array.isEmpty source then
-//         [| [||] |]
-//     else
-//         let res: 'T[][] = [||]
-//         let chunks = FSharp.Core.Operators.min chunks source.Length
-//         let minChunkSize = source.Length / chunks
-//         let chunksWithExtraItem = source.Length % chunks
-//         for i = 0 to chunks - 1 do
-//             let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
-//             let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
-//             let slice = getSubArray source start chunkSize
-//             pushImpl res slice |> ignore
-//         res
+let splitInto (chunks: int) (source: 'T[]) =
+    if chunks <= 0 then
+        invalidArg "chunks" SR.inputMustBePositive
+    if isEmpty source then
+        ResizeArray<ResizeArray<'T>>()
+    else
+        let res = ResizeArray<_>(chunks)
+        let chunks = System.Math.Min(chunks, source.Length)
+        let minChunkSize = source.Length / chunks
+        let chunksWithExtraItem = source.Length % chunks
+        for i = 0 to chunks - 1 do
+            let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
+            let start = i * minChunkSize + (System.Math.Min(chunksWithExtraItem, i))
+            let slice = getSubArray source start chunkSize
+            res.Add (slice)
+        res
 
-// let transpose (arrays: 'T[] seq): 'T[][] =
-//     let arrays =
-//         if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
-//         else arrayFrom arrays
-//     let len = arrays.Length
-//     match len with
-//     | 0 -> [||]
-//     | _ ->
-//         let firstArray = arrays.[0]
-//         let lenInner = firstArray.Length
-//         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
-//             differentLengths()
-//         let res: 'T[][] = allocateArray lenInner
-//         for i in 0..lenInner-1 do
-//             res.[i] <- allocateArray len
-//             for j in 0..len-1 do
-//                 res.[i].[j] <- arrays.[j].[i]
-//         res
+// Array.transpose will first call Seq.toArray if needed, see Replacements
+let transpose (arrays: 'T[][]) =
+    if isEmpty arrays then
+        ResizeArray<ResizeArray<'T>>()
+    else
+        let len = arrays.Length
+        let firstArray = arrays.[0]
+        let innerLen = firstArray.Length
+        if not (arrays |> forAll (fun a -> a.Length = innerLen)) then
+            differentLengths()
+        let res = ResizeArray<_>(innerLen)
+        for i= 0 to innerLen - 1 do
+            let res2 = ResizeArray<_>(len)
+            for j = 0 to len - 1 do
+                res2.Add (arrays.[j].[i])
+            res.Add (res2)
+        res
 
 // let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
 //     let len = xs.Length

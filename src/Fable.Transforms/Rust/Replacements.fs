@@ -502,10 +502,12 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 //     let args, defValue = List.splitLast args
 //     args @ [makeRefFromMutableValue com ctx defValue]
 
-let toChar (arg: Expr) =
+let toChar com (arg: Expr) =
     match arg.Type with
     | Char | String -> arg
-    | _ -> Helper.GlobalCall("String", Char, [arg], memb="fromCharCode")
+    | _ ->
+        let code = TypeCast(arg, Number(UInt32, None))
+        Helper.LibCall(com, "Native", "toChar", Char, [code])
 
 let toString com (ctx: Context) r (args: Expr list) =
     match args with
@@ -584,7 +586,9 @@ let needToCast typeFrom typeTo =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
+    | Char ->
+        let code = TypeCast(args.Head, Number(UInt32, None))
+        TypeCast(code, targetType)
     | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
     | NumberExt kind ->
         match kind with
@@ -600,8 +604,8 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
 let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
-        |> makeDecimalFromExpr com r targetType
+        let code = TypeCast(args.Head, Number(UInt32, None))
+        code |> makeDecimalFromExpr com r targetType
     | String -> makeDecimalFromExpr com r targetType args.Head
     | NumberExt kind ->
         match kind with
@@ -635,7 +639,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     let sourceType = args.Head.Type
     match sourceType with
     | Char ->
-        let code = Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
+        let code = TypeCast(args.Head, Number(UInt32, None))
         TypeCast(code, targetType)
     | String -> stringToInt com ctx r targetType args
     | NumberExt kind ->
@@ -657,17 +661,19 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     let transformEnumType = function Enum _ -> Number(Int32, None) | t -> t
     let sourceType = transformEnumType args.Head.Type
     let targetType = transformEnumType targetType
-    let emitCast typeTo arg =
-        match typeTo with
-        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
-        | JsNumber Int32 -> fastIntFloor arg
-        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "$0 & 0xFF"
-        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "$0 & 0xFFFF"
-        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
-        | _ -> failwith $"Unexpected non-integer type %A{typeTo}"
+    // let emitCast typeTo arg =
+    //     match typeTo with
+    //     | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
+    //     | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+    //     | JsNumber Int32 -> fastIntFloor arg
+    //     | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "$0 & 0xFF"
+    //     | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "$0 & 0xFFFF"
+    //     | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
+    //     | _ -> failwith $"Unexpected non-integer type %A{typeTo}"
     match sourceType, targetType with
-    | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
+    | Char, _ ->
+        let code = TypeCast(args.Head, Number(UInt32, None))
+        TypeCast(code, targetType)
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo -> TypeCast(args.Head, targetType)
@@ -1009,6 +1015,8 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
+    | Boolean -> makeBoolConst true
+    | Number (kind, uom) -> NumberConstant (1.0, kind, uom) |> makeValue None
     | Builtin (BclInt64|BclUInt64) -> makeLongInt None t 1L
     | Builtin BclBigInt -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 1])
     | Builtin BclDecimal -> makeIntConst 1 |> makeDecimalFromExpr com None t
@@ -1584,7 +1592,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToUInt64", _ -> toLong com ctx r true t args |> Some
     | ("ToSingle"|"ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
-    | "ToChar", _ -> toChar args.Head |> Some
+    | "ToChar", _ -> toChar com args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary com ctx r t arg |> Some
@@ -1596,15 +1604,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match args with
             | [first; last] -> [first; getOne com ctx genArg; last]
             | _ -> args
-        let modul, meth, args =
+        let meth, args =
             match genArg with
-            | Char -> "Range", "rangeChar", args
-            | Builtin BclInt64 -> "Range", "rangeInt64", addStep args
-            | Builtin BclUInt64 -> "Range", "rangeUInt64", addStep args
-            | Builtin BclDecimal -> "Range", "rangeDecimal", addStep args
-            | Builtin BclBigInt -> "Range", "rangeBigInt", addStep args
-            | _ -> "Range", "rangeDouble", addStep args
-        Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            | Char -> "rangeChar", args
+            | _ -> "rangeNumeric", addStep args
+        Helper.LibCall(com, "Range", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
     | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
@@ -2071,19 +2075,15 @@ let createArray (com: ICompiler) ctx r t size value =
     match t, value with
     | Array typ, None ->
         let value = getZero com ctx typ
-        Value(NewArrayFrom(makeTuple None [value; size], t), r)
-    | Array _, Some value ->
-        Value(NewArrayFrom(makeTuple None [value; size], t), r)
+        Value(NewArrayFrom(makeTuple None [value; size], typ), r)
+    | Array typ, Some value ->
+        Value(NewArrayFrom(makeTuple None [value; size], typ), r)
     | _ ->
         $"Expecting an array type but got %A{t}"
         |> addErrorAndReturnNull com ctx.InlinePath r
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
-    let method =
-        match args with
-        | ExprType(Array(Number _))::_ when com.Options.TypedArrays -> "copyToTypedArray"
-        | _ -> "copyTo"
-    Helper.LibCall(com, "Array", method, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    Helper.LibCall(com, "Array", "copyTo", t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2135,9 +2135,13 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "Native", "arrayCopy", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
-    | "Concat", [arg] ->
-        let arg = Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
-        Helper.LibCall(com, "Array", "concat", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Concat" | "Transpose" as meth), [arg] ->
+        let arg =
+            match arg.Type with
+            | Array _ -> arg
+            | List _ -> Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
+            | _ -> Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
+        Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
     //     let args, thisArg = List.splitLast args
     //     let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -2181,9 +2185,13 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "OfSeq", [arg] ->
         Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "Concat", [arg] ->
-        let arg = Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r)
-        Helper.LibCall(com, "List", "concat", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Concat" | "Transpose" as meth), [arg] ->
+        let arg =
+            match arg.Type with
+            | List _ -> arg
+            | Array _ -> Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r)
+            | _ -> Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r)
+        Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -2253,6 +2261,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | ("ToObj" | "ToNullable"), _ -> None // TODO:
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
+    | "ToArray", [arg] ->
+        Helper.LibCall(com, "Array", "ofOption", t, args, ?loc=r) |> Some
     | "ToList", [arg] ->
         Helper.LibCall(com, "List", "ofOption", t, args, ?loc=r) |> Some
     | meth, args ->
@@ -2732,7 +2742,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToUInt64" -> round com args |> toLong com ctx r true t |> Some
     | "ToSingle" | "ToDouble"  -> toFloat com ctx r t args |> Some
     | "ToDecimal" -> toDecimal com ctx r t args |> Some
-    | "ToChar" -> toChar args.Head |> Some
+    | "ToChar" -> toChar com args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String" | "FromBase64String" ->
         if not(List.isSingle args) then

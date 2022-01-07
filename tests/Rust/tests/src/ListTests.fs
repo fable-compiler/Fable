@@ -886,19 +886,19 @@ let ``List.permute works`` () =
     let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
     ys |> List.toArray |> equal [| 2; 1; 4; 3; 6; 5 |]
 
-// [<Fact>]
-// let ``List.chunkBySize works`` () =
-//     [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
-//     [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
+[<Fact>]
+let ``List.chunkBySize works`` () =
+    [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
+    [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
 
-// [<Fact>]
-// let ``List.range works`` () =
-//     [1..5]
-//     |> List.reduce (+)
-//     |> equal 15
-//     [0..2..9]
-//     |> List.reduce (+)
-//     |> equal 20
+[<Fact>]
+let ``List.range works`` () =
+    [1..5]
+    |> List.reduce (+)
+    |> equal 15
+    [0..2..9]
+    |> List.reduce (+)
+    |> equal 20
 
 [<Fact>]
 let ``List.tryItem works`` () =
@@ -971,13 +971,13 @@ let ``List.splitAt works`` () =
     List.splitAt 3 li |> equal ([1;2;3], [4])
     List.splitAt 4 li |> equal ([1;2;3;4], [])
 
-// [<Fact>]
-// let ``List.windowed works`` () = // See #1716
-//     let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
-//     List.windowed 3 nums |> equal [[1.0; 1.5; 2.0]; [1.5; 2.0; 1.5]; [2.0; 1.5; 1.0]; [1.5; 1.0; 1.5]]
-//     List.windowed 5 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0 ]; [ 1.5; 2.0; 1.5; 1.0; 1.5 ]]
-//     List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
-//     List.windowed 7 nums |> List.isEmpty |> equal true
+[<Fact>]
+let ``List.windowed works`` () = // See #1716
+    let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
+    List.windowed 3 nums |> equal [[1.0; 1.5; 2.0]; [1.5; 2.0; 1.5]; [2.0; 1.5; 1.0]; [1.5; 1.0; 1.5]]
+    List.windowed 5 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0 ]; [ 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+    List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+    List.windowed 7 nums |> List.isEmpty |> equal true
 
 // [<Fact>]
 // let ``Types with same name as imports work`` () =
@@ -1023,16 +1023,16 @@ let ``List.splitAt works`` () =
 //     equal 3 res.Length
 //     equal 4 res.Head
 
-// [<Fact>]
-// let ``List.allPairs works`` () =
-//     let xs = [1;2;3;4]
-//     let ys = ['a';'b';'c';'d';'e';'f']
-//     List.allPairs xs ys
-//     |> equal
-//         [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
-//             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
-//             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
-//             (4, 'd'); (4, 'e'); (4, 'f')]
+[<Fact>]
+let ``List.allPairs works`` () =
+    let xs = [1;2;3;4]
+    let ys = ['a';'b';'c';'d';'e';'f']
+    List.allPairs xs ys
+    |> equal
+        [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+            (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+            (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+            (4, 'd'); (4, 'e'); (4, 'f')]
 
 // // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
 // // #if FABLE_COMPILER
@@ -1049,40 +1049,35 @@ let ``List.splitAt works`` () =
 //     makeList false |> List.sum |> equal 3
 // // #endif
 
-// [<Fact>]
-// let ``List.splitInto works`` () =
-//     [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
-//     [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
-//     [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
-//     [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
-//     [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
+[<Fact>]
+let ``List.splitInto works`` () =
+    [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+    [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+    [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+    [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+    [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
 
-// [<Fact>]
-// let ``List.transpose works`` () =
-//     // integer list
-//     List.transpose (seq [[1..3]; [4..6]])
-//     |> equal [[1; 4]; [2; 5]; [3; 6]]
-//     List.transpose [[1..3]]
-//     |> equal [[1]; [2]; [3]]
-//     List.transpose [[1]; [2]]
-//     |> equal [[1..2]]
-//     // string list
-//     List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
-//     |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
-//     // empty list
-//     List.transpose []
-//     |> equal []
-//     // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
-//     List.transpose [[]]
-//     |> equal []
-//     List.transpose [[]; []]
-//     |> equal []
-//     // jagged lists throw on transpose
-//     throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
-//     throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
-//     throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
-//     throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
-//     throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+[<Fact>]
+let ``List.transpose works`` () =
+    // integer list
+    List.transpose (seq [[1..3]; [4..6]]) |> equal [[1; 4]; [2; 5]; [3; 6]]
+    List.transpose [[1..3]] |> equal [[1]; [2]; [3]]
+    List.transpose [[1]; [2]] |> equal [[1..2]]
+    // string list
+    List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
+    |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
+    // empty list
+    List.transpose [] |> equal []
+    // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
+    List.transpose [[]] |> equal []
+    List.transpose [[]; []] |> equal []
+    // jagged lists throw on transpose
+    // TODO:
+    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+    // throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+    // throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+    // throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
 
 // [<Fact>]
 // let ``List.updateAt works`` () =
