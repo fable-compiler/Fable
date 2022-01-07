@@ -192,10 +192,10 @@ let ``Seq.collect works with Options`` () =
     |> Seq.length
     |> equal 4
 
-// [<Fact>]
-// let ``Seq.chunkBySize works`` () =
-//     seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
-//     seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
+[<Fact>]
+let ``Seq.chunkBySize works`` () =
+    seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
+    seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
 
 [<Fact>]
 let ``Seq.contains works`` () =
@@ -605,60 +605,54 @@ let ``Seq.pick works`` () =
         | _ -> None)
     |> equal 2.
 
-// [<Fact>]
-// let ``Seq.range works`` () =
-//     seq {1..5}
-//     |> Seq.reduce (+)
-//     |> equal 15
+[<Fact>]
+let ``Seq.range works`` () =
+    seq {1..5}
+    |> Seq.reduce (+)
+    |> equal 15
 
-//     seq {1. .. 5.}
-//     |> Seq.reduce (+)
-//     |> equal 15.
+    seq {1. .. 5.}
+    |> Seq.reduce (+)
+    |> equal 15.
 
-// [<Fact>]
-// let ``Seq.range step works`` () =
-//     seq {0..2..9}
-//     |> Seq.reduce (+)
-//     |> equal 20
+[<Fact>]
+let ``Seq.range step works`` () =
+    seq {0..2..9}
+    |> Seq.reduce (+)
+    |> equal 20
+    seq {0. .. 2. .. 9.}
+    |> Seq.reduce (+)
+    |> equal 20.
+    seq {9 .. -2 .. 0}
+    |> Seq.reduce (+)
+    |> equal 25
 
-//     seq {0. .. 2. .. 9.}
-//     |> Seq.reduce (+)
-//     |> equal 20.
+[<Fact>]
+let ``Seq.range works with chars`` () =
+    seq {'a' .. 'f'}
+    |> Seq.toArray
+    |> equal [|'a';'b';'c';'d';'e';'f'|]
+    seq {'z' .. 'a'}
+    |> Seq.length
+    |> equal 0
 
-//     seq {9 .. -2 .. 0}
-//     |> Seq.reduce (+)
-//     |> equal 25
+[<Fact>]
+let ``Seq.range works with long`` () =
+    seq {1L..5L}
+    |> Seq.reduce (+)
+    |> equal 15L
+    seq {1UL .. 5UL}
+    |> Seq.reduce (+)
+    |> equal 15UL
 
-// [<Fact>]
-// let ``Seq.range works with chars`` () =
-//     seq {'a' .. 'f'}
-//     |> Seq.toArray
-//     |> System.String
-//     |> equal "abcdef"
-
-//     seq {'z' .. 'a'}
-//     |> Seq.length
-//     |> equal 0
-
-// [<Fact>]
-// let ``Seq.range works with long`` () =
-//     seq {1L..5L}
-//     |> Seq.reduce (+)
-//     |> equal 15L
-
-//     seq {1UL .. 5UL}
-//     |> Seq.reduce (+)
-//     |> equal 15UL
-
-// [<Fact>]
-// let ``Seq.range step works with long`` () =
-//     seq {0L..2L..9L}
-//     |> Seq.reduce (+)
-//     |> equal 20L
-
-//     seq {0UL..2UL..9UL}
-//     |> Seq.reduce (+)
-//     |> equal 20UL
+[<Fact>]
+let ``Seq.range step works with long`` () =
+    seq {0L..2L..9L}
+    |> Seq.reduce (+)
+    |> equal 20L
+    seq {0UL..2UL..9UL}
+    |> Seq.reduce (+)
+    |> equal 20UL
 
 // [<Fact>]
 // let ``Seq.range works with decimal`` () =
@@ -838,18 +832,42 @@ let ``Seq.zip3 works`` () =
     x + y + z
     |> equal 3.
 
-// [<Fact>]
-// let ``Seq.cache works`` () =
-//     let mutable count = 0
-//     let xs =
-//         1 |> Seq.unfold (fun i ->
-//             count <- count + 1
-//             if i <= 10 then Some(i, i + 1)
-//             else None)
-//         |> Seq.cache
-//     xs |> Seq.length |> ignore
-//     xs |> Seq.length |> ignore
-//     count |> equal 11
+[<Fact>]
+let ``Seq.cache works`` () =
+    let mutable count = 0
+    let xs =
+        1 |> Seq.unfold (fun i ->
+            count <- count + 1
+            if i <= 10 then Some(i, i + 1)
+            else None)
+        |> Seq.cache
+    xs |> Seq.length |> ignore
+    xs |> Seq.length |> ignore
+    count |> equal 11
+
+[<Fact>]
+let ``Seq.cache works for infinite sequences`` () =
+    let answers =
+        Seq.initInfinite (fun _ -> 42)
+        |> Seq.cache
+    let n = 10
+    let xs = answers |> Seq.truncate n |> Seq.toList
+    let ys = answers |> Seq.truncate n |> Seq.toList
+    xs |> equal ys
+
+[<Fact>]
+let ``Seq.cache works when enumerating partially`` () =
+    let xs = seq { 1; 1; 99 }
+    let rec loop xs ts =
+        match Seq.tryHead xs with
+        | Some x ->
+            if x < 10
+            then loop (Seq.tail xs) (x :: ts)
+            else Some x
+        | None ->
+            None
+    loop (Seq.cache xs) [] |> equal (Some 99)
+    loop xs [] |> equal (Some 99)
 
 // [<Fact>]
 // let ``Seq.cast works`` () =
@@ -1091,47 +1109,50 @@ let ``Seq.where works`` () =
 //     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
 //     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
 
-// [<Fact>]
-// let ``Seq.filter doesn't blow the stack with long sequences`` () = // See #459
-//     let max = 1000000
-//     let a = [| for i in 1 .. max -> 0  |] // init with 0
-//     let b = a |> Seq.filter( fun x -> x > 10) |> Seq.toArray
-//     equal 0 b.Length
+[<Fact>]
+let ``Seq.filter doesn't blow the stack with long sequences`` () = // See #459
+    let max = 1000000
+    let a = [| for i in 1 .. max -> 0 |] // init with 0
+    let b = a |> Seq.filter (fun x -> x > 10) |> Seq.toArray
+    equal 0 b.Length
 
-// [<Fact>]
-// let ``Seq.windowed works`` () = // See #1716
-//     let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ] :> _ seq
-//     Seq.windowed 3 nums |> Seq.toArray |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
-//     Seq.windowed 5 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Seq.windowed 6 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Seq.windowed 7 nums |> Seq.isEmpty |> equal true
+[<Fact>]
+let ``Seq.windowed works`` () = // See #1716
+    let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |] :> _ seq
+    Seq.windowed 3 nums |> Seq.toArray
+    |> equal [| [|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|] |]
+    Seq.windowed 5 nums |> Seq.toArray
+    |> equal [| [| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |] |]
+    Seq.windowed 6 nums |> Seq.toArray
+    |> equal [| [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |] |]
+    Seq.windowed 7 nums |> Seq.isEmpty |> equal true
 
-// [<Fact>]
-// let ``Seq.allPairs works`` () =
-//     let mutable accX = 0
-//     let mutable accY = 0
-//     let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
-//     let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
-//     let res = Seq.allPairs xs ys
-//     let res1 = List.ofSeq res
-//     let res2 = List.ofSeq res
-//     let expected =
-//         [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f');
-//             (2, 'a'); (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f');
-//             (3, 'a'); (3, 'b'); (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f');
-//             (4, 'a'); (4, 'b'); (4, 'c'); (4, 'd'); (4, 'e'); (4, 'f')]
-//     accX |> equal 2
-//     accY |> equal 1
-//     equal expected res1
-//     equal expected res2
+[<Fact>]
+let ``Seq.allPairs works`` () =
+    let mutable accX = 0
+    let mutable accY = 0
+    let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
+    let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
+    let res = Seq.allPairs xs ys
+    let res1 = List.ofSeq res
+    let res2 = List.ofSeq res
+    let expected =
+        [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f');
+            (2, 'a'); (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f');
+            (3, 'a'); (3, 'b'); (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f');
+            (4, 'a'); (4, 'b'); (4, 'c'); (4, 'd'); (4, 'e'); (4, 'f')]
+    accX |> equal 2
+    accY |> equal 1
+    equal expected res1
+    equal expected res2
 
-// [<Fact>]
-// let ``Seq.splitInto works`` () =
-//     seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
-//     seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
-//     seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
-//     seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
-//     seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
+[<Fact>]
+let ``Seq.splitInto works`` () =
+    seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
+    seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
+    seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
+    seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
+    seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
 
 // [<Fact>]
 // let ``Seq.transpose works`` () =

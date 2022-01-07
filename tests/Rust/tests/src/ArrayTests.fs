@@ -716,14 +716,14 @@ let ``Array.pick works`` () =
         | _ -> None)
     |> equal 2.
 
-// [<Fact>]
-// let ``Array.range works`` () =
-//     [|1..5|]
-//     |> Array.reduce (+)
-//     |> equal 15
-//     [|0..2..9|]
-//     |> Array.reduce (+)
-//     |> equal 20
+[<Fact>]
+let ``Array.range works`` () =
+    [|1..5|]
+    |> Array.reduce (+)
+    |> equal 15
+    [|0..2..9|]
+    |> Array.reduce (+)
+    |> equal 20
 
 [<Fact>]
 let ``Array.reduce works`` () =
@@ -1089,10 +1089,10 @@ let ``Array indexed works`` () =
     fst xs.[2] |> equal 2
     snd xs.[2] |> equal 3.
 
-// [<Fact>]
-// let ``Array.chunkBySize works`` () =
-//     [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
-//     [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
+[<Fact>]
+let ``Array.chunkBySize works`` () =
+    [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
+    [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
 
 [<Fact>]
 let ``Array.splitAt works`` () =
@@ -1101,22 +1101,22 @@ let ``Array.splitAt works`` () =
     Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
     Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
 
-// [<Fact>]
-// let ``Arrays are independent from type of the elements`` () =
-//     let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
-//     [|"a";"b"|] |> fromArrayToListAndBack |> equal [|"a";"b"|]
-//     [|1;2|] |> fromArrayToListAndBack |> equal [|1;2|]
+[<Fact>]
+let ``Arrays are independent from type of the elements`` () =
+    let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+    [|"a";"b"|] |> fromArrayToListAndBack |> equal [|"a";"b"|]
+    [|1;2|] |> fromArrayToListAndBack |> equal [|1;2|]
 
-// [<Fact>]
-// let ``Arrays are independent from being binded to a name`` () =
-//     let intList = [1;2;3]
-//     intList  |> List.toArray  |> equal [|1;2;3|]
-//     [1;2;3]  |> List.toArray  |> equal [|1;2;3|]
+[<Fact>]
+let ``Arrays are independent from being binded to a name`` () =
+    let intList = [1;2;3]
+    intList  |> List.toArray  |> equal [|1;2;3|]
+    [1;2;3]  |> List.toArray  |> equal [|1;2;3|]
 
-// [<Fact>]
-// let ``Functions on arrays should behave the same whether binded to a name or not`` () =
-//     let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
-//     [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
+[<Fact>]
+let ``Functions on arrays should behave the same whether binded to a name or not`` () =
+    let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+    [|1;2|] |> Array.toList |> List.toArray |> equal ([|1;2|] |> fromArrayToListAndBack)
 
 [<Fact>]
 let ``Array.skip works`` () =
@@ -1149,24 +1149,24 @@ let ``Array.takeWhile works`` () =
     xs |> Array.takeWhile (fun i -> i < 4.)
     |> equal [|1.; 2.; 3.|]
 
-// [<Fact>]
-// let ``Array.windowed works`` () = // See #1716
-//     let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
-//     Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
-//     Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Array.windowed 7 nums |> Array.isEmpty |> equal true
+[<Fact>]
+let ``Array.windowed works`` () = // See #1716
+    let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
+    Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+    Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 7 nums |> Array.isEmpty |> equal true
 
-// [<Fact>]
-// let ``Array.allPairs works`` () =
-//     let xs = [|1;2;3;4|]
-//     let ys = [|'a';'b';'c';'d';'e';'f'|]
-//     Array.allPairs xs ys
-//     |> equal
-//         [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
-//             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
-//             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
-//             (4, 'd'); (4, 'e'); (4, 'f')|]
+[<Fact>]
+let ``Array.allPairs works`` () =
+    let xs = [|1;2;3;4|]
+    let ys = [|'a';'b';'c';'d';'e';'f'|]
+    Array.allPairs xs ys
+    |> equal
+        [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+            (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+            (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+            (4, 'd'); (4, 'e'); (4, 'f')|]
 
 // [<Fact>]
 // let ``Casting to System.Array works`` () =
@@ -1202,13 +1202,13 @@ let ``Array.takeWhile works`` () =
 //     System.Array.Copy(source, 1, destination, 1, 2)
 //     equal [| "a"; "xx"; "xyz" |] destination
 
-// [<Fact>]
-// let ``Array.splitInto works`` () =
-//     [|1..10|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
-//     [|1..11|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
-//     [|1..12|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
-//     [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
-//     [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
+[<Fact>]
+let ``Array.splitInto works`` () =
+    [|1..10|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
+    [|1..11|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
+    [|1..12|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
+    [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
+    [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
 
 [<Fact>]
 let ``Array.tryExactlyOne works`` () =
@@ -1222,29 +1222,30 @@ let ``Array.tryExactlyOne works`` () =
 //     (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
 //     (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``Array.transpose works`` () =
-//     // integer array
-//     Array.transpose (seq [[|1..3|]; [|4..6|]])
-//     |> equal [|[|1;4|]; [|2;5|]; [|3;6|]|]
-//     Array.transpose [|[|1..3|]|]
-//     |> equal [|[|1|]; [|2|]; [|3|]|]
-//     Array.transpose [|[|1|]; [|2|]|]
-//     |> equal [|[|1..2|]|]
-//     // string array
-//     Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
-//     |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
-//     // empty array
-//     Array.transpose [| |]
-//     |> equal [| |]
-//     // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
-//     Array.transpose [| [||] |]
-//     |> equal [| |]
-//     Array.transpose [| [||]; [||] |]
-//     |> equal [| |]
-//     // jagged arrays throw on transpose
-//     throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
-//     throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+[<Fact>]
+let ``Array.transpose works`` () =
+    // integer array
+    Array.transpose (seq [[|1..3|]; [|4..6|]])
+    |> equal [|[|1;4|]; [|2;5|]; [|3;6|]|]
+    Array.transpose [|[|1..3|]|]
+    |> equal [|[|1|]; [|2|]; [|3|]|]
+    Array.transpose [|[|1|]; [|2|]|]
+    |> equal [|[|1..2|]|]
+    // string array
+    Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
+    |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
+    // empty array
+    Array.transpose [| |]
+    |> equal [| |]
+    // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
+    Array.transpose [| [||] |]
+    |> equal [| |]
+    Array.transpose [| [||]; [||] |]
+    |> equal [| |]
+    // jagged arrays throw on transpose
+    // TODO:
+    // throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+    // throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
 
 // [<Fact>]
 // let ``Array.updateAt works`` () =

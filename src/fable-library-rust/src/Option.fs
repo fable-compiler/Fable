@@ -106,16 +106,11 @@ let orElseWith<'T> (ifNoneThunk: unit -> 'T option) (opt: 'T option): 'T option 
     | Some _ -> opt
     | None -> ifNoneThunk()
 
-let toArray<'T> (opt: 'T option): 'T[] =
-    match opt with
-    | Some x -> Array.singleton x
-    | None -> Array.empty
+// moved to Array.ofOption to avoid dependency
+// let toArray<'T> (opt: 'T option): 'T[] = Array.ofOption
 
 // moved to List.ofOption to avoid dependency
-// let toList<'T> (opt: 'T option): 'T list =
-//     match opt with
-//     | Some x -> List.singleton x
-//     | None -> List.empty
+// let toList<'T> (opt: 'T option): 'T list = List.ofOption
 
 // let ofNullable<'T>(x: 'T): 'T option =
 //     if x != null then Some(x) else None

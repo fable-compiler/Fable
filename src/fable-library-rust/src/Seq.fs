@@ -131,7 +131,7 @@ module Enumerable =
             else None
         fromFunction next
 
-    let concat (sources: seq<'T seq>): IEnumerator<'T> =
+    let concat (sources: 'T seq seq): IEnumerator<'T> =
         let mutable outerOpt: IEnumerator<'T seq> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable finished = false
@@ -396,7 +396,7 @@ let ofSeq (xs: 'T seq): Enumerable.IEnumerator<'T> =
 let delay (generator: unit -> 'T seq) =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<'T seq>) =
+let concat (sources: 'T seq seq) =
     mkSeq (fun () -> Enumerable.concat sources)
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
@@ -575,7 +575,7 @@ let toArray (xs: 'T seq): 'T[] =
     // | :? array<'T> as a -> a
     // | :? list<'T> as a -> Array.ofList a
     | _ ->
-        let res = ResizeArray()
+        let res = ResizeArray<_>()
         for x in xs do
             res.Add(x)
         res.ToArray()
@@ -605,10 +605,10 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 seq)
 let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 seq) (ys: 'T2 seq) (state: 'State) =
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
-let forAll predicate xs =
+let forAll predicate (xs: 'T seq) =
     not (exists (fun x -> not (predicate x)) xs)
 
-let forAll2 predicate xs ys =
+let forAll2 predicate (xs: 'T1 seq) (ys: 'T2 seq) =
     not (exists2 (fun x y -> not (predicate x y)) xs ys)
 
 let tryFindBack predicate (xs: 'T seq) =
@@ -679,16 +679,16 @@ let item index (xs: 'T seq) =
     | Some x -> x
     | None -> invalidArg "index" SR.notEnoughElements
 
-let iterate action xs =
+let iterate action (xs: 'T seq) =
     fold (fun () x -> action x) () xs
 
-let iterate2 action xs ys =
+let iterate2 action (xs: 'T1 seq) (ys: 'T2 seq) =
     fold2 (fun () x y -> action x y) () xs ys
 
-let iterateIndexed action xs =
+let iterateIndexed action (xs: 'T seq) =
     fold (fun i x -> action i x; i + 1) 0 xs |> ignore
 
-let iterateIndexed2 action xs ys =
+let iterateIndexed2 action (xs: 'T1 seq) (ys: 'T2 seq) =
     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
 
 let tryLast (xs: 'T seq) =
@@ -776,23 +776,36 @@ let collect (mapping: 'T -> 'U seq) (xs: 'T seq) =
         concat (map mapping xs)
     )
 
-// let cache (xs: 'T seq) =
-//     let mutable cached = false
-//     let xsCache = ResizeArray()
-//     delay (fun () ->
-//         if not cached then
-//             cached <- true
-//             xs |> map (fun x -> xsCache.Add(x); x)
-//         else
-//             xsCache :> 'T seq
-//     )
+// Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
+let cache (xs: 'T seq): 'T seq =
+    let prefix = ResizeArray<_>()
+    let mutable enumOpt = None
+    let mutable finished = false
+    let result i =
+        // TODO: enable lock in multi-threading context
+        // lock prefix <| fun () ->
+        if i < prefix.Count then
+            Some (prefix.[i], i + 1)
+        else
+            if enumOpt.IsNone then
+                enumOpt <- Some (xs.GetEnumerator())
+            match enumOpt with
+            | Some e when not finished ->
+                if e.MoveNext() then
+                    prefix.Add(e.Current)
+                    Some (e.Current, i + 1)
+                else
+                    finished <- true
+                    None
+            | _ -> None
+    unfold result 0
 
-// let allPairs (xs: 'T1 seq) (ys: 'T2 seq): seq<'T1 * 'T2> =
-//     let ysCache = cache ys
-//     delay (fun () ->
-//         let mapping x = ysCache |> map (fun y -> (x, y))
-//         concat (map mapping xs)
-//     )
+let allPairs (xs: 'T1 seq) (ys: 'T2 seq): seq<'T1 * 'T2> =
+    let ysCache = cache ys
+    delay (fun () ->
+        let mapping (x: 'T1) = ysCache |> map (fun y -> (x, y))
+        concat (map mapping xs)
+    )
 
 let tryPick chooser (xs: 'T seq) =
     use e = ofSeq xs
@@ -927,26 +940,24 @@ let pairwise (xs: 'T seq) =
         |> ofArray
     )
 
-// let splitInto (chunks: int) (xs: 'T seq): 'T seq seq =
-//     delay (fun () ->
-//         xs
-//         |> toArray
-//         |> Array.splitInto chunks
-//         |> Array.map ofArray
-//         |> ofArray
-//     )
+let splitInto (chunks: int) (xs: 'T seq): 'T[] seq =
+    delay (fun () ->
+        xs
+        |> toArray
+        |> Array.splitInto chunks
+        |> ofArray
+    )
 
 let where predicate (xs: 'T seq) =
     filter predicate xs
 
-// let windowed windowSize (xs: 'T seq): 'T seq seq =
-//     delay (fun () ->
-//         xs
-//         |> toArray
-//         |> Array.windowed windowSize
-//         |> Array.map ofArray
-//         |> ofArray
-//     )
+let windowed windowSize (xs: 'T seq): 'T[] seq =
+    delay (fun () ->
+        xs
+        |> toArray
+        |> Array.windowed windowSize
+        |> ofArray
+    )
 
 // let transpose (xss: seq<#'T seq>) =
 //     delay (fun () ->
@@ -977,12 +988,12 @@ let sortDescending (xs: 'T seq) =
 let sortByDescending (projection: 'T -> 'U) (xs: 'T seq) =
     sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
-let inline sum (xs: ^T seq): ^T =
-    let zero = LanguagePrimitives.GenericZero< ^T>
+let inline sum (xs: 'T seq): 'T =
+    let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + x) zero xs
 
-let inline sumBy (projection: 'T -> ^U) (xs: 'T seq): ^U =
-    let zero = LanguagePrimitives.GenericZero< ^U>
+let inline sumBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
+    let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + (projection x)) zero xs
 
 let maxBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
@@ -999,19 +1010,19 @@ let min (xs: 'T seq): 'T =
 
 let inline average (xs: 'T seq): 'T =
     let mutable count = 0
-    let zero = LanguagePrimitives.GenericZero< ^T>
+    let zero = LanguagePrimitives.GenericZero
     let folder acc x = count <- count + 1; acc + x
     let total = fold folder zero xs
     if count = 0 then invalidOp SR.inputSequenceEmpty
-    LanguagePrimitives.DivideByInt< ^T> total count
+    LanguagePrimitives.DivideByInt total count
 
-let inline averageBy (projection: 'T -> ^U) (xs: 'T seq) : ^U =
+let inline averageBy (projection: 'T -> 'U) (xs: 'T seq) : 'U =
     let mutable count = 0
-    let zero = LanguagePrimitives.GenericZero< ^U>
+    let zero = LanguagePrimitives.GenericZero
     let folder acc x = count <- count + 1; acc + (projection x)
     let total = fold folder zero xs
     if count = 0 then invalidOp SR.inputSequenceEmpty
-    LanguagePrimitives.DivideByInt< ^U> total count
+    LanguagePrimitives.DivideByInt total count
 
 let permute f (xs: 'T seq) =
     delay (fun () ->
@@ -1021,14 +1032,13 @@ let permute f (xs: 'T seq) =
         |> ofArray
     )
 
-// let chunkBySize (chunkSize: int) (xs: 'T seq): seq<'T seq> =
-//     delay (fun () ->
-//         xs
-//         |> toArray
-//         |> Array.chunkBySize chunkSize
-//         |> Array.map ofArray
-//         |> ofArray
-//     )
+let chunkBySize (chunkSize: int) (xs: 'T seq): 'T[] seq =
+    delay (fun () ->
+        xs
+        |> toArray
+        |> Array.chunkBySize chunkSize
+        |> ofArray
+    )
 
 // let insertAt (index: int) (y: 'T) (xs: 'T seq): 'T seq =
 //     let mutable isDone = false

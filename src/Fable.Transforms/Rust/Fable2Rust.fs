@@ -638,7 +638,7 @@ module TypeInfo =
         let ty =
             match t with
             | Fable.Measure _
-            | Fable.Any -> mkInferTy () // primitiveType "obj"
+            | Fable.Any -> mkUnitTy () //mkInferTy () // primitiveType "obj"
             | Fable.GenericParam(name, _) ->
                 mkGenericPathTy [name] None
                 // match Map.tryFind name genMap with
@@ -1460,6 +1460,8 @@ module Util =
             expr // no cast needed
         | Replacements.Numeric, Replacements.Numeric ->
             expr |> mkCastExpr ty
+        | Fable.Char, Fable.Number(UInt32, None) ->
+            expr |> mkCastExpr ty
         | Fable.Array _, IEnumerable com _ ->
             libCall com ctx None [] "Seq" "ofArray" [fableExpr]
         | Fable.List _, IEnumerable com _ ->
@@ -1991,8 +1993,8 @@ module Util =
                 | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
                 | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
 
-            let left = transformExprMaybeUnwrapRef com ctx left |> maybeAddParens left
-            let right = transformExprMaybeUnwrapRef com ctx right |> maybeAddParens right
+            let left = transformLeaveContextByValue com ctx None None left |> maybeAddParens left
+            let right = transformLeaveContextByValue com ctx None None right |> maybeAddParens right
 
             match typ, kind with
             | Fable.String, Rust.BinOpKind.Add ->
@@ -2048,7 +2050,7 @@ module Util =
         | Fable.Get(callee, Fable.FieldGet(membName, _isMutable), _t, _r) ->
             // this is an instance call
             let namesp, name = splitNameSpace membName
-            let callee = transformExprMaybeIdentExpr com ctx range callee
+            let callee = transformExprMaybeUnwrapRef com ctx callee
             mkMethodCallExpr name None callee args
 
         | Fable.Import(info, t, r) ->
@@ -3456,6 +3458,13 @@ module Util =
         // TODO: not perfect, local name shadowing will ignore captured names
         | Fable.ForLoop(ident, _, _, _, _, _) ->
             ignoredNames.Add(ident.Name) |> ignore
+            None
+        | Fable.Lambda(arg, _, _) ->
+            ignoredNames.Add(arg.Name) |> ignore
+            None
+        | Fable.Delegate(args, body, name) ->
+            args |> List.iter (fun arg ->
+                ignoredNames.Add(arg.Name) |> ignore)
             None
         | Fable.Let(ident, _, _) ->
             ignoredNames.Add(ident.Name) |> ignore
