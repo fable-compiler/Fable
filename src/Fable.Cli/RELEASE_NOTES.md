@@ -1,3 +1,8 @@
+### 3.7.0-beta-005
+
+* Fix cache issues
+* Seeded random
+
 ### 3.7.0-beta-004
 
 * Fix watch mode and runFast optimization

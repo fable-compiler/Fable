@@ -317,7 +317,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.References = crackerResponse.References
     member _.PrecompiledInfo = crackerResponse.PrecompiledInfo
-    member _.CacheInvalidated = crackerResponse.CacheInvalidated
+    member _.CanReuseCompiledFiles = crackerResponse.CanReuseCompiledFiles
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
     member _.FableLibDir = crackerResponse.FableLibDir
@@ -663,10 +663,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // so changes while compiling get enqueued
     let state = { state with Watcher = state.Watcher |> Option.map (fun w -> w.Watch(projCracked)) }
 
-    // If not in watch mode and not projCracked.CacheInvalidated, skip compilation if compiled files are up-to-date
+    // If not in watch mode and projCracked.CanReuseCompiledFiles, skip compilation if compiled files are up-to-date
     // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
     if Option.isNone state.Watcher
-        && not projCracked.CacheInvalidated
+        && projCracked.CanReuseCompiledFiles
         && areCompiledFilesUpToDate state filesToCompile then
             Log.always "Skipped compilation because all generated files are up-to-date!"
             return state, 0
@@ -675,7 +675,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         let state, cliArgs =
             match cliArgs.RunProcess with
             | Some runProc when Option.isSome state.Watcher
-                                && not projCracked.CacheInvalidated
+                                && projCracked.CanReuseCompiledFiles
                                 && not runProc.IsWatch
                                 && runProc.ExeFile <> Naming.placeholder
                                 && areCompiledFilesUpToDate state filesToCompile ->
