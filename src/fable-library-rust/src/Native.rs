@@ -34,6 +34,10 @@ pub mod Native {
         Rc::from(s)
     }
 
+    pub fn toChar(code: &u32) -> char {
+        unsafe { core::char::from_u32_unchecked(*code) }
+    }
+
     pub fn arrayEmpty<T: Clone>() -> Rc<MutCell<Vec<T>>> {
         Rc::from(MutCell::from(Vec::new()))
     }

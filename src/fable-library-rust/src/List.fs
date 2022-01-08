@@ -87,12 +87,20 @@ let last (xs: 'T list) =
     | Some x -> x
     | None -> failwith SR.inputListWasEmpty
 
+// Option.toList redirects here to avoid dependency
 let ofOption<'T> (opt: 'T option): 'T list =
     match opt with
     | Some x -> singleton x
     | None -> empty()
 
-let toArray (xs: 'T list) =
+// Redirected to Seq.toList to avoid dependency (see Replacements)
+// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
+
+// Redirected to Seq.ofList to avoid dependency (see Replacements)
+// let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
+
+let toArray (xs: 'T list): 'T[] =
+    // TODO: optimize to avoid double-copy
     let len = length xs
     let res = ResizeArray<_>(len)
     let mutable xs = xs
@@ -164,23 +172,17 @@ let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
             inner_loop gen acc root t
     inner_loop gen state (empty()) (empty())
 
-let iterate action xs =
+let iterate action (xs: 'T list) =
     fold (fun () x -> action x) () xs
 
-let iterate2 action xs ys =
+let iterate2 action (xs: 'T1 list) (ys: 'T2 list) =
     fold2 (fun () x y -> action x y) () xs ys
 
-let iterateIndexed action xs =
+let iterateIndexed action (xs: 'T list) =
     fold (fun i x -> action i x; i + 1) 0 xs |> ignore
 
-let iterateIndexed2 action xs ys =
+let iterateIndexed2 action (xs: 'T1 list) (ys: 'T2 list) =
     fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
-
-// Redirected to Seq.ofList to avoid dependency (see Replacements)
-// let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
-
-// Redirected to Seq.toList to avoid dependency (see Replacements)
-// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
 
 let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
     let mutable res = tail
@@ -197,28 +199,28 @@ let append (xs: 'T list) (ys: 'T list) =
 
 let choose (chooser: 'T -> 'U option) (xs: 'T list) =
     let mutable root = empty()
-    let mutable acc = root
+    let mutable node = root
     let mutable xs = xs
     while not (isEmpty xs) do
         match chooser (head xs) with
         | Some x ->
-            acc <- acc |> appendConsNoTail x
-            if isEmpty root then root <- acc
+            node <- node |> appendConsNoTail x
+            if isEmpty root then root <- node
         | None -> ()
         xs <- tail xs
     root
 
-// see Seq.concatLists for concatenating sequence of lists
+// List.concat will first call Seq.toList if needed, see Replacements
 let concat<'T> (sources: 'T list list) =
     let mutable root = empty()
-    let mutable acc = root
+    let mutable node = root
     let mutable xs = sources
     let mutable ys = empty()
     while not (isEmpty xs) do
         ys <- head xs
         while not (isEmpty ys) do
-            acc <- acc |> appendConsNoTail (head ys)
-            if isEmpty root then root <- acc
+            node <- node |> appendConsNoTail (head ys)
+            if isEmpty root then root <- node
             ys <- tail ys
         xs <- tail xs
     root
@@ -307,12 +309,6 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'St
     let st = fold folder state (reverse xs)
     ys, st
 
-// Redirected to Seq.concatLists to avoid dependency (see Replacements)
-// let concat (arrays: 'T[] seq) = Seq.concatLists
-
-// Redirected to Seq.collectLists to avoid dependency (see Replacements)
-// let collect (mapping: 'T -> 'U list) (xs: 'T list) = Seq.collectLists
-
 let tryPick (chooser: 'T -> 'U option) (xs: 'T list) =
     let rec inner_loop (chooser: 'T -> 'U option) (xs: 'T list) =
         if isEmpty xs then None
@@ -391,24 +387,25 @@ let initialize count (initializer: int -> 'T) =
     unfold gen 0
 
 let pairwise (xs: 'T list) =
-    toArray xs
+    xs
+    |> toArray
     |> Array.pairwise
     |> ofArray
 
 let partition (predicate: 'T -> bool) (xs: 'T list) =
     let mutable root1 = empty()
     let mutable root2 = empty()
-    let mutable acc1 = root1
-    let mutable acc2 = root2
+    let mutable node1 = root1
+    let mutable node2 = root2
     let mutable xs = xs
     while not (isEmpty xs) do
         let x = head xs
         if predicate x then
-            acc1 <- acc1 |> appendConsNoTail x
-            if isEmpty root1 then root1 <- acc1
+            node1 <- node1 |> appendConsNoTail x
+            if isEmpty root1 then root1 <- node1
         else
-            acc2 <- acc2 |> appendConsNoTail x
-            if isEmpty root2 then root2 <- acc2
+            node2 <- node2 |> appendConsNoTail x
+            if isEmpty root2 then root2 <- node2
         xs <- tail xs
     root1, root2
 
@@ -452,12 +449,12 @@ let sortDescending (xs: 'T list) =
 let sortByDescending (projection: 'T -> 'U) (xs: 'T list) =
     sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
-let inline sum (xs: ^T list): ^T =
-    let zero = LanguagePrimitives.GenericZero< ^T>
+let inline sum (xs: 'T list): 'T =
+    let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + x) zero xs
 
-let inline sumBy (projection: 'T -> ^U) (xs: 'T list): ^U =
-    let zero = LanguagePrimitives.GenericZero< ^U>
+let inline sumBy (projection: 'T -> 'U) (xs: 'T list): 'U =
+    let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + (projection x)) zero xs
 
 let maxBy (projection: 'T -> 'U) (xs: 'T list): 'T =
@@ -475,42 +472,45 @@ let min (xs: 'T list): 'T =
 let inline average (xs: 'T list): 'T =
     if isEmpty xs then invalidOp SR.inputListWasEmpty
     let mutable count = 0
-    let zero = LanguagePrimitives.GenericZero< ^T>
+    let zero = LanguagePrimitives.GenericZero
     let folder acc x = count <- count + 1; acc + x
     let total = fold folder zero xs
-    LanguagePrimitives.DivideByInt< ^T> total count
+    LanguagePrimitives.DivideByInt total count
 
-let inline averageBy (projection: 'T -> ^U) (xs: 'T list) : ^U =
+let inline averageBy (projection: 'T -> 'U) (xs: 'T list) : 'U =
     if isEmpty xs then invalidOp SR.inputListWasEmpty
     let mutable count = 0
-    let zero = LanguagePrimitives.GenericZero< ^U>
+    let zero = LanguagePrimitives.GenericZero
     let folder acc x = count <- count + 1; acc + (projection x)
     let total = fold folder zero xs
-    LanguagePrimitives.DivideByInt< ^U> total count
+    LanguagePrimitives.DivideByInt total count
 
 let permute (indexMap: int -> int) (xs: 'T list) =
-    toArray xs
+    xs
+    |> toArray
     |> Array.permute indexMap
     |> ofArray
 
-// let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
-//     toArray xs
-//     |> Array.chunkBySize chunkSize
-//     |> Array.map ofArray
-//     |> ofArray
+let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
+    xs
+    |> toArray
+    |> Array.chunkBySize chunkSize
+    |> Array.map ofArray
+    |> ofArray
 
-// let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
-//     let root = (empty())
-//     let mutable node = root
-//     iterate (fun x ->
-//         iterate (fun y ->
-//             node <- node |> appendConsNoTail (x, y)
-//         ) ys) xs
-//     node |> setConsTailEmpty
-//     root |> tail
+let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
+    let mutable root = empty()
+    let mutable node = root
+    iterate (fun x ->
+        iterate (fun y ->
+            node <- node |> appendConsNoTail (x, y)
+            if isEmpty root then root <- node
+        ) ys) xs
+    root
 
 let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-    toArray xs
+    xs
+    |> toArray
     |> Array.scan folder state
     |> ofArray
 
@@ -581,25 +581,33 @@ let tryExactlyOne (xs: 'T list) =
 let where predicate (xs: 'T list) =
     filter predicate xs
 
-// let windowed (windowSize: int) (xs: 'T list): 'T list list =
-//     toArray xs
-//     |> Array.windowed windowSize
-//     |> Array.map ofArray
-//     |> ofArray
+let windowed (windowSize: int) (xs: 'T list): 'T list list =
+    xs
+    |> toArray
+    |> Array.windowed windowSize
+    |> Array.map ofArray
+    |> ofArray
 
-// let splitInto (chunks: int) (xs: 'T list): 'T list list =
-//     toArray xs
-//     |> Array.splitInto chunks
-//     |> Array.map ofArray
-//     |> ofArray
+let splitInto (chunks: int) (xs: 'T list): 'T list list =
+    xs
+    |> toArray
+    |> Array.splitInto chunks
+    |> Array.map ofArray
+    |> ofArray
 
-// let transpose (lists: seq<'T list>): 'T list list =
-//     lists
-//     |> Array.ofSeq
-//     |> Array.map toArray
-//     |> Array.transpose
-//     |> Array.map ofArray
-//     |> ofArray
+// List.transpose will first call Seq.toList if needed (see Replacements)
+let transpose (lists: 'T list list): 'T list list =
+    if isEmpty lists then
+        empty()
+    else
+        let roots = head lists |> map singleton
+        let nodes = roots |> toArray
+        tail lists |> iterate (fun xs ->
+            xs |> iterateIndexed (fun i x ->
+                if i >= nodes.Length then
+                    invalidArg "lists" SR.differentLengths
+                nodes.[i] <- nodes.[i] |> appendConsNoTail x))
+        roots
 
 // let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
 //     let mutable i = -1
