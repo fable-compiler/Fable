@@ -39,6 +39,8 @@
     <Compile Include="Array.fs" />
     <Compile Include="Range.fs" />
     <Compile Include="Option.fs" />
+    <Compile Include="Result.fs" />
+    <Compile Include="Choice.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="lib.fs" />
   </ItemGroup>

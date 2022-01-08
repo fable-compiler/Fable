@@ -51,7 +51,7 @@ let ``Integer division doesn't produce floats`` () =
     5. / 2. |> equal 2.5
     5 / 2 |> equal 2
     5 / 3 |> equal 1
-    // float 5 / 2. |> equal 2.5 // TODO: Number conversion
+    float 5 / 2. |> equal 2.5
 
 [<Fact>]
 let ``Infix modulo can be generated`` () =
@@ -368,7 +368,7 @@ let ``Int64 Integer division doesn't produce floats`` () =
     5. / 2. |> equal 2.5
     5L / 2L |> equal 2L
     5L / 3L |> equal 1L
-    // float 5L / 2. |> equal 2.5 // TODO: Number conversion
+    float 5L / 2. |> equal 2.5
 
 [<Fact>]
 let ``Int64 Infix modulo can be generated`` () =
@@ -699,17 +699,23 @@ let ``Math.log2 works`` () =
 let ``Math.log10 works`` () =
     Math.Log10 232.12 |> checkTo3dp 2365.
 
-// [<Fact>]
-// let ``incr works`` () =
-//     let i = ref 5
-//     incr i
-//     !i |> equal 6
+[<Fact>]
+let ``incr works`` () =
+    let i = ref 5
+    incr i
+    i := !i + 1
+    !i |> equal 7
+    i.Value <- i.Value + 1
+    i.Value |> equal 8
 
-// [<Fact>]
-// let ``decr works`` () =`
-//     let i = ref 5
-//     decr i
-//     !i |> equal 4
+[<Fact>]
+let ``decr works`` () =
+    let i = ref 5
+    decr i
+    i := !i - 1
+    !i |> equal 3
+    i.Value <- i.Value - 1
+    i.Value |> equal 2
 
 // [<Fact>]
 // let ``System.Random works`` () =

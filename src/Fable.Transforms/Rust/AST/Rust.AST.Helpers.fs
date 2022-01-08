@@ -16,7 +16,7 @@ module Naming =
 
     let allKeywords = HashSet(kw.RustKeywords)
     let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
-    let preludeSymbols = HashSet(["Option"; "Some"; "None"; "String"])
+    let preludeSymbols = HashSet(kw.RustPrelude)
 
     let rawIdent (ident: string) =
         if ident.StartsWith("r#")
@@ -105,6 +105,7 @@ module Tokens =
         |> mkToken
 
     let mkIdentToken symbol: token.Token =
+        let symbol = sanitizeIdent symbol
         token.TokenKind.Ident(symbol, false)
         |> mkToken
 
@@ -970,7 +971,7 @@ module Bounds =
 
     let mkFnTraitGenericBound inputs output: GenericBound =
         let args = mkParenArgs inputs output
-        let path = mkGenericPath ["Fn"] args
+        let path = mkGenericPath [rawIdent "Fn"] args
         mkTraitGenericBound path
 
     let mkTypeTraitGenericBound names genArgs: GenericBound =
