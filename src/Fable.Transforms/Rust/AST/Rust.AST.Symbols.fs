@@ -164,6 +164,21 @@ module kw =
         Union
     ]
 
+    let RustPrelude = [
+        "Copy"; "Send"; "Sized"; "Sync"; "Unpin";
+        "drop"; "Drop"; "Fn"; "FnMut"; "FnOnce";
+        "Box"; "ToOwned"; "Clone";
+        "PartialEq"; "PartialOrd"; "Eq"; "Ord";
+        "AsRef"; "AsMut"; "Into"; "From"; "Default"
+        "Iterator"; "Extend"; "IntoIterator";
+        "DoubleEndedIterator"; "ExactSizeIterator";
+        "Option"; "Some"; "None";
+        "Result"; "Ok"; "Err";
+        "String"; "ToString";
+        "TryFrom"; "TryInto";
+        "Vec"; "FromIterator";
+    ]
+
 // Pre-interned symbols that can be referred to with `rustc_span::sym::*`.
 //
 // The symbol is the stringified identifier unless otherwise specified, in

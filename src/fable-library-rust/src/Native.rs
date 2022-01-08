@@ -5,9 +5,10 @@ pub(crate) mod Lazy;
 pub(crate) mod Mutable;
 
 // re-export at crate root level
-pub use std::rc::Rc;
 pub use Lazy::*;
 pub use Mutable::*;
+
+use std::rc::Rc;
 
 pub mod Native {
     use super::*;
@@ -36,6 +37,10 @@ pub mod Native {
 
     pub fn toChar(code: &u32) -> char {
         unsafe { core::char::from_u32_unchecked(*code) }
+    }
+
+    pub fn refCell<T: Clone>(x: &T) -> Rc<MutCell<T>> {
+        Rc::from(MutCell::from(x.clone()))
     }
 
     pub fn arrayEmpty<T: Clone>() -> Rc<MutCell<Vec<T>>> {

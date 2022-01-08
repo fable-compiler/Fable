@@ -222,6 +222,7 @@ let (|NumberExt|_|) = function
     | _ -> None
 
 let (|Numeric|NonNumeric|) = function
+    | Enum _
     | Number _
     | Builtin BclInt64
     | Builtin BclUInt64
@@ -362,7 +363,7 @@ let coreModFor = function
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
-    | FSharpResult _ -> "Choice"
+    | FSharpResult _ -> "Result"
     | FSharpChoice _ -> "Choice"
     | FSharpReference _ -> "Types"
     | BclHashSet _ -> "MutableSet"
@@ -1156,9 +1157,9 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition BclUIntPtr -> fail "unativeint" // TODO:
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
-    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
+    // | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
+    // | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Result" |> Some
+    // | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1424,14 +1425,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | _ -> None
 
-let getReference r t expr = getAttachedMemberWith r t expr "contents"
-let setReference r expr value = setExpr r expr (makeStrConst "contents") value
-let newReference com r t value = Helper.LibCall(com, "Types", "FSharpRef", t, [value], isJsConstructor=true, ?loc=r)
+let getReference r t expr = Helper.InstanceCall(expr, "get", t, [])
+let setReference r t expr value = Helper.InstanceCall(expr, "set", t, [value]) |> nativeCall
+let newReference com r t value = Helper.LibCall(com, "Native", "refCell", t, [value], ?loc=r)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ -> getReference r t callee |> Some
-    | "set_Value", Some callee, [value] -> setReference r callee value |> Some
+    | "set_Value", Some callee, [value] -> setReference r t callee value |> Some
     | _ -> None
 
 let getMangledNames (i: CallInfo) (thisArg: Expr option) =
@@ -1709,11 +1710,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Snd", [tup] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
     | "op_Dereference", [arg] -> getReference r t arg  |> Some
-    | "op_ColonEquals", [o; v] -> setReference r o v |> Some
+    | "op_ColonEquals", [o; v] -> setReference r t o v |> Some
     | "Ref", [arg] -> newReference com r t arg |> Some
-    | ("Increment"|"Decrement"), _ ->
-        if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
-        |> emitJsExpr r t args |> Some
+    | "Increment", [arg] ->
+        let v = add (getReference r t arg) (getOne com ctx t)
+        setReference r t arg v |> Some
+    | "Decrement", [arg] ->
+        let v = sub (getReference r t arg) (getOne com ctx t)
+        setReference r t arg v |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | (Operators.inequality | "Neq"), [left; right] -> equals com ctx r false left right |> Some
@@ -2232,10 +2236,8 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ("Bind" | "Map" | "MapError") as meth ->
-        Some ("Result_" + meth)
+        Helper.LibCall(com, "Result", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
-    |> Option.map (fun meth ->
-        Helper.LibCall(com, "Choice", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
