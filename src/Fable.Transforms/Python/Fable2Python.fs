@@ -1169,10 +1169,10 @@ module Util =
         Statement.expr(callSuper args)
 
     let makeClassConstructor (args: Arguments) (isOptional: bool) body =
-        // printfn "makeClassConstructor: %A" body
+        // printfn "makeClassConstructor: %A" (args.Args, body)
         let name = Identifier("__init__")
         let self = Arg.arg("self")
-        let args =
+        let args_ =
             match args.Args with
             | [ _unit ] when isOptional ->
                 { args with Args = self::args.Args; Defaults=[ Expression.none ] }
@@ -1182,7 +1182,7 @@ module Util =
         match args.Args, body with
         | [], []
         | [], [ Statement.Pass ] -> [] // Remove empty `__init__` with no arguments
-        | _ -> [ Statement.functionDef(name, args, body = body, returns=Expression.none) ]
+        | _ -> [ Statement.functionDef(name, args_, body = body, returns=Expression.none) ]
 
     let callFunction r funcExpr (args: Expression list) (kw: Keyword list) =
         Expression.call(funcExpr, args, kw=kw, ?loc=r)
