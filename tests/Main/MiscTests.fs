@@ -271,7 +271,7 @@ type RecursiveType(subscribe) as self =
     member __.Add2(i) = self.MultiplyFoo(i) + 2
     member __.MultiplyFoo(i) = i * foo
 
-type TestInliningMutation(l: int, r: int) =
+type InliningMutationTest(l: int, r: int) =
         let mutable left = 0
 
         let call() =
@@ -1217,8 +1217,8 @@ let tests =
         let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
 
         let runCase (l: int) (r: int) (expect: int) =
-            TestInliningMutation(l, r).Run() |> equal expect
-            TestInliningMutation(l, r).Run() |> equal expect
+            InliningMutationTest(l, r).Run() |> equal expect
+            InliningMutationTest(l, r).Run() |> equal expect
 
         for (l, r, ``l + r``) in ``inlineData PR #2683`` do
             runCase l r ``l + r``
