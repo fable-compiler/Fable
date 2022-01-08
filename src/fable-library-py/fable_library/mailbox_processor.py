@@ -108,15 +108,15 @@ class MailboxProcessor(Generic[Msg]):
         return from_continuations(callback)
 
     def __process_events(self) -> None:
+        if not self.continuation:
+            return
+
         # Cancellation of async workflows is more tricky in Python than
         # with F# so we check the cancellation token for each process.
         if self.token.is_cancellation_requested:
             self.continuation, cont = [], self.continuation
-            if cont is not None:
+            if cont:
                 cont[2](OperationCanceledError("Mailbox was cancelled"))
-            return
-
-        if self.continuation is None:
             return
 
         with self.lock:
@@ -125,7 +125,7 @@ class MailboxProcessor(Generic[Msg]):
             msg = self.messages.get()
             self.continuation, cont = [], self.continuation
 
-        if cont is not None:
+        if cont:
             cont[0](msg)
 
     @staticmethod
