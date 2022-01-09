@@ -755,7 +755,9 @@ module Annotation =
         | Fable.LambdaType(argType, returnType) ->
             let argTypes, returnType = Util.uncurryLambdaType t
             genericTypeAnnotation "Callable" (argTypes @ [ returnType ])
-        | Fable.Option(genArg,_)   -> fableModuleTypeHint "option" "Option" [ genArg ] None
+        | Fable.Option(genArg,_) ->
+            //fableModuleTypeHint "option" "Option" [ genArg ] None
+            genericTypeAnnotation "Optional" [ genArg ]
         | Fable.Tuple(genArgs,_)   -> genericTypeAnnotation "Tuple" genArgs
         | Fable.Array genArg ->
             match genArg with
@@ -835,6 +837,14 @@ module Annotation =
                 fableModuleAnnotation com ctx "util"  "ICollection" resolved, stmts
             | Types.idisposable, _ ->
                 libValue com ctx "util" "IDisposable", []
+            | Types.iobserverGeneric, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                fableModuleAnnotation com ctx "observable"  "IObserver" resolved, stmts
+            | Types.iobservableGeneric, _ ->
+                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
+                fableModuleAnnotation com ctx "observable"  "IObservable" resolved, stmts
+            | Types.cancellationToken, _ ->
+                libValue com ctx "async_builder" "CancellationToken", []
             | _ ->
                 let ent = com.GetEntity(entRef)
                 if ent.IsInterface then
@@ -3030,13 +3040,13 @@ module Util =
                     |> List.append [ callSuperAsStatement baseArgs ]
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)
-
         [
             yield! declareType com ctx classEnt classDecl.Name consArgs isOptional consBody baseExpr classMembers
             exposedCons
         ]
 
     let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) =
+        // printfn "transformInterface"
         let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
         let members =
             classEnt.MembersFunctionsAndValues
@@ -3076,18 +3086,23 @@ module Util =
         ]
 
         let bases = [
-            for ref in classEnt.AllInterfaces |> List.ofSeq |> List.map (fun int -> int.Entity) do
+            let interfaces =
+                classEnt.AllInterfaces
+                |> List.ofSeq
+                |> List.map (fun int -> int.Entity)
+                |> List.filter (fun ent -> ent.FullName <> classEnt.FullName)
+
+            for ref in interfaces do
                 let entity = com.GetEntity(ref)
+                // printfn "FullName: %A" entity.FullName
                 match entity.FullName with
                 | "System.IDisposable" ->
                     let iDisposable = libValue com ctx "util" "IDisposable"
                     iDisposable
-                | name when name <> classEnt.FullName ->
-                    Expression.name(Helpers.removeNamespace name)
-                | _ -> ()
+                | name -> Expression.name(Helpers.removeNamespace name)
 
             // Only add Protocol base if no interfaces (since the included interfaces will be protocols themselves)
-            if Seq.isEmpty classEnt.AllInterfaces then
+            if List.isEmpty interfaces then
                 com.GetImportExpr(ctx, "typing", "Protocol")
 
             for gen in classEnt.GenericParameters do
