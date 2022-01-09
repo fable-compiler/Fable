@@ -2909,7 +2909,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
         | [] -> Helper.LibCall(com, "Random", "nonSeeded", t, [], [], ?loc=r) |> Some
         | args -> Helper.LibCall(com, "Random", "seeded", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Not yet supported
-    | ("NextIn64" | "NextSingle"), _ -> None
+    | ("NextInt64" | "NextSingle"), _ -> None
     | meth, Some thisArg ->
         let meth = if meth = "Next" then $"Next{List.length args}" else meth
         Helper.InstanceCall(thisArg, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
