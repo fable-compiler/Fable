@@ -1300,7 +1300,7 @@ module Util =
             match args.Args with
             | [] ->
                 let ta = com.GetImportExpr(ctx, "typing", "Any")
-                Arguments.arguments(args=[ Arg.arg("_unit", annotation=ta) ], defaults=[ Expression.none ])
+                Arguments.arguments(args=[ Arg.arg("__unit", annotation=ta) ], defaults=[ Expression.none ])
             | _ -> args
 
         match body with
@@ -1516,7 +1516,7 @@ module Util =
             let self = Arg.arg("self")
             let args =
                 match decorators with
-                // Remove extra parameters from getters, i.e _unit=None
+                // Remove extra parameters from getters, i.e __unit=None
                 | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
                 | _ -> { args with Args = self::args.Args }
             Statement.functionDef(name, args, body, decorators, returns=returnType)
@@ -2723,7 +2723,7 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], true -> Arguments.arguments(args=Arg.arg(Identifier("_unit"))::tcArgs, defaults=Expression.none::tcDefaults)
+            | [], true -> Arguments.arguments(args=Arg.arg(Identifier("__unit"))::tcArgs, defaults=Expression.none::tcDefaults)
             // So we can also receive unit
             | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none::tcDefaults)
             | _ -> Arguments.arguments(args @ tcArgs, defaults=defaults @ tcDefaults)
