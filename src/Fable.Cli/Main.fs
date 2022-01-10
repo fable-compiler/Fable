@@ -484,12 +484,15 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
         agent.PostAndAsyncReply(GetFableProject)
 
     member _.StartCompilation(sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency) = async {
-        if not isSilent then
-            Log.always "Started Fable compilation..."
-        let! results, ms = Performance.measureAsync <| fun () ->
-            agent.PostAndAsyncReply(fun channel -> StartCompilation(sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency, channel))
-        Log.always $"Fable compilation finished in %i{ms}ms{Log.newLine}"
-        return results
+        if Array.isEmpty filesToCompile then
+            return [||], []
+        else
+            if not isSilent then
+                Log.always "Started Fable compilation..."
+            let! results, ms = Performance.measureAsync <| fun () ->
+                agent.PostAndAsyncReply(fun channel -> StartCompilation(sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency, channel))
+            Log.always $"Fable compilation finished in %i{ms}ms{Log.newLine}"
+            return results
     }
 
     static member CheckIfCompilationIsFinished(state: FableCompilerState) =

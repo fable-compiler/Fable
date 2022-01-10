@@ -6,9 +6,11 @@ open Fable
 
 type CliArgs(args: string list) =
     let argsMap =
-        let even = List.length args % 2 = 0
-        // If arguments are odd, assume last has true value in case it's a flag
-        let args = if even then args else args @ ["true"]
+        let args =
+            // Assume last arg has true value in case it's a flag
+            match List.tryLast args with
+            | Some key when key.StartsWith("-") -> args @ ["true"]
+            | _ -> args
         (Map.empty, List.windowed 2 args) ||> List.fold (fun map pair ->
             match pair with
             | [key; value] when key.StartsWith("-") ->
@@ -73,6 +75,7 @@ let knownCliArgs() = [
 
   // Hidden args
   ["--precompiledLib"], []
+  ["--noReflection"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
@@ -231,6 +234,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
+                                   noReflection = args.FlagEnabled "--noReflection",
                                    verbosity = verbosity)
 
     let cliArgs =
