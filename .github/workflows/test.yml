@@ -8,14 +8,10 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
@@ -30,14 +26,34 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Install pytest runner
-      run: pip install pytest
-
     - name: Fable Tests
       run: dotnet fsi build.fsx test
 
-    - name: Fable Tests - Python
-      run: dotnet fsi build.fsx test-py
-
     - name: Fable Tests - Rust
       run: dotnet fsi build.fsx test-rust
+
+  # Separete job for Python since we use a test matrix (will run in parallell)
+  build-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, "3.10"]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Fable Tests - Python
+        run: dotnet fsi build.fsx test-py
