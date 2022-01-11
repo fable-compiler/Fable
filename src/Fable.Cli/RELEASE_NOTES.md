@@ -1,3 +1,7 @@
+### 3.7.0-beta-007
+
+* Lock file for outDir (mainly intended for parallel processes precompiling the same library)
+
 ### 3.7.0-beta-006
 
 * Allow inlined functions accessing internal values in Fable.Precompiled.dll (FCS)
