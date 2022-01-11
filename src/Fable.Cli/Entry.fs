@@ -268,10 +268,15 @@ type Runner =
             |> Some
         else None
 
-    return!
+    let startCompilation() =
         State.Create(cliArgs, ?watchDelay=watchDelay)
         |> startCompilation
         |> Async.RunSynchronously
+
+    return!
+        match outDir with
+        | None -> startCompilation()
+        | Some outDir -> File.withLock outDir startCompilation
 }
 
 let clean (args: CliArgs) rootDir =

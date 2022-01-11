@@ -195,6 +195,33 @@ module File =
     let isDirectoryEmpty dir =
         not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
+    let withLock (dir: string) (action: unit -> 'T) =
+        let mutable fileCreated = false
+        let lockFile = Path.Join(dir, "fable.lock")
+        try
+            Directory.CreateDirectory dir |> ignore
+
+            let mutable acc = 0
+            let waitMs = 1000
+            let timeoutMs = waitMs * 60 * 10
+            while File.Exists(lockFile) do
+                if acc = 0 then
+                    Log.always $"Directory is locked, waiting for max {timeoutMs}s"
+                    Log.always $"If compiler gets stuck, delete {lockFile}"
+                elif acc > timeoutMs then
+                    FableError "LockTimeOut" |> raise
+                acc <- acc + waitMs
+                Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+
+            File.Create(lockFile) |> ignore
+            fileCreated <- true
+            action()
+        finally
+            try
+                if fileCreated then
+                    File.Delete(lockFile)
+            with _ -> ()
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Runtime
