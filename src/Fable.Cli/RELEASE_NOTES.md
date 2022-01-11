@@ -1,3 +1,11 @@
+### 3.7.0-beta-006
+
+* Allow inlined functions accessing internal values in Fable.Precompiled.dll (FCS)
+* Shorten logs in same line if longer than 80 chars (so they don't jump to next line)
+* Check paket.references/paket.lock when checking if project cracker cached info is outdates
+* Add flag to disable reflection
+* Fix #2709: error when using JsInterop.import in inlined functions
+
 ### 3.7.0-beta-005
 
 * Fix cache issues

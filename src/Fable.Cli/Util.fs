@@ -78,6 +78,7 @@ module Log =
 
     let inSameLineIfNotCI (msg: string) =
         if not isCi then
+            // If the message is longer than the terminal width it will jump to next line
             let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
             let curCursorLeft = Console.CursorLeft
             Console.SetCursorPosition(0, Console.CursorTop)
@@ -127,11 +128,6 @@ module Log =
 module File =
     open System.IO
 
-    let existsAndIsOlderThan (dt: DateTime) (targetPath: string) =
-        try
-            File.Exists(targetPath) && dt > File.GetLastWriteTime(targetPath)
-        with _ -> false
-
     let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
         try
             File.Exists(targetPath) && File.GetLastWriteTime(sourcePath) < File.GetLastWriteTime(targetPath)
@@ -158,12 +154,17 @@ module File =
             return ""
     }
 
-    let rec tryFindPackageJsonDir dir =
-        if File.Exists(Path.Combine(dir, "package.json")) then Some dir
+    let rec tryFindUpwards fileName dir =
+        let filePath = Path.Combine(dir, fileName)
+        if File.Exists(filePath) then Some filePath
         else
             let parent = Directory.GetParent(dir)
             if isNull parent then None
-            else tryFindPackageJsonDir parent.FullName
+            else tryFindUpwards fileName parent.FullName
+
+    let rec tryFindPackageJsonDir dir =
+        tryFindUpwards "package.json" dir
+        |> Option.map (fun file -> Path.GetDirectoryName(file))
 
     let tryNodeModulesBin workingDir exeFile =
         tryFindPackageJsonDir workingDir

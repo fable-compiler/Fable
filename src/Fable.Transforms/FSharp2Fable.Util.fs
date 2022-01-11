@@ -1597,10 +1597,8 @@ module Util =
             let entityName = (getEntityDeclarationName com ent.Ref) + suffix
             if file = com.CurrentFile then
                 makeTypedIdentExpr (getEntityType ent) entityName
-            elif ent.IsPublic then
-                makeImportInternal com Fable.Any entityName file
             else
-                error "Cannot inline functions that reference private entities"
+                makeImportInternal com Fable.Any entityName file
 
     let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
