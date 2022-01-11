@@ -78,6 +78,7 @@ module Log =
 
     let inSameLineIfNotCI (msg: string) =
         if not isCi then
+            let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
             let curCursorLeft = Console.CursorLeft
             Console.SetCursorPosition(0, Console.CursorTop)
             Console.Out.Write(msg)

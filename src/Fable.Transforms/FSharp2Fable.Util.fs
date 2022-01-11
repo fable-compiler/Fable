@@ -277,7 +277,7 @@ type Witness =
         | _ -> []
 
 type Context =
-    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
+    { Scope: (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       ScopeInlineArgs: (Fable.Ident * Fable.Expr) list
       UsedNamesInRootScope: Set<string>
@@ -1348,9 +1348,6 @@ module Identifiers =
     open Helpers
     open TypeHelpers
 
-    let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
-        { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
-
     let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
                             ||> Naming.sanitizeIdent (isUsedName ctx)
@@ -1363,15 +1360,11 @@ module Identifiers =
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
-    let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
+    let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
-        putIdentInScope ctx fsRef ident None, ident
+        { ctx with Scope = (Some fsRef, ident, value)::ctx.Scope }, ident
 
-    let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
-
-    let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
-        let ident = makeIdentFrom com ctx fsRef
-        putIdentInScope ctx fsRef ident (Some value), ident
+    let (|PutIdentInScope|) com ctx fsRef = putIdentInScope com ctx fsRef None
 
     let identWithRange r (ident: Fable.Ident) =
         let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
@@ -1379,8 +1372,9 @@ module Identifiers =
 
     let tryGetIdentFromScopeIf (ctx: Context) r predicate =
         ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
-            if predicate fsRef then identWithRange r ident |> Fable.IdentExpr |> Some
-            else None)
+            fsRef
+            |> Option.filter predicate
+            |> Option.map (fun _ -> identWithRange r ident |> Fable.IdentExpr))
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
@@ -1396,7 +1390,7 @@ module Util =
         let ctx, args =
             ((ctx, []), args)
             ||> List.fold (fun (ctx, accArgs) var ->
-                let newContext, arg = putArgInScope com ctx var
+                let newContext, arg = putIdentInScope com ctx var None
                 newContext, arg::accArgs)
         ctx, List.rev args
 
@@ -1404,12 +1398,12 @@ module Util =
         let ctx, transformedArgs, args =
             match args with
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsMemberThisValue ->
-                let ctx, thisArg = putArgInScope com ctx firstArg
+                let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
-                let ctx, thisArg = putArgInScope com ctx firstArg
+                let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
@@ -1424,7 +1418,7 @@ module Util =
     let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
-            | Some (PutArgInScope com ctx (catchContext, catchVar), catchBody) ->
+            | Some (PutIdentInScope com ctx (catchContext, catchVar), catchBody) ->
                 // Add caughtException to context so it can be retrieved by `reraise`
                 let catchContext = { catchContext with CaughtException = Some catchVar }
                 Some (catchVar, com.Transform(catchContext, catchBody))
