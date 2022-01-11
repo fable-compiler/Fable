@@ -1,5 +1,6 @@
 module Counter
 
+open Fable.React
 open Feliz
 
 [<ReactComponent>]
@@ -17,5 +18,8 @@ let Counter() =
                 prop.text "Increment"
                 prop.onClick (fun _ -> setCount(count + 1))
             ]
+
+            // Check that fluent-ui bindings work, see #2709
+            Fable.FluentUI.Button.defaultButton [] [ str "A fluent button" ]
         ]
     ]

@@ -8,6 +8,7 @@
     <Compile Include="__tests__/Tests.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fable.FluentUI" Version="0.6.0" />
     <PackageReference Include="Fable.Jester" Version="0.29.1" />
     <PackageReference Include="Fable.ReactTestingLibrary" Version="0.29.1" />
     <PackageReference Include="Feliz" Version="1.22.0" />
