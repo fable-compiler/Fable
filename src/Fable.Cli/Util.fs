@@ -77,7 +77,7 @@ module Log =
         verbosity = Fable.Verbosity.Verbose
 
     let inSameLineIfNotCI (msg: string) =
-        if not isCi then
+        // if not isCi then
             // If the message is longer than the terminal width it will jump to next line
             let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
             let curCursorLeft = Console.CursorLeft

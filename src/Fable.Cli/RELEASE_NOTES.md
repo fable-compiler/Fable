@@ -1,3 +1,8 @@
+### 3.7.0-beta-008
+
+* Prevent Fable from getting stuck on fatal errors
+* Show File compiled messages in CI
+
 ### 3.7.0-beta-007
 
 * Lock file for outDir (mainly intended for parallel processes precompiling the same library)
