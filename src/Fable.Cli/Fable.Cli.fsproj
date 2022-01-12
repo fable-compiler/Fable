@@ -5,9 +5,9 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>3.7.0</Version>
-    <PackageVersion>3.7.0-beta-008</PackageVersion>
-    <PackageReleaseNotes>* Prevent Fable from getting stuck on fatal errors
-* Show File compiled messages in CI</PackageReleaseNotes>
+    <PackageVersion>3.7.0-beta-009</PackageVersion>
+    <PackageReleaseNotes>* Fix #2718
+* Other stability issues and add more verbose logs</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

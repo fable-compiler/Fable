@@ -1,3 +1,8 @@
+### 3.7.0-beta-009
+
+* Fix #2718
+* Other stability issues and add more verbose logs
+
 ### 3.7.0-beta-008
 
 * Prevent Fable from getting stuck on fatal errors

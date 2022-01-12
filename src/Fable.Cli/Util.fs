@@ -213,8 +213,12 @@ module File =
             while File.Exists(lockFile) do
                 if acc = 0 then
                     // If the lock is too old assume it's there because of a failed compilation
-                    if (DateTime.Now - File.GetCreationTime(lockFile)).TotalMilliseconds > float timeoutMs then
-                        File.Delete(lockFile)
+                    let creationTime = File.GetCreationTime(lockFile)
+                    if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
+                        Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                        try
+                            File.Delete(lockFile)
+                        with _ -> ()
                     else
                         Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
                         Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
