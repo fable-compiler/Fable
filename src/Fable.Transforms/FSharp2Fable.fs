@@ -1451,11 +1451,13 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
         | _, None -> ""
     getRootModuleInner None declarations
 
-type FableCompiler(com: Compiler) =
+type FableCompiler(com: Compiler, ?libDir) =
+    let libDir = defaultArg libDir com.LibraryDir
     let attachedMembers = Dictionary<string, _>()
     let onlyOnceWarnings = HashSet<string>()
 
     member _.Options = com.Options
+    member _.CurrentFile = com.CurrentFile
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
         if attachedMembers.ContainsKey(entityFullName) then
@@ -1564,9 +1566,20 @@ type FableCompiler(com: Compiler) =
                 // Resolve imports. TODO: add test
                 | Fable.Import(info, t, r) as e ->
                     if Path.isRelativePath info.Path then
-                        let path = fixImportedRelativePath com info.Path inExpr.FileName
-                        Fable.Import({ info with Path = path }, t, r) |> Some
-                    else Some e
+                        // If it happens we're importing a member in the current file
+                        // use IdentExpr instead of Import
+                        let isImportToSameFile =
+                            inExpr.FileName = com.CurrentFile && (
+                                let dirName, fileName = Path.GetDirectoryAndFileNames(info.Path)
+                                dirName = "." && fileName = Path.GetFileName(com.CurrentFile)
+                            )
+                        if isImportToSameFile then
+                            Fable.IdentExpr { makeTypedIdent t info.Selector with Range = r }
+                        else
+                            let path = fixImportedRelativePath com info.Path inExpr.FileName
+                            Fable.Import({ info with Path = path }, t, r)
+                    else e
+                    |> Some
 
                 // Resolve type info
                 | Fable.Value(Fable.TypeInfo t, r) ->
@@ -1576,9 +1589,6 @@ type FableCompiler(com: Compiler) =
                 // Resolve the unresolved
                 | Fable.Unresolved e ->
                     match e with
-                    | Fable.UnresolvedMemberRef(info, t, r) ->
-                        resolveMemberRef com ctx r t info |> Some
-
                     | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
                         let t = resolveGenArg ctx t
                         let argTypes = argTypes |> List.map (resolveGenArg ctx)
@@ -1645,9 +1655,9 @@ type FableCompiler(com: Compiler) =
             this.ResolveInlineExpr(ctx, inExpr, args)
 
     interface Compiler with
+        member _.LibraryDir = libDir
         member _.Options = com.Options
         member _.Plugins = com.Plugins
-        member _.LibraryDir = com.LibraryDir
         member _.CurrentFile = com.CurrentFile
         member _.OutputDir = com.OutputDir
         member _.ProjectFile = com.ProjectFile
@@ -1667,12 +1677,16 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) when isInline memb ->
                 let inlineExpr =
                     InlineExprLazy(fun com ->
-                        let com = FableCompiler(com) :> IFableCompiler
+                        let libDir =
+                            Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)
+                            |> Path.normalizeFullPath
+                            |> Path.getRelativeFileOrDirPath false fileName true
+                        let com = FableCompiler(com, libDir) :> IFableCompiler
+
                         // TODO: We may need to set the InlinePath here
                         let ctx = { Context.Create() with
-                                        PrecompilingInlineFunction = Some memb
+                                        PrecompilingInlineFunction = Some(memb, fileName)
                                         UsedNamesInDeclarationScope = HashSet() }
-
                         let ctx, idents =
                             ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
                                 let ctx, ident = putIdentInScope com ctx argId None

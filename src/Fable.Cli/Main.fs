@@ -328,7 +328,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             match triggeredByDependency with
             | Some t -> { cliArgs.CompilerOptions with TriggeredByDependency = t }
             | None -> cliArgs.CompilerOptions
-        CompilerImpl(currentFile, project, opts, crackerResponse.FableLibDir, watchDependencies=cliArgs.IsWatch, ?outDir=cliArgs.OutDir)
+        let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
+        CompilerImpl(currentFile, project, opts, fableLibDir, watchDependencies=cliArgs.IsWatch, ?outDir=cliArgs.OutDir)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
