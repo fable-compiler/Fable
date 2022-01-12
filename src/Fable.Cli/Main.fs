@@ -438,6 +438,8 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     return! loop state
 
                 | FSharpFileTypeChecked file ->
+                    Log.verbose(lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}")
+
                     // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
                     let fileName = file.FileName |> Path.ensureFsExtension
                     let state =
@@ -463,6 +465,8 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     return! loop state
 
                 | FSharpCompilationFinished results ->
+                    Log.verbose(lazy "Type check finished")
+
                     let state =
                         { state with FSharpLogs = getFSharpDiagnostics results.Diagnostics
                                      HasFSharpCompilationFinished = true }
@@ -634,8 +638,12 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
     filesToCompile
     |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
     |> Array.forall (fun source ->
-        getOutPath state.CliArgs pathResolver source
-        |> File.existsAndIsNewerThanSource source)
+        let outPath = getOutPath state.CliArgs pathResolver source
+        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
+        if not existsAndIsNewer then
+            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
+        existsAndIsNewer
+    )
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
