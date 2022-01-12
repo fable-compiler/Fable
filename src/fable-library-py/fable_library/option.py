@@ -84,7 +84,7 @@ def to_nullable(x: Option[_T]) -> Optional[_T]:
 
 
 def flatten(x: Option[Option[_T]]) -> Option[_T]:
-    return None if x is None else value(x)
+    return x if x is None else value(x)
 
 
 def to_array(opt: Option[_T]) -> List[_T]:

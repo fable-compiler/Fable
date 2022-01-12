@@ -1,9 +1,8 @@
 from __future__ import annotations
-from argparse import ArgumentError
 
 import functools
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 from .types import Union as FsUnion, FSharpRef, Record
 from .util import equal_arrays_with
@@ -136,7 +135,7 @@ def is_generic_type(t: TypeInfo) -> bool:
     return t.generics is not None and len(t.generics) > 0
 
 
-def get_generic_type_definition(t):
+def get_generic_type_definition(t: TypeInfo):
     return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
@@ -161,7 +160,7 @@ def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
     return getattr(v, str(propertyInfo[0]))
 
 
-def name(info):
+def name(info: Union[FieldInfo, TypeInfo, CaseInfo]) -> str:
     if isinstance(info, list):
         return info[0]
 
@@ -176,8 +175,8 @@ def name(info):
 def full_name(t: TypeInfo) -> str:
     gen = t.generics if t.generics and not is_array(t) else []
     if len(gen):
-        gen = ",".join([full_name(x) for x in gen])
-        return f"{t.fullname}[{gen}]"
+        gen_ = ",".join([full_name(x) for x in gen])
+        return f"{t.fullname}[{gen_}]"
 
     else:
         return t.fullname
@@ -272,6 +271,7 @@ def get_function_elements(t: TypeInfo) -> List[TypeInfo]:
 
 
 def parse_enum(t: TypeInfo, string: str) -> int:
+    value: Optional[int]
     try:
         value = int(string)
     except Exception:
@@ -329,11 +329,11 @@ def get_tuple_fields(v: Any) -> List:
     return v
 
 
-def get_tuple_field(v: Any, i: int) -> Any:
+def get_tuple_field(v: Tuple[Any, ...], i: int) -> Any:
     return v[i]
 
 
-def make_record(t: TypeInfo, values: List) -> Any:
+def make_record(t: TypeInfo, values: List[Any]) -> Dict[str, Any]:
     fields = get_record_elements(t)
     if len(fields) != len(values):
         raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
@@ -341,19 +341,19 @@ def make_record(t: TypeInfo, values: List) -> Any:
     if t.construct is not None:
         return t.construct(*values)
 
-    def reducer(obj, ifield):
+    def reducer(obj: Dict[str, Any], ifield: Tuple[int, FieldInfo]):
         i, field = ifield
-        obj[field[0]] = values[i]
+        obj[cast(str, field[0])] = values[i]
         return obj
 
     return functools.reduce(reducer, enumerate(fields), {})
 
 
-def make_tuple(values: List, _t: TypeInfo) -> Any:
+def make_tuple(values: List[Any], _t: TypeInfo) -> Tuple[Any, ...]:
     return tuple(values)
 
 
-def make_union(uci: CaseInfo, values: List) -> Any:
+def make_union(uci: CaseInfo, values: List[Any]) -> Any:
     expectedLength = len(uci.fields or [])
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")

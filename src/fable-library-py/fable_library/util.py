@@ -373,8 +373,8 @@ def count(col: Iterable[Any]) -> int:
     return count
 
 
-def clear(col: Optional[List[Any]]) -> None:
-    if isinstance(col, List):
+def clear(col: Optional[Union[Dict[Any, Any], List[Any]]]) -> None:
+    if isinstance(col, (List, Dict)):
         col.clear()
 
 
@@ -447,10 +447,13 @@ class Enumerator(IEnumerator[_T]):
         return
 
 
-def get_enumerator(o: Iterable[_T]) -> Enumerator[_T]:
+def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
+    elif isinstance(o, dict):
+        # Dictionaries should return produce tuples
+        return Enumerator(iter(cast(Any, o.items())))
     else:
         return Enumerator(iter(o))
 

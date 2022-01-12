@@ -22,24 +22,24 @@ type FsField(fi: FSharpField) =
         member _.IsMutable = fi.IsMutable
 
     static member FSharpFieldName (fi: FSharpField) =
-            let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
-                match TypeHelpers.getBaseEntity ent with
-                | None -> acc
-                | Some (baseClass, _) ->
-                    let conflicts =
-                        baseClass.FSharpFields
-                        |> Seq.exists (fun fi -> fi.Name = name)
-                    let acc = if conflicts then acc + 1 else acc
-                    countConflictingCases acc baseClass name
+        let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
+            match TypeHelpers.getBaseEntity ent with
+            | None -> acc
+            | Some (baseClass, _) ->
+                let conflicts =
+                    baseClass.FSharpFields
+                    |> Seq.exists (fun fi -> fi.Name = name)
+                let acc = if conflicts then acc + 1 else acc
+                countConflictingCases acc baseClass name
 
-            let name = fi.Name
-            match fi.DeclaringEntity with
-            | None -> name
-            | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
-            | Some ent ->
-                match countConflictingCases 0 ent name with
-                | 0 -> name
-                | n -> name + "_" + (string n)
+        let name = fi.Name
+        match fi.DeclaringEntity with
+        | None -> name
+        | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion -> name
+        | Some ent ->
+            match countConflictingCases 0 ent name with
+            | 0 -> name
+            | n -> name + "_" + (string n)
 
 [<RequireQualifiedAccess>]
 type CompiledValue =
@@ -442,9 +442,16 @@ module Helpers =
         let name, part = getMemberMangledName (TrimRootModule com) memb
         let name = cleanNameAsJsIdentifier name
         let part = part.Replace(cleanNameAsJsIdentifier)
+
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | Python ->
+                let name =
+                    // Don't snake_case if member has compiled name attribute
+                    match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
+                    | Some _ -> name
+                    | _ -> Fable.PY.Naming.toSnakeCase name
+                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.sanitizeIdent (fun _ -> false) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
@@ -1427,7 +1434,9 @@ module Identifiers =
         let name, part = (fsRef.CompiledName, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
+            | Python ->
+                let name = Fable.PY.Naming.toSnakeCase name
+                Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore

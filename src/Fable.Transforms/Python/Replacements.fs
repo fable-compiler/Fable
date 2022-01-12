@@ -2441,11 +2441,11 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> makeDictionaryWithComparer com r t (makeArray Any []) |> Some
         | _ -> None
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ -> getAttachedMemberWith r t thisArg.Value "size" |> Some
+    | "get_Count", _ -> Helper.GlobalCall("len", t, [thisArg.Value], [t], ?loc=r) |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
-        | Some c, [arg] -> Helper.LibCall(com, "map_util", "containsValue", t, [arg; c], ?loc=r) |> Some
+        | Some c, [arg] -> Helper.LibCall(com, "map_util", "contains_value", t, [arg; c], ?loc=r) |> Some
         | _ -> None
     | "TryGetValue", _ ->
         Helper.LibCall(com, "map_util", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some

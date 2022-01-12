@@ -48,7 +48,7 @@ class Union(IComparable):
 
     @property
     def name(self) -> str:
-        return self.cases()[self.tag]
+        return Union.cases()[self.tag]
 
     def __str__(self) -> str:
         if not len(self.fields):
