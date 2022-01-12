@@ -2379,9 +2379,9 @@ module Util =
             transformObjectExpr com ctx members typ baseCall
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
-            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+            let left, stmts = com.TransformAsExpr(ctx, info.Args.Head)
             let value, stmts' = com.TransformAsExpr(ctx, expr)
-            Expression.compare (value, [ComparisonOperator.In], [right]), stmts @ stmts'
+            Expression.compare (left, [ComparisonOperator.In], [value]), stmts @ stmts'
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="slice"), _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)

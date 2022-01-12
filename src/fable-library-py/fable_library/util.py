@@ -373,8 +373,8 @@ def count(col: Iterable[Any]) -> int:
     return count
 
 
-def clear(col: Optional[List[Any]]) -> None:
-    if isinstance(col, List):
+def clear(col: Optional[Union[Dict[Any, Any], List[Any]]]) -> None:
+    if isinstance(col, (List, Dict)):
         col.clear()
 
 
