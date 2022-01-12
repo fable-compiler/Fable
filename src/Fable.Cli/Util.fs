@@ -77,7 +77,9 @@ module Log =
         verbosity = Fable.Verbosity.Verbose
 
     let inSameLineIfNotCI (msg: string) =
-        // if not isCi then
+        if isVerbose() then
+            Console.Out.WriteLine(msg)
+        elif not isCi then
             // If the message is longer than the terminal width it will jump to next line
             let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
             let curCursorLeft = Console.CursorLeft
@@ -127,6 +129,9 @@ module Log =
 
 module File =
     open System.IO
+
+    let relPathToCurDir (path: string) =
+        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
     let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
         try
@@ -207,9 +212,13 @@ module File =
             let timeoutMs = waitMs * 60 * 10
             while File.Exists(lockFile) do
                 if acc = 0 then
-                    Log.always $"Directory is locked, waiting for max {timeoutMs}s"
-                    Log.always $"If compiler gets stuck, delete {lockFile}"
-                elif acc > timeoutMs then
+                    // If the lock is too old assume it's there because of a failed compilation
+                    if (DateTime.Now - File.GetCreationTime(lockFile)).TotalMilliseconds > float timeoutMs then
+                        File.Delete(lockFile)
+                    else
+                        Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                        Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                elif acc >= timeoutMs then
                     FableError "LockTimeOut" |> raise
                 acc <- acc + waitMs
                 Threading.Thread.Sleep(millisecondsTimeout=waitMs)
@@ -261,7 +270,7 @@ module Process =
 
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
-        Log.always $"""{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {String.concat " " args}"""
+        Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
         for arg in args do

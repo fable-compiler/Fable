@@ -517,9 +517,10 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
     let fableModulesDir = opts.FableModulesDir
 
     let fableLibraryPath =
-        match opts.FableLib with
-        | Some path -> Path.normalizeFullPath path
-        | None ->
+        match opts.PrecompiledLib, opts.FableLib with
+        | Some _, _ -> "" // Fable Library path will be taken from the precompiled info
+        | None, Some path -> Path.normalizeFullPath path
+        | None, None ->
             let assemblyDir =
                 Process.getCurrentAssembly().Location
                 |> Path.GetDirectoryName
@@ -585,8 +586,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         |> function
             | [] -> ()
             | outdated ->
-                let curDir = IO.Directory.GetCurrentDirectory()
-                let outdated = outdated |> List.map (fun f -> "    " + IO.Path.GetRelativePath(curDir, f)) |> String.concat Log.newLine
+                let outdated = outdated |> List.map (fun f -> "    " + File.relPathToCurDir f) |> String.concat Log.newLine
                 // TODO: This should likely be an error but make it a warning for now
                 Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
 
@@ -609,7 +609,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
         opts.CacheInfo |> Option.filter (fun cacheInfo ->
             let cacheTimestamp = cacheInfo.GetTimestamp()
             let isOlderThanCache filePath =
-                IO.File.GetLastWriteTime(filePath) < cacheTimestamp
+                let fileTimestamp = IO.File.GetLastWriteTime(filePath)
+                let isOlder = fileTimestamp < cacheTimestamp
+                if not isOlder then
+                    Log.verbose(lazy $"Cached project info ({cacheTimestamp}) will be discarded because {File.relPathToCurDir filePath} ({fileTimestamp}) is newer")
+                isOlder
 
             cacheInfo.Version = Literals.VERSION && (
                 [
@@ -640,9 +644,21 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         // Check if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
         // (this means the last compilation was done for another build mode so we cannot reuse the files)
-        let canReuseCompiledFiles = cacheInfo.FableOptions = opts.FableOptions && cacheInfo.IsMostRecent
-        // Update the timestamp of the cached options for the corresponding build mode (Debug/Release)
-        cacheInfo.Write()
+        let canReuseCompiledFiles =
+            let sameOptions = cacheInfo.FableOptions = opts.FableOptions
+            if not sameOptions then
+                Log.verbose(lazy "Won't reuse compiled files because last compilation used different options")
+                false
+            else
+                let isMostRecent = cacheInfo.IsMostRecent
+                if not isMostRecent then
+                    Log.verbose(lazy
+                        let otherMode = if cacheInfo.FableOptions.DebugMode then "Release" else "Debug"
+                        $"Won't reuse compiled files because last compilation was for {otherMode} mode")
+                isMostRecent
+
+        // Update cached info with current options and the timestamp for the corresponding build mode (Debug/Release)
+        { cacheInfo with FableOptions = opts.FableOptions }.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
