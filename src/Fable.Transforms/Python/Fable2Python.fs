@@ -3216,6 +3216,7 @@ module Util =
             match name with
             | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
+            |> Naming.toSnakeCase
             |> getUniqueNameInRootScope ctx
             |> Identifier
             |> Some
@@ -3243,7 +3244,7 @@ module Compiler =
                     | Some localIdent -> Expression.identifier(localIdent)
                     | None -> Expression.none
                 | false, _ ->
-                    let localId = getIdentForImport ctx moduleName name
+                    let local_id = getIdentForImport ctx moduleName name
                     // printfn "localId: %A" localId
                     match name with
                     | Some "*"
@@ -3251,7 +3252,7 @@ module Compiler =
                         let i =
                             { Name = None
                               Module = moduleName
-                              LocalIdent = localId }
+                              LocalIdent = local_id }
                         imports.Add(cachedName, i)
                     | Some name ->
                         let i =
@@ -3262,10 +3263,10 @@ module Compiler =
                                 else name
                                 |> Some
                             Module = moduleName
-                            LocalIdent = localId }
+                            LocalIdent = local_id }
                         imports.Add(cachedName, i)
 
-                    match localId with
+                    match local_id with
                     | Some localId -> Expression.identifier(localId)
                     | None -> Expression.none
 
