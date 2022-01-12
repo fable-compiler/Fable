@@ -274,9 +274,9 @@ type Runner =
         |> Async.RunSynchronously
 
     return!
-        match outDir with
-        | None -> startCompilation()
-        | Some outDir -> File.withLock outDir startCompilation
+        match outDir, watch with
+        | Some outDir, false -> File.withLock outDir startCompilation
+        | _ -> startCompilation()
 }
 
 let clean (args: CliArgs) rootDir =

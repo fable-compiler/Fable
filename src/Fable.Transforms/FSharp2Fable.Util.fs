@@ -284,7 +284,7 @@ type Context =
       UsedNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
-      PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
+      PrecompilingInlineFunction: (FSharpMemberOrFunctionOrValue * (* filePath *) string) option
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
@@ -1465,8 +1465,7 @@ module Util =
     // entity... is declared, we need to resolve the path
     let fixImportedRelativePath (com: Compiler) (path: string) sourcePath =
         let file = Path.normalizePathAndEnsureFsExtension sourcePath
-        if file = com.CurrentFile
-        then path
+        if file = com.CurrentFile then path
         else
             Path.Combine(Path.GetDirectoryName(file), path)
             |> Path.getRelativePath com.CurrentFile
@@ -1598,7 +1597,7 @@ module Util =
             if file = com.CurrentFile then
                 makeTypedIdentExpr (getEntityType ent) entityName
             else
-                makeImportInternal com Fable.Any entityName file
+                makeImportInternal com.CurrentFile Fable.Any entityName file
 
     let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
@@ -1612,19 +1611,6 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let resolveMemberRef (com: Compiler) (ctx: Context) r typ (info: Fable.MemberRefInfo) =
-        if info.Path = com.CurrentFile then
-            { makeTypedIdent typ info.Name with Range = r; IsMutable = info.IsMutable }
-            |> Fable.IdentExpr
-        elif info.IsPublic then
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if info.HasOverloadSuffix then
-                com.AddWatchDependency(info.Path)
-            makeImportInternal com typ info.Name info.Path
-        else
-            $"Cannot reference private members from other files: %s{info.Name}"
-            |> addErrorAndReturnNull com ctx.InlinePath r
-
     let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -1634,15 +1620,23 @@ module Util =
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
-        let info: Fable.MemberRefInfo =
-            { Name = memberName
-              Path = file
-              IsMutable = memb.IsMutable
-              IsPublic = isPublicMember memb
-              HasOverloadSuffix = hasOverloadSuffix }
-        match ctx.PrecompilingInlineFunction with
-        | Some _ -> Fable.UnresolvedMemberRef(info, typ, r) |> Fable.Unresolved
-        | None -> resolveMemberRef com ctx r typ info
+
+        // If we're precompiling an inline function, make sure we always reference
+        // the member with Import and not as IdentExpr. Later when resolving the inline
+        // expr we can see if the referenced member is actually in the current file.
+        let isInline, sourceFile =
+            match ctx.PrecompilingInlineFunction with
+            | Some(_, file) -> true, file
+            | None -> false, com.CurrentFile
+
+        if not isInline && file = sourceFile then
+            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
+            |> Fable.IdentExpr
+        else
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if hasOverloadSuffix then
+                com.AddWatchDependency(file)
+            makeImportInternal sourceFile typ memberName file
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
