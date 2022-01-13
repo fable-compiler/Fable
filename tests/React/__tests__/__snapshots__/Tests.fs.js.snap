@@ -15,6 +15,27 @@ exports[`React tests Counter renders correctly 1`] = `
     >
       Increment
     </button>
+    <button
+      class="ms-Button ms-Button--default root-109"
+      data-is-focusable="true"
+      type="button"
+    >
+      <span
+        class="ms-Button-flexContainer flexContainer-110"
+        data-automationid="splitbuttonprimary"
+      >
+        <span
+          class="ms-Button-textContainer textContainer-111"
+        >
+          <span
+            class="ms-Button-label label-113"
+            id="id__0"
+          >
+            A fluent button
+          </span>
+        </span>
+      </span>
+    </button>
   </div>
 </div>
 `;

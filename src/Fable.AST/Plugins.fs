@@ -37,6 +37,7 @@ type CompilerOptions =
         Verbosity: Verbosity
         FileExtension: string
         TriggeredByDependency: bool
+        NoReflection: bool
     }
 
 type PluginHelper =

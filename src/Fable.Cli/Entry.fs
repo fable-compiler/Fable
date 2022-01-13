@@ -6,9 +6,11 @@ open Fable
 
 type CliArgs(args: string list) =
     let argsMap =
-        let even = List.length args % 2 = 0
-        // If arguments are odd, assume last has true value in case it's a flag
-        let args = if even then args else args @ ["true"]
+        let args =
+            // Assume last arg has true value in case it's a flag
+            match List.tryLast args with
+            | Some key when key.StartsWith("-") -> args @ ["true"]
+            | _ -> args
         (Map.empty, List.windowed 2 args) ||> List.fold (fun map pair ->
             match pair with
             | [key; value] when key.StartsWith("-") ->
@@ -74,6 +76,7 @@ let knownCliArgs() = [
 
   // Hidden args
   ["--precompiledLib"], []
+  ["--noReflection"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
@@ -203,9 +206,10 @@ type Runner =
     let fableLib = args.Value "--fableLib"
 
     do!
-        match outDir, fableLib with
-        | None, _ when precompile -> Error("outDir must be specified when precompiling")
-        | _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
+        match watch, outDir, fableLib with
+        | true, _, _ when precompile -> Error("Cannot watch when precompiling")
+        | _, None, _ when precompile -> Error("outDir must be specified when precompiling")
+        | _, _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
         | _ -> Ok ()
 
     do!
@@ -259,6 +263,7 @@ type Runner =
                                    define = define,
                                    debugMode = (configuration = "Debug"),
                                    optimizeFSharpAst = args.FlagEnabled "--optimize",
+                                   noReflection = args.FlagEnabled "--noReflection",
                                    verbosity = verbosity)
 
     let cliArgs =
@@ -292,10 +297,15 @@ type Runner =
             |> Some
         else None
 
-    return!
+    let startCompilation() =
         State.Create(cliArgs, ?watchDelay=watchDelay)
         |> startCompilation
         |> Async.RunSynchronously
+
+    return!
+        match outDir, precompile, watch with
+        | Some outDir, true, false -> File.withLock outDir startCompilation
+        | _ -> startCompilation()
 }
 
 let clean (args: CliArgs) rootDir =

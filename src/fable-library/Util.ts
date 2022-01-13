@@ -75,6 +75,12 @@ export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
   return x != null && typeof (x as IDisposable).Dispose === "function";
 }
 
+export function disposeSafe(x: any) {
+  if (isDisposable(x)) {
+    x.Dispose();
+  }
+}
+
 export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }

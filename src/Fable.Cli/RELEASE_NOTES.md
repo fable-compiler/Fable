@@ -1,3 +1,25 @@
+### 3.7.0-beta-009
+
+* Fix #2718
+* Other stability issues and add more verbose logs
+
+### 3.7.0-beta-008
+
+* Prevent Fable from getting stuck on fatal errors
+* Show File compiled messages in CI
+
+### 3.7.0-beta-007
+
+* Lock file for outDir (mainly intended for parallel processes precompiling the same library)
+
+### 3.7.0-beta-006
+
+* Allow inlined functions accessing internal values in Fable.Precompiled.dll (FCS)
+* Shorten logs in same line if longer than 80 chars (so they don't jump to next line)
+* Check paket.references/paket.lock when checking if project cracker cached info is outdates
+* Add flag to disable reflection
+* Fix #2709: error when using JsInterop.import in inlined functions
+
 ### 3.7.0-beta-005
 
 * Fix cache issues
