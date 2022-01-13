@@ -2126,6 +2126,12 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
     let args = injectArg com ctx r "Map" meth i.GenericArgs args
     Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let disposables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    // `use` will call Dispose without a null check so use a safe version just in case, see #2719
+    | "Dispose", Some c -> Helper.LibCall(com, "Util", "disposeSafe", t, [c], ?loc=r) |> Some
+    | _ -> None
+
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ("Bind" | "Map" | "MapError") as meth ->
@@ -3374,6 +3380,7 @@ let private replacedModules =
     Types.stack, bclType
     Types.queue, bclType
     Types.iset, hashSets
+    Types.idisposable, disposables
     Types.option, options
     Types.valueOption, options
     "System.Nullable`1", nullables

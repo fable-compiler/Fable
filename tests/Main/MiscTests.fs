@@ -994,6 +994,20 @@ let tests =
         res |> equal 10
         !cell |> equal 20
 
+    testCase "Can use `use` with null" <| fun () -> // See #2719
+        let mutable x = 0
+        let msg =
+            use __ = null : IDisposable
+            "hooray"
+        msg |> equal "hooray"
+        x |> equal 0
+
+        let msg =
+            use __ = { new IDisposable with member _.Dispose() = x <- 1 }
+            "booh"
+        msg |> equal "booh"
+        x |> equal 1
+
     testCase "Unchecked.defaultof works" <| fun () ->
         Unchecked.defaultof<int> |> equal 0
         Unchecked.defaultof<int64> |> equal 0L
