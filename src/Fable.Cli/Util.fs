@@ -77,7 +77,11 @@ module Log =
         verbosity = Fable.Verbosity.Verbose
 
     let inSameLineIfNotCI (msg: string) =
-        if not isCi then
+        if isVerbose() then
+            Console.Out.WriteLine(msg)
+        elif not isCi then
+            // If the message is longer than the terminal width it will jump to next line
+            let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
             let curCursorLeft = Console.CursorLeft
             Console.SetCursorPosition(0, Console.CursorTop)
             Console.Out.Write(msg)
@@ -136,10 +140,8 @@ module File =
             else fileExt
         Fable.Path.replaceExtension fileExt filePath
 
-    let existsAndIsOlderThan (dt: DateTime) (targetPath: string) =
-        try
-            File.Exists(targetPath) && dt > File.GetLastWriteTime(targetPath)
-        with _ -> false
+    let relPathToCurDir (path: string) =
+        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
     let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
         try
@@ -167,12 +169,17 @@ module File =
             return ""
     }
 
-    let rec tryFindPackageJsonDir dir =
-        if File.Exists(Path.Combine(dir, "package.json")) then Some dir
+    let rec tryFindUpwards fileName dir =
+        let filePath = Path.Combine(dir, fileName)
+        if File.Exists(filePath) then Some filePath
         else
             let parent = Directory.GetParent(dir)
             if isNull parent then None
-            else tryFindPackageJsonDir parent.FullName
+            else tryFindUpwards fileName parent.FullName
+
+    let rec tryFindPackageJsonDir dir =
+        tryFindUpwards "package.json" dir
+        |> Option.map (fun file -> Path.GetDirectoryName(file))
 
     let tryNodeModulesBin workingDir exeFile =
         tryFindPackageJsonDir workingDir
@@ -203,6 +210,41 @@ module File =
     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     let isDirectoryEmpty dir =
         not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+
+    let withLock (dir: string) (action: unit -> 'T) =
+        let mutable fileCreated = false
+        let lockFile = Path.Join(dir, "fable.lock")
+        try
+            Directory.CreateDirectory dir |> ignore
+
+            let mutable acc = 0
+            let waitMs = 1000
+            let timeoutMs = waitMs * 60 * 10
+            while File.Exists(lockFile) do
+                if acc = 0 then
+                    // If the lock is too old assume it's there because of a failed compilation
+                    let creationTime = File.GetCreationTime(lockFile)
+                    if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
+                        Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                        try
+                            File.Delete(lockFile)
+                        with _ -> ()
+                    else
+                        Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                        Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                elif acc >= timeoutMs then
+                    FableError "LockTimeOut" |> raise
+                acc <- acc + waitMs
+                Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+
+            File.Create(lockFile) |> ignore
+            fileCreated <- true
+            action()
+        finally
+            try
+                if fileCreated then
+                    File.Delete(lockFile)
+            with _ -> ()
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -242,7 +284,7 @@ module Process =
 
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
-        Log.always $"""{IO.Path.GetRelativePath(IO.Directory.GetCurrentDirectory(), workingDir)}> {exePath} {String.concat " " args}"""
+        Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
         for arg in args do

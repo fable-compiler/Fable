@@ -306,7 +306,7 @@ type Witness =
         | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
         | _ -> []
 
-type Scope = (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
+type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
 
 type Context =
     { Scope: Scope
@@ -316,7 +316,7 @@ type Context =
       UsedNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
-      PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
+      PrecompilingInlineFunction: (FSharpMemberOrFunctionOrValue * (* filePath *) string) option
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
@@ -1427,9 +1427,6 @@ module Identifiers =
     open Helpers
     open TypeHelpers
 
-    let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
-        { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
-
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let name, part = (fsRef.CompiledName, Naming.NoMemberPart)
         let sanitizedName =
@@ -1439,7 +1436,9 @@ module Identifiers =
                 Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
+
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
+
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = fsRef.IsMemberThisValue
@@ -1448,15 +1447,11 @@ module Identifiers =
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
-    let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
+    let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
-        putIdentInScope ctx fsRef ident None, ident
+        { ctx with Scope = (Some fsRef, ident, value)::ctx.Scope }, ident
 
-    let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
-
-    let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
-        let ident = makeIdentFrom com ctx fsRef
-        putIdentInScope ctx fsRef ident (Some value), ident
+    let (|PutIdentInScope|) com ctx fsRef = putIdentInScope com ctx fsRef None
 
     let identWithRange r (ident: Fable.Ident) =
         let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
@@ -1464,8 +1459,9 @@ module Identifiers =
 
     let tryGetIdentFromScopeIf (ctx: Context) r predicate =
         ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
-            if predicate fsRef then identWithRange r ident |> Fable.IdentExpr |> Some
-            else None)
+            fsRef
+            |> Option.filter predicate
+            |> Option.map (fun _ -> identWithRange r ident |> Fable.IdentExpr))
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
@@ -1481,7 +1477,7 @@ module Util =
         let ctx, args =
             ((ctx, []), args)
             ||> List.fold (fun (ctx, accArgs) var ->
-                let newContext, arg = putArgInScope com ctx var
+                let newContext, arg = putIdentInScope com ctx var None
                 newContext, arg::accArgs)
         ctx, List.rev args
 
@@ -1489,12 +1485,12 @@ module Util =
         let ctx, transformedArgs, args =
             match args with
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsMemberThisValue ->
-                let ctx, thisArg = putArgInScope com ctx firstArg
+                let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
-                let ctx, thisArg = putArgInScope com ctx firstArg
+                let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
@@ -1509,7 +1505,7 @@ module Util =
     let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
-            | Some (PutArgInScope com ctx (catchContext, catchVar), catchBody) ->
+            | Some (PutIdentInScope com ctx (catchContext, catchVar), catchBody) ->
                 // Add caughtException to context so it can be retrieved by `reraise`
                 let catchContext = { catchContext with CaughtException = Some catchVar }
                 Some (catchVar, com.Transform(catchContext, catchBody))
@@ -1556,8 +1552,7 @@ module Util =
     // entity... is declared, we need to resolve the path
     let fixImportedRelativePath (com: Compiler) (path: string) sourcePath =
         let file = Path.normalizePathAndEnsureFsExtension sourcePath
-        if file = com.CurrentFile
-        then path
+        if file = com.CurrentFile then path
         else
             Path.Combine(Path.GetDirectoryName(file), path)
             |> Path.getRelativePath com.CurrentFile
@@ -1693,10 +1688,8 @@ module Util =
             let entityName = (getEntityDeclarationName com ent.Ref) + suffix
             if file = com.CurrentFile then
                 makeTypedIdentExpr (getEntityType ent) entityName
-            elif ent.IsPublic then
-                makeInternalClassImport com entityName file
             else
-                error "Cannot inline functions that reference private entities"
+                makeInternalClassImport com.CurrentFile entityName file
 
     let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
@@ -1710,19 +1703,6 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let resolveMemberRef (com: Compiler) (ctx: Context) r typ (info: Fable.MemberRefInfo) =
-        if info.Path = com.CurrentFile then
-            { makeTypedIdent typ info.Name with Range = r; IsMutable = info.IsMutable }
-            |> Fable.IdentExpr
-        elif info.IsPublic then
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if info.HasOverloadSuffix then
-                com.AddWatchDependency(info.Path)
-            makeInternalMemberImport com typ info.IsInstance info.Name info.Path
-        else
-            $"Cannot reference private members from other files: %s{info.Name}"
-            |> addErrorAndReturnNull com ctx.InlinePath r
-
     let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix =
@@ -1735,16 +1715,22 @@ module Util =
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
-        let info: Fable.MemberRefInfo =
-            { Name = memberName
-              Path = file
-              IsInstance = memb.IsInstanceMember
-              IsMutable = memb.IsMutable
-              IsPublic = isPublicMember memb
-              HasOverloadSuffix = hasOverloadSuffix }
-        match ctx.PrecompilingInlineFunction with
-        | Some _ -> Fable.UnresolvedMemberRef(info, typ, r) |> Fable.Unresolved
-        | None -> resolveMemberRef com ctx r typ info
+
+        // If we're precompiling an inline function, make sure we always reference
+        // the member with Import and not as IdentExpr. Later when resolving the inline
+        // expr we can see if the referenced member is actually in the current file.
+        let isInline, sourceFile =
+            match ctx.PrecompilingInlineFunction with
+            | Some(_, file) -> true, file
+            | None -> false, com.CurrentFile
+
+        if not isInline && file = sourceFile then
+            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
+            |> Fable.IdentExpr
+        else
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if hasOverloadSuffix then com.AddWatchDependency(file)
+            makeInternalMemberImport sourceFile typ memb.IsInstanceMember memberName file
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent

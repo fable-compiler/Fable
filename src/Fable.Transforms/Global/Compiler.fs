@@ -12,7 +12,8 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays) =
+                       ?clampByteArrays,
+                       ?noReflection) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
@@ -22,6 +23,7 @@ type CompilerOptionsHelper =
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
+            NoReflection = defaultArg noReflection false
             TriggeredByDependency = false
         }
 
