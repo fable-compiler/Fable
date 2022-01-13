@@ -283,6 +283,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             | None -> cliArgs.CompilerOptions
 
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
+        let watchDependencies = if cliArgs.IsWatch then Some(HashSet()) else None
 
         let common = Path.getCommonBaseDir([currentFile; crackerResponse.FableLibDir])
         let outputType =
@@ -293,7 +294,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             else
                 crackerResponse.OutputType
 
-        CompilerImpl(currentFile, project, opts, fableLibDir, watchDependencies=cliArgs.IsWatch, ?outDir=cliArgs.OutDir, ?outType=outputType)
+        CompilerImpl(currentFile, project, opts, fableLibDir, ?watchDependencies=watchDependencies, ?outDir=cliArgs.OutDir, ?outType=outputType)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)

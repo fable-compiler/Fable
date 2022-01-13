@@ -1573,6 +1573,8 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.Require = Set.toList require
         member this.NsUse = Set.toList nsUse
 
+        member this.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
+        member this.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
         member this.AddLog(msg,severity, rang, fileName, tag) = com.AddLog(msg,severity, ?range = rang, ?fileName= fileName, ?tag = tag)
         member this.AddWatchDependency(file) = com.AddWatchDependency(file)
         member this.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)

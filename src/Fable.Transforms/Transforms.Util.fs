@@ -469,17 +469,17 @@ module AST =
                  Path = getLibPath com moduleName
                  Kind = LibraryImport }, t, None)
 
-    let private makeInternalImport sourceFile t (selector: string) (path: string) kind =
+    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =
-            if sourceFile = path then "./" + Path.GetFileName(path)
-            else Path.getRelativeFileOrDirPath false sourceFile false path
+            if com.CurrentFile = path then "./" + Path.GetFileName(path)
+            else Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import({ Selector = selector; Path = path; Kind = kind }, t, None)
 
-    let makeInternalMemberImport sourceFile t isInstance (selector: string) (path: string) =
-        MemberImport(isInstance, path) |> makeInternalImport sourceFile t selector path
+    let makeInternalMemberImport com t isInstance (selector: string) (path: string) =
+        MemberImport(isInstance, path) |> makeInternalImport com t selector path
 
-    let makeInternalClassImport sourceFile (selector: string) (path: string) =
-        ClassImport(path) |> makeInternalImport sourceFile Any selector path
+    let makeInternalClassImport com (selector: string) (path: string) =
+        ClassImport(path) |> makeInternalImport com Any selector path
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)

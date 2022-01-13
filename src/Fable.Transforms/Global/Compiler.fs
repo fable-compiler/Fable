@@ -60,6 +60,8 @@ type Compiler =
     abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
+    abstract IsPrecompilingInlineFunction: bool
+    abstract WillPrecompileInlineFunction: file: string -> Compiler
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
