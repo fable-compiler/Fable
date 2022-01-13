@@ -12,7 +12,8 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays) =
+                       ?clampByteArrays,
+                       ?noReflection) =
         {
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
@@ -22,6 +23,7 @@ type CompilerOptionsHelper =
             Verbosity = defaultArg verbosity Verbosity.Normal
             FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
+            NoReflection = defaultArg noReflection false
             TriggeredByDependency = false
         }
 
@@ -58,6 +60,8 @@ type Compiler =
     abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
+    abstract IsPrecompilingInlineFunction: bool
+    abstract WillPrecompileInlineFunction: file: string -> Compiler
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option

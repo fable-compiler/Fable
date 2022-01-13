@@ -32,6 +32,7 @@
     <Compile Include="TestComparison.fs" />
     <Compile Include="TestCustomOperators.fs" />
     <Compile Include="TestConvert.fs" />
+    <Compile Include="TestDictionary.fs" />
     <Compile Include="TestEnumerable.fs" />
     <Compile Include="TestSeq.fs" />
     <Compile Include="TestSeqExpression.fs" />

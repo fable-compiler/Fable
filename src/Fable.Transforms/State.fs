@@ -180,10 +180,10 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS.
 /// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string, ?outType: string, ?watchDependencies) =
-    let logs = ResizeArray<Log>()
-    let watchDependencies = defaultArg watchDependencies false
-    let watchDependenciesSet = HashSet<string>()
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string, ?outType: string,
+                        ?watchDependencies: HashSet<string>, ?logs: ResizeArray<Log>, ?isPrecompilingInlineFunction: bool) =
+
+    let logs = Option.defaultWith ResizeArray logs
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
     let outputType =
         match outType with
@@ -195,7 +195,8 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
     member _.Options = options
     member _.CurrentFile = currentFile
     member _.Logs = logs.ToArray()
-    member _.WatchDependencies = Array.ofSeq watchDependenciesSet
+    member _.WatchDependencies =
+        match watchDependencies with Some w -> Array.ofSeq w | None -> [||]
 
     interface Compiler with
         member _.Options = options
@@ -205,6 +206,16 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.OutputDir = outDir
         member _.OutputType = outputType
         member _.ProjectFile = project.ProjectFile
+
+        member _.IsPrecompilingInlineFunction =
+            defaultArg isPrecompilingInlineFunction false
+
+        member _.WillPrecompileInlineFunction(file) =
+            let fableLibraryDir =
+                Path.Combine(Path.GetDirectoryName(currentFile), fableLibraryDir)
+                |> Path.getRelativeFileOrDirPath false file true
+            CompilerImpl(file, project, options, fableLibraryDir, ?outDir=outDir, ?outType=outType,
+                ?watchDependencies=watchDependencies, logs=logs, isPrecompilingInlineFunction=true)
 
         member _.GetImplementationFile(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
@@ -246,8 +257,10 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 | None -> failwith ("Cannot find inline member: " + memberUniqueName)
 
         member _.AddWatchDependency(file) =
-            if watchDependencies && file <> currentFile then
-                watchDependenciesSet.Add(file) |> ignore
+            match watchDependencies with
+            | Some watchDependencies when file <> currentFile ->
+                watchDependencies.Add(file) |> ignore
+            | _ -> ()
 
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             Log.Make(severity, msg, ?range=range, ?fileName=fileName, ?tag=tag)

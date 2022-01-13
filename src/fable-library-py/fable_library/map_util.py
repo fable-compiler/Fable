@@ -1,4 +1,7 @@
-from typing import Any
+from typing import Any, Dict, TypeVar
+
+_K = TypeVar("_K")
+_V = TypeVar("_V")
 
 from .map import FSharpMap  # type: ignore
 
@@ -28,8 +31,12 @@ def try_get_value(map: FSharpMap, key: Any, default_value: Any) -> bool:
     return False
 
 
-def get_item_from_dict(map: dict, key: Any) -> Any:
+def get_item_from_dict(map: Dict[_K, _V], key: _K) -> _V:
     if key in map:
-        return map.get(key)
+        return map[key]
     else:
         raise Exception(f"The given key '{key}' was not present in the dictionary.")
+
+
+def contains_value(v: _V, map: Dict[Any, _V]) -> bool:
+    return v in map.values()

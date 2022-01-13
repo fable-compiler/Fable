@@ -462,6 +462,9 @@ module Naming =
 module Path =
     open System
 
+    let normalizePath (path: string) =
+        path.Replace('\\', '/').TrimEnd('/')
+
     let Combine (path1: string, path2: string) =
         let path1 =
             if path1.Length = 0 then path1
@@ -482,7 +485,7 @@ module Path =
         else path.Substring(i)
 
     let GetFileName (path: string) =
-        let normPath = path.Replace("\\", "/").TrimEnd('/')
+        let normPath = normalizePath path
         let i = normPath.LastIndexOf("/")
         normPath.Substring(i + 1)
 
@@ -493,10 +496,16 @@ module Path =
         else filename.Substring(0, i)
 
     let GetDirectoryName (path: string) =
-        let normPath = path.Replace("\\", "/")
+        let normPath = normalizePath path
         let i = normPath.LastIndexOf("/")
         if i < 0 then ""
         else normPath.Substring(0, i)
+
+    let GetDirectoryAndFileNames (path: string) =
+        let normPath = normalizePath path
+        let i = normPath.LastIndexOf("/")
+        if i < 0 then "", normPath
+        else normPath.Substring(0, i), normPath.Substring(i + 1)
 
     let GetFullPath (path: string): string =
 #if FABLE_COMPILER
@@ -513,9 +522,6 @@ module Path =
 #else
         IO.Path.GetFullPath(path)
 #endif
-
-    let normalizePath (path: string) =
-        path.Replace('\\', '/')
 
     let normalizeFullPath (path: string) =
         normalizePath (GetFullPath path)

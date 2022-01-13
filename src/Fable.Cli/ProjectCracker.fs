@@ -29,10 +29,13 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: string option
-        Timestamp: DateTime
     }
     static member GetPath(fableModulesDir: string, isDebug: bool) =
         IO.Path.Combine(fableModulesDir, $"""project_cracked{if isDebug then "_debug" else ""}.json""")
+
+    member this.GetTimestamp() =
+        CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
+        |> IO.File.GetLastWriteTime
 
     static member TryRead(fableModulesDir: string, isDebug): CacheInfo option =
         try
@@ -43,11 +46,11 @@ type CacheInfo =
         let path = CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
         Json.write path this
 
-    /// Checks if there's also cache info for the alternate build mode (Debug/Release), for the same outDir and whether is more recent
+    /// Checks if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
     member this.IsMostRecent =
         match CacheInfo.TryRead(this.FableModulesDir, not this.FableOptions.DebugMode) with
         | None -> true
-        | Some other -> this.OutDir <> other.OutDir || this.Timestamp > other.Timestamp
+        | Some other -> this.GetTimestamp() > other.GetTimestamp()
 
 type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
@@ -76,8 +79,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
                 |> Array.skipWhile (fun part -> part <> "bin")
                 |> Array.skip 1
                 |> Array.rev
-
-             |> String.concat "/"
+                |> String.concat "/"
             Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
@@ -522,9 +524,10 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
             IO.File.Copy(fromPath, toPath, true)
 
 let getFableLibraryPath (opts: CrackerOptions) =
-    match opts.FableLib with
-    | Some path -> Path.normalizeFullPath path
-    | None ->
+    match opts.PrecompiledLib, opts.FableLib with
+    | Some _, _ -> "" // Fable Library path will be taken from the precompiled info
+    | None, Some path -> Path.normalizeFullPath path
+    | None, None ->
         let buildDir, libDir =
             match opts.FableOptions.Language with
             | Python -> "fable-library-py/fable_library", "fable_library"
@@ -609,8 +612,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         |> function
             | [] -> ()
             | outdated ->
-                let curDir = IO.Directory.GetCurrentDirectory()
-                let outdated = outdated |> List.map (fun f -> "    " + IO.Path.GetRelativePath(curDir, f)) |> String.concat Log.newLine
+                let outdated = outdated |> List.map (fun f -> "    " + File.relPathToCurDir f) |> String.concat Log.newLine
                 // TODO: This should likely be an error but make it a warning for now
                 Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
 
@@ -631,17 +633,36 @@ let getFullProjectOpts (opts: CrackerOptions) =
     // Make sure cache info corresponds to same compiler version and is not outdated
     let cacheInfo =
         opts.CacheInfo |> Option.filter (fun cacheInfo ->
+            let cacheTimestamp = cacheInfo.GetTimestamp()
+            let isOlderThanCache filePath =
+                let fileTimestamp = IO.File.GetLastWriteTime(filePath)
+                let isOlder = fileTimestamp < cacheTimestamp
+                if not isOlder then
+                    Log.verbose(lazy $"Cached project info ({cacheTimestamp}) will be discarded because {File.relPathToCurDir filePath} ({fileTimestamp}) is newer")
+                isOlder
+
             cacheInfo.Version = Literals.VERSION && (
                 [
                     cacheInfo.ProjectPath
                     yield! cacheInfo.References
                 ]
                 |> List.forall (fun fsproj ->
-                    File.existsAndIsOlderThan cacheInfo.Timestamp fsproj
-                    // If project uses Paket, dependencies may have updated without touching the .fsproj
-                    && IO.Path.Combine(IO.Path.GetDirectoryName(fsproj), "obj", "project.assets.json")
-                    |> File.existsAndIsOlderThan cacheInfo.Timestamp)
-            ))
+                    if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
+                        // Check if the project uses Paket
+                        let fsprojDir = IO.Path.GetDirectoryName(fsproj)
+                        let paketReferences = IO.Path.Combine(fsprojDir, "paket.references")
+                        if not(IO.File.Exists(paketReferences)) then true
+                        else
+                            if isOlderThanCache paketReferences then
+                                // Only check paket.lock for main project and assume it's the same for references
+                                if fsproj <> cacheInfo.ProjectPath then true
+                                else
+                                    match File.tryFindUpwards "paket.lock" fsprojDir with
+                                    | Some paketLock -> isOlderThanCache paketLock
+                                    | None -> false
+                            else false
+                    else false
+        )))
 
     match cacheInfo with
     | Some cacheInfo ->
@@ -649,9 +670,21 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         // Check if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
         // (this means the last compilation was done for another build mode so we cannot reuse the files)
-        let canReuseCompiledFiles = cacheInfo.FableOptions = opts.FableOptions && cacheInfo.IsMostRecent
-        // Update the timestamp of the cached options for the corresponding build mode (Debug/Release)
-        { cacheInfo with Timestamp = DateTime.Now }.Write()
+        let canReuseCompiledFiles =
+            let sameOptions = cacheInfo.FableOptions = opts.FableOptions
+            if not sameOptions then
+                Log.verbose(lazy "Won't reuse compiled files because last compilation used different options")
+                false
+            else
+                let isMostRecent = cacheInfo.IsMostRecent
+                if not isMostRecent then
+                    Log.verbose(lazy
+                        let otherMode = if cacheInfo.FableOptions.DebugMode then "Release" else "Debug"
+                        $"Won't reuse compiled files because last compilation was for {otherMode} mode")
+                isMostRecent
+
+        // Update cached info with current options and the timestamp for the corresponding build mode (Debug/Release)
+        { cacheInfo with FableOptions = opts.FableOptions }.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
@@ -732,7 +765,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 SourcePaths = sourcePaths
                 References = projRefs
                 OutputType = outputType
-                Timestamp = DateTime.UtcNow
             }
 
         if not opts.NoCache then

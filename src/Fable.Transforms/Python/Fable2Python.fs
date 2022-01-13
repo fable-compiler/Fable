@@ -631,7 +631,7 @@ module Annotation =
         | [arg] -> Expression.subscript(expr, arg)
         | args -> Expression.subscript(expr, Expression.tuple(args))
 
-    let pythonModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
+    let stdlibModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args =
         let expr = com.TransformImport(ctx, memberName, moduleName)
         match memberName, args with
         | _, [] -> expr
@@ -649,8 +649,13 @@ module Annotation =
         | _, args ->
             Expression.subscript(expr, Expression.tuple(args))
 
-    let private typingHint (com: IPythonCompiler) ctx memberName args =
-        pythonModuleAnnotation com ctx "typing"  memberName args
+    let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
+        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        fableModuleAnnotation com ctx moduleName memberName resolved, stmts
+
+    let stdlibModuleTypeHint com ctx moduleName memberName genArgs =
+        let resolved, stmts = resolveGenerics com ctx genArgs None
+        stdlibModuleAnnotation com ctx moduleName memberName resolved, stmts
 
     let makeGenTypeParamInst com ctx (genArgs: Fable.Type list) (repeatedGenerics: Set<string> option) =
         match genArgs with
@@ -661,7 +666,7 @@ module Annotation =
             |> List.map fst
 
     let makeGenericTypeAnnotation (com: IPythonCompiler) ctx (id: string) (genArgs: Fable.Type list) (repeatedGenerics: Set<string> option) =
-        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
+        stdlibModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
 
         let typeParamInst = makeGenTypeParamInst com ctx genArgs repeatedGenerics
         let name = Expression.name id
@@ -671,7 +676,7 @@ module Annotation =
             Expression.subscript(name, Expression.tuple typeParamInst)
 
     let makeGenericTypeAnnotation' (com: IPythonCompiler) ctx (id: string) (genArgs: string list) (repeatedGenerics: Set<string> option) =
-        pythonModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
+        stdlibModuleAnnotation com ctx "__future__" "annotations" [] |> ignore
 
         let name = Expression.name id
         if genArgs.IsEmpty then
@@ -681,11 +686,14 @@ module Annotation =
                 match repeatedGenerics with
                 | Some generics ->
                     let genArgs = genArgs |> Set.ofList |> Set.intersect generics |> Set.toList
-                    if genArgs.IsEmpty then [ typingHint com ctx "Any" [] ]
+                    if genArgs.IsEmpty then [ stdlibModuleAnnotation com ctx "typing" "Any" [] ]
                     else genArgs |> List.map (fun name -> com.AddTypeVar(ctx, name))
                 | _ ->
                     genArgs |> List.map (fun name -> com.AddTypeVar(ctx, name))
             Expression.subscript(name, Expression.tuple genArgs)
+
+    let resolveGenerics com ctx generics repeatedGenerics: Expression list * Statement list =
+        generics |> List.map (typeAnnotation com ctx repeatedGenerics) |> Helpers.unzipArgs
 
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
         let getNumberKindName kind =
@@ -693,29 +701,13 @@ module Annotation =
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> "int"
             | Float32 | Float64 -> "float"
 
-        let resolveGenerics generics repeatedGenerics: Expression list * Statement list =
-            generics |> List.map (typeAnnotation com ctx repeatedGenerics) |> Helpers.unzipArgs
-
-        let fableModuleTypeHint moduleName memberName genArgs repatedGenerics =
-            let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-            fableModuleAnnotation com ctx moduleName memberName resolved, stmts
-
-        let pythonModuleTypeHint moduleName memberName genArgs =
-            let resolved, stmts = resolveGenerics genArgs None
-            pythonModuleAnnotation com ctx moduleName memberName resolved, stmts
-
-        let typingModuleTypeHint name genArgs =
-           pythonModuleTypeHint "typing" name genArgs
-
         let numberInfo kind =
             Expression.name (getNumberKindName kind)
-        let genericTypeAnnotation name genArgs =
-            let resolved, stmts = resolveGenerics genArgs None
-            typingHint com ctx name resolved, stmts
+
         // printfn "typeAnnotation: %A" t
         match t with
         | Fable.Measure _
-        | Fable.Any -> typingModuleTypeHint "Any" []
+        | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
         | Fable.GenericParam(name,_) ->
             match repeatedGenerics with
             | Some names when names.Contains name ->
@@ -723,7 +715,7 @@ module Annotation =
                 let name = Helpers.clean name
                 com.AddTypeVar(ctx, name), []
             | Some _ ->
-                typingModuleTypeHint "Any" []
+                stdlibModuleTypeHint com ctx "typing" "Any" []
             | None ->
                 com.GetImportExpr(ctx, "typing", "TypeVar") |> ignore
                 let name = Helpers.clean name
@@ -754,127 +746,31 @@ module Annotation =
         | Fable.Number(kind,_) -> numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
             let argTypes, returnType = Util.uncurryLambdaType t
-            genericTypeAnnotation "Callable" (argTypes @ [ returnType ])
+            stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option(genArg,_) ->
-            //fableModuleTypeHint "option" "Option" [ genArg ] None
-            genericTypeAnnotation "Optional" [ genArg ]
-        | Fable.Tuple(genArgs,_)   -> genericTypeAnnotation "Tuple" genArgs
+            stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
+        | Fable.Tuple(genArgs,_) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array genArg ->
             match genArg with
-            | Fable.Type.Number(UInt8, _) -> typingModuleTypeHint "ByteString" []
+            | Fable.Type.Number(UInt8, _) -> stdlibModuleTypeHint com ctx "typing" "ByteString" []
             | Fable.Type.Number(Int8, _)
             | Fable.Type.Number(Int16, _)
             | Fable.Type.Number(UInt16, _)
             | Fable.Type.Number(Int32, _)
             | Fable.Type.Number(UInt32, _)
             | Fable.Type.Number(Float32, _)
-            | Fable.Type.Number(Float64, _) -> typingModuleTypeHint "MutableSequence" [ genArg ]
-            | _ -> typingModuleTypeHint "List" [ genArg ]
-        | Fable.List genArg     -> fableModuleTypeHint "list" "FSharpList" [ genArg ] repeatedGenerics
-        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
+            | Fable.Type.Number(Float64, _) -> stdlibModuleTypeHint com ctx "typing" "MutableSequence" [ genArg ]
+            | _ -> stdlibModuleTypeHint com ctx "typing" "List" [ genArg ]
+        | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
+        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType (_, genArgs) ->
             let value = Expression.name("dict")
-            let any, stmts = typingModuleTypeHint "Any" []
+            let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
             Expression.subscript(value, Expression.tuple([ Expression.name "str"; any ])), stmts
         | Fable.DeclaredType(entRef, genArgs) ->
-            // printfn "DeclaredType: %A" entRef.FullName
-            match entRef.FullName, genArgs with
-            | Types.result, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
-            | Replacements.BuiltinEntity kind ->
-                match kind with
-                | Replacements.BclDecimal ->
-                    pythonModuleTypeHint "decimal" "Decimal" [ ]
-                | _ -> typingModuleTypeHint "Any" []
-(*
-                | Replacements.BclGuid
-                | Replacements.BclTimeSpan
-                | Replacements.BclDateTime
-                | Replacements.BclDateTimeOffset
-                | Replacements.BclDateOnly
-                | Replacements.BclTimeOnly
-                | Replacements.BclTimer
-                | Replacements.BclInt64
-                | Replacements.BclUInt64
-                | Replacements.BclBigInt -> genericEntity fullName [], []
-                | Replacements.BclHashSet gen
-                | Replacements.FSharpSet gen ->
-                    let gens, stmts = transformTypeInfo com ctx r genMap gen
-                    genericEntity fullName [ gens ], stmts
-            | entName when entName.StartsWith(Types.choiceNonGeneric) ->
-                makeUnionTypeAnnotation com ctx genArgs
-                *)
-            | Types.fsharpAsyncGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "async_builder"  "Async" resolved, stmts
-            | Types.taskGeneric, _ ->
-                typingModuleTypeHint "Awaitable" genArgs
-            | Types.icomparable, _ ->
-                let resolved, stmts = typingModuleTypeHint "Any" []
-                fableModuleAnnotation com ctx "util" "IComparable" [ resolved ], stmts
-            | Types.comparer, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "util" "IComparer" resolved, stmts
-            | Types.equalityComparer, _ ->
-                let resolved, stmts = typingModuleTypeHint "Any" []
-                fableModuleAnnotation com ctx "util"  "IEqualityComparer" [ resolved ], stmts
-            | Types.ienumerator, _ ->
-                let resolved, stmts = typingModuleTypeHint "Any" []
-                fableModuleAnnotation com ctx "util"  "IEnumerator" [resolved], stmts
-            | Types.ienumeratorGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "util"  "IEnumerator" resolved, stmts
-            | Types.ienumerable, _ ->
-                let resolved, stmts = typingModuleTypeHint "Any" []
-                fableModuleAnnotation com ctx "util"  "IEnumerable" [resolved], stmts
-            | Types.ienumerableGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "util"  "IEnumerable" resolved, stmts
-            | Types.icollection, _
-            | Types.icollectionGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "util"  "ICollection" resolved, stmts
-            | Types.idisposable, _ ->
-                libValue com ctx "util" "IDisposable", []
-            | Types.iobserverGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "observable"  "IObserver" resolved, stmts
-            | Types.iobservableGeneric, _ ->
-                let resolved, stmts = resolveGenerics genArgs repeatedGenerics
-                fableModuleAnnotation com ctx "observable"  "IObservable" resolved, stmts
-            | Types.cancellationToken, _ ->
-                libValue com ctx "async_builder" "CancellationToken", []
-            | _ ->
-                let ent = com.GetEntity(entRef)
-                if ent.IsInterface then
-                    let name = Helpers.removeNamespace ent.FullName
-                    match entRef.SourcePath with
-                    | Some path when path <> com.CurrentFile ->
-                        // this is just to import the interface
-                        let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                        com.GetImportExpr(ctx, importPath, name) |> ignore
-                    | _ -> ()
-                    makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
-                else
-                    match Lib.tryPyConstructor com ctx ent with
-                    | Some (entRef, stmts) ->
-                        match entRef with
-                        (*
-                        | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
-                            match str with
-                            | "number" -> NumberTypeAnnotation
-                            | "boolean" -> BooleanTypeAnnotation
-                            | "string" -> StringTypeAnnotation
-                            | _ -> AnyTypeAnnotation*)
-                        | Expression.Name {Id = Identifier id } ->
-                            makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, []
-                        // TODO: Resolve references to types in nested modules
-                        | _ -> typingModuleTypeHint "Any" []
-                    | None ->
-                        typingModuleTypeHint "Any" []
+            makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
         | _ ->
-            typingModuleTypeHint "Any" []
+            stdlibModuleTypeHint com ctx "typing" "Any" []
 
     let makeImportTypeId (com: IPythonCompiler) ctx moduleName typeName =
         let expr = com.GetImportExpr(ctx, getLibPath com moduleName, typeName)
@@ -886,7 +782,104 @@ module Annotation =
         let id = makeImportTypeId com ctx moduleName typeName
         makeGenericTypeAnnotation com ctx id genArgs None
 
-    let makeBuiltinTypeAnnotation com ctx kind =
+    let makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics =
+        // printfn "DeclaredType: %A" entRef.FullName
+        match entRef.FullName, genArgs with
+        | Types.result, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
+        | Replacements.BuiltinEntity kind ->
+            match kind with
+            | Replacements.BclDecimal ->
+                stdlibModuleTypeHint com ctx "decimal" "Decimal" [ ]
+            | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+(*
+            | Replacements.BclGuid
+            | Replacements.BclTimeSpan
+            | Replacements.BclDateTime
+            | Replacements.BclDateTimeOffset
+            | Replacements.BclDateOnly
+            | Replacements.BclTimeOnly
+            | Replacements.BclTimer
+            | Replacements.BclInt64
+            | Replacements.BclUInt64
+            | Replacements.BclBigInt -> genericEntity fullName [], []
+            | Replacements.BclHashSet gen
+            | Replacements.FSharpSet gen ->
+                let gens, stmts = transformTypeInfo com ctx r genMap gen
+                genericEntity fullName [ gens ], stmts
+        | entName when entName.StartsWith(Types.choiceNonGeneric) ->
+            makeUnionTypeAnnotation com ctx genArgs
+            *)
+        | Types.fsharpAsyncGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "async_builder"  "Async" resolved, stmts
+        | Types.taskGeneric, _ ->
+            stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs
+        | Types.icomparable, _ ->
+            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            fableModuleAnnotation com ctx "util" "IComparable" [ resolved ], stmts
+        | Types.comparer, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util" "IComparer" resolved, stmts
+        | Types.equalityComparer, _ ->
+            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            fableModuleAnnotation com ctx "util"  "IEqualityComparer" [ resolved ], stmts
+        | Types.ienumerator, _ ->
+            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            fableModuleAnnotation com ctx "util"  "IEnumerator" [resolved], stmts
+        | Types.ienumeratorGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util"  "IEnumerator" resolved, stmts
+        | Types.ienumerable, _ ->
+            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            fableModuleAnnotation com ctx "util"  "IEnumerable" [resolved], stmts
+        | Types.ienumerableGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util"  "IEnumerable" resolved, stmts
+        | Types.icollection, _
+        | Types.icollectionGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util"  "ICollection" resolved, stmts
+        | Types.idisposable, _ ->
+            libValue com ctx "util" "IDisposable", []
+        | Types.iobserverGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "observable"  "IObserver" resolved, stmts
+        | Types.iobservableGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "observable"  "IObservable" resolved, stmts
+        | Types.cancellationToken, _ ->
+            libValue com ctx "async_builder" "CancellationToken", []
+        | _ ->
+            let ent = com.GetEntity(entRef)
+            if ent.IsInterface then
+                let name = Helpers.removeNamespace ent.FullName
+                match entRef.SourcePath with
+                | Some path when path <> com.CurrentFile ->
+                    // this is just to import the interface
+                    let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                    com.GetImportExpr(ctx, importPath, name) |> ignore
+                | _ -> ()
+                makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
+            else
+                match Lib.tryPyConstructor com ctx ent with
+                | Some (entRef, stmts) ->
+                    match entRef with
+                    (*
+                    | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
+                        match str with
+                        | "number" -> NumberTypeAnnotation
+                        | "boolean" -> BooleanTypeAnnotation
+                        | "string" -> StringTypeAnnotation
+                        | _ -> AnyTypeAnnotation*)
+                    | Expression.Name {Id = Identifier id } ->
+                        makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, []
+                    // TODO: Resolve references to types in nested modules
+                    | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+                | None ->
+                    stdlibModuleTypeHint com ctx "typing" "Any" []
+    let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
         match kind with
         | Replacements.BclGuid -> Expression.name("str"), []
         | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "types" "FSharpRef", []
@@ -906,13 +899,15 @@ module Annotation =
         | Replacements.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
         | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
         | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
-        | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Fable.Core" "FSharpResult$2"
         | Replacements.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}"
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         *)
+        | Replacements.FSharpResult (ok, err) ->
+            let resolved, stmts = resolveGenerics com ctx [ok; err] repeatedGenerics
+            fableModuleAnnotation com ctx "choice"  "FSharpResult_2" resolved, stmts
         | _ ->
-            pythonModuleAnnotation com ctx "typing" "Any" [], []
+            stdlibModuleTypeHint com ctx "typing" "Any" []
 
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
@@ -1045,7 +1040,7 @@ module Util =
        Expression.constant(s)
 
     let memberFromName (com: IPythonCompiler) (ctx: Context) (memberName: string): Expression =
-        // printfn "MemberName: %A" memberName
+        // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier("__str__")
         | "Equals" -> Expression.identifier("__eq__")
@@ -1054,11 +1049,12 @@ module Util =
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name(name)
-        | n when Naming.hasIdentForbiddenChars n ->
+        | n -> //when Naming.hasIdentForbiddenChars n ->
+            let n = Naming.toSnakeCase n
             (n, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-            |> Expression.constant
-        | n ->
-            com.GetIdentifierAsExpr(ctx, n)
+            |> Expression.name
+//        | n ->
+//            com.GetIdentifierAsExpr(ctx, n)
 
     let get (com: IPythonCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)
@@ -1511,7 +1507,7 @@ module Util =
                     | "ToString" -> "__str__"
                     | _ -> prop
 
-                com.GetIdentifier(ctx, name)
+                com.GetIdentifier(ctx, Naming.toSnakeCase name)
 
             let self = Arg.arg("self")
             let args =
@@ -1905,7 +1901,8 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet(fieldName,_) ->
-            // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
+            //printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
+            let fieldName = fieldName |> Naming.toSnakeCase // |> Helpers.clean
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -1970,6 +1967,7 @@ module Util =
                 let expr, stmts''' = getExpr com ctx None expr e
                 expr, stmts'' @ stmts'''
             | Fable.FieldSet(fieldName) ->
+                let fieldName = fieldName |> Naming.toSnakeCase |> Helpers.clean
                 get com ctx None expr fieldName false, []
         assign range ret value, stmts @ stmts' @ stmts''
 
@@ -2381,9 +2379,9 @@ module Util =
             transformObjectExpr com ctx members typ baseCall
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
-            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+            let left, stmts = com.TransformAsExpr(ctx, info.Args.Head)
             let value, stmts' = com.TransformAsExpr(ctx, expr)
-            Expression.compare (value, [ComparisonOperator.In], [right]), stmts @ stmts'
+            Expression.compare (left, [ComparisonOperator.In], [value]), stmts @ stmts'
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="slice"), _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
@@ -2740,22 +2738,7 @@ module Util =
 
     let declareModuleMember ctx isPublic (membName: Identifier) typ (expr: Expression) =
         let membName = Expression.name(membName)
-        match expr with
-        // | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
-        //     Declaration.classDeclaration(
-        //         body,
-        //         ?id = Some membName,
-        //         ?superClass = superClass,
-        //         ?superTypeParameters = superTypeParameters,
-        //         ?typeParameters = typeParameters,
-        //         ?implements = implements)
-        // | FunctionExpression(_, ``params``, body, returnType, typeParameters, _) ->
-        //     Declaration.functionDeclaration(
-        //         ``params``, body, membName,
-        //         ?returnType = returnType,
-        //         ?typeParameters = typeParameters)
-        | _ ->
-            varDeclaration ctx membName typ expr
+        varDeclaration ctx membName typ expr
 
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent |> makeTypeParamDecl com ctx
@@ -2768,7 +2751,7 @@ module Util =
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = (field.Name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name -> Naming.pyBuiltins.Contains name)
+            let name = (Naming.toSnakeCase field.Name, Naming.NoMemberPart) ||> Naming.sanitizeIdent Naming.pyBuiltins.Contains
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
@@ -2994,7 +2977,7 @@ module Util =
                     yield callSuperAsStatement []
 
                 yield! (ent.FSharpFields |> List.collecti (fun i field ->
-                    let left = get com ctx None thisExpr field.Name false
+                    let left = get com ctx None thisExpr (Naming.toSnakeCase field.Name) false
                     let right = args.[i] |> wrapIntExpression field.FieldType
                     assign None left right |> exprAsStatement ctx))
             ]
@@ -3057,16 +3040,17 @@ module Util =
 
         let classMembers = [
             for memb in members do
+                let name = memb.DisplayName |> Naming.toSnakeCase |> Helpers.clean
                 com.GetImportExpr(ctx, "abc", "abstractmethod") |> ignore
                 let decorators = [
                     if memb.IsValue || memb.IsGetter then
                         Expression.name("property")
                     if memb.IsSetter then
-                        Expression.name($"{memb.DisplayName}.setter")
+                        Expression.name($"{name}.setter")
 
                     Expression.name("abstractmethod") // Must be after @property
                 ]
-                let name = com.GetIdentifier(ctx, memb.DisplayName)
+                let name = com.GetIdentifier(ctx, name)
                 let args =
                     let args = [
                         if memb.IsInstance then
@@ -3232,6 +3216,7 @@ module Util =
             match name with
             | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
+            |> Naming.toSnakeCase
             |> getUniqueNameInRootScope ctx
             |> Identifier
             |> Some
@@ -3259,7 +3244,7 @@ module Compiler =
                     | Some localIdent -> Expression.identifier(localIdent)
                     | None -> Expression.none
                 | false, _ ->
-                    let localId = getIdentForImport ctx moduleName name
+                    let local_id = getIdentForImport ctx moduleName name
                     // printfn "localId: %A" localId
                     match name with
                     | Some "*"
@@ -3267,7 +3252,7 @@ module Compiler =
                         let i =
                             { Name = None
                               Module = moduleName
-                              LocalIdent = localId }
+                              LocalIdent = local_id }
                         imports.Add(cachedName, i)
                     | Some name ->
                         let i =
@@ -3278,10 +3263,10 @@ module Compiler =
                                 else name
                                 |> Some
                             Module = moduleName
-                            LocalIdent = localId }
+                            LocalIdent = local_id }
                         imports.Add(cachedName, i)
 
-                    match localId with
+                    match local_id with
                     | Some localId -> Expression.identifier(localId)
                     | None -> Expression.none
 
@@ -3314,6 +3299,8 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
+            member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
