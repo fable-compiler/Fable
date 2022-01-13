@@ -829,6 +829,10 @@ let run writer map (program: Module): Async<unit> =
                 | ImportFrom _ -> true
                 | _ -> false)
 
+        // Comment used by VS Code Python interpreter so we can run the imports
+        (printer :> Printer).Print("# %%")
+        printer.PrintNewLine()
+
         for decl in imports do
             printDeclWithExtraLine false printer decl
 
