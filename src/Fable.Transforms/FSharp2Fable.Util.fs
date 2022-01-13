@@ -284,7 +284,7 @@ type Context =
       UsedNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
-      PrecompilingInlineFunction: (FSharpMemberOrFunctionOrValue * (* filePath *) string) option
+      PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
@@ -1594,10 +1594,11 @@ module Util =
         | _, _, None -> error "Cannot reference entity from .dll reference, Fable packages must include F# sources"
         | _, _, Some file ->
             let entityName = (getEntityDeclarationName com ent.Ref) + suffix
-            if file = com.CurrentFile then
-                makeTypedIdentExpr (getEntityType ent) entityName
+            // If precompiling inline function always reference with Import and not as IdentExpr
+            if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
+                makeIdentExpr entityName
             else
-                makeImportInternal com.CurrentFile Fable.Any entityName file
+                makeImportInternal com Fable.Any entityName file
 
     let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
@@ -1611,7 +1612,7 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1621,22 +1622,15 @@ module Util =
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
 
-        // If we're precompiling an inline function, make sure we always reference
-        // the member with Import and not as IdentExpr. Later when resolving the inline
-        // expr we can see if the referenced member is actually in the current file.
-        let isInline, sourceFile =
-            match ctx.PrecompilingInlineFunction with
-            | Some(_, file) -> true, file
-            | None -> false, com.CurrentFile
-
-        if not isInline && file = sourceFile then
+        // If precompiling inline function always reference with Import and not as IdentExpr
+        if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
             { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
             |> Fable.IdentExpr
         else
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then
                 com.AddWatchDependency(file)
-            makeImportInternal sourceFile typ memberName file
+            makeImportInternal com typ memberName file
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
@@ -1988,12 +1982,12 @@ module Util =
 
         | _, Some entity when isModuleValueForCalls entity memb ->
             let typ = makeReturnType memb.FullType
-            memberRef com ctx r typ memb
+            memberRef com r typ memb
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
             let typ = makeReturnType memb.ReturnParameter.Type
             let callExpr =
-                memberRef com ctx r Fable.Any memb
+                memberRef com r Fable.Any memb
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
@@ -2024,4 +2018,4 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
-        | _ -> memberRef com ctx r typ v
+        | _ -> memberRef com r typ v

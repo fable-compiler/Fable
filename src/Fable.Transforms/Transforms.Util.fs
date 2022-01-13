@@ -454,10 +454,10 @@ module AST =
     let makeImportLib (com: Compiler) t memberName moduleName =
         makeImportCompilerGenerated t memberName (getLibPath com moduleName)
 
-    let makeImportInternal sourceFile t (selector: string) (path: string) =
+    let makeImportInternal (com: Compiler) t (selector: string) (path: string) =
         let path =
-            if sourceFile = path then "./" + Path.GetFileName(path)
-            else Path.getRelativeFileOrDirPath false sourceFile false path
+            if com.CurrentFile = path then "./" + Path.GetFileName(path)
+            else Path.getRelativeFileOrDirPath false com.CurrentFile false path
         makeImportCompilerGenerated t selector path
 
     let makeCallInfo thisArg args argTypes =

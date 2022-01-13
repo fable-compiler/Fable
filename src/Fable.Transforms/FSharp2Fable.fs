@@ -1451,16 +1451,7 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
         | _, None -> ""
     getRootModuleInner None declarations
 
-type FableCompiler(com: Compiler, ?currentFile) =
-    let currentFile, libDir =
-        match currentFile with
-        | None -> com.CurrentFile, com.LibraryDir
-        | Some currentFile ->
-            let libDir =
-                Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)
-                |> Path.getRelativeFileOrDirPath false currentFile true
-            currentFile, libDir
-
+type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
     let onlyOnceWarnings = HashSet<string>()
 
@@ -1499,7 +1490,7 @@ type FableCompiler(com: Compiler, ?currentFile) =
     member this.TryReplace(ctx, r, t, info, thisArg, args) =
         Replacements.tryCall this ctx r t info thisArg args
 
-    member com.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
+    member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
         let resolvedIdents = Dictionary()
 
         let resolveIdent (ctx: Context) (ident: Fable.Ident) =
@@ -1574,9 +1565,9 @@ type FableCompiler(com: Compiler, ?currentFile) =
                         // If it happens we're importing a member in the current file
                         // use IdentExpr instead of Import
                         let isImportToSameFile =
-                            inExpr.FileName = currentFile && (
+                            inExpr.FileName = com.CurrentFile && (
                                 let dirName, fileName = Path.GetDirectoryAndFileNames(info.Path)
-                                dirName = "." && fileName = Path.GetFileName(currentFile)
+                                dirName = "." && fileName = Path.GetFileName(com.CurrentFile)
                             )
                         if isImportToSameFile then
                             Fable.IdentExpr { makeTypedIdent t info.Selector with Range = r }
@@ -1602,7 +1593,7 @@ type FableCompiler(com: Compiler, ?currentFile) =
                         match tryFindWitness ctx argTypes isInstance traitName with
                         | None ->
                            let sourceTypes = sourceTypes |> List.map (resolveGenArg ctx)
-                           transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
+                           transformTraitCall this ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
                         | Some w ->
                             let callInfo = makeCallInfo None argExprs w.ArgTypes
                             makeCall r t callInfo w.Expr |> Some
@@ -1613,7 +1604,7 @@ type FableCompiler(com: Compiler, ?currentFile) =
                         let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx)
                                                Args = info.Args |> List.map (resolveExpr ctx) }
                         let genArgs = genArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v)
-                        inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
+                        inlineExpr this ctx r t genArgs callee info membUniqueName |> Some
 
                     | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
                         let resolveArg arg =
@@ -1626,7 +1617,7 @@ type FableCompiler(com: Compiler, ?currentFile) =
                         let thisArg = thisArg |> Option.map resolveArg
                         let args = args |> List.map resolveArg
                         let info = { info with GenericArgs = info.GenericArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v) }
-                        match com.TryReplace(ctx, r, typ, info, thisArg, args) with
+                        match this.TryReplace(ctx, r, typ, info, thisArg, args) with
                         | Some e -> Some e
                         | None when info.IsInterface ->
                             match attachedCall with
@@ -1635,7 +1626,7 @@ type FableCompiler(com: Compiler, ?currentFile) =
                                 "Unexpected, missing attached call in unresolved replace call"
                                 |> addErrorAndReturnNull com ctx.InlinePath r
                                 |> Some
-                        | None -> failReplace com ctx r info |> Some
+                        | None -> failReplace this ctx r info |> Some
 
                 | _ -> None)
 
@@ -1660,12 +1651,14 @@ type FableCompiler(com: Compiler, ?currentFile) =
             this.ResolveInlineExpr(ctx, inExpr, args)
 
     interface Compiler with
-        member _.CurrentFile = currentFile
-        member _.LibraryDir = libDir
+        member _.CurrentFile = com.CurrentFile
+        member _.LibraryDir = com.LibraryDir
         member _.Options = com.Options
         member _.Plugins = com.Plugins
         member _.OutputDir = com.OutputDir
         member _.ProjectFile = com.ProjectFile
+        member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
+        member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
@@ -1680,12 +1673,18 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
         decls |> List.collect (function
             | FSharpImplementationFileDeclaration.Entity(_, decls) -> getInlineExprsInner decls
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) when isInline memb ->
-                let inlineExpr =
+                [
+                    getMemberUniqueName memb,
                     InlineExprLazy(fun com ->
-                        let com = FableCompiler(com, currentFile=fileName) :> IFableCompiler
+                        let com =
+                            com.WillPrecompileInlineFunction(fileName)
+                            |> FableCompiler
+                            :> IFableCompiler
+
                         let ctx = { Context.Create() with
-                                        PrecompilingInlineFunction = Some(memb, fileName)
+                                        PrecompilingInlineFunction = Some memb
                                         UsedNamesInDeclarationScope = HashSet() }
+
                         let ctx, idents =
                             ((ctx, []), List.concat argIds) ||> List.fold (fun (ctx, idents) argId ->
                                 let ctx, ident = putIdentInScope com ctx argId None
@@ -1695,9 +1694,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                           Body = com.Transform(ctx, body)
                           FileName = fileName
                           ScopeIdents = set ctx.UsedNamesInDeclarationScope })
-
-                [getMemberUniqueName memb, inlineExpr]
-
+                ]
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _
             | FSharpImplementationFileDeclaration.InitAction _ -> []
         )
