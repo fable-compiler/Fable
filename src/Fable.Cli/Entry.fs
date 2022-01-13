@@ -186,9 +186,10 @@ type Runner =
     let fableLib = args.Value "--fableLib"
 
     do!
-        match outDir, fableLib with
-        | None, _ when precompile -> Error("outDir must be specified when precompiling")
-        | _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
+        match watch, outDir, fableLib with
+        | true, _, _ when precompile -> Error("Cannot watch when precompiling")
+        | _, None, _ when precompile -> Error("outDir must be specified when precompiling")
+        | _, _, Some _ when Option.isSome precompiledLib -> Error("Cannot set fableLib when setting precompiledLib")
         | _ -> Ok ()
 
     do!
@@ -274,8 +275,8 @@ type Runner =
         |> Async.RunSynchronously
 
     return!
-        match outDir, watch with
-        | Some outDir, false -> File.withLock outDir startCompilation
+        match outDir, precompile, watch with
+        | Some outDir, true, false -> File.withLock outDir startCompilation
         | _ -> startCompilation()
 }
 

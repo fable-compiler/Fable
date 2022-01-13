@@ -1451,13 +1451,18 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
         | _, None -> ""
     getRootModuleInner None declarations
 
-type FableCompiler(com: Compiler, ?libDir) =
-    let libDir = defaultArg libDir com.LibraryDir
+type FableCompiler(com: Compiler, ?currentFile) =
+    let currentFile, libDir =
+        match currentFile with
+        | None -> com.CurrentFile, com.LibraryDir
+        | Some currentFile ->
+            let libDir =
+                Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)
+                |> Path.getRelativeFileOrDirPath false currentFile true
+            currentFile, libDir
+
     let attachedMembers = Dictionary<string, _>()
     let onlyOnceWarnings = HashSet<string>()
-
-    member _.Options = com.Options
-    member _.CurrentFile = com.CurrentFile
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
         if attachedMembers.ContainsKey(entityFullName) then
@@ -1569,9 +1574,9 @@ type FableCompiler(com: Compiler, ?libDir) =
                         // If it happens we're importing a member in the current file
                         // use IdentExpr instead of Import
                         let isImportToSameFile =
-                            inExpr.FileName = com.CurrentFile && (
+                            inExpr.FileName = currentFile && (
                                 let dirName, fileName = Path.GetDirectoryAndFileNames(info.Path)
-                                dirName = "." && fileName = Path.GetFileName(com.CurrentFile)
+                                dirName = "." && fileName = Path.GetFileName(currentFile)
                             )
                         if isImportToSameFile then
                             Fable.IdentExpr { makeTypedIdent t info.Selector with Range = r }
@@ -1655,10 +1660,10 @@ type FableCompiler(com: Compiler, ?libDir) =
             this.ResolveInlineExpr(ctx, inExpr, args)
 
     interface Compiler with
+        member _.CurrentFile = currentFile
         member _.LibraryDir = libDir
         member _.Options = com.Options
         member _.Plugins = com.Plugins
-        member _.CurrentFile = com.CurrentFile
         member _.OutputDir = com.OutputDir
         member _.ProjectFile = com.ProjectFile
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
@@ -1677,13 +1682,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb, argIds, body) when isInline memb ->
                 let inlineExpr =
                     InlineExprLazy(fun com ->
-                        let libDir =
-                            Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)
-                            |> Path.normalizeFullPath
-                            |> Path.getRelativeFileOrDirPath false fileName true
-                        let com = FableCompiler(com, libDir) :> IFableCompiler
-
-                        // TODO: We may need to set the InlinePath here
+                        let com = FableCompiler(com, currentFile=fileName) :> IFableCompiler
                         let ctx = { Context.Create() with
                                         PrecompilingInlineFunction = Some(memb, fileName)
                                         UsedNamesInDeclarationScope = HashSet() }
