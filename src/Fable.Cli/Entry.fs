@@ -184,13 +184,16 @@ type Runner =
 
     let! projFile =
         if IO.Directory.Exists(fsprojPath) then
-            IO.Directory.EnumerateFileSystemEntries(fsprojPath)
-            |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
-            |> Seq.toList
+            let files = IO.Directory.EnumerateFileSystemEntries(fsprojPath) |> Seq.toList
+            files
+            |> List.filter (fun file -> file.EndsWith(".fsproj"))
             |> function
-                | [] -> Error("Cannot find .fsproj in dir: " + fsprojPath)
+                | [] -> files |> List.filter (fun file -> file.EndsWith(".fsx"))
+                | candidates -> candidates
+            |> function
+                | [] -> Error("Cannot find .fsproj/.fsx in dir: " + fsprojPath)
                 | [fsproj] -> Ok fsproj
-                | _ -> Error("Found multiple .fsproj in dir: " + fsprojPath)
+                | _ -> Error("Found multiple .fsproj/.fsx in dir: " + fsprojPath)
         elif not(IO.File.Exists(fsprojPath)) then
             Error("File does not exist: " + fsprojPath)
         else

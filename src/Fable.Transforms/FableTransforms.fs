@@ -14,7 +14,8 @@ let getSubExpressions = function
         | Curry(e, _)
         | Throw(e, _) -> [e]
         | Break _
-        | Debugger -> []
+        | Debugger
+        | Delimiter -> []
     | Value(kind,_) ->
         match kind with
         | ThisValue _ | BaseValue _
@@ -160,7 +161,7 @@ let noSideEffectBeforeIdent identName expr =
         | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue _), _, _) ->
             findIdentOrSideEffect e
         | Import _ | Lambda _ | Delegate _ -> false
-        | Extended((Return _|Throw _|Break _|Debugger),_) -> true
+        | Extended((Return _|Throw _|Break _|Debugger|Delimiter),_) -> true
         | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect

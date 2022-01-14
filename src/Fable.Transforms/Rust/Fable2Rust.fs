@@ -3046,11 +3046,13 @@ module Util =
                 mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
             | Fable.Return _
             | Fable.Break _
-            | Fable.Debugger ->
+            | Fable.Debugger
+            | Fable.Delimiter ->
                 // TODO:
                 $"Unimplemented Extended expression: %A{kind}"
                 |> addError com [] r
                 mkUnitExpr ()
+
 
 (*
     let rec transformAsStatements (com: IRustCompiler) ctx returnStrategy

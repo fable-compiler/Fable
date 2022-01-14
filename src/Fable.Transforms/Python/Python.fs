@@ -111,6 +111,7 @@ type Statement =
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
+    | Delimiter
 
 type Module = { Body: Statement list }
 
@@ -802,7 +803,7 @@ module PythonExtensions =
               Annotation = annotation
               Simple = defaultArg simple true }
             |> AnnAssign
-        
+
         static member return'(?value) : Statement = Return { Value = value }
 
         static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =

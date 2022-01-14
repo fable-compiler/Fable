@@ -117,6 +117,7 @@ module PrinterExtensions =
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
+            | Delimiter -> ()
 
         member printer.Print(node: Try) =
             printer.Print("try: ", ?loc = node.Loc)
@@ -810,7 +811,7 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(right)
 
 open PrinterExtensions
-let run writer map (program: Module): Async<unit> =
+let run writer map (currentLines: string[]) (program: Module): Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
         printer.Print(decl)
@@ -819,6 +820,56 @@ let run writer map (program: Module): Async<unit> =
             printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()
+
+    let printLine (printer: Printer) (line: string) =
+        printer.Print(line)
+        printer.PrintNewLine()
+
+    let rec printDeclarations (printer: PrinterImpl) (currentLines: string[]) imports restDecls = async {
+        match currentLines, imports, restDecls with
+        | [||], [], [] -> return ()
+        | _ ->
+            let currentLines =
+                currentLines
+                |> Array.skipWhile (fun line ->
+                    printLine printer line
+                    line.TrimStart().StartsWith("#fsharp") |> not)
+                |> function
+                    | [||] -> [||]
+                    | curLines ->
+                        Array.tail curLines
+                        |> Array.skipWhile (fun line ->
+                            line.TrimStart().StartsWith("#fsharp") |> not)
+            
+            do! printer.Flush()
+
+            match imports with
+            | [] -> ()
+            | imports ->
+                for decl in imports do
+                    printDeclWithExtraLine false printer decl
+
+                printer.PrintNewLine()
+                do! printer.Flush()
+
+            let decls, restDecls = restDecls |> List.splitWhile (function Delimiter -> false | _ -> true)
+            let restDecls = if List.isEmpty restDecls then [] else List.tail restDecls
+
+            for decl in decls do
+                printDeclWithExtraLine true printer decl
+                // TODO: Only flush every XXX lines?
+                do! printer.Flush()
+
+            // Print the next delimiter if there's one
+            let currentLines =
+                if not(Array.isEmpty currentLines) then
+                    Array.head currentLines |> printLine printer
+                    Array.tail currentLines
+                else
+                    currentLines
+
+            return! printDeclarations printer currentLines [] restDecls
+    }
 
     async {
         use printer = new PrinterImpl(writer, map)
@@ -830,17 +881,7 @@ let run writer map (program: Module): Async<unit> =
                 | _ -> false)
 
         // Comment used by VS Code Python interpreter so we can run the imports
-        (printer :> Printer).Print("# %%")
-        printer.PrintNewLine()
+        // printLine printer "# %%"
 
-        for decl in imports do
-            printDeclWithExtraLine false printer decl
-
-        printer.PrintNewLine()
-        do! printer.Flush()
-
-        for decl in restDecls do
-            printDeclWithExtraLine true printer decl
-            // TODO: Only flush every XXX lines?
-            do! printer.Flush()
+        do! printDeclarations printer currentLines imports restDecls
     }

@@ -67,9 +67,10 @@ module Js =
     }
 
 module Python =
-    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, pathResolver) =
+    let getTargetPath (targetPath: string) =
         let fileExt = ".py"
         let targetDir = Path.GetDirectoryName(targetPath)
+
         // PEP8: Modules should have short, all-lowercase names
         let fileName =
             Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
@@ -79,8 +80,9 @@ module Python =
             |> Naming.applyCaseRule Core.CaseRules.SnakeCase
             |> Fable.PY.Naming.checkPyKeywords
         // Note that Python modules cannot contain dots or it will be impossible to import them
-        let targetPath = Path.Combine(targetDir, Path.replaceExtension fileExt fileName)
+        Path.Combine(targetDir, Path.replaceExtension fileExt fileName)
 
+    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, pathResolver) =
         let stream = new IO.StreamWriter(targetPath)
 
         interface PythonPrinter.Writer with
@@ -108,10 +110,16 @@ module Python =
             |> FableTransforms.transformFile com
             |> Fable2Python.Compiler.transformFile com
 
+        let outPath = getTargetPath outPath
+        let! currentLines =
+            if IO.File.Exists(outPath) then
+                IO.File.ReadAllLinesAsync(outPath) |> Async.AwaitTask
+            else async.Return [||]
+
         let map = { new PythonPrinter.SourceMapGenerator with
                         member _.AddMapping(_,_,_,_,_) = () }
         let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
-        do! PythonPrinter.run writer map python
+        do! PythonPrinter.run writer map currentLines python
         match com.OutputType with
         | OutputType.Library ->
             // Make sure we include an empty `__init__.py` in every directory of a library

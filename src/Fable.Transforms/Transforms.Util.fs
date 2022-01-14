@@ -696,7 +696,8 @@ module AST =
             | Throw(e, t) -> Extended(Throw(f e, t), r)
             | Return e -> Extended(Return(f e), r)
             | Break _
-            | Debugger -> e
+            | Debugger
+            | Delimiter -> e
         | Value(kind, r) ->
             match kind with
             | ThisValue _ | BaseValue _
