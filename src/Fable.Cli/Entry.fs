@@ -275,6 +275,8 @@ type Runner =
         |> Async.RunSynchronously
 
     return!
+        // In CI builds, it may happen that two parallel Fable compilations try to precompile
+        // the same library at the same time, use a lock file to prevent issues in that case.
         match outDir, precompile, watch with
         | Some outDir, true, false -> File.withLock outDir startCompilation
         | _ -> startCompilation()

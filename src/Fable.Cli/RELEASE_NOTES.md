@@ -1,3 +1,9 @@
+### 3.7.0-beta-011
+
+* Fixes for precompiling inline expressions
+* Fix #2719: use with null disposable
+* Fix #2727: don't write in same line when output redirected
+
 ### 3.7.0-beta-009
 
 * Fix #2718
