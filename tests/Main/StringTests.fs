@@ -227,7 +227,7 @@ let tests =
           |> equal "Name: Phillip, Age: 29"
 
       testCase "string interpolation works with inline expressions" <| fun () ->
-          $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!"
+          $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
           |> equal "I think 3.14 is close to 3.14159265!"
 
       testCase "string interpolation works with anonymous records" <| fun () ->
@@ -1022,7 +1022,7 @@ let tests =
           $"%.2f{100.4566666}%%" |> equal "100.46%"
 
       testCase "interpolated string with double % should not interfere with holes afterwards " <| fun () ->
-          $"%%{99. - 1.5}" |> equal "%97.5"
+          $"%%{99. - 1.5}".Replace(",", ".") |> equal "%97.5"
 
       testCase "interpolated string with double braces should be unescaped" <| fun () ->
           $"{{ {100} }}" |> equal "{ 100 }"
