@@ -333,50 +333,50 @@ let tests =
 
       testCase "String.Format {0:x} works" <| fun () ->
             //See above comment on expected values
-            String.Format("255: {0:X}", 255) |> equal "255: FF"
-            String.Format("255: {0:x}", 255) |> equal "255: ff"
-            String.Format("-255: {0:X}", -255) |> equal "-255: FFFFFF01"
-            String.Format("4095L: {0:X}", 4095L) |> equal "4095L: FFF"
-            String.Format("-4095L: {0:X}", -4095L) |> equal "-4095L: FFFFFFFFFFFFF001"
-            String.Format("1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
-            String.Format("1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
-            String.Format("2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
-            String.Format("2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
-            String.Format("1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
-            String.Format("1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
+            String.Format(CultureInfo.InvariantCulture, "255: {0:X}", 255) |> equal "255: FF"
+            String.Format(CultureInfo.InvariantCulture, "255: {0:x}", 255) |> equal "255: ff"
+            String.Format(CultureInfo.InvariantCulture, "-255: {0:X}", -255) |> equal "-255: FFFFFF01"
+            String.Format(CultureInfo.InvariantCulture, "4095L: {0:X}", 4095L) |> equal "4095L: FFF"
+            String.Format(CultureInfo.InvariantCulture, "-4095L: {0:X}", -4095L) |> equal "-4095L: FFFFFFFFFFFFF001"
+            String.Format(CultureInfo.InvariantCulture, "1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
+            String.Format(CultureInfo.InvariantCulture, "1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
+            String.Format(CultureInfo.InvariantCulture, "2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
+            String.Format(CultureInfo.InvariantCulture, "2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
+            String.Format(CultureInfo.InvariantCulture, "1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
+            String.Format(CultureInfo.InvariantCulture, "1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
 
       testCase "String.Format {0:x} with precision works" <| fun () ->
-            String.Format("#{0:X3}", 0xC149D) |> equal "#C149D"
-            String.Format("#{0:X6}", 0xC149D) |> equal "#0C149D"
+            String.Format(CultureInfo.InvariantCulture, "#{0:X3}", 0xC149D) |> equal "#C149D"
+            String.Format(CultureInfo.InvariantCulture, "#{0:X6}", 0xC149D) |> equal "#0C149D"
 
       testCase "String.Format works with thousands separator" <| fun () ->
-            (12343235354.6547757).ToString() |> equal "12343235354.654776"
-            (12343235354.6547757).ToString("#,##.000") |> equal "12,343,235,354.655"
-            (12343235354.6547757M).ToString("#,##.000") |> equal "12,343,235,354.655"
-            (123.456).ToString("#,##.00") |> equal "123.46"
-            (123.456M).ToString("#,##.00") |> equal "123.46"
-            (123438192123.456M).ToString("#,##.00") |> equal "123,438,192,123.46"
-            (1.456M).ToString("#,##") |> equal "1"
-            (1.456M).ToString("0,0") |> equal "01"
+            String.Format(CultureInfo.InvariantCulture, "{0}", 12343235354.6547757) |> equal "12343235354.654776"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##.000}", 12343235354.6547757) |> equal "12,343,235,354.655"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##.000}", 12343235354.6547757M) |> equal "12,343,235,354.655"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##.00}", 123.456) |> equal "123.46"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##.00}", 123.456M) |> equal "123.46"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##.00}", 123438192123.456M) |> equal "123,438,192,123.46"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##}", 1.456M) |> equal "1"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 1.456M) |> equal "01"
 
       testCase "String.Format can omit decimal digits" <| fun () ->
-            (12343235354.6547757).ToString("#,##") |> equal "12,343,235,355"
-            (12343235354.6547757).ToString("0,00") |> equal "12,343,235,355"
-            (12343235354.).ToString("0,00") |> equal "12,343,235,354"
-            (12343235354.).ToString("#") |> equal "12343235354"
-            (12343235354.).ToString("0") |> equal "12343235354"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,##}", 12343235354.6547757) |> equal "12,343,235,355"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,00}", 12343235354.6547757) |> equal "12,343,235,355"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,00}", 12343235354.) |> equal "12,343,235,354"
+            String.Format(CultureInfo.InvariantCulture, "{0:#}", 12343235354.) |> equal "12343235354"
+            String.Format(CultureInfo.InvariantCulture, "{0:0}", 12343235354.) |> equal "12343235354"
 
-            (12343235354.6547757M).ToString("#,#") |> equal "12,343,235,355"
-            (12343235354.6547757M).ToString("0,0") |> equal "12,343,235,355"
+            String.Format(CultureInfo.InvariantCulture, "{0:#,#}", 12343235354.6547757M) |> equal "12,343,235,355"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 12343235354.6547757M) |> equal "12,343,235,355"
 
-            (1234323535).ToString("0,0") |> equal "1,234,323,535"
-            (1234323535).ToString("#") |> equal "1234323535"
-            (1234323535).ToString("0") |> equal "1234323535"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 1234323535) |> equal "1,234,323,535"
+            String.Format(CultureInfo.InvariantCulture, "{0:#}", 1234323535) |> equal "1234323535"
+            String.Format(CultureInfo.InvariantCulture, "{0:0}", 1234323535) |> equal "1234323535"
 
-            (12343235354M).ToString("0,0") |> equal "12,343,235,354"
-            (343235354M).ToString("0,0") |> equal "343,235,354"
-            (12343235354M).ToString("#") |> equal "12343235354"
-            (12343235354M).ToString("0") |> equal "12343235354"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 12343235354M) |> equal "12,343,235,354"
+            String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 343235354M) |> equal "343,235,354"
+            String.Format(CultureInfo.InvariantCulture, "{0:#}", 12343235354M) |> equal "12343235354"
+            String.Format(CultureInfo.InvariantCulture, "{0:0}", 12343235354M) |> equal "12343235354"
 
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M
@@ -406,7 +406,7 @@ let tests =
 
       testCase "String.Format works" <| fun () ->
             let arg1, arg2, arg3 = "F#", "Fable", "Babel"
-            String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+            String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
             |> equal "Babel is to Fable what Fable is to F#"
 
       testCase "String.Format with extra formatting works" <| fun () ->
