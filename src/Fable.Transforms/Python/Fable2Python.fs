@@ -1316,18 +1316,18 @@ module Util =
                 let func = Statement.functionDef(name = ident, args = args, body = body, returns=returnType)
                 Expression.name ident, [ func ]
 
-    let makeFunction name (args: Arguments, body: Expression, returnType) : Statement =
+    let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        Statement.functionDef(name = name, args = args, body = body, returns=returnType)
+        Statement.functionDef(name = name, args = args, body = body, decoratorList=decoratorList, returns=returnType)
 
-    let makeFunctionExpression (com: IPythonCompiler) ctx name (args, body: Expression, returnType: Expression) : Expression * Statement list=
+    let makeFunctionExpression (com: IPythonCompiler) ctx name (args, body: Expression, decoratorList, returnType: Expression) : Expression * Statement list=
         let ctx = { ctx with BoundVars = ctx.BoundVars.EnterScope() }
 
         let name =
             name |> Option.map (fun name -> com.GetIdentifier(ctx, name))
             |> Option.defaultValue (Helpers.getUniqueIdentifier "expr")
-        let func = makeFunction name (args, body, returnType)
+        let func = makeFunction name (args, body, decoratorList, returnType)
         Expression.name(name), [ func ]
 
     let optimizeTailCall (com: IPythonCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
@@ -2805,7 +2805,9 @@ module Util =
 
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
-            let expr, stmts' = makeFunctionExpression com ctx None (args, body, ta)
+            // https://github.com/fable-compiler/Fable.Python/issues/42
+            let decoratorList = [ com.GetImportExpr(ctx, "functools", "lru_cache") ]
+            let expr, stmts' = makeFunctionExpression com ctx None (args, body, decoratorList, ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name None, stmts @ stmts'
 
@@ -3009,7 +3011,7 @@ module Util =
                 |> List.map (fun p -> Expression.identifier(p.Arg))
             let exposedConsBody = Expression.call(classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
-            makeFunction name (consArgs, exposedConsBody, returnType)
+            makeFunction name (consArgs, exposedConsBody, [], returnType)
 
         let baseExpr, consBody =
             classDecl.BaseCall
@@ -3334,6 +3336,7 @@ module Compiler =
             ScopedTypeParams = Set.empty }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
+
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
         let body = importDecls @ typeVars @ rootDecls

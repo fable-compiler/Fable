@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 from .types import Union as FsUnion, FSharpRef, Record
-from .util import equal_arrays_with
+from .util import combine_hash_codes, equal_arrays_with
 
 Constructor = Callable[..., Any]
 
@@ -37,6 +37,11 @@ class TypeInfo:
 
     def __eq__(self, other: Any) -> bool:
         return equals(self, other)
+
+    def __hash__(self) -> int:
+        hashes = list(map(hash, self.generics if self.generics else []))
+        hashes.append(hash(self.fullname))
+        return combine_hash_codes(hashes)
 
 
 def class_type(
@@ -362,7 +367,7 @@ def make_union(uci: CaseInfo, values: List[Any]) -> Any:
 
 
 def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
-    if t.cases:
+    if t.cases and callable(t.cases):
         return t.cases()
     else:
         raise ValueError(f"{t.fullname} is not an F# union type")
