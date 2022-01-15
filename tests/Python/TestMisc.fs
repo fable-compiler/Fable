@@ -1282,3 +1282,15 @@ let ``test incr and decr works`` () =
 
     f value |> equal 43
     g value |> equal 42
+
+[<Fact>]
+let ``test Records are hashable`` () =
+    let key1 = {a = 1; b = 2; c = 3; d = 4; e = 5}
+    let key2 = {a = 5; b = 4; c = 3; d = 2; e = 1}
+    let map =
+        Map.empty
+        |> Map.add key1 10
+        |> Map.add key2 20
+
+    map.[key1] |> equal 10
+    map.[key2] |> equal 20

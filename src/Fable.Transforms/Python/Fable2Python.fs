@@ -2768,11 +2768,11 @@ module Util =
                 prop)
             |> Seq.toArray
 
-    let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (isOptional: bool) (consBody: Statement list) (baseExpr: Expression option) classMembers =
+    let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (isOptional: bool) (consBody: Statement list) (baseExpr: Expression option) classMembers slotMembers =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
         let classCons = makeClassConstructor consArgs isOptional consBody
-        let classFields = Array.empty
+        let classFields = slotMembers  // TODO: annotations
         let classMembers = classCons @ classMembers
         //printfn "ClassMembers: %A" classMembers
         let classBody =
@@ -2795,8 +2795,21 @@ module Util =
         let name = com.GetIdentifier(ctx, entName)
         Statement.classDef(name, body = classBody, bases = bases @ generics)
 
+    let createSlotsForRecordType (com: IPythonCompiler) ctx (classEnt: Fable.Entity) =
+
+        let strFromIdent (ident: Identifier ) = ident.Name
+        if classEnt.IsValueType then
+            let elements =
+                getEntityFieldsAsProps com ctx classEnt
+                |> Array.map (nameFromKey com ctx >> strFromIdent >> Expression.string)
+                |> Array.toList
+            let slots = Expression.list(elements, Load)
+            [ Statement.assign([Expression.name("__slots__", Store)], slots) ]
+        else [ ]
+
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (isOptional: bool) (consBody: Statement list) baseExpr classMembers : Statement list =
-        let typeDeclaration = declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers
+        let slotMembers = createSlotsForRecordType com ctx ent
+        let typeDeclaration = declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
         let reflectionDeclaration, stmts =
             let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
             let genArgs = Array.init ent.GenericParameters.Length (fun i -> "gen" + string i |> makeIdent)

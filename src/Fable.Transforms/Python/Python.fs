@@ -802,7 +802,7 @@ module PythonExtensions =
               Annotation = annotation
               Simple = defaultArg simple true }
             |> AnnAssign
-        
+
         static member return'(?value) : Statement = Return { Value = value }
 
         static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =
@@ -962,6 +962,7 @@ module PythonExtensions =
 
             Expression.boolOp(op, values, ?loc=loc)
         static member constant(value: obj, ?loc) : Expression = Constant (value=value, loc=loc)
+        static member string(value: string, ?loc) : Expression = Constant (value=value, loc=loc)
         static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
         static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
 
