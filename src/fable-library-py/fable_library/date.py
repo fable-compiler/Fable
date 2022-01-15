@@ -178,7 +178,7 @@ def min_value() -> datetime:
     return datetime.min
 
 
-def op_addition(x: datetime, y: datetime) -> datetime:
+def op_addition(x: datetime, y: timedelta) -> datetime:
     return x + y
 
 
