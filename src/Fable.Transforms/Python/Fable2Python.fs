@@ -2814,9 +2814,7 @@ module Util =
 
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
-            // https://github.com/fable-compiler/Fable.Python/issues/42
-            let decoratorList = [ com.GetImportExpr(ctx, "functools", "lru_cache") ]
-            let expr, stmts' = makeFunctionExpression com ctx None (args, body, decoratorList, ta)
+            let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name None, stmts @ stmts'
 
