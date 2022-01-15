@@ -5,91 +5,7 @@ open System
 open Fable
 open Fable.AST
 open Fable.AST.Python
-
-type SourceMapGenerator =
-    abstract AddMapping:
-        originalLine: int
-        * originalColumn: int
-        * generatedLine: int
-        * generatedColumn: int
-        * ?name: string
-        -> unit
-
-type Writer =
-    inherit IDisposable
-    abstract Write: string -> Async<unit>
-
-type Printer =
-    abstract Line: int
-    abstract Column: int
-    abstract PushIndentation: unit -> unit
-    abstract PopIndentation: unit -> unit
-    abstract Print: string * ?loc:SourceLocation -> unit
-    abstract PrintNewLine: unit -> unit
-    abstract AddLocation: SourceLocation option -> unit
-    abstract MakeImportPath: string -> string
-
-type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
-    // TODO: We can make this configurable later
-    let indentSpaces = "    "
-    let builder = Text.StringBuilder()
-    let mutable indent = 0
-    let mutable line = 1
-    let mutable column = 0
-
-    let addLoc (loc: SourceLocation option) =
-        match loc with
-        | None -> ()
-        | Some loc ->
-            map.AddMapping(originalLine = loc.start.line,
-                           originalColumn = loc.start.column,
-                           generatedLine = line,
-                           generatedColumn = column,
-                           ?name = loc.identifierName)
-
-    member _.Flush(): Async<unit> =
-        async {
-            do! writer.Write(builder.ToString())
-            builder.Clear() |> ignore
-        }
-
-    member _.PrintNewLine() =
-        builder.AppendLine() |> ignore
-        line <- line + 1
-        column <- 0
-
-    interface IDisposable with
-        member _.Dispose() = writer.Dispose()
-
-    interface Printer with
-        member _.Line = line
-        member _.Column = column
-
-        member _.PushIndentation() =
-            indent <- indent + 1
-
-        member _.PopIndentation() =
-            if indent > 0 then indent <- indent - 1
-
-        member _.AddLocation(loc) =
-            addLoc loc
-
-        member _.Print(str, loc) =
-            addLoc loc
-
-            if column = 0 then
-                let indent = String.replicate indent indentSpaces
-                builder.Append(indent) |> ignore
-                column <- indent.Length
-
-            builder.Append(str) |> ignore
-            column <- column + str.Length
-
-        member this.PrintNewLine() =
-            this.PrintNewLine()
-
-        member this.MakeImportPath(path) = path
-
+open Fable.Transforms.Printer
 
 module PrinterExtensions =
     type Printer with
@@ -117,7 +33,7 @@ module PrinterExtensions =
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
-            | Delimiter -> ()
+            | RegionStart _ -> ()
 
         member printer.Print(node: Try) =
             printer.Print("try: ", ?loc = node.Loc)
@@ -811,7 +727,8 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(right)
 
 open PrinterExtensions
-let run writer map (currentLines: string[]) (program: Module): Async<unit> =
+
+let run writer (currentLines: CurrentLines) (program: Module): Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
         printer.Print(decl)
@@ -825,22 +742,13 @@ let run writer map (currentLines: string[]) (program: Module): Async<unit> =
         printer.Print(line)
         printer.PrintNewLine()
 
-    let rec printDeclarations (printer: PrinterImpl) (currentLines: string[]) imports restDecls = async {
-        match currentLines, imports, restDecls with
-        | [||], [], [] -> return ()
+    let rec printDeclarations (printer: PrinterImpl) nextHeader (currentLines: CurrentLines) imports restDecls = async {
+        match currentLines.IsEmpty, imports, restDecls with
+        | true, [], [] -> do! printer.Flush()
         | _ ->
-            let currentLines =
-                currentLines
-                |> Array.skipWhile (fun line ->
-                    printLine printer line
-                    line.TrimStart().StartsWith("#fsharp") |> not)
-                |> function
-                    | [||] -> [||]
-                    | curLines ->
-                        Array.tail curLines
-                        |> Array.skipWhile (fun line ->
-                            line.TrimStart().StartsWith("#fsharp") |> not)
-            
+            let nextDelimiter, currentLines =
+                currentLines.PrintUntilDelimiter(printLine printer)
+
             do! printer.Flush()
 
             match imports with
@@ -848,12 +756,18 @@ let run writer map (currentLines: string[]) (program: Module): Async<unit> =
             | imports ->
                 for decl in imports do
                     printDeclWithExtraLine false printer decl
-
-                printer.PrintNewLine()
+                (printer :> Printer).PrintNewLine()
                 do! printer.Flush()
 
-            let decls, restDecls = restDecls |> List.splitWhile (function Delimiter -> false | _ -> true)
-            let restDecls = if List.isEmpty restDecls then [] else List.tail restDecls
+            nextHeader |> Option.iter (fun header -> printLine printer $"#region {header}")
+
+            let rec splitDecls decls restDecls =
+                match restDecls with
+                | [] -> None, List.rev decls, []
+                | RegionStart header::restDecls -> Some header, List.rev decls, restDecls
+                | decl::restDecls -> splitDecls (decl::decls) restDecls
+
+            let nextHeader, decls, restDecls = splitDecls [] restDecls
 
             for decl in decls do
                 printDeclWithExtraLine true printer decl
@@ -861,18 +775,13 @@ let run writer map (currentLines: string[]) (program: Module): Async<unit> =
                 do! printer.Flush()
 
             // Print the next delimiter if there's one
-            let currentLines =
-                if not(Array.isEmpty currentLines) then
-                    Array.head currentLines |> printLine printer
-                    Array.tail currentLines
-                else
-                    currentLines
+            nextDelimiter |> Option.iter (printLine printer)
 
-            return! printDeclarations printer currentLines [] restDecls
+            return! printDeclarations printer nextHeader currentLines [] restDecls
     }
 
     async {
-        use printer = new PrinterImpl(writer, map)
+        use printer = new PrinterImpl(writer)
 
         let imports, restDecls =
             program.Body |> List.splitWhile (function
@@ -880,8 +789,5 @@ let run writer map (currentLines: string[]) (program: Module): Async<unit> =
                 | ImportFrom _ -> true
                 | _ -> false)
 
-        // Comment used by VS Code Python interpreter so we can run the imports
-        // printLine printer "# %%"
-
-        do! printDeclarations printer currentLines imports restDecls
+        do! printDeclarations printer None currentLines imports restDecls
     }

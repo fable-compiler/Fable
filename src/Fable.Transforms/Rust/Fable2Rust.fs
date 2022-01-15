@@ -3047,7 +3047,7 @@ module Util =
             | Fable.Return _
             | Fable.Break _
             | Fable.Debugger
-            | Fable.Delimiter ->
+            | Fable.RegionStart _ ->
                 // TODO:
                 $"Unimplemented Extended expression: %A{kind}"
                 |> addError com [] r

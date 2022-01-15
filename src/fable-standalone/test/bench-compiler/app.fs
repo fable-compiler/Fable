@@ -71,7 +71,7 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
     let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.EscapeJsStringLiteral(str) = escapeJsString(str)
+        member _.EscapeStringLiteral(str) = escapeJsString(str)
         member _.MakeImportPath(path) =
             let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir options.outDir path
             if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path

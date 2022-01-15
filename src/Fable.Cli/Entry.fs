@@ -75,6 +75,7 @@ let knownCliArgs() = [
                              "Support for TypeScript, Php and Python is experimental."]
 
   // Hidden args
+  ["--delimiter"], []
   ["--precompiledLib"], []
   ["--noReflection"], []
   ["--typescript"], []
@@ -276,6 +277,7 @@ type Runner =
           Configuration = configuration
           OutDir = outDir
           IsWatch = watch
+          Delimiter = args.Value "--delimiter"
           Precompile = precompile
           PrecompiledLib = precompiledLib
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"

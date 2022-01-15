@@ -115,7 +115,7 @@ module Util =
         | Fable.Extended(kind, _) ->
             match kind with
             | Fable.Throw _ // TODO: Depends on language target
-            | Fable.Break _ | Fable.Debugger | Fable.Delimiter | Fable.Return _ -> true
+            | Fable.Break _ | Fable.Debugger | Fable.RegionStart _ | Fable.Return _ -> true
             | Fable.Curry _ -> false
 
         // TODO: If IsSatement is false, still try to infer it? See #2414

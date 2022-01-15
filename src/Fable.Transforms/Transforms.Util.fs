@@ -697,7 +697,7 @@ module AST =
             | Return e -> Extended(Return(f e), r)
             | Break _
             | Debugger
-            | Delimiter -> e
+            | RegionStart _ -> e
         | Value(kind, r) ->
             match kind with
             | ThisValue _ | BaseValue _

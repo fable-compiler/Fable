@@ -1871,21 +1871,18 @@ module Util =
                     | _ -> callInfo
                 let isStatement = tryAttributeConsArg att 1 false tryBoolean
                 let macro = tryAttributeConsArg att 0  "" tryString
-                if macro = "#fsharp" then
-                    Fable.Extended(Fable.Delimiter, r) |> Some
-                else
-                    let macro =
-                        match attFullName with
-                        | Atts.emitMethod -> "$0." + macro + "($1...)"
-                        | Atts.emitConstructor -> "new $0($1...)"
-                        | Atts.emitIndexer -> "$0[$1]{{=$2}}"
-                        | Atts.emitProperty -> "$0." + macro + "{{=$1}}"
-                        | _ -> macro
-                    let emitInfo: Fable.EmitInfo =
-                        { Macro = macro
-                          IsStatement = isStatement
-                          CallInfo = callInfo }
-                    Fable.Emit(emitInfo, typ, r) |> Some
+                let macro =
+                    match attFullName with
+                    | Atts.emitMethod -> "$0." + macro + "($1...)"
+                    | Atts.emitConstructor -> "new $0($1...)"
+                    | Atts.emitIndexer -> "$0[$1]{{=$2}}"
+                    | Atts.emitProperty -> "$0." + macro + "{{=$1}}"
+                    | _ -> macro
+                let emitInfo: Fable.EmitInfo =
+                    { Macro = macro
+                      IsStatement = isStatement
+                      CallInfo = callInfo }
+                Fable.Emit(emitInfo, typ, r) |> Some
             | _ -> None)
 
     let (|Imported|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
