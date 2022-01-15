@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import array
-from abc import abstractmethod, abstractstaticmethod
+from abc import abstractmethod
 from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from typing import Union as Union_
 from typing import cast
