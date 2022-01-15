@@ -74,3 +74,59 @@ let ``test Observable.map works`` () =
     Observable.map not source
     |> Observable.add (equal false)
     source.Trigger true
+
+[<Fact>]
+let ``test Observable.merge works`` () =
+    let source1 = MyObservable()
+    let source2 = MyObservable()
+    (source1, source2)
+    ||> Observable.merge
+    |> Observable.add (equal 3)
+    source2.Trigger 3
+    source1.Trigger 3
+
+[<Fact>]
+let ``test Observable.pairwise works`` () =
+    let source = MyObservable()
+    source
+    |> Observable.pairwise
+    |> Observable.add (fun (x, y) ->
+        equal 1 x
+        equal 2 y)
+    source.Trigger 1
+    source.Trigger 2
+
+[<Fact>]
+let ``test Observable.partition works`` () =
+    let source = MyObservable()
+    let source1, source2 =
+        source |> Observable.partition ((>) 5)
+    Observable.add (equal 3) source1
+    Observable.add (equal 8) source2
+    source.Trigger 8
+    source.Trigger 3
+
+[<Fact>]
+let ``test Observable.scan works`` () =
+    let mutable state = 5
+    let source = MyObservable()
+    (5, source)
+    ||> Observable.scan (+)
+    |> Observable.add (fun x ->
+        state <- state + 1
+        equal state x)
+    source.Trigger 1
+    source.Trigger 1
+
+[<Fact>]
+let ``test Observable.split works`` () =
+    let source = MyObservable()
+    let source1, source2 =
+        source |> Observable.split (fun x ->
+            if 5 > x
+            then Choice1Of2 (x*3)
+            else Choice2Of2 (x*2))
+    Observable.add (equal 6) source1
+    Observable.add (equal 12) source2
+    source.Trigger 6
+    source.Trigger 2

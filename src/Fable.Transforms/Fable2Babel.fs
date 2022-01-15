@@ -929,7 +929,9 @@ module Util =
         | Fable.BaseValue(None,_) -> Super(None)
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent
         | Fable.ThisValue _ -> Expression.thisExpression()
-        | Fable.TypeInfo t -> transformTypeInfo com ctx r (Some Map.empty) t
+        | Fable.TypeInfo t ->
+            if com.Options.NoReflection then addErrorAndReturnNull com r "Reflection is disabled"
+            else transformTypeInfo com ctx r (Some Map.empty) t
         | Fable.Null _t ->
             // if com.Options.typescript
             //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
@@ -1978,20 +1980,23 @@ module Util =
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
-        let reflectionDeclaration =
-            let ta =
-                if com.Options.Language = TypeScript then
-                    makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
-                    |> TypeAnnotation |> Some
-                else None
-            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
-            let generics = genArgs |> Array.map identAsExpr
-            let body = transformReflectionInfo com ctx None ent generics
-            let args = genArgs |> Array.map (fun x -> Pattern.identifier(x.Name, ?typeAnnotation=ta))
-            let returnType = ta
-            makeFunctionExpression None (args, body, returnType, None)
-            |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
-        [typeDeclaration; reflectionDeclaration]
+        if com.Options.NoReflection then
+            [typeDeclaration]
+        else
+            let reflectionDeclaration =
+                let ta =
+                    if com.Options.Language = TypeScript then
+                        makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
+                        |> TypeAnnotation |> Some
+                    else None
+                let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
+                let generics = genArgs |> Array.map identAsExpr
+                let body = transformReflectionInfo com ctx None ent generics
+                let args = genArgs |> Array.map (fun x -> Pattern.identifier(x.Name, ?typeAnnotation=ta))
+                let returnType = ta
+                makeFunctionExpression None (args, body, returnType, None)
+                |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
+            [typeDeclaration; reflectionDeclaration]
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body, returnType, typeParamDecl =
@@ -2281,6 +2286,8 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
+            member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)

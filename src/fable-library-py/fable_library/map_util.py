@@ -1,9 +1,20 @@
-from typing import Any
+from typing import Any, Dict, Set, TypeVar, TYPE_CHECKING
+from .types import FSharpRef
 
-from .map import FSharpMap  # type: ignore
+_K = TypeVar("_K")
+_V = TypeVar("_V")
+
+if TYPE_CHECKING:
+
+    class FSharpMap(Dict[_K, _V]):
+        ...
 
 
-def add_to_set(v: Any, st: set) -> bool:
+else:
+    from .map import FSharpMap
+
+
+def add_to_set(v: _V, st: Set[_V]) -> bool:
     if v in st:
         return False
 
@@ -11,14 +22,14 @@ def add_to_set(v: Any, st: set) -> bool:
     return True
 
 
-def add_to_dict(di, k: Any, v: Any) -> None:
+def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
     if k in di:
         raise Exception("An item with the same key has already been added. Key: " + str(k))
 
     di[k] = v
 
 
-def try_get_value(map: FSharpMap, key: Any, default_value: Any) -> bool:
+def try_get_value(map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]) -> bool:
     print([map], key)
     if key in map.keys():
 
@@ -28,8 +39,12 @@ def try_get_value(map: FSharpMap, key: Any, default_value: Any) -> bool:
     return False
 
 
-def get_item_from_dict(map: dict, key: Any) -> Any:
+def get_item_from_dict(map: Dict[_K, _V], key: _K) -> _V:
     if key in map:
-        return map.get(key)
+        return map[key]
     else:
         raise Exception(f"The given key '{key}' was not present in the dictionary.")
+
+
+def contains_value(v: _V, map: Dict[Any, _V]) -> bool:
+    return v in map.values()

@@ -36,7 +36,6 @@ module Naming =
         if name = ".ctor" then "_ctor"
         else name.Replace('.','_').Replace('`','_')
 
-
     let pyKeywords =
         // https://docs.python.org/3/reference/lexical_analysis.html#keywords
 
@@ -157,14 +156,8 @@ module Naming =
                 | Naming.NoMemberPart -> "")
 
     let sanitizeIdent conflicts name part =
-
-        let result =
-            // Replace Forbidden Chars
-            buildName sanitizeIdentForbiddenChars name part
-            |> toSnakeCase
-            |> checkPyKeywords
-            // Check if it already exists
-            |> preventConflicts conflicts
-
-        //printfn "py: %A" (name, result)
-        result
+        // Replace Forbidden Chars
+        buildName sanitizeIdentForbiddenChars name part
+        |> checkPyKeywords
+        // Check if it already exists
+        |> preventConflicts conflicts

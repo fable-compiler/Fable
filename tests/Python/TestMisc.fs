@@ -454,6 +454,8 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+type Union_TestUnionTag = Union_TestUnionTag of int
+
 #if FABLE_COMPILER
 
 [<Fact>]
@@ -1230,7 +1232,7 @@ let ``test Assigning to unit works`` () =
     doit 2 (fun x -> value <- value + x)
     value |> equal 4
 
-type TestInliningMutation(l: int, r: int) =
+type InliningMutationTest(l: int, r: int) =
     let mutable left = 0
 
     let call() =
@@ -1263,8 +1265,8 @@ let ``test Mutating variables is not postponed (functions) `` () =
 [<Fact>]
 let ``test Mutating variables is not postponed (classes) `` () =
     let runCase (l: int) (r: int) (expect: int) =
-        TestInliningMutation(l, r).Run() |> equal expect
-        TestInliningMutation(l, r).Run() |> equal expect
+        InliningMutationTest(l, r).Run() |> equal expect
+        InliningMutationTest(l, r).Run() |> equal expect
 
     for (l, r, ``l + r``) in ``inlineData PR #2683`` do
         runCase l r ``l + r``
@@ -1282,3 +1284,7 @@ let ``test incr and decr works`` () =
 
     f value |> equal 43
     g value |> equal 42
+
+[<Fact>]
+let ``test Accessing union tags `` () =
+    sprintf "%A" (Union_TestUnionTag 1) |> equal "Union_TestUnionTag 1"

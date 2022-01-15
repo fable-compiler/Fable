@@ -53,6 +53,21 @@ type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
     member _.Value1 = v1
     member _.Value2 = v2
 
+type MyRecord = {
+    String: string
+    Int: int
+}
+
+let inline getType<'a>() = typeof<'a>
+
+
+[<Fact>]
+let ``test obj.ReferenceEquals not reflexive`` () =
+    let inline (==) (a: 'a) (b: 'b) = obj.ReferenceEquals(a, b)
+    let t = getType<MyRecord>()
+    typeof<MyRecord> == t |> equal true
+    t == typeof<MyRecord> |> equal true
+
 [<Fact>]
 let ``test typedefof works`` () =
     let tdef1 = typedefof<int list>
@@ -173,11 +188,6 @@ open FSharp.Reflection
 exception MyException of String: string * Int: int
 
 let flip f b a = f a b
-
-type MyRecord = {
-    String: string
-    Int: int
-}
 
 type MyUnion =
     | StringCase of SomeString: string * string
