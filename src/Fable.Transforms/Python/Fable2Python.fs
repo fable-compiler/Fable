@@ -402,7 +402,7 @@ module Reflection =
 module Helpers =
     let (|PythonModule|_|) (modulePath: string) =
         match modulePath with
-        | name when (name.Contains("/") || name.EndsWith(".fs") || name.EndsWith(".fs")) -> None
+        | name when (name.Contains("/") || name.EndsWith(".fs") || name.EndsWith(".py")) -> None
         | name -> Some(name)
 
     /// Returns true if type can be None in Python
