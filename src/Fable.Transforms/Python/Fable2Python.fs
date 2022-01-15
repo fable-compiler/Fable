@@ -400,6 +400,11 @@ module Reflection =
                         warnAndEvalToFalse ent.FullName, []
 
 module Helpers =
+    let (|PythonModule|_|) (modulePath: string) =
+        match modulePath with
+        | name when (name.Contains("/") || name.EndsWith(".fs") || name.EndsWith(".py")) -> None
+        | name -> Some(name)
+
     /// Returns true if type can be None in Python
     let isOptional (fields: Fable.Ident[]) =
         if fields.Length < 1 then
@@ -450,7 +455,7 @@ module Helpers =
                 |> Path.normalizePath
         let outDir = com.OutputDir |> Option.defaultValue projDir
 
-        // printfn "modulePathname: %A" modulePathname
+        //printfn "modulePathname: %A" modulePathname
         // printfn $"OutputDir: {com.OutputDir}"
         // printfn $"LibraryDir: {com.LibraryDir}"
         // printfn $"CurrentFile: {com.CurrentFile}"
@@ -469,7 +474,7 @@ module Helpers =
                 relativePath.Replace(commonPrefix, String.Empty)
             else
                 relativePath
-
+        // printfn "relativePath: %A" relativePath
         // Cleanup path
         let relativePath = relativePath.Replace("//", "/")
 
@@ -482,8 +487,6 @@ module Helpers =
             |> String.concat "/"
             // If empty path, then we're in the same dir
             |> (fun str -> if str.Length = 0 then "." else str)
-        // printfn "fileRelative: %A" fileRelative
-
         // printfn "mod, rel: %A" (modulePathname, relativePath)
         match modulePathname, relativePath with
         | "", _
@@ -508,7 +511,7 @@ module Helpers =
     ///      - misc.py
     ///    - program.py
     ///
-    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
+    let rewriteFablePathImport (com: IPythonCompiler) (modulePath: string) =
         let commonPrefix = Path.getCommonBaseDir [ com.ProjectFile; com.CurrentFile ]
         let normalizedPath = normalizeModulePath com modulePath
         let projDir = Path.GetDirectoryName(com.ProjectFile)
@@ -527,7 +530,7 @@ module Helpers =
             else
                 notInProjectDir
 
-        //printfn "Prefix: %A" (commonPrefix, isProjectReference)
+        // printfn "Prefix: %A" (commonPrefix, isProjectReference)
         let relative =
             match com.OutputType, isProjectReference with
             // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
@@ -568,6 +571,12 @@ module Helpers =
                 path.Replace("../", "").Replace("./", "").Replace("/", ".") + "."
 
         $"{path}{moduleName}"
+
+    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
+        match modulePath with
+        | PythonModule(name) -> name
+        | _ -> rewriteFablePathImport com modulePath
+
 
     let unzipArgs (args: (Expression * Statement list) list): Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
