@@ -454,6 +454,8 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+type Union_TestUnionTag = Union_TestUnionTag of int
+
 #if FABLE_COMPILER
 
 [<Fact>]
@@ -1282,3 +1284,7 @@ let ``test incr and decr works`` () =
 
     f value |> equal 43
     g value |> equal 42
+
+[<Fact>]
+let ``test Accessing union tags `` () =
+    sprintf "%A" (Union_TestUnionTag 1) |> equal "Union_TestUnionTag 1"
