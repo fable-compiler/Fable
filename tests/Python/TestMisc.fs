@@ -454,6 +454,8 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+type Union_TestUnionTag = Union_TestUnionTag of int
+
 #if FABLE_COMPILER
 
 [<Fact>]
@@ -1294,3 +1296,6 @@ let ``test Records are hashable`` () =
 
     map.[key1] |> equal 10
     map.[key2] |> equal 20
+
+let ``test Accessing union tags `` () =
+    sprintf "%A" (Union_TestUnionTag 1) |> equal "Union_TestUnionTag 1"

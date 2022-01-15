@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import array
-from abc import abstractstaticmethod
+from abc import abstractmethod
 from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
 from typing import Union as Union_
 from typing import cast
@@ -42,13 +42,14 @@ class Union(IComparable):
         self.tag: int
         self.fields: List[Any] = []
 
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def cases() -> List[str]:
         ...
 
     @property
     def name(self) -> str:
-        return Union.cases()[self.tag]
+        return self.cases()[self.tag]
 
     def __str__(self) -> str:
         if not len(self.fields):
@@ -205,7 +206,7 @@ class FSharpException(Exception, IComparable):
         self.Data0: Any = None
 
     def __str__(self) -> str:
-        return record_to_string(self)
+        return record_to_string(self)  # type: ignore
 
     def __repr__(self) -> str:
         return str(self)
