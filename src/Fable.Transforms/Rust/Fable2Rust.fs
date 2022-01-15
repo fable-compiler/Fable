@@ -4240,6 +4240,14 @@ module Util =
         | _ -> splitFullName selector |> List.last
         |> getUniqueNameInRootScope ctx
 
+// F# hash function is unstable and gives different results in different runs
+// Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+let private stringHash (s: string) =
+    let mutable h = 5381
+    for i = 0 to s.Length - 1 do
+        h <- (h * 33) ^^^ (int s.[i])
+    h
+
 module Compiler =
     open System.Collections.Generic
     open System.Collections.Concurrent
@@ -4275,7 +4283,7 @@ module Compiler =
                         | true, import -> import
                         | false, _ ->
                             let fullPath = getImportFullPath this path
-                            let modName = System.String.Format("import_{0:x}", hash fullPath)
+                            let modName = System.String.Format("import_{0:x}", stringHash fullPath)
                             let localIdent = getIdentForImport ctx path selector
                             let import = {
                                 Selector = selector
