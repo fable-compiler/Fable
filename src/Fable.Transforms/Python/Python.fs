@@ -153,15 +153,15 @@ type Try =
 /// A single context manager in a with block. context_expr is the context manager, often a Call node. optional_vars is a
 /// Name, Tuple or List for the as foo part, or None if that isn’t used.
 type WithItem =
-  { ContextExpr: Expression
-    OptionalVars: Expression option }
+    { ContextExpr: Expression
+      OptionalVars: Expression option }
 
 /// A with block. items is a list of withitem nodes representing the context managers, and body is the indented block
 /// inside the context.
 type With =
-  { Items: WithItem list
-    Body: Statement list
-    TypeComment: string option }
+    { Items: WithItem list
+      Body: Statement list
+      TypeComment: string option }
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -756,20 +756,21 @@ type AST =
 [<AutoOpen>]
 module PythonExtensions =
     type Statement with
+
         static member break'() : Statement = Break
         static member continue' ?loc : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
-        static member raise(value) : Statement = { Exception=value; Cause=None} |> Raise
+        static member raise(value) : Statement = { Exception = value; Cause = None } |> Raise
 
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
             |> Try
 
         static member with'(items, ?body, ?typeComment) : Statement =
-             { Items=items
-               Body=defaultArg body []
-               TypeComment=typeComment }
+            { Items = items
+              Body = defaultArg body []
+              TypeComment = typeComment }
             |> With
 
         static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
@@ -837,9 +838,9 @@ module PythonExtensions =
               Loc = loc }
             |> Name
 
-        static member name(name, ?ctx) : Expression = Expression.name(Identifier(name), ?ctx = ctx)
-        static member identifier(name, ?ctx, ?loc) : Expression = Expression.name(Identifier(name), ?ctx = ctx, ?loc = loc)
-        static member identifier(identifier, ?ctx, ?loc) : Expression = Expression.name(identifier, ?ctx = ctx, ?loc = loc)
+        static member name(name, ?ctx) : Expression = Expression.name (Identifier(name), ?ctx = ctx)
+        static member identifier(name, ?ctx, ?loc) : Expression = Expression.name (Identifier(name), ?ctx = ctx, ?loc = loc)
+        static member identifier(identifier, ?ctx, ?loc) : Expression = Expression.name (identifier, ?ctx = ctx, ?loc = loc)
 
         static member dict(keys, values) : Expression = { Keys = keys; Values = values } |> Dict
         static member tuple(elts, ?loc) : Expression = { Elements = elts; Loc = loc } |> Tuple
@@ -876,23 +877,22 @@ module PythonExtensions =
 
         static member compare(left, op, comparators, ?loc) : Expression =
             let op =
-              match op with
-              | BinaryEqual -> Eq
-              | BinaryEqualStrict -> Is
-              | BinaryUnequal -> NotEq
-              | BinaryUnequalStrict -> IsNot
-              | BinaryLess -> Lt
-              | BinaryLessOrEqual -> LtE
-              | BinaryGreater -> Gt
-              | BinaryGreaterOrEqual -> GtE
-              | _ -> failwith $"compare: Operator {op} not supported"
-            Expression.compare(left, [op], comparators)
+                match op with
+                | BinaryEqual -> Eq
+                | BinaryEqualStrict -> Is
+                | BinaryUnequal -> NotEq
+                | BinaryUnequalStrict -> IsNot
+                | BinaryLess -> Lt
+                | BinaryLessOrEqual -> LtE
+                | BinaryGreater -> Gt
+                | BinaryGreaterOrEqual -> GtE
+                | _ -> failwith $"compare: Operator {op} not supported"
 
-        static member none =
-            Expression.name (Identifier(name="None"))
+            Expression.compare (left, [ op ], comparators)
 
-        static member any =
-            Expression.name (Identifier(name="Any"))
+        static member none = Expression.name (Identifier(name = "None"))
+
+        static member any = Expression.name (Identifier(name = "Any"))
 
         static member attribute(value, attr, ?ctx) : Expression =
             { Value = value
@@ -902,17 +902,17 @@ module PythonExtensions =
 
         static member unaryOp(op, operand, ?loc) : Expression =
             let op =
-              match op with
-                  | UnaryMinus -> USub
-                  | UnaryPlus -> UAdd
-                  | UnaryNot -> Not
-                  | UnaryNotBitwise -> Invert
-                  // | UnaryTypeof -> "typeof"
-                  // | UnaryVoid ->
-                  // | UnaryDelete -> "delete"
-                  | _ -> failwith $"unaryOp: Operator {op} not supported"
+                match op with
+                | UnaryMinus -> USub
+                | UnaryPlus -> UAdd
+                | UnaryNot -> Not
+                | UnaryNotBitwise -> Invert
+                // | UnaryTypeof -> "typeof"
+                // | UnaryVoid ->
+                // | UnaryDelete -> "delete"
+                | _ -> failwith $"unaryOp: Operator {op} not supported"
 
-            Expression.unaryOp(op, operand, ?loc=loc)
+            Expression.unaryOp (op, operand, ?loc = loc)
 
         static member unaryOp(op, operand, ?loc) : Expression =
             { Op = op
@@ -920,7 +920,11 @@ module PythonExtensions =
               Loc = loc }
             |> UnaryOp
 
-        static member namedExpr(target, value, ?loc) = { Target = target; Value = value; Loc=loc } |> NamedExpr
+        static member namedExpr(target, value, ?loc) =
+            { Target = target
+              Value = value
+              Loc = loc }
+            |> NamedExpr
 
         static member subscript(value, slice, ?ctx) : Expression =
             { Value = value
@@ -937,32 +941,38 @@ module PythonExtensions =
 
         static member binOp(left, op, right, ?loc) : Expression =
             let op =
-              match op with
-              | BinaryPlus -> Add
-              | BinaryMinus -> Sub
-              | BinaryMultiply -> Mult
-              | BinaryDivide -> Div
-              | BinaryModulus -> Mod
-              | BinaryOrBitwise -> BitOr
-              | BinaryAndBitwise -> BitAnd
-              | BinaryShiftLeft -> LShift
-              | BinaryShiftRightZeroFill -> RShift
-              | BinaryShiftRightSignPropagating -> RShift
-              | BinaryXorBitwise -> BitXor
-              | _ -> failwith $"binOp: Operator {op} not supported"
+                match op with
+                | BinaryPlus -> Add
+                | BinaryMinus -> Sub
+                | BinaryMultiply -> Mult
+                | BinaryDivide -> Div
+                | BinaryModulus -> Mod
+                | BinaryOrBitwise -> BitOr
+                | BinaryAndBitwise -> BitAnd
+                | BinaryShiftLeft -> LShift
+                | BinaryShiftRightZeroFill -> RShift
+                | BinaryShiftRightSignPropagating -> RShift
+                | BinaryXorBitwise -> BitXor
+                | _ -> failwith $"binOp: Operator {op} not supported"
 
-            Expression.binOp(left, op, right, ?loc=loc)
+            Expression.binOp (left, op, right, ?loc = loc)
 
-        static member boolOp(op: BoolOperator, values, ?loc) : Expression = { Values = values; Operator = op; Loc=loc } |> BoolOp
+        static member boolOp(op: BoolOperator, values, ?loc) : Expression =
+            { Values = values
+              Operator = op
+              Loc = loc }
+            |> BoolOp
+
         static member boolOp(op: LogicalOperator, values, ?loc) : Expression =
             let op =
                 match op with
                 | LogicalAnd -> And
                 | LogicalOr -> Or
 
-            Expression.boolOp(op, values, ?loc=loc)
-        static member constant(value: obj, ?loc) : Expression = Constant (value=value, loc=loc)
-        static member string(value: string, ?loc) : Expression = Constant (value=value, loc=loc)
+            Expression.boolOp (op, values, ?loc = loc)
+
+        static member constant(value: obj, ?loc) : Expression = Constant(value = value, loc = loc)
+        static member string(value: string, ?loc) : Expression = Constant(value = value, loc = loc)
         static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
         static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
 
@@ -981,9 +991,11 @@ module PythonExtensions =
     type Alias with
 
         static member alias(name, ?asname) = { Name = name; AsName = asname }
+
     type WithItem with
+
         static member withItem(contextExpr, ?optinalVars) =
-            { ContextExpr=contextExpr
+            { ContextExpr = contextExpr
               OptionalVars = optinalVars }
 
     type Try with
@@ -1018,8 +1030,7 @@ module PythonExtensions =
               Annotation = annotation
               TypeComment = typeComment }
 
-        static member arg(arg, ?annotation, ?typeComment) =
-          Arg.arg(Identifier(arg), ?annotation=annotation, ?typeComment=typeComment)
+        static member arg(arg, ?annotation, ?typeComment) = Arg.arg (Identifier(arg), ?annotation = annotation, ?typeComment = typeComment)
 
     type Keyword with
 
@@ -1042,7 +1053,8 @@ module PythonExtensions =
               KwDefaults = defaultArg kwDefaults []
               KwArg = kwarg
               Defaults = defaultArg defaults [] }
-        static member empty = Arguments.arguments()
+
+        static member empty = Arguments.arguments ()
 
     type For with
 
