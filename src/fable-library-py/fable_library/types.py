@@ -120,10 +120,12 @@ def record_to_string(self: Record) -> str:
 
 
 def record_get_hashcode(self: Record) -> int:
-    return hash(*self.values())
-
+    slots = type(self).__slots__
+    return hash(tuple(getattr(self, fixed_field) for fixed_field in slots))
 
 class Record(IComparable):
+    __slots__: List[str]
+
     def __str__(self) -> str:
         return record_to_string(self)
 
