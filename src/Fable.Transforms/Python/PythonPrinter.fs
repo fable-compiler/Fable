@@ -225,8 +225,7 @@ module PrinterExtensions =
                     printer.Print(")")
 
         member printer.Print(im: ImportFrom) =
-            let (Identifier path) =
-                im.Module |> Option.defaultValue (Identifier ".")
+            let (Identifier path) = im.Module |> Option.defaultValue (Identifier ".")
 
             printer.Print("from ")
             printer.Print(path)
@@ -265,7 +264,8 @@ module PrinterExtensions =
 
             printer.Print("]")
 
-        member printer.Print(node: BinOp) = printer.PrintOperation(node.Left, node.Operator, node.Right)
+        member printer.Print(node: BinOp) =
+            printer.PrintOperation(node.Left, node.Operator, node.Right)
 
         member printer.Print(node: BoolOp) =
             for i, value in node.Values |> List.indexed do
@@ -318,8 +318,7 @@ module PrinterExtensions =
                 if segmentLength > 0 then
                     let segment = value.Substring(segmentStart, segmentLength)
 
-                    let subSegments =
-                        System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                    let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
 
                     for i = 1 to subSegments.Length do
                         let subSegment =
@@ -371,8 +370,7 @@ module PrinterExtensions =
                     | Some (Constant (value, _)) when (value :? string) -> unbox value
                     | _ -> "")
 
-            let matches =
-                System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
 
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
@@ -660,7 +658,8 @@ module PrinterExtensions =
             | None -> ()
             | Some node -> printer.Print(node)
 
-        member printer.PrintOptional(node: Expression option) = printer.PrintOptional(node |> Option.map AST.Expression)
+        member printer.PrintOptional(node: Expression option) =
+            printer.PrintOptional(node |> Option.map AST.Expression)
 
         member printer.PrintOptional(node: Identifier option) =
             match node with
@@ -680,11 +679,20 @@ module PrinterExtensions =
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
             printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
 
-        member printer.PrintCommaSeparatedList(nodes: Arg list) = printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)
-        member printer.PrintCommaSeparatedList(nodes: Keyword list) = printer.PrintCommaSeparatedList(nodes |> List.map AST.Keyword)
-        member printer.PrintCommaSeparatedList(nodes: Alias list) = printer.PrintCommaSeparatedList(nodes |> List.map AST.Alias)
-        member printer.PrintCommaSeparatedList(nodes: Identifier list) = printer.PrintCommaSeparatedList(nodes |> List.map AST.Identifier)
-        member printer.PrintCommaSeparatedList(nodes: WithItem list) = printer.PrintCommaSeparatedList(nodes |> List.map AST.WithItem)
+        member printer.PrintCommaSeparatedList(nodes: Arg list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)
+
+        member printer.PrintCommaSeparatedList(nodes: Keyword list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Keyword)
+
+        member printer.PrintCommaSeparatedList(nodes: Alias list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Alias)
+
+        member printer.PrintCommaSeparatedList(nodes: Identifier list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Identifier)
+
+        member printer.PrintCommaSeparatedList(nodes: WithItem list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.WithItem)
 
         member printer.PrintFunction
             (

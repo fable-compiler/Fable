@@ -72,6 +72,7 @@ type Helper =
             | None -> makeIdentExpr ident
 
         let info = makeCallInfo None args (defaultArg argTypes [])
+
         Call(callee, { info with IsConstructor = defaultArg isPyConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
@@ -83,8 +84,7 @@ module Atts =
     let decorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
 
     [<Literal>]
-    let reflectedDecorator =
-        "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
+    let reflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
 
 module Helpers =
     let getTypedArrayName (com: Compiler) numberKind =
@@ -132,21 +132,28 @@ module Helpers =
           Info = FSharp2Fable.MemberInfo(isValue = true)
           ExportDefault = false }
 
-    let typedObjExpr t kvs = ObjectExpr(List.map objValue kvs, t, None)
+    let typedObjExpr t kvs =
+        ObjectExpr(List.map objValue kvs, t, None)
 
     let objExpr kvs = typedObjExpr Any kvs
 
-    let add left right = Operation(Binary(BinaryPlus, left, right), left.Type, None)
+    let add left right =
+        Operation(Binary(BinaryPlus, left, right), left.Type, None)
 
-    let sub left right = Operation(Binary(BinaryMinus, left, right), left.Type, None)
+    let sub left right =
+        Operation(Binary(BinaryMinus, left, right), left.Type, None)
 
-    let eq left right = Operation(Binary(BinaryEqualStrict, left, right), Boolean, None)
+    let eq left right =
+        Operation(Binary(BinaryEqualStrict, left, right), Boolean, None)
 
-    let neq left right = Operation(Binary(BinaryUnequalStrict, left, right), Boolean, None)
+    let neq left right =
+        Operation(Binary(BinaryUnequalStrict, left, right), Boolean, None)
 
-    let isNull expr = Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
+    let isNull expr =
+        Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
 
-    let error msg = Helper.PyConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
+    let error msg =
+        Helper.PyConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
     let str txt = Value(StringConstant txt, None)
 
@@ -305,7 +312,9 @@ let rec namesof com ctx acc e =
     | acc, _ -> Some acc
 
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
-let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
+
+let (|Nameof|_|) com ctx e =
+    namesof com ctx [] e |> Option.bind List.tryLast
 
 let (|ReplaceName|_|) (namesAndReplacements: (string * string) list) name =
     namesAndReplacements
@@ -400,13 +409,14 @@ let makeLongInt com r t signed (x: uint64) =
     let unsigned = BoolConstant(not signed)
 
     let args =
-        [ makeValue None lowBits; makeValue None highBits; makeValue None unsigned ]
+        [ makeValue None lowBits
+          makeValue None highBits
+          makeValue None unsigned ]
 
     Helper.LibCall(com, "long", "fromBits", t, args, ?loc = r)
 
 let makeDecimal com r t (x: decimal) =
-    let str =
-        x.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
 
     Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isPyConstructor = true, ?loc = r)
 
@@ -550,8 +560,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isPyConstructor = true)
 
 let makeRefFromMutableField com ctx r t callee key =
-    let getter =
-        Delegate([], Get(callee, FieldGet(key, true), t, r), None)
+    let getter = Delegate([], Get(callee, FieldGet(key, true), t, r), None)
 
     let setter =
         let v = makeUniqueIdent ctx t "v"
@@ -722,11 +731,12 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
 
     let style = int System.Globalization.NumberStyles.Any
 
-    let _isFloatOrDecimal, numberModule, unsigned, bitsize =
-        getParseParams kind
+    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
 
     let parseArgs =
-        [ makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
+        [ makeIntConst style
+          makeBoolConst unsigned
+          makeIntConst bitsize ]
 
     Helper.LibCall(com, numberModule, "parse", targetType, [ args.Head ] @ parseArgs @ args.Tail, ?loc = r)
 
@@ -747,8 +757,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Long _ -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
         | Decimal ->
-            let n =
-                Helper.LibCall(com, "decimal", "toNumber", Number(Float64, None), args)
+            let n = Helper.LibCall(com, "decimal", "toNumber", Number(Float64, None), args)
 
             Helper.LibCall(com, "long", "fromNumber", targetType, [ n; makeBoolConst unsigned ])
         | JsNumber (Integer as kind) -> fromInteger kind args.Head
@@ -801,8 +810,7 @@ let round com (args: Expr list) =
         let n =
             Helper.LibCall(com, "decimal", "toNumber", Number(Float64, None), [ args.Head ])
 
-        let rounded =
-            Helper.LibCall(com, "util", "round", Number(Float64, None), [ n ])
+        let rounded = Helper.LibCall(com, "util", "round", Number(Float64, None), [ n ])
 
         rounded :: args.Tail
     | Number (Float, _) ->
@@ -812,7 +820,8 @@ let round com (args: Expr list) =
         rounded :: args.Tail
     | _ -> args
 
-let toList com returnType expr = Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
+let toList com returnType expr =
+    Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
 let toArray r t expr =
     let t =
@@ -824,7 +833,8 @@ let toArray r t expr =
 
     Value(NewArrayFrom(expr, t), r)
 
-let stringToCharArray t e = Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
+let stringToCharArray t e =
+    Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
 
 let toSeq t (e: Expr) =
     match e.Type with
@@ -875,15 +885,19 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
         | _ -> None)
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
-    let unOp operator operand = Operation(Unary(operator, operand), t, r)
-    let binOp op left right = Operation(Binary(op, left, right), t, r)
+    let unOp operator operand =
+        Operation(Unary(operator, operand), t, r)
+
+    let binOp op left right =
+        Operation(Binary(op, left, right), t, r)
 
     let truncateUnsigned operation = // see #1550
         match t with
         | Number (UInt32, _) -> Operation(Binary(BinaryShiftRightZeroFill, operation, makeIntConst 0), t, r)
         | _ -> operation
 
-    let logicOp op left right = Operation(Logical(op, left, right), Boolean, r)
+    let logicOp op left right =
+        Operation(Logical(op, left, right), Boolean, r)
 
     let nativeOp opName argTypes args =
         match opName, args with
@@ -944,8 +958,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc = r)
     | Builtin (FSharpSet _) :: _ ->
-        let mangledName =
-            Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
 
         Helper.LibCall(com, "set", mangledName, t, args, argTypes, ?loc = r)
     // | Builtin (FSharpMap _)::_ ->
@@ -1144,7 +1157,8 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
     Delegate([ x; y ], body, None)
 
-and makeComparer (com: ICompiler) ctx typArg = objExpr [ "Compare", makeComparerFunction com ctx typArg ]
+and makeComparer (com: ICompiler) ctx typArg =
+    objExpr [ "Compare", makeComparerFunction com ctx typArg ]
 
 and makeEqualityFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1156,10 +1170,8 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
 
-    objExpr [
-        "Equals", Delegate([ x; y ], equals com ctx None true (IdentExpr x) (IdentExpr y), None)
-        "GetHashCode", Delegate([ x ], structuralHash com None (IdentExpr x), None)
-    ]
+    objExpr [ "Equals", Delegate([ x; y ], equals com ctx None true (IdentExpr x) (IdentExpr y), None)
+              "GetHashCode", Delegate([ x ], structuralHash com None (IdentExpr x), None) ]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e = e // leave it as is, if implementation supports it
@@ -1234,7 +1246,8 @@ let makeAddFunction (com: ICompiler) ctx t =
     Delegate([ x; y ], body, None)
 
 let makeGenericAdder (com: ICompiler) ctx t =
-    objExpr [ "GetZero", getZero com ctx t |> makeDelegate []; "Add", makeAddFunction com ctx t ]
+    objExpr [ "GetZero", getZero com ctx t |> makeDelegate []
+              "Add", makeAddFunction com ctx t ]
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
@@ -1246,7 +1259,9 @@ let makeGenericAverager (com: ICompiler) ctx t =
 
         Delegate([ x; i ], body, None)
 
-    objExpr [ "GetZero", getZero com ctx t |> makeDelegate []; "Add", makeAddFunction com ctx t; "DivideByInt", divideFn ]
+    objExpr [ "GetZero", getZero com ctx t |> makeDelegate []
+              "Add", makeAddFunction com ctx t
+              "DivideByInt", divideFn ]
 
 let makePojoFromLambda com arg =
     let rec flattenSequential =
@@ -1400,13 +1415,15 @@ let pyConstructor com ent =
         |> sprintf "Cannot find %s constructor"
         |> addErrorAndReturnNull com [] None
 
-let tryOp com r t op args = Helper.LibCall(com, "option", "tryOp", t, op :: args, ?loc = r)
+let tryOp com r t op args =
+    Helper.LibCall(com, "option", "tryOp", t, op :: args, ?loc = r)
 
 let tryCoreOp com r t coreModule coreMember args =
     let op = Helper.LibValue(com, coreModule, coreMember, Any)
     tryOp com r t op args
 
-let emptyGuid () = makeStrConst "00000000-0000-0000-0000-000000000000"
+let emptyGuid () =
+    makeStrConst "00000000-0000-0000-0000-000000000000"
 
 let rec defaultof (com: ICompiler) ctx (t: Type) =
     match t with
@@ -1574,8 +1591,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "version" -> makeStrConst Literals.VERSION |> Some
         | "majorMinorVersion" ->
             try
-                let m =
-                    System.Text.RegularExpressions.Regex.Match(Literals.VERSION, @"^\d+\.\d+")
+                let m = System.Text.RegularExpressions.Regex.Match(Literals.VERSION, @"^\d+\.\d+")
 
                 float m.Value |> makeFloatConst |> Some
             with
@@ -1734,8 +1750,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | _ -> None
 
-let getReference r t expr = getAttachedMemberWith r t expr "contents"
-let setReference r expr value = setExpr r expr (makeStrConst "contents") value
+let getReference r t expr =
+    getAttachedMemberWith r t expr "contents"
+
+let setReference r expr value =
+    setExpr r expr (makeStrConst "contents") value
 
 let newReference com r t value =
     Helper.LibCall(com, "types", "FSharpRef", t, [ value ], isPyConstructor = true, ?loc = r)
@@ -1760,8 +1779,7 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
         i.DeclaringEntityFullName.Substring(pos + 1)
         |> Naming.cleanNameAsPyIdentifier
 
-    let memberName =
-        i.CompiledName |> Naming.cleanNameAsPyIdentifier
+    let memberName = i.CompiledName |> Naming.cleanNameAsPyIdentifier
 
     let mangledName =
         Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
@@ -1844,7 +1862,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "string", "toFail", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("PrintFormatToStringBuilder" // bprintf
-      | "PrintFormatToStringBuilderThen"),  // Printf.kbprintf
+      | "PrintFormatToStringBuilderThen"),
       _,
       _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str :: (Value (NewArray _, _) as values) :: _ ->
@@ -1974,14 +1992,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       | "PrintFormatThen" // Printf.kprintf
       | "PrintFormatToStringThenFail" // Printf.failwithf
       | "PrintFormatToStringBuilder" // bprintf
-      | "PrintFormatToStringBuilderThen"),  // Printf.kbprintf
+      | "PrintFormatToStringBuilderThen"),
       _ -> fsFormat com ctx r t i thisArg args
     | ("Failure"
       | "FailurePattern" // (|Failure|_|)
       | "LazyPattern" // (|Lazy|_|)
       | "Lock" // lock
       | "NullArg" // nullArg
-      | "Using"),  // using
+      | "Using"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [ msg ]
@@ -2027,11 +2045,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             math r t args i.SignatureArgTypes meth |> Some
     | "Log", [ arg1; arg2 ] ->
         // "Math.log($0) / Math.log($1)"
-        let dividend =
-            math None t [ arg1 ] (List.take 1 i.SignatureArgTypes) "log"
+        let dividend = math None t [ arg1 ] (List.take 1 i.SignatureArgTypes) "log"
 
-        let divisor =
-            math None t [ arg2 ] (List.skip 1 i.SignatureArgTypes) "log"
+        let divisor = math None t [ arg2 ] (List.skip 1 i.SignatureArgTypes) "log"
 
         makeBinOp r t dividend divisor BinaryDivide
         |> Some
@@ -2217,23 +2233,22 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     | _ -> None
 
 let implementedStringFunctions =
-    set [|
-        "Compare"
-        "CompareTo"
-        "EndsWith"
-        "Format"
-        "IndexOfAny"
-        "Insert"
-        "IsNullOrEmpty"
-        "IsNullOrWhiteSpace"
-        "PadLeft"
-        "PadRight"
-        "Remove"
-        "Replace"
-        "Substring"
-    |]
+    set [| "Compare"
+           "CompareTo"
+           "EndsWith"
+           "Format"
+           "IndexOfAny"
+           "Insert"
+           "IsNullOrEmpty"
+           "IsNullOrWhiteSpace"
+           "PadLeft"
+           "PadRight"
+           "Remove"
+           "Replace"
+           "Substring" |]
 
-let getEnumerator com r t expr = Helper.LibCall(com, "util", "getEnumerator", t, [ toSeq Any expr ], ?loc = r)
+let getEnumerator com r t expr =
+    Helper.LibCall(com, "util", "getEnumerator", t, [ toSeq Any expr ], ?loc = r)
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2275,14 +2290,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
 
-        let left =
-            Helper.InstanceCall(c, "find", Number(Int32, None), [ arg ])
+        let left = Helper.InstanceCall(c, "find", Number(Int32, None), [ arg ])
 
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual
         |> Some
     | "StartsWith", Some c, [ _str ] ->
-        let left =
-            Helper.InstanceCall(c, "find", Number(Int32, None), args)
+        let left = Helper.InstanceCall(c, "find", Number(Int32, None), args)
 
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict
         |> Some
@@ -2314,7 +2327,16 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             |> Some
         | [ ExprType Char as str; ExprType (Number (Int32, None)) as start ]
         | [ ExprType String as str; ExprType (Number (Int32, None)) as start ] ->
-            Helper.InstanceCall(c, "rfind", t, [ str; Value(NumberConstant(0.0, Int32, None), None); start ], i.SignatureArgTypes, ?loc = r)
+            Helper.InstanceCall(
+                c,
+                "rfind",
+                t,
+                [ str
+                  Value(NumberConstant(0.0, Int32, None), None)
+                  start ],
+                i.SignatureArgTypes,
+                ?loc = r
+            )
             |> Some
         | _ ->
             "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
@@ -2523,20 +2545,17 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r)
         |> Some
     | "Find", Some ar, [ arg ] ->
-        let opt =
-            Helper.LibCall(com, "array", "tryFind", t, [ arg; ar ], ?loc = r)
+        let opt = Helper.LibCall(com, "array", "tryFind", t, [ arg; ar ], ?loc = r)
 
         Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx t ], ?loc = r)
         |> Some
     | "Exists", Some ar, [ arg ] ->
-        let left =
-            Helper.InstanceCall(ar, "index", Number(Int32, None), [ arg ], ?loc = r)
+        let left = Helper.InstanceCall(ar, "index", Number(Int32, None), [ arg ], ?loc = r)
 
         makeEqOp r left (makeIntConst -1) BinaryGreater
         |> Some
     | "FindLast", Some ar, [ arg ] ->
-        let opt =
-            Helper.LibCall(com, "array", "tryFindBack", t, [ arg; ar ], ?loc = r)
+        let opt = Helper.LibCall(com, "array", "tryFindBack", t, [ arg; ar ], ?loc = r)
 
         Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx t ], ?loc = r)
         |> Some
@@ -2588,14 +2607,14 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
 let nativeArrayFunctions =
     dict [| //"Exists", "some"
-    //"Filter", "filter"
-    //"Find", "find"
-    //"FindIndex", "index"
-    //"ForAll", "all"
-    //"Iterate", "forEach"
-    //"Reduce", "reduce"
-    //"ReduceBack", "reduceRight"
-    |]
+            //"Filter", "filter"
+            //"Find", "find"
+            //"FindIndex", "index"
+            //"ForAll", "all"
+            //"Iterate", "forEach"
+            //"Reduce", "reduce"
+            //"ReduceBack", "reduceRight"
+             |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct =
@@ -2608,8 +2627,7 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | (".ctor"
       | "Create"),
       _ ->
-        let isStruct =
-            i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
 
         Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
@@ -2642,7 +2660,17 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
-    | "Copy", None, [ source; target; count ] -> copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
+    | "Copy", None, [ source; target; count ] ->
+        copyToArray
+            com
+            r
+            t
+            i
+            [ source
+              makeIntConst 0
+              target
+              makeIntConst 0
+              count ]
     | "IndexOf", None, args ->
         Helper.LibCall(com, "array", "index_of", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -2660,7 +2688,16 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
                 value
                 |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-            Helper.LibCall(com, "array", "fill", t, [ newArray size t2; makeIntConst 0; size; value ])
+            Helper.LibCall(
+                com,
+                "array",
+                "fill",
+                t,
+                [ newArray size t2
+                  makeIntConst 0
+                  size
+                  value ]
+            )
         | _ ->
             $"Expecting an array type but got {t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -2708,8 +2745,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
 
-        let call =
-            Helper.GlobalCall(meth, t, args @ [ thisArg ], ?loc = r)
+        let call = Helper.GlobalCall(meth, t, args @ [ thisArg ], ?loc = r)
 
         Helper.GlobalCall("list", t, [ call ], ?loc = r)
         |> Some
@@ -2806,8 +2842,7 @@ let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let mangledName =
             Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
 
-        let args =
-            injectArg com ctx r "Set" mangledName i.GenericArgs args
+        let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
 
         Helper.LibCall(com, "set", mangledName, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
@@ -2831,8 +2866,7 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let mangledName =
             Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
 
-        let args =
-            injectArg com ctx r "Map" mangledName i.GenericArgs args
+        let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
 
         Helper.LibCall(com, "map", mangledName, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
@@ -2873,7 +2907,8 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | _ -> None
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let toArray r t arg = Helper.LibCall(com, "option", "toArray", Array t, [ arg ], ?loc = r)
+    let toArray r t arg =
+        Helper.LibCall(com, "option", "toArray", Array t, [ arg ], ?loc = r)
 
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
@@ -2953,8 +2988,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             | NumberExtKind kind -> kind
             | x -> failwithf "Unexpected type in parse: %A" x
 
-        let isFloatOrDecimal, numberModule, unsigned, bitsize =
-            getParseParams kind
+        let isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
 
         let outValue =
             if meth = "TryParse" then
@@ -2966,7 +3000,10 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             if isFloatOrDecimal then
                 [ str ] @ outValue
             else
-                [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
+                [ str
+                  makeIntConst style
+                  makeBoolConst unsigned
+                  makeIntConst bitsize ]
                 @ outValue
 
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
@@ -3543,7 +3580,10 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             match meth, args with
             // TODO: Parse at compile time if we know the type
             | "parseEnum", [ value ] -> [ Value(TypeInfo(t), None); value ]
-            | "tryParseEnum", [ value; refValue ] -> [ Value(TypeInfo(genArg com ctx r 0 i.GenericArgs), None); value; refValue ]
+            | "tryParseEnum", [ value; refValue ] ->
+                [ Value(TypeInfo(genArg com ctx r 0 i.GenericArgs), None)
+                  value
+                  refValue ]
             | _ -> args
 
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r)
@@ -3648,7 +3688,8 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | _ -> None
 
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let getTime (e: Expr) = Helper.InstanceCall(e, "getTime", t, [])
+    let getTime (e: Expr) =
+        Helper.InstanceCall(e, "getTime", t, [])
 
     let moduleName =
         if i.DeclaringEntityFullName = Types.datetime then
@@ -4017,8 +4058,7 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
       | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
 
-        let expr =
-            Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc = r)
+        let expr = Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc = r)
 
         if com.Options.TypedArrays then
             expr |> Some
@@ -4517,9 +4557,11 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
-let curryExprAtRuntime com arity (expr: Expr) = Helper.LibCall(com, "Util", "curry", expr.Type, [ makeIntConst arity; expr ])
+let curryExprAtRuntime com arity (expr: Expr) =
+    Helper.LibCall(com, "Util", "curry", expr.Type, [ makeIntConst arity; expr ])
 
-let uncurryExprAtRuntime com arity (expr: Expr) = Helper.LibCall(com, "Util", "uncurry", expr.Type, [ makeIntConst arity; expr ])
+let uncurryExprAtRuntime com arity (expr: Expr) =
+    Helper.LibCall(com, "Util", "uncurry", expr.Type, [ makeIntConst arity; expr ])
 
 let partialApplyAtRuntime com t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(args, Any) |> makeValue None
@@ -4552,135 +4594,133 @@ let tryField com returnTyp ownerTyp fieldName =
     | _ -> None
 
 let private replacedModules =
-    dict [
-        "System.Math", operators
-        "Microsoft.FSharp.Core.Operators", operators
-        "Microsoft.FSharp.Core.Operators.Checked", operators
-        "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
-        "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
-        "Microsoft.FSharp.Core.ExtraTopLevelOperators", operators
-        "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions", intrinsicFunctions
-        "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
-        "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
-        "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
-        "System.Runtime.CompilerServices.RuntimeHelpers", runtimeHelpers
-        "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
-        Types.char, chars
-        Types.string, strings
-        "Microsoft.FSharp.Core.StringModule", stringModule
-        "System.FormattableString", formattableString
-        "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
-        "System.Text.StringBuilder", bclType
-        Types.array, arrays
-        Types.list, lists
-        "Microsoft.FSharp.Collections.ArrayModule", arrayModule
-        "Microsoft.FSharp.Collections.ListModule", listModule
-        "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
-        "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
-        "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
-        "Microsoft.FSharp.Collections.SeqModule", seqModule
-        Types.keyValuePair, keyValuePairs
-        "System.Collections.Generic.Comparer`1", bclType
-        "System.Collections.Generic.EqualityComparer`1", bclType
-        Types.dictionary, dictionaries
-        Types.idictionary, dictionaries
-        Types.ireadonlydictionary, dictionaries
-        Types.ienumerableGeneric, enumerables
-        Types.ienumerable, enumerables
-        "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
-        "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
-        "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
-        "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
-        "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
-        "System.Collections.Generic.List`1.Enumerator", enumerators
-        "System.Collections.Generic.HashSet`1.Enumerator", enumerators
-        "System.CharEnumerator", enumerators
-        Types.resizeArray, resizeArrays
-        "System.Collections.Generic.IList`1", resizeArrays
-        "System.Collections.IList", resizeArrays
-        Types.icollectionGeneric, resizeArrays
-        Types.icollection, resizeArrays
-        Types.hashset, hashSets
-        Types.iset, hashSets
-        Types.option, options
-        Types.valueOption, options
-        "System.Nullable`1", nullables
-        "Microsoft.FSharp.Core.OptionModule", optionModule
-        "Microsoft.FSharp.Core.ResultModule", results
-        Types.bigint, bigints
-        "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
-        Types.reference, references
-        Types.object, objects
-        Types.valueType, valueTypes
-        "System.Enum", enums
-        "System.BitConverter", bitConvert
-        Types.bool, parseBool
-        Types.int8, parseNum
-        Types.uint8, parseNum
-        Types.int16, parseNum
-        Types.uint16, parseNum
-        Types.int32, parseNum
-        Types.uint32, parseNum
-        Types.int64, parseNum
-        Types.uint64, parseNum
-        Types.float32, parseNum
-        Types.float64, parseNum
-        Types.decimal, decimals
-        "System.Convert", convert
-        "System.Console", console
-        "System.Diagnostics.Debug", debug
-        "System.Diagnostics.Debugger", debug
-        Types.datetime, dates
-        Types.datetimeOffset, dates
-        Types.timespan, timeSpans
-        "System.Timers.Timer", timers
-        "System.Environment", systemEnv
-        "System.Globalization.CultureInfo", globalization
-        "System.Random", random
-        "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
-        "System.Threading.CancellationToken", cancels
-        "System.Threading.CancellationTokenSource", cancels
-        "System.Threading.Monitor", monitor
-        "System.Threading.Tasks.Task`1", tasks
-        "System.Threading.Tasks.Task", tasks
-        "System.Activator", activator
-        "System.Text.Encoding", encoding
-        "System.Text.UnicodeEncoding", encoding
-        "System.Text.UTF8Encoding", encoding
-        "System.Text.RegularExpressions.Capture", regex
-        "System.Text.RegularExpressions.Match", regex
-        "System.Text.RegularExpressions.Group", regex
-        "System.Text.RegularExpressions.MatchCollection", regex
-        "System.Text.RegularExpressions.GroupCollection", regex
-        Types.regex, regex
-        Types.fsharpSet, sets
-        "Microsoft.FSharp.Collections.SetModule", setModule
-        Types.fsharpMap, maps
-        "Microsoft.FSharp.Collections.MapModule", mapModule
-        "Microsoft.FSharp.Control.FSharpMailboxProcessor`1", mailbox
-        "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1", mailbox
-        "Microsoft.FSharp.Control.FSharpAsyncBuilder", asyncBuilder
-        "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
-        "Microsoft.FSharp.Control.FSharpAsync", asyncs
-        "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
-        "Microsoft.FSharp.Control.TaskBuilder", tasks
-        "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
-        "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
-        "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
-        "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
-        Types.guid, guids
-        "System.Uri", uris
-        "System.Lazy`1", laziness
-        "Microsoft.FSharp.Control.Lazy", laziness
-        "Microsoft.FSharp.Control.LazyExtensions", laziness
-        "Microsoft.FSharp.Control.CommonExtensions", controlExtensions
-        "Microsoft.FSharp.Control.FSharpEvent`1", events
-        "Microsoft.FSharp.Control.FSharpEvent`2", events
-        "Microsoft.FSharp.Control.EventModule", events
-        "Microsoft.FSharp.Control.ObservableModule", observable
-        Types.type_, types
-        "System.Reflection.TypeInfo", types
-    ]
+    dict [ "System.Math", operators
+           "Microsoft.FSharp.Core.Operators", operators
+           "Microsoft.FSharp.Core.Operators.Checked", operators
+           "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
+           "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
+           "Microsoft.FSharp.Core.ExtraTopLevelOperators", operators
+           "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions", intrinsicFunctions
+           "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
+           "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
+           "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
+           "System.Runtime.CompilerServices.RuntimeHelpers", runtimeHelpers
+           "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
+           Types.char, chars
+           Types.string, strings
+           "Microsoft.FSharp.Core.StringModule", stringModule
+           "System.FormattableString", formattableString
+           "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
+           "System.Text.StringBuilder", bclType
+           Types.array, arrays
+           Types.list, lists
+           "Microsoft.FSharp.Collections.ArrayModule", arrayModule
+           "Microsoft.FSharp.Collections.ListModule", listModule
+           "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
+           "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
+           "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
+           "Microsoft.FSharp.Collections.SeqModule", seqModule
+           Types.keyValuePair, keyValuePairs
+           "System.Collections.Generic.Comparer`1", bclType
+           "System.Collections.Generic.EqualityComparer`1", bclType
+           Types.dictionary, dictionaries
+           Types.idictionary, dictionaries
+           Types.ireadonlydictionary, dictionaries
+           Types.ienumerableGeneric, enumerables
+           Types.ienumerable, enumerables
+           "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
+           "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
+           "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
+           "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
+           "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
+           "System.Collections.Generic.List`1.Enumerator", enumerators
+           "System.Collections.Generic.HashSet`1.Enumerator", enumerators
+           "System.CharEnumerator", enumerators
+           Types.resizeArray, resizeArrays
+           "System.Collections.Generic.IList`1", resizeArrays
+           "System.Collections.IList", resizeArrays
+           Types.icollectionGeneric, resizeArrays
+           Types.icollection, resizeArrays
+           Types.hashset, hashSets
+           Types.iset, hashSets
+           Types.option, options
+           Types.valueOption, options
+           "System.Nullable`1", nullables
+           "Microsoft.FSharp.Core.OptionModule", optionModule
+           "Microsoft.FSharp.Core.ResultModule", results
+           Types.bigint, bigints
+           "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
+           Types.reference, references
+           Types.object, objects
+           Types.valueType, valueTypes
+           "System.Enum", enums
+           "System.BitConverter", bitConvert
+           Types.bool, parseBool
+           Types.int8, parseNum
+           Types.uint8, parseNum
+           Types.int16, parseNum
+           Types.uint16, parseNum
+           Types.int32, parseNum
+           Types.uint32, parseNum
+           Types.int64, parseNum
+           Types.uint64, parseNum
+           Types.float32, parseNum
+           Types.float64, parseNum
+           Types.decimal, decimals
+           "System.Convert", convert
+           "System.Console", console
+           "System.Diagnostics.Debug", debug
+           "System.Diagnostics.Debugger", debug
+           Types.datetime, dates
+           Types.datetimeOffset, dates
+           Types.timespan, timeSpans
+           "System.Timers.Timer", timers
+           "System.Environment", systemEnv
+           "System.Globalization.CultureInfo", globalization
+           "System.Random", random
+           "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
+           "System.Threading.CancellationToken", cancels
+           "System.Threading.CancellationTokenSource", cancels
+           "System.Threading.Monitor", monitor
+           "System.Threading.Tasks.Task`1", tasks
+           "System.Threading.Tasks.Task", tasks
+           "System.Activator", activator
+           "System.Text.Encoding", encoding
+           "System.Text.UnicodeEncoding", encoding
+           "System.Text.UTF8Encoding", encoding
+           "System.Text.RegularExpressions.Capture", regex
+           "System.Text.RegularExpressions.Match", regex
+           "System.Text.RegularExpressions.Group", regex
+           "System.Text.RegularExpressions.MatchCollection", regex
+           "System.Text.RegularExpressions.GroupCollection", regex
+           Types.regex, regex
+           Types.fsharpSet, sets
+           "Microsoft.FSharp.Collections.SetModule", setModule
+           Types.fsharpMap, maps
+           "Microsoft.FSharp.Collections.MapModule", mapModule
+           "Microsoft.FSharp.Control.FSharpMailboxProcessor`1", mailbox
+           "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1", mailbox
+           "Microsoft.FSharp.Control.FSharpAsyncBuilder", asyncBuilder
+           "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
+           "Microsoft.FSharp.Control.FSharpAsync", asyncs
+           "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
+           "Microsoft.FSharp.Control.TaskBuilder", tasks
+           "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
+           "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
+           "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+           "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
+           Types.guid, guids
+           "System.Uri", uris
+           "System.Lazy`1", laziness
+           "Microsoft.FSharp.Control.Lazy", laziness
+           "Microsoft.FSharp.Control.LazyExtensions", laziness
+           "Microsoft.FSharp.Control.CommonExtensions", controlExtensions
+           "Microsoft.FSharp.Control.FSharpEvent`1", events
+           "Microsoft.FSharp.Control.FSharpEvent`2", events
+           "Microsoft.FSharp.Control.EventModule", events
+           "Microsoft.FSharp.Control.ObservableModule", observable
+           Types.type_, types
+           "System.Reflection.TypeInfo", types ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match info.DeclaringEntityFullName with
@@ -4743,11 +4783,19 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             match argTypes.Value, args with
             | ([]
               | [ Number _ ]),
-              _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IDictionary ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
+              _ ->
+                [ makeArray Any []
+                  makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IDictionary ], [ arg ] ->
+                [ arg
+                  makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] ->
+                [ arg
+                  makeComparerFromEqualityComparer eqComp ]
             | [ IEqualityComparer ], [ eqComp ]
-            | [ Number _; IEqualityComparer ], [ _; eqComp ] -> [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
+            | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
+                [ makeArray Any []
+                  makeComparerFromEqualityComparer eqComp ]
             | _ -> failwith "Unexpected dictionary constructor"
 
         let entityName = Naming.cleanNameAsPyIdentifier "Dictionary"
@@ -4755,10 +4803,18 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
-            | [], _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IEnumerable ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
-            | [ IEqualityComparer ], [ eqComp ] -> [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
+            | [], _ ->
+                [ makeArray Any []
+                  makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IEnumerable ], [ arg ] ->
+                [ arg
+                  makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
+                [ arg
+                  makeComparerFromEqualityComparer eqComp ]
+            | [ IEqualityComparer ], [ eqComp ] ->
+                [ makeArray Any []
+                  makeComparerFromEqualityComparer eqComp ]
             | _ -> failwith "Unexpected hashset constructor"
 
         let entityName = Naming.cleanNameAsPyIdentifier "HashSet"

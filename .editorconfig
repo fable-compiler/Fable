@@ -10,9 +10,4 @@ indent_size = 2
 
 # Fantomas (see https://github.com/fsprojects/fantomas/blob/master/docs/Documentation.md)
 [*.fs]
-indent_size=4
 max_line_length=140
-fsharp_space_before_uppercase_invocation=false
-fsharp_space_before_member=false
-fsharp_space_around_delimiter=true
-fsharp_multiline_block_brackets_on_same_column=false

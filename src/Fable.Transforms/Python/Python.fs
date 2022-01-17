@@ -358,7 +358,8 @@ type Raise =
     { Exception: Expression
       Cause: Expression option }
 
-    static member Create(exc, ?cause) : Statement = { Exception = exc; Cause = cause } |> Raise
+    static member Create(exc, ?cause) : Statement =
+        { Exception = exc; Cause = cause } |> Raise
 
 /// A function definition.
 ///
@@ -762,7 +763,9 @@ module PythonExtensions =
         static member continue' ?loc : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
-        static member raise(value) : Statement = { Exception = value; Cause = None } |> Raise
+
+        static member raise(value) : Statement =
+            { Exception = value; Cause = None } |> Raise
 
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
@@ -829,7 +832,8 @@ module PythonExtensions =
             ImportFrom.importFrom (``module``, names, ?level = level)
             |> ImportFrom
 
-        static member nonLocal(ids) = NonLocal.Create ids |> Statement.NonLocal
+        static member nonLocal(ids) =
+            NonLocal.Create ids |> Statement.NonLocal
 
     type Expression with
 
@@ -839,11 +843,18 @@ module PythonExtensions =
               Loc = loc }
             |> Name
 
-        static member name(name, ?ctx) : Expression = Expression.name (Identifier(name), ?ctx = ctx)
-        static member identifier(name, ?ctx, ?loc) : Expression = Expression.name (Identifier(name), ?ctx = ctx, ?loc = loc)
-        static member identifier(identifier, ?ctx, ?loc) : Expression = Expression.name (identifier, ?ctx = ctx, ?loc = loc)
+        static member name(name, ?ctx) : Expression =
+            Expression.name (Identifier(name), ?ctx = ctx)
 
-        static member dict(keys, values) : Expression = { Keys = keys; Values = values } |> Dict
+        static member identifier(name, ?ctx, ?loc) : Expression =
+            Expression.name (Identifier(name), ?ctx = ctx, ?loc = loc)
+
+        static member identifier(identifier, ?ctx, ?loc) : Expression =
+            Expression.name (identifier, ?ctx = ctx, ?loc = loc)
+
+        static member dict(keys, values) : Expression =
+            { Keys = keys; Values = values } |> Dict
+
         static member tuple(elts, ?loc) : Expression = { Elements = elts; Loc = loc } |> Tuple
         static member slice(?lower, ?upper, ?slice) : Expression = Slice(lower, upper, slice)
 
@@ -974,8 +985,12 @@ module PythonExtensions =
 
         static member constant(value: obj, ?loc) : Expression = Constant(value = value, loc = loc)
         static member string(value: string, ?loc) : Expression = Constant(value = value, loc = loc)
-        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
-        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
+
+        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression =
+            Starred(value, ctx |> Option.defaultValue Load)
+
+        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression =
+            List(elts, ctx |> Option.defaultValue Load)
 
     type List with
 
@@ -1031,7 +1046,8 @@ module PythonExtensions =
               Annotation = annotation
               TypeComment = typeComment }
 
-        static member arg(arg, ?annotation, ?typeComment) = Arg.arg (Identifier(arg), ?annotation = annotation, ?typeComment = typeComment)
+        static member arg(arg, ?annotation, ?typeComment) =
+            Arg.arg (Identifier(arg), ?annotation = annotation, ?typeComment = typeComment)
 
     type Keyword with
 
