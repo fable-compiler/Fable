@@ -1243,7 +1243,11 @@ module Util =
         | Fable.WhileLoop _ -> true
         | Fable.Extended (kind, _) ->
             match kind with
-            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger | Fable.RegionStart _ -> true
+            | Fable.Throw _
+            | Fable.Return _
+            | Fable.Break _
+            | Fable.Debugger
+            | Fable.RegionStart _ -> true
             | Fable.Curry _ -> false
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
@@ -3073,8 +3077,12 @@ module Util =
         | Fable.TryCatch _ -> iife com ctx expr
         | Fable.Extended (instruction, _) ->
             match instruction with
-            | Fable.Curry(e, arity) -> transformCurry com ctx e arity
-            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger | Fable.RegionStart _ -> iife com ctx expr
+            | Fable.Curry (e, arity) -> transformCurry com ctx e arity
+            | Fable.Throw _
+            | Fable.Return _
+            | Fable.Break _
+            | Fable.Debugger
+            | Fable.RegionStart _ -> iife com ctx expr
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
         match expr with
@@ -3092,7 +3100,7 @@ module Util =
             | Fable.Throw (TransformExpr com ctx (e, stmts), _) -> stmts @ [ Statement.raise (e) ]
             | Fable.Return (TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.return' (e) ]
             | Fable.Debugger -> []
-            | Fable.Break _ -> [ Statement.break'() ]
+            | Fable.Break _ -> [ Statement.break' () ]
             | Fable.RegionStart header -> [ Statement.RegionStart header ]
 
         | Fable.TypeCast (e, t) ->

@@ -838,25 +838,31 @@ let findInScope (ctx: Context) identName =
     let rec findInScopeInner scope identName =
         match scope with
         | [] -> None
-        | (ident2: Ident, expr: Expr option)::prevScope ->
+        | (ident2: Ident, expr: Expr option) :: prevScope ->
             if identName = ident2.Name then
                 match expr with
-                | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScopeInner prevScope ident.Name
+                | Some (MaybeCasted (IdentExpr ident)) when not ident.IsMutable -> findInScopeInner prevScope ident.Name
                 | expr -> expr
-            else findInScopeInner prevScope identName
-    let scope1 = ctx.Scope |> List.map (fun (_,i,e) -> i,e)
-    let scope2 = ctx.ScopeInlineArgs |> List.map (fun (i,e) -> i, Some e)
+            else
+                findInScopeInner prevScope identName
+
+    let scope1 = ctx.Scope |> List.map (fun (_, i, e) -> i, e)
+
+    let scope2 =
+        ctx.ScopeInlineArgs
+        |> List.map (fun (i, e) -> i, Some e)
+
     findInScopeInner (scope1 @ scope2) identName
 
 let (|RequireStringConst|_|) com (ctx: Context) r e =
     (match e with
      | StringConst s -> Some s
-     | MaybeCasted(IdentExpr ident) ->
-        match findInScope ctx ident.Name with
-        | Some(StringConst s) -> Some s
-        | _ -> None
+     | MaybeCasted (IdentExpr ident) ->
+         match findInScope ctx ident.Name with
+         | Some (StringConst s) -> Some s
+         | _ -> None
      | _ -> None)
-    |> Option.orElseWith(fun () ->
+    |> Option.orElseWith (fun () ->
         addError com ctx.InlinePath r "Expecting string literal"
         Some "")
 
@@ -1450,9 +1456,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "region" ->
         match args with
-        | [RequireStringConst com ctx r header] -> Extended(RegionStart header, r) |> Some
+        | [ RequireStringConst com ctx r header ] -> Extended(RegionStart header, r) |> Some
         | _ -> None
-    | _, ("pyNative"|"nativeOnly") ->
+    | _,
+      ("pyNative"
+      | "nativeOnly") ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
 
@@ -1480,10 +1488,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
       ("nameofLambda"
       | "namesofLambda" as meth) ->
         match args with
-        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
-        | [MaybeCasted(IdentExpr ident)] ->
+        | [ Lambda (_, (Namesof com ctx names), _) ] -> Some names
+        | [ MaybeCasted (IdentExpr ident) ] ->
             match findInScope ctx ident.Name with
-            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
+            | Some (Lambda (_, (Namesof com ctx names), _)) -> Some names
             | _ -> None
         | _ -> None
         |> Option.defaultWith (fun () ->
@@ -1531,8 +1539,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> None
 
         match args with
-        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx ident.Name |> Option.bind inferCasename
-        | [e] -> inferCasename e
+        | [ MaybeCasted (IdentExpr ident) ] ->
+            findInScope ctx ident.Name
+            |> Option.bind inferCasename
+        | [ e ] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
             "Cannot infer case name of expression"
@@ -1622,10 +1632,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let (|RequireStringConst|_|) e =
                 (match e with
                  | StringConst s -> Some s
-                 | MaybeCasted(IdentExpr ident) ->
-                    match findInScope ctx ident.Name with
-                    | Some(StringConst s) -> Some s
-                    | _ -> None
+                 | MaybeCasted (IdentExpr ident) ->
+                     match findInScope ctx ident.Name with
+                     | Some (StringConst s) -> Some s
+                     | _ -> None
                  | _ -> None)
                 |> Option.orElseWith (fun () ->
                     addError com ctx.InlinePath r "Import only accepts string literals"
