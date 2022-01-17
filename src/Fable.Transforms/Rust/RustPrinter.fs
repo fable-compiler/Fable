@@ -2,15 +2,7 @@ module Fable.Transforms.Rust.RustPrinter
 
 module Rust = Fable.Transforms.Rust.AST.Types
 open Fable.Transforms.Rust.AST.State
-
-type SourceMapping =
-    int * int * int * int * string option
-
-type Writer =
-    inherit System.IDisposable
-    abstract AddSourceMapping: SourceMapping -> unit
-    abstract MakeImportPath: string -> string
-    abstract Write: string -> Async<unit>
+open Fable.Transforms.Printer
 
 let run (writer: Writer) (crate: Rust.Crate): Async<unit> =
     async {

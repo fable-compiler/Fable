@@ -406,7 +406,7 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     Log.verbose(lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}")
 
                     // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
-                    let fileName = file.FileName |> Path.ensureFsExtension
+                    let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
                     let state =
                         if not(state.FilesToCompile.Contains(fileName)) then state
                         else
@@ -598,17 +598,21 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     Log.verbose(lazy $"""Files to compile:{Log.newLine}    {filesToCompile |> String.concat $"{Log.newLine}    "}""")
     projCracked, filesToCompile
 
-let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
-    let pathResolver = state.GetPathResolver()
-    filesToCompile
-    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-    |> Array.forall (fun source ->
-        let outPath = getOutPath state.CliArgs pathResolver source
-        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
-        if not existsAndIsNewer then
-            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
-        existsAndIsNewer
-    )
+let private areCompiledFilesUpToDate (cliArgs: CliArgs) (state: State) (filesToCompile: string[]) =
+    // When using a delimiter we keep contents of the target files
+    // so we cannot use the timestamp to decide if they're up-to-date
+    if Option.isSome cliArgs.Delimiter then false
+    else
+        let pathResolver = state.GetPathResolver()
+        filesToCompile
+        |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+        |> Array.forall (fun source ->
+            let outPath = getOutPath state.CliArgs pathResolver source
+            let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
+            if not existsAndIsNewer then
+                Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
+            existsAndIsNewer
+        )
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
@@ -660,7 +664,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
     if Option.isNone state.Watcher
         && projCracked.CanReuseCompiledFiles
-        && areCompiledFilesUpToDate state filesToCompile then
+        && areCompiledFilesUpToDate cliArgs state filesToCompile then
             Log.always "Skipped compilation because all generated files are up-to-date!"
             return state, 0
     else
@@ -671,7 +675,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                                 && projCracked.CanReuseCompiledFiles
                                 && not runProc.IsWatch
                                 && runProc.ExeFile <> Naming.placeholder
-                                && areCompiledFilesUpToDate state filesToCompile ->
+                                && areCompiledFilesUpToDate cliArgs state filesToCompile ->
                 let cliArgs = runProcessAndForget cliArgs runProc
                 { state with CliArgs = cliArgs
                              SilentCompilation = true }, cliArgs

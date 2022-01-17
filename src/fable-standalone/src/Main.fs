@@ -265,25 +265,20 @@ type RustResult(crate: Rust.AST.Types.Crate, errors) =
     interface IFableResult with
         member _.FableErrors = errors
 
-let printBabelAst (babel: BabelResult) (writer: IWriter) =
-    let writer =
-        { new BabelPrinter.Writer with
-            member _.Dispose() = writer.Dispose()
-            member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
-            member _.MakeImportPath(path) = writer.MakeImportPath(path)
-            member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
-            member _.Write(str) = writer.Write(str) }
+let makeWriter (writer: IWriter) =
+    { new Printer.Writer with
+        member _.Dispose() = writer.Dispose()
+        member _.EscapeStringLiteral(str) = writer.EscapeStringLiteral(str)
+        member _.MakeImportPath(path) = writer.MakeImportPath(path)
+        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+        member _.Write(str) = writer.Write(str) }
 
+let printBabelAst (babel: BabelResult) (writer: IWriter) =
+    let writer = makeWriter writer
     BabelPrinter.run writer babel.Program
 
 let printRustAst (rust: RustResult) (writer: IWriter) =
-    let writer =
-        { new Rust.RustPrinter.Writer with
-            member _.Dispose() = writer.Dispose()
-            member _.MakeImportPath(path) = writer.MakeImportPath(path)
-            member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
-            member _.Write(str) = writer.Write(str) }
-
+    let writer = makeWriter writer
     Rust.RustPrinter.run writer rust.Crate
 
 let getLanguage (language: string) =

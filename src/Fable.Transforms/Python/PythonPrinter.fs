@@ -5,6 +5,7 @@ open System
 open Fable
 open Fable.AST
 open Fable.AST.Python
+<<<<<<< HEAD
 
 type SourceMapGenerator =
     abstract AddMapping: originalLine: int * originalColumn: int * generatedLine: int * generatedColumn: int * ?name: string -> unit
@@ -82,6 +83,9 @@ type PrinterImpl (writer: Writer, map: SourceMapGenerator) =
 
         member this.MakeImportPath(path) = path
 
+=======
+open Fable.Transforms.Printer
+>>>>>>> beyond
 
 module PrinterExtensions =
     type Printer with
@@ -109,6 +113,7 @@ module PrinterExtensions =
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
+            | RegionStart _ -> ()
 
         member printer.Print(node: Try) =
             printer.Print("try: ", ?loc = node.Loc)
@@ -812,7 +817,7 @@ module PrinterExtensions =
 
 open PrinterExtensions
 
-let run writer map (program: Module) : Async<unit> =
+let run writer (currentLines: CurrentLines) (program: Module): Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
         printer.Print(decl)
@@ -822,8 +827,50 @@ let run writer map (program: Module) : Async<unit> =
 
         if extraLine then printer.PrintNewLine()
 
+    let printLine (printer: Printer) (line: string) =
+        printer.Print(line)
+        printer.PrintNewLine()
+
+    let rec printDeclarations (printer: PrinterImpl) nextHeader (currentLines: CurrentLines) imports restDecls = async {
+        match currentLines.IsEmpty, imports, restDecls with
+        | true, [], [] -> do! printer.Flush()
+        | _ ->
+            let nextDelimiter, currentLines =
+                currentLines.PrintUntilDelimiter(printLine printer)
+
+            do! printer.Flush()
+
+            match imports with
+            | [] -> ()
+            | imports ->
+                for decl in imports do
+                    printDeclWithExtraLine false printer decl
+                (printer :> Printer).PrintNewLine()
+                do! printer.Flush()
+
+            nextHeader |> Option.iter (fun header -> printLine printer $"#region {header}")
+
+            let rec splitDecls decls restDecls =
+                match restDecls with
+                | [] -> None, List.rev decls, []
+                | RegionStart header::restDecls -> Some header, List.rev decls, restDecls
+                | decl::restDecls -> splitDecls (decl::decls) restDecls
+
+            let nextHeader, decls, restDecls = splitDecls [] restDecls
+
+            for decl in decls do
+                printDeclWithExtraLine true printer decl
+                // TODO: Only flush every XXX lines?
+                do! printer.Flush()
+
+            // Print the next delimiter if there's one
+            nextDelimiter |> Option.iter (printLine printer)
+
+            return! printDeclarations printer nextHeader currentLines [] restDecls
+    }
+
     async {
-        use printer = new PrinterImpl(writer, map)
+        use printer = new PrinterImpl(writer)
 
         let imports, restDecls =
             program.Body
@@ -832,14 +879,5 @@ let run writer map (program: Module) : Async<unit> =
                 | ImportFrom _ -> true
                 | _ -> false)
 
-        for decl in imports do
-            printDeclWithExtraLine false printer decl
-
-        printer.PrintNewLine()
-        do! printer.Flush()
-
-        for decl in restDecls do
-            printDeclWithExtraLine true printer decl
-            // TODO: Only flush every XXX lines?
-            do! printer.Flush()
+        do! printDeclarations printer None currentLines imports restDecls
     }
