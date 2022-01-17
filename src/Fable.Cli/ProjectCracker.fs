@@ -6,6 +6,7 @@ open System
 open System.Xml.Linq
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text
 open Fable
 open Globbing.Operators
 
@@ -234,62 +235,6 @@ let (|Regex|_|) (pattern: string) (input: string) =
     if m.Success then Some [for x in m.Groups -> x.Value]
     else None
 
-// GetProjectOptionsFromScript doesn't work with latest FCS
-// This is adapted from fable-compiler-js ProjectParser, maybe we should try to unify code
-let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * CrackedFsproj =
-
-    let projectFilePath = opts.ProjFile
-    let projectDir = IO.Path.GetDirectoryName projectFilePath
-
-    let dllRefs, srcFiles =
-        (([], []), IO.File.ReadLines(projectFilePath))
-        ||> Seq.fold (fun (dllRefs, srcFiles) line ->
-            match line.Trim() with
-            // TODO: Check nuget references
-            | Regex @"^#r\s*""(.*?)""$" [_;path] ->
-                path::dllRefs, srcFiles
-            | Regex @"^#load\s*""(.*?)""$" [_;path] ->
-                dllRefs, path::srcFiles
-            | _ -> dllRefs, srcFiles)
-
-    let coreDllDir = IO.Path.GetDirectoryName(typeof<Array>.Assembly.Location) |> Path.normalizePath
-    let fsharpCoreDll = typeof<obj list>.Assembly.Location |> Path.normalizePath
-
-    let coreDlls =
-        Metadata.coreAssemblies
-        |> Array.filter (function
-            | "FSharp.Core" | "Fable.Core" -> false
-            | _ -> true)
-        |> Array.append [|"System.Private.CoreLib"|]
-        |> Array.map (fun dll -> IO.Path.Combine(coreDllDir, dll + ".dll"))
-
-    let dllRefs =
-        [
-            yield! coreDlls
-            yield fsharpCoreDll
-            yield! List.rev dllRefs
-        ]
-        |> List.map (fun dllRef ->
-            let dllRef = IO.Path.Combine(projectDir, dllRef) |> Path.normalizeFullPath
-            getDllName dllRef, dllRef)
-        |> dict
-
-    let srcFiles =
-        srcFiles
-        |> List.map (fun srcFile -> IO.Path.Combine(projectDir, srcFile) |> Path.normalizeFullPath)
-
-    let srcFiles =
-        projectFilePath::srcFiles
-        |> List.rev
-
-    [], { ProjectFile = projectFilePath
-          SourceFiles = srcFiles
-          ProjectReferences = []
-          DllReferences = dllRefs
-          PackageReferences = []
-          OtherCompilerOptions = []
-          OutputType = None }
-
 let getBasicCompilerArgs () =
     [|
         // yield "--debug"
@@ -375,32 +320,10 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-/// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
-/// and get F# compiler args from an .fsproj file. As we'll merge this
-/// later with other projects we'll only take the sources and the references,
-/// checking if some .dlls correspond to Fable libraries
-let fullCrack (opts: CrackerOptions): CrackedFsproj =
-    let projFile = opts.ProjFile
+let getCrackedFsproj (opts: CrackerOptions) projOpts projRefs outputType =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
-
-    // Try restoring project
-    let projDir = IO.Path.GetDirectoryName projFile
-    let projName = IO.Path.GetFileName projFile
-
-    if not opts.NoRestore then
-        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
-
-    let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
-
-    // let targetFramework =
-    //     match Map.tryFind "TargetFramework" msbuildProps with
-    //     | Some targetFramework -> targetFramework
-    //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
-
-    let outputType = Map.tryFind "OutputType" _msbuildProps
 
     let sourceFiles, otherOpts =
         (projOpts.OtherOptions, ([], []))
@@ -417,6 +340,11 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
             else
                 (Path.normalizeFullPath line)::src, otherOpts)
 
+    let sourceFiles =
+        match sourceFiles with
+        | [] -> projOpts.SourceFiles |> Array.map Path.normalizePath |> Array.toList
+        | sourceFiles -> sourceFiles
+
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
         dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
@@ -428,13 +356,48 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
         |> Seq.toList
         |> sortFablePackages
 
-    { ProjectFile = projFile
+    { ProjectFile = opts.ProjFile
       SourceFiles = sourceFiles
       ProjectReferences = List.choose (excludeProjRef opts dllRefs) projRefs
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OtherCompilerOptions = otherOpts
       OutputType = outputType }
+
+let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
+    let projectFilePath = opts.ProjFile
+
+    let projOpts, _diagnostics = // TODO: Check diagnostics
+        let checker = FSharpChecker.Create()
+        let text = File.readAllTextNonBlocking(projectFilePath) |>  SourceText.ofString
+        checker.GetProjectOptionsFromScript(projectFilePath, text, useSdkRefs=true, assumeDotNetFramework=false)
+        |> Async.RunSynchronously
+
+    getCrackedFsproj opts projOpts [] (Some "Exe")
+
+/// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
+/// and get F# compiler args from an .fsproj file. As we'll merge this
+/// later with other projects we'll only take the sources and the references,
+/// checking if some .dlls correspond to Fable libraries
+let fullCrack (opts: CrackerOptions): CrackedFsproj =
+    let projFile = opts.ProjFile
+    let projDir = IO.Path.GetDirectoryName projFile
+    let projName = IO.Path.GetFileName projFile
+
+    if not opts.NoRestore then
+        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
+
+    let projOpts, projRefs, msbuildProps =
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
+
+    // let targetFramework =
+    //     match Map.tryFind "TargetFramework" msbuildProps with
+    //     | Some targetFramework -> targetFramework
+    //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
+
+    let outputType = Map.tryFind "OutputType" msbuildProps
+
+    getCrackedFsproj opts projOpts projRefs outputType
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
@@ -478,7 +441,7 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
 let getCrackedProjects (opts: CrackerOptions) =
     match (Path.GetExtension opts.ProjFile).ToLower() with
     | ".fsx" ->
-        getProjectOptionsFromScript opts
+        [], getProjectOptionsFromScript opts
     | ".fsproj" ->
         getCrackedProjectsFromMainFsproj opts
     | s -> failwithf "Unsupported project type: %s" s

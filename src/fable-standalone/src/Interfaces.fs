@@ -52,7 +52,7 @@ type IFableResult =
 type IWriter =
     inherit System.IDisposable
     abstract AddSourceMapping: SourceMapping -> unit
-    abstract EscapeJsStringLiteral: string -> string
+    abstract EscapeStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 

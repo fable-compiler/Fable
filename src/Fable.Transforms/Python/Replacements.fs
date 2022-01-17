@@ -672,15 +672,31 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
-let rec findInScope (scope: FSharp2Fable.Scope) identName =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
+let findInScope (ctx: Context) identName =
+    let rec findInScopeInner scope identName =
+        match scope with
+        | [] -> None
+        | (ident2: Ident, expr: Expr option)::prevScope ->
+            if identName = ident2.Name then
+                match expr with
+                | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScopeInner prevScope ident.Name
+                | expr -> expr
+            else findInScopeInner prevScope identName
+    let scope1 = ctx.Scope |> List.map (fun (_,i,e) -> i,e)
+    let scope2 = ctx.ScopeInlineArgs |> List.map (fun (i,e) -> i, Some e)
+    findInScopeInner (scope1 @ scope2) identName
+
+let (|RequireStringConst|_|) com (ctx: Context) r e =
+    (match e with
+     | StringConst s -> Some s
+     | MaybeCasted(IdentExpr ident) ->
+        match findInScope ctx ident.Name with
+        | Some(StringConst s) -> Some s
+        | _ -> None
+     | _ -> None)
+    |> Option.orElseWith(fun () ->
+        addError com ctx.InlinePath r "Expecting string literal"
+        Some "")
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
@@ -1157,6 +1173,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
+    | _, "region" ->
+        match args with
+        | [RequireStringConst com ctx r header] -> Extended(RegionStart header, r) |> Some
+        | _ -> None
     | _, ("pyNative"|"nativeOnly") ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
@@ -1177,7 +1197,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Lambda(_, (Namesof com ctx names), _)] -> Some names
         | [MaybeCasted(IdentExpr ident)] ->
-            match findInScope ctx.Scope ident.Name with
+            match findInScope ctx ident.Name with
             | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
             | _ -> None
         | _ -> None
@@ -1214,7 +1234,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> None
 
         match args with
-        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx.Scope ident.Name |> Option.bind inferCasename
+        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx ident.Name |> Option.bind inferCasename
         | [e] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
@@ -1267,7 +1287,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    findInScope ctx.Scope ident.Name
+                    findInScope ctx ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with
@@ -1285,7 +1305,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 (match e with
                  | StringConst s -> Some s
                  | MaybeCasted(IdentExpr ident) ->
-                    match findInScope ctx.Scope ident.Name with
+                    match findInScope ctx ident.Name with
                     | Some(StringConst s) -> Some s
                     | _ -> None
                  | _ -> None)

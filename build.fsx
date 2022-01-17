@@ -58,7 +58,7 @@ module Util =
         let cliDir = resolveDir "src/Fable.Cli"
         let cliArgs = args |> String.concat " "
         let cliCmd = $"dotnet run -c Release --project {cliDir} -- {cliArgs}"
-        runInDir projectDir cliCmd
+        runInDir (resolveDir projectDir) cliCmd
 
     let runFableWithArgsAsync projectDir args =
         runAsync ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
@@ -667,12 +667,11 @@ match BUILD_ARGS_LOWER with
 | "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    removeDirRecursive "src/quicktest/fable_modules"
+    runFableWithArgsInDir "src/quicktest" ["watch --exclude Fable.Core --noCache --runScript"]
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
-
+    runFableWithArgsInDir "src/quicktest-py" ["watch --lang Python --delimiter #fsharp --noCache"]
 | "run"::_ ->
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args

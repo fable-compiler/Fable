@@ -4,7 +4,6 @@ open System
 open Fable
 open Fable.AST
 open Fable.Transforms
-open Fable.Transforms.State
 
 module Js =
     type BabelWriter(cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
@@ -16,10 +15,10 @@ module Js =
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
         let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
-        interface BabelPrinter.Writer with
+        interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeJsStringLiteral(str) =
+            member _.EscapeStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
@@ -67,9 +66,10 @@ module Js =
     }
 
 module Python =
-    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, pathResolver) =
+    let getTargetPath (targetPath: string) =
         let fileExt = ".py"
         let targetDir = Path.GetDirectoryName(targetPath)
+
         // PEP8: Modules should have short, all-lowercase names
         let fileName =
             Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
@@ -79,14 +79,18 @@ module Python =
             |> Naming.applyCaseRule Core.CaseRules.SnakeCase
             |> Fable.PY.Naming.checkPyKeywords
         // Note that Python modules cannot contain dots or it will be impossible to import them
-        let targetPath = Path.Combine(targetDir, Path.replaceExtension fileExt fileName)
+        Path.Combine(targetDir, Path.replaceExtension fileExt fileName)
 
+    type PythonFileWriter(targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
 
-        interface PythonPrinter.Writer with
+        interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
+            member _.EscapeStringLiteral(str) = str
+            member _.MakeImportPath(path) = path
+            member _.AddSourceMapping(_) = ()
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.
     let initFileWriter =
@@ -108,10 +112,15 @@ module Python =
             |> FableTransforms.transformFile com
             |> Fable2Python.Compiler.transformFile com
 
-        let map = { new PythonPrinter.SourceMapGenerator with
-                        member _.AddMapping(_,_,_,_,_) = () }
-        let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
-        do! PythonPrinter.run writer map python
+        let outPath = getTargetPath outPath
+        let! currentLines =
+            Printer.CurrentLines.Create(cliArgs.Delimiter, fun () ->
+                if IO.File.Exists(outPath) then
+                    IO.File.ReadAllLinesAsync(outPath) |> Async.AwaitTask
+                else async.Return [||])
+
+        let writer = new PythonFileWriter(outPath)
+        do! PythonPrinter.run writer currentLines python
         match com.OutputType with
         | OutputType.Library ->
             // Make sure we include an empty `__init__.py` in every directory of a library
@@ -175,9 +184,9 @@ module Rust =
     type RustWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        interface RustPrinter.Writer with
+        interface Printer.Writer with
+            member _.EscapeStringLiteral(str) = str
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =

@@ -111,6 +111,7 @@ type Statement =
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
+    | RegionStart of string
 
 type Module = { Body: Statement list }
 
