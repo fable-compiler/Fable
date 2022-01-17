@@ -40,6 +40,10 @@ def cancel_after(token: CancellationToken, ms: int) -> None:
     timer.start()
 
 
+def is_cancellation_requested(token: CancellationToken) -> bool:
+    return token and token.is_cancelled
+
+
 def sleep(millisecondsDueTime: int) -> Async[_T]:
     def cont(ctx: IAsyncContext[_T]):
         def cancel():
