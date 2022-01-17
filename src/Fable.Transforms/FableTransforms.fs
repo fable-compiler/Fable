@@ -337,39 +337,6 @@ module private Transforms =
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
             | None -> expr
 
-    // For function arguments check if the arity of their own function arguments is expected or not
-    // TODO: Do we need to do this recursively, and check options and delegates too?
-    let checkSubArguments com expectedType (expr: Expr) =
-        match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
-            let expectedLength = List.length expectedArgs
-            if List.length actualArgs < expectedLength then expr
-            else
-                let actualArgs = List.truncate expectedLength actualArgs
-                let _, replacements =
-                    ((0, Map.empty), expectedArgs, actualArgs)
-                    |||> List.fold2 (fun (index, replacements) expected actual ->
-                        match expected, actual with
-                        | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
-                            index + 1, Map.add index (0, List.length args2) replacements
-                        | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
-                                when not(List.sameLength args1 args2) ->
-                            let expectedArity = List.length args1
-                            let actualArity = List.length args2
-                            index + 1, Map.add index (expectedArity, actualArity) replacements
-                        | _ -> index + 1, replacements)
-                if Map.isEmpty replacements then expr
-                else
-                    let mappings =
-                        actualArgs |> List.mapi (fun i _ ->
-                            match Map.tryFind i replacements with
-                            | Some (expectedArity, actualArity) ->
-                                NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
-                            | None -> makeIntConst 0)
-                        |> makeArray Any
-                    Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
-        | _ -> expr
-
     let uncurryArgs com autoUncurrying argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
@@ -387,7 +354,6 @@ module private Transforms =
             match expectedType with
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
-                let arg = checkSubArguments com expectedType arg
                 let arity, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
@@ -435,14 +401,7 @@ module private Transforms =
 
     let uncurryReceivedArgs (com: Compiler) e =
         match e with
-        // TODO: This breaks cases when we actually need to import a curried function
-        // // Sometimes users type imports as lambdas but if they come from JS they're not curried
-        // | ExprTypeAs(NestedLambdaType(argTypes, retType), (Import(info, t, r) as e))
-        //             when not info.IsCompilerGenerated && List.isMultiple argTypes ->
-        //     Curry(e, List.length argTypes, t, r)
-        | Lambda(arg, body, name) ->
-            let body = uncurryIdentsAndReplaceInBody [arg] body
-            Lambda(arg, body, name)
+        // Don't uncurry args received by a lambda as it's difficult to do it right, see #2657
         | Delegate(args, body, name) ->
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
@@ -452,9 +411,7 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
-                let callee = makeImportLib com Any "checkArity" "Util"
-                let info = makeCallInfo None [makeIntConst arity; e] []
-                let e = Call(callee, info, t, r)
+                let e = Replacements.checkArity com t arity e
                 if arity > 1 then Curry(e, arity, t, r)
                 else e
             | (arity, _), _ when arity > 1 -> Curry(e, arity, t, r)
@@ -475,11 +432,6 @@ module private Transforms =
             let args = uncurryArgs com false info.SignatureArgTypes info.Args
             let info = { info with Args = args }
             Call(callee, info, t, r)
-        | CurriedApply(callee, args, t, r) ->
-            match callee.Type with
-            | NestedLambdaType(argTypes, _) ->
-                CurriedApply(callee, uncurryArgs com false argTypes args, t, r)
-            | _ -> e
         | Emit({ CallInfo = callInfo } as emitInfo, t, r) ->
             let args = uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
