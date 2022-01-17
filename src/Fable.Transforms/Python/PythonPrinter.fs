@@ -53,6 +53,7 @@ module PrinterExtensions =
         member printer.Print(arg: Arg) =
             let (Identifier name) = arg.Arg
             printer.Print(name)
+
             match arg.Annotation with
             | Some ann ->
                 printer.Print(": ")
@@ -72,13 +73,16 @@ module PrinterExtensions =
 
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
+
             for i = 0 to args.Length - 1 do
-                 printer.Print(args.[i])
-                 if i >= args.Length - defaults.Length then
-                     printer.Print("=")
-                     printer.Print(defaults.[i-(args.Length-defaults.Length)])
-                 if i < args.Length - 1 then
-                     printer.Print(", ")
+                printer.Print(args.[i])
+
+                if i >= args.Length - defaults.Length then
+                    printer.Print("=")
+                    printer.Print(defaults.[i - (args.Length - defaults.Length)])
+
+                if i < args.Length - 1 then
+                    printer.Print(", ")
 
             match arguments.Args, arguments.VarArg with
             | [], Some vararg ->
@@ -100,6 +104,7 @@ module PrinterExtensions =
 
         member printer.Print(wi: WithItem) =
             printer.Print(wi.ContextExpr)
+
             match wi.OptionalVars with
             | Some vars ->
                 printer.Print(" as ")
@@ -117,6 +122,7 @@ module PrinterExtensions =
             printer.Print(assign.Target)
             printer.Print(" : ")
             printer.Print(assign.Annotation)
+
             match assign.Value with
             | Some value ->
                 printer.Print(" = ")
@@ -170,7 +176,7 @@ module PrinterExtensions =
                 match stmts with
                 | []
                 | [ Pass ] -> ()
-                | [ If { Test=test; Body=body; Else=els } ] ->
+                | [ If { Test = test; Body = body; Else = els } ] ->
                     printer.Print("elif ")
                     printer.Print(test)
                     printer.Print(":")
@@ -251,14 +257,15 @@ module PrinterExtensions =
         member printer.Print(node: Subscript) =
             printer.Print(node.Value)
             printer.Print("[")
+
             match node.Slice with
-            | Tuple({Elements=elems}) ->
-                printer.PrintCommaSeparatedList(elems)
-            | _ ->
-                printer.Print(node.Slice)
+            | Tuple ({ Elements = elems }) -> printer.PrintCommaSeparatedList(elems)
+            | _ -> printer.Print(node.Slice)
+
             printer.Print("]")
 
-        member printer.Print(node: BinOp) = printer.PrintOperation(node.Left, node.Operator, node.Right)
+        member printer.Print(node: BinOp) =
+            printer.PrintOperation(node.Left, node.Operator, node.Right)
 
         member printer.Print(node: BoolOp) =
             for i, value in node.Values |> List.indexed do
@@ -292,10 +299,13 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(node.Func)
             printer.Print("(")
             printer.PrintCommaSeparatedList(node.Args)
+
             if not node.Keywords.IsEmpty then
                 if not node.Args.IsEmpty then
                     printer.Print(", ")
+
                 printer.PrintCommaSeparatedList(node.Keywords)
+
             printer.Print(")")
 
         member printer.Print(node: Emit) =
@@ -308,8 +318,7 @@ module PrinterExtensions =
                 if segmentLength > 0 then
                     let segment = value.Substring(segmentStart, segmentLength)
 
-                    let subSegments =
-                        System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                    let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
 
                     for i = 1 to subSegments.Length do
                         let subSegment =
@@ -333,18 +342,22 @@ module PrinterExtensions =
                 |> replace @"\$(\d+)\.\.\." (fun m ->
                     let rep = ResizeArray()
                     let i = int m.Groups.[1].Value
+
                     for j = i to node.Args.Length - 1 do
                         rep.Add("$" + string j)
+
                     String.concat ", " rep)
 
                 |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
                     let i = int m.Groups.[1].Value
+
                     match node.Args.[i] with
-                    | Constant(value=value) when (value :?> bool) -> m.Groups.[2].Value
+                    | Constant (value = value) when (value :?> bool) -> m.Groups.[2].Value
                     | _ -> m.Groups.[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
                     let i = int m.Groups.[2].Value
+
                     match List.tryItem i node.Args with
                     | Some _ -> m.Groups.[1].Value
                     | None -> "")
@@ -352,12 +365,12 @@ module PrinterExtensions =
                 // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
                 |> replace @"\$(\d+)!" (fun m ->
                     let i = int m.Groups.[1].Value
+
                     match List.tryItem i node.Args with
-                    | Some(Constant(value, _)) when (value :? string) -> unbox value
+                    | Some (Constant (value, _)) when (value :? string) -> unbox value
                     | _ -> "")
 
-            let matches =
-                System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
 
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
@@ -461,7 +474,7 @@ module PrinterExtensions =
             printer.Print(node.Name)
 
             match node.AsName with
-            | Some (Identifier alias) when Identifier alias <> node.Name->
+            | Some (Identifier alias) when Identifier alias <> node.Name ->
                 printer.Print(" as ")
                 printer.Print(alias)
             | _ -> ()
@@ -534,7 +547,7 @@ module PrinterExtensions =
             | Emit ex -> printer.Print(ex)
             | UnaryOp ex -> printer.Print(ex)
             | FormattedValue ex -> printer.Print(ex)
-            | Constant (value=value) ->
+            | Constant (value = value) ->
                 match box value with
                 | :? string as str ->
                     printer.Print("\"")
@@ -555,7 +568,9 @@ module PrinterExtensions =
             | Slice (lower, upper, step) ->
                 if lower.IsSome then
                     printer.Print(lower.Value)
+
                 printer.Print(":")
+
                 if upper.IsSome then
                     printer.Print(upper.Value)
             | Starred (ex, ctx) ->
@@ -583,13 +598,7 @@ module PrinterExtensions =
             | AST.Identifier id -> printer.Print(id)
             | AST.WithItem wi -> printer.Print(wi)
 
-        member printer.PrintBlock
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            ) =
+        member printer.PrintBlock(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("")
             printer.PrintNewLine()
@@ -651,6 +660,7 @@ module PrinterExtensions =
 
         member printer.PrintOptional(node: Expression option) =
             printer.PrintOptional(node |> Option.map AST.Expression)
+
         member printer.PrintOptional(node: Identifier option) =
             match node with
             | None -> ()
@@ -668,14 +678,19 @@ module PrinterExtensions =
 
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
             printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedList(nodes: Arg list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)
+
         member printer.PrintCommaSeparatedList(nodes: Keyword list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Keyword)
+
         member printer.PrintCommaSeparatedList(nodes: Alias list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Alias)
+
         member printer.PrintCommaSeparatedList(nodes: Identifier list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Identifier)
+
         member printer.PrintCommaSeparatedList(nodes: WithItem list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.WithItem)
 
@@ -698,9 +713,11 @@ module PrinterExtensions =
             printer.Print("(")
             printer.Print(args)
             printer.Print(")")
+
             if returnType.IsSome then
                 printer.Print(" -> ")
                 printer.PrintOptional(returnType)
+
             printer.Print(":")
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
@@ -728,63 +745,67 @@ module PrinterExtensions =
 
 open PrinterExtensions
 
-let run writer (currentLines: CurrentLines) (program: Module): Async<unit> =
+let run writer (currentLines: CurrentLines) (program: Module) : Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
         printer.Print(decl)
 
         if printer.Column > 0 then
             printer.PrintNewLine()
-        if extraLine then
-            printer.PrintNewLine()
+
+        if extraLine then printer.PrintNewLine()
 
     let printLine (printer: Printer) (line: string) =
         printer.Print(line)
         printer.PrintNewLine()
 
-    let rec printDeclarations (printer: PrinterImpl) nextHeader (currentLines: CurrentLines) imports restDecls = async {
-        match currentLines.IsEmpty, imports, restDecls with
-        | true, [], [] -> do! printer.Flush()
-        | _ ->
-            let nextDelimiter, currentLines =
-                currentLines.PrintUntilDelimiter(printLine printer)
+    let rec printDeclarations (printer: PrinterImpl) nextHeader (currentLines: CurrentLines) imports restDecls =
+        async {
+            match currentLines.IsEmpty, imports, restDecls with
+            | true, [], [] -> do! printer.Flush()
+            | _ ->
+                let nextDelimiter, currentLines =
+                    currentLines.PrintUntilDelimiter(printLine printer)
 
-            do! printer.Flush()
-
-            match imports with
-            | [] -> ()
-            | imports ->
-                for decl in imports do
-                    printDeclWithExtraLine false printer decl
-                (printer :> Printer).PrintNewLine()
                 do! printer.Flush()
 
-            nextHeader |> Option.iter (fun header -> printLine printer $"#region {header}")
+                match imports with
+                | [] -> ()
+                | imports ->
+                    for decl in imports do
+                        printDeclWithExtraLine false printer decl
 
-            let rec splitDecls decls restDecls =
-                match restDecls with
-                | [] -> None, List.rev decls, []
-                | RegionStart header::restDecls -> Some header, List.rev decls, restDecls
-                | decl::restDecls -> splitDecls (decl::decls) restDecls
+                    (printer :> Printer).PrintNewLine()
+                    do! printer.Flush()
 
-            let nextHeader, decls, restDecls = splitDecls [] restDecls
+                nextHeader
+                |> Option.iter (fun header -> printLine printer $"#region {header}")
 
-            for decl in decls do
-                printDeclWithExtraLine true printer decl
-                // TODO: Only flush every XXX lines?
-                do! printer.Flush()
+                let rec splitDecls decls restDecls =
+                    match restDecls with
+                    | [] -> None, List.rev decls, []
+                    | RegionStart header :: restDecls -> Some header, List.rev decls, restDecls
+                    | decl :: restDecls -> splitDecls (decl :: decls) restDecls
 
-            // Print the next delimiter if there's one
-            nextDelimiter |> Option.iter (printLine printer)
+                let nextHeader, decls, restDecls = splitDecls [] restDecls
 
-            return! printDeclarations printer nextHeader currentLines [] restDecls
-    }
+                for decl in decls do
+                    printDeclWithExtraLine true printer decl
+                    // TODO: Only flush every XXX lines?
+                    do! printer.Flush()
+
+                // Print the next delimiter if there's one
+                nextDelimiter |> Option.iter (printLine printer)
+
+                return! printDeclarations printer nextHeader currentLines [] restDecls
+        }
 
     async {
         use printer = new PrinterImpl(writer)
 
         let imports, restDecls =
-            program.Body |> List.splitWhile (function
+            program.Body
+            |> List.splitWhile (function
                 | Import _
                 | ImportFrom _ -> true
                 | _ -> false)
