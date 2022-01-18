@@ -1,15 +1,20 @@
 namespace Fable.Tests.Compiler.Util
 
 open System
-open Fable.Standalone
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.SourceCodeServices
+open Fable
+open Fable.Cli
+open Fable.Cli.Main
+open Fable.Transforms.State
 
-type Compiler = IFableManager * IChecker
 module Compiler =
 
-  type Result = Error list
+  type Result = Log list
   module Result =
-    let errors = List.filter (fun m -> not m.IsWarning)
-    let warnings = List.filter (fun m -> m.IsWarning)
+    let errors = List.filter (fun (m: Log) -> m.Severity = Severity.Error)
+    let warnings = List.filter (fun (m: Log) -> m.Severity = Severity.Warning)
     let wasFailure = errors >> List.isEmpty >> not
 
   type Settings = {
@@ -22,64 +27,57 @@ module Compiler =
       ]
     }
 
-  let private references =
-    Fable.Metadata.coreAssemblies
-  let private metadataPath = "../../src/fable-metadata/lib/"
-
-  let init (): Compiler =
-    let fable = Fable.Standalone.Main.init ()
-
-    let optimize = false
-    let optimizeFlag = "--optimize" + (if optimize then "+" else "-")
-    let otherOptions = [| optimizeFlag |]
-
-    let readAllBytes dllName = Bench.Platform.readAllBytes (metadataPath + dllName)
-    let checker = fable.CreateChecker (references, readAllBytes, otherOptions)
-
-    (fable, checker)
-
-  let clear ((fable, checker): Compiler) =
-    fable.ClearCache checker
-
-  let compile ((fable, checker): Compiler) (settings: Settings) (source: string) =
-    let preamble =
-      [
-        yield! settings.Opens |> List.map (sprintf "open %s")
-
-        yield Environment.NewLine
-      ]
-      |> String.concat Environment.NewLine
-
-    let source = preamble + source
-
-    let projectFileName = "project.fsproj"
-    let fileName = "tmp.fs"
-    let parseFSharpScript () = fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
-    let parseResult = parseFSharpScript ()
-    let babelResult = fable.CompileToBabelAst ("", parseResult, fileName)
-
-    (fable,checker) |> clear
-
-    let errors =
-      Seq.append parseResult.Errors babelResult.FableErrors
-      |> Seq.toList
-
-    errors
-
   /// NOTE: NOT threadsafe
   ///       -> don't use `parallel`
   module Cached =
-    let private cached = lazy (init ())
-    let compiler () = cached.Force ()
+    let projDir = IO.Path.Join(__SOURCE_DIRECTORY__, "../TestProject" ) |> Path.normalizeFullPath
+    let projFile = IO.Path.Join(projDir, "TestProject.fsproj" ) |> Path.normalizeFullPath
+    let sourceFile = IO.Path.Join(projDir, "Program.fs" ) |> Path.normalizeFullPath
 
-    let clear () =
-      compiler ()
-      |> clear
+    let cliArgs =
+        Log.makeSilent()
+        let compilerOptions = CompilerOptionsHelper.Make()
+        { CliArgs.ProjectFile = projFile
+          FableLibraryPath = None
+          RootDir = projDir
+          Configuration = "Debug"
+          OutDir = None
+          IsWatch = false
+          Precompile = false
+          PrecompiledLib = None
+          SourceMaps = false
+          SourceMapsRoot = None
+          NoRestore = false
+          NoCache = false
+          Exclude = Some "Fable.Core"
+          Replace = Map.empty
+          RunProcess = None
+          CompilerOptions = compilerOptions }
 
-    let compile settings (source: string): Result =
-      let compiler = compiler ()
-      compile compiler settings source
+    let mutable private state = State.Create(cliArgs, recompileAllFiles=true)
 
+    let compile settings source =
+        let preamble =
+          [
+            yield! settings.Opens |> List.map (sprintf "open %s")
+
+            yield Environment.NewLine
+          ]
+          |> String.concat Environment.NewLine
+
+        let source = preamble + source
+        IO.File.WriteAllText(sourceFile, source)
+
+        let result =
+            state
+            |> startCompilation
+            |> Async.RunSynchronously
+
+        match result with
+        | Error(_msg, logs) -> Array.toList logs
+        | Ok(newState, logs) ->
+            state <- newState
+            Array.toList logs
 
   module Assert =
     open Util.Testing
@@ -126,8 +124,8 @@ module Compiler =
 
     module private Test =
       module Is =
-        let error msg = not msg.IsWarning
-        let warning msg = msg.IsWarning
+        let error (msg: Log) = msg.Severity = Severity.Error
+        let warning (msg: Log) = msg.Severity = Severity.Warning
         let single = function | [_] -> true | _ -> false
         let zero = List.isEmpty
         let count n = List.length >> (=) n
@@ -145,7 +143,7 @@ module Compiler =
         let withMsg (txt: string) = List.exists (fun m -> m.Message.Contains txt)
       module Text =
         let contains (txt: string) msg = msg.Message.Contains(txt, StringComparison.InvariantCultureIgnoreCase)
-        let isMatch (regex: System.Text.RegularExpressions.Regex) msg =
+        let isMatch (regex: System.Text.RegularExpressions.Regex) (msg: Log) =
           regex.IsMatch msg.Message
     let private (>&>) a b = fun actual -> a actual && b actual
 

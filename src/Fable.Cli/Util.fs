@@ -73,57 +73,67 @@ module Log =
     let makeVerbose() =
         verbosity <- Fable.Verbosity.Verbose
 
+    let makeSilent() =
+        verbosity <- Fable.Verbosity.Silent
+
     let isVerbose() =
         verbosity = Fable.Verbosity.Verbose
 
+    let canLog msg =
+        verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg))
+
     let inSameLineIfNotCI (msg: string) =
-        if isVerbose() then
-            Console.Out.WriteLine(msg)
-        // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
-        // the same line as it seems to cause problems, see #2727
-        elif not isCi && not Console.IsOutputRedirected then
-            // If the message is longer than the terminal width it will jump to next line
-            let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
-            let curCursorLeft = Console.CursorLeft
-            Console.SetCursorPosition(0, Console.CursorTop)
-            Console.Out.Write(msg)
-            let diff = curCursorLeft - msg.Length
-            if diff > 0 then
-                Console.Out.Write(String.replicate diff " ")
-                Console.SetCursorPosition(msg.Length, Console.CursorTop)
+        match verbosity with
+        | Fable.Verbosity.Silent -> ()
+        | Fable.Verbosity.Verbose -> Console.Out.WriteLine(msg)
+        | Fable.Verbosity.Normal ->
+            // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
+            // the same line as it seems to cause problems, see #2727
+            if not isCi && not Console.IsOutputRedirected then
+                // If the message is longer than the terminal width it will jump to next line
+                let msg = if msg.Length > 80 then msg.[..80] + "..." else msg
+                let curCursorLeft = Console.CursorLeft
+                Console.SetCursorPosition(0, Console.CursorTop)
+                Console.Out.Write(msg)
+                let diff = curCursorLeft - msg.Length
+                if diff > 0 then
+                    Console.Out.Write(String.replicate diff " ")
+                    Console.SetCursorPosition(msg.Length, Console.CursorTop)
 
     let alwaysWithColor color (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+        if canLog msg then
             Console.ForegroundColor <- color
             Console.Out.WriteLine(msg)
             Console.ResetColor()
 
     let always (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+        if canLog msg then
             Console.Out.WriteLine(msg)
 
     let verbose (msg: Lazy<string>) =
-        if verbosity = Fable.Verbosity.Verbose then
+        if isVerbose() then
             always msg.Value
 
     let verboseOrIf condition (msg: string) =
-        if condition || verbosity = Fable.Verbosity.Verbose then
+        if canLog msg && (condition || verbosity = Fable.Verbosity.Verbose) then
             always msg
 
     let warning (msg: string) =
-        Console.ForegroundColor <- ConsoleColor.DarkYellow
-        Console.Out.WriteLine(msg)
-        Console.ResetColor()
+        if canLog msg then
+            Console.ForegroundColor <- ConsoleColor.DarkYellow
+            Console.Out.WriteLine(msg)
+            Console.ResetColor()
 
     let error (msg: string) =
-        Console.ForegroundColor <- ConsoleColor.DarkRed
-        Console.Error.WriteLine(msg)
-        Console.ResetColor()
+        if canLog msg then
+            Console.ForegroundColor <- ConsoleColor.DarkRed
+            Console.Error.WriteLine(msg)
+            Console.ResetColor()
 
     let mutable private femtoMsgShown = false
 
     let showFemtoMsg (show: unit -> bool): unit =
-        if not femtoMsgShown then
+        if not femtoMsgShown && verbosity <> Fable.Verbosity.Silent then
             if show() then
                 femtoMsgShown <- true
                 "Some Nuget packages contain information about NPM dependencies that can be managed by Femto: https://github.com/Zaid-Ajaj/Femto"

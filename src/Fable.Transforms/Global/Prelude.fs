@@ -110,6 +110,16 @@ module List =
         | Some i -> List.splitAt i xs
         | None -> xs, []
 
+[<RequireQualifiedAccess>]
+module Result =
+    let mapEither mapOk mapError = function
+        | Ok x -> mapOk x |> Ok
+        | Error e -> mapError e |> Error
+
+    let extract extractOk extractError = function
+        | Ok x -> extractOk x
+        | Error e -> extractError e
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 
