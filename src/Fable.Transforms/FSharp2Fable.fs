@@ -584,15 +584,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com ctx.InlinePath r
         else
-            if isByRefValue var then
-                // Getting byref value is compiled as FSharpRef op_Dereference
-                let var = makeValueFrom com ctx r var
-                return Replacements.getReference r var.Type var
-            else
+            match com.Options.Language with
+            | Rust ->
                 return makeValueFrom com ctx r var
+            | _ ->
+                if isByRefValue var then
+                    // Getting byref value is compiled as FSharpRef op_Dereference
+                    let var = makeValueFrom com ctx r var
+                    return Replacements.getReference r var.Type var
+                else
+                    return makeValueFrom com ctx r var
 
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
-        return Replacements.defaultof com ctx typ
+        return
+            match com.Options.Language with
+            | Rust -> Rust.Replacements.getZero com ctx typ
+            | _ ->  Replacements.defaultof com ctx typ
 
     | FSharpExprPatterns.Let((var, value), body) ->
         match value, body with
@@ -773,6 +780,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let errorExpr =
                     match com.Options.Language with
                     | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                    | Rust -> Rust.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                 makeThrow rangeOfElseExpr Fable.Any errorExpr
             | _ ->
@@ -987,6 +995,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                     let errorExpr =
                         match com.Options.Language with
                         | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                        | Rust -> Rust.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                         | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr
@@ -1027,21 +1036,37 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | FSharpExprPatterns.Call(None, memb, _, _, _)
         | FSharpExprPatterns.Value memb ->
             let value = makeValueFrom com ctx r memb
-            if memb.IsMutable then
-                match memb.DeclaringEntity with
-                | Some ent when ent.IsFSharpModule && isPublicMember memb ->
-                    return Replacements.makeRefFromMutableFunc com ctx r value.Type value
+            return
+                match com.Options.Language with
+                | Rust ->
+                    if memb.IsMutable || isByRefValue memb then
+                        match memb.DeclaringEntity with
+                        // TODO: check if it works for mutable module let bindings
+                        | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                            Rust.Replacements.makeRefFromMutableFunc com ctx r value.Type value
+                        | _ ->
+                            Rust.Replacements.makeRefFromMutableValue com ctx r value.Type value
+                    else
+                        Rust.Replacements.newReference com r value.Type value
                 | _ ->
-                    return Replacements.makeRefFromMutableValue com ctx r value.Type value
-            else
-                return Replacements.newReference com r value.Type value
+                    if memb.IsMutable then
+                        match memb.DeclaringEntity with
+                        | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                            Replacements.makeRefFromMutableFunc com ctx r value.Type value
+                        | _ ->
+                            Replacements.makeRefFromMutableValue com ctx r value.Type value
+                    else
+                        Replacements.newReference com r value.Type value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
             let! callee = transformCallee com ctx callee calleeType
             let typ = makeType ctx.GenericArgs expr.Type
             let key = FsField.FSharpFieldName field
-            return Replacements.makeRefFromMutableField com ctx r typ callee key
+            return
+                match com.Options.Language with
+                | Rust -> Replacements.makeRefFromMutableField com ctx r typ callee key
+                | _ -> Replacements.makeRefFromMutableField com ctx r typ callee key
         | _ ->
             // ignore AddressOf, pass by value
             return! transformExpr com ctx expr
@@ -1054,7 +1079,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // Setting byref value is compiled as FSharpRef op_ColonEquals
             let! value = transformExpr com ctx valueExpr
             let valToSet = makeValueFrom com ctx r valToSet
-            return Replacements.setReference r valToSet value
+            return
+                match com.Options.Language with
+                | Rust ->
+                    Fable.Set(valToSet, Fable.ValueSet, value.Type, value, r)
+                | _ ->
+                    Replacements.setReference r valToSet value
         | _ ->
             return "Mutating this argument passed by reference is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r

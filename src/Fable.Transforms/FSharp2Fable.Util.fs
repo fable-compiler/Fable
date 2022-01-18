@@ -266,6 +266,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
         member _.IsMeasure = ent.IsMeasure
+        member _.IsByRef = ent.IsByRef
         member _.IsEnum = ent.IsEnum
 
 type MemberInfo(?attributes: FSharpAttribute seq,
@@ -1436,6 +1437,10 @@ module Identifiers =
                 Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
+        let isMutable =
+            match com.Options.Language with
+            | Rust -> fsRef.IsMutable || isByRefValue fsRef
+            | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
 
@@ -1443,7 +1448,7 @@ module Identifiers =
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
-          IsMutable = fsRef.IsMutable
+          IsMutable = isMutable
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 

@@ -625,6 +625,13 @@ module TypeInfo =
         let ty = transformType com ctx genArg
         ty |> makeMutTy com
 
+    let isByRef (com: IRustCompiler) (t: Fable.Type) =
+        match t with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
+            ent.IsByRef
+        | _ -> false
+
     let isInterface (com: IRustCompiler) (t: Fable.Type) =
         match t with
         | Fable.DeclaredType(entRef, genArgs) ->
@@ -1545,7 +1552,10 @@ module Util =
             elif ctx.Typegen.TakingOwnership then
                 args |> List.map (transformLeaveContextByValue com ctx None None)
             else
-                args |> List.map (transformLeaveContextByPreferredBorrow com ctx)
+                args
+                |> List.mapi (fun i arg ->
+                    let argType = argTypes |> List.tryItem i
+                    transformLeaveContextByPreferredBorrow com ctx argType arg)
 
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1844,17 +1854,23 @@ module Util =
                 | Fable.Operation(Fable.Binary _, _, _) ->
                     true //Anything coming out of an operation is as good as being returned from a function
                 | Fable.Lambda _
-                | Fable.Delegate _ -> true
+                | Fable.Delegate _ ->
+                    true
                 | Fable.IfThenElse _
-                | Fable.DecisionTree _ ->
+                | Fable.DecisionTree _
+                | Fable.DecisionTreeSuccess _ ->
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
                 //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
                     not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
-    let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
-        let expr = com.TransformAsExpr (ctx, e)
+    let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+        let expr =
+            match e, tOpt with
+            | Fable.IdentExpr ident, Some t when (isByRef com t) && (isByRef com e.Type) ->
+                transformIdent com ctx None ident // passing byref ident arg to byref arg slot
+            | _ -> com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e.Type None e
         // if shouldBePassByRefForParam com e.Type then
         if not varAttrs.IsRef
@@ -1967,6 +1983,9 @@ module Util =
 
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
+        | Fable.Unary(UnaryOperator.UnaryVoid, Fable.IdentExpr ident) ->
+            // in this context UnaryVoid means UnaryAddressOf
+            transformIdent com ctx range ident
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
@@ -2072,6 +2091,8 @@ module Util =
                 | "Native::arrayEmpty", Fable.Array genArg ->
                     transformGenArgs com ctx [genArg]
                 | "Native::arrayWithCapacity", Fable.Array genArg ->
+                    transformGenArgs com ctx [genArg]
+                | "Native::defaultOf", genArg ->
                     transformGenArgs com ctx [genArg]
                 | "Native::getZero", genArg ->
                     transformGenArgs com ctx [genArg]
@@ -2295,7 +2316,7 @@ module Util =
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformExprMaybeIdentExpr com ctx range fableExpr
-        let value = transformExprMaybeUnwrapRef com ctx fableValue
+        let value = transformLeaveContextByValue com ctx None None fableValue
         match kind with
         | Fable.ValueSet ->
             match fableExpr with
@@ -4208,7 +4229,6 @@ module Util =
         imports
         |> List.groupBy (fun import -> import.Path, import.ModName)
         |> List.collect (fun ((importPath, modName), moduleImports) ->
-            let importPath = importPath |> Fable.Naming.replaceSuffix ".fs" ".rs"
             let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
             let modItems = [
                 mkUnloadedModItem attrs modName |> mkPublicCrateItem
@@ -4275,6 +4295,7 @@ module Compiler =
                 if selector = Fable.Naming.placeholder then
                     "`importMember` must be assigned to a variable"
                     |> addError com [] r
+                let path = path |> Fable.Naming.replaceSuffix ".fs" ".rs"
                 if path.Contains("::") then
                     // direct Rust import
                     path + "::" + selector

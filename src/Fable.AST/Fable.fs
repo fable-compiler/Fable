@@ -107,6 +107,7 @@ type Entity =
     abstract IsValueType: bool
     abstract IsInterface: bool
     abstract IsMeasure: bool
+    abstract IsByRef: bool
     abstract IsEnum: bool
 
 type Type =

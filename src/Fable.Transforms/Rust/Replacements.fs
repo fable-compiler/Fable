@@ -170,6 +170,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.dictionary -> Some(BclDictionary(Any,Any))
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
+    | Types.byref -> Some(FSharpReference(Any))
+    | Types.byref2 -> Some(FSharpReference(Any))
     | Types.reference -> Some(FSharpReference(Any))
     | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
         List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
@@ -184,6 +186,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
     | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
     | BuiltinDefinition(FSharpReference _), [v] -> Some(FSharpReference(v))
+    | BuiltinDefinition(FSharpReference _), [v; _] -> Some(FSharpReference(v))
     | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
     | BuiltinDefinition t, _ -> Some t
     | _ -> None
@@ -469,35 +472,39 @@ let createAtom com (value: Expr) =
     Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
-    let getter =
-        Delegate([], value, None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     Delegate([], value, None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
 
 let makeRefFromMutableField com ctx r t callee key =
-    let getter =
-        Delegate([], Get(callee, FieldGet(key, true), t, r), None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     Delegate([], Get(callee, FieldGet(key, true), t, r), None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    let value = Get(callee, FieldGet(key, true), t, r)
+    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
-    let getter =
-        let info = makeCallInfo None [] []
-        let value = makeCall r t info value
-        Delegate([], value, None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        let args = [IdentExpr v; makeBoolConst true]
-        let info = makeCallInfo None args [t; Boolean]
-        let value = makeCall r Unit info value
-        Delegate([v], value, None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     let info = makeCallInfo None [] []
+    //     let value = makeCall r t info value
+    //     Delegate([], value, None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     let args = [IdentExpr v; makeBoolConst true]
+    //     let info = makeCallInfo None args [t; Boolean]
+    //     let value = makeCall r Unit info value
+    //     Delegate([v], value, None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    value
 
 // let turnLastArgIntoRef com ctx args =
 //     let args, defValue = List.splitLast args
@@ -903,11 +910,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | Enum _ ->
+    | Boolean | Char | String | Number _ | Enum _
+    | Builtin (BclInt64|BclUInt64|BclIntPtr|BclUIntPtr) ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    | Builtin (BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
@@ -1585,7 +1593,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> Operation(Unary(UnaryVoid, args.Head), t, r) |> Some // "void $0" |> emitJsExpr r t args |> Some
+    | "Ignore", _ ->
+        // Operation(Unary(UnaryVoid, args.Head), t, r) |> Some // "void $0" |> emitJsExpr r t args |> Some
+        Helper.LibCall(com, "Util", "ignore", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
