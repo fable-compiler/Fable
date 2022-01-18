@@ -4109,8 +4109,9 @@ module Compiler =
                         $"__{name.TrimEnd([| '_' |])}"
                     else
                         $"_{name}"
+
                 // For object expressions we need to create a new type scope so we make an extra padding to ensure uniqueness
-                let name = name.PadLeft(ctx.TypeParamsScope + name.Length, '_')
+                let name = name.PadRight(ctx.TypeParamsScope + name.Length, '_')
                 typeVars.Add name |> ignore
 
                 ctx.UsedNames.DeclarationScopes.Add(name)
