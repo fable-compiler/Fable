@@ -306,7 +306,7 @@ module private Transforms =
                 | None -> e
             | e -> e) body
 
-    let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
+    let curryIdentsAndReplaceInBody (idents: Ident list) body =
         let replacements =
             (Map.empty, idents) ||> List.fold (fun replacements id ->
                 let arity, _ = getLambdaTypeArity id.Type
@@ -377,7 +377,7 @@ module private Transforms =
             |> makeCall r t info
         | e -> e
 
-    let propagateUncurryingThroughLets (_: Compiler) = function
+    let propagateCurryingThroughLets (_: Compiler) = function
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
@@ -397,13 +397,14 @@ module private Transforms =
 
     let uncurryMemberArgs (m: MemberDecl) =
         if m.Info.IsValue then m
-        else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
+        else { m with Body = curryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (com: Compiler) e =
+    let curryReceivedArgs (com: Compiler) e =
         match e with
-        // Don't uncurry args received by a lambda as it's difficult to do it right, see #2657
+        // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
+        // | Lambda(arg, body, name)
         | Delegate(args, body, name) ->
-            let body = uncurryIdentsAndReplaceInBody args body
+            let body = curryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
         | Get(callee, (ByKey(FieldKey(FieldKeyType fieldType)) | UnionField(_,fieldType)), t, r) ->
@@ -481,6 +482,15 @@ module private Transforms =
                 // just make a normal call
                 let info = makeCallInfo None args []
                 makeCall r t info applied |> Some
+            elif uncurriedArity < argsLen then
+                let appliedArgs, restArgs = List.splitAt uncurriedArity args
+                let info = makeCallInfo None appliedArgs []
+                let intermetiateType =
+                    match List.rev restArgs with
+                    | [] -> Any
+                    | arg::args -> (LambdaType(arg.Type, t), args) ||> List.fold (fun t a -> LambdaType(a.Type, t))
+                let applied = makeCall None intermetiateType info applied
+                CurriedApply(applied, restArgs, t, r) |> Some
             else
                 Replacements.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some
         match e with
@@ -506,9 +516,11 @@ let getTransformations (_com: Compiler) =
       // Make an extra binding reduction pass after applying lambdas
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       // Then apply uncurry optimizations
-      fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
+      // Functions passed as arguments in calls (but NOT in curried applications) are being uncurried so we have to re-curry them
+      // The next steps will uncurry them again if they're immediately applied or passed again as call arguments
+      fun com e -> visitFromInsideOut (curryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun com e -> visitFromInsideOut (propagateUncurryingThroughLets com) e
+      fun com e -> visitFromInsideOut (propagateCurryingThroughLets com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
@@ -547,7 +559,7 @@ let transformDeclaration transformations (com: Compiler) file decl =
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
                 Sequential [baseCall; cons.Body]
-                |> uncurryIdentsAndReplaceInBody cons.Args
+                |> curryIdentsAndReplaceInBody cons.Args
                 |> transformExpr com
                 |> function
                     | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall
