@@ -337,7 +337,10 @@ type Expr =
     | Test of Expr * TestKind * range: SourceLocation option
 
     // Operations
+
+    /// Call to a type/module member, function arguments will be uncurried
     | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
+    /// Application to local lambdas, function arguments will NOT be uncurried
     | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
     | Curry of Expr * arity: int * Type * SourceLocation option
     | Operation of OperationKind * typ: Type * range: SourceLocation option
