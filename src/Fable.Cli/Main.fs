@@ -170,7 +170,7 @@ module FileWatcherUtil =
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d = $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
         files
-        |> List.filter (fun file -> file.EndsWith(".fsproj.fsx"))
+        |> List.filter (fun file -> not (file.EndsWith(".fsproj.fsx")))
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
         |> List.sortBy (fun f -> f.Length)
