@@ -3,9 +3,9 @@ from __future__ import annotations
 import functools
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
-
 from .types import Union as FsUnion, FSharpRef, Record
 from .util import combine_hash_codes, equal_arrays_with
+from threading import RLock
 
 Constructor = Callable[..., Any]
 
@@ -22,26 +22,73 @@ class CaseInfo:
     fields: List[FieldInfo]
 
 
-@dataclass
+def _list_to_tuple(elements):
+    if isinstance(elements, list):
+        return tuple(map(_list_to_tuple, elements))
+    return elements
+
+
+_TYPEINFO_CACHE = {}
+_TYPEINFO_LOCK = RLock()
+
+
 class TypeInfo:
-    fullname: str
-    generics: Optional[List[TypeInfo]] = None
-    construct: Optional[Constructor] = None
-    parent: Optional[TypeInfo] = None
-    fields: Optional[Callable[[], List[FieldInfo]]] = None
-    cases: Optional[Callable[[], List[CaseInfo]]] = None
-    enum_cases: Optional[List[EnumCase]] = None
+    _initialized: bool
+
+    # keep default arguments for type hints
+    def __init__(
+        self,
+        fullname: str,
+        generics: Optional[List[TypeInfo]] = None,
+        construct: Optional[Constructor] = None,
+        parent: Optional[TypeInfo] = None,
+        fields: Optional[Callable[[], List[FieldInfo]]] = None,
+        cases: Optional[Callable[[], List[CaseInfo]]] = None,
+        enum_cases: Optional[List[EnumCase]] = None):
+
+        if self._initialized:
+            return
+
+        self._initialized = True
+        self.fullname = fullname
+        self.generics = generics
+        self.construct = construct
+        self.parent = parent
+        self.fields = fields
+        self.cases = cases
+        self.enum_cases = enum_cases
+
+
+    def __new__(
+        cls,
+        fullname: str,
+        generics: Optional[List[TypeInfo]] = None,
+        construct: Optional[Constructor] = None,
+        parent: Optional[TypeInfo] = None,
+        fields: Optional[Callable[[], List[FieldInfo]]] = None, *args, **kwargs):
+
+        if fullname == "":
+            key = _list_to_tuple(fields()) if fields else None
+        else:
+            key = (fullname, _list_to_tuple(generics))
+
+        with _TYPEINFO_LOCK:
+            if type_info := _TYPEINFO_CACHE.get(key):
+                pass
+            else:
+                type_info = _TYPEINFO_CACHE[key] = object.__new__(cls)
+                type_info._initialized = False
+
+        return type_info
 
     def __str__(self) -> str:
         return full_name(self)
 
     def __eq__(self, other: Any) -> bool:
-        return equals(self, other)
+        return self is other
 
     def __hash__(self) -> int:
-        hashes = list(map(hash, self.generics if self.generics else []))
-        hashes.append(hash(self.fullname))
-        return combine_hash_codes(hashes)
+        return object.__hash__(self)
 
 
 def class_type(
@@ -126,14 +173,7 @@ decimal_type: TypeInfo = TypeInfo("System.Decimal")
 
 
 def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
-    if t1.fullname == "":
-        return t2.fullname == "" and equal_arrays_with(
-            get_record_elements(t1),
-            get_record_elements(t2),
-            lambda kv1, kv2: kv1[0] == kv2[0] and equals(kv1[1], kv2[1]),
-        )
-
-    return t1.fullname == t2.fullname and equal_arrays_with(t1.generics, t2.generics, equals)
+    return t1 is t2
 
 
 def is_generic_type(t: TypeInfo) -> bool:
