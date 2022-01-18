@@ -1,4 +1,4 @@
-from decimal import Decimal, MAX_EMAX, MIN_EMIN
+from decimal import MAX_EMAX, MIN_EMIN, Decimal
 
 from .types import FSharpRef
 
@@ -13,7 +13,7 @@ get_max_value = MAX_EMAX
 get_min_value = MIN_EMIN
 
 
-def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int):
+def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> Decimal:
     sign = -1 if isNegative else 1
 
     if low < 0:
@@ -36,23 +36,23 @@ def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int):
     return value
 
 
-def op_addition(x: Decimal, y: Decimal):
+def op_addition(x: Decimal, y: Decimal) -> Decimal:
     return x + y
 
 
-def to_string(x: Decimal):
+def to_string(x: Decimal) -> str:
     return str(x)
 
 
-def to_number(x: Decimal):
+def to_number(x: Decimal) -> float:
     return float(x)
 
 
-def parse(string: str):
+def parse(string: str) -> Decimal:
     return Decimal(string)
 
 
-def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
     try:
         def_value.contents = parse(string)
         return True
@@ -62,3 +62,6 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
 
 def equals(a: Decimal, b: Decimal) -> bool:
     return a == b
+
+
+__all__ = ["equals", "try_parse", "parse", "to_number", "to_string", "op_addition", "from_parts"]

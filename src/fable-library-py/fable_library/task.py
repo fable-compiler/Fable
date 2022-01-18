@@ -14,8 +14,8 @@ class TaskCompletionSource(Awaitable[_T]):
             self.loop = None
             self.future = None
 
-        self.result: _T = cast(_T, None)
         self.has_result = False
+        self.result: _T = cast(_T, None)
         self.exception: Optional[Exception] = None
         self.is_cancelled = False
 
@@ -84,7 +84,11 @@ async def from_result(value: _T) -> _T:
 
 
 def get_awaiter(value: Awaitable[_T]) -> Awaitable[_T]:
-    return value
+    # Convert awaitable to coroutine
+    async def get_value() -> _T:
+        return await value
+
+    return get_value()
 
 
 def get_result(value: Awaitable[_T]) -> _T:
@@ -93,13 +97,7 @@ def get_result(value: Awaitable[_T]) -> _T:
     Ends the wait for the completion of the asynchronous task.
     """
 
-    async def get_value() -> _T:
-        print("get_value: ", value)
-        ret = await value
-        print("ret: ", ret)
-        return ret
-
-    return asyncio.run(get_value())
+    return asyncio.run(value)
 
 
 def start(computation: Awaitable[Any]) -> None:

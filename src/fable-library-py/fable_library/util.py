@@ -309,17 +309,22 @@ def lazy_from_value(v: _T) -> Lazy[_T]:
     return Lazy(lambda: v)
 
 
-def create_atom(value: Optional[_T] = None) -> Callable[[Optional[_T], Optional[Callable[[Any], None]]], _T]:
+class Atom(Generic[_T], Protocol):
+    def __call__(self, value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None) -> Optional[_T]:
+        ...
+
+
+def create_atom(value: Optional[_T] = None) -> Atom[_T]:
     atom = value
 
-    def _(value: Optional[_T] = None, isSetter: Optional[Callable[[_T], None]] = None):
+    def _(value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None) -> Optional[_T]:
         nonlocal atom
 
-        if not isSetter:
+        if not is_setter:
             return atom
-        else:
-            atom = value
-            return None
+
+        atom = value
+        return None
 
     return _
 
