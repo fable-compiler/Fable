@@ -1,3 +1,8 @@
+### 3.7.0-beta-012
+
+* Disable uncurrying functions passed as arguments to local lambdas
+* Fix typeof(obj).IsInstanceOfType @chkn
+
 ### 3.7.0-beta-011
 
 * Fixes for precompiling inline expressions
