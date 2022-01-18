@@ -81,7 +81,8 @@ type Context =
       HoistVars: Fable.Ident list -> bool
       TailCallOpportunity: ITailCallOpportunity option
       OptimizeTailCall: unit -> unit
-      ScopedTypeParams: Set<string> }
+      ScopedTypeParams: Set<string>
+      TypeParamsScope: int }
 
 type IPythonCompiler =
     inherit Compiler
@@ -685,7 +686,7 @@ module Helpers =
             | true, "." -> "."
             | true, path ->
                 path
-                    .Replace("../../../", "....")
+                    .Replace("../../../", "....") // translate path to Python relative syntax
                     .Replace("../../", "...")
                     .Replace("../", "..")
                     .Replace("./", ".")
@@ -1124,7 +1125,8 @@ module Annotation =
             { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
 
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
-        let repeatedGenerics = Util.getRepeatedGenericTypeParams (argTypes @ [ body.Type ])
+        let repeatedGenerics =
+            Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
 
         let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
 
@@ -1484,7 +1486,7 @@ module Util =
         types |> List.collect getGenParams |> Set.ofList
 
     // Returns type parameters that is used more than once
-    let getRepeatedGenericTypeParams (types: Fable.Type list) =
+    let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
         let rec getGenParams =
             function
             | Fable.GenericParam (name, _) -> [ name ]
@@ -1492,6 +1494,7 @@ module Util =
 
         types
         |> List.collect getGenParams
+        |> List.append (ctx.ScopedTypeParams |> Set.toList)
         |> List.countBy id
         |> List.choose (fun (param, count) -> if count > 1 then Some param else None)
         |> Set.ofList
@@ -1846,6 +1849,10 @@ module Util =
 
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) typ baseCall : Expression * Statement list =
         // printfn "transformObjectExpr: %A" typ
+
+        // A generic class nested in another generic class cannot use same type variables. (PEP-484)
+        let ctx = { ctx with TypeParamsScope = ctx.TypeParamsScope + 1 }
+
         let makeMethod prop hasSpread args body decorators =
             let args, body, returnType =
                 getMemberArgsAndBody com ctx (Attached(isStatic = false)) hasSpread args body
@@ -3342,9 +3349,7 @@ module Util =
                     List.zip args tc.Args
                     |> List.map (fun (_id, { Arg = Identifier tcArg }) ->
                         let id = com.GetIdentifier(ctx, tcArg)
-
                         let ta, _ = typeAnnotation com ctx (Some repeatedGenerics) _id.Type
-
                         Arg.arg (id, annotation = ta))
 
                 let varDecls =
@@ -3375,7 +3380,6 @@ module Util =
                     args
                     |> List.map (fun id ->
                         let ta, _ = typeAnnotation com ctx (Some repeatedGenerics) id.Type
-
                         Arg.arg (ident com ctx id, annotation = ta))
 
                 args', defaults, body
@@ -3384,7 +3388,16 @@ module Util =
             match args, isUnit with
             | [], true -> Arguments.arguments (args = Arg.arg (Identifier("__unit")) :: tcArgs, defaults = Expression.none :: tcDefaults)
             // So we can also receive unit
-            | _, true -> Arguments.arguments (args @ tcArgs, defaults = Expression.none :: tcDefaults)
+            | [ arg ], true ->
+                let optional =
+                    match arg.Annotation with
+                    | Some typeArg ->
+                        stdlibModuleAnnotation com ctx "typing" "Optional" [ typeArg ]
+                        |> Some
+                    | None -> None
+
+                let args = [ { arg with Annotation = optional } ]
+                Arguments.arguments (args @ tcArgs, defaults = Expression.none :: tcDefaults)
             | _ -> Arguments.arguments (args @ tcArgs, defaults = defaults @ tcDefaults)
 
         arguments, body
@@ -3444,19 +3457,18 @@ module Util =
 
     let declareClassType
         (com: IPythonCompiler)
-        ctx
+        (ctx: Context)
         (ent: Fable.Entity)
-        entName
+        (entName: string)
         (consArgs: Arguments)
         (isOptional: bool)
         (consBody: Statement list)
         (baseExpr: Expression option)
-        classMembers
+        (classMembers: Statement list)
         slotMembers
         =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
-
         let classCons = makeClassConstructor consArgs isOptional consBody
 
         let classFields = slotMembers // TODO: annotations
@@ -3511,14 +3523,14 @@ module Util =
 
     let declareType
         (com: IPythonCompiler)
-        ctx
+        (ctx: Context)
         (ent: Fable.Entity)
-        entName
+        (entName: string)
         (consArgs: Arguments)
         (isOptional: bool)
         (consBody: Statement list)
-        baseExpr
-        classMembers
+        (baseExpr: Expression option)
+        (classMembers: Statement list)
         : Statement list =
         let slotMembers = createSlotsForRecordType com ctx ent
 
@@ -3536,7 +3548,6 @@ module Util =
                 |> Array.mapToList (fun id -> Arg.arg (ident com ctx id, annotation = ta))
 
             let args = Arguments.arguments (args)
-
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
 
             let body, stmts = transformReflectionInfo com ctx None ent generics
@@ -3779,12 +3790,11 @@ module Util =
         (com: IPythonCompiler)
         ctx
         (classDecl: Fable.ClassDecl)
-        classMembers
+        (classMembers: Statement list)
         (cons: Fable.MemberDecl)
         =
         // printfn "transformClassWithImplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
-
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
         let consArgs, consBody, _returnType =
@@ -3947,7 +3957,6 @@ module Util =
         | Fable.ClassDeclaration decl ->
             // printfn "Class: %A" decl
             let ent = com.GetEntity(decl.Entity)
-            // printfn "Class: %A" ent
 
             let classMembers =
                 decl.AttachedMembers
@@ -4105,13 +4114,14 @@ module Compiler =
                         $"__{name.TrimEnd([| '_' |])}"
                     else
                         $"_{name}"
-
+                // For object expressions we need to create a new type scope so we make an extra padding to ensure uniqueness
+                let name = name.PadLeft(ctx.TypeParamsScope + name.Length, '_')
                 typeVars.Add name |> ignore
 
                 ctx.UsedNames.DeclarationScopes.Add(name)
                 |> ignore
 
-                Expression.name (name)
+                Expression.name name
 
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
@@ -4175,7 +4185,8 @@ module Compiler =
               HoistVars = fun _ -> false
               TailCallOpportunity = None
               OptimizeTailCall = fun () -> ()
-              ScopedTypeParams = Set.empty }
+              ScopedTypeParams = Set.empty
+              TypeParamsScope = 0 }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
