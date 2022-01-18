@@ -15,58 +15,57 @@ type Planet =
       mutable vz: float
       mass: float }
 
+let Sun: Planet = {
+    x = 0.0
+    y = 0.0
+    z = 0.0
+    vx = 0.0
+    vy = 0.0
+    vz = 0.0
+    mass = SOLAR_MASS
+}
+
+let Jupiter: Planet = {
+    x = 4.84143144246472090e+00
+    y = -1.16032004402742839e+00
+    z = -1.03622044471123109e-01
+    vx = 1.66007664274403694e-03 * YEAR
+    vy = 7.69901118419740425e-03 * YEAR
+    vz = -6.90460016972063023e-05 * YEAR
+    mass = 9.54791938424326609e-04 * SOLAR_MASS
+}
+
+let Saturn: Planet = {
+    x = 8.34336671824457987e+00
+    y = 4.12479856412430479e+00
+    z = -4.03523417114321381e-01
+    vx = -2.76742510726862411e-03 * YEAR
+    vy = 4.99852801234917238e-03 * YEAR
+    vz = 2.30417297573763929e-05 * YEAR
+    mass = 2.85885980666130812e-04 * SOLAR_MASS
+}
+
+let Uranus: Planet = {
+    x = 1.28943695621391310e+01
+    y = -1.51111514016986312e+01
+    z = -2.23307578892655734e-01
+    vx = 2.96460137564761618e-03 * YEAR
+    vy = 2.37847173959480950e-03 * YEAR
+    vz = -2.96589568540237556e-05 * YEAR
+    mass = 4.36624404335156298e-05 * SOLAR_MASS
+}
+
+let Neptune: Planet = {
+    x = 1.53796971148509165e+01
+    y = -2.59193146099879641e+01
+    z = 1.79258772950371181e-01
+    vx = 2.68067772490389322e-03 * YEAR
+    vy = 1.62824170038242295e-03 * YEAR
+    vz = -9.51592254519715870e-05 * YEAR
+    mass = 5.15138902046611451e-05 * SOLAR_MASS
+}
+
 let getBodies () =
-
-    let Sun: Planet = {
-        x = 0.0
-        y = 0.0
-        z = 0.0
-        vx = 0.0
-        vy = 0.0
-        vz = 0.0
-        mass = SOLAR_MASS
-    }
-
-    let Jupiter: Planet = {
-        x = 4.84143144246472090e+00
-        y = -1.16032004402742839e+00
-        z = -1.03622044471123109e-01
-        vx = 1.66007664274403694e-03 * YEAR
-        vy = 7.69901118419740425e-03 * YEAR
-        vz = -6.90460016972063023e-05 * YEAR
-        mass = 9.54791938424326609e-04 * SOLAR_MASS
-    }
-
-    let Saturn: Planet = {
-        x = 8.34336671824457987e+00
-        y = 4.12479856412430479e+00
-        z = -4.03523417114321381e-01
-        vx = -2.76742510726862411e-03 * YEAR
-        vy = 4.99852801234917238e-03 * YEAR
-        vz = 2.30417297573763929e-05 * YEAR
-        mass = 2.85885980666130812e-04 * SOLAR_MASS
-    }
-
-    let Uranus: Planet = {
-        x = 1.28943695621391310e+01
-        y = -1.51111514016986312e+01
-        z = -2.23307578892655734e-01
-        vx = 2.96460137564761618e-03 * YEAR
-        vy = 2.37847173959480950e-03 * YEAR
-        vz = -2.96589568540237556e-05 * YEAR
-        mass = 4.36624404335156298e-05 * SOLAR_MASS
-    }
-
-    let Neptune: Planet = {
-        x = 1.53796971148509165e+01
-        y = -2.59193146099879641e+01
-        z = 1.79258772950371181e-01
-        vx = 2.68067772490389322e-03 * YEAR
-        vy = 1.62824170038242295e-03 * YEAR
-        vz = -9.51592254519715870e-05 * YEAR
-        mass = 5.15138902046611451e-05 * SOLAR_MASS
-    }
-
     let BODIES = [| Sun; Jupiter; Saturn; Uranus; Neptune |]
     BODIES
 
@@ -135,12 +134,12 @@ let offset_momentum (bodies: Planet[]) =
 let init (bodies: Planet[]) =
     offset_momentum (bodies)
 
-let step (bodies: Planet[]): float =
+let step (bodies: Planet[]) =
     advance (bodies, 0.01)
     energy (bodies)
 
 let bench (bodies: Planet[], steps: int, dt: float) =
-    for _step in 0..steps do
+    for _step in 0..steps-1 do
         advance (bodies, dt)
     energy (bodies)
 
@@ -151,4 +150,4 @@ let ``NBody calc works`` () =
     let steps = 10_000
     init(bodies)
     let energy = bench(bodies, steps, dt)
-    energy |> equal -0.16901655337360005
+    energy |> equal -0.16901644126443155

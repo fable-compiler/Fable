@@ -7,8 +7,13 @@ module Util =
     /// Used to indicate that a member is only implemented in the native target language
     let nativeOnly<'T> : 'T = failwith "Native only"
 
-    /// Used to indicate that a member is only implemented in native Javascript
+    /// Alias of nativeOnly
     let jsNative<'T> : 'T = failwith "JS only"
+
+    /// Marks the start of a region. When using the --delimiter option,
+    /// Fable will try to match these regions with areas surrounded by
+    /// lines starting with the delimiter in the target file.
+    let region (header: string): unit = ()
 
 module Experimental =
     /// Reads the name of an identifier, a property or a type

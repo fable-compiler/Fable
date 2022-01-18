@@ -365,6 +365,9 @@ type ExtendedSet =
     | Break of label: string option
     | Throw of expr: Expr * typ: Type
     | Debugger
+    /// When using the delimiter option, this marks the start of a region
+    /// that we'll try to match with delimited regions in the target file
+    | RegionStart of label: string
     /// Used in the uncurrying transformations, we'll try to remove the curried expressions
     /// with beta reduction but in some cases it may be necessary to do it at runtime
     | Curry of expr: Expr * arity: int
@@ -372,9 +375,8 @@ type ExtendedSet =
         match this with
         | Return e -> e.Type
         | Throw(_,t) -> t
-        | Break _ -> Unit
-        | Debugger -> Unit
         | Curry (expr, _) -> expr.Type
+        | Break _ | Debugger | RegionStart _ -> Unit
 
 type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?

@@ -100,7 +100,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/build/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/build/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
             "cwd": "${workspaceRoot}/../fable-test",
             "stopAtEntry": false,
             "console": "internalConsole"
@@ -111,7 +111,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/build/tests/Rust", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "args": ["--outDir", "${workspaceRoot}/build/tests/Rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
             "cwd": "${workspaceRoot}/tests/Rust",
             "stopAtEntry": false,
             "console": "internalConsole"
@@ -122,7 +122,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--define", "FABLE_LIBRARY"],
+            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--define", "FABLE_LIBRARY"],
             "cwd": "${workspaceRoot}/src/fable-library-rust/src",
             "stopAtEntry": false,
             "console": "internalConsole"

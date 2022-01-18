@@ -9,7 +9,7 @@ def to_fixed(x: float, dp: Optional[int] = None) -> str:
     return "{}".format(x)
 
 
-def to_precision(x: float, sd: Optional[int] = None):
+def to_precision(x: float, sd: Optional[int] = None) -> str:
     if sd is not None:
         fmt = "{:.%se}" % sd
         return fmt.format(x)
@@ -17,7 +17,7 @@ def to_precision(x: float, sd: Optional[int] = None):
     return "{}".format(x)
 
 
-def to_exponential(x: float, dp: Optional[int] = None):
+def to_exponential(x: float, dp: Optional[int] = None) -> str:
     if dp is not None:
         fmt = "{:.%se}" % dp
         return fmt.format(x)

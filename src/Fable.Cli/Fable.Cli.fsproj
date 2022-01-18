@@ -34,11 +34,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.7" />
   </ItemGroup>
 </Project>
