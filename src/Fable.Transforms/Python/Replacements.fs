@@ -4190,6 +4190,8 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
         |> Some
 
 let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "tasks: %A" i.CompiledName
+
     match thisArg, i.CompiledName with
     | Some x, "GetAwaiter" ->
         Helper.LibCall(com, "task", "get_awaiter", t, [ x ], i.SignatureArgTypes, ?loc = r)
@@ -4200,27 +4202,37 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | Some x, "get_Result" ->
         Helper.LibCall(com, "task", "get_result", t, [ x ], i.SignatureArgTypes, ?loc = r)
         |> Some
+    | Some x, "Start" ->
+        Helper.LibCall(com, "task", "start", t, [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | Some x, meth ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | None, ".ctor" ->
+        Helper.LibCall(com, "task", "TaskCompletionSource", t, [], i.SignatureArgTypes, ?loc = r)
         |> Some
     | None, meth ->
         Helper.LibCall(com, "task", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
 let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "Taskbuilder: %A" i.CompiledName
+
     match thisArg, i.CompiledName, args with
     | _, "Singleton", _ ->
         makeImportLib com t "singleton" "task_builder"
         |> Some
     // For Using we need to cast the argument to IDisposable
-    | Some x, "TaskBuilderBase.Using", [ arg; f ]
-    | Some x, "Using", [ arg; f ] ->
+    | Some x, "Using", [ arg; f ]
+    | Some x, "TaskBuilderBase.Using", [ arg; f ] ->
         Helper.InstanceCall(x, "Using", t, [ arg; f ], i.SignatureArgTypes, ?loc = r)
         |> Some
     | Some x, "TaskBuilderBase.Bind", [ arg; f ] ->
         Helper.InstanceCall(x, "Bind", t, [ arg; f ], i.SignatureArgTypes, ?loc = r)
         |> Some
-
+    | Some x, "TaskBuilderBase.ReturnFrom", [ arg ] ->
+        Helper.InstanceCall(x, "ReturnFrom", t, [ arg ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | Some x, meth, _ ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -4684,6 +4696,7 @@ let private replacedModules =
            "System.Threading.Monitor", monitor
            "System.Threading.Tasks.Task`1", tasks
            "System.Threading.Tasks.Task", tasks
+           "System.Threading.Tasks.TaskCompletionSource`1", tasks
            "System.Activator", activator
            "System.Text.Encoding", encoding
            "System.Text.UnicodeEncoding", encoding
@@ -4723,6 +4736,7 @@ let private replacedModules =
            "System.Reflection.TypeInfo", types ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "Module: %A"  info.DeclaringEntityFullName
     match info.DeclaringEntityFullName with
     | Patterns.DicContains replacedModules replacement -> replacement com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
