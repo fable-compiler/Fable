@@ -5,8 +5,11 @@
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Test' ">
+    <DefineConstants>DEBUG;FOOBAR</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />

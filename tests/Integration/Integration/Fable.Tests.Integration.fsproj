@@ -9,9 +9,9 @@
     <PackageReference Include="Expecto" Version="9.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Fable.Cli\Fable.Cli.fsproj" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />
+    <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FileWatcherTests.fs" />

@@ -496,22 +496,14 @@ let getFableLibraryPath (opts: CrackerOptions) =
             | Python -> "fable-library-py/fable_library", "fable_library"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
-        let assemblyDir =
+        let fableLibrarySource =
             Process.getCurrentAssembly().Location
             |> Path.GetDirectoryName
-
-        let defaultFableLibraryPaths =
-            [ $"../../../{buildDir}/"               // running from nuget tools package
-              $"../../../../../build/{buildDir}/" ] // running from bin/Release/net5
-            |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
-
-        let fableLibrarySource =
-            defaultFableLibraryPaths
-            |> List.tryFind IO.Directory.Exists
-            |> Option.defaultValue (List.last defaultFableLibraryPaths)
+            |> File.tryFindDirectoryUpwards {| matches = [buildDir; "build/" + buildDir]; exclude = ["src"] |}
+            |> Option.defaultWith (fun () -> FableError "Cannot find fable-library" |> raise)
 
         if File.isDirectoryEmpty fableLibrarySource then
-            failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
+            FableError $"fable-library directory is empty, please build FableLibrary: {fableLibrarySource}" |> raise
 
         Log.verbose(lazy ("fable-library: " + fableLibrarySource))
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)

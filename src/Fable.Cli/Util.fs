@@ -182,6 +182,22 @@ module File =
             return ""
     }
 
+    let rec tryFindDirectoryUpwards (opts: {| matches: string list; exclude: string list |}) dir =
+        let tryParent() =
+            let parent = Directory.GetParent(dir)
+            if isNull parent then None
+            else tryFindDirectoryUpwards opts parent.FullName
+
+        let curDir = Path.GetFileName(dir)
+        if opts.exclude |> List.exists (fun e -> String.Equals(curDir, e, StringComparison.OrdinalIgnoreCase)) then
+            tryParent()
+        else
+            opts.matches
+            |> List.tryPick (fun dirName ->
+                let dirPath = Path.Combine(dir, dirName)
+                if Directory.Exists(dirPath) then Some dirPath else None)
+            |> Option.orElseWith tryParent
+
     let rec tryFindUpwards fileName dir =
         let filePath = Path.Combine(dir, fileName)
         if File.Exists(filePath) then Some filePath
@@ -308,6 +324,7 @@ module Process =
         psi.CreateNoWindow <- false
         psi.UseShellExecute <- false
 
+        // TODO: Make this output no logs if we've set silent verbosity
         Process.Start(psi)
 
     let kill(p: Process) =
