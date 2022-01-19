@@ -111,7 +111,7 @@ module Unused =
 
 // TARGETS ---------------------------
 
-let buildLibraryWithOptions (opts: {| watch: bool |}) =
+let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
     let baseDir = __SOURCE_DIRECTORY__
 
     let projectDir = baseDir </> "src/fable-library"
@@ -145,13 +145,13 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
         runFableWithArgs projectDir fableOpts
         removeDirRecursive (buildDir </> ".fable")
 
-let buildLibrary() = buildLibraryWithOptions {| watch = false |}
-let watchLibraryJs() = buildLibraryWithOptions {| watch = true |}
+let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
+let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
 
-let buildLibraryIfNotExists() =
+let buildLibraryJsIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library")) then
-        buildLibrary()
+        buildLibraryJs()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -256,7 +256,7 @@ let testStandaloneFast() =
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
@@ -434,14 +434,14 @@ let testProjectConfigs() =
     )
 
 let testIntegration() =
-    runInDir "tests/Integration/Integration" "dotnet run -c Release"
+    buildLibraryJsIfNotExists()
 
-    buildLibraryIfNotExists()
+    runInDir "tests/Integration/Integration" "dotnet run -c Release"
     runInDir "tests/Integration/Compiler" "dotnet run -c Release"
     testProjectConfigs()
 
 let testJs() =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     compileAndRunTestsWithMocha true "Main"
 
@@ -516,7 +516,7 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibrary()
+            buildLibraryJs()
             updateVersionInFableTransforms version)
 
 let testRepos() =
@@ -620,7 +620,7 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibrary())
+        buildLibraryJs())
      "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
@@ -659,13 +659,13 @@ match BUILD_ARGS_LOWER with
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     runFableWithArgsInDir "src/quicktest" ["watch --exclude Fable.Core --noCache --runScript"]
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     runFableWithArgsInDir "src/quicktest-py" ["watch --lang Python --delimiter #fsharp --noCache"]
 | "run"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
@@ -679,7 +679,7 @@ match BUILD_ARGS_LOWER with
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibraryJs()
-| ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-library-js"|"library-js"|"fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()

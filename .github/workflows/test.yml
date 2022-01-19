@@ -8,7 +8,7 @@ on:
 
 jobs:
   # Separate build job for JS
-  build-js:
+  build-library-js:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,11 +22,31 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests
+    - name: Fable Library JS
+      run: dotnet fsi build.fsx library-js
+
+  # Separate build job for JS
+  build-js:
+    needs: build-library-js
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Tests JS
       run: dotnet fsi build.fsx test-js
 
   # Separate build job for Integration
   build-integration:
+    needs: build-library-js
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +60,7 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests
+    - name: Fable Tests Integration
       run: dotnet fsi build.fsx test-integration
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
