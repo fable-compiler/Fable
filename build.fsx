@@ -223,6 +223,7 @@ let buildLibraryRust() =
         "--lang Rust"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
+        "--noCache"
     ]
 
     copyFiles libraryDir "*.toml" buildDir
@@ -495,6 +496,7 @@ let testRust() =
         "--exclude Fable.Core"
         "--lang Rust"
         "--fableLib " + "fable-library-rust"
+        "--noCache"
     ]
 
     // run Fable Rust tests

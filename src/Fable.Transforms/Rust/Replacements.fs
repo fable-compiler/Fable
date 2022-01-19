@@ -170,6 +170,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.dictionary -> Some(BclDictionary(Any,Any))
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
+    | Types.byref -> Some(FSharpReference(Any))
+    | Types.byref2 -> Some(FSharpReference(Any))
     | Types.reference -> Some(FSharpReference(Any))
     | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
         List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
@@ -184,6 +186,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
     | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
     | BuiltinDefinition(FSharpReference _), [v] -> Some(FSharpReference(v))
+    | BuiltinDefinition(FSharpReference _), [v; _] -> Some(FSharpReference(v))
     | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
     | BuiltinDefinition t, _ -> Some t
     | _ -> None
@@ -469,35 +472,39 @@ let createAtom com (value: Expr) =
     Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
-    let getter =
-        Delegate([], value, None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     Delegate([], value, None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
 
 let makeRefFromMutableField com ctx r t callee key =
-    let getter =
-        Delegate([], Get(callee, FieldGet(key, true), t, r), None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     Delegate([], Get(callee, FieldGet(key, true), t, r), None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    let value = Get(callee, FieldGet(key, true), t, r)
+    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
-    let getter =
-        let info = makeCallInfo None [] []
-        let value = makeCall r t info value
-        Delegate([], value, None)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        let args = [IdentExpr v; makeBoolConst true]
-        let info = makeCallInfo None args [t; Boolean]
-        let value = makeCall r Unit info value
-        Delegate([v], value, None)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    // let getter =
+    //     let info = makeCallInfo None [] []
+    //     let value = makeCall r t info value
+    //     Delegate([], value, None)
+    // let setter =
+    //     let v = makeUniqueIdent ctx t "v"
+    //     let args = [IdentExpr v; makeBoolConst true]
+    //     let info = makeCallInfo None args [t; Boolean]
+    //     let value = makeCall r Unit info value
+    //     Delegate([v], value, None)
+    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
+    value
 
 // let turnLastArgIntoRef com ctx args =
 //     let args, defValue = List.splitLast args
@@ -804,8 +811,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
             | _ -> opName
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin (FSharpSet _)::_ ->
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
-        Helper.LibCall(com, "Set", mangledName, t, args, argTypes, ?loc=r)
+        let methName =
+            match opName with
+            | Operators.addition -> "union"
+            | Operators.subtraction -> "difference"
+            | _ -> opName
+        Helper.LibCall(com, "Set", methName, t, args, argTypes, ?loc=r)
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
@@ -872,14 +883,17 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     // let is equal expr =
     //     if equal then expr
     //     else makeUnOp None Boolean expr UnaryNot
-    // match left.Type with
+    match left.Type with
     // | Builtin (BclGuid|BclTimeSpan)
     // | Boolean | Char | String | Number _ | Enum _ ->
     //     let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
     //     makeBinOp r Boolean left right op
     // | Builtin (BclDateTime|BclDateTimeOffset) ->
     //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    // | Builtin (FSharpSet _|FSharpMap _) ->
+    | Builtin (FSharpSet _) ->
+        Helper.LibCall(com, "Set", "equalsTo", Boolean, [left; right], ?loc=r)
+    | Builtin (FSharpMap _) ->
+        Helper.LibCall(com, "Map", "equalsTo", Boolean, [left; right], ?loc=r)
     //     Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     // | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
     //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -894,21 +908,26 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Tuple _ ->
     //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
-    // | _ ->
-    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    let op = (if equal then BinaryEqual else BinaryUnequal)
-    makeEqOp r left right op
+    | _ ->
+        // Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        let op = (if equal then BinaryEqual else BinaryUnequal)
+        makeEqOp r left right op
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | Enum _ ->
+    | Boolean | Char | String | Number _ | Enum _
+    | Builtin (BclInt64|BclUInt64|BclIntPtr|BclUIntPtr) ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    | Builtin (BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number(Int32, None), [left; right], ?loc=r)
+    | Builtin (FSharpSet _) ->
+        Helper.LibCall(com, "Set", "compareTo", Number(Int32, None), [left; right], ?loc=r)
+    | Builtin (FSharpMap _) ->
+        Helper.LibCall(com, "Map", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Array t ->
@@ -959,14 +978,26 @@ let inline makeComparerFromEqualityComparer e =
     // Helper.LibCall(com, "Util", "comparerFromEqualityComparer", Any, [e])
 
 /// Adds comparer as last argument for set creator methods
-let makeSet (com: ICompiler) ctx r t methName args genArg =
-    let args = args @ [makeComparer com ctx genArg]
-    Helper.LibCall(com, "Set", Naming.lowerFirst methName, t, args, ?loc=r)
+let makeSet (com: ICompiler) ctx r t args genArg =
+    // let args = args @ [makeComparer com ctx genArg]
+    let meth =
+        match args with
+        | [] -> "empty"
+        | [ExprType(List _)] -> "ofList"
+        | [ExprType(Array _)] -> "ofArray"
+        | _ -> "ofSeq"
+    Helper.LibCall(com, "Set", meth, t, args, ?loc=r)
 
 /// Adds comparer as last argument for map creator methods
-let makeMap (com: ICompiler) ctx r t methName args genArg =
-    let args = args @ [makeComparer com ctx genArg]
-    Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, ?loc=r)
+let makeMap (com: ICompiler) ctx r t args genArg =
+    // let args = args @ [makeComparer com ctx genArg]
+    let meth =
+        match args with
+        | [] -> "empty"
+        | [ExprType(List _)] -> "ofList"
+        | [ExprType(Array _)] -> "ofArray"
+        | _ -> "ofSeq"
+    Helper.LibCall(com, "Map", Naming.lowerFirst meth, t, args, ?loc=r)
 
 let makeDictionaryWithComparer com r t sourceSeq comparer =
     Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
@@ -1002,7 +1033,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
-    | Builtin (FSharpSet genArg) -> makeSet com ctx None t "Empty" [] genArg
+    | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin (BclInt64|BclUInt64) -> makeLongInt None t 0L
     | Builtin BclBigInt -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Builtin BclDecimal -> makeIntConst 0 |> makeDecimalFromExpr com None t
@@ -1585,7 +1616,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> Operation(Unary(UnaryVoid, args.Head), t, r) |> Some // "void $0" |> emitJsExpr r t args |> Some
+    | "Ignore", _ ->
+        // Operation(Unary(UnaryVoid, args.Head), t, r) |> Some // "void $0" |> emitJsExpr r t args |> Some
+        Helper.LibCall(com, "Util", "ignore", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -1597,7 +1630,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary com ctx r t arg |> Some
-    | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
+    | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let genArg = genArg com ctx r 0 i.GenericArgs
@@ -2205,32 +2238,48 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         // let args = injectArg com ctx r "List" meth i.GenericArgs args
         Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let discardUnitArgs args =
+    match args with
+    | Value(UnitConstant, _) :: rest -> rest
+    | _ -> args
+
 let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
-    | _ ->
-        let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
-        // let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
-        Helper.LibCall(com, "Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    let args = discardUnitArgs args
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
+    | ReplaceName [
+        "get_MinimumElement", "minElement"
+        "get_MaximumElement", "maxElement"
+        "IsSubsetOf", "isSubset"
+        "IsSupersetOf", "isSuperset"
+        "IsProperSubsetOf", "isProperSubset"
+        "IsProperSupersetOf", "isProperSuperset"
+        "CopyTo", "copyToArray"] meth, Some callee ->
+        Helper.LibCall(com, "Set", meth, t, callee::args, ?loc=r) |> Some
+    | meth, _ ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        let args = match thisArg with Some callee -> args @ [callee] | _ -> args
+        Helper.LibCall(com, "Set", meth, t, args, ?loc=r) |> Some
 
 let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
-    // let args = injectArg com ctx r "Set" meth i.GenericArgs args
     Helper.LibCall(com, "Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t "OfSeq" args |> Some
-    | _ ->
-        let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
-        // let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
-        Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    let args = discardUnitArgs args
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t args |> Some
+    | ReplaceName [
+        "CopyTo", "copyToArray" ] meth, Some callee ->
+        Helper.LibCall(com, "Map", meth, t, callee::args, ?loc=r) |> Some
+    | meth, _ ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        let args = match thisArg with Some callee -> args @ [callee] | _ -> args
+        Helper.LibCall(com, "Map", meth, t, args, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
-    // let args = injectArg com ctx r "Map" meth i.GenericArgs args
     Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
