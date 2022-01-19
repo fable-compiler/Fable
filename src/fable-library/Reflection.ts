@@ -236,6 +236,8 @@ function isErasedToNumber(t: TypeInfo) {
 }
 
 export function isInstanceOfType(t: TypeInfo, o: any) {
+  if (t.fullname === obj_type.fullname)
+    return true;
   switch (typeof o) {
     case "boolean":
       return t.fullname === bool_type.fullname;

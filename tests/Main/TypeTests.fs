@@ -946,6 +946,7 @@ let tests =
 
     testCase "IsInstanceOfType works with class types" <| fun () ->
         let s1, s2 = SubclassTest1(), SubclassTest2()
+        typeof<obj>.IsInstanceOfType(s1) |> equal true
         typeof<SubclassTest1>.IsInstanceOfType(s1) |> equal true
         typeof<SubclassTest2>.IsInstanceOfType(s1) |> equal false
         typeof<SubclassTest3>.IsInstanceOfType(s1) |> equal false
@@ -955,28 +956,35 @@ let tests =
 
     testCase "IsInstanceOfType works with nominal records" <| fun () ->
         typeof<MyRecord1>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal true
+        typeof<obj>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal true
         typeof<MyRecord2>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal false
 
     testCase "IsInstanceOfType works with nominal unions" <| fun () ->
         typeof<MyUnion1>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal true
+        typeof<obj>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal true
         typeof<MyUnion2>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal false
 
     // Expected to always return true for any numeric type, just like :? operator
     testCase "IsInstanceOfType works with enums" <| fun () ->
         typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Foo) |> equal true
         typeof<EnumFoo>.IsInstanceOfType(EnumFoo.Bar) |> equal true
+        typeof<obj>.IsInstanceOfType(EnumFoo.Bar) |> equal true
 
     // Expected to always return true for any function and function type, just like :? operator
     testCase "IsInstanceOfType works with functions" <| fun () ->
         typeof<unit -> unit>.IsInstanceOfType(fun () -> ()) |> equal true
+        typeof<obj>.IsInstanceOfType(fun () -> ()) |> equal true
         //typeof<unit -> int>.IsInstanceOfType(fun () -> ()) |> equal false
         typeof<string -> int>.IsInstanceOfType(String.length) |> equal true
+        typeof<obj>.IsInstanceOfType(String.length) |> equal true
         //typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
 
     testCase "IsInstanceOfType works with primitives" <| fun () ->
         typeof<string>.IsInstanceOfType("hello") |> equal true
+        typeof<obj>.IsInstanceOfType("hello") |> equal true
         typeof<string>.IsInstanceOfType(5) |> equal false
         typeof<int>.IsInstanceOfType(5) |> equal true
+        typeof<obj>.IsInstanceOfType(5) |> equal true
         typeof<int>.IsInstanceOfType("hello") |> equal false
 
 #if FABLE_COMPILER

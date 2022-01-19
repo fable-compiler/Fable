@@ -311,7 +311,7 @@ module private Transforms =
                 | None -> e
             | e -> e) body
 
-    let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
+    let curryIdentsAndReplaceInBody (idents: Ident list) body =
         let replacements =
             (Map.empty, idents) ||> List.fold (fun replacements id ->
                 let arity, _ = getLambdaTypeArity id.Type
@@ -342,39 +342,6 @@ module private Transforms =
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
             | None -> expr
 
-    // For function arguments check if the arity of their own function arguments is expected or not
-    // TODO: Do we need to do this recursively, and check options and delegates too?
-    let checkSubArguments com expectedType (expr: Expr) =
-        match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
-            let expectedLength = List.length expectedArgs
-            if List.length actualArgs < expectedLength then expr
-            else
-                let actualArgs = List.truncate expectedLength actualArgs
-                let _, replacements =
-                    ((0, Map.empty), expectedArgs, actualArgs)
-                    |||> List.fold2 (fun (index, replacements) expected actual ->
-                        match expected, actual with
-                        | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
-                            index + 1, Map.add index (0, List.length args2) replacements
-                        | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
-                                when not(List.sameLength args1 args2) ->
-                            let expectedArity = List.length args1
-                            let actualArity = List.length args2
-                            index + 1, Map.add index (expectedArity, actualArity) replacements
-                        | _ -> index + 1, replacements)
-                if Map.isEmpty replacements then expr
-                else
-                    let mappings =
-                        actualArgs |> List.mapi (fun i _ ->
-                            match Map.tryFind i replacements with
-                            | Some (expectedArity, actualArity) ->
-                                makeTuple None [makeIntConst expectedArity; makeIntConst actualArity]
-                            | None -> makeIntConst 0)
-                        |> makeArray Any
-                    Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
-        | _ -> expr
-
     let uncurryArgs com autoUncurrying argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
@@ -392,7 +359,6 @@ module private Transforms =
             match expectedType with
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
-                let arg = checkSubArguments com expectedType arg
                 let arity, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
@@ -416,7 +382,7 @@ module private Transforms =
             |> makeCall r t info
         | e -> e
 
-    let propagateUncurryingThroughLets (_: Compiler) = function
+    let propagateCurryingThroughLets (_: Compiler) = function
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
@@ -436,20 +402,14 @@ module private Transforms =
 
     let uncurryMemberArgs (m: MemberDecl) =
         if m.Info.IsValue then m
-        else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
+        else { m with Body = curryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (com: Compiler) e =
+    let curryReceivedArgs (com: Compiler) e =
         match e with
-        // TODO: This breaks cases when we actually need to import a curried function
-        // // Sometimes users type imports as lambdas but if they come from JS they're not curried
-        // | ExprTypeAs(NestedLambdaType(argTypes, retType), (Import(info, t, r) as e))
-        //             when not info.IsCompilerGenerated && List.isMultiple argTypes ->
-        //     Curry(e, List.length argTypes, t, r)
-        | Lambda(arg, body, name) ->
-            let body = uncurryIdentsAndReplaceInBody [arg] body
-            Lambda(arg, body, name)
+        // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
+        // | Lambda(arg, body, name)
         | Delegate(args, body, name) ->
-            let body = uncurryIdentsAndReplaceInBody args body
+            let body = curryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
         | Get(callee, (FieldGet _ | UnionField _), t, r) ->
@@ -457,9 +417,7 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
-                let callee = makeImportLib com Any "checkArity" "Util"
-                let info = makeCallInfo None [makeIntConst arity; e] []
-                let e = Call(callee, info, t, r)
+                let e = Replacements.checkArity com t arity e
                 if arity > 1 then Extended(Curry(e, arity), e.Range)
                 else e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), e.Range)
@@ -480,11 +438,6 @@ module private Transforms =
             let args = uncurryArgs com false info.SignatureArgTypes info.Args
             let info = { info with Args = args }
             Call(callee, info, t, r)
-        | CurriedApply(callee, args, t, r) ->
-            match callee.Type with
-            | NestedLambdaType(argTypes, _) ->
-                CurriedApply(callee, uncurryArgs com false argTypes args, t, r)
-            | _ -> e
         | Emit({ CallInfo = callInfo } as emitInfo, t, r) ->
             let args = uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
@@ -534,6 +487,15 @@ module private Transforms =
                 // just make a normal call
                 let info = makeCallInfo None args []
                 makeCall r t info applied |> Some
+            elif uncurriedArity < argsLen then
+                let appliedArgs, restArgs = List.splitAt uncurriedArity args
+                let info = makeCallInfo None appliedArgs []
+                let intermetiateType =
+                    match List.rev restArgs with
+                    | [] -> Any
+                    | arg::args -> (LambdaType(arg.Type, t), args) ||> List.fold (fun t a -> LambdaType(a.Type, t))
+                let applied = makeCall None intermetiateType info applied
+                CurriedApply(applied, restArgs, t, r) |> Some
             else
                 Replacements.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some
         match e with
@@ -559,9 +521,11 @@ let getTransformations (_com: Compiler) =
       // Make an extra binding reduction pass after applying lambdas
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       // Then apply uncurry optimizations
-      fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
+      // Functions passed as arguments in calls (but NOT in curried applications) are being uncurried so we have to re-curry them
+      // The next steps will uncurry them again if they're immediately applied or passed again as call arguments
+      fun com e -> visitFromInsideOut (curryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun com e -> visitFromInsideOut (propagateUncurryingThroughLets com) e
+      fun com e -> visitFromInsideOut (propagateCurryingThroughLets com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
@@ -607,7 +571,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
                 Sequential [baseCall; cons.Body]
-                |> uncurryIdentsAndReplaceInBody cons.Args
+                |> curryIdentsAndReplaceInBody cons.Args
                 |> transformExpr com
                 |> function
                     | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall

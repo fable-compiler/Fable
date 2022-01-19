@@ -545,7 +545,8 @@ type State =
       PendingFiles: string[]
       DeduplicateDic: ConcurrentDictionary<string, string>
       Watcher: Watcher option
-      SilentCompilation: bool }
+      SilentCompilation: bool
+      RecompileAllFiles: bool }
 
     member this.TriggeredByDependency(path: string, changes: ISet<string>) =
         match Map.tryFind path this.WatchDependencies with
@@ -570,14 +571,15 @@ type State =
                     |> addTargetDir)
         }
 
-    static member Create(cliArgs, ?watchDelay) =
+    static member Create(cliArgs, ?watchDelay, ?recompileAllFiles) =
         { CliArgs = cliArgs
           ProjectCrackedAndFableCompiler = None
           WatchDependencies = Map.empty
           Watcher = watchDelay |> Option.map Watcher.Create
           DeduplicateDic = ConcurrentDictionary()
           PendingFiles = [||]
-          SilentCompilation = false }
+          SilentCompilation = false
+          RecompileAllFiles = defaultArg recompileAllFiles false }
 
 let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: IDictionary<string, File> option) (projCracked: ProjectCracked) =
     let pendingFiles = set state.PendingFiles
@@ -654,6 +656,9 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                 let newProjCracked, filesToCompile = getFilesToCompile state changes (Some oldFiles) newProjCracked
                 newProjCracked, fableCompiler, filesToCompile
             else
+                let changes =
+                    if state.RecompileAllFiles then HashSet projCracked.SourceFilePaths :> ISet<_>
+                    else changes
                 let projCracked, filesToCompile = getFilesToCompile state changes None projCracked
                 projCracked, Some fableCompiler, filesToCompile
 
@@ -667,7 +672,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         && projCracked.CanReuseCompiledFiles
         && areCompiledFilesUpToDate cliArgs state filesToCompile then
             Log.always "Skipped compilation because all generated files are up-to-date!"
-            return state, 0
+            return state, [||], 0
     else
         // Optimization for watch mode, if files haven't changed run the process as with --runFast
         let state, cliArgs =
@@ -731,6 +736,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
         errorLogs |> Array.iter (formatLog cliArgs.RootDir >> Log.error)
         let hasError = Array.isEmpty errorLogs |> not
 
+        // Generate assembly and serialize info if precompile is selected
         let! exitCode = async {
             match hasError, cliArgs.Precompile with
             | false, true ->
@@ -778,6 +784,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
             | _ -> return 0
         }
 
+        // Run process
         let exitCode, state =
             match cliArgs.RunProcess with
             // Only run process if there are no errors
@@ -816,7 +823,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                                 errorLogs |> Array.choose (fun l -> l.FileName) |> Array.distinct
                             else state.PendingFiles }
 
-        return state, exitCode
+        return state, logs, exitCode
 }
 
 type FileWatcherMsg =
@@ -832,7 +839,7 @@ let startCompilation state = async {
 
     // Initialize changes with an empty set
     let changes = HashSet() :> ISet<_>
-    let! _state, exitCode =
+    let! _state, logs, exitCode =
         match state.Watcher with
         | None -> compilationCycle state changes
         | Some watcher ->
@@ -846,7 +853,7 @@ let startCompilation state = async {
                             | Some w when w.StartedAt < timestamp ->
                                 // TODO: Get all messages until QueueLength is 0 before starting the compilation cycle?
                                 Log.verbose(lazy $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}""")
-                                let! state, _exitCode = compilationCycle state changes
+                                let! state, _logs, _exitCode = compilationCycle state changes
                                 Log.always "Watching..."
                                 return! loop state
                             | _ -> return! loop state
@@ -862,10 +869,10 @@ let startCompilation state = async {
             Async.FromContinuations(fun (_onSuccess, onError, _onCancel) -> agent.Error.Add(onError))
 
     match exitCode with
-    | 0 -> return Ok()
-    | _ -> return Error "Compilation failed"
+    | 0 -> return Ok(state, logs)
+    | _ -> return Error("Compilation failed", logs)
 
   with
-    | FableError e -> return Error e
+    | FableError e -> return Error(e, [||])
     | exn -> return raise exn
 }

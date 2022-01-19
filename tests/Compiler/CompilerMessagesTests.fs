@@ -5,7 +5,7 @@ open Util.Testing
 open Fable.Tests.Compiler.Util
 open Fable.Tests.Compiler.Util.Compiler
 
-let private compile = Compiler.Cached.compile Compiler.Settings.standard
+let private compile source = Compiler.Cached.compile Compiler.Settings.standard source
 
 let tests =
   testList "Compiler Messages" [

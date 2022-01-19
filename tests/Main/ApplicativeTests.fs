@@ -710,6 +710,42 @@ let tests6 = [
 
         bind three (fun i -> three) "environment"
         |> equal 3
+
+    testCase "Piping to an alias of a function which returns a function works" <| fun () -> // See #2657
+        let f a b = sprintf $"{a} {b}"
+
+        let f_option = Some f
+        let defaultValue x = Option.defaultValue x
+
+        let functionA = f_option |> Option.defaultValue f
+        functionA "functionA" "works" |> equal "functionA works"
+
+        let functionB = defaultValue f f_option
+        functionB "functionB" "works" |> equal "functionB works"
+
+        let functionC = f_option |> defaultValue f
+        functionC "functionC" "works" |> equal "functionC works"
+
+        let functionC x = (f_option |> defaultValue f) x
+        functionC "functionC" "works" |> equal "functionC works"
+
+        let functionC x y = (f_option |> defaultValue f) x y
+        functionC "functionC" "works" |> equal "functionC works"
+
+    testCase "Piping to an alias of a function which returns a function works II" <| fun () -> // See #2657
+        let f a b = sprintf $"{a} {b}"
+
+        let getFunction x y = y
+        let getFunctionAlias = getFunction
+
+        let functionA = f |> getFunction 1
+        functionA "functionA" "works" |> equal "functionA works"
+
+        let functionB = getFunctionAlias 1 f
+        functionB "functionB" "works" |> equal "functionB works"
+
+        let functionC = f |> getFunctionAlias 2
+        functionC "functionC" "works?" |> equal "functionC works?"
 ]
 
 module CurriedApplicative =

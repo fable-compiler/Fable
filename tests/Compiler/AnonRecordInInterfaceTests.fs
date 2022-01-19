@@ -122,16 +122,16 @@ let settings: Compiler.Settings =
           yield "Fable.Core.JsInterop"
         ]
   }
-let compile = Compiler.Cached.compile settings
+let compile source = Compiler.Cached.compile settings source
 let private testCase msg test = testCase msg (test >> ignore)
 
 module Error =
 
-  let missingField = "FABLE: Object doesn't contain field"
-  let unexpectedType = "FABLE: Expected type"
-  let unexpectedTypeMulti = "FABLE: Expected any type of"
-  let unexpectedIndexerType = "FABLE: Expected type"
-  let unexpectedIndexerTypeMulti = "FABLE: Expected any type of"
+  let missingField = "Object doesn't contain field"
+  let unexpectedType = "Expected type"
+  let unexpectedTypeMulti = "Expected any type of"
+  let unexpectedIndexerType = "Expected type"
+  let unexpectedIndexerTypeMulti = "Expected any type of"
 
   type private Rx = System.Text.RegularExpressions.Regex
   /// Note: names cannot contain `'` (or `"`)
@@ -149,21 +149,21 @@ module Error =
       let interfaceName = interfaceName |> orNameRegex
       let fieldName = fieldName |> orNameRegex
       let expectedType = expectedType |> orNameRegex
-      $"FABLE: Object doesn't contain field '{fieldName}' of type '{expectedType}' required by interface '{interfaceName}'"
+      $"Object doesn't contain field '{fieldName}' of type '{expectedType}' required by interface '{interfaceName}'"
       |> Rx
     static member UnexpectedType (?interfaceName: string, ?fieldName: string, ?expectedType: string, ?actualType: string) =
       let interfaceName = interfaceName |> orNameRegex
       let fieldName = fieldName |> orNameRegex
       let expectedType = expectedType |> orNameRegex
       let actualType = actualType |> orNameRegex
-      $"FABLE: Expected type '{expectedType}' for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected type '{expectedType}' for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
     static member UnexpectedTypeMulti (?interfaceName: string, ?fieldName: string, ?expectedTypes: string list, ?actualType: string) =
       let interfaceName = interfaceName |> orNameRegex
       let fieldName = fieldName |> orNameRegex
       let expectedTypes = expectedTypes |> orNamesRegex
       let actualType = actualType |> orNameRegex
-      $"FABLE: Expected any type of {expectedTypes} for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected any type of {expectedTypes} for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
     static member UnexpectedIndexerType (?interfaceName: string, ?indexerName: string, ?fieldName: string, ?expectedType: string, ?actualType: string) =
       let interfaceName = interfaceName |> orNameRegex
@@ -171,7 +171,7 @@ module Error =
       let fieldName = fieldName |> orNameRegex
       let expectedType = expectedType |> orNameRegex
       let actualType = actualType |> orNameRegex
-      $"FABLE: Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
     static member UnexpectedIndexerTypeMulti (?interfaceName: string, ?indexerName: string, ?fieldName: string, ?expectedTypes: string list, ?actualType: string) =
       let interfaceName = interfaceName |> orNameRegex
@@ -179,7 +179,7 @@ module Error =
       let fieldName = fieldName |> orNameRegex
       let expectedTypes = expectedTypes |> orNamesRegex
       let actualType = actualType |> orNameRegex
-      $"FABLE: Expected any type of {expectedTypes} for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected any type of {expectedTypes} for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
 
 module private Ty =

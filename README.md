@@ -4,7 +4,9 @@
 
 [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
-Fable is an F# to JavaScript compiler powered by [FSharp Compiler Services](https://fsharp.github.io/FSharp.Compiler.Service/), designed to make F# a first-class citizen of the JavaScript ecosystem. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
+Fable is an F# to JavaScript compiler powered [FSharp Compiler Services](https://fsharp.github.io/fsharp-compiler-docs/fcs/), designed to make F# a first-class citizen of the JavaScript ecosystem. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
+
+> Fable actually uses a fork of FCS with a few tweaks. Binaries are in `lib/fcs` folder. See [this PR](https://github.com/ncave/fsharp/pull/2) for more info.
 
 ## Getting started
 
