@@ -879,7 +879,7 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
         | _ -> "structuralHash"
     Helper.LibCall(com, "Util", methodName, Number(Int32, None), [arg], ?loc=r)
 
-let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
+let equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     // let is equal expr =
     //     if equal then expr
     //     else makeUnOp None Boolean expr UnaryNot
@@ -890,18 +890,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     makeBinOp r Boolean left right op
     // | Builtin (BclDateTime|BclDateTimeOffset) ->
     //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (FSharpSet _) ->
-        Helper.LibCall(com, "Set", "equalsTo", Boolean, [left; right], ?loc=r)
-    | Builtin (FSharpMap _) ->
-        Helper.LibCall(com, "Map", "equalsTo", Boolean, [left; right], ?loc=r)
-    // | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    // | Builtin (BclDecimal|BclBigInt as bt) ->
     //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    // | DeclaredType _ ->
-    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Array _ ->
     //     Helper.LibCall(com, "Array", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
     // | List _ ->
     //     Helper.LibCall(com, "List", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
+    | Builtin (FSharpSet _) ->
+        Helper.LibCall(com, "Set", "equalsTo", Boolean, [left; right], ?loc=r)
+    | Builtin (FSharpMap _) ->
+        Helper.LibCall(com, "Map", "equalsTo", Boolean, [left; right], ?loc=r)
+    // | DeclaredType _ ->
+    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | MetaType ->
     //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Tuple _ ->
@@ -912,7 +912,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         makeEqOp r left right op
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
-and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _
@@ -922,45 +922,58 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number(Int32, None), [left; right], ?loc=r)
+    // | Array _ ->
+    //     Helper.LibCall(com, "Array", "compareTo", Number(Int32, None), [left; right], ?loc=r)
+    // | List _ ->
+    //     Helper.LibCall(com, "List", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (FSharpSet _) ->
         Helper.LibCall(com, "Set", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (FSharpMap _) ->
         Helper.LibCall(com, "Map", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Array _ ->
-        Helper.LibCall(com, "Array", "compareTo", Number(Int32, None), [left; right], ?loc=r)
-    | List _ ->
-        Helper.LibCall(com, "List", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     // | Tuple _ ->
     //     Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
 
 /// Wraps comparison with the binary operator, like `comparison < 0`
-and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
+let compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
     match left.Type with
-    | Builtin (BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | Enum _ ->
+    | Boolean | Char | String | Numeric
+    | GenericParam _ | Array _ | List _
+    | Builtin (BclGuid|BclTimeSpan) ->
         makeEqOp r left right op
     | _ ->
         let comparison = compare com ctx r left right
         makeEqOp r comparison (makeIntConst 0) op
 
-and makeComparerFunction (com: ICompiler) ctx typArg =
+let applyCompareOp (com: ICompiler) (ctx: Context) r t opName (left: Expr) (right: Expr) =
+    let op =
+        match opName with
+        | Operators.equality | "Eq" -> BinaryEqual
+        | Operators.inequality | "Neq" -> BinaryUnequal
+        | Operators.lessThan | "Lt" -> BinaryLess
+        | Operators.lessThanOrEqual | "Lte" -> BinaryLessOrEqual
+        | Operators.greaterThan | "Gt" ->  BinaryGreater
+        | Operators.greaterThanOrEqual | "Gte" -> BinaryGreaterOrEqual
+        | _ -> failwith $"Unexpected operator %s{opName}"
+    compareIf com ctx r left right op
+
+let makeComparerFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
     Delegate([x; y], body, None)
 
-and makeComparer (com: ICompiler) ctx typArg =
+let makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
 
-and makeEqualityFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
-    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, None)
+// let makeEqualityFunction (com: ICompiler) ctx typArg =
+//     let x = makeUniqueIdent ctx typArg "x"
+//     let y = makeUniqueIdent ctx typArg "y"
+//     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
+//     Delegate([x; y], body, None)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
@@ -1749,16 +1762,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         setReference r t arg v |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | (Operators.inequality | "Neq"), [left; right] -> equals com ctx r false left right |> Some
-    | (Operators.equality | "Eq"), [left; right] -> equals com ctx r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> makeValue None) BinaryEqual |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
+    | Patterns.SetContains Operators.compareSet, [left; right] ->
+        applyCompareOp com ctx r t i.CompiledName left right |> Some
     | "Compare", [left; right] -> compare com ctx r left right |> Some
-    | (Operators.lessThan | "Lt"), [left; right] -> makeEqOp r left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> makeEqOp r left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [left; right] -> makeEqOp r left right BinaryGreater |> Some
-    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> makeEqOp r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max"|"Clamp" as meth), _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Not", [operand] -> // TODO: Check custom operator?

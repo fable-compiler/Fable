@@ -501,24 +501,27 @@ let copyToArray s (arr: _[]) i =
     let mutable j = i
     iterate (fun x -> arr.[j] <- x; j <- j + 1) s
 
+let inline private asArray (a: ResizeArray<'T>): 'T[] =
+    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
+
 let toArray (s: Set<'T>) =
     let len = count s
     let res = ResizeArray<_>(len)
     iterate (fun x -> res.Add(x)) s
-    res
+    res |> asArray
 
 let toList (s: Set<'T>) =
     foldBack (fun k acc -> k::acc) s []
 
 let toSeq (s: Set<'T>) =
     // Seq.delay (fun () -> mkIEnumerator s) //TODO:
-    Seq.delay (fun () -> toList s |> Seq.ofList)
+    Seq.delay (fun () -> toArray s |> Seq.ofArray)
 
 let compareTo (s1: Set<'T>) (s2: Set<'T>) =
-    List.compareWith compare (toList s1) (toList s2)
+    LanguagePrimitives.GenericComparison (toArray s1) (toArray s2)
 
 let equalsTo (s1: Set<'T>) (s2: Set<'T>) =
-    compareTo s1 s2 = 0
+    LanguagePrimitives.GenericEquality (toArray s1) (toArray s2)
 
 let ofArray xs =
     Array.fold (fun acc k -> add k acc) empty xs

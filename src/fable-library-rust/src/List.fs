@@ -99,19 +99,17 @@ let ofOption<'T> (opt: 'T option): 'T list =
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
 
+let inline private asArray (a: ResizeArray<'T>): 'T[] =
+    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
+
 let toArray (xs: 'T list): 'T[] =
-    // TODO: optimize to avoid double-copy
     let len = length xs
     let res = ResizeArray<_>(len)
     let mutable xs = xs
     while not (isEmpty xs) do
         res.Add (head xs)
         xs <- tail xs
-    res.ToArray()
-
-// let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-//     if isEmpty xs then state
-//     else fold folder (folder state (head xs)) (tail xs)
+    res |> asArray
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
@@ -127,10 +125,6 @@ let reverse (xs: 'T list) =
 let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     fold (fun acc x -> folder x acc) state (reverse xs)
     // Array.foldBack folder (toArray xs) state
-
-// let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
-//     if (isEmpty xs) || (isEmpty ys) then state
-//     else fold2 folder (folder state (head xs) (head ys)) (tail xs) (tail ys)
 
 let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
     let mutable acc = state
@@ -235,10 +229,10 @@ let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int
         if c = 0 then compareWith comparer (tail xs) (tail ys) else c
 
 let compareTo (xs: 'T list) (ys: 'T list) =
-    compareWith compare xs ys
+    LanguagePrimitives.GenericComparison xs ys
 
 let equalsTo (xs: 'T list) (ys: 'T list) =
-    compareTo xs ys = 0
+    LanguagePrimitives.GenericEquality xs ys
 
 let rec exists predicate (xs: 'T list) =
     if isEmpty xs then false
