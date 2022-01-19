@@ -43,7 +43,7 @@
     <Compile Include="TestFn.fs" />
     <Compile Include="TestEnum.fs" />
     <Compile Include="TestString.fs" />
-    <!-- <Compile Include="TestRegex.fs" /> -->
+    <Compile Include="TestRegex.fs" />
     <Compile Include="TestRecordType.fs" />
     <Compile Include="TestReflection.fs" />
     <Compile Include="TestSet.fs" />
