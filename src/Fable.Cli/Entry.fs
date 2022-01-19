@@ -54,6 +54,7 @@ let knownCliArgs() = [
   ["-c"; "--configuration"], ["The configuration to use when parsing .fsproj with MSBuild,"
                               "default is 'Debug' in watch mode, or 'Release' otherwise"]
   ["--verbose"],         ["Print more info during compilation"]
+  ["--silent"],          ["Don't print any log during compilation"]
   ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
   ["--watch"],           ["Alias of watch command"]
   ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
@@ -308,9 +309,12 @@ type Runner =
         |> Async.RunSynchronously
 
     return!
+        // In CI builds, it may happen that two parallel Fable compilations try to precompile
+        // the same library at the same time, use a lock file to prevent issues in that case.
         match outDir, precompile, watch with
         | Some outDir, true, false -> File.withLock outDir startCompilation
         | _ -> startCompilation()
+        |> Result.mapEither ignore fst
 }
 
 let clean (args: CliArgs) rootDir =
@@ -397,6 +401,8 @@ let main argv =
             | _ ->
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
+                Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
 
         match commands with
         | ["--help"] -> return printHelp()

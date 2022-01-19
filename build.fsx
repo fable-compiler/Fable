@@ -668,7 +668,6 @@ match BUILD_ARGS_LOWER with
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     runFableWithArgsInDir "src/quicktest" ["watch --exclude Fable.Core --noCache --runScript"]
-    run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     runFableWithArgsInDir "src/quicktest-py" ["watch --lang Python --delimiter #fsharp --noCache"]

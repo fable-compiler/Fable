@@ -3333,6 +3333,9 @@ let partialApplyAtRuntime com t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(args, Any) |> makeValue None
     Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
 
+let checkArity com t arity expr =
+    Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
+
 let tryField com returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Builtin BclDecimal, _ ->

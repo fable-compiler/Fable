@@ -171,7 +171,7 @@ export function parseRaw(input: string): [Date, Offset] {
     throw new Error(`The string is not a valid Date: ${input}`);
   }
 
-  if (input === null || input.trim() === "") {
+  if (input == null || input.trim() === "") {
     fail();
   }
 
