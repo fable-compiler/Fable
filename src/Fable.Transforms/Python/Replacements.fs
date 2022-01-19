@@ -3982,7 +3982,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // Capture
     | "get_Index" ->
         if not isGroup then
-            propStr "index" thisArg.Value |> Some
+            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r) |> Some
         else
             "Accessing index of Regex groups is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r
