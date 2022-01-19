@@ -1,5 +1,5 @@
 module Fable.Tests.MapTests
-(*
+
 open Util.Testing
 //open System.Collections.Generic
 
@@ -28,12 +28,13 @@ open Util.Testing
 [<Fact>]
 let ``Map construction from lists works`` () =
     let xs = Map [1,1; 2,2]
-    xs |> Seq.isEmpty
+    xs |> Map.isEmpty
     |> equal false
 
 [<Fact>]
 let ``Map.isEmpty works`` () =
-    let xs = Map []
+    // let xs = Map [] //TODO:
+    let xs = Map.empty<int, int>
     Map.isEmpty xs |> equal true
     let ys = Map [1,1]
     Map.isEmpty ys |> equal false
@@ -48,26 +49,23 @@ let ``Map.IsEmpty works`` () =
 [<Fact>]
 let ``Map.Count works`` () =
     let xs = Map.empty<int, int>
-    xs.Count
-    |> equal 0
+    xs.Count |> equal 0
 
 [<Fact>]
 let ``Map.count works`` () =
-    let m1 = Map.empty
+    let m1 = Map.empty<int, int>
     let c1 = Map.count m1
     equal 0 c1
 
 [<Fact>]
 let ``Map.add works`` () =
     let xs = Map.empty |> Map.add 1 1
-    xs.Count
-    |> equal 1
+    xs.Count |> equal 1
 
 [<Fact>]
 let ``Map.Add works`` () =
     let xs = Map.empty.Add(1, 1)
-    xs.Count
-    |> equal 1
+    xs.Count |> equal 1
 
 [<Fact>]
 let ``Map.TryGetValue works`` () =
@@ -249,39 +247,43 @@ let ``Map.toArray works`` () =
     snd xs.[2] = snd zs.[2]
     |> equal true
 
-[<Fact>]
-let ``Map.toSeq works`` () =
-    let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
-    let ys = Map.ofSeq xs
-    let zs = Map.toSeq ys
-    (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
-    |> equal true
+// [<Fact>]
+// let ``Map.toSeq works`` () =
+//     let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
+//     let ys = Map.ofSeq xs
+//     let zs = Map.toSeq ys
+//     (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
+//     |> equal true
 
-[<Fact>]
-let ``Map.toSeq generates sequences that can be iterated multiple times`` () = // See #2242
-    let pr (sequence: seq<int * string>) =
-        sequence
-        |> Seq.map (fun (i, v) -> v)
-        |> String.concat ", "
+// [<Fact>]
+// let ``Map.toSeq generates sequences that can be iterated multiple times`` () = // See #2242
+//     let pr (sequence: seq<int * string>) =
+//         sequence
+//         |> Seq.map (fun (i, v) -> v)
+//         |> String.concat ", "
 
-    let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
-    pr someSeq |> equal "a, b"
-    pr someSeq |> equal "a, b"
+//     let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
+//     pr someSeq |> equal "a, b"
+//     pr someSeq |> equal "a, b"
 
 [<Fact>]
 let ``Map.keys works`` () =
     let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
     let ys = Map.ofArray xs
-    let zs = Map.keys ys
-    zs.Count |> equal xs.Length
+    // let zs = Map.keys ys //TODO: ICollection<T>
+    // zs.Count |> equal xs.Length //TODO:
+    let zs = Map.keys ys :> seq<_>
+    Seq.length zs |> equal xs.Length
     Seq.item 2 zs |> equal (fst xs.[2])
 
 [<Fact>]
 let ``Map.values works`` () =
     let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
     let ys = Map.ofArray xs
-    let zs = Map.values ys
-    zs.Count |> equal xs.Length
+    // let zs = Map.values ys //TODO: ICollection<T>
+    // zs.Count |> equal xs.Length //TODO:
+    let zs = Map.values ys :> seq<_>
+    Seq.length zs |> equal xs.Length
     Seq.item 2 zs |> equal (snd xs.[2])
 
 // [<Fact>]
@@ -301,10 +303,19 @@ let ``Map.values works`` () =
 
 [<Fact>]
 let ``Map.change works`` () =
-    let m = Map["a",1; "b",2]
-    let m2 = Map["a",1; "b",3]
-    m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
-    m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
+    let m = Map ["a",1; "b",2]
+    let m2 = Map ["a",1; "b",3]
+    m |> Map.change "c" (Option.map (fun v -> v + 1))
+    |> Map.toArray |> equal (Map.toArray m)
+    m |> Map.change "b" (Option.map (fun v -> v + 1))
+    |> Map.toArray |> equal (Map.toArray m2)
+
+// [<Fact>]
+// let ``Map equality works`` () =
+//     let m = Map ["a",1; "b",2]
+//     let m2 = Map ["a",1; "b",3]
+//     m = m |> equal true
+//     m = m2 |> equal false
 
 // [<Fact>]
 // let ``Map works with keys with custom comparison`` () =
@@ -319,5 +330,3 @@ let ``Map.change works`` () =
 //     |> Map.add { Bar = "a"; Foo = 10 } 2
 //     |> Map.count
 //     |> equal 1
-
-*)

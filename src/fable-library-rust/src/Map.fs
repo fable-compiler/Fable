@@ -16,31 +16,29 @@ module SR =
     let keyNotFound = "The item, key, or index was not found in the collection."
 
 [<NoEquality; NoComparison>]
-type MapTreeNode<'K, 'V> = {
+type MapTree<'K, 'V> = {
     Height: int
     Key: 'K
     Value: 'V
-    Left: MapTree<'K, 'V>
-    Right: MapTree<'K, 'V>
+    Left: Map<'K, 'V>
+    Right: Map<'K, 'V>
 }
 
-and MapTree<'K, 'V> = Option<MapTreeNode<'K, 'V>>
+and Map<'K, 'V> = Option<MapTree<'K, 'V>>
 
-type Map<'K, 'V> = MapTree<'K, 'V>
+let empty: Map<'K, 'V> = None
 
-let empty: MapTree<'K, 'V> = None
-
-let inline isEmpty (m: MapTree<'K, 'V>) = m.IsNone
+let inline isEmpty (m: Map<'K, 'V>) = m.IsNone
 
 let mkMapTreeLeaf (k: 'K, v: 'V) =
     Some { Key = k; Value = v; Left = empty; Right = empty; Height = 1 }
 
-let mkMapTreeNode (k: 'K, v: 'V, left: MapTree<'K, 'V>, right: MapTree<'K, 'V>, h: int) =
+let mkMapTreeNode (k: 'K, v: 'V, left: Map<'K, 'V>, right: Map<'K, 'V>, h: int) =
     Some { Key = k; Value = v; Left = left; Right = right; Height = h }
 
 let singleton (k: 'K, v: 'V) = mkMapTreeLeaf (k, v)
 
-let rec sizeAux acc (m: MapTree<'K, 'V>) =
+let rec sizeAux acc (m: Map<'K, 'V>) =
     match m with
     | None -> acc
     | Some t ->
@@ -51,7 +49,7 @@ let rec sizeAux acc (m: MapTree<'K, 'V>) =
 
 let count x = sizeAux 0 x
 
-let inline height (m: MapTree<'K, 'V>) =
+let inline height (m: Map<'K, 'V>) =
     match m with
     | None -> 0
     | Some t -> t.Height
@@ -59,7 +57,7 @@ let inline height (m: MapTree<'K, 'V>) =
 [<Literal>]
 let tolerance = 2
 
-let mk l k v r : MapTree<'K, 'V> =
+let mk l k v r : Map<'K, 'V> =
     let hl = height l
     let hr = height r
     let m = if hl < hr then hr else hl
@@ -68,7 +66,7 @@ let mk l k v r : MapTree<'K, 'V> =
     else
         mkMapTreeNode (k,v,l,r,m+1)  // new map is higher by 1 than the highest
 
-let rebalance t1 (k: 'K) (v: 'V) t2 : MapTree<'K, 'V> =
+let rebalance t1 (k: 'K) (v: 'V) t2 : Map<'K, 'V> =
     let t1h = height t1
     let t2h = height t2
     if  t2h > t1h + tolerance then // right is heavier than left
@@ -91,7 +89,7 @@ let rebalance t1 (k: 'K) (v: 'V) t2 : MapTree<'K, 'V> =
                 mk t1'.Left t1'.Key t1'.Value (mk t1'.Right k v t2)
         else mk t1 k v t2
 
-let rec add k (v: 'V) (m: MapTree<'K, 'V>) : MapTree<'K, 'V> =
+let rec add k (v: 'V) (m: Map<'K, 'V>) : Map<'K, 'V> =
     match m with
     | None -> mkMapTreeLeaf (k,v)
     | Some t ->
@@ -105,7 +103,7 @@ let rec add k (v: 'V) (m: MapTree<'K, 'V>) : MapTree<'K, 'V> =
             elif c = 0 then mkMapTreeNode (k,v,t.Left,t.Right,t.Height)
             else rebalance t.Left t.Key t.Value (add k v t.Right)
 
-let rec tryGetValue k (v: byref<'V>) (m: MapTree<'K, 'V>) =
+let rec tryGetValue k (v: byref<'V>) (m: Map<'K, 'V>) =
     match m with
     | None -> false
     | Some t ->
@@ -120,24 +118,27 @@ let rec tryGetValue k (v: byref<'V>) (m: MapTree<'K, 'V>) =
 let throwKeyNotFound() = failwith SR.keyNotFound
 
 // [<MethodImpl(MethodImplOptions.NoInlining)>]
-let find k (m: MapTree<'K, 'V>) =
+let find k (m: Map<'K, 'V>) =
     let mutable v = Unchecked.defaultof<'V>
     if tryGetValue k &v m then
         v
     else
         throwKeyNotFound()
 
-let tryFind k (m: MapTree<'K, 'V>) =
+let tryFind k (m: Map<'K, 'V>) =
     let mutable v = Unchecked.defaultof<'V>
     if tryGetValue k &v m then
         Some v
     else
         None
 
+let item k (m: Map<'K, 'V>) =
+    find k m
+
 let partition1 f k v (acc1, acc2) =
     if f k v then (add k v acc1, acc2) else (acc1, add k v acc2)
 
-let rec partitionAux f (m: MapTree<'K, 'V>) acc =
+let rec partitionAux f (m: Map<'K, 'V>) acc =
     match m with
     | None -> acc
     | Some t ->
@@ -154,7 +155,7 @@ let partition f m =
 let filter1 f k v acc =
     if f k v then add k v acc else acc
 
-let rec filterAux f (m: MapTree<'K, 'V>) acc =
+let rec filterAux f (m: Map<'K, 'V>) acc =
     match m with
     | None -> acc
     | Some t ->
@@ -168,7 +169,7 @@ let rec filterAux f (m: MapTree<'K, 'V>) acc =
 let filter f m =
     filterAux f m empty
 
-let rec spliceOutSuccessor (m: MapTree<'K, 'V>) =
+let rec spliceOutSuccessor (m: Map<'K, 'V>) =
     match m with
     | None -> failwith "internal error: Map.spliceOutSuccessor"
     | Some t ->
@@ -178,7 +179,7 @@ let rec spliceOutSuccessor (m: MapTree<'K, 'V>) =
             if isEmpty t.Left then t.Key, t.Value, t.Right
             else let k3, v3, l' = spliceOutSuccessor t.Left in k3, v3, mk l' t.Key t.Value t.Right
 
-let rec remove k (m: MapTree<'K, 'V>) =
+let rec remove k (m: Map<'K, 'V>) =
     match m with
     | None -> empty
     | Some t ->
@@ -195,7 +196,7 @@ let rec remove k (m: MapTree<'K, 'V>) =
                     mk t.Left sk sv r'
             else rebalance t.Left t.Key t.Value (remove k t.Right)
 
-let rec change k (u: 'V option -> 'V option) (m: MapTree<'K, 'V>) : MapTree<'K,'V> =
+let rec change k (u: 'V option -> 'V option) (m: Map<'K, 'V>) : Map<'K,'V> =
     match m with
     | None ->
         match u None with
@@ -232,7 +233,7 @@ let rec change k (u: 'V option -> 'V option) (m: MapTree<'K, 'V>) : MapTree<'K,'
             else
                 rebalance t.Left t.Key t.Value (change k u t.Right)
 
-let rec containsKey k (m: MapTree<'K, 'V>) =
+let rec containsKey k (m: Map<'K, 'V>) =
     match m with
     | None -> false
     | Some t ->
@@ -243,7 +244,7 @@ let rec containsKey k (m: MapTree<'K, 'V>) =
             if c < 0 then containsKey k t.Left
             else (c = 0 || containsKey k t.Right)
 
-let rec iterate f (m: MapTree<'K, 'V>) =
+let rec iterate f (m: Map<'K, 'V>) =
     match m with
     | None -> ()
     | Some t ->
@@ -252,7 +253,7 @@ let rec iterate f (m: MapTree<'K, 'V>) =
         else
             iterate f t.Left; f t.Key t.Value; iterate f t.Right
 
-let rec tryPick f (m: MapTree<'K, 'V>) =
+let rec tryPick f (m: Map<'K, 'V>) =
     match m with
     | None -> None
     | Some t ->
@@ -267,7 +268,20 @@ let rec tryPick f (m: MapTree<'K, 'V>) =
             | None ->
             tryPick f t.Right
 
-let rec exists f (m: MapTree<'K, 'V>) =
+let pick chooser (m: Map<'K, 'V>) =
+    match tryPick chooser m with
+    | None -> throwKeyNotFound()
+    | Some res -> res
+
+let findKey predicate (m: Map<'K, 'V>) =
+    m |> pick (fun k v ->
+        if predicate k v then Some k else None)
+
+let tryFindKey predicate (m: Map<'K, 'V>) =
+    m |> tryPick (fun k v ->
+        if predicate k v then Some k else None)
+
+let rec exists f (m: Map<'K, 'V>) =
     match m with
     | None -> false
     | Some t ->
@@ -276,40 +290,40 @@ let rec exists f (m: MapTree<'K, 'V>) =
         else
             exists f t.Left || f t.Key t.Value || exists f t.Right
 
-let rec forall f (m: MapTree<'K, 'V>) =
+let rec forAll f (m: Map<'K, 'V>) =
     match m with
     | None -> true
     | Some t ->
         if t.Height = 1 then
             f t.Key t.Value
         else
-            forall f t.Left && f t.Key t.Value && forall f t.Right
+            forAll f t.Left && f t.Key t.Value && forAll f t.Right
 
-let rec map (f: 'V -> 'R) (m: MapTree<'K, 'V>) : MapTree<'K, 'R> =
+let rec mapRange (f: 'V -> 'R) (m: Map<'K, 'V>) : Map<'K, 'R> =
     match m with
     | None -> empty
     | Some t ->
         if t.Height = 1 then
             mkMapTreeLeaf (t.Key, f t.Value)
         else
-            let l2 = map f t.Left
+            let l2 = mapRange f t.Left
             let v2 = f t.Value
-            let r2 = map f t.Right
+            let r2 = mapRange f t.Right
             mkMapTreeNode (t.Key, v2, l2, r2, t.Height)
 
-let rec mapi (f: 'K -> 'V -> 'R) (m: MapTree<'K, 'V>) =
+let rec map (f: 'K -> 'V -> 'R) (m: Map<'K, 'V>) =
     match m with
     | None -> empty
     | Some t ->
         if t.Height = 1 then
             mkMapTreeLeaf (t.Key, f t.Key t.Value)
         else
-            let l2 = mapi f t.Left
+            let l2 = map f t.Left
             let v2 = f t.Key t.Value
-            let r2 = mapi f t.Right
+            let r2 = map f t.Right
             mkMapTreeNode (t.Key, v2, l2, r2, t.Height)
 
-let rec foldBack f (m: MapTree<'K, 'V>) x =
+let rec foldBack f (m: Map<'K, 'V>) x =
     match m with
     | None -> x
     | Some t ->
@@ -320,7 +334,7 @@ let rec foldBack f (m: MapTree<'K, 'V>) x =
             let x = f t.Key t.Value x
             foldBack f t.Left x
 
-let rec fold f x (m: MapTree<'K, 'V>) =
+let rec fold f x (m: Map<'K, 'V>) =
     match m with
     | None -> x
     | Some t ->
@@ -331,7 +345,7 @@ let rec fold f x (m: MapTree<'K, 'V>) =
             let x = f x t.Key t.Value
             fold f x t.Right
 
-let rec foldFromTo lo hi f (m: MapTree<'K, 'V>) x =
+let rec foldFromTo lo hi f (m: Map<'K, 'V>) x =
     match m with
     | None -> x
     | Some t ->
@@ -348,57 +362,46 @@ let rec foldFromTo lo hi f (m: MapTree<'K, 'V>) x =
             let x = if cKeyHi < 0 then foldFromTo lo hi f t.Right x else x
             x
 
-let foldSection lo hi f (m: MapTree<'K, 'V>) x =
+let foldSection lo hi f (m: Map<'K, 'V>) x =
     if (compare lo hi) = 1 then x else foldFromTo lo hi f m x
 
 // let copyToArray m (arr: _[]) i =
 //     let mutable j = i
-//     m |> iterate (fun x y -> arr.[j] <- KeyValuePair(x, y); j <- j + 1)
+//     iterate (fun k v -> arr.[j] <- KeyValuePair(k, v); j <- j + 1) m
 
-let toList (m: MapTree<'K, 'V>) =
-    let rec loop (m: MapTree<'K, 'V>) acc =
-        match m with
-        | None -> acc
-        | Some t ->
-            if t.Height = 1 then
-                (t.Key, t.Value) :: acc
-            else
-                loop t.Left ((t.Key, t.Value) :: loop t.Right acc)
+let keys (m: Map<'K, 'V>) =
+    // TODO: KeyCollection(m) :> ICollection<'K>
+    foldBack (fun k v acc -> k::acc) m []
+    |> Seq.ofList
 
-    loop m []
+let values (m: Map<'K, 'V>) =
+    // TODO: ValueCollection(m) :> ICollection<'V>
+    foldBack (fun k v acc -> v::acc) m []
+    |> Seq.ofList
 
 let toArray m =
-    m |> toList |> Array.ofList
-
-let ofArray (arr : array<'K * 'V>) =
-    let mutable res = empty
-    for (x, y) in arr do
-        res <- add x y res
+    let len = count m
+    let res = ResizeArray<_>(len)
+    iterate (fun k v -> res.Add((k, v))) m
     res
 
-let ofList l =
-    List.fold (fun acc (k, v) -> add k v acc) empty l
+let toList (m: Map<'K, 'V>) =
+    foldBack (fun k v acc -> (k, v)::acc) m []
 
-// let rec mkFromEnumerator acc (e : IEnumerator<_>) =
-//     if e.MoveNext() then
-//         let (x, y) = e.Current
-//         mkFromEnumerator (add x y acc) e
-//     else acc
+let ofArray xs =
+    Array.fold (fun acc (k, v) -> add k v acc) empty xs
 
-// let ofSeq (c : seq<'K * 'T>) =
-//     // match c with
-//     // | :? array<'K * 'T> as xs -> ofArray xs
-//     // | :? list<'K * 'T> as xs -> ofList xs
-//     // | _ ->
-//         use ie = c.GetEnumerator()
-//         mkFromEnumerator empty ie
+let ofList xs =
+    List.fold (fun acc (k, v) -> add k v acc) empty xs
+
+let ofSeq xs =
+    Seq.fold (fun acc (k, v) -> add k v acc) empty xs
 
 /// Imperative left-to-right iterators.
 [<NoEquality; NoComparison>]
 type MapIterator<'K, 'V when 'K : comparison> = {
     /// invariant: always collapseLHS result
-    mutable stack: MapTree<'K, 'V> list
-
+    mutable stack: Map<'K, 'V> list
     /// true when MoveNext has been called
     mutable started : bool
 }
@@ -406,7 +409,7 @@ type MapIterator<'K, 'V when 'K : comparison> = {
 // collapseLHS:
 // a) Always returns either [] or a list starting with MapOne.
 // b) The "fringe" of the set stack is unchanged.
-let rec collapseLHS (stack: MapTree<'K, 'V> list) =
+let rec collapseLHS (stack: Map<'K, 'V> list) =
     match stack with
     | [] -> []
     | m :: rest ->
@@ -467,6 +470,9 @@ let unexpectedStackForMoveNext() =
 //       interface System.IDisposable with
 //           member _.Dispose() = ()}
 
+// let toSeq (m: Map<'K, 'V>) =
+//     Seq.delay (fun () -> mkIEnumerator m)
+
 (*
 
 [<System.Diagnostics.DebuggerTypeProxy(typedefof<MapDebugView<_, _>>)>]
@@ -474,7 +480,7 @@ let unexpectedStackForMoveNext() =
 [<Sealed>]
 [<CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1710: IdentifiersShouldHaveCorrectSuffix")>]
 [<CompiledName("FSharpMap`2")>]
-type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditionalOn>]'V when 'K : comparison >(comparer: IComparer<'K>, tree: MapTree<'K, 'V>) =
+type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditionalOn>]'V when 'K : comparison >(comparer: IComparer<'K>, tree: Map<'K, 'V>) =
 
     [<System.NonSerialized>]
     // This type is logically immutable. This field is only mutated during deserialization.
@@ -567,7 +573,7 @@ type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditi
         new Map<'K, 'V>(comparer, MapTree.filter predicate tree)
 
     member t.ForAll predicate =
-        MapTree.forall predicate tree
+        MapTree.forAll predicate tree
 
     member t.Fold f acc =
         MapTree.foldBack f tree acc
@@ -579,10 +585,10 @@ type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditi
         MapTree.iterate f tree
 
     member t.MapRange (f: 'V->'Result) =
-        new Map<'K, 'Result>(comparer, MapTree.map f tree)
+        new Map<'K, 'Result>(comparer, MapTree.mapRange f tree)
 
     member t.Map f =
-        new Map<'K, 'b>(comparer, MapTree.mapi f tree)
+        new Map<'K, 'b>(comparer, MapTree.map f tree)
 
     member t.Partition predicate : Map<'K, 'V> * Map<'K, 'V> =
         let r1, r2 = MapTree.partition predicate tree
@@ -876,7 +882,7 @@ module Map =
         table.Partition predicate
 
     [<CompiledName("ForAll")>]
-    let forall predicate (table: Map<_, _>) =
+    let forAll predicate (table: Map<_, _>) =
         table.ForAll predicate
 
     [<CompiledName("Map")>]

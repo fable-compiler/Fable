@@ -397,6 +397,8 @@ module TypeInfo =
         | Fable.List _
         | Fable.Option _
         | Replacements.Builtin (Replacements.FSharpResult _)
+        | Replacements.Builtin (Replacements.FSharpSet _)
+        | Replacements.Builtin (Replacements.FSharpMap _)
             -> false
 
         | Fable.String
@@ -500,6 +502,12 @@ module TypeInfo =
 
     let transformListType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Types" "List`1"
+
+    let transformSetType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Types" "Set`1"
+
+    let transformMapType com ctx genArgs: Rust.Ty =
+        transformImportType com ctx genArgs "Types" "Map`2"
 
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
@@ -705,23 +713,18 @@ module TypeInfo =
                     | Replacements.BclUInt64 -> primitiveType "u64"
                     | Replacements.BclIntPtr -> primitiveType "isize"
                     | Replacements.BclUIntPtr -> primitiveType "usize"
-                //     | Replacements.BclGuid
-                //     | Replacements.BclTimeSpan
-                //     | Replacements.BclDateTime
-                //     | Replacements.BclDateTimeOffset
-                //     | Replacements.BclTimer
-                //     | Replacements.BclDecimal
-                //     | Replacements.BclBigInt -> genericEntity entRef.FullName [||]
-                //     | Replacements.BclHashSet gen
-                //     | Replacements.FSharpSet gen ->
-                //         genericEntity entRef.FullName [|transformTypeInfo com ctx r genMap gen|]
-                //     | Replacements.BclDictionary(key, value)
-                //     | Replacements.BclKeyValuePair(key, value)
-                //     | Replacements.FSharpMap(key, value) ->
-                //         genericEntity entRef.FullName [|
-                //             transformTypeInfo com ctx r genMap key
-                //             transformTypeInfo com ctx r genMap value
-                //         |]
+                    // | Replacements.BclGuid
+                    // | Replacements.BclTimeSpan
+                    // | Replacements.BclDateTime
+                    // | Replacements.BclDateTimeOffset
+                    // | Replacements.BclTimer
+                    // | Replacements.BclDecimal
+                    // | Replacements.BclBigInt
+                    // | Replacements.BclHashSet genArg
+                    // | Replacements.BclDictionary(key, value)
+                    | Replacements.FSharpSet genArg -> transformSetType com ctx genArg
+                    | Replacements.FSharpMap(k, v) -> transformMapType com ctx [k; v]
+                    | Replacements.BclKeyValuePair(k, v) -> transformTupleType com ctx [k; v]
                     | Replacements.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
                     | Replacements.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
                     | Replacements.FSharpReference genArg -> transformRefCellType com ctx genArg
@@ -2092,10 +2095,12 @@ module Util =
                     transformGenArgs com ctx [genArg]
                 | "Native::arrayWithCapacity", Fable.Array genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Native::defaultOf", genArg ->
+                | ("Native::defaultOf" | "Native::getZero"), genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Native::getZero", genArg ->
+                | "Set::empty", Replacements.Builtin (Replacements.FSharpSet genArg) ->
                     transformGenArgs com ctx [genArg]
+                | "Map::empty", Replacements.Builtin (Replacements.FSharpMap(gen1, gen2)) ->
+                    transformGenArgs com ctx [gen1; gen2]
                 | "Seq::empty", IEnumerable com genArgs ->
                     transformGenArgs com ctx genArgs
                 | _ -> None
