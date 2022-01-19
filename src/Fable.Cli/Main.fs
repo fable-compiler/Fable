@@ -167,9 +167,12 @@ module private Util =
     }
 
 module FileWatcherUtil =
+    // TODO: Fail gracefully if we don't find a common dir (or try to find outlier paths somehow)
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d = $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
         files
+        // FCS may add files in temporary dirs to resolve nuget references in scripts
+        // See https://github.com/fable-compiler/Fable/pull/2725#issuecomment-1015123642
         |> List.filter (fun file -> not (file.EndsWith(".fsproj.fsx")))
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
