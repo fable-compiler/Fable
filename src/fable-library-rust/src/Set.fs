@@ -439,63 +439,60 @@ let rec moveNext (i: SetIterator<'T>) =
 //       interface System.IDisposable with
 //           member _.Dispose() = () }
 
-/// Set comparison.  Note this can be expensive.
-let rec compareStacks (l1: Set<'T> list) (l2: Set<'T> list): int =
-    let cont() =
-        match l1, l2 with
-        | (Some x1 :: t1), _ ->
-            if x1.Height = 1 then
-                compareStacks (empty :: mkSetTreeLeaf x1.Key :: t1) l2
-            else
-                compareStacks (x1.Left :: (mkSetTreeNode (x1.Key, empty, x1.Right, 0)) :: t1) l2
-        | _, (Some x2 :: t2) ->
-            if x2.Height = 1 then
-                compareStacks l1 (empty :: mkSetTreeLeaf x2.Key :: t2)
-            else
-                compareStacks l1 (x2.Left :: (mkSetTreeNode (x2.Key, empty, x2.Right, 0)  ) :: t2)
-        | _ -> unexpectedstateInSetTreeCompareStacks()
+// /// Set comparison.  Note this can be expensive.
+// let rec compareStacks (l1: Set<'T> list) (l2: Set<'T> list): int =
+//     let cont() =
+//         match l1, l2 with
+//         | (Some x1 :: t1), _ ->
+//             if x1.Height = 1 then
+//                 compareStacks (empty :: mkSetTreeLeaf x1.Key :: t1) l2
+//             else
+//                 compareStacks (x1.Left :: (mkSetTreeNode (x1.Key, empty, x1.Right, 0)) :: t1) l2
+//         | _, (Some x2 :: t2) ->
+//             if x2.Height = 1 then
+//                 compareStacks l1 (empty :: mkSetTreeLeaf x2.Key :: t2)
+//             else
+//                 compareStacks l1 (x2.Left :: (mkSetTreeNode (x2.Key, empty, x2.Right, 0)  ) :: t2)
+//         | _ -> unexpectedstateInSetTreeCompareStacks()
 
-    match l1, l2 with
-    | [], [] ->  0
-    | [], _  -> -1
-    | _, [] ->  1
-    | (s1 :: t1), (s2 :: t2) ->
-        match s1, s2 with
-        | None, None -> compareStacks t1 t2
-        | None, _ -> cont()
-        | _, None -> cont()
-        | Some x1, Some x2 ->
-            if x1.Height = 1 then
-                if x2.Height = 1 then
-                    let c = compare x1.Key x2.Key
-                    if c <> 0 then c else compareStacks t1 t2
-                else
-                    if isEmpty x2.Left then
-                        let c = compare x1.Key x2.Key
-                        if c <> 0 then c else compareStacks (empty :: t1) (x2.Right :: t2)
-                    else cont()
-            else
-                if isEmpty x1.Left then
-                    if x2.Height = 1 then
-                        let c = compare x1.Key x2.Key
-                        if c <> 0 then c else compareStacks (x1.Right :: t1) (empty :: t2)
-                    else
-                        if isEmpty x2.Left then
-                            let c = compare x1.Key x2.Key
-                            if c <> 0 then c else compareStacks (x1.Right :: t1) (x2.Right :: t2)
-                        else cont()
-                else cont()
+//     match l1, l2 with
+//     | [], [] ->  0
+//     | [], _  -> -1
+//     | _, [] ->  1
+//     | (s1 :: t1), (s2 :: t2) ->
+//         match s1, s2 with
+//         | None, None -> compareStacks t1 t2
+//         | None, _ -> cont()
+//         | _, None -> cont()
+//         | Some x1, Some x2 ->
+//             if x1.Height = 1 then
+//                 if x2.Height = 1 then
+//                     let c = compare x1.Key x2.Key
+//                     if c <> 0 then c else compareStacks t1 t2
+//                 else
+//                     if isEmpty x2.Left then
+//                         let c = compare x1.Key x2.Key
+//                         if c <> 0 then c else compareStacks (empty :: t1) (x2.Right :: t2)
+//                     else cont()
+//             else
+//                 if isEmpty x1.Left then
+//                     if x2.Height = 1 then
+//                         let c = compare x1.Key x2.Key
+//                         if c <> 0 then c else compareStacks (x1.Right :: t1) (empty :: t2)
+//                     else
+//                         if isEmpty x2.Left then
+//                             let c = compare x1.Key x2.Key
+//                             if c <> 0 then c else compareStacks (x1.Right :: t1) (x2.Right :: t2)
+//                         else cont()
+//                 else cont()
 
-let compareTo (s1: Set<'T>) (s2: Set<'T>) =
-    if isEmpty s1 then
-        if isEmpty s2 then 0
-        else -1
-    else
-        if isEmpty s2 then 1
-        else compareStacks [s1] [s2]
-
-let equalsTo (s1: Set<'T>) (s2: Set<'T>) =
-    compareTo s1 s2 = 0
+// let compareTo (s1: Set<'T>) (s2: Set<'T>) =
+//     if isEmpty s1 then
+//         if isEmpty s2 then 0
+//         else -1
+//     else
+//         if isEmpty s2 then 1
+//         else compareStacks [s1] [s2]
 
 let choose s =
     minElement s
@@ -504,7 +501,7 @@ let copyToArray s (arr: _[]) i =
     let mutable j = i
     iterate (fun x -> arr.[j] <- x; j <- j + 1) s
 
-let toArray s =
+let toArray (s: Set<'T>) =
     let len = count s
     let res = ResizeArray<_>(len)
     iterate (fun x -> res.Add(x)) s
@@ -513,8 +510,15 @@ let toArray s =
 let toList (s: Set<'T>) =
     foldBack (fun k acc -> k::acc) s []
 
-// let toSeq (s: Set<'T>) =
-//     Seq.delay (fun () -> mkIEnumerator s)
+let toSeq (s: Set<'T>) =
+    // Seq.delay (fun () -> mkIEnumerator s) //TODO:
+    Seq.delay (fun () -> toList s |> Seq.ofList)
+
+let compareTo (s1: Set<'T>) (s2: Set<'T>) =
+    List.compareWith compare (toList s1) (toList s2)
+
+let equalsTo (s1: Set<'T>) (s2: Set<'T>) =
+    compareTo s1 s2 = 0
 
 let ofArray xs =
     Array.fold (fun acc k -> add k acc) empty xs

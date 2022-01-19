@@ -467,6 +467,12 @@ let compareWith (comparer: 'T -> 'T -> int) (xs: 'T seq) (ys: 'T seq): int =
     elif b2 then -1
     else 0
 
+let compareTo (xs: 'T seq) (ys: 'T seq) =
+    compareWith compare xs ys
+
+let equalsTo (xs: 'T seq) (ys: 'T seq) =
+    compareTo xs ys = 0
+
 // let enumerateFromFunctions create moveNext current =
 //     generate
 //         create

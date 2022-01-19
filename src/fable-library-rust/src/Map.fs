@@ -365,9 +365,9 @@ let rec foldFromTo lo hi f (m: Map<'K, 'V>) x =
 let foldSection lo hi f (m: Map<'K, 'V>) x =
     if (compare lo hi) = 1 then x else foldFromTo lo hi f m x
 
-// let copyToArray m (arr: _[]) i =
-//     let mutable j = i
-//     iterate (fun k v -> arr.[j] <- KeyValuePair(k, v); j <- j + 1) m
+let copyToArray m (arr: _[]) i =
+    let mutable j = i
+    iterate (fun k v -> arr.[j] <- (k, v); j <- j + 1) m
 
 let keys (m: Map<'K, 'V>) =
     // TODO: KeyCollection(m) :> ICollection<'K>
@@ -379,7 +379,7 @@ let values (m: Map<'K, 'V>) =
     foldBack (fun k v acc -> v::acc) m []
     |> Seq.ofList
 
-let toArray m =
+let toArray (m: Map<'K, 'V>) =
     let len = count m
     let res = ResizeArray<_>(len)
     iterate (fun k v -> res.Add((k, v))) m
@@ -387,6 +387,16 @@ let toArray m =
 
 let toList (m: Map<'K, 'V>) =
     foldBack (fun k v acc -> (k, v)::acc) m []
+
+let toSeq (m: Map<'K, 'V>) =
+    // Seq.delay (fun () -> mkIEnumerator m) // TODO:
+    Seq.delay (fun () -> toList m |> Seq.ofList)
+
+let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
+    List.compareWith compare (toList m1) (toList m2)
+
+let equalsTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
+    compareTo m1 m2 = 0
 
 let ofArray xs =
     Array.fold (fun acc (k, v) -> add k v acc) empty xs
@@ -469,9 +479,6 @@ let unexpectedStackForMoveNext() =
 
 //       interface System.IDisposable with
 //           member _.Dispose() = ()}
-
-// let toSeq (m: Map<'K, 'V>) =
-//     Seq.delay (fun () -> mkIEnumerator m)
 
 (*
 

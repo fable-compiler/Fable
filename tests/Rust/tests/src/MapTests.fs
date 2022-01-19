@@ -247,24 +247,21 @@ let ``Map.toArray works`` () =
     snd xs.[2] = snd zs.[2]
     |> equal true
 
-// [<Fact>]
-// let ``Map.toSeq works`` () =
-//     let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
-//     let ys = Map.ofSeq xs
-//     let zs = Map.toSeq ys
-//     (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
-//     |> equal true
+[<Fact>]
+let ``Map.toSeq works`` () =
+    let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
+    let ys = Map.ofSeq xs
+    let zs = Map.toSeq ys
+    (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
+    |> equal true
 
-// [<Fact>]
-// let ``Map.toSeq generates sequences that can be iterated multiple times`` () = // See #2242
-//     let pr (sequence: seq<int * string>) =
-//         sequence
-//         |> Seq.map (fun (i, v) -> v)
-//         |> String.concat ", "
-
-//     let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
-//     pr someSeq |> equal "a, b"
-//     pr someSeq |> equal "a, b"
+[<Fact>]
+let ``Map.toSeq generates sequences that can be iterated multiple times`` () = // See #2242
+    let pr (sequence: seq<int * string>) =
+        sequence |> Seq.map (fun (i, v) -> v)
+    let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
+    pr someSeq |> Seq.toArray |> equal [|"a"; "b"|]
+    pr someSeq |> Seq.toArray |> equal [|"a"; "b"|]
 
 [<Fact>]
 let ``Map.keys works`` () =
@@ -310,12 +307,26 @@ let ``Map.change works`` () =
     m |> Map.change "b" (Option.map (fun v -> v + 1))
     |> Map.toArray |> equal (Map.toArray m2)
 
+[<Fact>]
+let ``Map equality works`` () =
+    let m = Map ["a",1; "b",2]
+    let m2 = Map ["a",1; "b",3]
+    m = m |> equal true
+    m = m2 |> equal false
+
 // [<Fact>]
-// let ``Map equality works`` () =
+// let ``Map comparison works`` () =
 //     let m = Map ["a",1; "b",2]
 //     let m2 = Map ["a",1; "b",3]
-//     m = m |> equal true
-//     m = m2 |> equal false
+//     m < m |> equal false
+//     m < m2 |> equal true
+
+[<Fact>]
+let ``Map compare works`` () =
+    let m = Map ["a",1; "b",2]
+    let m2 = Map ["a",1; "b",3]
+    compare m m |> equal 0
+    compare m m2 |> equal -1
 
 // [<Fact>]
 // let ``Map works with keys with custom comparison`` () =

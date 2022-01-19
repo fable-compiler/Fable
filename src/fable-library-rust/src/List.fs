@@ -234,6 +234,12 @@ let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int
         let c = comparer (head xs) (head ys)
         if c = 0 then compareWith comparer (tail xs) (tail ys) else c
 
+let compareTo (xs: 'T list) (ys: 'T list) =
+    compareWith compare xs ys
+
+let equalsTo (xs: 'T list) (ys: 'T list) =
+    compareTo xs ys = 0
+
 let rec exists predicate (xs: 'T list) =
     if isEmpty xs then false
     else
