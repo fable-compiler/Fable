@@ -170,6 +170,8 @@ module FileWatcherUtil =
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d = $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
         files
+        // Filter since F# compiler may include files with this extension in temporary folders for resolution of Nuget
+        // references in script files.
         |> List.filter (fun file -> not (file.EndsWith(".fsproj.fsx")))
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
