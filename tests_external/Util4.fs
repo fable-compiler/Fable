@@ -3,7 +3,7 @@ module Fable.Tests.Util4
 open Fable.Core
 
 #if FABLE_COMPILER
-let foo: string = JsInterop.importMember "../tests/Main/js/1foo.js"
+let foo: string = JsInterop.importMember "../tests/Js/Main/js/1foo.js"
 
 let bar: int = JsInterop.importMember "./bar.js"
 

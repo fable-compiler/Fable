@@ -11,18 +11,14 @@
   </ItemGroup>
   <ItemGroup>
     <!-- <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" /> -->
-    <ProjectReference Include="..\..\src\Fable.AST\Fable.AST.fsproj" />
-    <ProjectReference Include="..\..\src\Fable.Transforms\Fable.Transforms.fsproj" />
-    <ProjectReference Include="..\..\src\Fable.Cli\Fable.Cli.fsproj" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <ProjectReference Include="..\..\..\src\Fable.AST\Fable.AST.fsproj" />
+    <ProjectReference Include="..\..\..\src\Fable.Transforms\Fable.Transforms.fsproj" />
+    <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />
+    <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Compile Include="..\..\src\fable-standalone\src\Interfaces.fs"/>
-    <Compile Include="..\..\src\fable-standalone\src\Lexer.fs"/>
-    <Compile Include="..\..\src\fable-standalone\src\Main.fs"/>
-    <Compile Include="..\..\src\fable-standalone\test\bench\Platform.fs" /> -->
-    <Compile Include="../Main/Util/Util.Testing.fs" />
+    <Compile Include="../../Js/Main/Util/Util.Testing.fs" />
     <Compile Include="Util/Compiler.fs" />
     <Compile Include="CompilerMessagesTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />

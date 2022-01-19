@@ -235,9 +235,9 @@ let buildLibraryRust() =
 //     if not (pathExists (baseDir </> "build/fable-library-rust")) then
 //         buildLibraryRust()
 
-// Like testJs() but doesn't create bundles/packages for fable-standalone & friends
+// Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
-let testJsFast() =
+let testStandaloneFast() =
     runFableWithArgs "src/fable-standalone/src" [
         "--noCache"
     ]
@@ -248,8 +248,8 @@ let testJsFast() =
     ]
 
     let fableJs = "./src/fable-compiler-js/src/app.fs.js"
-    let testProj = "tests/Main/Fable.Tests.fsproj"
-    let buildDir = "build/tests-js"
+    let testProj = "tests/Js/Main/Fable.Tests.fsproj"
+    let buildDir = "build/tests/Standalone"
     run $"node {fableJs} {testProj} {buildDir}"
     runMocha buildDir
 
@@ -369,9 +369,9 @@ let buildCompilerJs(minify: bool) =
     // Copy fable-metadata
     copyDirRecursive ("src/fable-metadata/lib") (distDir </> "fable-metadata")
 
-let testJs(minify) =
+let testStandalone(minify) =
     let fableDir = "src/fable-compiler-js"
-    let buildDir = "build/tests-js"
+    let buildDir = "build/tests/Standalone"
 
     if not (pathExists "build/fable-compiler-js") then
         buildCompilerJs(minify)
@@ -383,7 +383,7 @@ let testJs(minify) =
     runInDir fableDir "npm link ../fable-standalone"
 
     // Test fable-compiler-js locally
-    run $"node {fableDir} tests/Main/Fable.Tests.fsproj {buildDir}"
+    run $"node {fableDir} tests/Js/Main/Fable.Tests.fsproj {buildDir}"
     runMocha buildDir
 
     // // Another local fable-compiler-js test
@@ -395,18 +395,12 @@ let testJs(minify) =
     runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
 let testReact() =
-    runFableWithArgs "tests/React" ["--noCache"]
-    runInDir "tests/React" "npm i && npm test"
+    runFableWithArgs "tests/Js/React" ["--noCache"]
+    runInDir "tests/Js/React" "npm i && npm test"
 
-let testCompiler() =
-    runInDir "tests/Compiler" "dotnet run -c Release"
-
-let testIntegration() =
-    runInDir "tests/Integration" "dotnet run -c Release"
-
-let compileAndRunTestsWithMocha clean projectDir buildDir =
-    let projectDir = "tests/" + projectDir
-    let buildDir = "build/" + buildDir
+let compileAndRunTestsWithMocha clean projectName =
+    let projectDir = "tests/Js/" + projectName
+    let buildDir = "build/tests/Js/" + projectName
 
     if clean then
         cleanDirs [buildDir]
@@ -418,17 +412,14 @@ let compileAndRunTestsWithMocha clean projectDir buildDir =
 
     runMocha buildDir
 
-let testMocha clean =
-    compileAndRunTestsWithMocha clean "Main" "tests"
-
 let testProjectConfigs() =
-    [ "tests/ProjectConfigs/DebugWithExtraDefines", "Debug"
-      "tests/ProjectConfigs/CustomConfiguration", "Test"
-      "tests/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
-      "tests/ProjectConfigs/ConsoleApp", String.Empty
+    [ "tests/Integration/ProjectConfigs/DebugWithExtraDefines", "Debug"
+      "tests/Integration/ProjectConfigs/CustomConfiguration", "Test"
+      "tests/Integration/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
+      "tests/Integration/ProjectConfigs/ConsoleApp", String.Empty
     ]
     |> List.iter (fun (projectDir, configuration) ->
-        let buildDir = "build/"+ projectDir
+        let buildDir = "build/tests/Integration/"+ projectDir
 
         cleanDirs [ buildDir ]
         runFableWithArgs projectDir [
@@ -441,27 +432,28 @@ let testProjectConfigs() =
         runMocha buildDir
     )
 
-let test() =
+let testIntegration() =
+    runInDir "tests/Integration/Integration" "dotnet run -c Release"
+
+    buildLibraryIfNotExists()
+    runInDir "tests/Integration/Compiler" "dotnet run -c Release"
+    testProjectConfigs()
+
+let testJs() =
     buildLibraryIfNotExists()
 
-    testMocha true
+    compileAndRunTestsWithMocha true "Main"
 
-    runInDir "tests/Main" "dotnet run"
+    runInDir "tests/Js/Main" "dotnet run"
 
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
-    compileAndRunTestsWithMocha true "Adaptive" "tests-adaptive"
+    compileAndRunTestsWithMocha true "Adaptive"
 
     // TODO: Re-enable React tests after updating Feliz ReactComponent plugin
     // testReact()
 
-    testProjectConfigs()
-
-    testCompiler()
-
-    testIntegration()
-
     if envVarOrNone "CI" |> Option.isSome then
-        testJsFast()
+        testStandaloneFast()
 
 let testPython() =
     buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
@@ -654,14 +646,13 @@ match BUILD_ARGS_LOWER with
 //     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
 //     |> List.singleton |> quicktest
 // | "coverage"::_ -> coverage()
-| "test"::_ -> test()
-| "test-mocha"::_ -> testMocha true
-| "test-mocha-fast"::_ -> testMocha false
-| "test-configs"::_ -> testProjectConfigs()
-| "test-js"::_ -> testJs(minify)
-| "test-js-fast"::_ -> testJsFast()
+| ("test"|"test-js")::_ -> testJs()
+| "test-mocha"::_ -> compileAndRunTestsWithMocha true "Main"
+| "test-mocha-fast"::_ -> compileAndRunTestsWithMocha false "Main"
 | "test-react"::_ -> testReact()
-| "test-compiler"::_ -> testCompiler()
+| "test-standalone"::_ -> testStandalone(minify)
+| "test-standalone-fast"::_ -> testStandaloneFast()
+| "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust()

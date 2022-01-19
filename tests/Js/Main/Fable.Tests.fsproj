@@ -15,9 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../DllRef/Fable.Tests.DllRef.fsproj" />
-    <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
+    <ProjectReference Include="../../../tests_external/Fable.Tests.External.fsproj" />
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
 
@@ -31,7 +31,7 @@
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
-    <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="../../../tests_external/Util3.fs" />
     <Compile Include="Util/UtilTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />

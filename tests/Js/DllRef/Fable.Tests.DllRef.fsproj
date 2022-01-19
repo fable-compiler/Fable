@@ -1,16 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="Util/Util.fs" />
+    <Compile Include="Lib.fs" />
+    <Compile Include="Lib2.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
-
 </Project>
