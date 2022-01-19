@@ -282,6 +282,10 @@ module TypeInfo =
             List.forall (isTypeOf com entNames) genArgs
         | Fable.AnonymousRecordType(_, genArgs) ->
             List.forall (isTypeOf com entNames) genArgs
+        | Replacements.Builtin (Replacements.FSharpSet genArg) ->
+            isTypeOf com entNames genArg
+        | Replacements.Builtin (Replacements.FSharpMap(k, v)) ->
+            isTypeOf com entNames k && isTypeOf com entNames v
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             isEntityOf com entNames ent

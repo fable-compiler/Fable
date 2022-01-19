@@ -125,8 +125,11 @@ let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
     elif length1 < length2 then -1
     else 1
 
-// let equalsWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-//     compareWith compare source1 source2 = 0
+let compareTo (source1: 'T[]) (source2: 'T[]) =
+    compareWith compare source1 source2
+
+let equalsTo (source1: 'T[]) (source2: 'T[]) =
+    compareWith compare source1 source2 = 0
 
 let mapIndexed (mapping: int -> 'T -> 'U) (source: 'T[]) =
     let len = source.Length

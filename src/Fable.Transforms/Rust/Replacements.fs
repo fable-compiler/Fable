@@ -894,16 +894,14 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Set", "equalsTo", Boolean, [left; right], ?loc=r)
     | Builtin (FSharpMap _) ->
         Helper.LibCall(com, "Map", "equalsTo", Boolean, [left; right], ?loc=r)
-    //     Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     // | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
     //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | DeclaredType _ ->
     //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    // | Array t ->
-    //     let f = makeEqualityFunction com ctx t
-    //     Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
+    // | Array _ ->
+    //     Helper.LibCall(com, "Array", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
     // | List _ ->
-    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    //     Helper.LibCall(com, "List", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
     // | MetaType ->
     //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Tuple _ ->
@@ -930,12 +928,10 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Map", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Array t ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
-    | List t ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "List", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
+    | Array _ ->
+        Helper.LibCall(com, "Array", "compareTo", Number(Int32, None), [left; right], ?loc=r)
+    | List _ ->
+        Helper.LibCall(com, "List", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     // | Tuple _ ->
     //     Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
     | _ ->

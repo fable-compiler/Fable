@@ -82,10 +82,10 @@ let ``Set.union works`` () =
     (zs.Contains 1 && zs.Contains 2)
     |> equal true
 
-// [<Fact>]
-// let ``Set.union works II`` () =
-//     Set.union (set [1; 2]) (set [3; 4; 5])
-//     |> equal (set [5; 4; 3; 2; 1])
+[<Fact>]
+let ``Set.union works II`` () =
+    Set.union (set [1; 2]) (set [3; 4; 5]) = (set [5; 4; 3; 2; 1])
+    |> equal true
 
 // TODO: Check set equality also with non-primitives and custom-equality types
 
@@ -278,10 +278,10 @@ let ``Set.ofArray works`` () =
     let xs = Set.ofArray [|1.; 2.; 3.; 4.; 4.|]
     xs.Count |> equal 4
 
-// [<Fact>]
-// let ``Set.ofSeq works`` () =
-//     let xs = Set.ofSeq [1.; 2.; 3.; 4.; 4.]
-//     xs.Count |> equal 4
+[<Fact>]
+let ``Set.ofSeq works`` () =
+    let xs = Set.ofSeq [1.; 2.; 3.; 4.; 4.]
+    xs.Count |> equal 4
 
 [<Fact>]
 let ``Set.toList works`` () =
@@ -299,13 +299,39 @@ let ``Set.toArray works`` () =
     xs.[2] = zs.[2]
     |> equal true
 
+[<Fact>]
+let ``Set.toSeq works`` () =
+    let xs = seq [1.; 2.; 3.; 4.]
+    let ys = Set.ofSeq xs
+    let zs = Set.toSeq ys
+    (Seq.item 2 xs) = (Seq.item 2 zs)
+    |> equal true
+
+[<Fact>]
+let ``Set equality works`` () =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.; 3.; 4.]
+    let zs = set [1.; 2.; 4.; 4.]
+    xs = ys |> equal true
+    xs = zs |> equal false
+
 // [<Fact>]
-// let ``Set.toSeq works`` () =
-//     let xs = seq [1.; 2.; 3.; 4.]
-//     let ys = Set.ofSeq xs
-//     let zs = Set.toSeq ys
-//     (Seq.item 2 xs) = (Seq.item 2 zs)
-//     |> equal true
+// let ``Set comparison works`` () =
+//     let xs = set [1.; 2.; 3.; 4.]
+//     let ys = set [1.; 2.; 3.; 4.]
+//     let zs = set [1.; 2.; 4.; 4.]
+//     xs < ys |> equal false
+//     xs < zs |> equal true
+//     zs > ys |> equal true
+
+[<Fact>]
+let ``Set compare works`` () =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.; 3.; 4.]
+    let zs = set [1.; 2.; 4.; 4.]
+    compare xs ys |> equal 0
+    compare xs zs |> equal -1
+    compare zs ys |> equal 1
 
 // [<Fact>]
 // let ``Comparing large sets works`` () = // See #2203

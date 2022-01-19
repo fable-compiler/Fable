@@ -59,6 +59,14 @@ let ``Array equality works`` () =
     a1 = a4 |> equal false
 
 [<Fact>]
+let ``Array comparison works`` () =
+    let xs = [|1.;2.;3.|]
+    let ys = [|1.;2.;3.|]
+    let zs = [|1.;4.;3.|]
+    xs < ys |> equal false
+    xs < zs |> equal true
+
+[<Fact>]
 let ``Array get by index works`` () =
     let arr = [|1;2;3|]
     arr.[0] |> equal 1

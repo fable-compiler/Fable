@@ -84,13 +84,13 @@ let ``List equality works`` () =
     xs = ys |> equal true
     xs = zs |> equal false
 
-// [<Fact>]
-// let ``List comparison works`` () =
-//     let xs = [1;2;3]
-//     let ys = [1;2;3]
-//     let zs = [1;4;3]
-//     xs < ys |> equal false
-//     xs < zs |> equal true
+[<Fact>]
+let ``List comparison works`` () =
+    let xs = [1.;2.;3.]
+    let ys = [1.;2.;3.]
+    let zs = [1.;4.;3.]
+    xs < ys |> equal false
+    xs < zs |> equal true
 
 // [<Fact>]
 // let ``Pattern matching with lists works`` () =
