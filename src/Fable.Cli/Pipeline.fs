@@ -113,14 +113,34 @@ module Python =
             |> Fable2Python.Compiler.transformFile com
 
         let outPath = getTargetPath outPath
-        let! currentLines =
-            Printer.CurrentLines.Create(cliArgs.Delimiter, fun () ->
-                if IO.File.Exists(outPath) then
-                    IO.File.ReadAllLinesAsync(outPath) |> Async.AwaitTask
-                else async.Return [||])
 
-        let writer = new PythonFileWriter(outPath)
-        do! PythonPrinter.run writer currentLines python
+        match cliArgs.Delimiter with
+        | None ->
+            let writer = new PythonFileWriter(outPath)
+            do! PythonPrinter.run writer python
+
+        | Some delimiter ->
+            let nativeRegions =
+                if IO.File.Exists(outPath) then
+                    ((Some [], []), IO.File.ReadLines(outPath))
+                    ||> Seq.fold (fun (currentRegion, nativeRegions) line ->
+                        let isDelimiter = line.StartsWith(delimiter)
+                        match currentRegion with
+                        | Some currentRegion ->
+                            if isDelimiter then None, (List.rev currentRegion)::nativeRegions
+                            else Some(line::currentRegion), nativeRegions
+                        | None ->
+                            if isDelimiter then Some [], nativeRegions
+                            else None, nativeRegions
+                    )
+                    |> function
+                        | Some region, regions -> (List.rev region)::regions |> List.rev
+                        | None, regions -> regions |> List.rev
+                else []
+
+            let writer = new PythonFileWriter(outPath)
+            do! PythonPrinter.runWithRegions writer delimiter nativeRegions python
+
         match com.OutputType with
         | OutputType.Library ->
             // Make sure we include an empty `__init__.py` in every directory of a library
