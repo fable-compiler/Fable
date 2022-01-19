@@ -3982,7 +3982,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // Capture
     | "get_Index" ->
         if not isGroup then
-            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r) |> Some
+            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r)
+            |> Some
         else
             "Accessing index of Regex groups is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -4007,28 +4008,17 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         makeEqOp r thisArg.Value (Value(Null thisArg.Value.Type, None)) BinaryUnequal
         |> Some
     // Match
-    | "get_Groups" -> thisArg.Value |> Some
+    | "get_Groups" ->
+        //thisArg.Value |> Some
+        Helper.InstanceCall(thisArg.Value, "groups", t, [], i.SignatureArgTypes, ?loc = r)
+        |> Some
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
         // can be group index or group name
         //        `m.Groups.[0]` `m.Groups.["name"]`
         match (args |> List.head).Type with
         | String ->
-            // name
-            (* `groups` might not exist -> check first:
-                (`m`: `thisArg.Value`; `name`: `args.Head`)
-                  ```ts
-                  m.groups?.[name]
-                  ```
-                or here
-                  ```ts
-                  m.groups && m.groups[name]
-                  ```
-            *)
-            let groups = propStr "groups" thisArg.Value
-            let getItem = getExpr r t groups args.Head
-
-            Operation(Logical(LogicalAnd, groups, getItem), t, None)
+            Helper.InstanceCall(thisArg.Value, "group", t, [ args.Head ], i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
             // index
