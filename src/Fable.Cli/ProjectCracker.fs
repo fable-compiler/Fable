@@ -55,7 +55,7 @@ type CacheInfo =
 
 type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
-    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projFile, outDir)
+    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projFile, outDir, noCache)
     let cacheInfo =
         if noCache then None
         else CacheInfo.TryRead(fableModulesDir, fableOpts.DebugMode)
@@ -87,11 +87,16 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
     static member GetFableModulesFromDir(baseDir: string): string =
         IO.Path.Combine(baseDir, Naming.fableModules)
 
-    static member GetFableModulesFromProject(projFile: string, outDir: string option): string =
+    static member GetFableModulesFromProject(projFile: string, outDir: string option, noCache: bool): string =
         let fableModulesDir =
             outDir
             |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(projFile))
             |> CrackerOptions.GetFableModulesFromDir
+
+        if noCache then
+            try
+                IO.Directory.Delete(fableModulesDir, recursive=true)
+            with _ -> ()
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
@@ -642,6 +647,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
         { cacheInfo with FableOptions = opts.FableOptions }.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =
+
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
 
         { ProjectOptions = makeProjectOptions opts otherOptions sourcePaths
