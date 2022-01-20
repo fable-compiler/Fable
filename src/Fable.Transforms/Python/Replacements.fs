@@ -4639,6 +4639,8 @@ let private replacedModules =
            Types.icollectionGeneric, resizeArrays
            Types.icollection, resizeArrays
            Types.hashset, hashSets
+           Types.stack, bclType
+           Types.queue, bclType
            Types.iset, hashSets
            Types.option, options
            Types.valueOption, options
