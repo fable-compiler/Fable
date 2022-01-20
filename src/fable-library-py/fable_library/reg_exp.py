@@ -49,6 +49,11 @@ def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bo
 
     return reg.search(input, pos=start_at) is not None
 
+def groups(m: Match) -> List[str]:
+    # .NET adds the whole capture as group 0
+    g = list(m.groups())
+    g.insert(0, m.string)
+    return g
 
 def options(reg: Pattern[str]) -> int:
     options = 256  # ECMAScript

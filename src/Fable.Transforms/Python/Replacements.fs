@@ -4007,11 +4007,6 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Success" ->
         makeEqOp r thisArg.Value (Value(Null thisArg.Value.Type, None)) BinaryUnequal
         |> Some
-    // Match
-    | "get_Groups" ->
-        //thisArg.Value |> Some
-        Helper.InstanceCall(thisArg.Value, "groups", t, [], i.SignatureArgTypes, ?loc = r)
-        |> Some
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
         // can be group index or group name

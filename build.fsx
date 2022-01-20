@@ -471,6 +471,8 @@ let testPython() =
     ]
 
     runInDir buildDir "pytest -x"
+    // Testing in Windows
+    // runInDir buildDir "python -m pytest -x"
 
 let testRust() =
     // buildLibraryRustIfNotExists()
