@@ -698,8 +698,6 @@ module AST =
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)
             | Throw(e, t) -> Extended(Throw(f e, t), r)
-            | Return e -> Extended(Return(f e), r)
-            | Break _
             | Debugger
             | RegionStart _ -> e
         | Value(kind, r) ->

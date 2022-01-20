@@ -167,7 +167,7 @@ let argLanguage (args: CliArgs) =
     | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: CliArgs, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?precompile) = result {
+  static member Run(args: CliArgs, language: Language, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?precompile) = result {
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -200,10 +200,6 @@ type Runner =
             Error("File does not exist: " + fsprojPath)
         else
             Ok fsprojPath
-
-    let language = argLanguage args
-    Log.always($"Fable: F# to {language} compiler " + Literals.VERSION)
-    Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
 
     let typedArrays = args.FlagOr("--typedArrays", true)
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
@@ -317,8 +313,7 @@ type Runner =
         |> Result.mapEither ignore fst
 }
 
-let clean (args: CliArgs) rootDir =
-    let language = argLanguage args
+let clean (args: CliArgs) language rootDir =
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
     let fileExt =
@@ -389,7 +384,7 @@ let main argv =
             | argv -> argv |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
 
         let! args = parseCliArgs args
-
+        let language = argLanguage args
         let rootDir =
             match args.Value "--cwd" with
             | Some rootDir -> File.getExactFullPath rootDir
@@ -401,20 +396,21 @@ let main argv =
             | _ ->
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
-                Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+
+                Log.always($"Fable: F# to {language} compiler " + Literals.VERSION)
                 Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
 
         match commands with
         | ["--help"] -> return printHelp()
         | ["--version"] -> return Log.always Literals.VERSION
-        | ["clean"; dir] -> return clean args dir
-        | ["clean"] -> return clean args rootDir
-        | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
-        | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
-        | ["precompile"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, precompile=true)
-        | ["precompile"] -> return! Runner.Run(args, rootDir, runProc, precompile=true)
-        | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
-        | [] -> return! Runner.Run(args, rootDir, runProc, watch=args.FlagEnabled("--watch"))
+        | ["clean"; dir] -> return clean args language dir
+        | ["clean"] -> return clean args language rootDir
+        | ["watch"; path] -> return! Runner.Run(args, language, rootDir, runProc, fsprojPath=path, watch=true)
+        | ["watch"] -> return! Runner.Run(args, language, rootDir, runProc, watch=true)
+        | ["precompile"; path] -> return! Runner.Run(args, language, rootDir, runProc, fsprojPath=path, precompile=true)
+        | ["precompile"] -> return! Runner.Run(args, language, rootDir, runProc, precompile=true)
+        | [path] -> return! Runner.Run(args, language, rootDir, runProc, fsprojPath=path, watch=args.FlagEnabled("--watch"))
+        | [] -> return! Runner.Run(args, language, rootDir, runProc, watch=args.FlagEnabled("--watch"))
         | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
     }
     |> function

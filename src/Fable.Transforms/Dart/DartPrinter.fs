@@ -1,76 +1,9 @@
-﻿module Fable.Transforms.Dart.DartPrinter
+﻿module Fable.Transforms.DartPrinter
 
 open System
 open Fable.AST
-open Fable.AST.Fable
-
-type Writer =
-    inherit IDisposable
-    abstract Write: string -> Async<unit>
-    abstract EscapeStringLiteral: string -> string
-    abstract MakeImportPath: string -> string
-    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
-
-type Printer =
-    abstract Line: int
-    abstract Column: int
-    abstract PushIndentation: unit -> unit
-    abstract PopIndentation: unit -> unit
-    abstract Print: string -> unit
-    abstract PrintNewLine: unit -> unit
-    abstract EscapeStringLiteral: string -> string
-    abstract MakeImportPath: string -> string
-    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
-
-type PrinterImpl(writer: Writer) =
-    // TODO: We can make this configurable later
-    let indentSpaces = "    "
-    let builder = Text.StringBuilder()
-    let mutable indent = 0
-    let mutable line = 1
-    let mutable column = 0
-
-    member _.Flush(): Async<unit> =
-        async {
-            do! writer.Write(builder.ToString())
-            builder.Clear() |> ignore
-        }
-
-    interface IDisposable with
-        member _.Dispose() = writer.Dispose()
-
-    interface Printer with
-        member _.Line = line
-        member _.Column = column
-
-        member _.PrintNewLine() =
-            builder.AppendLine() |> ignore
-            line <- line + 1
-            column <- 0
-
-        member _.PushIndentation() =
-            indent <- indent + 1
-
-        member _.PopIndentation() =
-            if indent > 0 then indent <- indent - 1
-
-        member _.Print(str: string) =
-            if column = 0 then
-                let indent = String.replicate indent indentSpaces
-                builder.Append(indent) |> ignore
-                column <- indent.Length
-
-            builder.Append(str) |> ignore
-            column <- column + str.Length
-
-        member this.EscapeStringLiteral(str) =
-            writer.EscapeStringLiteral(str)
-
-        member this.MakeImportPath(path) =
-            writer.MakeImportPath(path)
-
-        member this.AddLog(msg, severity, ?range) =
-            writer.AddLog(msg, severity, ?range=range)
+open Fable.AST.Dart
+open Fable.Transforms.Printer
 
 module PrinterExtensions =
     type Printer with
@@ -93,9 +26,9 @@ module PrinterExtensions =
             if not skipNewLineAtEnd then
                 printer.PrintNewLine()
 
-        member printer.PrintBlock(nodes: Expr list, ?skipNewLineAtEnd) =
+        member printer.PrintBlock(nodes: Statement list, ?skipNewLineAtEnd) =
             printer.PrintBlock(List.toArray nodes,
-                               (fun p s -> p.Print(s)), // TODO: p.PrintProductiveStatement(s)),
+                               (fun p s -> p.PrintProductiveStatement(s)),
                                (fun p -> p.PrintStatementSeparator()),
                                ?skipNewLineAtEnd=skipNewLineAtEnd)
 
@@ -104,162 +37,157 @@ module PrinterExtensions =
                 printer.Print(";")
                 printer.PrintNewLine()
 
-        // TODO: Use Transforms.AST.canHaveSideEffects?
-        member this.HasSideEffects(e: Expr) =
+        member this.HasSideEffects(e: Expression) = // TODO
             match e with
             | _ -> true
 
-        member this.IsProductiveStatement(s: Expr) =
-            this.HasSideEffects(s)
+        member this.IsProductiveStatement(s: Statement) =
+            match s with
+            | ExpressionStatement(expr) -> this.HasSideEffects(expr)
+            | _ -> true
 
-        member printer.PrintProductiveStatement(s: Expr, ?printSeparator) =
+        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
             if printer.IsProductiveStatement(s) then
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
         member printer.Print(t: Type) =
             match t with
-            | Any -> printer.Print("Object")
-            | Unit -> printer.Print("null")
             | Boolean -> printer.Print("bool")
-            | Char -> printer.Print("null")
             | String -> printer.Print("String")
-            | Number(kind,_) ->
-                match kind with
-                | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> printer.Print("int")
-                | Float32 | Float64 -> printer.Print("double")
+            | Integer -> printer.Print("int")
+            | Double -> printer.Print("double")
             | _ -> printer.AddError("TODO: Print type")
 
         // TODO
-        member printer.ComplexExpressionWithParens(expr: Expr) =
+        member printer.ComplexExpressionWithParens(expr: Expression) =
             printer.Print(expr)
 
-        member printer.PrintOperation(kind) =
+        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression) =
+            printer.ComplexExpressionWithParens(left)
+            // TODO: review
+            match operator with
+            | BinaryEqual | BinaryEqualStrict -> printer.Print(" == ")
+            | BinaryUnequal | BinaryUnequalStrict -> printer.Print(" != ")
+            | BinaryLess -> printer.Print(" < ")
+            | BinaryLessOrEqual -> printer.Print(" <= ")
+            | BinaryGreater -> printer.Print(" > ")
+            | BinaryGreaterOrEqual -> printer.Print(" >= ")
+            | BinaryShiftLeft -> printer.Print(" << ")
+            | BinaryShiftRightSignPropagating -> printer.Print(" >> ")
+            | BinaryShiftRightZeroFill -> printer.Print(" >>> ")
+            | BinaryMinus -> printer.Print(" - ")
+            | BinaryPlus -> printer.Print(" + ")
+            | BinaryMultiply -> printer.Print(" * ")
+            | BinaryDivide -> printer.Print(" / ")
+            | BinaryModulus -> printer.Print(" % ")
+            | BinaryExponent -> printer.Print(" ** ")
+            | BinaryOrBitwise -> printer.Print(" | ")
+            | BinaryXorBitwise -> printer.Print(" ^ ")
+            | BinaryAndBitwise -> printer.Print(" & ")
+            | BinaryIn | BinaryInstanceOf -> printer.AddError($"Operator not supported {operator}")
+            printer.ComplexExpressionWithParens(right)
+
+        member printer.PrintLiteral(kind: Literal) =
             match kind with
-            | Binary(operator, left, right) ->
-                printer.ComplexExpressionWithParens(left)
-                // TODO: review
-                match operator with
-                | BinaryEqual | BinaryEqualStrict -> printer.Print(" == ")
-                | BinaryUnequal | BinaryUnequalStrict -> printer.Print(" != ")
-                | BinaryLess -> printer.Print(" < ")
-                | BinaryLessOrEqual -> printer.Print(" <= ")
-                | BinaryGreater -> printer.Print(" > ")
-                | BinaryGreaterOrEqual -> printer.Print(" >= ")
-                | BinaryShiftLeft -> printer.Print(" << ")
-                | BinaryShiftRightSignPropagating -> printer.Print(" >> ")
-                | BinaryShiftRightZeroFill -> printer.Print(" >>> ")
-                | BinaryMinus -> printer.Print(" - ")
-                | BinaryPlus -> printer.Print(" + ")
-                | BinaryMultiply -> printer.Print(" * ")
-                | BinaryDivide -> printer.Print(" / ")
-                | BinaryModulus -> printer.Print(" % ")
-                | BinaryExponent -> printer.Print(" ** ")
-                | BinaryOrBitwise -> printer.Print(" | ")
-                | BinaryXorBitwise -> printer.Print(" ^ ")
-                | BinaryAndBitwise -> printer.Print(" & ")
-                | BinaryIn | BinaryInstanceOf -> printer.AddError($"Operator not supported {operator}")
-                printer.ComplexExpressionWithParens(right)
-
-            | Logical(operator, left, right) ->
-                printer.ComplexExpressionWithParens(left)
-                match operator with
-                | LogicalOr -> printer.Print(" || ")
-                | LogicalAnd -> printer.Print(" && ")
-                printer.ComplexExpressionWithParens(right)
-
-            | Unary(operator, operand) ->
-                match operator with
-                | UnaryMinus -> printer.Print("-")
-                | UnaryPlus -> printer.Print("+")
-                | UnaryNot -> printer.Print("!")
-                | UnaryNotBitwise -> printer.Print("~")
-                | UnaryTypeof | UnaryVoid | UnaryDelete -> printer.AddError($"Operator not supported {operator}")
-                printer.ComplexExpressionWithParens(operand)
-
-        member printer.PrintValue(kind: ValueKind) =
-            match kind with
-            | BoolConstant v -> printer.Print((if v then "true" else "false"))
-            | StringConstant value ->
+            | BooleanLiteral v -> printer.Print((if v then "true" else "false"))
+            | StringLiteral value ->
                 printer.Print("\"")
                 printer.Print(printer.EscapeStringLiteral(value))
                 printer.Print("\"")
-//            | CharConstant of value: char
-            | NumberConstant(value,_,_) ->
+            | IntegerLiteral value ->
+                printer.Print(value.ToString())
+            | DoubleLiteral value ->
                 let value =
                     match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
                     | "∞" -> "double.infinity"
                     | "-∞" -> "-double.infinity"
                     | value -> value
                 printer.Print(value)
-            | ThisValue _ -> printer.Print("this")
-            | Null _ | UnitConstant -> printer.Print("null")
-//            | NewArray of values: Expr list * typ: Type
-//            | NewArrayFrom of value: Expr * typ: Type
-//            | BaseValue of boundIdent: Ident option * typ: Type
-//            | TypeInfo of typ: Type
-//            | RegexConstant of source: string * flags: RegexFlag list
-//            | EnumConstant of value: Expr * ref: EntityRef
-//            | NewOption of value: Expr option * typ: Type * isStruct: bool
-//            | NewList of headAndTail: (Expr * Expr) option * typ: Type
-//            | NewTuple of values: Expr list * isStruct: bool
-//            | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
-//            | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list
-//            | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
-            | _ -> printer.AddError("TODO: Print value")
 
-        member printer.Print(expr: Expr) =
+        member printer.Print(statement: Statement) =
+            match statement with
+            | ReturnStatement e ->
+                printer.Print("return ")
+                printer.Print(e)
+            | ExpressionStatement e ->
+                printer.Print(e)
+            | VariableDeclaration(ident, value) ->
+                printer.Print("var ")
+                printer.Print(ident.Name)
+                match value with
+                | None ->
+                    printer.Print(": ")
+                    printer.Print(ident.Type)
+                | Some value ->
+                    printer.Print(" = ")
+                    printer.Print(value)
+            // TODO: label
+            | Break label ->
+                printer.Print("break")
+            | Label _label ->
+                printer.AddError("TODO: label")
+
+        member printer.Print(expr: Expression) =
             match expr with
-            | IdentExpr i -> printer.Print(i.Name)
-            | Value(kind,_) -> printer.PrintValue(kind)
-            | Operation(kind,_,_) -> printer.PrintOperation(kind)
-            | Extended(kind,_) ->
-                match kind with
-                | Return e ->
-                    printer.Print("return ")
-                    printer.Print(e)
-                | _ -> printer.AddError("TODO: Print extended set")
+            | Literal kind -> printer.PrintLiteral(kind)
+            | IdentExpression i -> printer.Print(i.Name)
+            | BinaryExpression(op, left, right) ->
+                printer.PrintBinaryExpression(op, left, right)
+            | Assignment(target, value) ->
+                printer.Print(target)
+                printer.Print(" = ")
+                printer.Print(value)
+            // | AnonymousFunction
             | _ -> printer.AddError("TODO: Print expression")
 
-        member printer.PrintArray(items: 'a array, printItem: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
-            for i = 0 to items.Length - 1 do
-                printItem printer items.[i]
-                if i < items.Length - 1 then
-                    printSeparator printer
+        member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit) =
+            let rec printList = function
+                | [] -> ()
+                | [item] -> printItem item
+                | item::items ->
+                    printItem item
+                    printer.Print(separator)
+                    printList items
+            printer.Print(left)
+            printList items
+            printer.Print(right)
 
-        member printer.PrintCommaSeparatedArray(nodes: Ident array) =
-            printer.PrintArray(nodes, (fun p x ->
-                p.Print(x.Type)
-                p.Print(" ")
-                p.Print(x.Name)
-            ), (fun p -> p.Print(", ")))
+        member printer.PrintList(left, idents: Ident list, right, ?printType: bool) =
+            let printType = defaultArg printType false
+            printer.PrintList(left, ", ", right, idents, fun x ->
+                if printType then
+                    printer.Print(x.Type)
+                    printer.Print(" ")
+                printer.Print(x.Name)
+            )
 
-        member printer.PrintFunctionDeclaration(name: string, args: Ident list, body: Expr) =
-            printer.Print(body.Type)
+        member printer.PrintList(left, items: string list, right) =
+            printer.PrintList(left, ", ", right, items, fun (x: string) -> printer.Print(x))
+
+        member printer.PrintFunctionDeclaration(name: string, args: Ident list, body: Statement list, genParams: string list, returnType: Type) =
+            printer.Print(returnType)
             printer.Print(" ")
             printer.Print(name)
-            printer.Print("(")
-            printer.PrintCommaSeparatedArray(List.toArray args)
-            printer.Print(") ")
-
-            printer.PrintBlock([body], skipNewLineAtEnd=true)
-
-        member printer.Print(md: Declaration) =
-            match md with
-            | ModuleDeclaration _ -> printer.AddError("Nested modules are not supported")
-            | ActionDeclaration _ -> printer.AddError("TODO: Action declaration")
-            | ClassDeclaration _ -> printer.AddError("TODO: Class declaration")
-            | MemberDeclaration m -> printer.PrintFunctionDeclaration(m.Name, m.Args, m.Body)
+            match genParams with
+            | [] -> ()
+            | genParams -> printer.PrintList("<", args, ">")
+            printer.PrintList("(", args, ")", printType=true)
+            printer.Print(" ")
+            printer.PrintBlock(body, skipNewLineAtEnd=true)
 
 open PrinterExtensions
 
 let run (writer: Writer) (file: File): Async<unit> =
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Declaration) =
-        printer.Print(decl)
+        match decl with
+        | ClassDeclaration -> () // TODO
+        | FunctionDeclaration(name, args, body, genParams, returnType) ->
+            printer.PrintFunctionDeclaration(name, args, body, genParams, returnType)
 
-//        if printer.Column > 0 then
-//            printer.Print(";")
-//            printer.PrintNewLine()
+        // if printer.Column > 0 then
+        //     printer.Print(";")
+        //     printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()
 

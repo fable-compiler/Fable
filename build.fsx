@@ -666,6 +666,8 @@ match BUILD_ARGS_LOWER with
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --delimiter #fsharp --cwd ../quicktest-py --noCache"
+| "quicktest-dart"::_ ->
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest --exclude Fable.Core --noCache"
 | "run"::_ ->
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args

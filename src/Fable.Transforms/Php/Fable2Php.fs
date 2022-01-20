@@ -1244,12 +1244,6 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
 
         [ PhpFor(id,startExpr, limitExpr, isUp, bodyExpr)]
 
-    | Fable.Extended(Fable.Break label,_) ->
-        let phpLevel =
-            match label with
-            | Some lbl -> com.FindLableLevel lbl |> Some
-            | None -> None
-        [ PhpBreak phpLevel ]
     | Fable.Extended(Fable.Debugger, _) ->
         [ PhpDo (PhpFunctionCall(PhpIdent (unscopedIdent "assert"), [ PhpConst (PhpConstBool false)])) ]
     | Fable.Extended(Fable.Throw(expr, _ ),_) ->

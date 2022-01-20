@@ -14,6 +14,7 @@ type Writer =
     abstract EscapeStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
+    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
 type Printer =
     abstract Line: int
@@ -25,10 +26,11 @@ type Printer =
     abstract AddLocation: SourceLocation option -> unit
     abstract EscapeStringLiteral: string -> string
     abstract MakeImportPath: string -> string
+    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
-type PrinterImpl(writer: Writer) =
-    // TODO: We can make this configurable later
-    let indentSpaces = "    "
+// TODO: Line comments
+type PrinterImpl(writer: Writer, ?indent: string) =
+    let indentSpaces = defaultArg indent "    "
     let builder = Text.StringBuilder()
     let mutable indent = 0
     let mutable line = 1
@@ -89,3 +91,6 @@ type PrinterImpl(writer: Writer) =
 
         member _.MakeImportPath(path) =
             writer.MakeImportPath(path)
+
+        member _.AddLog(msg, severity, ?range) =
+            writer.AddLog(msg, severity, ?range=range)

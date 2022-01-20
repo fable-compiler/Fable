@@ -33,6 +33,7 @@ module Js =
                     File.changeFsExtension isInFableModules path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
+            member _.AddLog(msg, severity, ?range) = () // TODO
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
                 if cliArgs.SourceMaps then
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
@@ -91,6 +92,7 @@ module Python =
             member _.EscapeStringLiteral(str) = str
             member _.MakeImportPath(path) = path
             member _.AddSourceMapping(_) = ()
+            member _.AddLog(msg, severity, ?range) = () // TODO
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.
     let initFileWriter =
@@ -164,14 +166,12 @@ module Php =
     }
 
 module Dart =
-    open Fable.Transforms.Dart
-
     type DartWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        interface DartPrinter.Writer with
+        interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.EscapeStringLiteral(str) =
@@ -184,18 +184,19 @@ module Dart =
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
                     File.changeFsExtension isInFableModules path fileExt
                 else path
+            member _.AddSourceMapping(_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
-        let _imports, fable =
+        let file =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
-            |> Fable2Extended.Compiler.transformFile com
+            |> Fable2Dart.Compiler.transformFile com
 
         use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
-        do! DartPrinter.run writer fable
+        do! DartPrinter.run writer file
     }
 
 module Rust =
@@ -214,6 +215,8 @@ module Rust =
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
