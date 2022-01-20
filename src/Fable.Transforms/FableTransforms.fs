@@ -10,10 +10,8 @@ let getSubExpressions = function
     | Import _ -> []
     | Extended(kind, _) ->
         match kind with
-        | Return e
         | Curry(e, _)
         | Throw(e, _) -> [e]
-        | Break _
         | Debugger
         | RegionStart _ -> []
     | Value(kind,_) ->
@@ -161,7 +159,7 @@ let noSideEffectBeforeIdent identName expr =
         | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue _), _, _) ->
             findIdentOrSideEffect e
         | Import _ | Lambda _ | Delegate _ -> false
-        | Extended((Return _|Throw _|Break _|Debugger|RegionStart _),_) -> true
+        | Extended((Throw _|Debugger|RegionStart _),_) -> true
         | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect
@@ -418,9 +416,9 @@ module private Transforms =
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
                 let e = Replacements.checkArity com t arity e
-                if arity > 1 then Extended(Curry(e, arity), e.Range)
+                if arity > 1 then Extended(Curry(e, arity), r)
                 else e
-            | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), e.Range)
+            | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)

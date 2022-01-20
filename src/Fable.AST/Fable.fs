@@ -82,6 +82,7 @@ type MemberFunctionOrValue =
     abstract DisplayName: string
     abstract CompiledName: string
     abstract FullName: string
+    abstract GenericParameters: GenericParam list
     abstract CurriedParameterGroups: Parameter list list
     abstract ReturnParameter: Parameter
     abstract IsExplicitInterfaceImplementation: bool
@@ -361,9 +362,8 @@ type TestKind =
     | ListTest of isCons: bool
     | UnionCaseTest of tag: int
 
+/// Instructions that are not coming from the F# AST but are used by Fable internally.
 type ExtendedSet =
-    | Return of expr: Expr
-    | Break of label: string option
     | Throw of expr: Expr * typ: Type
     | Debugger
     /// When using the delimiter option, this marks the start of a region
@@ -374,32 +374,19 @@ type ExtendedSet =
     | Curry of expr: Expr * arity: int
     member this.Type =
         match this with
-        | Return e -> e.Type
         | Throw(_,t) -> t
         | Curry (expr, _) -> expr.Type
-        | Break _ | Debugger | RegionStart _ -> Unit
+        | Debugger | RegionStart _ -> Unit
 
+/// Unresolved expressions are used in precompiled inline functions.
+/// They will be resolved in the call context where the context is available.
 type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?
-    | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list * typ: Type * range: SourceLocation option
-    | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option * typ: Type * range: SourceLocation option
-    | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo * typ: Type * range: SourceLocation option
-    member this.Type =
-        match this with
-        | UnresolvedTraitCall(_,_,_,_,_,t,_)
-        | UnresolvedReplaceCall(_,_,_,_,t,_)
-        | UnresolvedInlineCall(_,_,_,_,t,_) -> t
-    member this.Range =
-        match this with
-        | UnresolvedTraitCall(_,_,_,_,_,_,r)
-        | UnresolvedReplaceCall(_,_,_,_,_,r)
-        | UnresolvedInlineCall(_,_,_,_,_,r) -> r
+    | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list
+    | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option
+    | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo
 
 type Expr =
-    /// The extended set contains instructions that are not used in the first FSharp2Fable pass
-    /// but later when making the AST closer to a C-like language
-    | Extended of instruction: ExtendedSet * range: SourceLocation option
-
     /// Identifiers that reference another expression
     | IdentExpr of ident: Ident
 
@@ -447,15 +434,16 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
-    | Unresolved of UnresolvedExpr
+    | Unresolved of expr: UnresolvedExpr * typ: Type * range: SourceLocation option
+    | Extended of expr: ExtendedSet * range: SourceLocation option
 
     member this.Type =
         match this with
-        | Unresolved e -> e.Type
+        | Unresolved(_,t,_) -> t
+        | Extended (kind, _) -> kind.Type
         | Test _ -> Boolean
         | Value (kind, _) -> kind.Type
         | IdentExpr id -> id.Type
-        | Extended (kind, _) -> kind.Type
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
         | TypeCast (_, t)
@@ -479,7 +467,8 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Unresolved e -> e.Range
+        | Unresolved(_,_,r)
+        | Extended (_,r) -> r
         | ObjectExpr _
         | Sequential _
         | Let _
@@ -490,7 +479,6 @@ type Expr =
         | Delegate (_, e, _)
         | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
-        | Extended(_,r)
         | Call(_,_,_,r)
         | CurriedApply(_,_,_,r)
         | Emit (_,_,r)

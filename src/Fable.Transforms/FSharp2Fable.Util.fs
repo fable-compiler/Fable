@@ -161,6 +161,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
+        member _.GenericParameters = m.GenericParameters |> Seq.mapToList (fun x -> FsGenParam(x) :> Fable.GenericParam)
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
         member _.ReturnParameter = FsParam.Make(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
@@ -1845,9 +1846,8 @@ module Util =
                     let attachedCall =
                         if info.IsInterface then callAttachedMember com r typ callInfo ent memb |> Some
                         else None
-                    Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall, typ, r)
-                    |> Fable.Unresolved
-                    |> Some
+                    let e = Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall)
+                    Fable.Unresolved(e, typ, r) |> Some
             | None ->
                 match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
                 | Some e -> Some e
@@ -1986,7 +1986,8 @@ module Util =
                 $"Recursive functions cannot be inlined: (%s{memb.FullName})"
                 |> addErrorAndReturnNull com [] r |> Some
             | Some _ ->
-                Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info, t, r) |> Fable.Unresolved |> Some
+                let e = Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info)
+                Fable.Unresolved(e, t, r) |> Some
             | None ->
                 inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
         else None

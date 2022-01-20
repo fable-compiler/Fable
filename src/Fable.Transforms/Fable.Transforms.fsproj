@@ -21,7 +21,6 @@
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
-    <Compile Include="Fable2Extended.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="Printer.fs" />
     <Compile Include="BabelPrinter.fs" />
@@ -31,6 +30,8 @@
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
+    <Compile Include="Dart/Dart.fs" />
+    <Compile Include="Dart/Fable2Dart.fs" />
     <Compile Include="Dart/DartPrinter.fs" />
     <Compile Include="Rust/RustPrinter.fs" />
     <Compile Include="Rust/Fable2Rust.fs" />

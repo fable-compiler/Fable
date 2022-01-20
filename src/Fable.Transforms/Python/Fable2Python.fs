@@ -8,7 +8,6 @@ open Fable.AST
 open Fable.AST.Python
 open Fable.PY
 open Fable.Core
-open Fable.Transforms.Fable2Extended
 
 type ReturnStrategy =
     /// Return last expression
@@ -1255,8 +1254,6 @@ module Util =
         | Fable.Extended (kind, _) ->
             match kind with
             | Fable.Throw _
-            | Fable.Return _
-            | Fable.Break _
             | Fable.Debugger
             | Fable.RegionStart _ -> true
             | Fable.Curry _ -> false
@@ -2925,7 +2922,7 @@ module Util =
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expression * Statement list =
         // printfn "transformAsExpr: %A" expr
         match expr with
-        | Fable.Unresolved e -> addErrorAndReturnNull com e.Range "Unexpected unresolved expression", []
+        | Fable.Unresolved(_,_,r) -> addErrorAndReturnNull com r "Unexpected unresolved expression", []
 
         | Fable.TypeCast (e, t) -> transformCast com ctx t e
 
@@ -3071,15 +3068,13 @@ module Util =
             match instruction with
             | Fable.Curry (e, arity) -> transformCurry com ctx e arity
             | Fable.Throw _
-            | Fable.Return _
-            | Fable.Break _
             | Fable.Debugger
             | Fable.RegionStart _ -> iife com ctx expr
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
         match expr with
-        | Fable.Unresolved e ->
-            addError com [] e.Range "Unexpected unresolved expression"
+        | Fable.Unresolved(_,_,r) ->
+            addError com [] r "Unexpected unresolved expression"
             []
 
         | Fable.Extended (kind, _r) ->
@@ -3090,9 +3085,7 @@ module Util =
                 stmts
                 @ (expr |> resolveExpr ctx e.Type returnStrategy)
             | Fable.Throw (TransformExpr com ctx (e, stmts), _) -> stmts @ [ Statement.raise (e) ]
-            | Fable.Return (TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.return' (e) ]
             | Fable.Debugger -> []
-            | Fable.Break _ -> [ Statement.break' () ]
             | Fable.RegionStart header -> [ Statement.RegionStart header ]
 
         | Fable.TypeCast (e, t) ->

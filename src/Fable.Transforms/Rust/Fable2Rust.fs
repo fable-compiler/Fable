@@ -3094,8 +3094,8 @@ module Util =
 *)
     let rec transformAsExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr): Rust.Expr =
         match fableExpr with
-        | Fable.Unresolved e ->
-            addError com [] e.Range "Unexpected unresolved expression"
+        | Fable.Unresolved(_,_,r) ->
+            addError com [] r "Unexpected unresolved expression"
             mkUnitExpr ()
 
         | Fable.TypeCast(e, t) -> transformCast com ctx t e
@@ -3187,8 +3187,6 @@ module Util =
                 transformAsExpr com ctx e
             | Fable.Throw(TransformExpr com ctx msg, _) ->
                 mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
-            | Fable.Return _
-            | Fable.Break _
             | Fable.Debugger
             | Fable.RegionStart _ ->
                 // TODO:

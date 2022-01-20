@@ -654,7 +654,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match ctx.PrecompilingInlineFunction with
         | Some _ ->
             let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
-            return Fable.UnresolvedTraitCall(sourceTypes, traitName, flags.IsInstance, argTypes, argExprs, typ, r) |> Fable.Unresolved
+            let e = Fable.UnresolvedTraitCall(sourceTypes, traitName, flags.IsInstance, argTypes, argExprs)
+            return Fable.Unresolved(e, typ, r)
         | None ->
             match tryFindWitness ctx argTypes flags.IsInstance traitName with
             | None ->
@@ -1638,9 +1639,9 @@ type FableCompiler(com: Compiler) =
                     Fable.Value(Fable.TypeInfo t, r) |> Some
 
                 // Resolve the unresolved
-                | Fable.Unresolved e ->
+                | Fable.Unresolved(e, t, r) ->
                     match e with
-                    | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
+                    | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs) ->
                         let t = resolveGenArg ctx t
                         let argTypes = argTypes |> List.map (resolveGenArg ctx)
                         let argExprs = argExprs |> List.map (resolveExpr ctx)
@@ -1653,7 +1654,7 @@ type FableCompiler(com: Compiler) =
                             let callInfo = makeCallInfo None argExprs w.ArgTypes
                             makeCall r t callInfo w.Expr |> Some
 
-                    | Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info, t, r) ->
+                    | Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info) ->
                         let t = resolveGenArg ctx t
                         let callee = callee |> Option.map (resolveExpr ctx)
                         let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx)
@@ -1661,14 +1662,14 @@ type FableCompiler(com: Compiler) =
                         let genArgs = genArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v)
                         inlineExpr this ctx r t genArgs callee info membUniqueName |> Some
 
-                    | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
+                    | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall) ->
                         let resolveArg arg =
                             let arg = resolveExpr ctx arg
                             let t = arg.Type
                             let t' = resolveGenArg ctx t
                             if t <> t' then Fable.TypeCast(arg, t') else arg
 
-                        let typ = resolveGenArg ctx typ
+                        let typ = resolveGenArg ctx t
                         let thisArg = thisArg |> Option.map resolveArg
                         let args = args |> List.map resolveArg
                         let info = { info with GenericArgs = info.GenericArgs |> List.map (fun (k, v) -> k, resolveGenArg ctx v) }
