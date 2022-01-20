@@ -161,13 +161,13 @@ module Operators =
               logicalNot
               unaryNegation ]
 
-    // let equalitySet =
-    //     set [ equality
-    //           inequality
-    //           lessThan
-    //           greaterThan
-    //           lessThanOrEqual
-    //           greaterThanOrEqual ]
+    let compareSet =
+        set [ equality; "Eq"
+              inequality; "Neq"
+              lessThan; "Lt"
+              lessThanOrEqual; "Lte"
+              greaterThan; "Gt"
+              greaterThanOrEqual; "Gte" ]
 
 [<AutoOpen>]
 module Extensions =

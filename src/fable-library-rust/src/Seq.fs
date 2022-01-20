@@ -575,27 +575,20 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T seq) =
         acc <- folder acc x
     acc
 
+let inline private asArray (a: ResizeArray<'T>): 'T[] =
+    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
+
 let toArray (xs: 'T seq): 'T[] =
-    // TODO: optimize to avoid double-copy
-    match xs with
-    // | :? array<'T> as a -> a
-    // | :? list<'T> as a -> Array.ofList a
-    | _ ->
-        let res = ResizeArray<_>()
-        for x in xs do
-            res.Add(x)
-        res.ToArray()
+    let res = ResizeArray<_>()
+    for x in xs do
+        res.Add(x)
+    res |> asArray
 
 let toList (xs: 'T seq): 'T list =
-    // TODO: optimize to avoid reverse
-    match xs with
-    // | :? array<'T> as a -> List.ofArray a
-    // | :? list<'T> as a -> a
-    | _ ->
-        let mutable acc = []
-        for x in xs do
-            acc <- x::acc
-        List.rev acc
+    let mutable acc = []
+    for x in xs do
+        acc <- x::acc
+    List.rev acc // TODO: optimize to avoid reverse
 
 let foldBack folder (xs: 'T seq) state =
     Array.foldBack folder (toArray xs) state

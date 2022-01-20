@@ -379,24 +379,28 @@ let values (m: Map<'K, 'V>) =
     foldBack (fun k v acc -> v::acc) m []
     |> Seq.ofList
 
+let inline private asArray (a: ResizeArray<'T>): 'T[] =
+    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
+
 let toArray (m: Map<'K, 'V>) =
     let len = count m
     let res = ResizeArray<_>(len)
     iterate (fun k v -> res.Add((k, v))) m
-    res
+    res |> asArray
 
 let toList (m: Map<'K, 'V>) =
     foldBack (fun k v acc -> (k, v)::acc) m []
 
 let toSeq (m: Map<'K, 'V>) =
     // Seq.delay (fun () -> mkIEnumerator m) // TODO:
-    Seq.delay (fun () -> toList m |> Seq.ofList)
+    Seq.delay (fun () -> toArray m |> Seq.ofArray)
 
 let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
-    List.compareWith compare (toList m1) (toList m2)
+    //TODO: only keys should need to have comparison
+    LanguagePrimitives.GenericComparison (toArray m1) (toArray m2)
 
 let equalsTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
-    compareTo m1 m2 = 0
+    LanguagePrimitives.GenericEquality (toArray m1) (toArray m2)
 
 let ofArray xs =
     Array.fold (fun acc (k, v) -> add k v acc) empty xs

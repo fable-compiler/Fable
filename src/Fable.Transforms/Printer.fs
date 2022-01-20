@@ -47,8 +47,9 @@ type PrinterImpl(writer: Writer) =
 
     member _.Flush(): Async<unit> =
         async {
-            do! writer.Write(builder.ToString())
-            builder.Clear() |> ignore
+            if builder.Length > 0 then
+                do! writer.Write(builder.ToString())
+                builder.Clear() |> ignore
         }
 
     interface IDisposable with
@@ -88,38 +89,3 @@ type PrinterImpl(writer: Writer) =
 
         member _.MakeImportPath(path) =
             writer.MakeImportPath(path)
-
-/// Structure that represents the current lines of the target file. Only effective when
-/// passing the delimiter option. Used to update only the regions marked by the delimiter.
-type CurrentLines private (delimiter: string, currentLines: string[]) =
-
-    static member Create(delimiter: string option, readLines: unit -> Async<string[]>) = async {
-        match delimiter with
-        | None -> return CurrentLines("", [||])
-        | Some delimiter ->
-            let! currentLines = readLines()
-            return CurrentLines(delimiter, currentLines)
-    }
-
-    member _.IsEmpty = currentLines.Length = 0
-
-    member _.PrintUntilDelimiter(printLine: string -> unit) =
-        let currentLines =
-            currentLines
-            |> Array.skipWhile (fun line ->
-                printLine line
-                line.StartsWith(delimiter) |> not)
-            |> function
-                | [||] -> [||]
-                | curLines ->
-                    Array.tail curLines
-                    |> Array.skipWhile (fun line ->
-                        line.StartsWith(delimiter) |> not)
-
-        let nextDelimiter, currentLines =
-            if not(Array.isEmpty currentLines) then
-                Some(Array.head currentLines), Array.tail currentLines
-            else
-                None, currentLines
-
-        nextDelimiter, CurrentLines(delimiter, currentLines)
