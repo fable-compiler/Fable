@@ -660,10 +660,10 @@ match BUILD_ARGS_LOWER with
 | "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    runFableWithArgsInDir "src/quicktest" ["watch --exclude Fable.Core --noCache --runScript"]
+    run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
-    runFableWithArgsInDir "src/quicktest-py" ["watch --lang Python --delimiter #fsharp --noCache"]
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --delimiter #fsharp --cwd ../quicktest-py --noCache"
 | "run"::_ ->
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
