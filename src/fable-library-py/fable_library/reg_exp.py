@@ -38,6 +38,10 @@ def match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> Optio
 
 
 def matches(reg: Pattern[str], input: str, start_at: int = 0) -> List[Match[str]]:
+    if isinstance(reg, str):
+        flags = _options_to_flags(start_at)
+        return re.findall(input, reg, flags=flags)
+
     return reg.findall(input, pos=start_at)
 
 
@@ -49,11 +53,13 @@ def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bo
 
     return reg.search(input, pos=start_at) is not None
 
-def groups(m: Match) -> List[str]:
+
+def groups(m: Match[str]) -> List[str]:
     # .NET adds the whole capture as group 0
     g = list(m.groups())
     g.insert(0, m.string)
     return g
+
 
 def options(reg: Pattern[str]) -> int:
     options = 256  # ECMAScript
@@ -79,9 +85,9 @@ def replace(
 
     if isinstance(reg, str):
         print("reg, replacement, input=", reg, replacement, input)
-        return re.sub(input, replacement, reg)
+        return re.sub(input, replacement, reg, count=limit or 0)
     else:
-        return reg.sub(replacement, input)
+        return input[:offset] + reg.sub(replacement, input[offset:], count=limit or 0)
 
 
 def split(reg: Union[str, Pattern[str]], input: str, limit: Optional[int] = None, offset: int = 0) -> List[str]:
