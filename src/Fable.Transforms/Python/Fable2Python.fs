@@ -555,7 +555,6 @@ module Helpers =
         // printfn "ModulePath: %s" modulePath
         let fileDir = Path.GetDirectoryName modulePath
         let projDir = Path.GetDirectoryName(com.ProjectFile)
-
         let modulePathname =
             match fileDir with
             | ""
@@ -566,7 +565,7 @@ module Helpers =
 
         let outDir = com.OutputDir |> Option.defaultValue projDir
 
-        //printfn "modulePathname: %A" modulePathname
+        // printfn "modulePathname: %A" modulePathname
         // printfn $"OutputDir: {com.OutputDir}"
         // printfn $"LibraryDir: {com.LibraryDir}"
         // printfn $"CurrentFile: {com.CurrentFile}"
@@ -581,22 +580,31 @@ module Helpers =
             modulePathname
                 .Replace(outDir, String.Empty) // Remove outDir from module path
                 .Replace(projDir, String.Empty) // Remove projectDir from module path
-
-        let relativePath =
-            if commonPrefix.Length > 0 then
+            |> (fun path ->
                 // Remove any common prefix between module path and project file
-                relativePath.Replace(commonPrefix, String.Empty)
-            else
-                relativePath
-        // printfn "relativePath: %A" relativePath
-        // Cleanup path
-        let relativePath = relativePath.Replace("//", "/")
+                if commonPrefix.Length > 0 then
+                    path.Replace(commonPrefix, String.Empty)
+                else
+                    path)
+            |> (fun path ->
+                // We cannot reference anything outside fable_modules from modules inside fable_modules
+                if Naming.isInFableModules com.CurrentFile then
+                    path.Replace(Naming.fableModules, String.Empty)
+                else path)
+            |> (fun path ->
+                // Cleanup path
+                path.Replace("//", "/"))
+
+        //printfn "relativePath: %A" relativePath
 
         // Relative path from current file (up) to project dir
         let fileRelative =
             let commonPrefix =
-                Path.getCommonBaseDir [ com.CurrentFile
-                                        com.ProjectFile ]
+                // Avoid going out of fable_modules and back down again, i.e ../fable_modules/fable_library
+                if Naming.isInFableModules com.CurrentFile then
+                    Path.getCommonBaseDir [ com.CurrentFile; IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)) ]
+                else
+                    Path.getCommonBaseDir [ com.CurrentFile; com.ProjectFile ]
 
             Path
                 .GetDirectoryName(com.CurrentFile.Replace(commonPrefix, String.Empty))
@@ -606,6 +614,8 @@ module Helpers =
             |> String.concat "/"
             // If empty path, then we're in the same dir
             |> (fun str -> if str.Length = 0 then "." else str)
+
+        // printfn "fileRelative: %A" fileRelative
         // printfn "mod, rel: %A" (modulePathname, relativePath)
         match modulePathname, relativePath with
         | "", _
@@ -691,7 +701,6 @@ module Helpers =
                     .Replace("../", "..")
                     .Replace("./", ".")
                     .Replace("/", ".")
-                    .Replace("...fable_modules.", "..") // attempted relative import beyond top-level package
                 + "."
             | false, "." -> ""
             | false, path ->
