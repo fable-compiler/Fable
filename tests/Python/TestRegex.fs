@@ -125,7 +125,7 @@ let ``test Regex instance Match and Matches with offset work`` () =
         (index + ms.Count) |> equal expected
     test 10 31
     test 40 -1
-    
+
 [<Fact>]
 let ``test Regex.IsMatch works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
@@ -203,6 +203,34 @@ let ``test Regex.Replace with macros works`` () =
     let str = "Alfonso Garcia-Caro"
     Regex.Replace(str, "([A-Za-z]+) ([A-Za-z\-]+)", "$2 $1") |> equal "Garcia-Caro Alfonso"
     Regex.Replace(str, "(fon)(so)", "$2 $1") |> equal "Also fon Garcia-Caro"
+
+[<Fact>]
+let ``Match.Groups indexer getter works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    let g = m.Groups.[1]
+    g.Value |> equal ".1"
+
+[<Fact>]
+let ``Match.Groups iteration works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    let mutable count = 0
+    for g in m.Groups do count <- count + g.Value.Length
+    equal 17 count
+
+[<Fact>]
+let ``Match.Groups iteration works II`` () = // See #2167
+    let m = Regex.Match("foo bar baz", @"(\w+) \w+ (\w+)")
+    let li = [for g in m.Groups -> g.Value]
+    let x = li |> List.skip 1 |> List.reduce (+)
+    equal "foobaz" x
+
+[<Fact>]
+let ``Match.Groups.Count works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    m.Groups.Count |> equal 2
 
 (* TODO
 [<Fact>]
