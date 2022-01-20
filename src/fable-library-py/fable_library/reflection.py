@@ -44,7 +44,8 @@ class TypeInfo:
         parent: Optional[TypeInfo] = None,
         fields: Optional[Callable[[], List[FieldInfo]]] = None,
         cases: Optional[Callable[[], List[CaseInfo]]] = None,
-        enum_cases: Optional[List[EnumCase]] = None):
+        enum_cases: Optional[List[EnumCase]] = None,
+    ):
 
         if self._initialized:
             return
@@ -58,14 +59,16 @@ class TypeInfo:
         self.cases = cases
         self.enum_cases = enum_cases
 
-
     def __new__(
         cls,
         fullname: str,
         generics: Optional[List[TypeInfo]] = None,
         construct: Optional[Constructor] = None,
         parent: Optional[TypeInfo] = None,
-        fields: Optional[Callable[[], List[FieldInfo]]] = None, *args, **kwargs):
+        fields: Optional[Callable[[], List[FieldInfo]]] = None,
+        *args,
+        **kwargs,
+    ) -> TypeInfo:
 
         if fullname == "":
             key = _list_to_tuple(fields()) if fields else None
