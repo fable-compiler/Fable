@@ -49,6 +49,7 @@
     <Compile Include="TestSet.fs" />
     <Compile Include="TestOption.fs" />
     <Compile Include="TestResult.fs" />
+    <Compile Include="TestStack.fs" />
     <Compile Include="TestTailCall.fs" />
     <Compile Include="TestTupleType.fs" />
     <Compile Include="TestUnionType.fs" />
@@ -57,6 +58,7 @@
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestMap.fs" />
     <Compile Include="TestArray.fs" />
+    <Compile Include="TestQueue.fs" />
     <Compile Include="TestResizeArray.fs" />
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestSudoku.fs" />

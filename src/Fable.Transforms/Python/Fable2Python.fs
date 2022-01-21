@@ -541,7 +541,6 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
-        // printfn $"clean: {name}"
         match name with
         | "Infinity" -> "float('inf')"
         | _ ->
@@ -549,7 +548,6 @@ module Helpers =
             ||> Naming.sanitizeIdent (fun _ -> false)
 
     /// Normalize Fable import to be relative to compiled file in outDir.
-    /// TODO: decide if nugets referencing fable_library should be relative or absolute. Currently absolute.
     let normalizeModulePath (com: IPythonCompiler) modulePath =
         // printfn "---"
         // printfn "ModulePath: %s" modulePath
@@ -656,7 +654,7 @@ module Helpers =
         /// True if we import something in a project reference
         let isProjectReference =
             let notInProjectDir = (not (projDir.EndsWith(commonPrefix)))
-            // printfn "notInProjectDir: %A" notInProjectDir
+
             if normalizedPath.Length > 1 then
                 notInProjectDir
                 // import exists in file dir
@@ -718,9 +716,8 @@ module Helpers =
 
     let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
         match modulePath with
-        | PythonModule (name) -> name
+        | PythonModule name -> name
         | _ -> rewriteFablePathImport com modulePath
-
 
     let unzipArgs (args: (Expression * Statement list) list) : Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id

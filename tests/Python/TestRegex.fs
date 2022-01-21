@@ -118,32 +118,48 @@ let ``test Regex instance Match and Matches work`` () =
 [<Fact>]
 let ``test Regex instance Match and Matches with offset work`` () =
     let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
     let test offset expected =
         let re = Regex("[A-E]", RegexOptions.IgnoreCase)
         let index = let m = re.Match(str, offset) in if m.Success then m.Index else -1
         let ms = re.Matches(str, offset)
         (index + ms.Count) |> equal expected
+
     test 10 31
     test 40 -1
 
 [<Fact>]
 let ``test Regex.IsMatch works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
-    Regex.IsMatch(str, "Chapter \d+(\.\d)*") |> equal true
-    Regex.IsMatch(str, "chapter \d+(\.\d)*") |> equal false
+
+    Regex.IsMatch(str, "Chapter \d+(\.\d)*")
+    |> equal true
+
+    Regex.IsMatch(str, "chapter \d+(\.\d)*")
+    |> equal false
 
 [<Fact>]
 let ``test Regex.IsMatch with IgnoreCase works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
-    Regex.IsMatch(str, "Chapter \d+(\.\d)*", RegexOptions.IgnoreCase) |> equal true
-    Regex.IsMatch(str, "chapter \d+(\.\d)*", RegexOptions.IgnoreCase) |> equal true
+
+    Regex.IsMatch(str, "Chapter \d+(\.\d)*", RegexOptions.IgnoreCase)
+    |> equal true
+
+    Regex.IsMatch(str, "chapter \d+(\.\d)*", RegexOptions.IgnoreCase)
+    |> equal true
 
 [<Fact>]
 let ``test Regex.IsMatch with Multiline works`` () =
     let str = "ab\ncd"
-    Regex.IsMatch(str, "^ab", RegexOptions.Multiline) |> equal true
-    Regex.IsMatch(str, "^cd", RegexOptions.Multiline) |> equal true
-    Regex.IsMatch(str, "^AB", RegexOptions.Multiline) |> equal false
+
+    Regex.IsMatch(str, "^ab", RegexOptions.Multiline)
+    |> equal true
+
+    Regex.IsMatch(str, "^cd", RegexOptions.Multiline)
+    |> equal true
+
+    Regex.IsMatch(str, "^AB", RegexOptions.Multiline)
+    |> equal false
 
 [<Fact>]
 let ``test RegexOptions.Singleline works`` () =
@@ -156,24 +172,68 @@ let ``test RegexOptions.Singleline works`` () =
 [<Fact>]
 let ``test Regex.Match works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
-    Regex.Match(str, "Chapter \d+(\.\d)*").Success |> equal true
-    Regex.Match(str, "chapter \d+(\.\d)*").Success |> equal false
 
-(* TODO
+    Regex.Match(str, "Chapter \d+(\.\d)*").Success
+    |> equal true
+
+    Regex.Match(str, "chapter \d+(\.\d)*").Success
+    |> equal false
+
 [<Fact>]
-let ``test Match.Groups indexer getter works`` () =
+let ``Match.Groups indexer getter works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
     let m = Regex.Match(str, "Chapter \d+(\.\d)*")
     let g = m.Groups.[1]
     g.Value |> equal ".1"
 
 [<Fact>]
-let ``test Match.Groups iteration works`` () =
+let ``Match.Groups iteration works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
     let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-    let count = ref 0
-    for g in m.Groups do count.Value <- count.Value + g.Value.Length
-    equal 17 count.Value
+    let mutable count = 0
+
+    for g in m.Groups do
+        count <- count + g.Value.Length
+
+    equal 17 count
+
+[<Fact>]
+let ``Match.Groups iteration works II`` () = // See #2167
+    let m = Regex.Match("foo bar baz", @"(\w+) \w+ (\w+)")
+    let li = [ for g in m.Groups -> g.Value ]
+    let x = li |> List.skip 1 |> List.reduce (+)
+    equal "foobaz" x
+
+[<Fact>]
+let ``Match.Groups.Count works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    m.Groups.Count |> equal 2
+
+[<Fact>]
+let ``test Match.Index works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    m.Index |> equal 26
+
+[<Fact>]
+let ``test Match.Length work`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    m.Length |> equal 15
+
+[<Fact>]
+let ``test Match.Value works`` () =
+    let str = "For more information, see Chapter 3.4.5.1"
+    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
+    m.Value |> equal "Chapter 3.4.5.1"
+
+(*
+[<Fact>]
+let ``test Regex.Matches indexer getter works`` () =
+    let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
+    ms.[8].Index |> equal 29
 *)
 
 [<Fact>]
@@ -193,61 +253,52 @@ let ``test Regex.Split with limit and offset works`` () =
 [<Fact>]
 let ``test Regex.Replace works`` () =
     let str = "Too   much   space"
+
     Regex.Replace(str, "\\s+", " ")
     |> equal "Too much space"
+
     Regex.Replace(str, "", " ")
     |> equal " T o o       m u c h       s p a c e "
 
 [<Fact>]
 let ``test Regex.Replace with macros works`` () =
     let str = "Alfonso Garcia-Caro"
-    Regex.Replace(str, "([A-Za-z]+) ([A-Za-z\-]+)", "$2 $1") |> equal "Garcia-Caro Alfonso"
-    Regex.Replace(str, "(fon)(so)", "$2 $1") |> equal "Also fon Garcia-Caro"
 
-[<Fact>]
-let ``Match.Groups indexer getter works`` () =
-    let str = "For more information, see Chapter 3.4.5.1"
-    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-    let g = m.Groups.[1]
-    g.Value |> equal ".1"
+    Regex.Replace(str, "([A-Za-z]+) ([A-Za-z\-]+)", "$2 $1")
+    |> equal "Garcia-Caro Alfonso"
 
-[<Fact>]
-let ``Match.Groups iteration works`` () =
-    let str = "For more information, see Chapter 3.4.5.1"
-    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-    let mutable count = 0
-    for g in m.Groups do count <- count + g.Value.Length
-    equal 17 count
+    Regex.Replace(str, "(fon)(so)", "$2 $1")
+    |> equal "Also fon Garcia-Caro"
 
-[<Fact>]
-let ``Match.Groups iteration works II`` () = // See #2167
-    let m = Regex.Match("foo bar baz", @"(\w+) \w+ (\w+)")
-    let li = [for g in m.Groups -> g.Value]
-    let x = li |> List.skip 1 |> List.reduce (+)
-    equal "foobaz" x
-
-[<Fact>]
-let ``Match.Groups.Count works`` () =
-    let str = "For more information, see Chapter 3.4.5.1"
-    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-    m.Groups.Count |> equal 2
-
-(* TODO
 [<Fact>]
 let ``test Regex.Replace with limit works`` () =
     let str = "Too   much   space"
     let r = Regex("\\s+")
-    r.Replace(str, " ", count=1)
+
+    r.Replace(str, " ", count = 1)
     |> equal "Too much   space"
-    r.Replace(str, " ", count=2)
+
+    r.Replace(str, " ", count = 2)
     |> equal "Too much space"
 
 [<Fact>]
 let ``test Regex.Replace with limit and offset works`` () =
     let str = "Too   much   space"
     let r = Regex("\\s+")
-    r.Replace(str, " ", count=20, startat=0)
+
+    r.Replace(str, " ", count = 20, startat = 0)
     |> equal "Too much space"
-    r.Replace(str, " ", count=20, startat=5)
+
+    r.Replace(str, " ", count = 20, startat = 5)
     |> equal "Too   much space"
-*)
+
+[<Fact>]
+let ``test Regex.Replace with limit, offset and macros works`` () =
+    let str = "Alfonso Garcia-Caro"
+    let re = Regex("([A-Za-z]+) ([A-Za-z\-]+)")
+
+    re.Replace(str, "$2 $1", 1)
+    |> equal "Garcia-Caro Alfonso"
+
+    re.Replace(str, "$2 $1", 10, 5)
+    |> equal "AlfonGarcia-Caro so"
