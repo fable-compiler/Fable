@@ -75,7 +75,7 @@ jobs:
           pip install black
 
       - name: Check Python formatting (black)
-        run: black src/fable-library-py/fable-library --check
+        run: black src/fable-library-py/fable_library --check
 
       - name: Fable Tests - Python
         run: dotnet fsi build.fsx test-py
