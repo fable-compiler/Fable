@@ -1800,9 +1800,9 @@ module Util =
                 if indexedProp then memb.CompiledName, false, false
                 else getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
-            // let membType = memb.ReturnParameter.Type |> makeType Map.empty
+            let t = memb.ReturnParameter.Type |> makeType Map.empty
             // Set the field as mutable to prevent beta reduction
-            Fable.Get(callee, Fable.FieldGet(name, true), typ, r)
+            Fable.Get(callee, Fable.FieldGet(name, true), t, r)
         elif isSetter then
             let membType = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
