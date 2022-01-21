@@ -13,7 +13,9 @@ _T = TypeVar("_T")
 
 class FSharpRef(Generic[_T]):
     def __init__(
-        self, contents_or_getter: Union_[None, _T, Callable[[], _T]], setter: Optional[Callable[[_T], None]] = None
+        self,
+        contents_or_getter: Union_[None, _T, Callable[[], _T]],
+        setter: Optional[Callable[[_T], None]] = None,
     ) -> None:
         contents = cast(_T, contents_or_getter)
 
@@ -64,7 +66,12 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
+        return (
+            self.name
+            + (" (" if with_parens else " ")
+            + fields
+            + (")" if with_parens else "")
+        )
 
     def __repr__(self) -> str:
         return str(self)
@@ -116,12 +123,17 @@ def record_compare_to(self: Record, other: Record) -> int:
 
 
 def record_to_string(self: Record) -> str:
-    return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
+    return (
+        "{ "
+        + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items()))
+        + " }"
+    )
 
 
 def record_get_hashcode(self: Record) -> int:
     slots = type(self).__slots__
     return hash(tuple(getattr(self, fixed_field) for fixed_field in slots))
+
 
 class Record(IComparable):
     __slots__: List[str]
@@ -283,4 +295,13 @@ def Float64Array(lst: List[float]):
     return array.array("d", lst)
 
 
-__all__ = ["Attribute", "Exception", "FSharpException", "FSharpRef", "Record", "seq_to_string", "to_string", "Union"]
+__all__ = [
+    "Attribute",
+    "Exception",
+    "FSharpException",
+    "FSharpRef",
+    "Record",
+    "seq_to_string",
+    "to_string",
+    "Union",
+]

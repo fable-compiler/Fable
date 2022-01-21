@@ -64,4 +64,12 @@ def equals(a: Decimal, b: Decimal) -> bool:
     return a == b
 
 
-__all__ = ["equals", "try_parse", "parse", "to_number", "to_string", "op_addition", "from_parts"]
+__all__ = [
+    "equals",
+    "try_parse",
+    "parse",
+    "to_number",
+    "to_string",
+    "op_addition",
+    "from_parts",
+]

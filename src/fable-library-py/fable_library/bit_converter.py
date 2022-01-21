@@ -1,6 +1,5 @@
 import struct
 import sys
-
 from typing import Optional
 
 
@@ -65,27 +64,39 @@ def to_char(bytes: bytearray, offset: int) -> str:
 
 
 def to_int16(bytes: bytearray, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 2], byteorder=sys.byteorder, signed=True)
+    return int.from_bytes(
+        bytes[offset : offset + 2], byteorder=sys.byteorder, signed=True
+    )
 
 
 def to_uint16(bytes: bytearray, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 2], byteorder=sys.byteorder, signed=False)
+    return int.from_bytes(
+        bytes[offset : offset + 2], byteorder=sys.byteorder, signed=False
+    )
 
 
 def to_int32(bytes: bytearray, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 4], byteorder=sys.byteorder, signed=True)
+    return int.from_bytes(
+        bytes[offset : offset + 4], byteorder=sys.byteorder, signed=True
+    )
 
 
 def to_uint32(bytes: bytearray, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 4], byteorder=sys.byteorder, signed=False)
+    return int.from_bytes(
+        bytes[offset : offset + 4], byteorder=sys.byteorder, signed=False
+    )
 
 
 def to_int64(bytes: bytes, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 8], byteorder=sys.byteorder, signed=True)
+    return int.from_bytes(
+        bytes[offset : offset + 8], byteorder=sys.byteorder, signed=True
+    )
 
 
 def to_uint64(bytes: bytearray, offset: int) -> int:
-    return int.from_bytes(bytes[offset : offset + 8], byteorder=sys.byteorder, signed=False)
+    return int.from_bytes(
+        bytes[offset : offset + 8], byteorder=sys.byteorder, signed=False
+    )
 
 
 def to_single(bytes: bytearray, offset: int) -> float:

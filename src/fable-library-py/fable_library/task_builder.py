@@ -4,9 +4,9 @@ from typing import (
     Callable,
     Iterable,
     Optional,
+    Protocol,
     TypeVar,
     overload,
-    Protocol,
 )
 
 from .task import from_result, zero
@@ -116,7 +116,7 @@ class TaskBuilder:
         ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]: # type: ignore
+    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]:  # type: ignore
         ...
 
     def While(

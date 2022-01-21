@@ -61,8 +61,8 @@ jobs:
       - name: Setup dotnet tools
         run: dotnet tool restore
 
-      - name: Check formatting
-        run: dotnet fantomas src/Fable.Transforms/Python -check
+      - name: Check F# formatting (fantomas)
+        run: dotnet fantomas src/Fable.Transforms/Python --check
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2

@@ -58,16 +58,6 @@ type MyRecord = {
     Int: int
 }
 
-let inline getType<'a>() = typeof<'a>
-
-
-[<Fact>]
-let ``test obj.ReferenceEquals not reflexive`` () =
-    let inline (==) (a: 'a) (b: 'b) = obj.ReferenceEquals(a, b)
-    let t = getType<MyRecord>()
-    typeof<MyRecord> == t |> equal true
-    t == typeof<MyRecord> |> equal true
-
 [<Fact>]
 let ``test typedefof works`` () =
     let tdef1 = typedefof<int list>

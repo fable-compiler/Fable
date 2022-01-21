@@ -1,4 +1,5 @@
 from typing import Tuple
+
 from .types import FSharpRef
 
 
@@ -42,7 +43,9 @@ def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
     raise ValueError("Input string was not in a correct format.")
 
 
-def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
+def try_parse(
+    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]
+) -> bool:
     try:
         defValue.contents = parse(string, style, unsigned, bitsize)
         return True
