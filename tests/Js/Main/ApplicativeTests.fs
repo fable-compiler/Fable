@@ -1366,17 +1366,17 @@ let tests7 = [
             | _ -> -1
         equal 7 x
 
-    // // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
-    // testCase "Functions passed to an object expression are uncurried" <| fun () ->
-    //     let mutable d = 0
-    //     let getAdder x =
-    //         d <- d + 1
-    //         fun y z -> x + y + z
-    //     let _ = getAdder 4
-    //     let f = getAdder 4
-    //     let adder = { new IAdder with member _.Add = f }
-    //     d |> equal 2
-    //     adder.Add 3 4 |> equal 11
+    // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
+    testCase "Functions passed to an object expression are uncurried" <| fun () ->
+        let mutable d = 0
+        let getAdder x =
+            d <- d + 1
+            fun y z -> x + y + z
+        let _ = getAdder 4
+        let f = getAdder 4
+        let adder = { new IAdder with member _.Add = f }
+        d |> equal 2
+        adder.Add 3 4 |> equal 11
 
     testCase "Iterating list of functions #2047" <| fun _ ->
         let mutable s = "X"
