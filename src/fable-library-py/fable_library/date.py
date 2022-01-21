@@ -13,11 +13,25 @@ def op_subtraction(x: datetime, y: datetime) -> timedelta:
 
 
 def create(
-    year: int, month: int, day: int, h: int = 0, m: int = 0, s: int = 0, ms: int = 0, kind: Optional[DateKind] = None
+    year: int,
+    month: int,
+    day: int,
+    h: int = 0,
+    m: int = 0,
+    s: int = 0,
+    ms: int = 0,
+    kind: Optional[DateKind] = None,
 ) -> datetime:
     if kind == DateKind.UTC:
         date = datetime(
-            year=year, month=month, day=day, hour=h, minute=m, second=s, microsecond=ms * 1000, tzinfo=timezone.utc
+            year=year,
+            month=month,
+            day=day,
+            hour=h,
+            minute=m,
+            second=s,
+            microsecond=ms * 1000,
+            tzinfo=timezone.utc,
         )
     else:
         date = datetime(year, month, day, h, m, s, ms * 1000)
@@ -188,7 +202,9 @@ def parse(string: str, detectUTC: bool = False) -> datetime:
     return parser.parse(string)
 
 
-def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
+def try_parse(
+    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]
+) -> bool:
     try:
         defValue.contents = parse(string)
         return True

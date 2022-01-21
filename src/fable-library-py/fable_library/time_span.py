@@ -19,9 +19,15 @@ def to_milliseconds(td: timedelta) -> int:
 
 
 def create(
-    d: int = 0, h: Optional[int] = None, m: Optional[int] = None, s: Optional[int] = None, ms: Optional[int] = None
+    d: int = 0,
+    h: Optional[int] = None,
+    m: Optional[int] = None,
+    s: Optional[int] = None,
+    ms: Optional[int] = None,
 ) -> timedelta:
     if h is None and m is None and s is None and ms is None:
         return from_ticks(d)
 
-    return timedelta(days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0)
+    return timedelta(
+        days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0
+    )

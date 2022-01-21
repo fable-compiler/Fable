@@ -1,5 +1,5 @@
 import re
-from typing import Pattern, Union, Optional, Callable, Any, Match, List
+from typing import Any, Callable, List, Match, Optional, Pattern, Union
 
 MatchEvaluator = Callable[[Any], str]
 
@@ -30,7 +30,9 @@ def unescape(string: str) -> str:
     return re.sub(r"\\(.)", r"\1", string)
 
 
-def match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> Optional[Match[str]]:
+def match(
+    reg: Union[Pattern[str], str], input: str, start_at: int = 0
+) -> Optional[Match[str]]:
     if isinstance(reg, str):
         flags = _options_to_flags(start_at)
         return re.search(input, reg, flags)
@@ -90,7 +92,12 @@ def replace(
         return input[:offset] + reg.sub(replacement, input[offset:], count=limit or 0)
 
 
-def split(reg: Union[str, Pattern[str]], input: str, limit: Optional[int] = None, offset: int = 0) -> List[str]:
+def split(
+    reg: Union[str, Pattern[str]],
+    input: str,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[str]:
     if isinstance(reg, str):
         return re.split(input, reg, maxsplit=limit or 0)
 
@@ -99,4 +106,14 @@ def split(reg: Union[str, Pattern[str]], input: str, limit: Optional[int] = None
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
-__all__ = ["escape", "is_match", "match", "matches", "create", "options", "replace", "split", "unescape"]
+__all__ = [
+    "escape",
+    "is_match",
+    "match",
+    "matches",
+    "create",
+    "options",
+    "replace",
+    "split",
+    "unescape",
+]

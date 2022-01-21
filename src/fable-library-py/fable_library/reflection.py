@@ -3,7 +3,9 @@ from __future__ import annotations
 import functools
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
-from .types import Union as FsUnion, FSharpRef, Record
+
+from .types import FSharpRef, Record
+from .types import Union as FsUnion
 from .util import combine_hash_codes, equal_arrays_with
 
 Constructor = Callable[..., Any]
@@ -79,7 +81,10 @@ def delegate_type(*generics: TypeInfo) -> TypeInfo:
 
 
 def record_type(
-    fullname: str, generics: List[TypeInfo], construct: Constructor, fields: Callable[[], List[FieldInfo]]
+    fullname: str,
+    generics: List[TypeInfo],
+    construct: Constructor,
+    fields: Callable[[], List[FieldInfo]],
 ) -> TypeInfo:
     return TypeInfo(fullname, generics, construct, fields=fields)
 
@@ -100,7 +105,9 @@ def array_type(generic: TypeInfo) -> TypeInfo:
     return TypeInfo(generic.fullname + "[]", [generic])
 
 
-def enum_type(fullname: str, underlyingType: TypeInfo, enumCases: List[EnumCase]) -> TypeInfo:
+def enum_type(
+    fullname: str, underlyingType: TypeInfo, enumCases: List[EnumCase]
+) -> TypeInfo:
     return TypeInfo(fullname, [underlyingType], None, None, None, None, enumCases)
 
 
@@ -132,7 +139,9 @@ def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
             lambda kv1, kv2: kv1[0] == kv2[0] and equals(kv1[1], kv2[1]),
         )
 
-    return t1.fullname == t2.fullname and equal_arrays_with(t1.generics, t2.generics, equals)
+    return t1.fullname == t2.fullname and equal_arrays_with(
+        t1.generics, t2.generics, equals
+    )
 
 
 def is_generic_type(t: TypeInfo) -> bool:
@@ -140,7 +149,11 @@ def is_generic_type(t: TypeInfo) -> bool:
 
 
 def get_generic_type_definition(t: TypeInfo):
-    return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
+    return (
+        t
+        if t.generics is None
+        else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
+    )
 
 
 def get_generics(t: TypeInfo) -> List[TypeInfo]:
@@ -342,7 +355,9 @@ def get_tuple_field(v: Tuple[Any, ...], i: int) -> Any:
 def make_record(t: TypeInfo, values: List[Any]) -> Dict[str, Any]:
     fields = get_record_elements(t)
     if len(fields) != len(values):
-        raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
+        raise ValueError(
+            f"Expected an array of length {len(fields)} but got {len(values)}"
+        )
 
     if t.construct is not None:
         return t.construct(*values)
@@ -363,9 +378,15 @@ def make_tuple(values: List[Any], _t: TypeInfo) -> Tuple[Any, ...]:
 def make_union(uci: CaseInfo, values: List[Any]) -> Any:
     expectedLength = len(uci.fields or [])
     if len(values) != expectedLength:
-        raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
+        raise ValueError(
+            f"Expected an array of length {expectedLength} but got {len(values)}"
+        )
 
-    return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
+    return (
+        uci.declaringType.construct(uci.tag, *values)
+        if uci.declaringType.construct
+        else {}
+    )
 
 
 def get_union_cases(t: TypeInfo) -> List[CaseInfo]:

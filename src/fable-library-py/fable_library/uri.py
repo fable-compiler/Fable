@@ -1,6 +1,6 @@
 from enum import Enum
-from urllib.parse import urlparse
 from typing import Optional
+from urllib.parse import urlparse
 
 
 class UriKind(Enum):

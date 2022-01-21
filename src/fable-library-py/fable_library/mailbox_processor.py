@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from queue import SimpleQueue
 from threading import RLock
-from typing import Optional, Callable, TypeVar, Generic, Any, List
+from typing import Any, Callable, Generic, List, Optional, TypeVar
 
-from .async_builder import CancellationToken, Async, OperationCanceledError
-from .async_ import start_immediate, from_continuations
-
+from .async_ import from_continuations, start_immediate
+from .async_builder import Async, CancellationToken, OperationCanceledError
 
 _Msg = TypeVar("_Msg")
 _Reply = TypeVar("_Reply")
@@ -50,7 +49,9 @@ class MailboxProcessor(Generic[_Msg]):
         self.messages.put(msg)
         self.__process_events()
 
-    def post_and_async_reply(self, build_message: Callable[[AsyncReplyChannel[_Reply]], _Msg]) -> Async[_Reply]:
+    def post_and_async_reply(
+        self, build_message: Callable[[AsyncReplyChannel[_Reply]], _Msg]
+    ) -> Async[_Reply]:
         """Post a message asynchronously to the mailbox processor and
         wait for the reply.
 
@@ -129,8 +130,10 @@ class MailboxProcessor(Generic[_Msg]):
             cont[0](msg)
 
     @classmethod
-    def start(cls,
-        body: Callable[[MailboxProcessor[_Msg]], Async[None]], cancellation_token: Optional[CancellationToken] = None
+    def start(
+        cls,
+        body: Callable[[MailboxProcessor[_Msg]], Async[None]],
+        cancellation_token: Optional[CancellationToken] = None,
     ) -> MailboxProcessor[_Msg]:
         mbox: MailboxProcessor[_Msg] = MailboxProcessor(body, cancellation_token)
         start_immediate(body(mbox))
@@ -151,11 +154,19 @@ def start_instance(mbox: MailboxProcessor[Any]) -> None:
 
 
 def start(
-    body: Callable[[MailboxProcessor[_Msg]], Async[None]], cancellationToken: Optional[CancellationToken] = None
+    body: Callable[[MailboxProcessor[_Msg]], Async[None]],
+    cancellationToken: Optional[CancellationToken] = None,
 ) -> MailboxProcessor[_Msg]:
     mbox = MailboxProcessor(body, cancellationToken)
     start_instance(mbox)
     return mbox
 
 
-__all__ = ["AsyncReplyChannel", "MailboxProcessor", "receive", "post", "start", "start_instance"]
+__all__ = [
+    "AsyncReplyChannel",
+    "MailboxProcessor",
+    "receive",
+    "post",
+    "start",
+    "start_instance",
+]

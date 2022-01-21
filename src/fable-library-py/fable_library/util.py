@@ -237,7 +237,9 @@ def compare(a: Any, b: Any) -> int:
     return 1
 
 
-def equal_arrays_with(xs: Optional[List[_T]], ys: Optional[List[_T]], eq: Callable[[_T, _T], bool]) -> bool:
+def equal_arrays_with(
+    xs: Optional[List[_T]], ys: Optional[List[_T]], eq: Callable[[_T, _T], bool]
+) -> bool:
     if xs is None:
         return ys is None
 
@@ -272,7 +274,13 @@ def max(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
 
 def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
     # return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
-    return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
+    return (
+        min
+        if (comparer(value, min) < 0)
+        else max
+        if comparer(value, max) > 0
+        else value
+    )
 
 
 def assert_equal(actual: Any, expected: Any, msg: Optional[str] = None) -> None:
@@ -310,14 +318,20 @@ def lazy_from_value(v: _T) -> Lazy[_T]:
 
 
 class Atom(Generic[_T], Protocol):
-    def __call__(self, value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None) -> Optional[_T]:
+    def __call__(
+        self,
+        value: Optional[_T] = None,
+        is_setter: Optional[Callable[[_T], None]] = None,
+    ) -> Optional[_T]:
         ...
 
 
 def create_atom(value: Optional[_T] = None) -> Atom[_T]:
     atom = value
 
-    def _(value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None) -> Optional[_T]:
+    def _(
+        value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None
+    ) -> Optional[_T]:
         nonlocal atom
 
         if not is_setter:
@@ -504,9 +518,13 @@ def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any
     elif arity == 4:
         return lambda a1: lambda a2: lambda a3: lambda a4: fn(a1, a2, a3, a4)
     elif arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(a1, a2, a3, a4, a5)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
+            a1, a2, a3, a4, a5
+        )
     elif arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(a1, a2, a3, a4, a5, a6)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
+            a1, a2, a3, a4, a5, a6
+        )
     elif arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             a1, a2, a3, a4, a5, a6, a7
@@ -519,7 +537,9 @@ def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
 
 
-def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callable[..., Any]:
+def partial_apply(
+    arity: int, fn: Callable[..., Any], args: List[Any]
+) -> Callable[..., Any]:
     if not fn:
         raise ValueError("partially_apply: Missing function")
 
@@ -540,9 +560,13 @@ def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callab
     if arity == 4:
         return lambda a1: lambda a2: lambda a3: lambda a4: fn(*args, a1, a2, a3, a4)
     if arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(*args, a1, a2, a3, a4, a5)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
+            *args, a1, a2, a3, a4, a5
+        )
     if arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(*args, a1, a2, a3, a4, a5, a6)
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
+            *args, a1, a2, a3, a4, a5, a6
+        )
     if arity == 7:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
             *args, a1, a2, a3, a4, a5, a6, a7
@@ -551,7 +575,9 @@ def partial_apply(arity: int, fn: Callable[..., Any], args: List[Any]) -> Callab
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
             *args, a1, a2, a3, a4, a5, a6, a7, a8
         )
-    raise ValueError(f"Partially applying to more than 8-arity is not supported: {arity}")
+    raise ValueError(
+        f"Partially applying to more than 8-arity is not supported: {arity}"
+    )
 
 
 def is_array_like(x: Any) -> bool:
@@ -614,7 +640,13 @@ class ObjectRef:
 
 
 def safe_hash(x: Any) -> int:
-    return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
+    return (
+        0
+        if x is None
+        else x.GetHashCode()
+        if is_hashable(x)
+        else number_hash(ObjectRef.id(x))
+    )
 
 
 def string_hash(s: str) -> int:
@@ -674,7 +706,11 @@ def round(value: float, digits: int = 0):
     i = math.floor(n)
     f = n - i
     e = 1e-8
-    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
+    r = (
+        (i if (i % 2 == 0) else i + 1)
+        if (f > 0.5 - e and f < 0.5 + e)
+        else builtins.round(n)
+    )
     return r / m if digits else r
 
 

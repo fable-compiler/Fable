@@ -1,4 +1,5 @@
-from typing import Any, Dict, Set, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Set, TypeVar
+
 from .types import FSharpRef
 
 _K = TypeVar("_K")
@@ -24,12 +25,16 @@ def add_to_set(v: _V, st: Set[_V]) -> bool:
 
 def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
     if k in di:
-        raise Exception("An item with the same key has already been added. Key: " + str(k))
+        raise Exception(
+            "An item with the same key has already been added. Key: " + str(k)
+        )
 
     di[k] = v
 
 
-def try_get_value(map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]) -> bool:
+def try_get_value(
+    map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]
+) -> bool:
     print([map], key)
     if key in map.keys():
 

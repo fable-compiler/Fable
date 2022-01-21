@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, Any, Optional, Union, List, Callable, cast
+from typing import Any, Callable, Generic, List, Optional, TypeVar, Union, cast
 
 _T = TypeVar("_T")
 _U = TypeVar("_U")
@@ -50,11 +50,22 @@ def map(mapping: Callable[[_T], _U], opt: Option[_T]) -> Option[_U]:
     return some(mapping(value(opt))) if opt is not None else None
 
 
-def map2(mapping: Callable[[_T, _U], _V], opt1: Option[_T], opt2: Option[_U]) -> Option[_V]:
-    return mapping(value(opt1), value(opt2)) if (opt1 is not None and opt2 is not None) else None
+def map2(
+    mapping: Callable[[_T, _U], _V], opt1: Option[_T], opt2: Option[_U]
+) -> Option[_V]:
+    return (
+        mapping(value(opt1), value(opt2))
+        if (opt1 is not None and opt2 is not None)
+        else None
+    )
 
 
-def map3(mapping: Callable[[_T, _U, _V], _W], opt1: Option[_T], opt2: Option[_U], opt3: Option[_V]) -> Option[_W]:
+def map3(
+    mapping: Callable[[_T, _U, _V], _W],
+    opt1: Option[_T],
+    opt2: Option[_U],
+    opt3: Option[_V],
+) -> Option[_W]:
     return (
         mapping(value(opt1), value(opt2), value(opt3))
         if (opt1 is not None and opt2 is not None and opt3 is not None)
