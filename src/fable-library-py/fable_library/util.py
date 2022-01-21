@@ -237,7 +237,7 @@ def compare(a: Any, b: Any) -> int:
     return 1
 
 
-def equal_arrays_with(xs: List[_T], ys: List[_T], eq: Callable[[_T, _T], bool]) -> bool:
+def equal_arrays_with(xs: Optional[List[_T]], ys: Optional[List[_T]], eq: Callable[[_T, _T], bool]) -> bool:
     if xs is None:
         return ys is None
 

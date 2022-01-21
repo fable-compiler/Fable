@@ -144,7 +144,7 @@ module Reflection =
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                (Expression.list (
+                (Expression.tuple (
                     [ Expression.constant (fi.Name)
                       typeInfo ]
                 )),
@@ -180,7 +180,7 @@ module Reflection =
             |> Seq.map (fun uci ->
                 uci.UnionCaseFields
                 |> List.map (fun fi ->
-                    Expression.list (
+                    Expression.tuple (
                         [ fi.Name |> Expression.constant
                           let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
@@ -267,7 +267,7 @@ module Reflection =
                             | Some v -> System.Convert.ToDouble v
                             | None -> 0.
 
-                        Expression.list (
+                        Expression.tuple (
                             [ Expression.constant (name)
                               Expression.constant (value) ]
                         )
@@ -294,8 +294,8 @@ module Reflection =
 
             List.zip (List.ofArray fieldNames) genArgs
             |> List.map (fun (k, t) ->
-                Expression.list[Expression.constant (k)
-                                t])
+                Expression.tuple [ Expression.constant (k)
+                                   t ])
             |> libReflectionCall com ctx None "anonRecord",
             stmts
         | Fable.DeclaredType (entRef, generics) ->
@@ -555,6 +555,7 @@ module Helpers =
         // printfn "ModulePath: %s" modulePath
         let fileDir = Path.GetDirectoryName modulePath
         let projDir = Path.GetDirectoryName(com.ProjectFile)
+
         let modulePathname =
             match fileDir with
             | ""
@@ -590,7 +591,8 @@ module Helpers =
                 // We cannot reference anything outside fable_modules from modules inside fable_modules
                 if Naming.isInFableModules com.CurrentFile then
                     path.Replace(Naming.fableModules, String.Empty)
-                else path)
+                else
+                    path)
             |> (fun path ->
                 // Cleanup path
                 path.Replace("//", "/"))
@@ -602,9 +604,11 @@ module Helpers =
             let commonPrefix =
                 // Avoid going out of fable_modules and back down again, i.e ../fable_modules/fable_library
                 if Naming.isInFableModules com.CurrentFile then
-                    Path.getCommonBaseDir [ com.CurrentFile; IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)) ]
+                    Path.getCommonBaseDir [ com.CurrentFile
+                                            IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)) ]
                 else
-                    Path.getCommonBaseDir [ com.CurrentFile; com.ProjectFile ]
+                    Path.getCommonBaseDir [ com.CurrentFile
+                                            com.ProjectFile ]
 
             Path
                 .GetDirectoryName(com.CurrentFile.Replace(commonPrefix, String.Empty))
@@ -935,7 +939,7 @@ module Annotation =
                             | Some v -> System.Convert.ToDouble v
                             | None -> 0.
 
-                        Expression.list (
+                        Expression.tuple (
                             [ Expression.constant (name)
                               Expression.constant (value) ]
                         )
