@@ -70,12 +70,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          pip install pytest
-          pip install black
-
-      - name: Check Python formatting (black)
-        run: black src/fable-library-py/fable_library --check
+        run: pip install pytest
 
       - name: Fable Tests - Python
         run: dotnet fsi build.fsx test-py
