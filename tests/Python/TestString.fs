@@ -3,6 +3,8 @@ module Fable.Tests.String
 open System
 open Util.Testing
 
+#nowarn "44" // This construct is deprecated. Uri.EscapeUriString can corrupt the Uri string in some cases. (code 44)
+
 let containsInOrder (substrings: string list) (str: string) =
     let mutable lastIndex = -1
     substrings |> List.forall (fun s ->

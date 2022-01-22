@@ -1035,6 +1035,8 @@ let ``test Unchecked.defaultof works with tuples`` () = // See #2491
     let x: struct (int*int) = Unchecked.defaultof<_>
     equal (struct(0, 0)) x
 
+# nowarn "26" //  This rule will never be matched (code 26)
+
 [<Fact>]
 let ``test Pattern matching optimization works (switch statement)`` () =
     let mutable x = ""
@@ -1270,6 +1272,8 @@ let ``test Mutating variables is not postponed (classes) `` () =
 
     for (l, r, ``l + r``) in ``inlineData PR #2683`` do
         runCase l r ``l + r``
+
+#nowarn "3370" // The use of 'incr' from the F# library is deprecated.
 [<Fact>]
 let ``test incr and decr works`` () =
     let value = ref 42

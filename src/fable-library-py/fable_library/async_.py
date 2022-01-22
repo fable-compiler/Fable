@@ -1,6 +1,8 @@
-from asyncio import Task, ensure_future
+from asyncio import Future, Task, ensure_future
+import asyncio
 from threading import Timer
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union
+from typing import Any, Awaitable, Callable, Iterable, List, Optional, TypeVar, Union
+from .task import TaskCompletionSource
 
 from .async_builder import (
     Async,
@@ -13,7 +15,9 @@ from .async_builder import (
     protected_cont,
     protected_return,
 )
-from .choice import (  # type: ignore , F# generated from Choice.fs
+
+# F# generated code (from Choice.fs)
+from .choice import (  # type: ignore
     Choice_makeChoice1Of2,
     Choice_makeChoice2Of2,
 )
@@ -22,6 +26,13 @@ _T = TypeVar("_T")
 
 
 default_cancellation_token = CancellationToken()
+
+# see AsyncBuilder.Delay
+def delay(generator: Callable[[], Async[_T]]):
+    def cont(ctx: IAsyncContext[_T]):
+        generator()(ctx)
+
+    return protected_cont(cont)
 
 
 def create_cancellation_token(arg: Union[int, bool, None] = None) -> CancellationToken:
@@ -70,6 +81,31 @@ def ignore(computation: Async[_T]) -> Async[None]:
         return protected_return()
 
     return protected_bind(computation, binder)
+
+
+def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
+    def delayed() -> Async[List[_T]]:
+        all: Future[List[_T]] = asyncio.gather(*map(start_as_task, computations))
+
+        return await_task(all)
+
+    return delay(delayed)
+
+
+def sequential(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
+    def delayed() -> Async[List[_T]]:
+        async def sequence() -> List[_T]:
+            results: List[_T] = []
+
+            for c in computations:
+                result = await start_as_task(c)
+                results.append(result)
+
+            return results
+
+        return await_task(sequence())
+
+    return delay(delayed)
 
 
 def catch_async(work: Async[_T]) -> Async[_T]:
@@ -133,6 +169,30 @@ def start_with_continuations(
     )
 
     return computation(ctx)
+
+
+def start_as_task(
+    computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
+) -> Awaitable[_T]:
+    task: TaskCompletionSource[_T] = TaskCompletionSource()
+
+    def resolve(value: Optional[_T] = None) -> None:
+        task.SetResult(value)
+
+    def reject(error: Exception) -> None:
+        task.SetException(error)
+
+    def cancel(error: OperationCanceledError) -> None:
+        task.SetCancelled()
+
+    start_with_continuations(
+        computation,
+        resolve,
+        reject,
+        cancel,
+        cancellation_token or default_cancellation_token,
+    )
+    return task.get_task()
 
 
 def start(

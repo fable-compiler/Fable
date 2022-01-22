@@ -181,6 +181,127 @@ let ``test Async.Ignore works`` () =
     equal true res.Value
 
 [<Fact>]
+let ``test Async.Parallel works`` () =
+    async {
+        let makeWork i =
+            async {
+                do! Async.Sleep 200
+                return i
+            }
+        let res: int[] ref = ref [||]
+        let works = [makeWork 1; makeWork 2; makeWork 3]
+        async {
+            let! x = Async.Parallel works
+            res.Value <- x
+        } |> Async.StartImmediate
+        do! Async.Sleep 500
+        res.Value |> Array.sum |> equal 6
+}
+
+[<Fact>]
+let ``test Async.Parallel is lazy`` () =
+    async {
+        let mutable x = 0
+
+        let add i =
+#if FABLE_COMPILER
+            x <- x + i
+#else
+            System.Threading.Interlocked.Add(&x, i) |> ignore<int>
+#endif
+
+        let a = Async.Parallel [
+            async { add 1 }
+            async { add 2 }
+        ]
+
+        do! Async.Sleep 100
+
+        equal 0 x
+
+        let! _ = a
+
+        equal 3 x
+    }
+
+[<Fact>]
+let ``test Async.Sequential works`` () =
+    async {
+        let mutable _aggregate = 0
+
+        let makeWork i =
+            async {
+                // check that the individual work items run sequentially and not interleaved
+                _aggregate <- _aggregate + i
+                let copyOfI = _aggregate
+                do! Async.Sleep 100
+                equal copyOfI _aggregate
+                do! Async.Sleep 100
+                equal copyOfI _aggregate
+                return i
+            }
+        let works = [ for i in 1 .. 5 -> makeWork i ]
+        let now = DateTimeOffset.Now
+        let! result = Async.Sequential works
+        let ``then`` = DateTimeOffset.Now
+        let d = ``then`` - now
+        if d.TotalSeconds < 0.999 then
+            failwithf "expected sequential operations to take 1 second or more, but took %.3f" d.TotalSeconds
+        result |> equal [| 1 .. 5 |]
+        result |> Seq.sum |> equal _aggregate
+    }
+
+[<Fact>]
+let ``test Async.Sequential is lazy`` () =
+    async {
+        let mutable x = 0
+
+        let a = Async.Sequential [
+            async { x <- x + 1 }
+            async { x <- x + 2 }
+        ]
+
+        do! Async.Sleep 100
+
+        equal 0 x
+
+        let! _ = a
+
+        equal 3 x
+    }
+
+[<Fact>]
+let ``test Interaction between Async and Task works`` () =
+    async {
+        let mutable res = false
+        async { res <- true }
+        |> Async.StartAsTask
+        |> Async.AwaitTask
+        |> Async.StartImmediate
+        equal true res
+    }
+#if FABLE_COMPILER
+[<Fact>]
+let ``test Tasks can be cancelled`` () =
+    async {
+        let mutable res = 0
+        let tcs = new System.Threading.CancellationTokenSource(50)
+        let work =
+            let work = async {
+                do! Async.Sleep 75
+                res <- -1
+            }
+            Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask
+        // behavior change: a cancelled task is now triggering the exception continuation instead of
+        // the cancellation continuation, see: https://github.com/Microsoft/visualfsharp/issues/1416
+        // also, System.OperationCanceledException will be changed to TaskCanceledException (not yet)
+        Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res <- 1))
+        do! Async.Sleep 100
+        equal 1 res
+    }
+#endif
+
+[<Fact>]
 let ``test MailboxProcessor.post works`` () =
     async {
         let mutable res = None
@@ -206,3 +327,153 @@ let ``test MailboxProcessor.post works`` () =
         agent.Post(3)
         equal (Some 2) res  // Mailbox has finished
     } |> Async.StartImmediate
+
+[<Fact>]
+let ``test Deep recursion with async doesn't cause stack overflow`` () =
+    async {
+        let result = ref false
+        let rec trampolineTest (res: bool ref) i = async {
+            if i > 100000
+            then res.Value <- true
+            else return! trampolineTest res (i+1)
+        }
+        do! trampolineTest result 0
+        equal result.Value true
+    }
+
+[<Fact>]
+let ``test Nested failure propagates in async expressions`` () =
+    async {
+        let data = ref ""
+        let f1 x =
+            async {
+                try
+                    failwith "1"
+                    return x
+                with
+                | e -> return! failwith ("2 " + e.Message)
+            }
+        let f2 x =
+            async {
+                try
+                    return! f1 x
+                with
+                | e -> return! failwith ("3 " + e.Message)
+            }
+        let f() =
+            async {
+                try
+                    let! y = f2 4
+                    return ()
+                with
+                | e -> data.Value <- e.Message
+            }
+            |> Async.StartImmediate
+        f()
+        do! Async.Sleep 100
+        equal "3 2 1" data.Value
+    }
+
+[<Fact>]
+let ``test Try .. finally expressions inside async expressions work`` () =
+    async {
+        let data = ref ""
+        async {
+            try data.Value <- data.Value + "1 "
+            finally data.Value <- data.Value + "2 "
+        } |> Async.StartImmediate
+        async {
+            try
+                try failwith "boom!"
+                finally data.Value <- data.Value + "3"
+            with _ -> ()
+        } |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 2 3" data.Value
+    }
+
+[<Fact>]
+let ``test Final statement inside async expressions can throw`` () =
+    async {
+        let data = ref ""
+        let f() = async {
+            try data.Value <- data.Value + "1 "
+            finally failwith "boom!"
+        }
+        async {
+            try
+                do! f()
+                return ()
+            with
+            | e -> data.Value <- data.Value + e.Message
+        }
+        |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 boom!" data.Value
+    }
+
+[<Fact>]
+let ``test Async.Bind propagates exceptions`` () = // See #724
+    async {
+        let task1 name = async {
+            // printfn "testing with %s" name
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let task2 name = async {
+            // printfn "testing with %s" name
+            do! Async.Sleep 100 //difference between task1 and task2
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let doWork name task =
+            let catch comp = async {
+                let! res = Async.Catch comp
+                return
+                    match res with
+                    | Choice1Of2 str -> str
+                    | Choice2Of2 ex -> ex.Message
+            }
+            // printfn "doing work - %s" name
+            async {
+                let! a = task "work" |> catch
+                // printfn "work - %A" a
+                let! b = task "fail" |> catch
+                // printfn "fail - %A" b
+                return a, b
+            }
+
+        let! res1 = doWork "task1" task1
+        let! res2 = doWork "task2" task2
+        equal ("Ok", "Invalid access credentials") res1
+        equal ("Ok", "Invalid access credentials") res2
+    }
+
+(*
+[<Fact>]
+let ``test Async.StartChild works`` () =
+    async {
+        let mutable x = ""
+        let taskA = async {
+            do! Async.Sleep 500
+            x <- x + "D"
+            return "E"
+        }
+        let taskB = async {
+            do! Async.Sleep 100
+            x <- x + "C"
+            return "F"
+        }
+        let! result1Async = taskA |> Async.StartChild // start first request but do not wait
+        let! result2Async = taskB |> Async.StartChild // start second request in parallel
+        x <- x + "AB"
+        let! result1 = result1Async
+        let! result2 = result2Async
+        x <- x + result1 + result2
+        equal x "ABCDEF"
+    }
+*)
