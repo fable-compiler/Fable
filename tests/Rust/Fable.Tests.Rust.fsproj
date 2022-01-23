@@ -24,7 +24,9 @@
     <Compile Include="tests/src/ClassTests.fs" />
     <Compile Include="tests/src/ClosureTests.fs" />
     <Compile Include="tests/src/ControlFlowTests.fs" />
+    <Compile Include="tests/src/DictionaryTests.fs" />
     <Compile Include="tests/src/EnumTests.fs" />
+    <Compile Include="tests/src/HashSetTests.fs" />
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/MapTests.fs" />

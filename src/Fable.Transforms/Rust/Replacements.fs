@@ -209,17 +209,17 @@ type NumberExtKind =
     | BigInt
 
 let (|NumberExtKind|_|) = function
-    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some (JsNumber kind)
-    | Types.int64 -> Some (Long false)
-    | Types.uint64 -> Some (Long true)
+    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some(JsNumber kind)
+    | Types.int64 -> Some(Long false)
+    | Types.uint64 -> Some(Long true)
     | Types.decimal -> Some Decimal
     | Types.bigint -> Some BigInt
     | _ -> None
 
 let (|NumberExt|_|) = function
-    | Number(n, _) -> Some (JsNumber n)
-    | Builtin BclInt64 -> Some (Long false)
-    | Builtin BclUInt64 -> Some (Long true)
+    | Number(n, _) -> Some(JsNumber n)
+    | Builtin BclInt64 -> Some(Long false)
+    | Builtin BclUInt64 -> Some(Long true)
     | Builtin BclDecimal -> Some Decimal
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
@@ -328,21 +328,39 @@ let (|ArrayOrListLiteral|_|) = function
     | MaybeCasted(Value((NewArray(vals, t)|ListLiteral(vals, t)),_)) -> Some(vals, t)
     | _ -> None
 
+let (|IsEntity|_|) fullName = function
+    | Fable.DeclaredType(entRef, genArgs) ->
+        if entRef.FullName = fullName
+        then Some(entRef, genArgs)
+        else None
+    | _ -> None
+
 let (|IDictionary|IEqualityComparer|Other|) = function
-    | DeclaredType(ent,_) ->
-        match ent.FullName with
-        | Types.idictionary -> IDictionary
-        | Types.equalityComparer -> IEqualityComparer
-        | _ -> Other
+    | IsEntity (Types.idictionary) _ -> IDictionary
+    | IsEntity (Types.equalityComparer) _ -> IEqualityComparer
     | _ -> Other
 
 let (|IEnumerable|IEqualityComparer|Other|) = function
-    | DeclaredType(ent,_) ->
-        match ent.FullName with
-        | Types.ienumerableGeneric -> IEnumerable
-        | Types.equalityComparer -> IEqualityComparer
-        | _ -> Other
+    | IsEntity (Types.ienumerableGeneric) _ -> IEnumerable
+    | IsEntity (Types.equalityComparer) _ -> IEqualityComparer
     | _ -> Other
+
+let (|Enumerator|Other|) = function
+    | "System.CharEnumerator"
+    | "System.Collections.Generic.List`1.Enumerator"
+    | "System.Collections.Generic.HashSet`1.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
+        -> Enumerator
+    | _ -> Other
+
+let (|IsEnumerator|_|) = function
+    | Fable.DeclaredType(entRef, genArgs) ->
+        match entRef.FullName with
+        | Enumerator -> Some(entRef, genArgs)
+        | _ -> None
+    | _ -> None
 
 let (|NewAnonymousRecord|_|) = function
     // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
@@ -368,7 +386,7 @@ let coreModFor = function
     | FSharpMap _ -> "Map"
     | FSharpResult _ -> "Result"
     | FSharpChoice _ -> "Choice"
-    | FSharpReference _ -> "Types"
+    | FSharpReference _ -> "Native"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
     | BclKeyValuePair _ -> failwith "Cannot decide core module"
@@ -627,10 +645,10 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
-// Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-let fastIntFloor expr =
-    let inner = makeUnOp None Any expr UnaryNotBitwise
-    makeUnOp None (Number(Int32, None)) inner UnaryNotBitwise
+// // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
+// let fastIntFloor expr =
+//     let inner = makeUnOp None Any expr UnaryNotBitwise
+//     makeUnOp None (Number(Int32, None)) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
     let kind =
@@ -706,8 +724,8 @@ let toList com returnType expr =
 let toArray r t expr =
     let t =
         match t with
-        | Array t
-        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
+        | Array t -> t
+        // this is used also by Seq.cache, which returns `'T seq` instead of `'T array`
         | DeclaredType(_, [t]) -> t
         | t -> t
     Value(NewArrayFrom(expr, t), r)
@@ -1008,27 +1026,22 @@ let makeMap (com: ICompiler) ctx r t args genArg =
         | _ -> "ofSeq"
     Helper.LibCall(com, "Map", Naming.lowerFirst meth, t, args, ?loc=r)
 
-let makeDictionaryWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
+// let makeDictionaryWithComparer com r t sourceSeq comparer =
+//     Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
 
-let makeDictionary (com: ICompiler) ctx r t sourceSeq =
-    match t with
-    | DeclaredType(_,[key;_]) when not(isCompatibleWithJsComparison key) ->
-        // makeComparer com ctx key
-        makeEqualityComparer com ctx key
-        |> makeDictionaryWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+// let makeDictionary (com: ICompiler) ctx r t sourceSeq =
+//     Helper.LibCall(com, "Dict", "ofSeq", t, [sourceSeq], ?loc=r)
 
-let makeHashSetWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "MutableSet", "HashSet", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
+// let makeHashSetWithComparer com r t sourceSeq comparer =
+//     Helper.LibCall(com, "MutableSet", "HashSet", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
 
-let makeHashSet (com: ICompiler) ctx r t sourceSeq =
-    match t with
-    | DeclaredType(_,[key]) when not(isCompatibleWithJsComparison key) ->
-        // makeComparer com ctx key
-        makeEqualityComparer com ctx key
-        |> makeHashSetWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
+// let makeHashSet (com: ICompiler) ctx r t sourceSeq =
+//     match t with
+//     | DeclaredType(_,[key]) when not(isCompatibleWithJsComparison key) ->
+//         // makeComparer com ctx key
+//         makeEqualityComparer com ctx key
+//         |> makeHashSetWithComparer com r t sourceSeq
+//     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isJsConstructor=true, ?loc=r)
 
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
@@ -1160,7 +1173,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
 
 //         match List.tryItem injectGenArgIndex genArgs with
 //         | None -> fail()
-//         | Some (_,genArg) ->
+//         | Some(_,genArg) ->
 //             match injectType with
 //             | Types.comparer ->
 //                 args @ [makeComparer com ctx genArg]
@@ -1638,7 +1651,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar com args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
-    | "CreateDictionary", [arg] -> makeDictionary com ctx r t arg |> Some
+    | "CreateDictionary", [arg] ->
+        let a = Helper.LibCall(com, "Seq", "toArray", t, args)
+        Helper.LibCall(com, "Native", "hashMapFrom", t, [a]) |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
@@ -1820,9 +1835,27 @@ let implementedStringFunctions =
            "Substring"
         |]
 
-let getEnumerator com r t expr =
-    // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
-    Helper.InstanceCall(expr, "GetEnumerator", t, [], ?loc=r)
+let getEnumerator com r t (expr: Expr) =
+    match expr.Type with
+    | IsEntity (Types.keyCollection) _
+    | IsEntity (Types.valueCollection) _
+    | IsEntity (Types.icollectionGeneric) _
+    | Fable.Array _ ->
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [expr], ?loc=r)
+    | Fable.List _ ->
+        Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [expr], ?loc=r)
+    | IsEntity (Types.hashset) _
+    | IsEntity (Types.iset) _ ->
+        let ar = Helper.LibCall(com, "Native", "hashSetEntries", t, [expr])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r)
+    | IsEntity (Types.dictionary) _
+    | IsEntity (Types.idictionary) _
+    | IsEntity (Types.ireadonlydictionary) _ ->
+        let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [expr])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r)
+    | _ ->
+        // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+        Helper.InstanceCall(expr, "GetEnumerator", t, [], ?loc=r)
 
 let emitFormat (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) macro =
     let args =
@@ -2016,9 +2049,9 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
-    | "Add", Some ar, [arg] ->
+    | "Add", Some(MaybeCasted(ar)), [arg] ->
         Helper.InstanceCall(getMut ar, "push", t, [arg], ?loc=r) |> nativeCall |> Some
-    | "Remove", Some ar, [arg] ->
+    | "Remove", Some(MaybeCasted(ar)), [arg] ->
         Helper.LibCall(com, "Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
@@ -2028,15 +2061,11 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "ForEach", Some ar, [arg] ->
         Helper.InstanceCall(ar, "forEach", t, [arg], ?loc=r) |> Some
-    | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
-    // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
-    | "get_Count", Some (MaybeCasted(ar)), _ ->
-        match ar.Type with
-        // Fable translates System.Collections.Generic.List as Array
-        // TODO: Check also IList?
-        | Array _ -> getLength r t ar |> Some
-        | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
-    | "Clear", Some ar, [] ->
+    | "GetEnumerator", Some(MaybeCasted(ar)), _ ->
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
+    | "get_Count", Some(MaybeCasted(ar)), _ ->
+        getLength r t ar |> Some
+    | "Clear", Some(MaybeCasted(ar)), [] ->
         Helper.InstanceCall(getMut ar, "clear", t, [], ?loc=r) |> Some
     | "ConvertAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
@@ -2054,7 +2083,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetRange", Some ar, [idx; cnt] ->
         Helper.LibCall(com, "Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
-    | "Contains", Some ar, [arg] ->
+    | "Contains", Some(MaybeCasted(ar)), [arg] ->
         Helper.LibCall(com, "Array", "contains", t, [arg; ar], i.SignatureArgTypes, ?loc=r) |> Some
     | "IndexOf", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "indexOf", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
@@ -2140,7 +2169,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "Array", "map", t, [mapping; source], ?loc=r) |> Some
     | "IndexOf", None, [ar; arg] ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
+    | "GetEnumerator", Some ar, _ ->
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
     | "Reverse", None, [ar] ->
         Helper.InstanceCall(getMut ar, "reverse", t, [], i.SignatureArgTypes, ?loc=r) |> Some
     | "Sort", None, [ar] ->
@@ -2208,11 +2238,13 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
         "GetSlice",   "getSlice" ] methName, Some x, _ ->
             let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
             Helper.LibCall(com, "List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "get_IsEmpty", Some x, _ -> Test(x, ListTest false, r) |> Some
+    | "get_IsEmpty", Some c, _ -> Test(c, ListTest false, r) |> Some
     | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
-    | ("GetHashCode" | "Equals" | "CompareTo"), Some callee, _ ->
-        Helper.InstanceCall(callee, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("GetHashCode" | "Equals" | "CompareTo"), Some c, _ ->
+        Helper.InstanceCall(c, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetEnumerator", Some c, _ ->
+        Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [c], ?loc=r) |> Some
     | _ -> None
 
 let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2630,67 +2662,92 @@ let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args
     | _ -> None
 
 let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg with
-    | ".ctor", _ ->
-        match i.SignatureArgTypes, args with
-        | ([]|[Number _]), _ ->
-            makeDictionary com ctx r t (makeArray Any []) |> Some
-        | [IDictionary], [arg] ->
-            makeDictionary com ctx r t arg |> Some
-        | [IDictionary; IEqualityComparer], [arg; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeDictionaryWithComparer com r t arg |> Some
-        | [IEqualityComparer], [eqComp]
-        | [Number _; IEqualityComparer], [_; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeDictionaryWithComparer com r t (makeArray Any []) |> Some
-        | _ -> None
-    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ -> getAttachedMemberWith r t thisArg.Value "size" |> Some
-    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
-    | "ContainsValue", _ ->
-        match thisArg, args with
-        | Some c, [arg] -> Helper.LibCall(com, "MapUtil", "containsValue", t, [arg; c], ?loc=r) |> Some
-        | _ -> None
-    | "TryGetValue", _ ->
-        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "Add", _ ->
-        Helper.LibCall(com, "MapUtil", "addToDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Item", _ ->
-        Helper.LibCall(com, "MapUtil", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | ReplaceName ["set_Item",     "set"
-                   "get_Keys",     "keys"
-                   "get_Values",   "values"
-                   "ContainsKey",  "has"
-                   "Clear",        "clear"
-                   "Remove",       "delete" ] methName, Some c ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, [] ->
+        Helper.LibCall(com, "Native", "hashMapEmpty", t, args) |> Some
+    | ".ctor", _, [ExprType(Number _)] ->
+        Helper.LibCall(com, "Native", "hashMapWithCapacity", t, args) |> Some
+    | ".ctor", _, [ExprType(IEnumerable)] ->
+        let a = Helper.LibCall(com, "Seq", "toArray", t, args)
+        Helper.LibCall(com, "Native", "hashMapFrom", t, [a]) |> Some
+        // match i.SignatureArgTypes, args with
+        // | ([]|[Number _]), _ ->
+        //     makeDictionary com ctx r t (makeArray Any []) |> Some
+        // | [IDictionary], [arg] ->
+        //     makeDictionary com ctx r t arg |> Some
+        // | [IDictionary; IEqualityComparer], [arg; eqComp] ->
+        //     makeComparerFromEqualityComparer eqComp
+        //     |> makeDictionaryWithComparer com r t arg |> Some
+        // | [IEqualityComparer], [eqComp]
+        // | [Number _; IEqualityComparer], [_; eqComp] ->
+        //     makeComparerFromEqualityComparer eqComp
+        //     |> makeDictionaryWithComparer com r t (makeArray Any []) |> Some
+        // | _ -> None
+    | "get_IsReadOnly", _, _ -> makeBoolConst false |> Some
+    | "get_Count", Some c, _ -> getLength r t c |> Some
+    | "GetEnumerator", Some c, _ ->
+        let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [c])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
+    | "ContainsValue", Some c, [arg] ->
+        let vs = Helper.LibCall(com, "Native", "hashMapValues", t, [c])
+        Helper.LibCall(com, "Array", "contains", t, [arg; vs], ?loc=r) |> Some
+    | "ContainsKey", Some c, _ ->
+        Helper.InstanceCall(c, "contains_key", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "TryGetValue", Some c, _ ->
+        Helper.LibCall(com, "Native", "tryGetValue", t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "TryAdd", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapTryAdd", t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Add", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapAdd", t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Remove", Some c, _ ->
+        let v = Helper.InstanceCall(getMut c, "remove", t, args, i.SignatureArgTypes, ?loc=r)
+        Helper.InstanceCall(v, "is_some", t, []) |> Some
+    | "Clear", Some c, _ ->
+        Helper.InstanceCall(getMut c, "clear", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "get_Item", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapGet", t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "set_Item", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapSet", t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "get_Keys", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapKeys", t, c::args, ?loc=r) |> Some
+    | "get_Values", Some c, _ ->
+        Helper.LibCall(com, "Native", "hashMapValues", t, c::args, ?loc=r) |> Some
     | _ -> None
 
 let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ ->
-        match i.SignatureArgTypes, args with
-        | [], _ ->
-            makeHashSet com ctx r t (makeArray Any []) |> Some
-        | [IEnumerable], [arg] ->
-            makeHashSet com ctx r t arg |> Some
-        | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeHashSetWithComparer com r t arg |> Some
-        | [IEqualityComparer], [eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeHashSetWithComparer com r t (makeArray Any []) |> Some
-        | _ -> None
-    | "get_Count", _, _ -> getAttachedMemberWith r t thisArg.Value "size" |> Some
+    | ".ctor", _, [] ->
+        Helper.LibCall(com, "Native", "hashSetEmpty", t, args) |> Some
+    | ".ctor", _, [ExprType(Number _)] ->
+        Helper.LibCall(com, "Native", "hashSetWithCapacity", t, args) |> Some
+    | ".ctor", _, [ExprType(IEnumerable)] ->
+        let a = Helper.LibCall(com, "Seq", "toArray", t, args)
+        Helper.LibCall(com, "Native", "hashSetFrom", t, [a]) |> Some
+        // match i.SignatureArgTypes, args with
+        // | [], _ ->
+        //     makeHashSet com ctx r t (makeArray Any []) |> Some
+        // | [IEnumerable], [arg] ->
+        //     makeHashSet com ctx r t arg |> Some
+        // | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
+        //     makeComparerFromEqualityComparer eqComp
+        //     |> makeHashSetWithComparer com r t arg |> Some
+        // | [IEqualityComparer], [eqComp] ->
+        //     makeComparerFromEqualityComparer eqComp
+        //     |> makeHashSetWithComparer com r t (makeArray Any []) |> Some
+        // | _ -> None
+    | "get_Count", Some c, _ -> getLength r t c |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
-    | ReplaceName ["Clear",    "clear"
-                   "Contains", "has"
-                   "Remove",   "delete" ] methName, Some c, args ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
+    | "Contains", Some c, args ->
+        Helper.InstanceCall(c, "contains", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetEnumerator", Some c, _ ->
+        let ar = Helper.LibCall(com, "Native", "hashSetEntries", t, [c])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
     | "Add", Some c, [arg] ->
-        Helper.LibCall(com, "MapUtil", "addToSet", t, [arg; c], ?loc=r) |> Some
+        Helper.InstanceCall(getMut c, "insert", t, args, i.SignatureArgTypes, ?loc=r) |> nativeCall |> Some
+    | "Remove" as meth, Some c, [arg] ->
+        Helper.InstanceCall(getMut c, "remove", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Clear", Some c, _ ->
+        Helper.InstanceCall(getMut c, "clear", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
         "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
         let meth = Naming.lowerFirst meth
@@ -2932,7 +2989,7 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
 
 let systemEnv (com: ICompiler) (ctx: Context) (_: SourceLocation option) (_: Type) (i: CallInfo) (_: Expr option) (_: Expr list) =
     match i.CompiledName with
-    | "get_NewLine" -> Some (makeStrConst "\n")
+    | "get_NewLine" -> Some(makeStrConst "\n")
     | _ -> None
 
 // Initial support, making at least InvariantCulture compile-able
@@ -2995,7 +3052,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let propStr p callee = getExpr r t callee (makeStrConst p)
     let isGroup =
         match thisArg with
-        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
     match i.CompiledName with
@@ -3415,8 +3472,8 @@ let private replacedModules =
     Types.ienumerable, enumerables
     Types.ienumeratorGeneric, enumerators
     Types.ienumerator, enumerators
-    "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
-    "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
+    Types.valueCollection, resizeArrays
+    Types.keyCollection, resizeArrays
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators

@@ -126,9 +126,9 @@ let ``Set.intersectMany works`` () =
 [<Fact>]
 let ``Set.iterate works`` () =
     let xs = set [1.; 2.; 3.; 4.]
-    let total = ref 0.
-    xs |> Set.iter (fun x -> total := !total + x)
-    !total |> equal 10.
+    let mutable total = 0.
+    xs |> Set.iter (fun x -> total <- total + x)
+    total |> equal 10.
 
 [<Fact>]
 let ``Set.forAll works`` () =

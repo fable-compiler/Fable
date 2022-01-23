@@ -369,18 +369,22 @@ let copyToArray m (arr: _[]) i =
     let mutable j = i
     iterate (fun k v -> arr.[j] <- (k, v); j <- j + 1) m
 
-let keys (m: Map<'K, 'V>) =
-    // TODO: KeyCollection(m) :> ICollection<'K>
-    foldBack (fun k v acc -> k::acc) m []
-    |> Seq.ofList
-
-let values (m: Map<'K, 'V>) =
-    // TODO: ValueCollection(m) :> ICollection<'V>
-    foldBack (fun k v acc -> v::acc) m []
-    |> Seq.ofList
-
 let inline private asArray (a: ResizeArray<'T>): 'T[] =
     (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
+
+let keys (m: Map<'K, 'V>) =
+    // KeyCollection(m) :> ICollection<'K>
+    let len = count m
+    let res = ResizeArray<_>(len)
+    iterate (fun k v -> res.Add(k)) m
+    res |> asArray
+
+let values (m: Map<'K, 'V>) =
+    // ValueCollection(m) :> ICollection<'V>
+    let len = count m
+    let res = ResizeArray<_>(len)
+    iterate (fun k v -> res.Add(v)) m
+    res |> asArray
 
 let toArray (m: Map<'K, 'V>) =
     let len = count m
