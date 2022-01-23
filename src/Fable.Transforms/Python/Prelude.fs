@@ -150,7 +150,7 @@ module Naming =
 
     let sanitizeIdentForbiddenChars (ident: string) =
         if hasIdentForbiddenChars ident then
-            System.String.Concat(
+            String.Concat(
                 seq {
                     for i = 0 to (ident.Length - 1) do
                         let c = ident.[i]
@@ -165,8 +165,7 @@ module Naming =
                             "_"
                         else
                             "_"
-                            + System
-                                .String
+                            + String
                                 .Format("{0:X}", int c)
                                 .PadLeft(4, '0')
                 }

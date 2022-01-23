@@ -90,3 +90,31 @@ def try_parse(string: str, defValue: FSharpRef[int]) -> bool:
         return True
     except Exception:
         return False
+
+
+BigInteger = int
+
+__all__ = [
+    "BigInteger",
+    "equals",
+    "from_zero",
+    "from_one",
+    "from_int32",
+    "from_int64",
+    "from_string",
+    "to_decimal",
+    "to_double",
+    "to_single",
+    "to_uint64",
+    "to_int64",
+    "to_uint32",
+    "to_int32",
+    "to_uint16",
+    "to_int16",
+    "to_byte",
+    "to_sbyte",
+    "to_string",
+    "op_addition",
+    "parse",
+    "try_parse",
+]

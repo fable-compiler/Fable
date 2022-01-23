@@ -66,12 +66,7 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return (
-            self.name
-            + (" (" if with_parens else " ")
-            + fields
-            + (")" if with_parens else "")
-        )
+        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
     def __repr__(self) -> str:
         return str(self)
@@ -123,11 +118,7 @@ def record_compare_to(self: Record, other: Record) -> int:
 
 
 def record_to_string(self: Record) -> str:
-    return (
-        "{ "
-        + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items()))
-        + " }"
-    )
+    return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
 def record_get_hashcode(self: Record) -> int:
@@ -295,9 +286,22 @@ def Float64Array(lst: List[float]):
     return array.array("d", lst)
 
 
+def is_exception(x: Any):
+    return isinstance(x, Exception)
+
+
 __all__ = [
     "Attribute",
     "Exception",
+    "is_exception",
+    "Int8Array",
+    "Uint8Array",
+    "Int16Array",
+    "Uint16Array",
+    "Int32Array",
+    "Uint32Array",
+    "Float32Array",
+    "Float64Array",
     "FSharpException",
     "FSharpRef",
     "Record",
