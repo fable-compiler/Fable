@@ -277,10 +277,11 @@ let ``test Async.Sequential is lazy`` () =
 let ``test Interaction between Async and Task works`` () =
     async {
         let mutable res = false
-        async { res <- true }
-        |> Async.StartAsTask
-        |> Async.AwaitTask
-        |> Async.StartImmediate
+        do!
+            async { res <- true }
+            |> Async.StartAsTask
+            |> Async.AwaitTask
+
         equal true res
     } |> Async.RunSynchronously
 
