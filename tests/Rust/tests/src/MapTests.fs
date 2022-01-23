@@ -98,9 +98,9 @@ let ``Map.Remove works`` () =
 [<Fact>]
 let ``Map.iter works`` () =
     let xs = Map [1.,1.; 2.,4.; 3.,9.; 4.,16.]
-    let total = ref 0.
-    xs |> Map.iter (fun x y -> total := !total + x + y)
-    !total |> equal 40.
+    let mutable total = 0.
+    xs |> Map.iter (fun x y -> total <- total + x + y)
+    total |> equal 40.
 
 [<Fact>]
 let ``Map.forAll works`` () =

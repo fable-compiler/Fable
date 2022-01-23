@@ -8,8 +8,9 @@ module Seq
 // open Fable.Core
 // open System.Collections.Generic
 
-// type IEnumerator<'T> = System.Collections.Generic.IEnumerator<'T>
-// type IEnumerable<'T> = System.Collections.Generic.IEnumerable<'T>
+open Interfaces
+
+type 'T seq = IEnumerable<'T>
 
 module SR =
     let enumerationAlreadyFinished = "Enumeration already finished."
@@ -27,14 +28,6 @@ module Enumerable =
     let inline noReset() = failwith SR.resetNotSupported
     let inline notStarted() = failwith SR.enumerationNotStarted
     let inline alreadyFinished() = failwith SR.enumerationAlreadyFinished
-
-    type IEnumerator<'T> =
-        inherit System.IDisposable
-        abstract Current: 'T
-        abstract MoveNext: unit -> bool
-
-    type IEnumerable<'T> =
-        abstract GetEnumerator: unit -> IEnumerator<'T>
 
     // [<Sealed>]
     // [<CompiledName("Seq")>]
@@ -55,8 +48,6 @@ module Enumerable =
         //     if i = maxCount then
         //         str <- str + "; ..."
         //     str + "]"
-
-    type 'T seq = IEnumerable<'T>
 
     [<CompiledName("Enumerator")>]
     type FromFunction<'T>(next: unit -> 'T option) =
@@ -382,14 +373,12 @@ module Enumerable =
 // [<RequireQualifiedAccess>]
 // module Seq =
 
-type 'T seq = Enumerable.IEnumerable<'T>
-
 // let checkNonNull argName arg = () //if isNull arg then nullArg argName
 
-let mkSeq (f: unit -> Enumerable.IEnumerator<'T>): 'T seq =
+let mkSeq (f: unit -> IEnumerator<'T>): 'T seq =
     Enumerable.Enumerable(f) :> 'T seq
 
-let ofSeq (xs: 'T seq): Enumerable.IEnumerator<'T> =
+let ofSeq (xs: 'T seq): IEnumerator<'T> =
     // checkNonNull "source" xs
     xs.GetEnumerator()
 
@@ -555,7 +544,7 @@ let find predicate (xs: 'T seq) =
     | None -> indexNotFound()
 
 let tryFindIndex predicate (xs: 'T seq) =
-    let rec inner_loop i predicate (e: Enumerable.IEnumerator<'T>) =
+    let rec inner_loop i predicate (e: IEnumerator<'T>) =
         if e.MoveNext() then
             if predicate e.Current then Some i
             else inner_loop (i + 1) predicate e

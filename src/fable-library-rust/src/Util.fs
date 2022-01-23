@@ -9,5 +9,4 @@ let compare (x: 'T) (y: 'T): int =
         if x < y then -1
         else 0
 
-let ignore (x: 'T): unit =
-    ()
+let ignore (x: 'T): unit = ()

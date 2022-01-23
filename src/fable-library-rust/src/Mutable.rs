@@ -2,6 +2,7 @@ use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, Index};
+use core::hash::{Hash, Hasher};
 
 #[repr(transparent)]
 pub struct MutCell<T: ?Sized> {
@@ -25,6 +26,12 @@ impl<T: Default> Default for MutCell<T> {
     #[inline]
     fn default() -> MutCell<T> {
         MutCell::new(Default::default())
+    }
+}
+
+impl<T: Clone + Hash> Hash for MutCell<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.get().hash(state);
     }
 }
 
