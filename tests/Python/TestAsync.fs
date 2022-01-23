@@ -196,8 +196,9 @@ let ``test Async.Parallel works`` () =
         } |> Async.StartImmediate
         do! Async.Sleep 500
         res.Value |> Array.sum |> equal 6
-}
+    } |> Async.RunSynchronously
 
+(*
 [<Fact>]
 let ``test Async.Parallel is lazy`` () =
     async {
@@ -222,7 +223,8 @@ let ``test Async.Parallel is lazy`` () =
         let! _ = a
 
         equal 3 x
-    }
+    } |> Async.RunSynchronously
+*)
 
 [<Fact>]
 let ``test Async.Sequential works`` () =
@@ -249,8 +251,9 @@ let ``test Async.Sequential works`` () =
             failwithf "expected sequential operations to take 1 second or more, but took %.3f" d.TotalSeconds
         result |> equal [| 1 .. 5 |]
         result |> Seq.sum |> equal _aggregate
-    }
+    } |> Async.RunSynchronously
 
+(*
 [<Fact>]
 let ``test Async.Sequential is lazy`` () =
     async {
@@ -268,8 +271,8 @@ let ``test Async.Sequential is lazy`` () =
         let! _ = a
 
         equal 3 x
-    }
-
+    } |> Async.RunSynchronously
+*)
 [<Fact>]
 let ``test Interaction between Async and Task works`` () =
     async {
@@ -279,7 +282,8 @@ let ``test Interaction between Async and Task works`` () =
         |> Async.AwaitTask
         |> Async.StartImmediate
         equal true res
-    }
+    } |> Async.RunSynchronously
+
 #if FABLE_COMPILER
 [<Fact>]
 let ``test Tasks can be cancelled`` () =
@@ -298,7 +302,7 @@ let ``test Tasks can be cancelled`` () =
         Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res <- 1))
         do! Async.Sleep 100
         equal 1 res
-    }
+    } |> Async.StartImmediate
 #endif
 
 [<Fact>]
@@ -339,7 +343,7 @@ let ``test Deep recursion with async doesn't cause stack overflow`` () =
         }
         do! trampolineTest result 0
         equal result.Value true
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Nested failure propagates in async expressions`` () =
@@ -372,7 +376,7 @@ let ``test Nested failure propagates in async expressions`` () =
         f()
         do! Async.Sleep 100
         equal "3 2 1" data.Value
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Try .. finally expressions inside async expressions work`` () =
@@ -390,7 +394,7 @@ let ``test Try .. finally expressions inside async expressions work`` () =
         } |> Async.StartImmediate
         do! Async.Sleep 100
         equal "1 2 3" data.Value
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Final statement inside async expressions can throw`` () =
@@ -410,7 +414,7 @@ let ``test Final statement inside async expressions can throw`` () =
         |> Async.StartImmediate
         do! Async.Sleep 100
         equal "1 boom!" data.Value
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Async.Bind propagates exceptions`` () = // See #724
@@ -451,7 +455,7 @@ let ``test Async.Bind propagates exceptions`` () = // See #724
         let! res2 = doWork "task2" task2
         equal ("Ok", "Invalid access credentials") res1
         equal ("Ok", "Invalid access credentials") res2
-    }
+    } |> Async.StartImmediate
 
 (*
 [<Fact>]
