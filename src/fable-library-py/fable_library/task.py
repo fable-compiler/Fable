@@ -6,7 +6,7 @@ using Python async / await.
 """
 import asyncio
 from asyncio import AbstractEventLoop, Future
-from typing import Any, Awaitable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Generic, TypeVar
 
 _T = TypeVar("_T")
 
@@ -14,7 +14,10 @@ _T = TypeVar("_T")
 class TaskCompletionSource(Generic[_T]):
     def __init__(self) -> None:
         self.loop: AbstractEventLoop = asyncio.get_event_loop()
-        self.future: Future[_T] = self.loop.create_future()
+        if TYPE_CHECKING:
+            self.future: Future[_T] = self.loop.create_future()
+        else:
+            self.future: Future = self.loop.create_future()
 
     def SetResult(self, value: _T) -> None:
         """Set result.

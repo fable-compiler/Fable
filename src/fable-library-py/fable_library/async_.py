@@ -2,7 +2,17 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from asyncio import Future, Task, ensure_future
 from threading import Timer
-from typing import Any, Awaitable, Callable, Iterable, List, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from .async_builder import (
     Async,
@@ -83,7 +93,10 @@ def ignore(computation: Async[_T]) -> Async[None]:
 
 def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
     def delayed() -> Async[List[_T]]:
-        all: Future[List[_T]] = asyncio.gather(*map(start_as_task, computations))
+        if TYPE_CHECKING:
+            all: Future[List[_T]] = asyncio.gather(*map(start_as_task, computations))
+        else:
+            all: Future = asyncio.gather(*map(start_as_task, computations))
 
         return await_task(all)
 
@@ -135,13 +148,25 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
     continuation: List[Callable[[Any], None]] = []
     task = ensure_future(task)
 
-    def done(tsk: Future[_T]) -> None:
-        try:
-            value = tsk.result()
-        except Exception as ex:
-            continuation[1](ex)
-        else:
-            continuation[0](value)
+    if TYPE_CHECKING:
+
+        def done(tsk: Future[_T]) -> None:
+            try:
+                value = tsk.result()
+            except Exception as ex:
+                continuation[1](ex)
+            else:
+                continuation[0](value)
+
+    else:
+
+        def done(tsk: Future) -> None:
+            try:
+                value = tsk.result()
+            except Exception as ex:
+                continuation[1](ex)
+            else:
+                continuation[0](value)
 
     def callback(conts: List[Callable[[Any], None]]) -> None:
         nonlocal continuation
