@@ -1,6 +1,18 @@
-from asyncio import Task, ensure_future
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from asyncio import Future, Task, ensure_future
 from threading import Timer
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from .async_builder import (
     Async,
@@ -13,15 +25,22 @@ from .async_builder import (
     protected_cont,
     protected_return,
 )
-from .choice import (  # type: ignore , F# generated from Choice.fs
-    Choice_makeChoice1Of2,
-    Choice_makeChoice2Of2,
-)
+
+# F# generated code (from Choice.fs)
+from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore
+from .task import TaskCompletionSource
 
 _T = TypeVar("_T")
 
 
 default_cancellation_token = CancellationToken()
+
+# see AsyncBuilder.Delay
+def delay(generator: Callable[[], Async[_T]]):
+    def cont(ctx: IAsyncContext[_T]):
+        generator()(ctx)
+
+    return protected_cont(cont)
 
 
 def create_cancellation_token(arg: Union[int, bool, None] = None) -> CancellationToken:
@@ -72,6 +91,34 @@ def ignore(computation: Async[_T]) -> Async[None]:
     return protected_bind(computation, binder)
 
 
+def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
+    def delayed() -> Async[List[_T]]:
+        if TYPE_CHECKING:
+            all: Future[List[_T]] = asyncio.gather(*map(start_as_task, computations))
+        else:
+            all: Future = asyncio.gather(*map(start_as_task, computations))
+
+        return await_task(all)
+
+    return delay(delayed)
+
+
+def sequential(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
+    def delayed() -> Async[List[_T]]:
+        async def sequence() -> List[_T]:
+            results: List[_T] = []
+
+            for c in computations:
+                result = await start_as_task(c)
+                results.append(result)
+
+            return results
+
+        return await_task(sequence())
+
+    return delay(delayed)
+
+
 def catch_async(work: Async[_T]) -> Async[_T]:
     def cont(ctx: IAsyncContext[_T]) -> None:
         def on_success(x: Optional[_T] = None):
@@ -101,9 +148,25 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
     continuation: List[Callable[[Any], None]] = []
     task = ensure_future(task)
 
-    def done(tsk: Task[_T]) -> None:
-        value = tsk.result()
-        continuation[0](value)
+    if TYPE_CHECKING:
+
+        def done(tsk: Future[_T]) -> None:
+            try:
+                value = tsk.result()
+            except Exception as ex:
+                continuation[1](ex)
+            else:
+                continuation[0](value)
+
+    else:
+
+        def done(tsk: Future) -> None:
+            try:
+                value = tsk.result()
+            except Exception as ex:
+                continuation[1](ex)
+            else:
+                continuation[0](value)
 
     def callback(conts: List[Callable[[Any], None]]) -> None:
         nonlocal continuation
@@ -135,18 +198,74 @@ def start_with_continuations(
     return computation(ctx)
 
 
+def start_as_task(
+    computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
+) -> Awaitable[_T]:
+    tcs: TaskCompletionSource[_T] = TaskCompletionSource()
+
+    def resolve(value: Optional[_T] = None) -> None:
+        tcs.SetResult(value)
+
+    def reject(error: Exception) -> None:
+        tcs.SetException(error)
+
+    def cancel(_: OperationCanceledError) -> None:
+        tcs.SetCancelled()
+
+    start_with_continuations(
+        computation,
+        resolve,
+        reject,
+        cancel,
+        cancellation_token or default_cancellation_token,
+    )
+    return tcs.get_task()
+
+
+def start_immediate(
+    computation: Async[Any],
+    cancellation_token: Optional[CancellationToken] = None,
+) -> None:
+    """Start computation immediately.
+
+    Runs an asynchronous computation, starting immediately on the
+    current operating system thread
+    """
+    return start_with_continuations(computation, cancellation_token=cancellation_token)
+
+
+_executor: Optional[ThreadPoolExecutor] = None
+
+
 def start(
     computation: Callable[[IAsyncContext[Any]], None],
     cancellation_token: Optional[CancellationToken] = None,
 ) -> None:
-    return start_with_continuations(computation, cancellation_token=cancellation_token)
+    global _executor
+
+    def worker() -> None:
+        start_immediate(computation, cancellation_token)
+
+    if not _executor:
+        _executor = ThreadPoolExecutor(max_workers=16)
+    _executor.submit(worker)
+    return
 
 
-def start_immediate(
-    computation: Callable[[IAsyncContext[Any]], None],
-    cancellation_token: Optional[CancellationToken] = None,
-) -> None:
-    return start(computation, cancellation_token)
+def run_synchronously(
+    computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
+) -> _T:
+    """Run computation synchronously.
+
+    Runs an asynchronous computation and awaits its result on the
+    calling thread. Propagates an exception should the computation yield
+    one. This call is blocking.
+    """
+
+    async def runner() -> _T:
+        return await start_as_task(computation, cancellation_token=cancellation_token)
+
+    return asyncio.run(runner())
 
 
 __all__ = [

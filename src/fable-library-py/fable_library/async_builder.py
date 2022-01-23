@@ -239,7 +239,7 @@ def protected_cont(f: Async[_T]) -> Async[_T]:
             try:
                 return f(ctx)
             except Exception as err:
-                print("Exception: ", err)
+                # print("Exception: ", err)
                 ctx.on_error(err)
 
         ctx.trampoline.run(fn)
@@ -255,7 +255,7 @@ def protected_bind(
             try:
                 binder(x)(ctx)
             except Exception as err:
-                print("Exception: ", err)
+                # print("Exception: ", err)
                 ctx.on_error(err)
 
         ctx_ = IAsyncContext.create(

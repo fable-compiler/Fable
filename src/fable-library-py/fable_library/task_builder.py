@@ -131,7 +131,11 @@ class TaskBuilder:
         return zero()
 
     def Run(self, computation: Delayed[T]) -> Awaitable[T]:
-        return computation()
+        # Make sure we don't execute computation right now, so wrap in a coroutine.
+        async def run() -> T:
+            return await computation()
+
+        return run()
 
 
 task = TaskBuilder

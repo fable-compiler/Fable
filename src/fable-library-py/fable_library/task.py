@@ -1,23 +1,23 @@
+"""Task handling.
+
+This module implements .NET
+[tasks](https://docs.microsoft.com/en-us/dotnet/standard/async-in-depth)
+using Python async / await.
+"""
 import asyncio
 from asyncio import AbstractEventLoop, Future
-from typing import Any, Awaitable, Generator, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Generic, TypeVar
 
 _T = TypeVar("_T")
 
 
-class TaskCompletionSource(Awaitable[_T]):
+class TaskCompletionSource(Generic[_T]):
     def __init__(self) -> None:
-        try:
-            self.loop: Optional[AbstractEventLoop] = asyncio.get_event_loop()
-            self.future: Optional[Future[_T]] = self.loop.create_future()
-        except Exception:
-            self.loop = None
-            self.future = None
-
-        self.has_result = False
-        self.result: _T = cast(_T, None)
-        self.exception: Optional[Exception] = None
-        self.is_cancelled = False
+        self.loop: AbstractEventLoop = asyncio.get_event_loop()
+        if TYPE_CHECKING:
+            self.future: Future[_T] = self.loop.create_future()
+        else:
+            self.future: Future = self.loop.create_future()
 
     def SetResult(self, value: _T) -> None:
         """Set result.
@@ -25,11 +25,11 @@ class TaskCompletionSource(Awaitable[_T]):
         Transitions the underlying Task[TResult] into the
         RanToCompletion state.
         """
-        if self.future:
+
+        def action():
             self.future.set_result(value)
-        else:
-            self.has_result = True
-            self.result = value
+
+        self.loop.call_soon_threadsafe(action)
 
     def SetCancelled(self) -> None:
         """Set cancelled.
@@ -38,10 +38,10 @@ class TaskCompletionSource(Awaitable[_T]):
         state.
         """
 
-        if self.future:
+        def action():
             self.future.cancel()
-        else:
-            self.is_cancelled = True
+
+        self.loop.call_soon_threadsafe(action)
 
     def SetException(self, exception: Exception) -> None:
         """Set exception.
@@ -49,30 +49,14 @@ class TaskCompletionSource(Awaitable[_T]):
         Transitions the underlying Task[TResult] into the Faulted state
         and binds it to a specified exception.
         """
-        if self.future:
+
+        def action():
             self.future.set_exception(exception)
-        else:
-            self.exception = exception
+
+        self.loop.call_soon_threadsafe(action)
 
     def get_task(self) -> Awaitable[_T]:
-        return self
-
-    def __await__(self) -> Generator[_T, None, _T]:
-        if not self.future:
-            loop = asyncio.get_event_loop()
-            self.future = loop.create_future()
-
-        if self.has_result:
-            print("has_result: ", self.result)
-            self.future.set_result(self.result)
-
-        elif self.is_cancelled:
-            self.future.cancel()
-
-        elif self.exception:
-            self.future.set_exception(self.exception)
-
-        return (yield from self.future.__await__())
+        return asyncio.ensure_future(self.future)
 
 
 async def zero() -> None:
@@ -84,9 +68,10 @@ async def from_result(value: _T) -> _T:
 
 
 def get_awaiter(value: Awaitable[_T]) -> Awaitable[_T]:
-    # Convert awaitable to coroutine
+
+    # Wrap awaitable in coroutine (so we can run it using create_task)
     async def get_value() -> _T:
-        return await value
+        return await asyncio.ensure_future(value)
 
     return get_value()
 
@@ -97,7 +82,10 @@ def get_result(value: Awaitable[_T]) -> _T:
     Ends the wait for the completion of the asynchronous task.
     """
 
-    return asyncio.run(value)
+    async def runner() -> _T:
+        return await value
+
+    return asyncio.run(runner())
 
 
 def start(computation: Awaitable[Any]) -> None:

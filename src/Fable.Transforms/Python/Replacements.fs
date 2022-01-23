@@ -4154,11 +4154,7 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    // TODO: Throw error for RunSynchronously
     | "Start" ->
-        "Async.Start will behave as StartImmediate"
-        |> addWarning com ctx.InlinePath r
-
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // Make sure cancellationToken is called as a function and not a getter
