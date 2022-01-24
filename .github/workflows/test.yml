@@ -97,3 +97,20 @@ jobs:
 
     - name: Fable Tests - Rust
       run: dotnet fsi build.fsx test-rust
+
+  build-dart:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Dart SDK
+      uses: dart-lang/setup-dart@v1.3
+
+    - name: Fable Tests - Dart
+      run: dotnet fsi build.fsx test-dart

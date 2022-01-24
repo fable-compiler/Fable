@@ -2922,7 +2922,7 @@ module Util =
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expression * Statement list =
         // printfn "transformAsExpr: %A" expr
         match expr with
-        | Fable.Unresolved(_,_,r) -> addErrorAndReturnNull com r "Unexpected unresolved expression", []
+        | Fable.Unresolved (_, _, r) -> addErrorAndReturnNull com r "Unexpected unresolved expression", []
 
         | Fable.TypeCast (e, t) -> transformCast com ctx t e
 
@@ -3073,7 +3073,7 @@ module Util =
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
         match expr with
-        | Fable.Unresolved(_,_,r) ->
+        | Fable.Unresolved (_, _, r) ->
             addError com [] r "Unexpected unresolved expression"
             []
 

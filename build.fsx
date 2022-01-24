@@ -497,13 +497,24 @@ let testRust() =
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang Rust"
-        "--fableLib " + "fable-library-rust"
+        "--fableLib fable-library-rust"
         "--noCache"
     ]
 
     // run Fable Rust tests
     copyFile (projectDir </> "Cargo.toml") buildDir
     runInDir buildDir "cargo test"
+
+let testDart() =
+    let projectDir = "tests/Dart"
+    let runDir = "tests/Dart/run"
+
+    runFableWithArgs projectDir [
+        "--exclude Fable.Core"
+        "--lang Dart"
+        "--noCache"
+    ]
+    runInDir runDir "dart test main.dart"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
@@ -660,6 +671,7 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust()
+| "test-dart"::_ -> testDart()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
