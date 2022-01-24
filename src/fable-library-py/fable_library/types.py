@@ -66,7 +66,12 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
+        return (
+            self.name
+            + (" (" if with_parens else " ")
+            + fields
+            + (")" if with_parens else "")
+        )
 
     def __repr__(self) -> str:
         return str(self)
@@ -118,7 +123,11 @@ def record_compare_to(self: Record, other: Record) -> int:
 
 
 def record_to_string(self: Record) -> str:
-    return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
+    return (
+        "{ "
+        + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items()))
+        + " }"
+    )
 
 
 def record_get_hashcode(self: Record) -> int:
@@ -177,15 +186,11 @@ def seq_to_string(self: Iterable[Any]) -> str:
 
 def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     if x is not None:
+        if isinstance(x, bool):
+            return str(x).lower()
+
         if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
-
-        # else: // TODO: Date?
-        #     const cons = Object.getPrototypeOf(x).constructor;
-        #     return cons === Object && callStack < 10
-        #         // Same format as recordToString
-        #         ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toString(v, callStack + 1)).join("\n  ") + " }"
-        #         : cons.name;
 
     return str(x)
 

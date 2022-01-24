@@ -1,6 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from asyncio import Future, Task, ensure_future
+from asyncio import Future, ensure_future
 from threading import Timer
 from typing import (
     TYPE_CHECKING,
@@ -145,6 +145,9 @@ def from_continuations(
 
 
 def await_task(task: Awaitable[_T]) -> Async[_T]:
+    """Return an asynchronous computation that will wait for the given
+    task to complete and return its result.
+    """
     continuation: List[Callable[[Any], None]] = []
     task = ensure_future(task)
 
@@ -185,6 +188,14 @@ def start_with_continuations(
     ] = None,
     cancellation_token: Optional[CancellationToken] = None,
 ) -> None:
+    """Runs an asynchronous computation.
+
+    Runs an asynchronous computation, starting immediately on the
+    current operating system thread. Call one of the three continuations
+    when the operation completes.
+
+    If no cancellation token is provided then the default cancellation
+    token is used."""
     trampoline = Trampoline()
 
     ctx = IAsyncContext.create(
@@ -201,6 +212,11 @@ def start_with_continuations(
 def start_as_task(
     computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
 ) -> Awaitable[_T]:
+    """Executes a computation in the thread pool.
+
+    If no cancellation token is provided then the default cancellation
+    token is used.
+    """
     tcs: TaskCompletionSource[_T] = TaskCompletionSource()
 
     def resolve(value: Optional[_T] = None) -> None:
@@ -241,6 +257,13 @@ def start(
     computation: Callable[[IAsyncContext[Any]], None],
     cancellation_token: Optional[CancellationToken] = None,
 ) -> None:
+    """Starts the asynchronous computation.
+
+    Starts the asynchronous computation in the thread pool. Do not await
+    its result.
+
+    If no cancellation token is provided then the default cancellation
+    token is used."""
     global _executor
 
     def worker() -> None:

@@ -265,26 +265,26 @@ type TypeWithClassAttribute =
 // Issue #1975: https://github.com/fable-compiler/Fable/issues/1975
 // In previous version of Fable, using type with parameterized units of measure was causing an endless loops in the compiler
 
-type TestTypeWithParameterizedUnitMeasure<[<Measure>] 't> =
-    private | TestTypeWithParameterizedUnitMeasureType of float<'t>
+type TypeWithParameterizedUnitMeasureTest<[<Measure>] 't> =
+    private | TypeWithParameterizedUnitMeasureTestType of float<'t>
 
     member this.Value =
         match this with
-        | TestTypeWithParameterizedUnitMeasureType value -> value
+        | TypeWithParameterizedUnitMeasureTestType value -> value
 
-let makeTestTypeWithParameterizedUnitMeasureType (value: float<_>) : TestTypeWithParameterizedUnitMeasure<_> =
-    TestTypeWithParameterizedUnitMeasureType value
+let makeTypeWithParameterizedUnitMeasureTestType (value: float<_>) : TypeWithParameterizedUnitMeasureTest<_> =
+    TypeWithParameterizedUnitMeasureTestType value
 
 open FSharp.Data.UnitSystems.SI.UnitSymbols
 
-type Test_TestTypeWithParameterizedUnitMeasure = {
-    Field: TestTypeWithParameterizedUnitMeasure<m>
+type TypeWithParameterizedUnitMeasureTest_Test = {
+    Field: TypeWithParameterizedUnitMeasureTest<m>
 }
 
 // -------------------------------------------------------------
 
 // Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
-type TestTypeWithDefaultValue() =
+type TypeWithDefaultValueTest() =
     [<DefaultValue>] val mutable IntValue: int
     [<DefaultValue>] val mutable StringValue: string
     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
@@ -902,13 +902,13 @@ let ``test ClassAttribute works`` () = // See #573
 
 [<Fact>]
 let ``test Issue #1975: Compile type with parameterized units of measure as generic`` () =
-    let a = makeTestTypeWithParameterizedUnitMeasureType 2.
+    let a = makeTypeWithParameterizedUnitMeasureTestType 2.
     equal 2. a.Value
 
 // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
 //    [<Fact>]
 //let ``test default value attributes works`` () =
-//        let withDefaultValue = TestTypeWithDefaultValue()
+//        let withDefaultValue = TypeWithDefaultValueTest()
 //
 //        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
 //        withDefaultValue.IntValue |> equal 0
@@ -1066,4 +1066,3 @@ let ``test Choice with arity 3+ is represented correctly`` () = // See #2485
 let ``test Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
     let c = ConcreteClass1()
     c.MyMethod(4) |> equal 58
-

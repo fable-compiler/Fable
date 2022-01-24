@@ -423,7 +423,7 @@ module Reflection =
 
             Expression.compare (typeof, [ Eq ], [ Expression.constant (primitiveType) ], ?loc = range), stmts
 
-        let jsInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)) : Expression * Statement list =
+        let pyInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)) : Expression * Statement list =
             let func = Expression.name (Identifier("isinstance"))
             let args = [ expr; consExpr ]
             Expression.call (func, args), stmts
@@ -439,16 +439,16 @@ module Reflection =
         | Fable.String _ -> pyTypeof "<class 'str'>" expr
         | Fable.Number _
         | Fable.Enum _ -> pyTypeof "<class 'int'>" expr
-        | Fable.Regex -> jsInstanceof (Expression.identifier ("RegExp")) expr
+        | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
         | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
         | Fable.Array _
         | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             libCall com ctx None "util" "isArrayLike" [ expr ], stmts
-        | Fable.List _ -> jsInstanceof (libValue com ctx "List" "FSharpList") expr
+        | Fable.List _ -> pyInstanceof (libValue com ctx "List" "FSharpList") expr
         | Fable.AnonymousRecordType _ -> warnAndEvalToFalse "anonymous records", []
-        | Fable.MetaType -> jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
+        | Fable.MetaType -> pyInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
         | Fable.Option _ -> warnAndEvalToFalse "options", [] // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters", []
         | Fable.DeclaredType (ent, genArgs) ->
@@ -481,6 +481,8 @@ module Reflection =
                 [ expr ]
                 |> libCall com ctx None "types" "isException",
                 stmts
+            | Types.datetime ->
+                pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
             | _ ->
                 let ent = com.GetEntity(ent)
 
@@ -492,7 +494,7 @@ module Reflection =
                         if not (List.isEmpty genArgs) then
                             com.WarnOnlyOnce("Generic args are ignored in type testing", ?range = range)
 
-                        let expr, stmts' = jsInstanceof cons expr
+                        let expr, stmts' = pyInstanceof cons expr
                         expr, stmts @ stmts'
                     | None -> warnAndEvalToFalse ent.FullName, []
 
@@ -3382,6 +3384,7 @@ module Util =
                     |> List.rev
                     |> List.takeWhile (fun arg ->
                         match arg.Type with
+                        | Fable.Any
                         | Fable.Option _ -> true
                         | _ -> false)
                     |> List.map (fun _ -> Expression.none)
