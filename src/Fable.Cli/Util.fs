@@ -24,6 +24,7 @@ type CliArgs =
       Configuration: string
       NoRestore: bool
       NoCache: bool
+      NoParallel: bool
       SourceMaps: bool
       SourceMapsRoot: string option
       Exclude: string option
@@ -143,7 +144,8 @@ module File =
     open System.IO
 
     let relPathToCurDir (path: string) =
-        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
+        if String.IsNullOrEmpty(path) then ""
+        else Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
     let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
         try
