@@ -144,20 +144,20 @@ module Reflection =
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                (Expression.tuple (
-                    [ Expression.constant (fi.Name)
+                (Expression.tuple 
+                    [ Expression.constant (fi.Name |> Naming.toSnakeCase |> Helpers.clean)
                       typeInfo ]
-                )),
+                ),
                 stmts)
             |> Seq.toList
             |> Helpers.unzipArgs
 
-        let fields = Expression.lambda (Arguments.arguments [], Expression.list (fields))
+        let fields = Expression.lambda (Arguments.arguments [], Expression.list fields)
 
         let py, stmts' = pyConstructor com ctx ent
 
         [ fullnameExpr
-          Expression.list (generics)
+          Expression.list generics
           py
           fields ]
         |> libReflectionCall com ctx None "record",
@@ -180,12 +180,12 @@ module Reflection =
             |> Seq.map (fun uci ->
                 uci.UnionCaseFields
                 |> List.map (fun fi ->
-                    Expression.tuple (
+                    Expression.tuple 
                         [ fi.Name |> Expression.constant
                           let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
                           expr ]
-                    ))
+                    )
                 |> Expression.list)
             |> Seq.toList
 
@@ -227,9 +227,9 @@ module Reflection =
                 ctx
                 None
                 "class"
-                [ Expression.constant (fullname)
+                [ Expression.constant fullname
                   if not (List.isEmpty generics) then
-                      Expression.list (generics) ]
+                      Expression.list generics ]
 
         match t with
         | Fable.Measure _
