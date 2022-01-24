@@ -77,6 +77,7 @@ let knownCliArgs() = [
   // Hidden args
   ["--precompiledLib"], []
   ["--noReflection"], []
+  ["--noParallel"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
@@ -252,6 +253,8 @@ type Runner =
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
           NoCache = args.FlagEnabled "--noCache"
+          // TODO: If we select optimize we cannot have F#/Fable parallelization
+          NoParallel = args.FlagEnabled "--noParallel"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"

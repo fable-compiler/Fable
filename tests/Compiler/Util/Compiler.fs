@@ -49,6 +49,7 @@ module Compiler =
           SourceMapsRoot = None
           NoRestore = false
           NoCache = false
+          NoParallel = false
           Exclude = Some "Fable.Core"
           Replace = Map.empty
           RunProcess = None
