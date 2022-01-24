@@ -663,6 +663,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
+            | Dart -> IO.Path.GetDirectoryName(opts.ProjFile), [] // TODO
             | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
             | _ -> copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
