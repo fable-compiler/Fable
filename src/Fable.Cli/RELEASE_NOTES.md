@@ -1,3 +1,8 @@
+### 3.7.0-beta-014
+
+* Add --noParallel option to disable F#/Fable parallel compilation
+* Watch .proj files
+
 ### 3.7.0-beta-012
 
 * Disable uncurrying functions passed as arguments to local lambdas
