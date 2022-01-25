@@ -482,7 +482,7 @@ module Reflection =
                 |> libCall com ctx None "types" "isException",
                 stmts
             | Types.datetime ->
-                pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
+                pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
             | _ ->
                 let ent = com.GetEntity(ent)
 
@@ -1446,7 +1446,7 @@ module Util =
         Expression.starred (var)
 
     let callSuper (args: Expression list) =
-        let super = Expression.name ("super().__init__")
+        let super = Expression.name "super().__init__"
         Expression.call (super, args)
 
     let callSuperAsStatement (args: Expression list) = Statement.expr (callSuper args)
@@ -1454,7 +1454,7 @@ module Util =
     let makeClassConstructor (args: Arguments) (isOptional: bool) body =
         // printfn "makeClassConstructor: %A" (args.Args, body)
         let name = Identifier("__init__")
-        let self = Arg.arg ("self")
+        let self = Arg.arg "self"
 
         let args_ =
             match args.Args with
@@ -1725,9 +1725,9 @@ module Util =
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
-        | Fable.BaseValue (None, _) -> Expression.identifier ("super().__init__"), []
+        | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
         | Fable.BaseValue (Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
-        | Fable.ThisValue _ -> Expression.identifier ("self"), []
+        | Fable.ThisValue _ -> Expression.identifier "self", []
         | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
@@ -1736,8 +1736,8 @@ module Util =
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.NumberConstant (x, _, _) ->
             match x with
-            | x when x = infinity -> Expression.name ("float('inf')"), []
-            | x when x = -infinity -> Expression.name ("float('-inf')"), []
+            | x when x = infinity -> Expression.name "float('inf')", []
+            | x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values typ
@@ -3839,8 +3839,7 @@ module Util =
                     None)
             |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
                 let consBody =
-                    stmts @ consBody
-                    |> List.append [ callSuperAsStatement baseArgs ]
+                    stmts @ [ callSuperAsStatement baseArgs ] @ consBody
 
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)

@@ -430,7 +430,7 @@ def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
 
 
 def assert_union(x: Any) -> None:
-    if not isinstance(x, Union):
+    if not isinstance(x, FsUnion):
         raise Exception("Value is not an F# union type")
 
 
