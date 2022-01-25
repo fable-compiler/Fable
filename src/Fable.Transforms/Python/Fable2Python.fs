@@ -143,20 +143,18 @@ module Reflection =
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                (Expression.tuple (
-                    [ Expression.constant (fi.Name)
-                      typeInfo ]
-                )),
+                (Expression.tuple [ Expression.constant (fi.Name |> Naming.toSnakeCase |> Helpers.clean)
+                                    typeInfo ]),
                 stmts)
             |> Seq.toList
             |> Helpers.unzipArgs
 
-        let fields = Expression.lambda (Arguments.arguments [], Expression.list (fields))
+        let fields = Expression.lambda (Arguments.arguments [], Expression.list fields)
 
         let py, stmts' = pyConstructor com ctx ent
 
         [ fullnameExpr
-          Expression.list (generics)
+          Expression.list generics
           py
           fields ]
         |> libReflectionCall com ctx None "record",
@@ -179,12 +177,10 @@ module Reflection =
             |> Seq.map (fun uci ->
                 uci.UnionCaseFields
                 |> List.map (fun fi ->
-                    Expression.tuple (
-                        [ fi.Name |> Expression.constant
-                          let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
+                    Expression.tuple [ fi.Name |> Expression.constant
+                                       let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                          expr ]
-                    ))
+                                       expr ])
                 |> Expression.list)
             |> Seq.toList
 
@@ -226,9 +222,9 @@ module Reflection =
                 ctx
                 None
                 "class"
-                [ Expression.constant (fullname)
+                [ Expression.constant fullname
                   if not (List.isEmpty generics) then
-                      Expression.list (generics) ]
+                      Expression.list generics ]
 
         match t with
         | Fable.Measure _
@@ -422,7 +418,7 @@ module Reflection =
 
             Expression.compare (typeof, [ Eq ], [ Expression.constant (primitiveType) ], ?loc = range), stmts
 
-        let jsInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)) : Expression * Statement list =
+        let pyInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)) : Expression * Statement list =
             let func = Expression.name (Identifier("isinstance"))
             let args = [ expr; consExpr ]
             Expression.call (func, args), stmts
@@ -438,16 +434,16 @@ module Reflection =
         | Fable.String _ -> pyTypeof "<class 'str'>" expr
         | Fable.Number _
         | Fable.Enum _ -> pyTypeof "<class 'int'>" expr
-        | Fable.Regex -> jsInstanceof (Expression.identifier ("RegExp")) expr
+        | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
         | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
         | Fable.Array _
         | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             libCall com ctx None "util" "isArrayLike" [ expr ], stmts
-        | Fable.List _ -> jsInstanceof (libValue com ctx "List" "FSharpList") expr
+        | Fable.List _ -> pyInstanceof (libValue com ctx "List" "FSharpList") expr
         | Fable.AnonymousRecordType _ -> warnAndEvalToFalse "anonymous records", []
-        | Fable.MetaType -> jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
+        | Fable.MetaType -> pyInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
         | Fable.Option _ -> warnAndEvalToFalse "options", [] // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters", []
         | Fable.DeclaredType (ent, genArgs) ->
@@ -480,6 +476,7 @@ module Reflection =
                 [ expr ]
                 |> libCall com ctx None "types" "isException",
                 stmts
+            | Types.datetime -> pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
             | _ ->
                 let ent = com.GetEntity(ent)
 
@@ -491,7 +488,7 @@ module Reflection =
                         if not (List.isEmpty genArgs) then
                             com.WarnOnlyOnce("Generic args are ignored in type testing", ?range = range)
 
-                        let expr, stmts' = jsInstanceof cons expr
+                        let expr, stmts' = pyInstanceof cons expr
                         expr, stmts @ stmts'
                     | None -> warnAndEvalToFalse ent.FullName, []
 
@@ -1441,7 +1438,7 @@ module Util =
         Expression.starred (var)
 
     let callSuper (args: Expression list) =
-        let super = Expression.name ("super().__init__")
+        let super = Expression.name "super().__init__"
         Expression.call (super, args)
 
     let callSuperAsStatement (args: Expression list) = Statement.expr (callSuper args)
@@ -1449,7 +1446,7 @@ module Util =
     let makeClassConstructor (args: Arguments) (isOptional: bool) body =
         // printfn "makeClassConstructor: %A" (args.Args, body)
         let name = Identifier("__init__")
-        let self = Arg.arg ("self")
+        let self = Arg.arg "self"
 
         let args_ =
             match args.Args with
@@ -1720,9 +1717,9 @@ module Util =
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
-        | Fable.BaseValue (None, _) -> Expression.identifier ("super().__init__"), []
+        | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
         | Fable.BaseValue (Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
-        | Fable.ThisValue _ -> Expression.identifier ("self"), []
+        | Fable.ThisValue _ -> Expression.identifier "self", []
         | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
@@ -1731,8 +1728,8 @@ module Util =
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.NumberConstant (x, _, _) ->
             match x with
-            | x when x = infinity -> Expression.name ("float('inf')"), []
-            | x when x = -infinity -> Expression.name ("float('-inf')"), []
+            | x when x = infinity -> Expression.name "float('inf')", []
+            | x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values typ
@@ -3375,6 +3372,7 @@ module Util =
                     |> List.rev
                     |> List.takeWhile (fun arg ->
                         match arg.Type with
+                        | Fable.Any
                         | Fable.Option _ -> true
                         | _ -> false)
                     |> List.map (fun _ -> Expression.none)
@@ -3829,8 +3827,8 @@ module Util =
                     None)
             |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
                 let consBody =
-                    stmts @ consBody
-                    |> List.append [ callSuperAsStatement baseArgs ]
+                    stmts
+                    @ [ callSuperAsStatement baseArgs ] @ consBody
 
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)

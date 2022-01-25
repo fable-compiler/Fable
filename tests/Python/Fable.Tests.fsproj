@@ -59,6 +59,7 @@
     <Compile Include="TestMap.fs" />
     <Compile Include="TestArray.fs" />
     <Compile Include="TestQueue.fs" />
+    <Compile Include="TestType.fs" />
     <Compile Include="TestResizeArray.fs" />
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestSudoku.fs" />

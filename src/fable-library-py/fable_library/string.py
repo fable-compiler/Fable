@@ -125,7 +125,7 @@ def format_replacement(
                 else to_exponential(rep)
             )
         else:  # AOid
-            rep = str(rep)
+            rep = to_string(rep)
 
     elif isinstance(rep, datetime):
         rep = date_to_string(rep)

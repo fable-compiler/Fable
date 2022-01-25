@@ -1379,7 +1379,7 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclUInt64 -> makeImportLib com Any "default" "Long" |> Some
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt ->
-        makeImportLib com Any "BigInteger" "BigInt/z"
+        makeImportLib com Any "BigInteger" "big_int"
         |> Some
     | BuiltinDefinition (FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
     | BuiltinDefinition (FSharpResult _) ->
@@ -4503,7 +4503,8 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "GetEnumUnderlyingType"
         | "GetEnumValues"
         | "GetEnumNames"
-        | "IsSubclassOf" ->
+        | "IsSubclassOf"
+        | "IsInstanceOfType" ->
             let meth =
                 Naming.removeGetSetPrefix i.CompiledName
                 |> Naming.lowerFirst

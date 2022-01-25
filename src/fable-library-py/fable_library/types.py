@@ -66,12 +66,7 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return (
-            self.name
-            + (" (" if with_parens else " ")
-            + fields
-            + (")" if with_parens else "")
-        )
+        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
     def __repr__(self) -> str:
         return str(self)
@@ -83,7 +78,12 @@ class Union(IComparable):
     def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
+
         if not isinstance(other, Union):
+            return False
+
+        # Different objects are not equal even with same structure
+        if self.__class__ != other.__class__:
             return False
 
         if self.tag == other.tag:
@@ -98,36 +98,45 @@ class Union(IComparable):
         return self.tag < other.tag
 
 
-def record_equals(self: _T, other: _T) -> bool:
-    if self is other:
-        return True
-
-    a = self.__dict__ if hasattr(self, "__dict__") else self
-    b = other.__dict__ if hasattr(other, "__dict__") else other
-
-    return a == b
-
-
 def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
-    else:
+    elif hasattr(self, "__dict__") and self.__dict__:
         for name in self.__dict__.keys():
             if self.__dict__[name] < other.__dict__.get(name):
                 return -1
             elif self.__dict__[name] > other.__dict__.get(name):
                 return 1
 
-        return 0
+    elif hasattr(self, "__slots__") and self.__slots__:
+        for name in self.__slots__:
+            if getattr(self, name) < getattr(other, name):
+                return -1
+            elif getattr(self, name) > getattr(other, name):
+                return 1
+
+    return 0
+
+
+def record_equals(self: _T, other: _T) -> bool:
+    if self is other:
+        return True
+
+    if self.__class__ != other.__class__:
+        return False
+
+    if isinstance(self, Record) and isinstance(other, Record):
+        return record_compare_to(self, other) == 0
+
+    return self == other
 
 
 def record_to_string(self: Record) -> str:
-    return (
-        "{ "
-        + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items()))
-        + " }"
-    )
+    if hasattr(self, "__slots__"):
+        return "{ " + "\n  ".join(map(lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__)) + " }"
+    else:
+        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
 def record_get_hashcode(self: Record) -> int:
@@ -186,15 +195,11 @@ def seq_to_string(self: Iterable[Any]) -> str:
 
 def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     if x is not None:
+        if isinstance(x, bool):
+            return str(x).lower()
+
         if isinstance(x, Iterable) and not hasattr(x, "__str__"):
             return seq_to_string(x)
-
-        # else: // TODO: Date?
-        #     const cons = Object.getPrototypeOf(x).constructor;
-        #     return cons === Object && callStack < 10
-        #         // Same format as recordToString
-        #         ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toString(v, callStack + 1)).join("\n  ") + " }"
-        #         : cons.name;
 
     return str(x)
 
@@ -295,9 +300,22 @@ def Float64Array(lst: List[float]):
     return array.array("d", lst)
 
 
+def is_exception(x: Any):
+    return isinstance(x, Exception)
+
+
 __all__ = [
     "Attribute",
     "Exception",
+    "is_exception",
+    "Int8Array",
+    "Uint8Array",
+    "Int16Array",
+    "Uint16Array",
+    "Int32Array",
+    "Uint32Array",
+    "Float32Array",
+    "Float64Array",
     "FSharpException",
     "FSharpRef",
     "Record",

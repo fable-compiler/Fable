@@ -7,6 +7,15 @@ type DisposableAction(f) =
     interface IDisposable with
         member __.Dispose() = f()
 
+type MyException(value) =
+    inherit Exception()
+    member _.Value: int = value
+
+let asyncMap f a = async {
+    let! a = a
+    return f a
+}
+
 let sleepAndAssign token (res : Ref<bool>) =
     Async.StartImmediate(async {
         do! Async.Sleep 200
@@ -482,3 +491,32 @@ let ``test Async.StartChild works`` () =
         equal x "ABCDEF"
     }
 *)
+
+[<Fact>]
+let ``test Unit arguments are erased`` () = // See #1832
+    let mutable token = 0
+    async {
+        let! res =
+            async.Return 5
+            |> asyncMap (fun x -> token <- x)
+        equal 5 token
+        res
+    }
+
+[<Fact>]
+let ``test Can use custom exceptions in async workflows #2396`` () =
+    let workflow(): Async<unit> = async {
+        return MyException(7) |> raise
+    }
+    let parentWorkflow() =
+        async {
+            try
+                do! workflow()
+                return 100
+            with
+            | :? MyException as ex -> return ex.Value
+        }
+    async {
+        let! res = parentWorkflow()
+        equal 7 res
+    }
