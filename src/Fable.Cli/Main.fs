@@ -241,7 +241,7 @@ open FileWatcher
 open FileWatcherUtil
 
 type FsWatcher(delayMs: int) =
-    let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj"; "*.proj" ]
+    let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj" ]
     let createWatcher () =
         let usePolling =
             // This is the same variable used by dotnet watch
@@ -284,8 +284,7 @@ type FsWatcher(delayMs: int) =
         observable
         |> Observable.choose (fun fullPath ->
             let fullPath = Path.normalizePath fullPath
-            // HACK: .proj files are ignored by the ProjectCracker but users expect Fable to react when changing them
-            if filePaths.Contains(fullPath) || fullPath.EndsWith(".proj")
+            if filePaths.Contains(fullPath)
             then Some fullPath
             else None)
         |> Observable.throttle delayMs
@@ -691,7 +690,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
 
         | Some(projCracked, fableCompiler) ->
             // For performance reasons, don't crack .fsx scripts for every change
-            let fsprojChanged = changes |> Seq.exists (fun c -> c.EndsWith(".fsproj") || c.EndsWith(".proj"))
+            let fsprojChanged = changes |> Seq.exists (fun c -> c.EndsWith(".fsproj"))
 
             if fsprojChanged then
                 let oldProjCracked = projCracked
