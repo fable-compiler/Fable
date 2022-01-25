@@ -39,6 +39,9 @@ let coreModFor = function
     | BclDateOnly
     | BclTimeOnly -> failwith "Cannot decide core module"
 
+let makeGlobalIdent (ident: string, memb: string, typ: Type) =
+    makeTypedIdentExpr typ (ident + "::" + memb)
+
 let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
@@ -390,6 +393,16 @@ let toSeq t (expr: Expr) =
 let getLength r t (expr: Expr) =
     let i = Helper.InstanceCall(expr, "len", BclTypes.unativeint, [], ?loc=r)
     TypeCast(i, t)
+
+let nativeCall expr =
+    expr |> asOptimizable "native"
+
+// let asMutable expr =
+//     expr |> asOptimizable "mutable,native"
+
+let getMut expr =
+    Helper.InstanceCall(expr, "get_mut", expr.Type, [])
+    |> nativeCall
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
     let unOp operator operand =
@@ -1245,13 +1258,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.InstanceCall(arg, "signum", t, [], ?loc=r) |> Some
     // Numbers
     | "Infinity", _ ->
-        Helper.GlobalIdent("f64", "INFINITY", t, ?loc=r) |> Some
+        makeGlobalIdent("f64", "INFINITY", t) |> Some
     | "InfinitySingle", _ ->
-        Helper.GlobalIdent("f32", "INFINITY", t, ?loc=r) |> Some
+        makeGlobalIdent("f32", "INFINITY", t) |> Some
     | "NaN", _ ->
-        Helper.GlobalIdent("f64", "NAN", t, ?loc=r) |> Some
+        makeGlobalIdent("f64", "NAN", t) |> Some
     | "NaNSingle", _ ->
-        Helper.GlobalIdent("f32", "NAN", t, ?loc=r) |> Some
+        makeGlobalIdent("f32", "NAN", t) |> Some
     | "Fst", [tup] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [tup] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
