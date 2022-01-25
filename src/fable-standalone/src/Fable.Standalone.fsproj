@@ -26,9 +26,11 @@
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="../../Fable.Transforms/ReplacementsInject.fs" />
-    <Compile Include="../../Fable.Transforms/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.Util.fs" />
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
     <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
     <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />

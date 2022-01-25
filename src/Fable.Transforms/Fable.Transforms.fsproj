@@ -16,9 +16,11 @@
     <Compile Include="OverloadSuffix.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
+    <Compile Include="Replacements.Util.fs" />
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Replacements.fs" />
+    <Compile Include="Replacements.Api.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />

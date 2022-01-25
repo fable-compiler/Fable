@@ -111,12 +111,12 @@ module Lib =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
     let tryPyConstructor (com: IPythonCompiler) ctx ent =
-        match PY.Replacements.tryPyConstructor com ent with
+        match PY.Replacements.tryConstructor com ent with
         | Some e -> com.TransformAsExpr(ctx, e) |> Some
         | None -> None
 
     let pyConstructor (com: IPythonCompiler) ctx ent =
-        let entRef = PY.Replacements.pyConstructor com ent
+        let entRef = PY.Replacements.constructor com ent
         com.TransformAsExpr(ctx, entRef)
 
 module Reflection =
@@ -237,7 +237,7 @@ module Reflection =
             match Map.tryFind name genMap with
             | Some t -> t, []
             | None ->
-                Replacements.genericTypeInfoError name
+                Replacements.Util.genericTypeInfoError name
                 |> addError com [] r
 
                 Expression.none, []
@@ -301,30 +301,32 @@ module Reflection =
             let fullName = entRef.FullName
 
             match fullName, generics with
-            | Replacements.BuiltinEntity kind ->
+            | Replacements.Util.BuiltinEntity kind ->
                 match kind with
-                | Replacements.BclGuid
-                | Replacements.BclTimeSpan
-                | Replacements.BclDateTime
-                | Replacements.BclDateTimeOffset
-                | Replacements.BclDateOnly
-                | Replacements.BclTimeOnly
-                | Replacements.BclTimer
-                | Replacements.BclInt64
-                | Replacements.BclUInt64
-                | Replacements.BclDecimal
-                | Replacements.BclBigInt -> genericEntity fullName [], []
-                | Replacements.BclHashSet gen
-                | Replacements.FSharpSet gen ->
+                | Replacements.Util.BclGuid
+                | Replacements.Util.BclTimeSpan
+                | Replacements.Util.BclDateTime
+                | Replacements.Util.BclDateTimeOffset
+                | Replacements.Util.BclDateOnly
+                | Replacements.Util.BclTimeOnly
+                | Replacements.Util.BclTimer
+                | Replacements.Util.BclInt64
+                | Replacements.Util.BclUInt64
+                | Replacements.Util.BclIntPtr
+                | Replacements.Util.BclUIntPtr
+                | Replacements.Util.BclDecimal
+                | Replacements.Util.BclBigInt -> genericEntity fullName [], []
+                | Replacements.Util.BclHashSet gen
+                | Replacements.Util.FSharpSet gen ->
                     let gens, stmts = transformTypeInfo com ctx r genMap gen
                     genericEntity fullName [ gens ], stmts
-                | Replacements.BclDictionary (key, value)
-                | Replacements.BclKeyValuePair (key, value)
-                | Replacements.FSharpMap (key, value) ->
+                | Replacements.Util.BclDictionary (key, value)
+                | Replacements.Util.BclKeyValuePair (key, value)
+                | Replacements.Util.FSharpMap (key, value) ->
                     let keys, stmts = transformTypeInfo com ctx r genMap key
                     let values, stmts' = transformTypeInfo com ctx r genMap value
                     genericEntity fullName [ keys; values ], stmts @ stmts'
-                | Replacements.FSharpResult (ok, err) ->
+                | Replacements.Util.FSharpResult (ok, err) ->
                     let ent = com.GetEntity(entRef)
                     let ok', stmts = transformTypeInfo com ctx r genMap ok
                     let err', stmts' = transformTypeInfo com ctx r genMap err
@@ -332,7 +334,7 @@ module Reflection =
                     let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
 
                     expr, stmts @ stmts' @ stmts''
-                | Replacements.FSharpChoice gen ->
+                | Replacements.Util.FSharpChoice gen ->
                     let ent = com.GetEntity(entRef)
 
                     let gen, stmts =
@@ -342,7 +344,7 @@ module Reflection =
                     let expr, stmts' = gen |> transformUnionReflectionInfo com ctx r ent
 
                     expr, stmts @ stmts'
-                | Replacements.FSharpReference gen ->
+                | Replacements.Util.FSharpReference gen ->
                     let ent = com.GetEntity(entRef)
                     let gen, stmts = transformTypeInfo com ctx r genMap gen
 
@@ -966,7 +968,7 @@ module Annotation =
             | Fable.Type.Number (Float64, _) -> stdlibModuleTypeHint com ctx "typing" "MutableSequence" [ genArg ]
             | _ -> stdlibModuleTypeHint com ctx "typing" "List" [ genArg ]
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
-        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
+        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType (_, genArgs) ->
             let value = Expression.name ("dict")
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -992,23 +994,23 @@ module Annotation =
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
 
             fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
-        | Replacements.BuiltinEntity kind ->
+        | Replacements.Util.BuiltinEntity kind ->
             match kind with
-            | Replacements.BclDecimal -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
+            | Replacements.Util.BclDecimal -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
             | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
         (*
-            | Replacements.BclGuid
-            | Replacements.BclTimeSpan
-            | Replacements.BclDateTime
-            | Replacements.BclDateTimeOffset
-            | Replacements.BclDateOnly
-            | Replacements.BclTimeOnly
-            | Replacements.BclTimer
-            | Replacements.BclInt64
-            | Replacements.BclUInt64
-            | Replacements.BclBigInt -> genericEntity fullName [], []
-            | Replacements.BclHashSet gen
-            | Replacements.FSharpSet gen ->
+            | Replacements.Util.BclGuid
+            | Replacements.Util.BclTimeSpan
+            | Replacements.Util.BclDateTime
+            | Replacements.Util.BclDateTimeOffset
+            | Replacements.Util.BclDateOnly
+            | Replacements.Util.BclTimeOnly
+            | Replacements.Util.BclTimer
+            | Replacements.Util.BclInt64
+            | Replacements.Util.BclUInt64
+            | Replacements.Util.BclBigInt -> genericEntity fullName [], []
+            | Replacements.Util.BclHashSet gen
+            | Replacements.Util.FSharpSet gen ->
                 let gens, stmts = transformTypeInfo com ctx r genMap gen
                 genericEntity fullName [ gens ], stmts
         | entName when entName.StartsWith(Types.choiceNonGeneric) ->
@@ -1095,29 +1097,29 @@ module Annotation =
 
     let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
         match kind with
-        | Replacements.BclGuid -> Expression.name ("str"), []
-        | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [ genArg ] "types" "FSharpRef", []
+        | Replacements.Util.BclGuid -> Expression.name ("str"), []
+        | Replacements.Util.FSharpReference genArg -> makeImportTypeAnnotation com ctx [ genArg ] "types" "FSharpRef", []
         (*
-        | Replacements.BclTimeSpan -> NumberTypeAnnotation
-        | Replacements.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.BclTimeOnly -> NumberTypeAnnotation
-        | Replacements.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Replacements.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
-        | Replacements.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
-        | Replacements.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
-        | Replacements.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
-        | Replacements.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
-        | Replacements.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
-        | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
-        | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
-        | Replacements.FSharpChoice genArgs ->
+        | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
+        | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
+        | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
+        | Replacements.Util.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
+        | Replacements.Util.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
+        | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
+        | Replacements.Util.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
+        | Replacements.Util.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
+        | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
+        | Replacements.Util.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
+        | Replacements.Util.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
+        | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}"
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         *)
-        | Replacements.FSharpResult (ok, err) ->
+        | Replacements.Util.FSharpResult (ok, err) ->
             let resolved, stmts = resolveGenerics com ctx [ ok; err ] repeatedGenerics
 
             fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
@@ -1711,12 +1713,12 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType (ent, [ _ ]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral (exprs, typ) -> makeArray com ctx exprs typ
+            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, typ) -> makeArray com ctx exprs typ
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
     let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
-        com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
+        com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
@@ -2031,7 +2033,7 @@ module Util =
             | args when hasSpread ->
                 match List.rev args with
                 | [] -> [], []
-                | Replacements.ArrayOrListLiteral (spreadArgs, _) :: rest ->
+                | Replacements.Util.ArrayOrListLiteral (spreadArgs, _) :: rest ->
                     let rest =
                         List.rev rest
                         |> List.map (fun e -> com.TransformAsExpr(ctx, e))

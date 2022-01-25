@@ -22,7 +22,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
     let argTypes = lazy getArgTypes com baseCons
     let baseArgs = transformExprList com ctx baseArgs |> run
     let genArgs = genArgs |> Seq.map (makeType ctx.GenericArgs)
-    match Replacements.tryBaseConstructor com ctx baseEnt argTypes genArgs baseArgs with
+    match Replacements.Api.tryBaseConstructor com ctx baseEnt argTypes genArgs baseArgs with
     | Some(baseRef, args) ->
         let callInfo = Fable.CallInfo.Make(args=args, sigArgTypes=getArgTypes com baseCons)
         makeCall r Fable.Unit callInfo baseRef
@@ -149,11 +149,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
             makeCallFrom com ctx r typ genArgs thisArg args memb)
 
     sourceTypes |> Seq.tryPick (fun t ->
-        let typeOpt =
-            match com.Options.Language with
-            | Rust -> Rust.Replacements.tryType t
-            | Python -> PY.Replacements.tryType t
-            | _ -> Replacements.tryType t
+        let typeOpt = Replacements.Api.tryType com t
         match typeOpt with
         | Some(entityFullName, makeCall, genArgs) ->
             let info = makeCallInfo traitName entityFullName argTypes genArgs
@@ -331,7 +327,7 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
         if arity > 1 then
             match expr with
             | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-            | _ -> return Replacements.uncurryExprAtRuntime com arity expr
+            | _ -> return Replacements.Api.uncurryExprAtRuntime com arity expr
         else
             return expr
     | _ -> return expr
@@ -520,7 +516,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match tryDefinition targetType with
         | Some(_, Some fullName) ->
             match fullName with
-            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
+            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.Api.toSeq com t inpExpr
             | _ -> return Fable.TypeCast(inpExpr, t)
         | _ -> return Fable.TypeCast(inpExpr, t)
 
@@ -548,11 +544,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Const(value, typ) ->
         let typ = makeType ctx.GenericArgs typ
-        let expr =
-            match com.Options.Language with
-            | Rust -> Rust.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
-            | Python -> PY.Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
-            | _ -> Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        let expr = Replacements.Api.makeTypeConst com (makeRangeFrom fsExpr) typ value
         return expr
 
     | FSharpExprPatterns.BaseValue typ ->
@@ -591,15 +583,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 if isByRefValue var then
                     // Getting byref value is compiled as FSharpRef op_Dereference
                     let var = makeValueFrom com ctx r var
-                    return Replacements.getReference r var.Type var
+                    return Replacements.Api.getReference com r var.Type var
                 else
                     return makeValueFrom com ctx r var
 
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
-        return
-            match com.Options.Language with
-            | Rust -> Rust.Replacements.getZero com ctx typ
-            | _ ->  Replacements.defaultof com ctx typ
+        return Replacements.Api.defaultof com ctx typ
 
     | FSharpExprPatterns.Let((var, value), body) ->
         match value, body with
@@ -778,11 +767,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
                 let errorMessage = "Match failure"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
-                let errorExpr =
-                    match com.Options.Language with
-                    | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                    | Rust -> Rust.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                    | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                let errorExpr = Fable.Value(Fable.StringConstant errorMessage, None) |> Replacements.Api.error com
                 makeThrow rangeOfElseExpr Fable.Any errorExpr
             | _ ->
                 fableElseExpr
@@ -993,11 +978,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | FSharpExprPatterns.IfThenElse(FSharpExprPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
                     let errorMessage = "Match failure: " + unionType.TypeDefinition.FullName
-                    let errorExpr =
-                        match com.Options.Language with
-                        | Python -> PY.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                        | Rust -> Rust.Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                        | _ -> Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
+                    let errorExpr = Fable.Value(Fable.StringConstant errorMessage, None) |> Replacements.Api.error com
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr
 
@@ -1020,7 +1001,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.ILFieldGet(None, ownerTyp, fieldName) ->
         let ownerTyp = makeType ctx.GenericArgs ownerTyp
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        match Replacements.tryField com typ ownerTyp fieldName with
+        match Replacements.Api.tryField com typ ownerTyp fieldName with
         | Some expr -> return expr
         | None ->
             return $"Cannot compile ILFieldGet(%A{ownerTyp}, %s{fieldName})"
@@ -1037,27 +1018,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | FSharpExprPatterns.Call(None, memb, _, _, _)
         | FSharpExprPatterns.Value memb ->
             let value = makeValueFrom com ctx r memb
-            return
-                match com.Options.Language with
-                | Rust ->
-                    if memb.IsMutable || isByRefValue memb then
-                        match memb.DeclaringEntity with
-                        // TODO: check if it works for mutable module let bindings
-                        | Some ent when ent.IsFSharpModule && isPublicMember memb ->
-                            Rust.Replacements.makeRefFromMutableFunc com ctx r value.Type value
-                        | _ ->
-                            Rust.Replacements.makeRefFromMutableValue com ctx r value.Type value
-                    else
-                        Rust.Replacements.newReference com r value.Type value
+            if memb.IsMutable || isByRefValue memb then
+                match memb.DeclaringEntity with
+                // TODO: check if it works for mutable module let bindings
+                | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                    return Replacements.Api.makeRefFromMutableFunc com ctx r value.Type value
                 | _ ->
-                    if memb.IsMutable then
-                        match memb.DeclaringEntity with
-                        | Some ent when ent.IsFSharpModule && isPublicMember memb ->
-                            Replacements.makeRefFromMutableFunc com ctx r value.Type value
-                        | _ ->
-                            Replacements.makeRefFromMutableValue com ctx r value.Type value
-                    else
-                        Replacements.newReference com r value.Type value
+                    return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
+            else
+                return Replacements.Api.newReference com r value.Type value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
@@ -1066,8 +1035,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let key = FsField.FSharpFieldName field
             return
                 match com.Options.Language with
-                | Rust -> Replacements.makeRefFromMutableField com ctx r typ callee key
-                | _ -> Replacements.makeRefFromMutableField com ctx r typ callee key
+                | Rust -> Replacements.Api.makeRefFromMutableField com ctx r typ callee key
+                | _ -> Replacements.Api.makeRefFromMutableField com ctx r typ callee key
         | _ ->
             // ignore AddressOf, pass by value
             return! transformExpr com ctx expr
@@ -1085,7 +1054,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | Rust ->
                     Fable.Set(valToSet, Fable.ValueSet, value.Type, value, r)
                 | _ ->
-                    Replacements.setReference r valToSet value
+                    Replacements.Api.setReference com r valToSet value
         | _ ->
             return "Mutating this argument passed by reference is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1182,7 +1151,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
         // (Note: Moved here from Fable2Babel)
         let fableValue =
             if memb.IsMutable && isPublic
-            then Replacements.createAtom com fableValue
+            then Replacements.Api.createAtom com fableValue
             else fableValue
 
         [Fable.MemberDeclaration
@@ -1212,13 +1181,13 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
                 |> Seq.collect id
                 |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
                 |> Seq.toList
-            Replacements.makeMethodInfo com None name parameters returnType
+            Replacements.Api.makeMethodInfo com None name parameters returnType
 
     let newDecorator (ent: FSharpEntity) (args: IList<FSharpType * obj>) =
         let args =
             args |> Seq.map (fun (typ, value) ->
                 let typ = makeType Map.empty typ
-                Replacements.makeTypeConst com None typ value)
+                Replacements.Api.makeTypeConst com None typ value)
             |> Seq.toList
         let callInfo = { makeCallInfo None args [] with IsConstructor = true }
         FsEnt(ent) |> entityRef com
@@ -1242,10 +1211,10 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
         match attEnt.BaseType with
         | Some tbase when tbase.HasTypeDefinition ->
             match tbase.TypeDefinition.TryFullName with
-            | Some PY.Replacements.Atts.decorator
-            | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = false |}
-            | Some PY.Replacements.Atts.reflectedDecorator
-            | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = true |}
+            | Some (Atts.jsDecorator | Atts.pyDecorator) ->
+                Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = false |}
+            | Some (Atts.jsReflectedDecorator | Atts.pyReflectedDecorator) ->
+                Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = true |}
             | _ -> None
         | _ -> None)
     |> Seq.rev
@@ -1544,7 +1513,7 @@ type FableCompiler(com: Compiler) =
         match com.Options.Language with
         | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
         | Rust -> Rust.Replacements.tryCall this ctx r t info thisArg args
-        | _ -> Replacements.tryCall this ctx r t info thisArg args
+        | _ -> Replacements.Api.tryCall this ctx r t info thisArg args
 
     member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
         let resolvedIdents = Dictionary()
