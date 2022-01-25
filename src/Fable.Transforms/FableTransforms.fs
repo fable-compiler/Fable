@@ -337,7 +337,7 @@ module private Transforms =
             when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
         | _ ->
             match arity with
-            | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
+            | Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
             | None -> expr
 
     let uncurryArgs com autoUncurrying argTypes args =
@@ -415,7 +415,7 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
-                let e = Replacements.checkArity com t arity e
+                let e = Replacements.Api.checkArity com t arity e
                 if arity > 1 then Extended(Curry(e, arity), r)
                 else e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
@@ -495,7 +495,7 @@ module private Transforms =
                 let applied = makeCall None intermetiateType info applied
                 CurriedApply(applied, restArgs, t, r) |> Some
             else
-                Replacements.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some
+                Replacements.Api.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some
         match e with
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied

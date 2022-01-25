@@ -85,68 +85,6 @@ module Helpers =
                 | Some old -> acc |> Map.add key (aggregateFn old value)
                 | None -> acc |> Map.add key value)
 
-// TODO: All things that depend on the library should be moved to Replacements
-// to become independent of the specific implementation
-(*
-module Lib =
-    let libConsCall (com: IRustCompiler) ctx r moduleName memberName args =
-        Expression.newExpression(com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?loc=r)
-
-    let libValue (com: IRustCompiler) ctx moduleName memberName =
-        com.TransformImport(ctx, memberName, getLibPath com moduleName)
-
-    let tryJsConstructor (com: IRustCompiler) ctx ent =
-        match Replacements.tryJsConstructor com ent with
-        | Some e -> com.TransformAsExpr(ctx, e) |> Some
-        | None -> None
-
-    let jsConstructor (com: IRustCompiler) ctx ent =
-        let entRef = Replacements.jsConstructor com ent
-        com.TransformAsExpr(ctx, entRef)
-
-// TODO: This is too implementation-dependent, ideally move it to Replacements
-module Reflection =
-    open Lib
-
-    let private libReflectionCall (com: IRustCompiler) ctx r memberName args =
-        libCall com ctx r [] "Reflection" (memberName + "_type") args
-
-    let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
-        // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
-        let fullname = ent.FullName
-        let fullnameExpr = Expression.stringLiteral(fullname)
-        let genMap =
-            let genParamNames = ent.GenericParameters |> List.mapToArray (fun x -> x.Name) |> Seq.toArray
-            Array.zip genParamNames generics |> Map
-        let fields =
-            ent.FSharpFields |> Seq.map (fun fi ->
-                let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
-                (Expression.arrayExpression([|Expression.stringLiteral(fi.Name); typeInfo|])))
-            |> Seq.toArray
-        let fields = Expression.arrowFunctionExpression([||], Expression.arrayExpression(fields))
-        [|fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; fields|]
-        |> libReflectionCall com ctx None "record"
-
-    let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
-        let fullname = ent.FullName
-        let fullnameExpr = Expression.stringLiteral(fullname)
-        let genMap =
-            let genParamNames = ent.GenericParameters |> List.map (fun x -> x.Name) |> Seq.toArray
-            Array.zip genParamNames generics |> Map
-        let cases =
-            ent.UnionCases |> Seq.map (fun uci ->
-                uci.UnionCaseFields |> List.mapToArray (fun fi ->
-                    Expression.arrayExpression([|
-                        fi.Name |> Expression.stringLiteral
-                        transformTypeInfo com ctx r genMap fi.FieldType
-                    |]))
-                |> Expression.arrayExpression
-            ) |> Seq.toArray
-        let cases = Expression.arrowFunctionExpression([||], Expression.arrayExpression(cases))
-        [|fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases|]
-        |> libReflectionCall com ctx None "union"
-*)
-
 module UsageTracking =
 
     let calcIdentUsages expr =
@@ -289,9 +227,9 @@ module TypeInfo =
             List.forall (isTypeOf com entNames) genArgs
         | Fable.AnonymousRecordType(_, genArgs) ->
             List.forall (isTypeOf com entNames) genArgs
-        | Replacements.Builtin (Replacements.FSharpSet genArg) ->
+        | Replacements.Util.Builtin (Replacements.Util.FSharpSet genArg) ->
             isTypeOf com entNames genArg
-        | Replacements.Builtin (Replacements.FSharpMap(k, v)) ->
+        | Replacements.Util.Builtin (Replacements.Util.FSharpMap(k, v)) ->
             isTypeOf com entNames k && isTypeOf com entNames v
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
@@ -418,7 +356,7 @@ module TypeInfo =
         | Fable.Char
         | Fable.Enum _
         | Fable.Number _
-        | Replacements.Numeric
+        | Replacements.Util.Numeric
         | Fable.GenericParam _
         // already RC-wrapped
         | Fable.LambdaType _
@@ -426,9 +364,9 @@ module TypeInfo =
         // containers, no need to Rc-wrap
         | Fable.List _
         | Fable.Option _
-        | Replacements.Builtin (Replacements.FSharpResult _)
-        | Replacements.Builtin (Replacements.FSharpSet _)
-        | Replacements.Builtin (Replacements.FSharpMap _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpSet _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
         | Fable.Tuple _
         | Fable.AnonymousRecordType _
             -> false
@@ -437,14 +375,14 @@ module TypeInfo =
         | Fable.String
         | Fable.Regex
         | Fable.Array _
-        | Replacements.IsEntity (Types.keyCollection) _
-        | Replacements.IsEntity (Types.valueCollection) _
-        | Replacements.IsEnumerator _
-        | Replacements.Builtin (Replacements.FSharpReference _)
+        | Replacements.Util.IsEntity (Types.keyCollection) _
+        | Replacements.Util.IsEntity (Types.valueCollection) _
+        | Replacements.Util.IsEnumerator _
+        | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
             -> true
 
         // conditionally Rc-wrapped
-        | Replacements.Builtin (Replacements.FSharpChoice _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _)
         | Fable.DeclaredType _ ->
             not (isCopyableType com Set.empty t)
 
@@ -629,9 +567,9 @@ module TypeInfo =
     let transformEnumType (com: IRustCompiler) ctx (entRef: Fable.EntityRef): Rust.Ty =
         let ent = com.GetEntity(entRef)
         match ent.IsEnum, entRef.FullName with
-        | false, Replacements.BuiltinDefinition(Replacements.BclInt64) ->
+        | false, Replacements.Util.BuiltinDefinition(Replacements.Util.BclInt64) ->
             primitiveType "i64" // int64 represented as enum
-        | false, Replacements.BuiltinDefinition(Replacements.BclUInt64) ->
+        | false, Replacements.Util.BuiltinDefinition(Replacements.Util.BclUInt64) ->
             primitiveType "u64" // uint64 represented as enum
         | _ ->
             let mutable numberKind = Int32
@@ -746,7 +684,7 @@ module TypeInfo =
                 // match Map.tryFind name genMap with
                 // | Some t -> t
                 // | None ->
-                //     Replacements.genericTypeInfoError name |> addError com [] r
+                //     Replacements.Util.genericTypeInfoError name |> addError com [] r
                 //     Expression.nullLiteral()
             | Fable.Unit    -> mkUnitTy ()
             | Fable.Boolean -> primitiveType "bool"
@@ -780,13 +718,13 @@ module TypeInfo =
                 // |> libReflectionCall com ctx None "anonRecord"
 
             // pre-defined declared types
-            | Replacements.IsEntity (Types.iset) (entRef, [genArg]) -> transformHashSetType com ctx genArg
-            | Replacements.IsEntity (Types.idictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
-            | Replacements.IsEntity (Types.ireadonlydictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
-            | Replacements.IsEntity (Types.keyCollection) (entRef, [k; v]) -> transformArrayType com ctx k
-            | Replacements.IsEntity (Types.valueCollection) (entRef, [k; v]) -> transformArrayType com ctx v
-            | Replacements.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx (inferIfAny t)
-            | Replacements.IsEnumerator (entRef, genArgs) ->
+            | Replacements.Util.IsEntity (Types.iset) (entRef, [genArg]) -> transformHashSetType com ctx genArg
+            | Replacements.Util.IsEntity (Types.idictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
+            | Replacements.Util.IsEntity (Types.ireadonlydictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
+            | Replacements.Util.IsEntity (Types.keyCollection) (entRef, [k; v]) -> transformArrayType com ctx k
+            | Replacements.Util.IsEntity (Types.valueCollection) (entRef, [k; v]) -> transformArrayType com ctx v
+            | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx (inferIfAny t)
+            | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with
                 | Some ifc -> transformInterfaceType com ctx ifc.Entity [inferredType]
@@ -795,30 +733,32 @@ module TypeInfo =
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) ->
                 match entRef.FullName, genArgs with
-                | Replacements.BuiltinEntity kind ->
+                | Replacements.Util.BuiltinEntity kind ->
                     match kind with
-                    | Replacements.BclInt64 -> primitiveType "i64"
-                    | Replacements.BclUInt64 -> primitiveType "u64"
-                    | Replacements.BclIntPtr -> primitiveType "isize"
-                    | Replacements.BclUIntPtr -> primitiveType "usize"
+                    | Replacements.Util.BclInt64 -> primitiveType "i64"
+                    | Replacements.Util.BclUInt64 -> primitiveType "u64"
+                    | Replacements.Util.BclIntPtr -> primitiveType "isize"
+                    | Replacements.Util.BclUIntPtr -> primitiveType "usize"
 
-                    | Replacements.BclGuid
-                    | Replacements.BclTimeSpan
-                    | Replacements.BclDateTime
-                    | Replacements.BclDateTimeOffset
-                    | Replacements.BclTimer
-                    | Replacements.BclDecimal
-                    | Replacements.BclBigInt
+                    | Replacements.Util.BclGuid
+                    | Replacements.Util.BclTimeSpan
+                    | Replacements.Util.BclDateTime
+                    | Replacements.Util.BclDateTimeOffset
+                    | Replacements.Util.BclDateOnly
+                    | Replacements.Util.BclTimeOnly
+                    | Replacements.Util.BclTimer
+                    | Replacements.Util.BclDecimal
+                    | Replacements.Util.BclBigInt
                         -> transformDeclaredType com ctx entRef genArgs //TODO: remove this catch-all
 
-                    | Replacements.BclHashSet(genArg) -> transformHashSetType com ctx genArg
-                    | Replacements.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
-                    | Replacements.FSharpSet(genArg) -> transformSetType com ctx genArg
-                    | Replacements.FSharpMap(k, v) -> transformMapType com ctx [k; v]
-                    | Replacements.BclKeyValuePair(k, v) -> transformTupleType com ctx [k; v]
-                    | Replacements.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
-                    | Replacements.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
-                    | Replacements.FSharpReference(genArg) -> transformRefCellType com ctx genArg
+                    | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
+                    | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
+                    | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg
+                    | Replacements.Util.FSharpMap(k, v) -> transformMapType com ctx [k; v]
+                    | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx [k; v]
+                    | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
+                    | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
+                    | Replacements.Util.FSharpReference(genArg) -> transformRefCellType com ctx genArg
                 | _ ->
                     transformDeclaredType com ctx entRef genArgs
 
@@ -1010,7 +950,7 @@ module Annotation =
         | Fable.Tuple genArgs -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
-        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
+        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.GenericParam name -> makeSimpleTypeAnnotation com ctx name
@@ -1074,23 +1014,23 @@ module Annotation =
 
     let makeBuiltinTypeAnnotation com ctx kind =
         match kind with
-        | Replacements.BclGuid -> StringTypeAnnotation
-        | Replacements.BclTimeSpan -> NumberTypeAnnotation
-        | Replacements.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Replacements.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
-        | Replacements.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
-        | Replacements.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
-        | Replacements.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
-        | Replacements.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
-        | Replacements.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
-        | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
-        | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
-        | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Fable.Core" "FSharpResult$2"
-        | Replacements.FSharpChoice genArgs -> makeImportTypeAnnotation com ctx genArgs "Fable.Core" "FSharpChoice$2"
-        | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
+        | Replacements.Util.BclGuid -> StringTypeAnnotation
+        | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
+        | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
+        | Replacements.Util.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
+        | Replacements.Util.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
+        | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
+        | Replacements.Util.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
+        | Replacements.Util.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
+        | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
+        | Replacements.Util.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
+        | Replacements.Util.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
+        | Replacements.Util.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Fable.Core" "FSharpResult$2"
+        | Replacements.Util.FSharpChoice genArgs -> makeImportTypeAnnotation com ctx genArgs "Fable.Core" "FSharpChoice$2"
+        | Replacements.Util.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
         let funcTypeParams =
@@ -1182,11 +1122,11 @@ module Util =
         | _ -> None
 
     let (|IEquatable|_|) = function
-        | Replacements.IsEntity (Types.iequatableGeneric) (_, [genArg]) -> Some(genArg)
+        | Replacements.Util.IsEntity (Types.iequatableGeneric) (_, [genArg]) -> Some(genArg)
         | _ -> None
 
     let (|IEnumerable|_|) = function
-        | Replacements.IsEntity (Types.ienumerableGeneric) (_, [genArg]) -> Some(genArg)
+        | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [genArg]) -> Some(genArg)
         | _ -> None
 
     let discardUnitArg (args: Fable.Ident list) =
@@ -1348,7 +1288,7 @@ module Util =
             let cons = getArrayCons typ
             let expr = com.TransformAsExpr(ctx, fableExpr)
             Expression.newExpression(cons, [|expr|])
-        | Replacements.ArrayOrListLiteral(exprs, _) ->
+        | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
             makeTypedArray com ctx typ exprs
         | _ ->
             let cons = getArrayCons typ
@@ -1558,26 +1498,26 @@ module Util =
         match fromType, toType with
         | t1, t2 when t1 = t2 ->
             expr // no cast needed if type are the same
-        | Replacements.Numeric, Replacements.Numeric ->
+        | Replacements.Util.Numeric, Replacements.Util.Numeric ->
             expr |> mkCastExpr ty
         | Fable.Char, Fable.Number(UInt32, None) ->
             expr |> mkCastExpr ty
 
         // casts to IEnumerable
-        | Replacements.IsEntity (Types.keyCollection) _, IEnumerable _
-        | Replacements.IsEntity (Types.valueCollection) _, IEnumerable _
-        | Replacements.IsEntity (Types.icollectionGeneric) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.keyCollection) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.valueCollection) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.icollectionGeneric) _, IEnumerable _
         | Fable.Array _, IEnumerable _ ->
             makeLibCall com ctx None "Seq" "ofArray" [expr]
         | Fable.List _, IEnumerable _ ->
             makeLibCall com ctx None "Seq" "ofList" [expr]
-        | Replacements.IsEntity (Types.hashset) _, IEnumerable _
-        | Replacements.IsEntity (Types.iset) _, IEnumerable _ ->
+        | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "Native" "hashSetEntries" [expr]
             makeLibCall com ctx None "Seq" "ofArray" [ar]
-        | Replacements.IsEntity (Types.dictionary) _, IEnumerable _
-        | Replacements.IsEntity (Types.idictionary) _, IEnumerable _
-        | Replacements.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
+        | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
+        | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "Native" "hashMapEntries" [expr]
             makeLibCall com ctx None "Seq" "ofArray" [ar]
 
@@ -1601,7 +1541,7 @@ module Util =
                 match optimization, e with
                 | "array", Fable.Call(_,info,_,_) ->
                     match info.Args with
-                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
+                    | [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
                     | _ -> None
                 | "pojo", Fable.Call(_,info,_,_) ->
                     match info.Args with
@@ -1618,13 +1558,13 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | None, Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
+            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 *)
     let transformCurry (com: IRustCompiler) (ctx: Context) expr arity: Rust.Expr =
-        com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
+        com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     /// This guarantees a new owned Rc<T>
     let makeClone expr = mkMethodCallExprOnce "clone" None expr []
@@ -1841,9 +1781,9 @@ module Util =
 
     let makeEnum (com: IRustCompiler) ctx r value (entRef: Fable.EntityRef) =
         match entRef.FullName, value with
-        | Replacements.BuiltinDefinition(Replacements.BclInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
+        | Replacements.Util.BuiltinDefinition(Replacements.Util.BclInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
             makeLongInt true x
-        | Replacements.BuiltinDefinition(Replacements.BclUInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
+        | Replacements.Util.BuiltinDefinition(Replacements.Util.BclUInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
             makeLongInt false x
         | _ ->
             com.TransformAsExpr(ctx, value)
@@ -2206,19 +2146,19 @@ module Util =
                     transformGenArgs com ctx [genArg]
                 | ("Native::defaultOf" | "Native::getZero"), genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Set::empty", Replacements.Builtin (Replacements.FSharpSet(genArg)) ->
+                | "Set::empty", Replacements.Util.Builtin (Replacements.Util.FSharpSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Map::empty", Replacements.Builtin (Replacements.FSharpMap(k, v)) ->
+                | "Map::empty", Replacements.Util.Builtin (Replacements.Util.FSharpMap(k, v)) ->
                     transformGenArgs com ctx [k; v]
                 | "Seq::empty", IEnumerable genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashSetEmpty", Replacements.Builtin (Replacements.BclHashSet(genArg)) ->
+                | "Native::hashSetEmpty", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashSetWithCapacity", Replacements.Builtin (Replacements.BclHashSet(genArg)) ->
+                | "Native::hashSetWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashMapEmpty", Replacements.Builtin (Replacements.BclDictionary(k, v)) ->
+                | "Native::hashMapEmpty", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
-                | "Native::hashMapWithCapacity", Replacements.Builtin (Replacements.BclDictionary(k, v)) ->
+                | "Native::hashMapWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
                 | _ -> None
             let callee = transformImport com ctx r t info genArgs
