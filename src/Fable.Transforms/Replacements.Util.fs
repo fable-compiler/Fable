@@ -66,16 +66,6 @@ let asOptimizable optimization = function
     | Call(e, i, t, r) -> Call(e, { i with OptimizableInto = Some optimization }, t, r)
     | e -> e
 
-let nativeCall expr =
-    expr |> asOptimizable "native"
-
-// let asMutable expr =
-//     expr |> asOptimizable "mutable,native"
-
-let getMut expr =
-    Helper.InstanceCall(expr, "get_mut", expr.Type, [])
-    |> nativeCall
-
 let objValue (k, v): MemberDecl =
     {
         Name = k
@@ -152,6 +142,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.int64 -> Some BclInt64
     | Types.uint64 -> Some BclUInt64
     | "Microsoft.FSharp.Core.int64`1" -> Some BclInt64
+    | Types.nativeint -> Some BclIntPtr
+    | Types.unativeint -> Some BclUIntPtr
     | Types.decimal
     | "Microsoft.FSharp.Core.decimal`1" -> Some BclDecimal
     | Types.bigint -> Some BclBigInt
@@ -161,6 +153,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.dictionary -> Some(BclDictionary(Any,Any))
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
+    | Types.byref -> Some(FSharpReference(Any))
+    | Types.byref2 -> Some(FSharpReference(Any))
     | Types.reference -> Some(FSharpReference(Any))
     | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
         List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
@@ -175,6 +169,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
     | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
     | BuiltinDefinition(FSharpReference _), [v] -> Some(FSharpReference(v))
+    | BuiltinDefinition(FSharpReference _), [v; _] -> Some(FSharpReference(v))
     | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
     | BuiltinDefinition t, _ -> Some t
     | _ -> None
