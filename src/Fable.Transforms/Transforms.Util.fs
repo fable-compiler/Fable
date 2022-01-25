@@ -471,7 +471,11 @@ module AST =
                  Kind = UserImport false }, t, r)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        Import({ Selector = memberName
+        let selector =
+            match com.Options.Language with
+            | Rust -> moduleName + "::" + memberName //TODO: fix when imports change
+            | _ -> memberName
+        Import({ Selector = selector
                  Path = getLibPath com moduleName
                  Kind = LibraryImport }, t, None)
 
