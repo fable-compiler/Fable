@@ -2,6 +2,7 @@ module Fable.Tests.Strings
 
 open System
 open Util.Testing
+open Fable.Tests.Util
 open System.Globalization
 
 #if FABLE_COMPILER
@@ -325,6 +326,9 @@ let tests =
       testCase "parameterized padding works" <| fun () -> // See #2336
           sprintf "[%*s][%*s]" 6 "Hello" 5 "Foo"
           |> equal "[ Hello][  Foo]"
+
+      testCase "String.Format should fail if there are less arguments than placeholders" <| fun () -> // See #2768
+            throwsAnyError <| fun () -> String.Format ("Hello {0}", args = Array.empty)
 
       testCase "String.Format combining padding and zeroes pattern works" <| fun () ->
           String.Format(CultureInfo.InvariantCulture, "{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
