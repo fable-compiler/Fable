@@ -165,9 +165,7 @@ module Naming =
                             "_"
                         else
                             "_"
-                            + String
-                                .Format("{0:X}", int c)
-                                .PadLeft(4, '0')
+                            + String.Format("{0:X}", int c).PadLeft(4, '0')
                 }
             )
         else

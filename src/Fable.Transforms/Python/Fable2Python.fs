@@ -144,10 +144,8 @@ module Reflection =
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                (Expression.tuple 
-                    [ Expression.constant (fi.Name |> Naming.toSnakeCase |> Helpers.clean)
-                      typeInfo ]
-                ),
+                (Expression.tuple [ Expression.constant (fi.Name |> Naming.toSnakeCase |> Helpers.clean)
+                                    typeInfo ]),
                 stmts)
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -180,12 +178,10 @@ module Reflection =
             |> Seq.map (fun uci ->
                 uci.UnionCaseFields
                 |> List.map (fun fi ->
-                    Expression.tuple 
-                        [ fi.Name |> Expression.constant
-                          let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
+                    Expression.tuple [ fi.Name |> Expression.constant
+                                       let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                          expr ]
-                    )
+                                       expr ])
                 |> Expression.list)
             |> Seq.toList
 
@@ -481,8 +477,7 @@ module Reflection =
                 [ expr ]
                 |> libCall com ctx None "types" "isException",
                 stmts
-            | Types.datetime ->
-                pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
+            | Types.datetime -> pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
             | _ ->
                 let ent = com.GetEntity(ent)
 
@@ -3839,7 +3834,8 @@ module Util =
                     None)
             |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
                 let consBody =
-                    stmts @ [ callSuperAsStatement baseArgs ] @ consBody
+                    stmts
+                    @ [ callSuperAsStatement baseArgs ] @ consBody
 
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)
