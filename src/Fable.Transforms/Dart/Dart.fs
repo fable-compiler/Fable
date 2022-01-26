@@ -8,6 +8,10 @@ type Type =
     | Boolean
     | String
 
+    | Object
+    | Dynamic
+    | Void
+
     | Generic of name: string
     | TypeReference of ref: Expression
 
@@ -20,11 +24,15 @@ type Literal =
     | DoubleLiteral of value: double
     | BooleanLiteral of value: bool
     | StringLiteral of value: string
+    | NullLiteral
 
 and Expression =
     | Literal of Literal
+    // Dart AST includes simple and prefixed identifiers: https://pub.dev/documentation/analyzer/latest/dart_ast_ast/Identifier-class.html
     | IdentExpression of Ident
-    | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression
+    | PropertyAccess of Expression * string
+    | InvocationExpression of Expression * genArgs: Type list * args: Expression list
+    | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
     | AnonymousFunction of args: Ident list * body: Choice<Statement list, Expression> * genericParams: string list //* returnType: Type
     | Assignment of target: Expression * value: Expression
 

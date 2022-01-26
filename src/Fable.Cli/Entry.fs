@@ -132,19 +132,6 @@ Arguments:
    Docker mounted volumes, and other virtual file systems.
 """
 
-let defaultFileExt language (args: CliArgs) =
-    let fileExt =
-        match args.Value("-o", "--outDir") with
-        | Some _ -> ".js"
-        | None -> CompilerOptionsHelper.DefaultExtension
-    match language with
-    | TypeScript -> Path.replaceExtension ".ts" fileExt
-    | Python -> Path.replaceExtension ".py" fileExt
-    | Php -> ".php"
-    | Dart -> ".dart"
-    | Rust -> ".rs"
-    | _ -> fileExt
-
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
     |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
@@ -255,7 +242,7 @@ type Runner =
 
     let fileExt =
         args.Value("-e", "--extension")
-        |> Option.defaultValue (defaultFileExt language args)
+        |> Option.defaultWith (fun () -> File.defaultFileExt (Option.isSome outDir) language)
 
     let compilerOptions =
         CompilerOptionsHelper.Make(language=language,
@@ -316,12 +303,13 @@ type Runner =
 let clean (args: CliArgs) language rootDir =
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
+    let outDir = args.Value("-o", "--outDir")
     let fileExt =
         args.Value("-e", "--extension")
-        |> Option.defaultValue (defaultFileExt language args)
+        |> Option.defaultWith (fun () -> File.defaultFileExt (Option.isSome outDir) language)
 
     let cleanDir =
-        args.Value("-o", "--outDir")
+        outDir
         |> Option.defaultValue rootDir
         |> IO.Path.GetFullPath
 

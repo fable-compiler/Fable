@@ -117,34 +117,34 @@ module private Util =
             Log.Make(severity, msg, fileName=er.FileName, range=range, tag="FSHARP")
         )
 
-    let getOutJsPath (cliArgs: CliArgs) pathResolver file =
-        let fileExt = cliArgs.CompilerOptions.FileExtension
-        let isInFableModules = Naming.isInFableModules file
-        match cliArgs.OutDir with
-        | Some outDir ->
-            let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
-            File.changeFsExtension isInFableModules absPath fileExt
-        | None ->
-            File.changeFsExtension isInFableModules file fileExt
-
-    // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
-    // set we set `outDir` to the directory of the project file being compiled.
-    let getOutPyPath (cliArgs: CliArgs) pathResolver file =
-        let fileExt = cliArgs.CompilerOptions.FileExtension
-        let isInFableModules = Naming.isInFableModules file
-        let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-        let outDir =
-            match cliArgs.OutDir with
-            | Some outDir -> outDir
-            | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
-        let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
-        File.changeFsExtension isInFableModules absPath fileExt
-
     let getOutPath (cliArgs: CliArgs) pathResolver file =
         match cliArgs.CompilerOptions.Language with
-        | Python -> getOutPyPath cliArgs pathResolver file
-        | _ -> getOutJsPath cliArgs pathResolver file
+        // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
+        // set we set `outDir` to the directory of the project file being compiled.
+        | Python ->
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+            let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+            let outDir =
+                match cliArgs.OutDir with
+                | Some outDir -> outDir
+                | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
+            let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+            Path.ChangeExtension(absPath, fileExt)
+        | lang ->
+            let changeExtension path fileExt =
+                if lang = JavaScript then
+                    let isInFableModules = Naming.isInFableModules file
+                    File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
+                else
+                    Path.ChangeExtension(path, fileExt)
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+            match cliArgs.OutDir with
+            | Some outDir ->
+                let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+                changeExtension absPath fileExt
+            | None ->
+                changeExtension file fileExt
 
     let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent = async {
         try

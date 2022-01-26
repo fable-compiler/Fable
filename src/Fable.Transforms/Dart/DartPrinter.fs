@@ -53,17 +53,20 @@ module PrinterExtensions =
 
         member printer.Print(t: Type) =
             match t with
+            | Void -> printer.Print("void")
             | Boolean -> printer.Print("bool")
             | String -> printer.Print("String")
             | Integer -> printer.Print("int")
             | Double -> printer.Print("double")
-            | _ -> printer.AddError("TODO: Print type")
+            | Object -> printer.Print("Object")
+            | Dynamic -> printer.Print("dynamic")
+            | t -> printer.AddError($"TODO: Print type %A{t}")
 
         // TODO
         member printer.ComplexExpressionWithParens(expr: Expression) =
             printer.Print(expr)
 
-        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression) =
+        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, isInt) =
             printer.ComplexExpressionWithParens(left)
             // TODO: review
             match operator with
@@ -79,7 +82,7 @@ module PrinterExtensions =
             | BinaryMinus -> printer.Print(" - ")
             | BinaryPlus -> printer.Print(" + ")
             | BinaryMultiply -> printer.Print(" * ")
-            | BinaryDivide -> printer.Print(" / ")
+            | BinaryDivide -> printer.Print(if isInt then " ~/ " else " / ")
             | BinaryModulus -> printer.Print(" % ")
             | BinaryExponent -> printer.Print(" ** ")
             | BinaryOrBitwise -> printer.Print(" | ")
@@ -90,7 +93,8 @@ module PrinterExtensions =
 
         member printer.PrintLiteral(kind: Literal) =
             match kind with
-            | BooleanLiteral v -> printer.Print((if v then "true" else "false"))
+            | NullLiteral -> printer.Print(null)
+            | BooleanLiteral v -> printer.Print(if v then "true" else "false")
             | StringLiteral value ->
                 printer.Print("\"")
                 printer.Print(printer.EscapeStringLiteral(value))
@@ -131,15 +135,35 @@ module PrinterExtensions =
         member printer.Print(expr: Expression) =
             match expr with
             | Literal kind -> printer.PrintLiteral(kind)
+
             | IdentExpression i -> printer.Print(i.Name)
-            | BinaryExpression(op, left, right) ->
-                printer.PrintBinaryExpression(op, left, right)
+
+            | BinaryExpression(op, left, right, isInt) ->
+                printer.PrintBinaryExpression(op, left, right, isInt)
+
             | Assignment(target, value) ->
                 printer.Print(target)
                 printer.Print(" = ")
                 printer.Print(value)
-            // | AnonymousFunction
-            | _ -> printer.AddError("TODO: Print expression")
+
+            | PropertyAccess(expr, prop) ->
+                printer.ComplexExpressionWithParens(expr)
+                printer.Print("." + prop)
+
+            | InvocationExpression(caller, _genArgs, args) -> // TODO: genArgs
+                printer.Print(caller)
+                printer.PrintList("(", args, ")")
+
+            | AnonymousFunction(args, Choice1Of2 body, _genParams) -> // TODO: genArgs
+                printer.PrintList("(", args, ") ", printType=true)
+                printer.PrintBlock(body, skipNewLineAtEnd=true)
+
+            | AnonymousFunction(args, Choice2Of2 body, _genParams) -> // TODO: genArgs
+                printer.PrintList("(", args, ")", printType=true)
+                printer.Print(" => ")
+                printer.Print(body)
+
+            // | e -> printer.AddError($"TODO: Print expression %A{e}")
 
         member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit) =
             let rec printList = function
@@ -165,6 +189,9 @@ module PrinterExtensions =
         member printer.PrintList(left, items: string list, right) =
             printer.PrintList(left, ", ", right, items, fun (x: string) -> printer.Print(x))
 
+        member printer.PrintList(left, items: Expression list, right) =
+            printer.PrintList(left, ", ", right, items, fun (x: Expression) -> printer.Print(x))
+
         member printer.PrintFunctionDeclaration(name: string, args: Ident list, body: Statement list, genParams: string list, returnType: Type) =
             printer.Print(returnType)
             printer.Print(" ")
@@ -185,17 +212,27 @@ let run (writer: Writer) (file: File): Async<unit> =
         | FunctionDeclaration(name, args, body, genParams, returnType) ->
             printer.PrintFunctionDeclaration(name, args, body, genParams, returnType)
 
-        // if printer.Column > 0 then
-        //     printer.Print(";")
-        //     printer.PrintNewLine()
+        if printer.Column > 0 then
+            // printer.Print(";")
+            printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()
 
     async {
-        use printer = new PrinterImpl(writer)
+        use printerImpl = new PrinterImpl(writer)
+        let printer = printerImpl :> Printer
 
-        // TODO: Imports
+        for i in file.Imports do
+            let path = printer.MakeImportPath(i.Path)
+            match i.LocalIdent with
+            | None -> printer.Print("import '" + path + "';")
+            | Some localId -> printer.Print("import '" + path + "' as " + localId + ";")
+            printer.PrintNewLine()
+
+        printer.PrintNewLine()
+        do! printerImpl.Flush()
+
         for decl in file.Declarations do
             printDeclWithExtraLine true printer decl
-            do! printer.Flush()
+            do! printerImpl.Flush()
     }

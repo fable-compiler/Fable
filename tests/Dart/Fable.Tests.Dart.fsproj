@@ -2,10 +2,11 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
-  <!-- <ItemGroup>
-    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
-  </ItemGroup> -->
   <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Tests.Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
   </ItemGroup>
 </Project>

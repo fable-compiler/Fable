@@ -545,11 +545,6 @@ module Path =
     let normalizePathAndEnsureFsExtension (path: string) =
         normalizePath path |> ensureFsExtension
 
-    let replaceExtension (newExt: string) (path: string) =
-        let i = path.LastIndexOf(".")
-        if i > 0 then path.Substring(0, i) + newExt
-        else path + newExt
-
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =
         let len = path.Length
