@@ -143,15 +143,25 @@ module Log =
 module File =
     open System.IO
 
-    let changeFsExtension isInFableHiddenDir filePath fileExt =
+    let defaultFileExt usesOutDir (language: Fable.Language) =
         let fileExt =
-            // Prevent conflicts in package sources as they may include
-            // native files with same name as the F# .fs file
-            if fileExt <> Fable.CompilerOptionsHelper.DefaultExtension
-                && isInFableHiddenDir then
-                    Fable.CompilerOptionsHelper.DefaultExtension
+            match language with
+            | Fable.TypeScript -> ".ts"
+            | Fable.Python -> ".py"
+            | Fable.Php -> ".php"
+            | Fable.Dart -> ".dart"
+            | Fable.Rust -> ".rs"
+            | Fable.JavaScript -> ".js"
+        if usesOutDir then fileExt else ".fs" + fileExt
+
+    // Some Fable JS packages have native files with same name as the F# file
+    // so we need to use the default extension .fs.js to prevent conflicts.
+    // We should avoid this practice for other languages (Rust, Python...).
+    let changeExtensionButUseDefaultExtensionInFableModules lang isInFableModules filePath fileExt =
+        let fileExt =
+            if isInFableModules then defaultFileExt false lang
             else fileExt
-        Fable.Path.replaceExtension fileExt filePath
+        Fable.Path.ChangeExtension(filePath, fileExt)
 
     let relPathToCurDir (path: string) =
         Path.GetRelativePath(Directory.GetCurrentDirectory(), path)

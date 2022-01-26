@@ -1062,14 +1062,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | Value (StringConstant path, r) when path.EndsWith(".fs") ->
             // In imports *.ts extensions have to be converted to *.py extensions instead
             let fileExt = com.Options.FileExtension
-
-            let fileExt =
-                if fileExt.EndsWith(".ts") then
-                    Path.replaceExtension ".py" fileExt
-                else
-                    fileExt
-
-            Value(StringConstant(Path.replaceExtension fileExt path), r)
+            Value(StringConstant(Path.ChangeExtension(path, fileExt)), r)
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with

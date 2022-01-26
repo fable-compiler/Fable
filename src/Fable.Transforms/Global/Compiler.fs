@@ -4,7 +4,6 @@ module Literals =
     let [<Literal>] VERSION = "4.0.0"
 
 type CompilerOptionsHelper =
-    static member DefaultExtension = ".fs.js"
     static member Make(?language,
                        ?typedArrays,
                        ?define,
@@ -18,10 +17,10 @@ type CompilerOptionsHelper =
             CompilerOptions.Define = defaultArg define []
             DebugMode = defaultArg debugMode true
             Language = defaultArg language JavaScript
+            FileExtension = defaultArg fileExtension ".fs.js"
             TypedArrays = defaultArg typedArrays true
             OptimizeFSharpAst = defaultArg optimizeFSharpAst false
             Verbosity = defaultArg verbosity Verbosity.Normal
-            FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
             ClampByteArrays = defaultArg clampByteArrays false
             NoReflection = defaultArg noReflection false
             TriggeredByDependency = false
@@ -128,7 +127,7 @@ module CompilerExt =
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
                 member _.GetOutputPath() =
-                    let file = Path.replaceExtension com.Options.FileExtension com.CurrentFile
+                    let file = Path.ChangeExtension(com.CurrentFile, com.Options.FileExtension)
                     match com.OutputDir with
                     | None -> file
                     | Some outDir ->

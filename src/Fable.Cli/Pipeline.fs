@@ -10,7 +10,7 @@ module Js =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
-            if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+            if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
         let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
@@ -30,7 +30,7 @@ module Js =
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
-                    File.changeFsExtension isInFableModules path fileExt
+                    File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
             member _.AddLog(msg, severity, ?range) = () // TODO
@@ -67,20 +67,17 @@ module Js =
     }
 
 module Python =
-    let getTargetPath (targetPath: string) =
-        let fileExt = ".py"
+    let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
+        let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
 
         // PEP8: Modules should have short, all-lowercase names
-        let fileName =
-            Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
-                .Replace(".", "_")
-        let fileName =
-            fileName
-            |> Naming.applyCaseRule Core.CaseRules.SnakeCase
-            |> Fable.PY.Naming.checkPyKeywords
         // Note that Python modules cannot contain dots or it will be impossible to import them
-        Path.Combine(targetDir, Path.replaceExtension fileExt fileName)
+        let fileName =
+            Path.GetFileNameWithoutExtension(targetPath).Replace(".", "_")
+            |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+            |> PY.Naming.checkPyKeywords
+        Path.Combine(targetDir, fileName + fileExt)
 
     type PythonFileWriter(targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
@@ -114,7 +111,7 @@ module Python =
             |> FableTransforms.transformFile com
             |> Fable2Python.Compiler.transformFile com
 
-        let outPath = getTargetPath outPath
+        let outPath = getTargetPath cliArgs outPath
 
         match cliArgs.Delimiter with
         | None ->
@@ -169,21 +166,15 @@ module Dart =
     type DartWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
         interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeStringLiteral(str) =
-                // TODO: Check if this works for Dart
-                Web.HttpUtility.JavaScriptStringEncode(str)
+            member _.EscapeStringLiteral(str) = str
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
-                    let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
-                    File.changeFsExtension isInFableModules path fileExt
-                else path
+                if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
             member _.AddSourceMapping(_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)

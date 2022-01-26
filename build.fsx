@@ -505,7 +505,7 @@ let testRust() =
     copyFile (projectDir </> "Cargo.toml") buildDir
     runInDir buildDir "cargo test"
 
-let testDart() =
+let testDart(isWatch) =
     let projectDir = "tests/Dart"
     let runDir = "tests/Dart/run"
 
@@ -513,6 +513,8 @@ let testDart() =
         "--exclude Fable.Core"
         "--lang Dart"
         "--noCache"
+        if isWatch then
+            "--watch"
     ]
     runInDir runDir "dart test main.dart"
 
@@ -671,7 +673,8 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust()
-| "test-dart"::_ -> testDart()
+| "test-dart"::_ -> testDart(false)
+| "watch-test-dart"::_ -> testDart(true)
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
