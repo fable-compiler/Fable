@@ -24,7 +24,7 @@ type CliArgs =
       Configuration: string
       NoRestore: bool
       NoCache: bool
-      NoParallel: bool
+      NoParallelTypeCheck: bool
       SourceMaps: bool
       SourceMapsRoot: string option
       Exclude: string option

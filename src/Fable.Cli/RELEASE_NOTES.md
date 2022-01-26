@@ -1,6 +1,10 @@
+### 3.7.0-beta-015
+
+* Run sub-process even if compilation was skipped
+
 ### 3.7.0-beta-014
 
-* Add --noParallel option to disable F#/Fable parallel compilation
+* Add --noParallelTypeCheck option to disable F#/Fable parallel compilation
 
 ### 3.7.0-beta-012
 
