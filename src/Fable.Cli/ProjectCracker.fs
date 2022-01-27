@@ -499,6 +499,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         let buildDir, libDir =
             match opts.FableOptions.Language with
             | Python -> "fable-library-py/fable_library", "fable_library"
+            | Rust -> "fable-library-rust", "fable-library-rust"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
         let fableLibrarySource =
