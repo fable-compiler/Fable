@@ -55,6 +55,7 @@ let tryCall (com: ICompiler) ctx r t info thisArg args =
     match com.Options.Language with
     | Rust -> Rust.Replacements.tryCall com ctx r t info thisArg args
     | Python -> PY.Replacements.tryCall com ctx r t info thisArg args
+    | Dart -> Dart.Replacements.tryCall com ctx r t info thisArg args
     | _ -> JS.Replacements.tryCall com ctx r t info thisArg args
 
 let error (com: ICompiler) msg =

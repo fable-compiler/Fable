@@ -25,14 +25,14 @@ let tests () =
     testCase "Infix multiply can be generated" <| fun () ->
         4 * 2 |> equal 8
 
-    // testCase "Infix divide can be generated" <| fun () ->
-    //     4 / 2 |> equal 2
+    testCase "Infix divide can be generated" <| fun () ->
+        4 / 2 |> equal 2
 
-    // testCase "Integer division doesn't produce floats" <| fun () ->
-    //     5. / 2. |> equal 2.5
-    //     5 / 2 |> equal 2
-    //     5 / 3 |> equal 1
-    //     // float 5 / 2. |> equal 2.5 // TODO: Number conversion
+    testCase "Integer division doesn't produce floats" <| fun () ->
+        5. / 2. |> equal 2.5
+        5 / 2 |> equal 2
+        5 / 3 |> equal 1
+        // float 5 / 2. |> equal 2.5 // TODO: Number conversion
 
     testCase "Infix modulo can be generated" <| fun () ->
         4 % 3 |> equal 1

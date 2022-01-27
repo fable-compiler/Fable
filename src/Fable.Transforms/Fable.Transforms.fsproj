@@ -19,6 +19,7 @@
     <Compile Include="Replacements.Util.fs" />
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
+    <Compile Include="Dart/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />
     <Compile Include="FSharp2Fable.fs" />
