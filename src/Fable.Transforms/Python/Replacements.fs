@@ -981,10 +981,10 @@ let tryEntityRef (com: Compiler) entFullName =
         |> Some
     | BuiltinDefinition (FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
     | BuiltinDefinition (FSharpResult _) ->
-        makeImportLib com Any "FSharpResult$2" "Choice"
+        makeImportLib com Any "FSharpResult_2" "Choice"
         |> Some
     | BuiltinDefinition (FSharpChoice genArgs) ->
-        let membName = $"FSharpChoice${List.length genArgs}"
+        let membName = $"FSharpChoice_{List.length genArgs}"
         makeImportLib com Any membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
@@ -996,7 +996,7 @@ let tryEntityRef (com: Compiler) entFullName =
     | Types.matchFail ->
         makeImportLib com Any "MatchFailureException" "Types"
         |> Some
-    | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | Types.systemException ->
         makeImportLib com Any "SystemException" "SystemException"
         |> Some
