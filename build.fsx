@@ -680,7 +680,7 @@ match BUILD_ARGS_LOWER with
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --delimiter #fsharp --cwd ../quicktest-py --noCache"
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --region --cwd ../quicktest-py --noCache"
 | "quicktest-dart"::_ ->
     run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest --exclude Fable.Core --noCache"
 | "run"::_ ->

@@ -76,7 +76,7 @@ let knownCliArgs() = [
                              "Support for TypeScript, Php and Python is experimental."]
 
   // Hidden args
-  ["--delimiter"], []
+  ["--region"], []
   ["--precompiledLib"], []
   ["--noReflection"], []
   ["--typescript"], []
@@ -189,6 +189,7 @@ type Runner =
             Ok fsprojPath
 
     let typedArrays = args.FlagOr("--typedArrays", true)
+    let useRegion = args.FlagEnabled "--region"
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
     let precompiledLib = args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
     let fableLib = args.Value "--fableLib"
@@ -242,7 +243,9 @@ type Runner =
 
     let fileExt =
         args.Value("-e", "--extension")
-        |> Option.defaultWith (fun () -> File.defaultFileExt (Option.isSome outDir) language)
+        |> Option.defaultWith (fun () ->
+            let usesOutDir = Option.isSome outDir || useRegion
+            File.defaultFileExt usesOutDir language)
 
     let compilerOptions =
         CompilerOptionsHelper.Make(language=language,
@@ -261,7 +264,7 @@ type Runner =
           Configuration = configuration
           OutDir = outDir
           IsWatch = watch
-          Delimiter = args.Value "--delimiter"
+          UseRegion = useRegion
           Precompile = precompile
           PrecompiledLib = precompiledLib
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
@@ -303,10 +306,13 @@ type Runner =
 let clean (args: CliArgs) language rootDir =
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
+    let useRegion = args.FlagEnabled "--region"
     let outDir = args.Value("-o", "--outDir")
     let fileExt =
         args.Value("-e", "--extension")
-        |> Option.defaultWith (fun () -> File.defaultFileExt (Option.isSome outDir) language)
+        |> Option.defaultWith (fun () ->
+            let usesOutDir = Option.isSome outDir || useRegion
+            File.defaultFileExt usesOutDir language)
 
     let cleanDir =
         outDir

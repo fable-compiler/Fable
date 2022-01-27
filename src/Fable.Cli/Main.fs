@@ -605,9 +605,8 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     projCracked, filesToCompile
 
 let private areCompiledFilesUpToDate (cliArgs: CliArgs) (state: State) (filesToCompile: string[]) =
-    // When using a delimiter we keep contents of the target files
-    // so we cannot use the timestamp to decide if they're up-to-date
-    if Option.isSome cliArgs.Delimiter then false
+    // When using regions we keep contents of the target files we cannot use the timestamp to decide if they're up-to-date
+    if cliArgs.UseRegion then false
     else
         let pathResolver = state.GetPathResolver()
         filesToCompile

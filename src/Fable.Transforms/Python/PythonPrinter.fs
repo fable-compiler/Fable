@@ -768,17 +768,17 @@ let runWithRegions writer delimiter nativeRegions (program: Module) : Async<unit
         let fsharpRegion =
             match fsharpRegion with
             | RegionStart label :: fsharpRegion ->
-                printLine printer $"{delimiter} start: {label}"
+                printLine printer $"{delimiter} START: {label}"
                 fsharpRegion
             | fsharpRegion ->
-                printLine printer $"{delimiter} start"
+                printLine printer $"{delimiter} START"
                 fsharpRegion
         // TODO: print imports without extra lines
         // TODO: remove the extra line in the last statement
         for decl in fsharpRegion do
             printDeclWithExtraLine false printer decl
 
-        printLine printer $"{delimiter} end"
+        printLine printer $"{delimiter} END"
         printer.Flush()
 
     let rec printRegions (printer: PrinterImpl) (nativeRegions: string list list) (fsharpRegions: Statement list list) =
