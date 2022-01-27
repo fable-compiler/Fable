@@ -2,16 +2,20 @@ module Fable.Tests.Dart.Arithmetic
 
 open Util
 
+let [<Literal>] aLiteral = 5
+let notALiteral = 5
+let [<Literal>] literalNegativeValue = -345
+
 let tests () =
     testCase "Infix add can be generated" <| fun () ->
         4 + 2 |> equal 6
 
-    // testCase "Int32 literal addition is optimized" <| fun () ->
-    //     aLiteral + 7 |> equal 12
-    //     notALiteral + 7 |> equal 12
+    testCase "Int32 literal addition is optimized" <| fun () ->
+        aLiteral + 7 |> equal 12
+        notALiteral + 7 |> equal 12
 
-    // testCase "Unary negation with negative literal values works" <| fun () ->
-    //     -literalNegativeValue |> equal 345
+    testCase "Unary negation with negative literal values works" <| fun () ->
+        -literalNegativeValue |> equal 345
 
     // testCase "Unary negation with integer MinValue works" <| fun () ->
     //     -(-128y) |> equal System.SByte.MinValue

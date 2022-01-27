@@ -32,19 +32,29 @@ and Expression =
     | IdentExpression of Ident
     | PropertyAccess of Expression * string
     | InvocationExpression of Expression * genArgs: Type list * args: Expression list
+    | UnaryExpression of operator: UnaryOperator * expr: Expression
     | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
+    | LogicalExpression of operator: LogicalOperator * left: Expression * right: Expression
     | AnonymousFunction of args: Ident list * body: Choice<Statement list, Expression> * genericParams: string list //* returnType: Type
     | Assignment of target: Expression * value: Expression
+
+type VariableDeclarationKind =
+    | Final
+    | Const
+    /// Variable is mutable but value is constant (union, list, immutable record...)
+    | VarConst
+    | Var
 
 and Statement =
     | ReturnStatement of Expression
     | ExpressionStatement of Expression
-    | VariableDeclaration of ident: Ident * value: Expression option
+    | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option
     | Break of label: string option
     | Label of label: string
 
 type Declaration =
     | ClassDeclaration
+    | VariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression
     | FunctionDeclaration of name: string * args: Ident list * body: Statement list * genericParams: string list * returnType: Type
 
 type Import =

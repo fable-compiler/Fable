@@ -240,9 +240,11 @@ module Util =
             | Float32 | Float64 -> Double
         | t -> Dynamic // TODO failwith $"todo: type %A{t}"
 
+    let transformIdentWith (com: IDartCompiler) ctx typ name: Ident =
+        { Name = name; Type = transformType com ctx typ }
+
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident): Ident =
-        { Name = id.Name
-          Type = transformType com ctx id.Type }
+        transformIdentWith com ctx id.Type id.Name
 
     let transformImport (com: IDartCompiler) ctx r (selector: string) (path: string) =
         let selector, parts =
@@ -263,10 +265,12 @@ module Util =
 
     let transformOperation com ctx (_: SourceLocation option) t opKind: Expression =
         match opKind with
+        | Fable.Unary(op, TransformExpr com ctx expr) ->
+            UnaryExpression(op, expr)
         | Fable.Binary(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             BinaryExpression(op, left, right, isInt t)
-        | Fable.Unary(op, TransformExpr com ctx expr) -> failwith $"todo: unary op %A{op}"
-        | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) -> failwith $"todo: logical op %A{op}"
+        | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+            LogicalExpression(op, left, right)
 
     let transformCall (com: IDartCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
@@ -419,7 +423,13 @@ module Util =
         | Fable.MemberDeclaration memb ->
             withCurrentScope ctx memb.UsedNames <| fun ctx ->
                 if memb.Info.IsValue then
-                    [] // TODO
+                    // TODO: Prefix non-public values with underscore or raise warning?
+                    let ident = transformIdentWith com ctx memb.Body.Type memb.Name
+                    // TODO: If value is primitive, list, union or record without mutable fields
+                    // we can declare it as const (if var is mutable we can make only the value const)
+                    let kind = if memb.Info.IsMutable then Var else Final
+                    let value = transformAsExpr com ctx memb.Body
+                    [VariableDeclaration(ident, kind, value)]
                 else
                     [transformModuleFunction com ctx memb]
 

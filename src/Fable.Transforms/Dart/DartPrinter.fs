@@ -62,9 +62,18 @@ module PrinterExtensions =
             | Dynamic -> printer.Print("dynamic")
             | t -> printer.AddError($"TODO: Print type %A{t}")
 
+        member printer.WithParens(expr: Expression) =
+            printer.Print("(")
+            printer.Print(expr)
+            printer.Print(")")
+
         // TODO
         member printer.ComplexExpressionWithParens(expr: Expression) =
-            printer.Print(expr)
+            match expr with
+            | Literal(IntegerLiteral v) when v < 0L -> printer.WithParens(expr)
+            | Literal(DoubleLiteral v) when v < 0. -> printer.WithParens(expr)
+            | _ -> printer.Print(expr)
+            // | _ -> printer.WithParens(expr)
 
         member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, isInt) =
             printer.ComplexExpressionWithParens(left)
@@ -116,16 +125,8 @@ module PrinterExtensions =
                 printer.Print(e)
             | ExpressionStatement e ->
                 printer.Print(e)
-            | VariableDeclaration(ident, value) ->
-                printer.Print("var ")
-                printer.Print(ident.Name)
-                match value with
-                | None ->
-                    printer.Print(": ")
-                    printer.Print(ident.Type)
-                | Some value ->
-                    printer.Print(" = ")
-                    printer.Print(value)
+            | LocalVariableDeclaration(ident, kind, value) ->
+                printer.PrintVariableDeclaration(ident, kind, ?value=value)
             // TODO: label
             | Break label ->
                 printer.Print("break")
@@ -138,8 +139,25 @@ module PrinterExtensions =
 
             | IdentExpression i -> printer.Print(i.Name)
 
+            | UnaryExpression(op, expr) ->
+                let printUnaryOp (op: string) (expr: Expression) =
+                    printer.Print(op)
+                    printer.ComplexExpressionWithParens(expr)
+                match op with
+                | UnaryMinus -> printUnaryOp "-" expr
+                | UnaryNot -> printUnaryOp "!" expr
+                | UnaryNotBitwise -> printUnaryOp "~" expr
+                // TODO: I think Dart doesn't accept + prefix, check
+                | UnaryPlus
+                | UnaryTypeof
+                | UnaryVoid
+                | UnaryDelete -> printer.Print(expr)
+
             | BinaryExpression(op, left, right, isInt) ->
                 printer.PrintBinaryExpression(op, left, right, isInt)
+
+            | LogicalExpression(op, left, right) ->
+                failwith "todo: print LogicalExpression"
 
             | Assignment(target, value) ->
                 printer.Print(target)
@@ -198,10 +216,23 @@ module PrinterExtensions =
             printer.Print(name)
             match genParams with
             | [] -> ()
-            | genParams -> printer.PrintList("<", args, ">")
+            | genParams -> printer.PrintList("<", genParams, ">")
             printer.PrintList("(", args, ")", printType=true)
             printer.Print(" ")
             printer.PrintBlock(body, skipNewLineAtEnd=true)
+
+        member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
+            match value with
+            | None ->
+                printer.Print(ident.Type)
+                printer.Print(" " + ident.Name)
+            | Some value ->
+                match kind with
+                | Const -> printer.Print("const " + ident.Name + " = ")
+                | Final -> printer.Print("final " + ident.Name + " = ")
+                | VarConst -> printer.Print("var " + ident.Name + " = const ")
+                | Var -> printer.Print("var " + ident.Name + " = ")
+                printer.Print(value)
 
 open PrinterExtensions
 
@@ -209,12 +240,16 @@ let run (writer: Writer) (file: File): Async<unit> =
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Declaration) =
         match decl with
         | ClassDeclaration -> () // TODO
+
         | FunctionDeclaration(name, args, body, genParams, returnType) ->
             printer.PrintFunctionDeclaration(name, args, body, genParams, returnType)
-
-        if printer.Column > 0 then
-            // printer.Print(";")
             printer.PrintNewLine()
+
+        | VariableDeclaration(ident, kind, value) ->
+            printer.PrintVariableDeclaration(ident, kind, value)
+            printer.Print(";")
+            printer.PrintNewLine()
+
         if extraLine then
             printer.PrintNewLine()
 
