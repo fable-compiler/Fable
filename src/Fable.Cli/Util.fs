@@ -18,7 +18,7 @@ type CliArgs =
       RootDir: string
       OutDir: string option
       IsWatch: bool
-      Delimiter: string option
+      UseRegion: bool
       Precompile: bool
       PrecompiledLib: string option
       FableLibraryPath: string option

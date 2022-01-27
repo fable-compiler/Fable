@@ -1,7 +1,7 @@
 # %%
 
-#fsharp -- Generated code
-#fsharp -- End of generated code
+# FABLE_REGION START
+# FABLE_REGION END
 
 # %%
 

@@ -113,12 +113,12 @@ module Python =
 
         let outPath = getTargetPath cliArgs outPath
 
-        match cliArgs.Delimiter with
-        | None ->
+        if not cliArgs.UseRegion then
             let writer = new PythonFileWriter(outPath)
             do! PythonPrinter.run writer python
 
-        | Some delimiter ->
+        else
+            let delimiter = "# " + Naming.fableRegion
             let nativeRegions =
                 if IO.File.Exists(outPath) then
                     ((Some [], []), IO.File.ReadLines(outPath))

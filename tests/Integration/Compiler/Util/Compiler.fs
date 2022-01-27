@@ -52,7 +52,7 @@ module Compiler =
           Exclude = Some "Fable.Core"
           Replace = Map.empty
           RunProcess = None
-          Delimiter = None
+          UseRegion = false
           CompilerOptions = compilerOptions }
 
     let mutable private state = State.Create(cliArgs, recompileAllFiles=true)

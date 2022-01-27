@@ -151,6 +151,7 @@ module Naming =
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] fableModules = "fable_modules"
+    let [<Literal>] fableRegion = "FABLE_REGION"
     let [<Literal>] fablePrecompile = "Fable.Precompiled"
     let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
