@@ -157,14 +157,15 @@ let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
     | _ -> invalidArg "list2" SR.differentLengths
 
 let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
-    let rec inner_loop gen acc (root: 'T list) (xs: 'T list) =
-        match gen acc with
-        | None -> root
-        | Some (x, acc) ->
-            let t = xs |> appendConsNoTail x
-            let root = if isEmpty root then t else root
-            inner_loop gen acc root t
-    inner_loop gen state (empty()) (empty())
+    let mutable root = empty()
+    let mutable node = root
+    let mutable acc = gen state
+    while acc.IsSome do
+        let (x, st) = acc.Value
+        node <- node |> appendConsNoTail x
+        if isEmpty root then root <- node
+        acc <- gen st
+    root
 
 let iterate action (xs: 'T list) =
     fold (fun () x -> action x) () xs
@@ -267,7 +268,18 @@ let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
     unfold gen (0, xs)
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-    concat (map mapping xs)
+    let mutable root = empty()
+    let mutable node = root
+    let mutable xs = xs
+    let mutable ys = empty()
+    while not (isEmpty xs) do
+        ys <- mapping (head xs)
+        while not (isEmpty ys) do
+            node <- node |> appendConsNoTail (head ys)
+            if isEmpty root then root <- node
+            ys <- tail ys
+        xs <- tail xs
+    root
 
 let indexed xs =
     mapIndexed (fun i x -> (i, x)) xs

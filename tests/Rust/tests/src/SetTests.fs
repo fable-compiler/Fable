@@ -333,25 +333,25 @@ let ``Set compare works`` () =
     compare xs zs |> equal -1
     compare zs ys |> equal 1
 
-// [<Fact>]
-// let ``Comparing large sets works`` () = // See #2203
-//     let largeSetA = Set.ofArray [| for i in 1 .. 100_000 -> i |]
-//     let largeSetB = Set.ofArray [| for i in 1 .. 100_000 -> i |]
-//     let largeSetC = Set.ofArray [| for i in 1 .. 100_000 -> if i = 100_000 then -1 else i |]
-//     let largeSetD = Set.ofArray [| for i in 1 .. 99_999 -> i |]
-//     largeSetA = largeSetB |> equal true
-//     largeSetA = largeSetC |> equal false
-//     largeSetD = largeSetB |> equal false
-//     compare largeSetA largeSetB |> equal 0
-//     compare largeSetB largeSetC |> equal 1
-//     compare largeSetC largeSetA |> equal -1
-//     largeSetA.IsProperSupersetOf(largeSetD) |> equal true
-//     largeSetC.IsSupersetOf(largeSetD) |> equal true
-//     largeSetC.IsProperSubsetOf(largeSetA) |> equal false
-//     largeSetC.IsSubsetOf(largeSetB) |> equal false
-//     largeSetD.IsProperSubsetOf(largeSetB) |> equal true
-//     largeSetD.IsSubsetOf(largeSetC) |> equal true
-//     largeSetB.IsProperSupersetOf(largeSetA) |> equal false
-//     largeSetB.IsSupersetOf(largeSetA) |> equal true
-//     largeSetA.IsProperSubsetOf(largeSetB) |> equal false
-//     largeSetA.IsSubsetOf(largeSetB) |> equal true
+[<Fact>]
+let ``Comparing large sets works`` () = // See #2203
+    let largeSetA = Set.ofArray [| for i in 1 .. 100_000 -> i |]
+    let largeSetB = Set.ofArray [| for i in 1 .. 100_000 -> i |]
+    let largeSetC = Set.ofArray [| for i in 1 .. 100_000 -> if i = 100_000 then -1 else i |]
+    let largeSetD = Set.ofArray [| for i in 1 .. 99_999 -> i |]
+    largeSetA = largeSetB |> equal true
+    largeSetA = largeSetC |> equal false
+    largeSetD = largeSetB |> equal false
+    compare largeSetA largeSetB |> equal 0
+    compare largeSetB largeSetC |> equal 1
+    compare largeSetC largeSetA |> equal -1
+    largeSetA.IsProperSupersetOf(largeSetD) |> equal true
+    largeSetC.IsSupersetOf(largeSetD) |> equal true
+    largeSetC.IsProperSubsetOf(largeSetA) |> equal false
+    largeSetC.IsSubsetOf(largeSetB) |> equal false
+    largeSetD.IsProperSubsetOf(largeSetB) |> equal true
+    largeSetD.IsSubsetOf(largeSetC) |> equal true
+    largeSetB.IsProperSupersetOf(largeSetA) |> equal false
+    largeSetB.IsSupersetOf(largeSetA) |> equal true
+    largeSetA.IsProperSubsetOf(largeSetB) |> equal false
+    largeSetA.IsSubsetOf(largeSetB) |> equal true
