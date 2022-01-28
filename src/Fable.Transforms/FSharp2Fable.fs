@@ -576,16 +576,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com ctx.InlinePath r
         else
-            match com.Options.Language with
-            | Rust ->
+            if isByRefValue var && com.Options.Language <> Rust then
+                // Getting byref value is compiled as FSharpRef op_Dereference
+                let var = makeValueFrom com ctx r var
+                return Replacements.Api.getReference com r var.Type var
+            else
                 return makeValueFrom com ctx r var
-            | _ ->
-                if isByRefValue var then
-                    // Getting byref value is compiled as FSharpRef op_Dereference
-                    let var = makeValueFrom com ctx r var
-                    return Replacements.Api.getReference com r var.Type var
-                else
-                    return makeValueFrom com ctx r var
 
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
         return Replacements.Api.defaultof com ctx typ
@@ -1033,10 +1029,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! callee = transformCallee com ctx callee calleeType
             let typ = makeType ctx.GenericArgs expr.Type
             let key = FsField.FSharpFieldName field
-            return
-                match com.Options.Language with
-                | Rust -> Replacements.Api.makeRefFromMutableField com ctx r typ callee key
-                | _ -> Replacements.Api.makeRefFromMutableField com ctx r typ callee key
+            return Replacements.Api.makeRefFromMutableField com ctx r typ callee key
         | _ ->
             // ignore AddressOf, pass by value
             return! transformExpr com ctx expr
@@ -1510,10 +1503,7 @@ type FableCompiler(com: Compiler) =
         |> Option.defaultValue false
 
     member this.TryReplace(ctx, r, t, info, thisArg, args) =
-        match com.Options.Language with
-        | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
-        | Rust -> Rust.Replacements.tryCall this ctx r t info thisArg args
-        | _ -> Replacements.Api.tryCall this ctx r t info thisArg args
+        Replacements.Api.tryCall this ctx r t info thisArg args
 
     member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
         let resolvedIdents = Dictionary()

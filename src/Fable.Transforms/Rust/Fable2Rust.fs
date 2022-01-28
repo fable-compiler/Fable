@@ -132,6 +132,9 @@ module UsageTracking =
 
 module TypeInfo =
 
+    let cleanNameAsRustIdentifier (name: string) =
+        FSharp2Fable.Helpers.cleanNameAsRustIdentifier name
+
     let splitNameSpace (fullName: string) =
         let i = fullName.LastIndexOf('.')
         if i < 0 then "", fullName
@@ -1733,20 +1736,20 @@ module Util =
             | _ -> None
         let array =
             exprs
-            |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+            |> List.map (transformExprMaybeUnwrapRef com ctx)
             |> mkArrayExpr
         makeLibCall com ctx genArgs "Native" "arrayFrom" [array]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
-            let size = com.TransformAsExpr(ctx, sizeExpr)
-            let value = com.TransformAsExpr(ctx, valueExpr)
+            let size = transformExprMaybeUnwrapRef com ctx sizeExpr
+            let value = transformExprMaybeUnwrapRef com ctx valueExpr
             makeLibCall com ctx None "Native" "arrayCreate" [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
-            let sequence = com.TransformAsExpr(ctx, expr)
+            let sequence = transformExprMaybeUnwrapRef com ctx expr
             makeLibCall com ctx None "Native" "arrayFrom" [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
@@ -2124,6 +2127,10 @@ module Util =
             let pathNames = splitFullName macro
             makeCall pathNames None args
 
+    let transformCallee (com: IRustCompiler) ctx calleeExpr =
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
+        com.TransformAsExpr(ctx, calleeExpr)
+
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = callInfo.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
@@ -2166,7 +2173,6 @@ module Util =
             mkCallExpr callee args
 
         | _ ->
-            let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
             match callInfo.ThisArg with
             | Some(thisArg) ->
                 match callInfo.CallMemberInfo with
@@ -2175,7 +2181,7 @@ module Util =
                     let callee = com.TransformAsExpr(ctx, thisArg)
                     mkMethodCallExpr name None callee args
                 | _ ->
-                    com.TransformAsExpr(ctx, calleeExpr)
+                    transformCallee com ctx calleeExpr
             | None ->
                 let callee =
                     match callInfo.CallMemberInfo with
@@ -2188,17 +2194,16 @@ module Util =
                                 let memberName =
                                     let name = callMemberInfo.CompiledName
                                     if callMemberInfo.IsGetter then name |> Fable.Naming.removeGetSetPrefix
-                                    elif name = ".ctor" then "new"
-                                    elif name.EndsWith(".ctor") then name.Replace(".ctor", "::new")
+                                    elif name.EndsWith(".ctor") then name.Replace(".ctor", "new")
                                     else name
-                                ent.FullName + "." + memberName
+                                ent.FullName + "." + (memberName |> cleanNameAsRustIdentifier)
                             | _ ->
                                 callMemberInfo.FullName
                                     .Replace(".( .ctor )", "::new")
                                     .Replace(".``.ctor``", "::new")
                         makeFullNamePathExpr path None
                     | _ ->
-                        com.TransformAsExpr(ctx, calleeExpr)
+                        transformCallee com ctx calleeExpr
                 mkCallExpr callee args
 
 (*
@@ -2560,8 +2565,8 @@ module Util =
         |> transformAsExpr com ctx
         // |> mkTryBlockExpr // TODO: nightly only, enable when stable
 
-    let transformCurriedApply (com: IRustCompiler) ctx range expr args =
-        let callee = transformExprMaybeIdentExpr com ctx expr
+    let transformCurriedApply (com: IRustCompiler) ctx range calleeExpr args =
+        let callee = transformCallee com ctx calleeExpr
         callFunction com ctx range callee args
         // let handler =
         //     catch |> Option.map (fun (param, body) ->
@@ -3423,7 +3428,7 @@ module Util =
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name //|> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+            let name = field.Name |> cleanNameAsRustIdentifier
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
