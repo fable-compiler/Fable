@@ -1813,12 +1813,6 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     | "IsSurrogate" ->
         let methName = Naming.lowerFirst i.CompiledName
 
-        let methName =
-            if List.length args > 1 then
-                methName + "2"
-            else
-                methName
-
         Helper.LibCall(com, "char", methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "IsSurrogatePair"
