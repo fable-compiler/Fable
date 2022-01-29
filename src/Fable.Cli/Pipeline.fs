@@ -71,7 +71,7 @@ module Python =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
 
-        // PEP8: Modules should have short, all-lowercase names
+        // PEP8: Modules (i.e files) should have short, all-lowercase names
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let fileName =
             Path.GetFileNameWithoutExtension(targetPath).Replace(".", "_")
