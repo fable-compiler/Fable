@@ -234,7 +234,7 @@ type ValueKind =
     | BoolConstant of value: bool
     | CharConstant of value: char
     | StringConstant of value: string
-    | NumberConstant of value: float * kind: NumberKind * uom: string option
+    | NumberConstant of value: obj * kind: NumberKind * uom: string option
     | RegexConstant of source: string * flags: RegexFlag list
     | EnumConstant of value: Expr * ref: EntityRef
     | NewOption of value: Expr option * typ: Type * isStruct: bool

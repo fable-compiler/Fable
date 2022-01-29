@@ -49,6 +49,13 @@ type IBabelCompiler =
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
+// For now don't use BigInt64Array for int64 arrays because we haven't implemented
+// the equivalence between JS BigInt and (u)int64
+let (|NotLong|_|) = function
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32
+    | Float32 | Float64 as kind -> Some kind
+    | Int64 | UInt64 -> None
+
 module Lib =
     let libCall (com: IBabelCompiler) ctx r moduleName memberName args =
         Expression.callExpression(com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?loc=r)
@@ -194,8 +201,6 @@ module Reflection =
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
                 | Replacements.Util.BclTimer
-                | Replacements.Util.BclInt64
-                | Replacements.Util.BclUInt64
                 | Replacements.Util.BclIntPtr
                 | Replacements.Util.BclUIntPtr
                 | Replacements.Util.BclDecimal
@@ -395,6 +400,8 @@ module Annotation =
         | Fable.Char -> StringTypeAnnotation
         | Fable.String -> StringTypeAnnotation
         | Fable.Regex -> makeSimpleTypeAnnotation com ctx "RegExp"
+        | Fable.Number(Int64,_) -> makeImportTypeAnnotation com ctx [] "Long" "int64"
+        | Fable.Number(UInt64,_) -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
@@ -450,7 +457,7 @@ module Annotation =
 
     let makeArrayTypeAnnotation com ctx genArg =
         match genArg with
-        | Fable.Number(kind,_) when com.Options.TypedArrays ->
+        | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
             let name = getTypedArrayName com kind
             makeSimpleTypeAnnotation com ctx name
         | _ ->
@@ -472,8 +479,6 @@ module Annotation =
         | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Replacements.Util.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Replacements.Util.BclIntPtr -> makeImportTypeAnnotation com ctx [] "Long" "intPtr"
         | Replacements.Util.BclUIntPtr -> makeImportTypeAnnotation com ctx [] "Long" "uintPtr"
         | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
@@ -705,7 +710,7 @@ module Util =
 
     let makeTypedArray (com: IBabelCompiler) ctx t (args: Fable.Expr list) =
         match t with
-        | Fable.Number(kind,_) when com.Options.TypedArrays ->
+        | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
             let jsName = getTypedArrayName com kind
             let args = [|makeArray com ctx args|]
             Expression.newExpression(Expression.identifier(jsName), args)
@@ -714,7 +719,7 @@ module Util =
     let makeTypedAllocatedFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
         let getArrayCons t =
             match t with
-            | Fable.Number(kind,_) when com.Options.TypedArrays ->
+            | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
                 getTypedArrayName com kind |> Expression.identifier
             | _ -> Expression.identifier("Array")
 
@@ -944,7 +949,18 @@ module Util =
         | Fable.BoolConstant x -> Expression.booleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> Expression.stringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> Expression.stringLiteral(x, ?loc=r)
-        | Fable.NumberConstant (x,_,_) -> Expression.numericLiteral(x, ?loc=r)
+        | Fable.NumberConstant (x,_,_) ->
+            match x with
+            | :? int8 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? uint8 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? char as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? int16 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? uint16 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? int32 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? uint32 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? float32 as x -> Expression.numericLiteral(float x, ?loc=r)
+            | :? float as x -> Expression.numericLiteral(x, ?loc=r)
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size

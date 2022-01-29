@@ -1,6 +1,7 @@
 ﻿module Fable.Cli.Pipeline
 
 open System
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.Transforms
@@ -86,7 +87,8 @@ module Python =
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
-            member _.EscapeStringLiteral(str) = str
+            member _.EscapeStringLiteral(str) =
+                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\"", @"\""")
             member _.MakeImportPath(path) = path
             member _.AddSourceMapping(_) = ()
             member _.AddLog(msg, severity, ?range) = () // TODO
@@ -170,7 +172,8 @@ module Dart =
         interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeStringLiteral(str) = str
+            member _.EscapeStringLiteral(str) =
+                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("'", @"\'")
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path

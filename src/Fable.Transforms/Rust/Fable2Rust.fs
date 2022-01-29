@@ -562,33 +562,29 @@ module TypeInfo =
         | UInt16 -> "u16"
         | Int32 -> "i32"
         | UInt32 -> "u32"
+        | Int64 -> "i64"
+        | UInt64 -> "u64"
         | Float32 -> "f32"
         | Float64 -> "f64"
         |> primitiveType
 
     let transformEnumType (com: IRustCompiler) ctx (entRef: Fable.EntityRef): Rust.Ty =
         let ent = com.GetEntity(entRef)
-        match ent.IsEnum, entRef.FullName with
-        | false, Replacements.Util.BuiltinDefinition(Replacements.Util.BclInt64) ->
-            primitiveType "i64" // int64 represented as enum
-        | false, Replacements.Util.BuiltinDefinition(Replacements.Util.BclUInt64) ->
-            primitiveType "u64" // uint64 represented as enum
-        | _ ->
-            let mutable numberKind = Int32
-            let cases =
-                ent.FSharpFields |> Seq.iter (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name, fi.FieldType with
-                    | "value__", Fable.Number(kind, _) -> numberKind <- kind
-                    | _ -> ())
-            numberType numberKind
-            //         | name ->
-            //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-            //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-            //         |> Seq.toArray
-            //     |> Expression.arrayExpression
-            // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
-            // |> libReflectionCall com ctx None "enum"
+        let mutable numberKind = Int32
+        let cases =
+            ent.FSharpFields |> Seq.iter (fun fi ->
+                // F# seems to include a field with this name in the underlying type
+                match fi.Name, fi.FieldType with
+                | "value__", Fable.Number(kind, _) -> numberKind <- kind
+                | _ -> ())
+        numberType numberKind
+        //         | name ->
+        //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+        //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+        //         |> Seq.toArray
+        //     |> Expression.arrayExpression
+        // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
+        // |> libReflectionCall com ctx None "enum"
 
     let getInterfaceEntityPath (entRef: Fable.EntityRef) =
         match entRef.FullName with
@@ -737,8 +733,6 @@ module TypeInfo =
                 match entRef.FullName, genArgs with
                 | Replacements.Util.BuiltinEntity kind ->
                     match kind with
-                    | Replacements.Util.BclInt64 -> primitiveType "i64"
-                    | Replacements.Util.BclUInt64 -> primitiveType "u64"
                     | Replacements.Util.BclIntPtr -> primitiveType "isize"
                     | Replacements.Util.BclUIntPtr -> primitiveType "usize"
 
@@ -1021,8 +1015,6 @@ module Annotation =
         | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Replacements.Util.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
         | Replacements.Util.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
@@ -1627,86 +1619,69 @@ module Util =
             then expr
             else mkAddrOfExpr expr
 
-    let makeNumber kind (x: float) =
-        let u = uint64 (abs x)
-        match kind with
-        | Int8 when int8 x = System.SByte.MinValue ->
+    let makeNumber com r kind (x: obj) =
+        match kind, x with
+        | Int8, (:? int8 as x) when x = System.SByte.MinValue ->
             mkGenericPathExpr ["i8";"MIN"] None
-        | Int8 when int8 x = System.SByte.MaxValue ->
+        | Int8, (:? int8 as x) when x = System.SByte.MaxValue ->
             mkGenericPathExpr ["i8";"MAX"] None
-        | Int16 when int16 x = System.Int16.MinValue ->
+        | Int16, (:? int16 as x) when x = System.Int16.MinValue ->
             mkGenericPathExpr ["i16";"MIN"] None
-        | Int16 when int16 x = System.Int16.MaxValue ->
+        | Int16, (:? int16 as x) when x = System.Int16.MaxValue ->
             mkGenericPathExpr ["i16";"MAX"] None
-        | Int32 when int32 x = System.Int32.MinValue ->
+        | Int32, (:? int32 as x) when int32 x = System.Int32.MinValue ->
             mkGenericPathExpr ["i32";"MIN"] None
-        | Int32 when int32 x = System.Int32.MaxValue ->
+        | Int32, (:? int32 as x) when int32 x = System.Int32.MaxValue ->
             mkGenericPathExpr ["i32";"MAX"] None
-        | Int8 ->
-            let expr = mkInt8LitExpr u
-            if x < 0.0 then expr |> mkNegExpr else expr
-        | Int16 ->
-            let expr = mkInt16LitExpr u
-            if x < 0.0 then expr |> mkNegExpr else expr
-        | Int32 ->
-            let expr = mkInt32LitExpr u
-            if x < 0.0 then expr |> mkNegExpr else expr
-        // | UInt8 when uint8 x = System.Byte.MinValue ->
+        | Int8, (:? int8 as x) ->
+            let expr = mkInt8LitExpr (abs x |> uint64)
+            if x < 0y then expr |> mkNegExpr else expr
+        | Int16, (:? int16 as x) ->
+            let expr = mkInt16LitExpr (abs x |> uint64)
+            if x < 0s then expr |> mkNegExpr else expr
+        | Int32, (:? int32 as x) ->
+            let expr = mkInt32LitExpr (abs x |> uint64)
+            if x < 0 then expr |> mkNegExpr else expr
+        // | UInt8, (:? uint8 as x) when x = System.Byte.MinValue ->
         //     mkGenericPathExpr ["u8";"MIN"] None
-        | UInt8 when uint8 x = System.Byte.MaxValue ->
+        | UInt8, (:? uint8 as x) when x = System.Byte.MaxValue ->
             mkGenericPathExpr ["u8";"MAX"] None
-        // | UInt16 when uint16 x = System.UInt16.MinValue ->
+        // | UInt16, (:? uint16 as x) when x = System.UInt16.MinValue ->
         //     mkGenericPathExpr ["u16";"MIN"] None
-        | UInt16 when uint16 x = System.UInt16.MaxValue ->
+        | UInt16, (:? uint16 as x) when x = System.UInt16.MaxValue ->
             mkGenericPathExpr ["u16";"MAX"] None
-        // | UInt32 when uint32 x = System.UInt32.MinValue ->
+        // | UInt32, (:? uint32 as x) when x = System.UInt32.MinValue ->
         //     mkGenericPathExpr ["u32";"MIN"] None
-        | UInt32 when uint32 x = System.UInt32.MaxValue ->
+        | UInt32, (:? uint32 as x) when x = System.UInt32.MaxValue ->
             mkGenericPathExpr ["u32";"MAX"] None
-        | UInt8 ->
-            mkUInt8LitExpr u
-        | UInt16 ->
-            mkUInt16LitExpr u
-        | UInt32 ->
-            mkUInt32LitExpr u
-        | Float32 when System.Double.IsNaN(x) ->
+        | UInt8, (:? uint8 as x) ->
+            mkUInt8LitExpr (x |> uint64)
+        | UInt16, (:? uint8 as x) ->
+            mkUInt16LitExpr (x |> uint64)
+        | UInt32, (:? uint8 as x) ->
+            mkUInt32LitExpr (x |> uint64)
+        | Float32, (:? float32 as x) when System.Single.IsNaN(x) ->
             mkGenericPathExpr ["f32";"NAN"] None
-        | Float64 when System.Double.IsNaN(x) ->
+        | Float64, (:? float as x) when System.Double.IsNaN(x) ->
             mkGenericPathExpr ["f64";"NAN"] None
-        | Float32 when System.Double.IsPositiveInfinity(x) ->
+        | Float32, (:? float32 as x) when System.Single.IsPositiveInfinity(x) ->
             mkGenericPathExpr ["f32";"INFINITY"] None
-        | Float64 when System.Double.IsPositiveInfinity(x) ->
+        | Float64, (:? float as x) when System.Double.IsPositiveInfinity(x) ->
             mkGenericPathExpr ["f64";"INFINITY"] None
-        | Float32 when System.Double.IsNegativeInfinity(x) ->
+        | Float32, (:? float32 as x) when System.Single.IsNegativeInfinity(x) ->
             mkGenericPathExpr ["f32";"NEG_INFINITY"] None
-        | Float64 when System.Double.IsNegativeInfinity(x) ->
+        | Float64, (:? float as x) when System.Double.IsNegativeInfinity(x) ->
             mkGenericPathExpr ["f64";"NEG_INFINITY"] None
-        | Float32 ->
+        | Float32, (:? float32 as x) ->
             let expr = mkFloat32LitExpr (abs x)
-            if x < 0.0 then expr |> mkNegExpr else expr
-        | Float64 ->
+            if x < 0.0f then expr |> mkNegExpr else expr
+        | Float64, (:? float as x) ->
             let expr = mkFloat64LitExpr (abs x)
             if x < 0.0 then expr |> mkNegExpr else expr
-
-    let makeLongInt signed (x: float) =
-        let i = System.BitConverter.DoubleToInt64Bits(x)
-        let u = uint64 i
-        if signed then
-            if i = System.Int64.MinValue then
-                mkGenericPathExpr ["i64";"MIN"] None
-            elif i = System.Int64.MaxValue then
-                mkGenericPathExpr ["i64";"MAX"] None
-            else
-                let abs_i = if i < 0L then i * (-1L) else i
-                let expr = mkInt64LitExpr (uint64 (abs_i))
-                if i < 0L then expr |> mkNegExpr else expr
-        else
-            // if u = System.UInt64.MinValue then
-            //     mkGenericPathExpr ["u64";"MIN"] None
-            if u = System.UInt64.MaxValue then
-                mkGenericPathExpr ["u64";"MAX"] None
-            else
-                mkUInt64LitExpr u
+        | kind, x ->
+            $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
+            |> addError com [] r
+            mkFloat64LitExpr 0.
 
     let makeString com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "Native" "string" [value]
@@ -1783,15 +1758,6 @@ module Util =
         // | exprs, Some tail ->
         //     [makeNewArray r typ exprs; tail]
         //     |> libCall com ctx r [] "List" "ofArrayWithTail"
-
-    let makeEnum (com: IRustCompiler) ctx r value (entRef: Fable.EntityRef) =
-        match entRef.FullName, value with
-        | Replacements.Util.BuiltinDefinition(Replacements.Util.BclInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
-            makeLongInt true x
-        | Replacements.Util.BuiltinDefinition(Replacements.Util.BclUInt64), Fable.Value(Fable.NumberConstant (x, Float64, _), _) ->
-            makeLongInt false x
-        | _ ->
-            com.TransformAsExpr(ctx, value)
 
     let makeTuple (com: IRustCompiler) ctx r (exprs: (Fable.Expr) list) isStruct =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
@@ -1872,7 +1838,7 @@ module Util =
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
-        | Fable.NumberConstant (x, kind, _) -> makeNumber kind x
+        | Fable.NumberConstant (x, kind, _) -> makeNumber com r kind x
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
@@ -1881,7 +1847,7 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.EnumConstant (value, entRef) -> makeEnum com ctx r value entRef
+        | Fable.EnumConstant (value, entRef) -> com.TransformAsExpr(ctx, value)
         | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs) -> makeTuple com ctx r values false // temporary
         | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
@@ -2761,8 +2727,8 @@ module Util =
             cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                 let patOpt =
                     match caseExpr with
-                    | Fable.Value (Fable.NumberConstant (tag, Int32, None), r) ->
-                        makeUnionCasePat evalType evalName (int tag)
+                    | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, None), r) ->
+                        makeUnionCasePat evalType evalName tag
                     | _ -> None
                 let pat =
                     match patOpt with

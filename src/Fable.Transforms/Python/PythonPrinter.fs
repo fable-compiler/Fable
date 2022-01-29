@@ -352,7 +352,7 @@ module PrinterExtensions =
                     let i = int m.Groups.[1].Value
 
                     match node.Args.[i] with
-                    | Constant (value = value) when (value :?> bool) -> m.Groups.[2].Value
+                    | Constant (value = :? bool as value) when value -> m.Groups.[2].Value
                     | _ -> m.Groups.[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
@@ -367,7 +367,7 @@ module PrinterExtensions =
                     let i = int m.Groups.[1].Value
 
                     match List.tryItem i node.Args with
-                    | Some (Constant (value, _)) when (value :? string) -> unbox value
+                    | Some (Constant (:? string as value, _)) -> value
                     | _ -> "")
 
             let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
@@ -548,10 +548,10 @@ module PrinterExtensions =
             | UnaryOp ex -> printer.Print(ex)
             | FormattedValue ex -> printer.Print(ex)
             | Constant (value = value) ->
-                match box value with
-                | :? string as str ->
+                match value with
+                | :? string as value ->
                     printer.Print("\"")
-                    printer.Print(Web.HttpUtility.JavaScriptStringEncode(string value))
+                    printer.Print(printer.EscapeStringLiteral(value))
                     printer.Print("\"")
                 | _ -> printer.Print(string value)
 
@@ -732,7 +732,7 @@ module PrinterExtensions =
             | Constant _
             | Name _
             | Call _
-            | List (_, _)
+            | List _
             | Subscript _
             | Attribute _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)

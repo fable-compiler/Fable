@@ -396,7 +396,7 @@ let phpVoid = unscopedIdent "void"
 let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     match t with
     | Fable.String -> ExType phpString
-    | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8),_) -> ExType phpInt
+    | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8|Int64|UInt64),_) -> ExType phpInt
     | Fable.Number((Float32|Float64),_) -> ExType phpFloat
     | Fable.Boolean  -> ExType phpBool
     | Fable.Char  -> ExType phpChar
@@ -989,8 +989,19 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpNew( t, [ for arg in args do convertExpr com arg ] )
 
 
-    | Fable.NumberConstant(v,_,_) ->
-        PhpConst(PhpConstNumber v)
+    | Fable.NumberConstant(x,_,_) ->
+        match x with
+        | :? int8 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint8 as x -> PhpConst(PhpConstNumber(float x))
+        | :? int16 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint16 as x -> PhpConst(PhpConstNumber(float x))
+        | :? int32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? float32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? float as x -> PhpConst(PhpConstNumber(x))
+        | _ ->
+            addError com [] range $"Numeric literal is not supported: {x.GetType().FullName}"
+            PhpConst(PhpConstNull)
     | Fable.StringConstant(s) ->
         PhpConst(PhpConstString s)
     | Fable.BoolConstant(b) ->

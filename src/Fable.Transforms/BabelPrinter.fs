@@ -1,7 +1,6 @@
 // fsharplint:disable InterfaceNames
 module Fable.Transforms.BabelPrinter
 
-open System
 open System.Text.RegularExpressions
 open Fable
 open Fable.AST
@@ -451,7 +450,7 @@ module PrinterExtensions =
                     | Some(Literal(Literal.StringLiteral(StringLiteral(value, _)))) -> value
                     | _ -> "")
 
-            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            let matches = Regex.Matches(value, @"\$\d+")
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
                     let m = matches.[i]

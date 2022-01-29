@@ -76,15 +76,16 @@ type PrinterImpl(writer: Writer, ?indent: string) =
             addLoc loc
 
         member _.Print(str: string, ?loc) =
-            addLoc loc
+            if not(String.IsNullOrEmpty(str)) then
+                addLoc loc
 
-            if column = 0 then
-                let indent = String.replicate indent indentSpaces
-                builder.Append(indent) |> ignore
-                column <- indent.Length
+                if column = 0 then
+                    let indent = String.replicate indent indentSpaces
+                    builder.Append(indent) |> ignore
+                    column <- indent.Length
 
-            builder.Append(str) |> ignore
-            column <- column + str.Length
+                builder.Append(str) |> ignore
+                column <- column + str.Length
 
         member _.EscapeStringLiteral(str) =
             writer.EscapeStringLiteral(str)

@@ -172,7 +172,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     when isInstance && List.isEmpty args && Option.isSome thisArg ->
                 let fieldName = Naming.removeGetSetPrefix traitName
                 Seq.zip sortedFieldNames entGenArgs
-                |> Seq.tryPick (fun (fi, fiType) ->
+                |> Seq.tryPick (fun (fi, _fiType) ->
                     if fi = fieldName then
                         Fable.Get(thisArg.Value, Fable.FieldGet(fi, false), typ, r) |> Some
                     else None)
