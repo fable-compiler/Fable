@@ -282,7 +282,7 @@ module Literals =
           kind = LitKind.Float(string value, LitFloatType.Unsuffixed)
           span = DUMMY_SP }
 
-    let mkFloat32Lit (value: float): Lit =
+    let mkFloat32Lit (value: float32): Lit =
         let strValueWithDot =
             let s = string value
             if s.Contains(".") then s else s + ".0"

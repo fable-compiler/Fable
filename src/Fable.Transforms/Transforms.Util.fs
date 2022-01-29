@@ -541,6 +541,8 @@ module AST =
         | UInt16 -> "uint16"
         | Int32 -> "int32"
         | UInt32 -> "uint32"
+        | Int64 -> "int64"
+        | UInt64 -> "uint64"
         | Float32 -> "float32"
         | Float64 -> "float64"
 
@@ -552,6 +554,8 @@ module AST =
         | UInt16 -> "Uint16Array"
         | Int32 -> "Int32Array"
         | UInt32 -> "Uint32Array"
+        | Int64 -> "BigInt64Array"
+        | UInt64 -> "BigUint64Array"
         | Float32 -> "Float32Array"
         | Float64 -> "Float64Array"
 
@@ -618,6 +622,8 @@ module AST =
             | UInt16  -> Types.uint16
             | Int32   -> Types.int32
             | UInt32  -> Types.uint32
+            | Int64   -> Types.int64
+            | UInt64  -> Types.uint64
             | Float32 -> Types.float32
             | Float64 -> Types.float64
         match uom with

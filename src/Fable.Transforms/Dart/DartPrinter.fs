@@ -72,8 +72,11 @@ module PrinterExtensions =
             match expr with
             | Literal(IntegerLiteral v) when v < 0L -> printer.WithParens(expr)
             | Literal(DoubleLiteral v) when v < 0. -> printer.WithParens(expr)
-            | _ -> printer.Print(expr)
-            // | _ -> printer.WithParens(expr)
+            | Literal _
+            | IdentExpression _
+            | PropertyAccess _
+            | InvocationExpression _ -> printer.Print(expr)
+            | _ -> printer.WithParens(expr)
 
         member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, isInt) =
             printer.ComplexExpressionWithParens(left)
@@ -105,9 +108,9 @@ module PrinterExtensions =
             | NullLiteral -> printer.Print(null)
             | BooleanLiteral v -> printer.Print(if v then "true" else "false")
             | StringLiteral value ->
-                printer.Print("\"")
+                printer.Print("'")
                 printer.Print(printer.EscapeStringLiteral(value))
-                printer.Print("\"")
+                printer.Print("'")
             | IntegerLiteral value ->
                 printer.Print(value.ToString())
             | DoubleLiteral value ->
@@ -127,6 +130,8 @@ module PrinterExtensions =
                 printer.Print(e)
             | LocalVariableDeclaration(ident, kind, value) ->
                 printer.PrintVariableDeclaration(ident, kind, ?value=value)
+            | LocalFunctionDeclaration _ ->
+                printer.AddError("TODO: local function declaration")
             // TODO: label
             | Break label ->
                 printer.Print("break")
@@ -159,9 +164,24 @@ module PrinterExtensions =
             | LogicalExpression(op, left, right) ->
                 failwith "todo: print LogicalExpression"
 
-            | Assignment(target, value) ->
+            | AssignmentExpression(target, kind, value) ->
+                let op =
+                    // TODO: Copied from Babel, review
+                    match kind with
+                    | AssignEqual -> "="
+                    | AssignMinus -> "-="
+                    | AssignPlus -> "+="
+                    | AssignMultiply -> "*="
+                    | AssignDivide -> "/="
+                    | AssignModulus -> "%="
+                    | AssignShiftLeft -> "<<="
+                    | AssignShiftRightSignPropagating -> ">>="
+                    | AssignShiftRightZeroFill -> ">>>="
+                    | AssignOrBitwise -> "|="
+                    | AssignXorBitwise -> "^="
+                    | AssignAndBitwise -> "&="
                 printer.Print(target)
-                printer.Print(" = ")
+                printer.Print(op)
                 printer.Print(value)
 
             | PropertyAccess(expr, prop) ->

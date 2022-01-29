@@ -306,8 +306,6 @@ module Reflection =
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
                 | Replacements.Util.BclTimer
-                | Replacements.Util.BclInt64
-                | Replacements.Util.BclUInt64
                 | Replacements.Util.BclIntPtr
                 | Replacements.Util.BclUIntPtr
                 | Replacements.Util.BclDecimal
@@ -356,7 +354,7 @@ module Reflection =
                     generics
                     |> List.map (transformTypeInfo com ctx r genMap)
                     |> Helpers.unzipArgs
-                /// Check if the entity is actually declared in JS code
+                // Check if the entity is actually declared in JS code
                 if ent.IsInterface
                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -883,7 +881,9 @@ module Annotation =
             | Int16
             | UInt16
             | Int32
-            | UInt32 -> "int"
+            | UInt32
+            | Int64
+            | UInt64 -> "int"
             | Float32
             | Float64 -> "float"
 
@@ -1003,8 +1003,6 @@ module Annotation =
             | Replacements.Util.BclDateOnly
             | Replacements.Util.BclTimeOnly
             | Replacements.Util.BclTimer
-            | Replacements.Util.BclInt64
-            | Replacements.Util.BclUInt64
             | Replacements.Util.BclBigInt -> genericEntity fullName [], []
             | Replacements.Util.BclHashSet gen
             | Replacements.Util.FSharpSet gen ->
@@ -1103,8 +1101,6 @@ module Annotation =
         | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Replacements.Util.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
         | Replacements.Util.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
@@ -1740,7 +1736,7 @@ module Util =
             let arg, stmts = com.TransformAsExpr(ctx, size)
 
             match size with
-            | Fable.Value(kind = Fable.ValueKind.NumberConstant(value = 0.0)) -> Expression.list [], []
+            | Fable.Value(kind = Fable.ValueKind.NumberConstant(value = :? int as size)) when size = 0 -> Expression.list [], []
             | _ ->
                 match size.Type with
                 | Fable.Type.Number _ ->

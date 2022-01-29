@@ -153,17 +153,25 @@ module Util =
             preferStatement || isStatement ctx false thenExpr || isStatement ctx false elseExpr
 
     let isInt = function
-        | Replacements.Util.Builtin(Replacements.Util.BclInt64|Replacements.Util.BclUInt64) -> true
         | Fable.Number(kind, _) ->
             match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> true
-            | _ -> false
+            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> true
+            | Float32 | Float64 -> false
         | _ -> false
 
     let makeAnonymousFunction ((args: Ident list), (body: Statement list)): Expression =
         // TODO: gen params
         // TODO: Check if body is just a single return statement
         AnonymousFunction(args, Choice1Of2 body, [])
+
+    let assign (_range: SourceLocation option) left right =
+        AssignmentExpression(left, AssignEqual, right)
+
+    /// Immediately Invoked Function Expression
+    // let iife (com: IDartCompiler) ctx (expr: Fable.Expr) =
+    //     let _, body = com.TransformFunction(ctx, None, [], expr)
+    //     // Use an arrow function in case we need to capture `this`
+    //     Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
 
     // let optimizeTailCall (com: IDartCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
     //     let rec checkCrossRefs tempVars allArgs = function
@@ -226,8 +234,8 @@ module Util =
         match strategy with
         | None | Some ReturnVoid -> ExpressionStatement expr
         | Some Return -> ReturnStatement expr
-        | Some(Assign left) -> Assignment(left, expr) |> ExpressionStatement
-        | Some(Target left) -> Assignment(IdentExpression left, expr) |> ExpressionStatement
+        | Some(Assign left) -> assign None left expr |> ExpressionStatement
+        | Some(Target left) -> assign None (IdentExpression left) expr |> ExpressionStatement
 
     let transformType (com: IDartCompiler) ctx (t: Fable.Type) =
         match t with
@@ -236,7 +244,7 @@ module Util =
         | Fable.String -> String
         | Fable.Number(kind, _) ->
             match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
+            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
             | Float32 | Float64 -> Double
         | t -> Dynamic // TODO failwith $"todo: type %A{t}"
 
@@ -246,6 +254,26 @@ module Util =
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident): Ident =
         transformIdentWith com ctx id.Type id.Name
 
+    let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
+        transformIdentWith com ctx id.Type id.Name |> IdentExpression
+
+    let transformVarDeclaration com ctx (memb: Fable.MemberDecl) =
+        // TODO: Prefix non-public values with underscore or raise warning?
+        let ident = transformIdentWith com ctx memb.Body.Type memb.Name
+        // TODO: If value is primitive, list, union or record without mutable fields
+        // we can declare it as const (if var is mutable we can make only the value const)
+        let kind = if memb.Info.IsMutable then Var else Final
+        let value = transformAsExpr com ctx memb.Body
+        VariableDeclaration(ident, kind, value)
+
+    let transformLocalVarDeclaration com ctx (fableIdent: Fable.Ident) value =
+        let ident = transformIdent com ctx fableIdent
+        // TODO: If value is primitive, list, union or record without mutable fields
+        // we can declare it as const (if var is mutable we can make only the value const)
+        let kind = if fableIdent.IsMutable then Var else Final
+        let value = value |> Option.map (transformAsExpr com ctx)
+        ident, kind, value
+
     let transformImport (com: IDartCompiler) ctx r (selector: string) (path: string) =
         let selector, parts =
             let parts = Array.toList(selector.Split('.'))
@@ -253,14 +281,25 @@ module Util =
         com.GetImportExpr(ctx, selector, path, r)
         |> getParts parts
 
-    let transformValue (_: IDartCompiler) (_: Context) (_: SourceLocation option) value: Expression =
+    let transformValue (com: IDartCompiler) (_: Context) (r: SourceLocation option) value: Expression =
         match value with
         | Fable.BoolConstant v -> BooleanLiteral v |> Literal
         | Fable.StringConstant v -> StringLiteral v |> Literal
-        | Fable.NumberConstant(v, kind, _) ->
-            match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> IntegerLiteral(int64 v) |> Literal
-            | Float32 | Float64 -> DoubleLiteral(v) |> Literal
+        | Fable.NumberConstant(x, kind, _) ->
+            match kind, x with
+            | Int8, (:? int8 as x) -> IntegerLiteral(int64 x) |> Literal
+            | UInt8, (:? uint8 as x) -> IntegerLiteral(int64 x) |> Literal
+            | Int16, (:? int16 as x) -> IntegerLiteral(int64 x) |> Literal
+            | UInt16, (:? uint16 as x) -> IntegerLiteral(int64 x) |> Literal
+            | Int32, (:? int32 as x) -> IntegerLiteral(int64 x) |> Literal
+            | UInt32, (:? uint32 as x) -> IntegerLiteral(int64 x) |> Literal
+            | Int64, (:? int64 as x) -> IntegerLiteral(x) |> Literal
+            | UInt64, (:? uint64 as x) -> IntegerLiteral(int64 x) |> Literal
+            | Float32, (:? float32 as x) -> DoubleLiteral(float x) |> Literal
+            | Float64, (:? float as x) -> DoubleLiteral(x) |> Literal
+            | _ ->
+                $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
+                |> addErrorAndReturnNull com r
         | v -> failwith $"TODO: value %A{v}"
 
     let transformOperation com ctx (_: SourceLocation option) t opKind: Expression =
@@ -324,6 +363,24 @@ module Util =
         let body = transformAsStatements com ctx (Some ret) body
         args, body
 
+    // let transformBindingAsExpr (com: IDartCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+    //     transformBindingExprBody com ctx var value
+    //     |> assign None (transformIdentAsExpr com ctx var)
+
+    let transformBindingAsStatements (com: IDartCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        if isStatement ctx false value then
+            let var, kind, _ = transformLocalVarDeclaration com ctx var None
+            let varExpr = IdentExpression var
+            [
+                LocalVariableDeclaration(var, kind, None)
+                yield! com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            ]
+        else
+            // TODO: Check if we need a function declaration
+            // (See transformBindingExprBody in Fable2Babel)
+            let ident, kind, body = transformLocalVarDeclaration com ctx var (Some value)
+            [LocalVariableDeclaration(ident, kind, body)]
+
     let rec transformAsExpr (com: IDartCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
         | Fable.Value(kind, r) -> transformValue com ctx r kind
@@ -344,6 +401,19 @@ module Util =
         | Fable.Lambda(arg, body, name) ->
             transformFunction com ctx name [arg] body
             |> makeAnonymousFunction
+
+        // | Fable.Let(ident, value, body) ->
+        //     if ctx.HoistVars [ident] then
+        //         let assignment = transformBindingAsExpr com ctx ident value
+        //         Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
+        //     else iife com ctx expr
+
+        // | Fable.LetRec(bindings, body) ->
+        //     if ctx.HoistVars(List.map fst bindings) then
+        //         let values = bindings |> List.mapToArray (fun (id, value) ->
+        //             transformBindingAsExpr com ctx id value)
+        //         Expression.sequenceExpression(Array.append values [|com.TransformAsExpr(ctx, body)|])
+        //     else iife com ctx expr
 
         | e -> failwith $"todo: transform expr %A{e}"
 
@@ -376,6 +446,14 @@ module Util =
                 let ret = if i < lasti then None else returnStrategy
                 transformAsStatements com ctx ret statement)
             |> List.concat
+
+        | Fable.Let(ident, value, body) ->
+            let binding = transformBindingAsStatements com ctx ident value
+            List.append binding (transformAsStatements com ctx returnStrategy body)
+
+        | Fable.LetRec(bindings, body) ->
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
+            List.append bindings (transformAsStatements com ctx returnStrategy body)
 
         | e -> failwith $"todo: transformAsStatements %A{e}"
 
@@ -442,6 +520,7 @@ module Util =
 
     let getIdentForImport (ctx: Context) (path: string) =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_")
+        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> getUniqueNameInRootScope ctx
 
 module Compiler =

@@ -36,7 +36,7 @@ and Expression =
     | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
     | LogicalExpression of operator: LogicalOperator * left: Expression * right: Expression
     | AnonymousFunction of args: Ident list * body: Choice<Statement list, Expression> * genericParams: string list //* returnType: Type
-    | Assignment of target: Expression * value: Expression
+    | AssignmentExpression of target: Expression * kind: AssignmentOperator * value: Expression
 
 type VariableDeclarationKind =
     | Final
@@ -49,6 +49,7 @@ and Statement =
     | ReturnStatement of Expression
     | ExpressionStatement of Expression
     | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option
+    | LocalFunctionDeclaration of name: string * args: Ident list * body: Statement list * genericParams: string list * returnType: Type
     | Break of label: string option
     | Label of label: string
 

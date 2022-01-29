@@ -2,7 +2,6 @@ module Fable.Transforms.Replacements.Util
 
 #nowarn "1182"
 
-open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -108,6 +107,32 @@ let genArg (com: ICompiler) (ctx: Context) r i (genArgs: (string * Type) list) =
         |> addError com ctx.InlinePath r
         Any)
 
+let getBoxedZero kind: obj =
+    match kind with
+    | Int8 -> 0y: int8
+    | UInt8 -> 0uy: uint8
+    | Int16 -> 0s: int16
+    | UInt16 -> 0us: uint16
+    | Int32 -> 0: int32
+    | UInt32 -> 0u: uint32
+    | Int64 -> 0L: int64
+    | UInt64 -> 0UL: uint64
+    | Float32 -> 0.f: float32
+    | Float64 -> 0.: float
+
+let getBoxedOne kind: obj =
+    match kind with
+    | Int8 -> 1y: int8
+    | UInt8 -> 1uy: uint8
+    | Int16 -> 1s: int16
+    | UInt16 -> 1us: uint16
+    | Int32 -> 1: int32
+    | UInt32 -> 1u: uint32
+    | Int64 -> 1L: int64
+    | UInt64 -> 1UL: uint64
+    | Float32 -> 1.f: float32
+    | Float64 -> 1.: float
+
 type BuiltinType =
     | BclGuid
     | BclTimeSpan
@@ -116,8 +141,6 @@ type BuiltinType =
     | BclDateOnly
     | BclTimeOnly
     | BclTimer
-    | BclInt64
-    | BclUInt64
     | BclIntPtr
     | BclUIntPtr
     | BclDecimal
@@ -139,9 +162,6 @@ let (|BuiltinDefinition|_|) = function
     | Types.dateOnly -> Some BclDateOnly
     | Types.timeOnly -> Some BclTimeOnly
     | "System.Timers.Timer" -> Some BclTimer
-    | Types.int64 -> Some BclInt64
-    | Types.uint64 -> Some BclUInt64
-    | "Microsoft.FSharp.Core.int64`1" -> Some BclInt64
     | Types.nativeint -> Some BclIntPtr
     | Types.unativeint -> Some BclUIntPtr
     | Types.decimal
@@ -182,27 +202,22 @@ let (|Builtin|_|) = function
     | _ -> None
 
 let (|Integer|Float|) = function
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
     | Float32 | Float64 -> Float
 
 type NumberExtKind =
-    | JsNumber of NumberKind
+    | PrimNumber of NumberKind
     | Decimal
-    | Long of unsigned: bool
     | BigInt
 
 let (|NumberExtKind|_|) = function
-    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some (JsNumber kind)
-    | Types.int64 -> Some (Long false)
-    | Types.uint64 -> Some (Long true)
+    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some (PrimNumber kind)
     | Types.decimal -> Some Decimal
     | Types.bigint -> Some BigInt
     | _ -> None
 
 let (|NumberExt|_|) = function
-    | Number(n, _) -> Some (JsNumber n)
-    | Builtin BclInt64 -> Some (Long false)
-    | Builtin BclUInt64 -> Some (Long true)
+    | Number(n, _) -> Some (PrimNumber n)
     | Builtin BclDecimal -> Some Decimal
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
@@ -210,8 +225,6 @@ let (|NumberExt|_|) = function
 let (|Numeric|NonNumeric|) = function
     | Enum _
     | Number _
-    | Builtin BclInt64
-    | Builtin BclUInt64
     | Builtin BclIntPtr
     | Builtin BclUIntPtr
     | Builtin BclDecimal
@@ -258,11 +271,11 @@ let rec getTypeName com (ctx: Context) r t =
         getTypeFullName false t |> splitFullName |> snd
 
 let makeDeclaredType assemblyName genArgs fullName =
-    let entRef: Fable.EntityRef = {
+    let entRef: EntityRef = {
         FullName = fullName
-        Path = Fable.CoreAssemblyName assemblyName
+        Path = CoreAssemblyName assemblyName
     }
-    Fable.DeclaredType(entRef, genArgs)
+    DeclaredType(entRef, genArgs)
 
 let makeRuntimeType genArgs fullName =
     makeDeclaredType "System.Runtime" genArgs fullName
@@ -322,7 +335,7 @@ let (|ArrayOrListLiteral|_|) = function
     | _ -> None
 
 let (|IsEntity|_|) fullName = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         if entRef.FullName = fullName
         then Some(entRef, genArgs)
         else None
@@ -355,7 +368,7 @@ let (|Enumerator|Other|) = function
     | _ -> Other
 
 let (|IsEnumerator|_|) = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         match entRef.FullName with
         | Enumerator -> Some(entRef, genArgs)
         | _ -> None

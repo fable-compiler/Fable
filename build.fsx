@@ -512,9 +512,10 @@ let testDart(isWatch) =
     runFableWithArgs projectDir [
         "--exclude Fable.Core"
         "--lang Dart"
-        "--noCache"
         if isWatch then
             "--watch"
+        else
+            "--noCache"
     ]
     runInDir runDir "dart test main.dart"
 

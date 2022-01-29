@@ -2,7 +2,6 @@ module Fable.Transforms.Replacements.Api
 
 #nowarn "1182"
 
-open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -39,6 +38,7 @@ let makeTypeConst (com: ICompiler) r (typ: Type) (value: obj) =
     match com.Options.Language with
     | Rust -> Rust.Replacements.makeTypeConst com r typ value
     | Python -> PY.Replacements.makeTypeConst com r typ value
+    | Dart -> Dart.Replacements.makeTypeConst com r typ value
     | _ -> JS.Replacements.makeTypeConst com r typ value
 
 let makeMethodInfo (com: ICompiler) r (name: string) (parameters: (string * Type) list) (returnType: Type) =

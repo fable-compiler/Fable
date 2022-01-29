@@ -931,6 +931,8 @@ module TypeHelpers =
               Types.uint16, UInt16
               Types.int32, Int32
               Types.uint32 , UInt32
+              Types.int64, Int64
+              Types.uint64 , UInt64
               Types.float32, Float32
               Types.float64, Float64]
 
@@ -939,6 +941,8 @@ module TypeHelpers =
             "Microsoft.FSharp.Core.sbyte`1", Int8
             "Microsoft.FSharp.Core.int16`1", Int16
             "Microsoft.FSharp.Core.int`1", Int32
+            "Microsoft.FSharp.Core.int64`1", Int64
+            "FSharp.UMX.uint64`1", UInt64
             "Microsoft.FSharp.Core.float32`1", Float32
             "Microsoft.FSharp.Core.float`1", Float64
             "FSharp.UMX.byte`1", UInt8
@@ -948,11 +952,9 @@ module TypeHelpers =
     // so we need to hard-code FSharp.UMX types
     let runtimeTypesWithMeasure =
         dict [
-            "Microsoft.FSharp.Core.int64`1", Choice2Of2 Types.int64
             "Microsoft.FSharp.Core.decimal`1", Choice2Of2 Types.decimal
             "FSharp.UMX.bool`1", Choice1Of2 Fable.Boolean
             "FSharp.UMX.string`1", Choice1Of2 Fable.String
-            "FSharp.UMX.uint64`1", Choice2Of2 Types.uint64
             "FSharp.UMX.Guid`1", Choice2Of2 Types.guid
             "FSharp.UMX.TimeSpan`1", Choice2Of2 Types.timespan
             "FSharp.UMX.DateTime`1", Choice2Of2 Types.datetime
