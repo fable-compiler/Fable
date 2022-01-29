@@ -28,6 +28,7 @@
     <Compile Include="Misc/Util2.fs" />
     <Compile Include="Misc/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="TestChar.fs" />
     <Compile Include="TestTask.fs" />
     <Compile Include="TestComparison.fs" />
     <Compile Include="TestCustomOperators.fs" />

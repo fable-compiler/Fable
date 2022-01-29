@@ -325,7 +325,9 @@ let needToCast typeFrom typeTo =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+    | Char ->
+        //Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
     | String -> Helper.LibCall(com, "double", "parse", targetType, args)
     | NumberExt kind ->
         match kind with
@@ -341,7 +343,8 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
 let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+        //Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
         |> makeDecimalFromExpr com r targetType
     | String -> makeDecimalFromExpr com r targetType args.Head
     | NumberExt kind ->
@@ -388,7 +391,8 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
 
     match sourceType with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+        //Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [ makeIntConst 0 ])
+        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
         |> fromInteger UInt16
     | String -> stringToInt com ctx r targetType args
     | NumberExt kind ->
@@ -427,7 +431,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
 
     match sourceType, targetType with
-    | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
+    | Char, _ ->
+        //Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
+        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo ->
@@ -1812,12 +1818,6 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     | "IsLowSurrogate"
     | "IsSurrogate" ->
         let methName = Naming.lowerFirst i.CompiledName
-
-        let methName =
-            if List.length args > 1 then
-                methName + "2"
-            else
-                methName
 
         Helper.LibCall(com, "char", methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
