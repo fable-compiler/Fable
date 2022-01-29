@@ -403,11 +403,11 @@ module PrinterExtensions =
                 printSegment printer value 0 value.Length
 
         member printer.Print(node: IfExp) =
-            printer.Print(node.Body)
+            printer.ComplexExpressionWithParens(node.Body)
             printer.Print(" if ")
-            printer.WithParens(node.Test)
+            printer.ComplexExpressionWithParens(node.Test)
             printer.Print(" else ")
-            printer.WithParens(node.OrElse)
+            printer.ComplexExpressionWithParens(node.OrElse)
 
         member printer.Print(node: Lambda) =
             printer.Print("lambda")

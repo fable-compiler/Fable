@@ -1303,3 +1303,14 @@ let ``test Records are hashable`` () =
 
 let ``test Accessing union tags `` () =
     sprintf "%A" (Union_TestUnionTag 1) |> equal "Union_TestUnionTag 1"
+
+type Type1 = { t1: string }
+
+let ``test conditional expressions`` () = // See #2782
+    let test (u2: U2<string, Type1>) =       
+        match u2 with
+        | U2.Case1 s -> s
+        | U2.Case2 s when s.t1 <> "" -> s.t1
+        | _ -> ""
+
+    equal(test (U2.Case1 "x"), "x")
