@@ -87,7 +87,7 @@ let ``test Char.IsLetterOrDigit works`` () =
     Char.IsLetterOrDigit('1') |> equal true
     Char.IsLetterOrDigit('β') |> equal true
     Char.IsLetterOrDigit('-') |> equal false
-    
+
 [<Fact>]
 let ``test Char.IsLetterOrDigit with two args works`` () =
     let str = "x-6"
@@ -180,6 +180,7 @@ let ``test Char.IsWhitespace works with two args`` () =
     Char.IsWhiteSpace(input, 0) |> equal true
     Char.IsWhiteSpace(input, 1) |> equal true
 
+(*
 [<Fact>]
 let ``test Char.IsHighSurrogate works`` () =
     Char.IsHighSurrogate('a') |> equal false
@@ -230,7 +231,7 @@ let ``test Char.IsSurrogatePair with two args works`` () =
     Char.IsSurrogatePair(str,0) |> equal false
     Char.IsSurrogatePair(str,1) |> equal true
     Char.IsSurrogatePair(str,2) |> equal false
-
+*)
 [<Fact>]
 let ``test Char.Parse works`` () =
     equal 'A' (Char.Parse "A")
@@ -251,7 +252,9 @@ let ``test Char.Parse fails if a string with length > 1 is given`` () =
     with
     | _ -> ()
 
+(*
 [<Fact>]
 let ``test Char addition works`` () =
     'A' + 'B' |> int |> equal 131
     'A' + char 7 |> int |> equal 72
+*)
