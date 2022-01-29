@@ -152,7 +152,11 @@ module File =
             | Fable.Dart -> ".dart"
             | Fable.Rust -> ".rs"
             | Fable.JavaScript -> ".js"
-        if usesOutDir then fileExt else ".fs" + fileExt
+
+        match language, usesOutDir with
+        | Fable.Python, _ -> fileExt // Extension will always be .py for Python
+        | _, true -> fileExt
+        | _ -> ".fs" + fileExt
 
     // Some Fable JS packages have native files with same name as the F# file
     // so we need to use the default extension .fs.js to prevent conflicts.
