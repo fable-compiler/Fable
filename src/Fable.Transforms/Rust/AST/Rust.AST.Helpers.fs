@@ -16,7 +16,8 @@ module Naming =
 
     let allKeywords = HashSet(kw.RustKeywords)
     let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
-    let preludeSymbols = HashSet(kw.RustPrelude)
+    let rustPrelude = HashSet(kw.RustPrelude)
+    let morePrelude = HashSet(["Debug"; "Array"; "List"; "Map"; "Set"])
 
     let rawIdent (ident: string) =
         if ident.StartsWith("r#")
@@ -33,7 +34,8 @@ module Naming =
         let ident = ident.Replace("$", "_").Replace("`", "_")
         if topKeywords.Contains(ident) then ident + "_"
         elif allKeywords.Contains(ident) then rawIdent ident
-        elif preludeSymbols.Contains(ident) then ident + "_"
+        elif rustPrelude.Contains(ident) then ident + "_"
+        elif morePrelude.Contains(ident) then ident + "_"
         else stripRaw ident // no need to keep it raw here
 
     let splitFullName (name: string) =

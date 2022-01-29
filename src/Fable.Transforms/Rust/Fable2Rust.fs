@@ -41,9 +41,7 @@ type TypegenContext = {
 
 type ScopedVarAttrs = {
     IsArm: bool
-    // IsMutable: bool
     IsRef: bool
-    // IsRefCountWrapped: bool
     HasMultipleUses: bool
 }
 
@@ -477,6 +475,7 @@ module TypeInfo =
         [ty]
         |> mkGenericTy [rawIdent "Vec"]
         |> makeMutTy com ctx
+        // transformImportType com ctx [genArg] "Native" "Array`1"
 
     let transformListType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Native" "List`1"
@@ -492,12 +491,14 @@ module TypeInfo =
         [ty]
         |> mkGenericTy [rawIdent "HashSet"]
         |> makeMutTy com ctx
+        // transformImportType com ctx [genArg] "Native" "HashSet`1"
 
     let transformHashMapType com ctx genArgs: Rust.Ty =
         genArgs
         |> List.map (transformType com ctx)
         |> mkGenericTy [rawIdent "HashMap"]
         |> makeMutTy com ctx
+        // transformImportType com ctx genArgs "Native" "HashMap`2"
 
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
@@ -1894,8 +1895,6 @@ module Util =
             |> Option.defaultValue {
                 IsArm = false
                 IsRef = false
-                // IsRefCountWrapped = shouldBeRefCountWrapped com t
-                // IsMutable = false
                 HasMultipleUses = true }
         let isOnlyReference =
             if varAttrs.IsRef then false
@@ -2470,8 +2469,6 @@ module Util =
         let scopedVarAttrs = {
             IsArm = false
             IsRef = false
-            // IsMutable = isMut
-            // IsRefCountWrapped = shouldBeRefCountWrapped com ident.Type
             HasMultipleUses = hasMultipleUses ident.Name usages
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
@@ -2684,8 +2681,6 @@ module Util =
                         |> List.map (fun id ->
                             id.Name, {  IsArm = true
                                         IsRef = true
-                                        // IsMutable = id.IsMutable
-                                        // IsRefCountWrapped = shouldBeRefCountWrapped com id.Type
                                         HasMultipleUses = hasMultipleUses id.Name usages })
 
                     let fromExtra =
@@ -2693,8 +2688,6 @@ module Util =
                         |> List.map (fun (name, friendlyName, t) ->
                             friendlyName, { IsArm = true
                                             IsRef = true
-                                            // IsMutable = false
-                                            // IsRefCountWrapped = shouldBeRefCountWrapped com t
                                             HasMultipleUses = hasMultipleUses friendlyName usages })
                     fromIdents @ fromExtra
                 let scopedSymbolsNext =
@@ -3531,9 +3524,7 @@ module Util =
                     //todo optimizations go here
                     let scopedVarAttrs = {
                         IsArm = false
-                        IsRef = true //shouldBePassByRefForParam com arg.Type
-                        // IsMutable = arg.IsMutable
-                        // IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
+                        IsRef = true
                         HasMultipleUses = hasMultipleUses arg.Name usages
                     }
                     acc |> Map.add arg.Name scopedVarAttrs)
@@ -3620,9 +3611,7 @@ module Util =
                     //todo optimizations go here
                     let scopedVarAttrs = {
                         IsArm = false
-                        IsRef = true //shouldBePassByRefForParam com arg.Type
-                        // IsMutable = arg.IsMutable
-                        // IsRefCountWrapped = shouldBeRefCountWrapped com arg.Type
+                        IsRef = true
                         HasMultipleUses = hasMultipleUses arg.Name usages
                         }
                     acc |> Map.add arg.Name scopedVarAttrs)
