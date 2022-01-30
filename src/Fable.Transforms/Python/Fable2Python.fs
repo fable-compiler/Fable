@@ -1833,9 +1833,15 @@ module Util =
             Some(baseExpr, (expr, keywords, stmts @ stmts'))
         | Some (Fable.ObjectExpr ([], Fable.Unit, None)), _ ->
             let range = baseCall |> Option.bind (fun x -> x.Range)
-            let name = baseType |> Option.map (fun t -> t.Entity.FullName) |> Option.defaultValue "unknown type"
+
+            let name =
+                baseType
+                |> Option.map (fun t -> t.Entity.FullName)
+                |> Option.defaultValue "unknown type"
+
             sprintf "Ignoring base call for %s" name
             |> addWarning com [] range
+
             None
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
