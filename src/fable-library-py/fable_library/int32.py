@@ -16,7 +16,9 @@ def get_range(unsigned: bool, bitsize: int) -> Tuple[int, int]:
 AllowHexSpecifier = 0x00000200
 
 
-def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
+def parse(
+    string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10
+) -> int:
     # const res = isValid(str, style, radix);
     if style & AllowHexSpecifier or string.startswith("0x"):
         radix = 16
@@ -53,13 +55,13 @@ def try_parse(
         return False
 
 
-def op_unary_negation_int8(x):
+def op_unary_negation_int8(x: int) -> int:
     return x if x == -128 else -x
 
 
-def op_unary_negation_int16(x):
+def op_unary_negation_int16(x: int) -> int:
     return x if x == -32768 else -x
 
 
-def op_unary_negation_int32(x):
+def op_unary_negation_int32(x: int) -> int:
     return x if x == -2147483648 else -x
