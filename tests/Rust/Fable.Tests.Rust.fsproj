@@ -30,6 +30,7 @@
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/MapTests.fs" />
+    <Compile Include="tests/src/MiscTests.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
