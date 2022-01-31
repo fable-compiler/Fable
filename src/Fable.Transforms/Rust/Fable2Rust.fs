@@ -1207,7 +1207,7 @@ module Util =
     let transformIdent com ctx r (ident: Fable.Ident) =
         if ident.IsThisArgument
         then mkGenericPathExpr [rawIdent "self"] None
-        else mkGenericPathExpr [ident.Name] None
+        else mkGenericPathExpr (splitFullName ident.Name) None
 
     let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
         match expr with
@@ -2135,6 +2135,11 @@ module Util =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
+        // mutable module values (transformed as function calls)
+        | Fable.IdentExpr id when id.IsMutable ->
+            let expr = transformIdent com ctx range id
+            mutableGet (mkCallExpr expr [])
+
         | Fable.Get(callee, Fable.FieldGet(membName, _isMutable), _t, _r) ->
             // this is an instance call
             let namesp, name = splitNameSpace membName
@@ -2388,8 +2393,13 @@ module Util =
         match kind with
         | Fable.ValueSet ->
             match fableExpr with
+            // mutable values
             | Fable.IdentExpr id when id.IsMutable ->
                 transformIdentSet com ctx range id value
+            // mutable module values (transformed as function calls)
+            | Fable.Call(Fable.IdentExpr id, _, _, _) when id.IsMutable ->
+                let expr = transformIdent com ctx range id
+                mutableSet (mkCallExpr expr []) value
             | _ ->
                 mkAssignExpr expr value
         | Fable.ExprSet idx ->
@@ -2504,12 +2514,11 @@ module Util =
                 List.map (transformAsStmt com ctx) exprs
             | _ ->
                 [transformAsStmt com ctx body]
-        (letStmts @ bodyStmts) |> mkBlock |> mkBlockExpr
+        (letStmts @ bodyStmts) |> mkBlockExpr
 
     let transformSequential (com: IRustCompiler) ctx exprs =
         exprs
         |> List.map (transformAsStmt com ctx)
-        |> mkBlock
         |> mkBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
@@ -3347,27 +3356,34 @@ module Util =
         | None -> []
 
     let transformModuleMember com ctx (decl: Fable.MemberDecl) =
-        // uses core::lazy for lazy initialization
+        // uses thread_local for static initialization
+        let name = decl.Name
         let fableExpr = decl.Body
-        let name = Some(decl.Name)
-        let expr = transformLambda com ctx name [] fableExpr
-        let expr =
+        let value = transformAsExpr com ctx fableExpr
+        let value =
             if decl.Info.IsMutable
-            then expr |> makeMutValue
-            else expr
-            |> makeLazyValue
+            then value |> makeMutValue |> makeRcValue
+            else value
         let attrs = []
         let ty = transformType com ctx fableExpr.Type
         let ty =
             if decl.Info.IsMutable
-            then ty |> makeMutTy com ctx
+            then ty |> makeMutTy com ctx |> makeRcTy com ctx
             else ty
-            |> makeLazyTy com ctx
-        let item = mkConstItem attrs decl.Name ty (Some expr)
-        // let item =
-        //     if decl.Info.IsPublic then item
-        //     else mkNonPublicItem item
-        [item]
+
+        let staticItem = mkStaticItem attrs name ty (Some value) |> mkNonPublicItem
+        let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
+        let valueStmt = mkEmitStmt $"{name}.with(|{name}_| {name}_.clone())"
+
+        let attrs = []
+        let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some
+        let fnDecl = mkFnDecl [] (mkFnRetTy ty)
+        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+        let fnItem = mkFnItem attrs decl.Name fnKind
+        // let fnItem =
+        //     if decl.Info.IsPublic then fnItem
+        //     else mkNonPublicItem fnItem
+        [fnItem]
 (*
     let declareModuleMember isPublic membName isMutable (expr: Rust.Expr) =
         let membName' = Pattern.identifier(membName)
@@ -3628,7 +3644,7 @@ module Util =
                 makeNativeCall com ctx None "Func" fixName [closureExpr]
             else closureExpr
         if not (Set.isEmpty closedOverCloneableNames) then
-            mkBlockExpr (mkBlock [
+            mkBlockExpr [
                 for name in closedOverCloneableNames do
                     let pat = mkIdentPat name false false
                     let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
@@ -3636,7 +3652,7 @@ module Util =
                     let letExpr = mkLetExpr pat cloneExpr
                     yield letExpr |> mkSemiStmt
                 yield closureExpr |> mkExprStmt
-            ])
+            ]
         else closureExpr
         |> makeRcValue
 
@@ -4250,13 +4266,9 @@ module Util =
 
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                // module let bindings are functions
-                // TODO: memoize module let bindings
-                transformModuleFunction com ctx decl
-
-                // if decl.Info.IsValue
-                // then transformModuleMember com ctx decl
-                // else transformModuleFunction com ctx decl
+                if decl.Info.IsValue
+                then transformModuleMember com ctx decl
+                else transformModuleFunction com ctx decl
 
         | Fable.ClassDeclaration decl ->
             transformClassDecl com ctx decl

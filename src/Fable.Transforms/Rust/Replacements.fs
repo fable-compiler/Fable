@@ -137,8 +137,9 @@ let makeTypeDefinitionInfo r t =
     TypeInfo t |> makeValue r
 
 let createAtom com (value: Expr) =
-    let typ = value.Type
-    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
+    // let typ = value.Type
+    // Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
+    value
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     // let getter =

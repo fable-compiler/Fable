@@ -106,6 +106,11 @@ module Tokens =
         |> token.TokenKind.Literal
         |> mkToken
 
+    let mkInterpolatedToken kind: token.Token =
+        kind
+        |> token.TokenKind.Interpolated
+        |> mkToken
+
     let mkIdentToken symbol: token.Token =
         let symbol = sanitizeIdent symbol
         token.TokenKind.Ident(symbol, false)
@@ -146,8 +151,17 @@ module Tokens =
     let mkExprToken expr: token.Token =
         expr
         |> token.Nonterminal.NtExpr
-        |> token.TokenKind.Interpolated
-        |> mkToken
+        |> mkInterpolatedToken
+
+    let mkStmtToken stmt: token.Token =
+        stmt
+        |> token.Nonterminal.NtStmt
+        |> mkInterpolatedToken
+
+    let mkItemToken item: token.Token =
+        item
+        |> token.Nonterminal.NtItem
+        |> mkInterpolatedToken
 
 [<AutoOpen>]
 module TokenTrees =
@@ -416,6 +430,14 @@ module Statements =
           kind = kind
           span = DUMMY_SP }
 
+    let mkExprStmt expr: Stmt =
+        StmtKind.Expr expr
+        |> mkStmt
+
+    let mkSemiStmt expr: Stmt =
+        StmtKind.Semi expr
+        |> mkStmt
+
 [<AutoOpen>]
 module Blocks =
 
@@ -429,12 +451,12 @@ module Blocks =
     let mkExprBlock (expr: Expr): Block =
         match expr.kind with
         | ExprKind.Block(block, None) -> block
-        | _ -> [expr |> StmtKind.Expr |> mkStmt] |> mkBlock
+        | _ -> [expr |> mkExprStmt] |> mkBlock
 
     let mkSemiBlock (expr: Expr): Block =
         match expr.kind with
         | ExprKind.Block(block, None) -> block
-        | _ -> [expr |> StmtKind.Semi |> mkStmt] |> mkBlock
+        | _ -> [expr |> mkSemiStmt] |> mkBlock
 
 [<AutoOpen>]
 module Arms =
@@ -729,8 +751,8 @@ module Exprs =
         ExprKind.Assign(left, right, DUMMY_SP)
         |> mkExpr
 
-    let mkBlockExpr block: Expr =
-        ExprKind.Block(block, None)
+    let mkBlockExpr (statements: Stmt seq): Expr =
+        ExprKind.Block(mkBlock statements, None)
         |> mkExpr
 
     let mkLabelBlockExpr symbol block: Expr =
@@ -744,8 +766,8 @@ module Exprs =
 
     let mkIfThenElseExpr ifExpr thenExpr elseExpr: Expr =
         let thenBlock = mkExprBlock thenExpr
-        let elseBlock = elseExpr |> mkExprBlock |> mkBlockExpr |> Some
-        ExprKind.If(ifExpr, thenBlock, elseBlock)
+        let elseBlock = [elseExpr |> mkExprStmt] |> mkBlockExpr
+        ExprKind.If(ifExpr, thenBlock, Some elseBlock)
         |> mkExpr
 
     let mkWhileExpr condExpr bodyExpr: Expr =
@@ -804,14 +826,9 @@ module Exprs =
         ExprKind.MacCall mac
         |> mkExpr
 
-    let mkMacroExpr (name: string) args: Expr =
-        let tokens = args |> Seq.map mkExprToken
+    let mkMacroExpr (name: string) exprs: Expr =
+        let tokens = exprs |> Seq.map mkExprToken
         mkParensCommaDelimitedMacCall name tokens
-        |> mkMacCallExpr
-
-    let mkMacroSemiExpr (name: string) args: Expr =
-        let tokens = args |> Seq.map mkExprToken
-        mkBracketSemiDelimitedMacCall name tokens
         |> mkMacCallExpr
 
     let mkMatchExpr expr (arms: Arm seq): Expr =
@@ -844,14 +861,6 @@ module Stmts =
         StmtKind.Local local
         |> mkStmt
 
-    let mkExprStmt expr: Stmt =
-        StmtKind.Expr expr
-        |> mkStmt
-
-    let mkSemiStmt expr: Stmt =
-        StmtKind.Semi expr
-        |> mkStmt
-
     let mkItemStmt item: Stmt =
         StmtKind.Item item
         |> mkStmt
@@ -878,6 +887,10 @@ module Stmts =
         macCallStmt
         |> StmtKind.MacCall
         |> mkStmt
+
+    let mkMacroStmt (name: string) tokens: Stmt =
+        mkBraceSemiDelimitedMacCall name tokens
+        |> mkMacCallStmt
 
 [<AutoOpen>]
 module Generic =
@@ -1284,10 +1297,9 @@ module Items =
         ItemKind.Union(data, generics)
         |> mkItem attrs ident
 
-    let mkStaticItem attrs name ty isMut exprOpt: Item =
+    let mkStaticItem attrs name ty exprOpt: Item =
         let ident = mkIdent name
-        let mut = if isMut then Mutability.Mut else Mutability.Not
-        ItemKind.Static(ty, mut, exprOpt)
+        ItemKind.Static(ty, Mutability.Not, exprOpt)
         |> mkItem attrs ident
 
     let mkConstItem attrs name ty exprOpt: Item =

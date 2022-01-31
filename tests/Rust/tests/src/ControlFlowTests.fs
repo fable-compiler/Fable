@@ -66,17 +66,3 @@ let ``while loop works`` =
         i <- i + 1
         total <- total + i
     total |> equal 55
-
-let inc1 (x: byref<int>) =
-    x <- x + 1
-
-let inc2 x =
-    x + 1
-
-[<Fact>]
-let ``byref works`` () =
-    let mutable x = 5
-    inc1 &x
-    let y = inc2 x
-    x |> equal 6
-    y |> equal 7
