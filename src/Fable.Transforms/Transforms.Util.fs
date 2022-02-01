@@ -437,6 +437,27 @@ module AST =
     let makeValue r value =
         Value(value, r)
 
+    let makeTypeInfo r t =
+        TypeInfo(t, { AllowGenerics = false }) |> makeValue r
+
+    let makeGenericTypeInfo r t =
+        TypeInfo(t, { AllowGenerics = true }) |> makeValue r
+
+    let makeTypeDefinitionInfo r t =
+        let t =
+            match t with
+            | Option(_, isStruct) -> Option(Any, isStruct)
+            | Array _ -> Array Any
+            | List _ -> List Any
+            | Tuple(genArgs, isStruct) ->
+                Tuple(genArgs |> List.map (fun _ -> Any), isStruct)
+            | DeclaredType(ent, genArgs) ->
+                let genArgs = genArgs |> List.map (fun _ -> Any)
+                DeclaredType(ent, genArgs)
+            // TODO: Do something with FunctionType and ErasedUnion?
+            | t -> t
+        makeTypeInfo r t
+
     let makeTuple r values =
         Value(NewTuple(values, false), r)
 
@@ -454,6 +475,45 @@ module AST =
     let makeStrConst (x: string) = StringConstant x |> makeValue None
     let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
+
+    let makeTypeConst r (typ: Type) (value: obj) =
+        match typ, value with
+        // Decimal type
+        | Boolean, (:? bool as x) -> BoolConstant x |> makeValue r
+        | String, (:? string as x) -> StringConstant x |> makeValue r
+        | Char, (:? char as x) -> CharConstant x |> makeValue r
+        // Integer types
+        | Number(UInt8, uom), x -> NumberConstant(x, UInt8, uom) |> makeValue r
+        | Number(Int8, uom), x -> NumberConstant(x, Int8, uom) |> makeValue r
+        | Number(Int16, uom), x -> NumberConstant(x, Int16, uom) |> makeValue r
+        | Number(UInt16, uom), x -> NumberConstant(x, UInt16, uom) |> makeValue r
+        | Number(Int32, uom), x -> NumberConstant(x, Int32, uom) |> makeValue r
+        | Number(UInt32, uom), x -> NumberConstant(x, UInt32, uom) |> makeValue r
+        | Number(Int64, uom), x -> NumberConstant(x, Int64, uom) |> makeValue r
+        | Number(UInt64, uom), x -> NumberConstant(x, UInt64, uom) |> makeValue r
+        // Float types
+        | Number(Float32, uom), (:? float32 as x) -> NumberConstant(x, Float32, uom) |> makeValue r
+        | Number(Float64, uom), (:? float as x) -> NumberConstant(x, Float64, uom) |> makeValue r
+        | Number(Decimal, uom), (:? decimal as x) -> NumberConstant(x, Decimal, uom) |> makeValue r
+        // Enums
+        | Enum e, (:? int64 as x) -> EnumConstant(NumberConstant(x, Int64, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? uint64 as x) -> EnumConstant(NumberConstant(x, UInt64, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? byte as x) -> EnumConstant(NumberConstant(x, UInt8, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? sbyte as x) -> EnumConstant(NumberConstant(x, Int8, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? int16 as x) -> EnumConstant(NumberConstant(x, Int16, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? uint16 as x) -> EnumConstant(NumberConstant(x, UInt16, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? int as x) -> EnumConstant(NumberConstant(x, Int32, None) |> makeValue None, e) |> makeValue r
+        | Enum e, (:? uint32 as x) -> EnumConstant(NumberConstant(x, UInt32, None) |> makeValue None, e) |> makeValue r
+        | Unit, _ -> UnitConstant |> makeValue r
+        // Arrays with small data type (ushort, byte) are represented
+        // in F# AST as BasicPatterns.Const
+        | Array (Number(kind, uom)), (:? (byte[]) as arr) ->
+            let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
+            NewArray (values, Number(kind, uom)) |> makeValue r
+        | Array (Number(kind, uom)), (:? (uint16[]) as arr) ->
+            let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
+            NewArray (values, Number(kind, uom)) |> makeValue r
+        | _ -> FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})" |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
         match com.Options.Language with
@@ -494,18 +554,18 @@ module AST =
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
 
-    let emitJs r t args isStatement macro =
+    let emit r t args isStatement macro =
         let emitInfo =
             { Macro = macro
               IsStatement = isStatement
               CallInfo = CallInfo.Make(args=args) }
         Emit(emitInfo, t, r)
 
-    let emitJsExpr r t args macro =
-        emitJs r t args false macro
+    let emitExpr r t args macro =
+        emit r t args false macro
 
-    let emitJsStatement r t args macro =
-        emitJs r t args true macro
+    let emitStatement r t args macro =
+        emit r t args true macro
 
     let makeThrow r t err =
         Extended(Throw(err, t), r)
@@ -543,21 +603,12 @@ module AST =
         | UInt32 -> "uint32"
         | Int64 -> "int64"
         | UInt64 -> "uint64"
+        | BigInt  -> "bigint"
+        | NativeInt -> "nativeint"
+        | UNativeInt -> "unativeint"
         | Float32 -> "float32"
         | Float64 -> "float64"
-
-    let getTypedArrayName (com: Compiler) numberKind =
-        match numberKind with
-        | Int8 -> "Int8Array"
-        | UInt8 -> if com.Options.ClampByteArrays then "Uint8ClampedArray" else "Uint8Array"
-        | Int16 -> "Int16Array"
-        | UInt16 -> "Uint16Array"
-        | Int32 -> "Int32Array"
-        | UInt32 -> "Uint32Array"
-        | Int64 -> "BigInt64Array"
-        | UInt64 -> "BigUint64Array"
-        | Float32 -> "Float32Array"
-        | Float64 -> "Float64Array"
+        | Decimal -> "decimal"
 
     /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =
@@ -624,8 +675,12 @@ module AST =
             | UInt32  -> Types.uint32
             | Int64   -> Types.int64
             | UInt64  -> Types.uint64
+            | BigInt  -> Types.bigint
+            | NativeInt -> Types.nativeint
+            | UNativeInt -> Types.unativeint
             | Float32 -> Types.float32
             | Float64 -> Types.float64
+            | Decimal -> Types.decimal
         match uom with
         | None -> name
         | Some uom -> name + "[" + uom + "]"

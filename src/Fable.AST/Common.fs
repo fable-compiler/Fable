@@ -22,7 +22,20 @@ type SourceLocation =
         sprintf $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
 
 type NumberKind =
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Float32 | Float64
+    | Int8
+    | UInt8
+    | Int16
+    | UInt16
+    | Int32
+    | UInt32
+    | Int64
+    | UInt64
+    | BigInt
+    | NativeInt
+    | UNativeInt
+    | Float32
+    | Float64
+    | Decimal
 
 // TODO: Add missing flags https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#advanced_searching_with_flags
 type RegexFlag =

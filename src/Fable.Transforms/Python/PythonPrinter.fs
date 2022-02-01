@@ -352,7 +352,7 @@ module PrinterExtensions =
                     let i = int m.Groups.[1].Value
 
                     match node.Args.[i] with
-                    | Constant (value = :? bool as value) when value -> m.Groups.[2].Value
+                    | Constant(value = :? bool as value) when value -> m.Groups.[2].Value
                     | _ -> m.Groups.[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->

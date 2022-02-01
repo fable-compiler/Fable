@@ -398,6 +398,7 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     | Fable.String -> ExType phpString
     | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8|Int64|UInt64),_) -> ExType phpInt
     | Fable.Number((Float32|Float64),_) -> ExType phpFloat
+    | Fable.Number((BigInt|Decimal|NativeInt|UNativeInt),_) -> ExType phpObj
     | Fable.Boolean  -> ExType phpBool
     | Fable.Char  -> ExType phpChar
     | Fable.AnonymousRecordType _ -> ExType phpObj

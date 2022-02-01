@@ -1,6 +1,9 @@
 namespace rec Fable.AST.Fable
 
 open Fable.AST
+open Fable.AST.Fable
+
+exception FableError of string
 
 type EntityPath =
     | SourcePath of string
@@ -195,7 +198,7 @@ and Declaration =
     | ClassDeclaration of ClassDecl
     member this.UsedNames =
         match this with
-        | ModuleDeclaration d -> Set.empty
+        | ModuleDeclaration d -> d.Members |> List.map (fun d -> d.UsedNames) |> Set.unionMany
         | ActionDeclaration d -> d.UsedNames
         | MemberDeclaration d -> d.UsedNames
         | ClassDeclaration d ->
@@ -221,14 +224,20 @@ type Ident =
         |> Option.bind (fun r -> r.identifierName)
         |> Option.defaultValue x.Name
 
+type TypeInfoDetails =
+    {
+        /// In languages with generic info (like JS) we normally don't accept type info including generics at runtime.
+        /// This flag signals that we should allow generics for a specific situation
+        AllowGenerics: bool
+    }
+
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
     // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
-    // TODO: Add `allowGeneric` field, see makeGenericTypeInfo hack for generic info in decorators
-    | TypeInfo of typ: Type
+    | TypeInfo of typ: Type * details: TypeInfoDetails
     | Null of typ: Type
     | UnitConstant
     | BoolConstant of value: bool

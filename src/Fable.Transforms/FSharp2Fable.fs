@@ -544,7 +544,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Const(value, typ) ->
         let typ = makeType ctx.GenericArgs typ
-        let expr = Replacements.Api.makeTypeConst com (makeRangeFrom fsExpr) typ value
+        let expr = makeTypeConst (makeRangeFrom fsExpr) typ value
         return expr
 
     | FSharpExprPatterns.BaseValue typ ->
@@ -739,7 +739,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let typ = makeType ctx.GenericArgs fsExpr.Type
             let r = makeRangeFrom fsExpr
             // Convert this to emit so auto-uncurrying is applied
-            return emitJsExpr r typ (e::args) "$0($1...)"
+            return emitExpr r typ (e::args) "$0($1...)"
 
         // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
         // wraps calls with an application. But in Fable they will be replaced so the application is not needed
@@ -1186,7 +1186,7 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
         let args =
             args |> Seq.map (fun (typ, value) ->
                 let typ = makeType Map.empty typ
-                Replacements.Api.makeTypeConst com None typ value)
+                makeTypeConst None typ value)
             |> Seq.toList
         let callInfo = { makeCallInfo None args [] with IsConstructor = true }
         FsEnt(ent) |> entityRef com
@@ -1599,9 +1599,9 @@ type FableCompiler(com: Compiler) =
                     |> Some
 
                 // Resolve type info
-                | Fable.Value(Fable.TypeInfo t, r) ->
+                | Fable.Value(Fable.TypeInfo(t, d), r) ->
                     let t = resolveGenArg ctx t
-                    Fable.Value(Fable.TypeInfo t, r) |> Some
+                    Fable.Value(Fable.TypeInfo(t, d), r) |> Some
 
                 // Resolve the unresolved
                 | Fable.Unresolved(e, t, r) ->

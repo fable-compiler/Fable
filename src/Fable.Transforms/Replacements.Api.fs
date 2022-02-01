@@ -34,13 +34,6 @@ let tryBaseConstructor (com: ICompiler) ctx (ent: Entity) (argTypes: Lazy<Type l
     | Python -> PY.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | _ -> JS.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
 
-let makeTypeConst (com: ICompiler) r (typ: Type) (value: obj) =
-    match com.Options.Language with
-    | Rust -> Rust.Replacements.makeTypeConst com r typ value
-    | Python -> PY.Replacements.makeTypeConst com r typ value
-    | Dart -> Dart.Replacements.makeTypeConst com r typ value
-    | _ -> JS.Replacements.makeTypeConst com r typ value
-
 let makeMethodInfo (com: ICompiler) r (name: string) (parameters: (string * Type) list) (returnType: Type) =
     match com.Options.Language with
     | _ -> JS.Replacements.makeMethodInfo com r name parameters returnType
@@ -73,6 +66,8 @@ let defaultof (com: ICompiler) ctx typ =
     | Python -> PY.Replacements.defaultof com ctx typ
     | _ -> JS.Replacements.defaultof com ctx typ
 
+// TODO: This is only needed for mutable public values because of how imports/exports work in JS.
+// Other languages may not need it
 let createAtom (com: ICompiler) value =
     match com.Options.Language with
     | Rust -> Rust.Replacements.createAtom com value

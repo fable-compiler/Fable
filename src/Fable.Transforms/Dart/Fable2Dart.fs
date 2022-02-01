@@ -152,11 +152,11 @@ module Util =
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
             preferStatement || isStatement ctx false thenExpr || isStatement ctx false elseExpr
 
-    let isInt = function
+    let isInt64OrLess = function
         | Fable.Number(kind, _) ->
             match kind with
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> true
-            | Float32 | Float64 -> false
+            | Float32 | Float64 | Decimal | NativeInt | UNativeInt | BigInt -> false
         | _ -> false
 
     let makeAnonymousFunction ((args: Ident list), (body: Statement list)): Expression =
@@ -246,7 +246,8 @@ module Util =
             match kind with
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
             | Float32 | Float64 -> Double
-        | t -> Dynamic // TODO failwith $"todo: type %A{t}"
+            | Decimal | BigInt | NativeInt | UNativeInt -> Dynamic // TODO
+        | _ -> Dynamic // TODO failwith $"todo: type %A{t}"
 
     let transformIdentWith (com: IDartCompiler) ctx typ name: Ident =
         { Name = name; Type = transformType com ctx typ }
@@ -307,7 +308,7 @@ module Util =
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             UnaryExpression(op, expr)
         | Fable.Binary(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
-            BinaryExpression(op, left, right, isInt t)
+            BinaryExpression(op, left, right, isInt64OrLess t)
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             LogicalExpression(op, left, right)
 
