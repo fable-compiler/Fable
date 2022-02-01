@@ -925,34 +925,41 @@ module TypeHelpers =
         Fable.DelegateType(argTypes, returnType)
 
     let numberTypes =
-        dict [Types.int8, Int8
-              Types.uint8, UInt8
-              Types.int16, Int16
-              Types.uint16, UInt16
-              Types.int32, Int32
-              Types.uint32 , UInt32
-              Types.int64, Int64
-              Types.uint64 , UInt64
-              Types.float32, Float32
-              Types.float64, Float64]
+        dict [
+            Types.int8, Int8
+            Types.uint8, UInt8
+            Types.int16, Int16
+            Types.uint16, UInt16
+            Types.int32, Int32
+            Types.uint32 , UInt32
+            Types.int64, Int64
+            Types.uint64 , UInt64
+            Types.bigint, BigInt
+            Types.nativeint, NativeInt
+            Types.unativeint, UNativeInt
+            Types.float32, Float32
+            Types.float64, Float64
+            Types.decimal, Decimal
+        ]
 
     let numbersWithMeasure =
         dict [
             "Microsoft.FSharp.Core.sbyte`1", Int8
+            "FSharp.UMX.byte`1", UInt8
             "Microsoft.FSharp.Core.int16`1", Int16
             "Microsoft.FSharp.Core.int`1", Int32
             "Microsoft.FSharp.Core.int64`1", Int64
             "FSharp.UMX.uint64`1", UInt64
+            "Microsoft.FSharp.Core.nativeint`1", NativeInt
             "Microsoft.FSharp.Core.float32`1", Float32
             "Microsoft.FSharp.Core.float`1", Float64
-            "FSharp.UMX.byte`1", UInt8
+            "Microsoft.FSharp.Core.decimal`1", Decimal
         ]
 
     // FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
     // so we need to hard-code FSharp.UMX types
     let runtimeTypesWithMeasure =
         dict [
-            "Microsoft.FSharp.Core.decimal`1", Choice2Of2 Types.decimal
             "FSharp.UMX.bool`1", Choice1Of2 Fable.Boolean
             "FSharp.UMX.string`1", Choice1Of2 Fable.String
             "FSharp.UMX.Guid`1", Choice2Of2 Types.guid
@@ -1643,7 +1650,7 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
-    let isAttachMembersEntity (com: Fable.Compiler) (ent: FSharpEntity) =
+    let isAttachMembersEntity (com: Compiler) (ent: FSharpEntity) =
         not ent.IsFSharpModule && (
             // com.Options.Language = Php ||
             com.Options.Language = Rust || // attach all members for Rust
@@ -1995,8 +2002,8 @@ module Util =
         else None
 
     /// Removes optional arguments set to None in tail position
-    let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
-                (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
+    let transformOptionalArguments (_com: IFableCompiler) (_ctx: Context) (_r: SourceLocation option)
+                (memb: FSharpMemberOrFunctionOrValue) (_genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args

@@ -5,8 +5,6 @@ namespace Fable.Cli
 open System
 open System.Threading
 
-exception FableError of string
-
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
     member _.Args = args
@@ -276,9 +274,9 @@ module File =
                         Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
                         Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
                 elif acc >= timeoutMs then
-                    FableError "LockTimeOut" |> raise
+                    Fable.AST.Fable.FableError "LockTimeOut" |> raise
                 acc <- acc + waitMs
-                Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+                Thread.Sleep(millisecondsTimeout=waitMs)
 
             File.Create(lockFile) |> ignore
             fileCreated <- true
@@ -829,7 +827,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
             let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
             PrecompiledInfoImpl(fableModulesDir, info)
         with
-        | e -> FableError($"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}") |> raise
+        | e -> Fable.AST.Fable.FableError($"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}") |> raise
 
     static member Save(files, inlineExprs, compilerOptions, fableModulesDir, fableLibDir) =
         let comparer = StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>

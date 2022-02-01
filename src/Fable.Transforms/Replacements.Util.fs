@@ -117,8 +117,12 @@ let getBoxedZero kind: obj =
     | UInt32 -> 0u: uint32
     | Int64 -> 0L: int64
     | UInt64 -> 0UL: uint64
+    | BigInt -> 0I: bigint
+    | NativeInt -> 0n: nativeint
+    | UNativeInt -> 0un: unativeint
     | Float32 -> 0.f: float32
     | Float64 -> 0.: float
+    | Decimal -> 0M: decimal
 
 let getBoxedOne kind: obj =
     match kind with
@@ -130,8 +134,12 @@ let getBoxedOne kind: obj =
     | UInt32 -> 1u: uint32
     | Int64 -> 1L: int64
     | UInt64 -> 1UL: uint64
+    | BigInt -> 1I: bigint
+    | NativeInt -> 1n: nativeint
+    | UNativeInt -> 1un: unativeint
     | Float32 -> 1.f: float32
     | Float64 -> 1.: float
+    | Decimal -> 1M: decimal
 
 type BuiltinType =
     | BclGuid
@@ -141,10 +149,6 @@ type BuiltinType =
     | BclDateOnly
     | BclTimeOnly
     | BclTimer
-    | BclIntPtr
-    | BclUIntPtr
-    | BclDecimal
-    | BclBigInt
     | BclHashSet of Type
     | BclDictionary of key:Type * value:Type
     | BclKeyValuePair of key:Type * value:Type
@@ -162,11 +166,7 @@ let (|BuiltinDefinition|_|) = function
     | Types.dateOnly -> Some BclDateOnly
     | Types.timeOnly -> Some BclTimeOnly
     | "System.Timers.Timer" -> Some BclTimer
-    | Types.nativeint -> Some BclIntPtr
-    | Types.unativeint -> Some BclUIntPtr
     | Types.decimal
-    | "Microsoft.FSharp.Core.decimal`1" -> Some BclDecimal
-    | Types.bigint -> Some BclBigInt
     | Types.fsharpSet -> Some(FSharpSet(Any))
     | Types.fsharpMap -> Some(FSharpMap(Any,Any))
     | Types.hashset -> Some(BclHashSet(Any))
@@ -200,37 +200,6 @@ let (|Builtin|_|) = function
         | BuiltinEntity x -> Some x
         | _ -> None
     | _ -> None
-
-let (|Integer|Float|) = function
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
-    | Float32 | Float64 -> Float
-
-type NumberExtKind =
-    | PrimNumber of NumberKind
-    | Decimal
-    | BigInt
-
-let (|NumberExtKind|_|) = function
-    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some (PrimNumber kind)
-    | Types.decimal -> Some Decimal
-    | Types.bigint -> Some BigInt
-    | _ -> None
-
-let (|NumberExt|_|) = function
-    | Number(n, _) -> Some (PrimNumber n)
-    | Builtin BclDecimal -> Some Decimal
-    | Builtin BclBigInt -> Some BigInt
-    | _ -> None
-
-let (|Numeric|NonNumeric|) = function
-    | Enum _
-    | Number _
-    | Builtin BclIntPtr
-    | Builtin BclUIntPtr
-    | Builtin BclDecimal
-    | Builtin BclBigInt
-        -> Numeric
-    | _ -> NonNumeric
 
 let getElementType = function
     | Array t -> t
@@ -300,7 +269,7 @@ let rec namesof com ctx acc e =
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
         then ident.DisplayName::acc |> Some
         else None
-    | [], Value(TypeInfo t, r) -> (getTypeName com ctx r t)::acc |> Some
+    | [], Value(TypeInfo(t, _), r) -> (getTypeName com ctx r t)::acc |> Some
     | [], _ -> None
     | acc, _ -> Some acc
 

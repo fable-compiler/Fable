@@ -3,8 +3,6 @@ module rec Fable.Transforms.Rust.Fable2Rust
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.Rust
-open Fable.Transforms.Rust.AST.Adapters
-open Fable.Transforms.Rust.AST.Spans
 open Fable.Transforms.Rust.AST.Helpers
 
 module Rust = Fable.Transforms.Rust.AST.Types
@@ -355,7 +353,6 @@ module TypeInfo =
         | Fable.Char
         | Fable.Enum _
         | Fable.Number _
-        | Replacements.Util.Numeric
         | Fable.GenericParam _
         // already RC-wrapped
         | Fable.LambdaType _
@@ -556,17 +553,20 @@ module TypeInfo =
 
     let numberType kind: Rust.Ty =
         match kind with
-        | Int8 -> "i8"
-        | UInt8 -> "u8"
-        | Int16 -> "i16"
-        | UInt16 -> "u16"
-        | Int32 -> "i32"
-        | UInt32 -> "u32"
-        | Int64 -> "i64"
-        | UInt64 -> "u64"
-        | Float32 -> "f32"
-        | Float64 -> "f64"
-        |> primitiveType
+        | Int8 -> "i8" |> primitiveType
+        | UInt8 -> "u8" |> primitiveType
+        | Int16 -> "i16" |> primitiveType
+        | UInt16 -> "u16" |> primitiveType
+        | Int32 -> "i32" |> primitiveType
+        | UInt32 -> "u32" |> primitiveType
+        | Int64 -> "i64" |> primitiveType
+        | UInt64 -> "u64" |> primitiveType
+        | NativeInt -> "isize" |> primitiveType
+        | UNativeInt -> "usize" |> primitiveType
+        | Float32 -> "f32" |> primitiveType
+        | Float64 -> "f64" |> primitiveType
+        | Decimal -> makeFullNamePathTy Types.decimal None
+        | BigInt -> makeFullNamePathTy Types.bigint None
 
     let transformEnumType (com: IRustCompiler) ctx (entRef: Fable.EntityRef): Rust.Ty =
         let ent = com.GetEntity(entRef)
@@ -704,10 +704,10 @@ module TypeInfo =
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex ->
                 // nonGenericTypeInfo Types.regex
-                TODO_TYPE (sprintf "%A" t) //TODO:
+                TODO_TYPE $"%A{t}" //TODO:
             | Fable.MetaType ->
                 // nonGenericTypeInfo Types.type_
-                TODO_TYPE (sprintf "%A" t) //TODO:
+                TODO_TYPE $"%A{t}" //TODO:
             | Fable.AnonymousRecordType(fieldNames, genArgs) ->
                 transformTupleType com ctx genArgs //TODO: temporary - uses tuples for now!
                 // let genArgs = resolveGenerics (List.toArray genArgs)
@@ -733,9 +733,6 @@ module TypeInfo =
                 match entRef.FullName, genArgs with
                 | Replacements.Util.BuiltinEntity kind ->
                     match kind with
-                    | Replacements.Util.BclIntPtr -> primitiveType "isize"
-                    | Replacements.Util.BclUIntPtr -> primitiveType "usize"
-
                     | Replacements.Util.BclGuid
                     | Replacements.Util.BclTimeSpan
                     | Replacements.Util.BclDateTime
@@ -743,9 +740,7 @@ module TypeInfo =
                     | Replacements.Util.BclDateOnly
                     | Replacements.Util.BclTimeOnly
                     | Replacements.Util.BclTimer
-                    | Replacements.Util.BclDecimal
-                    | Replacements.Util.BclBigInt
-                        -> transformDeclaredType com ctx entRef genArgs //TODO: remove this catch-all
+                        -> transformDeclaredType com ctx entRef genArgs
 
                     | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
                     | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
@@ -1495,7 +1490,7 @@ module Util =
         match fromType, toType with
         | t1, t2 when t1 = t2 ->
             expr // no cast needed if type are the same
-        | Replacements.Util.Numeric, Replacements.Util.Numeric ->
+        | (Fable.Number _ | Fable.Enum _), (Fable.Number _ | Fable.Enum _)->
             expr |> mkCastExpr ty
         | Fable.Char, Fable.Number(UInt32, None) ->
             expr |> mkCastExpr ty
@@ -1619,7 +1614,7 @@ module Util =
             then expr
             else mkAddrOfExpr expr
 
-    let makeNumber com r kind (x: obj) =
+    let makeNumber com ctx r t kind (x: obj) =
         match kind, x with
         | Int8, (:? int8 as x) when x = System.SByte.MinValue ->
             mkGenericPathExpr ["i8";"MIN"] None
@@ -1678,6 +1673,8 @@ module Util =
         | Float64, (:? float as x) ->
             let expr = mkFloat64LitExpr (abs x)
             if x < 0.0 then expr |> mkNegExpr else expr
+        | Decimal, (:? decimal as x) ->
+            Replacements.makeDecimal com r t x |> transformAsExpr com ctx
         | kind, x ->
             $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
             |> addError com [] r
@@ -1819,7 +1816,7 @@ module Util =
         let unimplemented () =
             $"Value %A{value} is not implemented yet"
             |> addWarning com [] None
-            TODO_EXPR (sprintf "%A" value)
+            TODO_EXPR $"%A{value}"
         match value with
         | Fable.BaseValue (None, _) ->
             // Super(None)
@@ -1828,7 +1825,7 @@ module Util =
             // identAsExpr boundIdent
             unimplemented ()
         | Fable.ThisValue typ -> makeThis com ctx r typ
-        | Fable.TypeInfo t ->
+        | Fable.TypeInfo _ ->
             // transformTypeInfo com ctx r Map.empty t
             unimplemented ()
         | Fable.Null t ->
@@ -1838,7 +1835,7 @@ module Util =
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
-        | Fable.NumberConstant (x, kind, _) -> makeNumber com r kind x
+        | Fable.NumberConstant (x, kind, _) -> makeNumber com ctx r value.Type kind x
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
@@ -1985,7 +1982,7 @@ module Util =
         else
             "Object expressions are not implemented yet"
             |> addWarning com [] None
-            TODO_EXPR (sprintf "%A" members)
+            TODO_EXPR $"%A{members}"
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -3967,7 +3964,7 @@ module Util =
                 let body = Fable.Sequential (exprs @ [returnValue])
                 // replace `this.field` with just `field` in body
                 let body =
-                    body |> AST.visitFromInsideOut (function
+                    body |> visitFromInsideOut (function
                         | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet(fieldName), t, value, r) ->
                             let identExpr = identMap |> Map.find fieldName |> Fable.IdentExpr
                             Fable.Set(identExpr, Fable.ValueSet, t, value, r)

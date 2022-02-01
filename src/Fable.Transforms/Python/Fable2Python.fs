@@ -178,7 +178,7 @@ module Reflection =
                 uci.UnionCaseFields
                 |> List.map (fun fi ->
                     Expression.tuple [ fi.Name |> Expression.constant
-                                       let expr, stmts = transformTypeInfo com ctx r genMap fi.FieldType
+                                       let expr, _stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
                                        expr ])
                 |> Expression.list)
@@ -259,7 +259,7 @@ module Reflection =
                     | name ->
                         let value =
                             match fi.LiteralValue with
-                            | Some v -> System.Convert.ToDouble v
+                            | Some v -> Convert.ToDouble v
                             | None -> 0.
 
                         Expression.tuple (
@@ -305,11 +305,7 @@ module Reflection =
                 | Replacements.Util.BclDateTimeOffset
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
-                | Replacements.Util.BclTimer
-                | Replacements.Util.BclIntPtr
-                | Replacements.Util.BclUIntPtr
-                | Replacements.Util.BclDecimal
-                | Replacements.Util.BclBigInt -> genericEntity fullName [], []
+                | Replacements.Util.BclTimer -> genericEntity fullName [], []
                 | Replacements.Util.BclHashSet gen
                 | Replacements.Util.FSharpSet gen ->
                     let gens, stmts = transformTypeInfo com ctx r genMap gen
@@ -432,6 +428,7 @@ module Reflection =
         | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
         | Fable.Char
         | Fable.String _ -> pyTypeof "<class 'str'>" expr
+        // TODO: Testing against bigints and decimals
         | Fable.Number _
         | Fable.Enum _ -> pyTypeof "<class 'int'>" expr
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
@@ -715,7 +712,7 @@ module Helpers =
         | PythonModule name -> name
         | _ -> rewriteFablePathImport com modulePath
 
-    let unzipArgs (args: (Expression * Statement list) list) : Expression list * Python.Statement list =
+    let unzipArgs (args: (Expression * Statement list) list) : Expression list * Statement list =
         let stmts = args |> List.map snd |> List.collect id
         let args = args |> List.map fst
         args, stmts
@@ -874,21 +871,26 @@ module Annotation =
         |> Helpers.unzipArgs
 
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
-        let getNumberKindName kind =
-            match kind with
-            | Int8
-            | UInt8
-            | Int16
-            | UInt16
-            | Int32
-            | UInt32
-            | Int64
-            | UInt64 -> "int"
-            | Float32
-            | Float64 -> "float"
-
         let numberInfo kind =
-            Expression.name (getNumberKindName kind)
+            let name =
+                match kind with
+                | Int8
+                | UInt8
+                | Int16
+                | UInt16
+                | Int32
+                | UInt32
+                | Int64
+                | UInt64
+                | BigInt
+                | NativeInt
+                | UNativeInt -> "int"
+                | Float32
+                | Float64 -> "float"
+                // TODO: review, though we're dealing with Decimal as special case (see below)
+                | Decimal -> "complex"
+
+            Expression.name name
 
         // printfn "typeAnnotation: %A" t
         match t with
@@ -915,6 +917,8 @@ module Annotation =
         | Fable.String -> Expression.name "str", []
         | Fable.Enum entRef ->
             let ent = com.GetEntity(entRef)
+            // TODO: Maybe we can skip discovering the type, as only int types are allowed
+            // for enums, so in Python it'll always be "int"
             let mutable numberKind = Int32
 
             let cases =
@@ -931,7 +935,7 @@ module Annotation =
                     | name ->
                         let value =
                             match fi.LiteralValue with
-                            | Some v -> System.Convert.ToDouble v
+                            | Some v -> Convert.ToDouble v
                             | None -> 0.
 
                         Expression.tuple (
@@ -947,6 +951,7 @@ module Annotation =
               cases ]
             |> libReflectionCall com ctx None "enum",
             []
+        | Fable.Type.Number (Decimal, _) -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
         | Fable.Number (kind, _) -> numberInfo kind, []
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = Util.uncurryLambdaType t
@@ -991,10 +996,7 @@ module Annotation =
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
 
             fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
-        | Replacements.Util.BuiltinEntity kind ->
-            match kind with
-            | Replacements.Util.BclDecimal -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
-            | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+        | Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" []
         (*
             | Replacements.Util.BclGuid
             | Replacements.Util.BclTimeSpan
@@ -1220,7 +1222,7 @@ module Util =
 
     let getDecisionTarget (ctx: Context) targetIndex =
         match List.tryItem targetIndex ctx.DecisionTargets with
-        | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
+        | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
         | Some (idents, target) -> idents, target
 
     let rec isPyStatement ctx preferStatement (expr: Fable.Expr) =
@@ -1718,16 +1720,19 @@ module Util =
         | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
         | Fable.BaseValue (Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
         | Fable.ThisValue _ -> Expression.identifier "self", []
-        | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
+        | Fable.TypeInfo (t, _) -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
         | Fable.BoolConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.CharConstant x -> Expression.constant (string x, ?loc = r), []
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
-        | Fable.NumberConstant (x, _, _) ->
-            match x with
-            | x when x = infinity -> Expression.name "float('inf')", []
-            | x when x = -infinity -> Expression.name "float('-inf')", []
+        | Fable.NumberConstant (x, kind, _) ->
+            match kind, x with
+            | Decimal, (:? decimal as x) ->
+                PY.Replacements.makeDecimal com r value.Type x
+                |> transformAsExpr com ctx
+            | _, x when x = infinity -> Expression.name "float('inf')", []
+            | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values typ
@@ -1848,7 +1853,7 @@ module Util =
             // Some (baseExpr, []) // default base constructor
             let range = baseCall |> Option.bind (fun x -> x.Range)
 
-            sprintf "Ignoring base call for %s" baseType.Entity.FullName
+            $"Ignoring base call for %s{baseType.Entity.FullName}"
             |> addWarning com [] range
 
             None

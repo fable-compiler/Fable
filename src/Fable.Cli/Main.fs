@@ -480,7 +480,7 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     results
                 | Error e ->
                     e.Message + if Log.isVerbose() then Log.newLine + e.StackTrace else ""
-                    |> FableError
+                    |> Fable.FableError
                     |> raise
     }
 
@@ -772,7 +772,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                                 fableProj.ImplementationFiles |> Map.map (fun k v ->
                                     match Map.tryFind k outPaths with
                                     | Some outPath -> { RootModule = v.RootModule; OutPath = outPath }
-                                    | None -> FableError($"Cannot find out path for precompiled file {k}") |> raise)
+                                    | None -> Fable.FableError($"Cannot find out path for precompiled file {k}") |> raise)
 
                             PrecompiledInfoImpl.Save(
                                 files = files,
@@ -875,6 +875,6 @@ let startCompilation state = async {
     | _ -> return Error("Compilation failed", logs)
 
   with
-    | FableError e -> return Error(e, [||])
+    | Fable.FableError e -> return Error(e, [||])
     | exn -> return raise exn
 }

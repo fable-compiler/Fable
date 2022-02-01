@@ -930,6 +930,7 @@ module Generic =
         AngleBracketedArg.Constraint(tyConstraint)
 
     let mkGenericArgs (args: AngleBracketedArg seq): GenericArgs option =
+        // TODO: Will this call make the sequence run twice?
         if Seq.isEmpty args then
             None
         else

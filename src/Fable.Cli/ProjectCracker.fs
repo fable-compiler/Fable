@@ -8,6 +8,7 @@ open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open Fable
+open Fable.AST
 open Globbing.Operators
 
 type FablePackage =
@@ -506,10 +507,10 @@ let getFableLibraryPath (opts: CrackerOptions) =
             Process.getCurrentAssembly().Location
             |> Path.GetDirectoryName
             |> File.tryFindDirectoryUpwards {| matches = [buildDir; "build/" + buildDir]; exclude = ["src"] |}
-            |> Option.defaultWith (fun () -> FableError "Cannot find fable-library" |> raise)
+            |> Option.defaultWith (fun () -> Fable.FableError "Cannot find fable-library" |> raise)
 
         if File.isDirectoryEmpty fableLibrarySource then
-            FableError $"fable-library directory is empty, please build FableLibrary: {fableLibrarySource}" |> raise
+            Fable.FableError $"fable-library directory is empty, please build FableLibrary: {fableLibrarySource}" |> raise
 
         Log.verbose(lazy ("fable-library: " + fableLibrarySource))
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
@@ -560,7 +561,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
 
         // Check if precompiled compiler version and options match
         if info.CompilerVersion <> Literals.VERSION then
-            FableError($"Library was precompiled using Fable v{info.CompilerVersion} but you're using v{Literals.VERSION}. Please use same version.") |> raise
+            Fable.FableError($"Library was precompiled using Fable v{info.CompilerVersion} but you're using v{Literals.VERSION}. Please use same version.") |> raise
 
         // Sometimes it may be necessary to use different options for the precompiled lib so don't throw an error here
         //if info.CompilerOptions <> opts.FableOptions then
@@ -589,7 +590,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
 
 let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.ProjFile)) then
-        FableError("Project file does not exist: " + opts.ProjFile) |> raise
+        Fable.FableError("Project file does not exist: " + opts.ProjFile) |> raise
 
     // Make sure cache info corresponds to same compiler version and is not outdated
     let cacheInfo =

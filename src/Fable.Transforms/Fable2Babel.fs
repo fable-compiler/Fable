@@ -49,13 +49,6 @@ type IBabelCompiler =
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
-// For now don't use BigInt64Array for int64 arrays because we haven't implemented
-// the equivalence between JS BigInt and (u)int64
-let (|NotLong|_|) = function
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32
-    | Float32 | Float64 as kind -> Some kind
-    | Int64 | UInt64 -> None
-
 module Lib =
     let libCall (com: IBabelCompiler) ctx r moduleName memberName args =
         Expression.callExpression(com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?loc=r)
@@ -200,11 +193,7 @@ module Reflection =
                 | Replacements.Util.BclDateTimeOffset
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
-                | Replacements.Util.BclTimer
-                | Replacements.Util.BclIntPtr
-                | Replacements.Util.BclUIntPtr
-                | Replacements.Util.BclDecimal
-                | Replacements.Util.BclBigInt -> genericEntity fullName [||]
+                | Replacements.Util.BclTimer -> genericEntity fullName [||]
                 | Replacements.Util.BclHashSet gen
                 | Replacements.Util.FSharpSet gen ->
                     genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
@@ -299,6 +288,12 @@ module Reflection =
         | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Number(Decimal,_) ->
+            let cons = libValue com ctx "Decimal" "default"
+            jsInstanceof cons expr
+        | Fable.Number(BigInt,_) ->
+            let cons = libValue com ctx "BigInt/z" "BigInteger"
+            jsInstanceof cons expr
         | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
@@ -402,6 +397,8 @@ module Annotation =
         | Fable.Regex -> makeSimpleTypeAnnotation com ctx "RegExp"
         | Fable.Number(Int64,_) -> makeImportTypeAnnotation com ctx [] "Long" "int64"
         | Fable.Number(UInt64,_) -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
+        | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
+        | Fable.Number(BigInt,_) -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
@@ -457,8 +454,7 @@ module Annotation =
 
     let makeArrayTypeAnnotation com ctx genArg =
         match genArg with
-        | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
-            let name = getTypedArrayName com kind
+        | JS.Replacements.TypedArrayCompatible com name ->
             makeSimpleTypeAnnotation com ctx name
         | _ ->
             makeNativeTypeAnnotation com ctx [genArg] "Array"
@@ -479,10 +475,6 @@ module Annotation =
         | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclIntPtr -> makeImportTypeAnnotation com ctx [] "Long" "intPtr"
-        | Replacements.Util.BclUIntPtr -> makeImportTypeAnnotation com ctx [] "Long" "uintPtr"
-        | Replacements.Util.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
-        | Replacements.Util.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
         | Replacements.Util.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
         | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
@@ -710,8 +702,7 @@ module Util =
 
     let makeTypedArray (com: IBabelCompiler) ctx t (args: Fable.Expr list) =
         match t with
-        | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
-            let jsName = getTypedArrayName com kind
+        | JS.Replacements.TypedArrayCompatible com jsName ->
             let args = [|makeArray com ctx args|]
             Expression.newExpression(Expression.identifier(jsName), args)
         | _ -> makeArray com ctx args
@@ -719,8 +710,7 @@ module Util =
     let makeTypedAllocatedFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
         let getArrayCons t =
             match t with
-            | Fable.Number(NotLong kind,_) when com.Options.TypedArrays ->
-                getTypedArrayName com kind |> Expression.identifier
+            | JS.Replacements.TypedArrayCompatible com name -> Expression.identifier name
             | _ -> Expression.identifier("Array")
 
         match fableExpr with
@@ -936,9 +926,11 @@ module Util =
         | Fable.BaseValue(None,_) -> Super(None)
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent
         | Fable.ThisValue _ -> Expression.thisExpression()
-        | Fable.TypeInfo t ->
+        | Fable.TypeInfo(t, d) ->
             if com.Options.NoReflection then addErrorAndReturnNull com r "Reflection is disabled"
-            else transformTypeInfo com ctx r (Some Map.empty) t
+            else
+                let genMap = if d.AllowGenerics then None else Some Map.empty
+                transformTypeInfo com ctx r genMap t
         | Fable.Null _t ->
             // if com.Options.typescript
             //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
@@ -949,17 +941,20 @@ module Util =
         | Fable.BoolConstant x -> Expression.booleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> Expression.stringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> Expression.stringLiteral(x, ?loc=r)
-        | Fable.NumberConstant (x,_,_) ->
-            match x with
-            | :? int8 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? uint8 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? char as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? int16 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? uint16 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? int32 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? uint32 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? float32 as x -> Expression.numericLiteral(float x, ?loc=r)
-            | :? float as x -> Expression.numericLiteral(x, ?loc=r)
+        | Fable.NumberConstant (x, kind, _) ->
+            match kind, x with
+            | Decimal, (:? decimal as x) -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | Int64, (:? int64 as x) -> JS.Replacements.makeLongInt com r value.Type true (uint64 x) |> transformAsExpr com ctx
+            | UInt64, (:? uint64 as x) -> JS.Replacements.makeLongInt com r value.Type false x |> transformAsExpr com ctx
+            | _, (:? int8 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? uint8 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? char as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? int16 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? uint16 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? int32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? uint32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? float32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? float as x) -> Expression.numericLiteral(x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
@@ -2067,7 +2062,7 @@ module Util =
                     let left = get None thisExpr id.Name
                     let right =
                         match id.Type with
-                        | Fable.Number _ ->
+                        | Fable.Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Float32 | Float64), _) ->
                             Expression.binaryExpression(BinaryOrBitwise, identAsExpr id, Expression.numericLiteral(0.))
                         | _ -> identAsExpr id
                     assign None left right |> ExpressionStatement)
