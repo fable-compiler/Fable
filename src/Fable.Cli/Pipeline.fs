@@ -88,7 +88,7 @@ module Python =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
             member _.EscapeStringLiteral(str) =
-                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\"", @"\""")
+                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\u0000", @"\u0000").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\"", @"\""")
             member _.MakeImportPath(path) = path
             member _.AddSourceMapping(_) = ()
             member _.AddLog(msg, severity, ?range) = () // TODO

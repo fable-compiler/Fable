@@ -1344,8 +1344,10 @@ module Util =
             | Fable.Type.Number (Int8, _) -> Some "b"
             | Fable.Type.Number (Int16, _) -> Some "h"
             | Fable.Type.Number (UInt16, _) -> Some "H"
-            | Fable.Type.Number (Int32, _) -> Some "i"
-            | Fable.Type.Number (UInt32, _) -> Some "I"
+            | Fable.Type.Number (Int32, _) -> Some "l"
+            | Fable.Type.Number (UInt32, _) -> Some "L"
+            | Fable.Type.Number (Int64, _) -> Some "q"
+            | Fable.Type.Number (UInt64, _) -> Some "Q"
             | Fable.Type.Number (Float32, _) -> Some "f"
             | Fable.Type.Number (Float64, _) -> Some "d"
             | _ -> None
