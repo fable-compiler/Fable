@@ -1,5 +1,9 @@
 namespace Fable
 
+open System
+open System.Globalization
+open System.Text
+
 [<RequireQualifiedAccess>]
 module Tuple =
     let make2 x y = x, y
@@ -469,6 +473,49 @@ module Naming =
         |> checkJsKeywords
         // Check if it already exists
         |> preventConflicts conflicts
+
+    // Ported to F# from https://github.com/microsoft/referencesource/blob/master/System.Web/Util/HttpEncoder.cs#L391
+    let encodeString charRequiresEncoding (value: string) : string =
+        if (String.IsNullOrEmpty(value)) then
+            String.Empty
+        else
+            let mutable sb : StringBuilder option = None
+            let mutable startIndex = 0
+            let mutable count = 0
+
+            for i = 0 to value.Length - 1 do
+                let c = value.[i]
+
+                // Append the unhandled characters (that do not require special treament)
+                // to the string builder when special characters are detected.
+                if (charRequiresEncoding c) then
+                    match sb, count with
+                    | Some sb, count when count > 0 -> sb.Append(value, startIndex, count) |> ignore
+                    | None, _ ->
+                        sb <- StringBuilder(value.Length + 5).Append(value, startIndex, count) |> Some
+                    | _ -> ()
+
+                    startIndex <- i + 1
+                    count <- 0
+
+                match c, sb with
+                | '\r', Some(sb) -> sb.Append("\\r") |> ignore
+                | '\t', Some(sb) -> sb.Append("\\t") |> ignore
+                | '\"', Some(sb) -> sb.Append("\\\"") |> ignore
+                | '\\', Some(sb) -> sb.Append("\\\\") |> ignore
+                | '\n', Some(sb) -> sb.Append("\\n") |> ignore
+                | '\b', Some(sb) -> sb.Append("\\b") |> ignore
+                | '\f', Some(sb) -> sb.Append("\\f") |> ignore
+                | c, Some(sb) when charRequiresEncoding c ->
+                    sb.Append("\\u") |> ignore
+                    sb.Append((int c).ToString("x4", CultureInfo.InvariantCulture)) |> ignore
+                | _ -> count <- count + 1
+
+            match sb, count with
+            | Some sb, count when count > 0 ->
+                sb.Append(value, startIndex, count).ToString()
+            | Some sb, _ -> sb.ToString()
+            | None, _ -> value
 
 module Path =
     open System
