@@ -1489,7 +1489,7 @@ module Util =
 
         match fromType, toType with
         | t1, t2 when t1 = t2 ->
-            expr // no cast needed if type are the same
+            expr // no cast needed if types are the same
         | (Fable.Number _ | Fable.Enum _), (Fable.Number _ | Fable.Enum _)->
             expr |> mkCastExpr ty
         | Fable.Char, Fable.Number(UInt32, None) ->
@@ -1616,6 +1616,7 @@ module Util =
 
     let makeNumber com ctx r t kind (x: obj) =
         match kind, x with
+
         | Int8, (:? int8 as x) when x = System.SByte.MinValue ->
             mkGenericPathExpr ["i8";"MIN"] None
         | Int8, (:? int8 as x) when x = System.SByte.MaxValue ->
@@ -1628,15 +1629,11 @@ module Util =
             mkGenericPathExpr ["i32";"MIN"] None
         | Int32, (:? int32 as x) when int32 x = System.Int32.MaxValue ->
             mkGenericPathExpr ["i32";"MAX"] None
-        | Int8, (:? int8 as x) ->
-            let expr = mkInt8LitExpr (abs x |> uint64)
-            if x < 0y then expr |> mkNegExpr else expr
-        | Int16, (:? int16 as x) ->
-            let expr = mkInt16LitExpr (abs x |> uint64)
-            if x < 0s then expr |> mkNegExpr else expr
-        | Int32, (:? int32 as x) ->
-            let expr = mkInt32LitExpr (abs x |> uint64)
-            if x < 0 then expr |> mkNegExpr else expr
+        | Int64, (:? int64 as x) when int64 x = System.Int64.MinValue ->
+            mkGenericPathExpr ["i64";"MIN"] None
+        | Int64, (:? int64 as x) when int64 x = System.Int64.MaxValue ->
+            mkGenericPathExpr ["i64";"MAX"] None
+
         // | UInt8, (:? uint8 as x) when x = System.Byte.MinValue ->
         //     mkGenericPathExpr ["u8";"MIN"] None
         | UInt8, (:? uint8 as x) when x = System.Byte.MaxValue ->
@@ -1649,12 +1646,11 @@ module Util =
         //     mkGenericPathExpr ["u32";"MIN"] None
         | UInt32, (:? uint32 as x) when x = System.UInt32.MaxValue ->
             mkGenericPathExpr ["u32";"MAX"] None
-        | UInt8, (:? uint8 as x) ->
-            mkUInt8LitExpr (x |> uint64)
-        | UInt16, (:? uint8 as x) ->
-            mkUInt16LitExpr (x |> uint64)
-        | UInt32, (:? uint8 as x) ->
-            mkUInt32LitExpr (x |> uint64)
+        // | UInt64, (:? uint64 as x) when x = System.UInt64.MinValue ->
+        //     mkGenericPathExpr ["u64";"MIN"] None
+        | UInt64, (:? uint64 as x) when x = System.UInt64.MaxValue ->
+            mkGenericPathExpr ["u64";"MAX"] None
+
         | Float32, (:? float32 as x) when System.Single.IsNaN(x) ->
             mkGenericPathExpr ["f32";"NAN"] None
         | Float64, (:? float as x) when System.Double.IsNaN(x) ->
@@ -1667,6 +1663,27 @@ module Util =
             mkGenericPathExpr ["f32";"NEG_INFINITY"] None
         | Float64, (:? float as x) when System.Double.IsNegativeInfinity(x) ->
             mkGenericPathExpr ["f64";"NEG_INFINITY"] None
+
+        | Int8, (:? int8 as x) ->
+            let expr = mkInt8LitExpr (abs x |> uint64)
+            if x < 0y then expr |> mkNegExpr else expr
+        | Int16, (:? int16 as x) ->
+            let expr = mkInt16LitExpr (abs x |> uint64)
+            if x < 0s then expr |> mkNegExpr else expr
+        | Int32, (:? int32 as x) ->
+            let expr = mkInt32LitExpr (abs x |> uint64)
+            if x < 0 then expr |> mkNegExpr else expr
+        | Int64, (:? int64 as x) ->
+            let expr = mkInt64LitExpr (abs x |> uint64)
+            if x < 0 then expr |> mkNegExpr else expr
+        | UInt8, (:? uint8 as x) ->
+            mkUInt8LitExpr (x |> uint64)
+        | UInt16, (:? uint16 as x) ->
+            mkUInt16LitExpr (x |> uint64)
+        | UInt32, (:? uint32 as x) ->
+            mkUInt32LitExpr (x |> uint64)
+        | UInt64, (:? uint64 as x) ->
+            mkUInt64LitExpr (x |> uint64)
         | Float32, (:? float32 as x) ->
             let expr = mkFloat32LitExpr (abs x)
             if x < 0.0f then expr |> mkNegExpr else expr
