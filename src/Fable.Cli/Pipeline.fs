@@ -1,6 +1,8 @@
 ﻿module Fable.Cli.Pipeline
 
 open System
+open System.Globalization
+open System.Text
 open System.Text.RegularExpressions
 open Fable
 open Fable.AST
@@ -68,6 +70,62 @@ module Js =
     }
 
 module Python =
+
+    let encodeString charRequiresEncoding (value: string) : string =
+        if (String.IsNullOrEmpty(value)) then
+            String.Empty
+        else
+            let mutable sb : StringBuilder option = None
+            let mutable startIndex = 0
+            let mutable count = 0
+
+            for i = 0 to value.Length - 1 do
+                let c = value.[i]
+
+                // Append the unhandled characters (that do not require special treament)
+                // to the string builder when special characters are detected.
+                if (charRequiresEncoding c) then
+                    match sb, count with
+                    | Some sb, count when count > 0 -> sb.Append(value, startIndex, count) |> ignore
+                    | None, _ ->
+                        sb <- StringBuilder(value.Length + 5).Append(value, startIndex, count) |> Some
+                    | _ -> ()
+
+                    startIndex <- i + 1
+                    count <- 0
+
+                match c, sb with
+                | '\r', Some(sb) -> sb.Append("\\r") |> ignore
+                | '\t', Some(sb) -> sb.Append("\\t") |> ignore
+                | '\"', Some(sb) -> sb.Append("\\\"") |> ignore
+                | '\\', Some(sb) -> sb.Append("\\\\") |> ignore
+                | '\n', Some(sb) -> sb.Append("\\n") |> ignore
+                | '\b', Some(sb) -> sb.Append("\\b") |> ignore
+                | '\f', Some(sb) -> sb.Append("\\f") |> ignore
+                | c, Some(sb) when charRequiresEncoding c ->
+                    sb.Append("\\u") |> ignore
+                    sb.Append((int c).ToString("x4", CultureInfo.InvariantCulture)) |> ignore
+                | _ -> count <- count + 1
+
+            match sb, count with
+            | Some sb, count when count > 0 ->
+                sb.Append(value, startIndex, count).ToString()
+            | Some sb, _ -> sb.ToString()
+            | None, _ -> value
+
+    let charRequiresEncoding (c: char) =
+        c < (char) 0x20 // control chars always have to be encoded
+        || c = '\"' // chars which must be encoded per JSON spec
+        || c = '\\'
+        || c = '\''
+        // HTML-sensitive chars encoded for safety
+        //|| c = '<'
+        //|| c = '>'
+        //|| (c = '&')
+        || c = '\u0085' // newline chars have to be encoded
+        || c = '\u2028'
+        || c = '\u2029'
+
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
@@ -87,8 +145,7 @@ module Python =
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.Dispose() = stream.Dispose()
-            member _.EscapeStringLiteral(str) =
-                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\u0000", @"\u0000").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\"", @"\""")
+            member _.EscapeStringLiteral(str) = encodeString charRequiresEncoding str
             member _.MakeImportPath(path) = path
             member _.AddSourceMapping(_) = ()
             member _.AddLog(msg, severity, ?range) = () // TODO
