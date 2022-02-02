@@ -15,6 +15,24 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+let (|TypedArrayCompatible|_|) (com: Compiler) = function
+    | Number(kind,_) when com.Options.TypedArrays ->
+        match kind with
+        | Int8 -> Some "Int8Array"
+        | UInt8 -> Some "Uint8Array"
+        | Int16 -> Some "Int16Array"
+        | UInt16 -> Some "Uint16Array"
+        | Int32 -> Some "Int32Array"
+        | UInt32 -> Some "Uint32Array"
+        | Float32 -> Some "Float32Array"
+        | Float64 -> Some "Float64Array"
+        // Don't use typed array for int64 until we remove our int64 polyfill
+        // and use JS BigInt to represent int64
+//        | Int64 -> Some "BigInt64Array"
+//        | UInt64 -> Some "BigUint64Array"
+        | Int64 | UInt64 | BigInt | Decimal | NativeInt | UNativeInt -> None
+    | _ -> None
+
 let error msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
@@ -795,8 +813,13 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (s
             | Types.comparer -> args @ [ makeComparer com ctx genArg ]
             | Types.equalityComparer -> args @ [ makeEqualityComparer com ctx genArg ]
             | Types.arrayCons ->
-                    args
-                    @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
+                match genArg with
+                | TypedArrayCompatible com consName ->
+                    let cons = [ makeImportLib com Any consName "types" ]
+                    args @ cons
+                | _ ->
+                    let cons = [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
+                    args @ cons
             | Types.adder -> args @ [ makeGenericAdder com ctx genArg ]
             | Types.averager -> args @ [ makeGenericAverager com ctx genArg ]
             | _ -> fail ()
