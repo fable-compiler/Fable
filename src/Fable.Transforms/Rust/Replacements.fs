@@ -91,6 +91,9 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 //     let args, defValue = List.splitLast args
 //     args @ [makeRefFromMutableValue com ctx defValue]
 
+let toNativeIndex expr =
+    TypeCast(expr, Number(UNativeInt, None))
+
 let toChar com (arg: Expr) =
     match arg.Type with
     | Char | String -> arg
@@ -311,7 +314,7 @@ let toSeq t (expr: Expr) =
     | _ -> TypeCast(expr, t)
 
 let getLength r t (expr: Expr) =
-    let i = Helper.InstanceCall(expr, "len", BclTypes.unativeint, [], ?loc=r)
+    let i = Helper.InstanceCall(expr, "len", Number(UNativeInt, None), [], ?loc=r)
     TypeCast(i, t)
 
 let nativeCall expr =

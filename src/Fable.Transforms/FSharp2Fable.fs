@@ -363,7 +363,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 1 ->
             let inline numberConst kind value =
-                Fable.Number (kind, None), Fable.Value (Fable.NumberConstant(float value, kind, None), r)
+                Fable.Number (kind, None), Fable.Value (Fable.NumberConstant(value, kind, None), r)
             let typ, value =
                 match FsUnionCase.CompiledValue unionCase with
                 | None -> Fable.String, transformStringEnum rule unionCase

@@ -252,13 +252,6 @@ let makeRuntimeType genArgs fullName =
 let makeFSharpCoreType genArgs fullName =
     makeDeclaredType "FSharp.Core" genArgs fullName
 
-module BclTypes =
-    let nativeint = makeRuntimeType [] Types.nativeint
-    let unativeint = makeRuntimeType [] Types.unativeint
-
-let toNativeIndex expr =
-    TypeCast(expr, BclTypes.unativeint)
-
 let rec namesof com ctx acc e =
     match acc, e with
     | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop::acc) e

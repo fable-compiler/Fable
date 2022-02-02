@@ -473,7 +473,7 @@ module AST =
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
-    let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
+    let makeIntConst (x: int) = NumberConstant (x, Int32, None) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
     let makeTypeConst r (typ: Type) (value: obj) =
