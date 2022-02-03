@@ -2018,8 +2018,7 @@ module Util =
 
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
-        | Fable.Unary(UnaryOperator.UnaryVoid, Fable.IdentExpr ident) ->
-            // in this context UnaryVoid means UnaryAddressOf
+        | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
             transformIdent com ctx range ident
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
@@ -2027,6 +2026,7 @@ module Util =
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
+            | UnaryOperator.UnaryAddressOf -> expr // already handled above
             | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
             | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
             | UnaryOperator.UnaryVoid -> expr // no unary void

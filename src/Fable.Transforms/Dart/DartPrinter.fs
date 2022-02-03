@@ -154,6 +154,7 @@ module PrinterExtensions =
                 | UnaryNotBitwise -> printUnaryOp "~" expr
                 // TODO: I think Dart doesn't accept + prefix, check
                 | UnaryPlus
+                | UnaryAddressOf
                 | UnaryTypeof
                 | UnaryVoid
                 | UnaryDelete -> printer.Print(expr)

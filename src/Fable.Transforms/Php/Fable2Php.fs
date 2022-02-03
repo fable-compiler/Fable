@@ -568,8 +568,9 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
                 | UnaryOperator.UnaryMinus -> "-"
                 | UnaryOperator.UnaryPlus -> "+"
                 | UnaryOperator.UnaryNotBitwise -> "~~~"
-                | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
+                | UnaryOperator.UnaryAddressOf -> failwith "UnaryAddressOf not supported"
                 | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
+                | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
                 | UnaryOperator.UnaryVoid -> failwith "Should not happen"
 
             PhpUnaryOp(opStr, convertExpr com expr)

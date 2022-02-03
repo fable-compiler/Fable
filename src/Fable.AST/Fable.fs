@@ -546,6 +546,7 @@ type Expr =
 //         | UnaryPlus -> "+" + print e
 //         | UnaryNot -> "!" + print e
 //         | UnaryNotBitwise -> "~" + print e
+//         | UnaryAddressOf -> "&" + print e
 //         | UnaryTypeof -> "typeof " + print e
 //         | UnaryVoid -> "void " + print e
 //         | UnaryDelete -> "delete " + print e
