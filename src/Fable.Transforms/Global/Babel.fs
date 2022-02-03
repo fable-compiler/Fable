@@ -577,6 +577,7 @@ module Helpers =
                 | UnaryPlus -> "+"
                 | UnaryNot -> "!"
                 | UnaryNotBitwise -> "~"
+                | UnaryAddressOf -> "" //"&"
                 | UnaryTypeof -> "typeof"
                 | UnaryVoid -> "void"
                 | UnaryDelete -> "delete"

@@ -47,6 +47,7 @@ type UnaryOperator =
     | UnaryPlus
     | UnaryNot
     | UnaryNotBitwise
+    | UnaryAddressOf
     | UnaryTypeof
     | UnaryVoid
     | UnaryDelete

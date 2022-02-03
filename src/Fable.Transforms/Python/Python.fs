@@ -919,6 +919,7 @@ module PythonExtensions =
                 | UnaryPlus -> UAdd
                 | UnaryNot -> Not
                 | UnaryNotBitwise -> Invert
+                // | UnaryAddressOf -> "&"
                 // | UnaryTypeof -> "typeof"
                 // | UnaryVoid ->
                 // | UnaryDelete -> "delete"

@@ -59,7 +59,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     //     let v = makeUniqueIdent ctx t "v"
     //     Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
     // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
-    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
+    Operation(Unary(UnaryAddressOf, value), t, r)
 
 let makeRefFromMutableField com ctx r t callee key =
     // let getter =
@@ -69,7 +69,7 @@ let makeRefFromMutableField com ctx r t callee key =
     //     Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
     // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
     let value = Get(callee, FieldGet(key, true), t, r)
-    Operation(Unary(UnaryVoid, value), t, r) // using UnaryVoid as UnaryAddressOf
+    Operation(Unary(UnaryAddressOf, value), t, r)
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
