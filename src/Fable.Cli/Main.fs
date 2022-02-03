@@ -479,7 +479,7 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     Log.always $"Fable compilation finished in %i{ms}ms{Log.newLine}"
                     results
                 | Error e ->
-                    e.Message + if Log.isVerbose() then Log.newLine + e.StackTrace else ""
+                    e.Message + Log.newLine + e.StackTrace
                     |> Fable.FableError
                     |> raise
     }
@@ -710,8 +710,12 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                     let deps = Map.add res.File res.WatchDependencies deps
                     logs, deps
                 | Error e ->
-                    let msg = e.Exception.Message + Log.newLine + e.Exception.StackTrace
-                    let log = Log.MakeError(msg, fileName=e.File, tag="EXCEPTION")
+                    let log =
+                        match e.Exception with
+                        | Fable.FableError msg -> Log.MakeError(msg, fileName=e.File)
+                        | ex ->
+                            let msg = ex.Message + Log.newLine + ex.StackTrace
+                            Log.MakeError(msg, fileName=e.File, tag="EXCEPTION")
                     Array.append logs [|log|], deps)
 
         let state = { state with PendingFiles = [||]

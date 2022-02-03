@@ -458,6 +458,13 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
+    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
+        let modName =
+            match kind with
+            | Decimal -> "Decimal"
+            | BigInt -> "BigInt"
+            | _ -> "Long"
+        Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
     | Boolean | Char | String | Number _ | Enum _ ->
         let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
@@ -466,13 +473,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (FSharpSet _|FSharpMap _) ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
-        let modName =
-            match kind with
-            | Decimal -> "Decimal"
-            | BigInt -> "BigInt"
-            | _ -> "Long"
-        Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
@@ -490,11 +490,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ | Enum _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, None), [left; right], ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
         let modName =
             match kind with
@@ -502,6 +497,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
             | BigInt -> "BigInt"
             | _ -> "Long"
         Helper.LibCall(com, modName, "compare", Number(Int32, None), [left; right], ?loc=r)
+    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
+    | Boolean | Char | String | Number _ | Enum _ ->
+        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, None), [left; right], ?loc=r)
+    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
+        Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Array t ->
@@ -518,7 +518,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ | Enum _ ->
+    | Boolean | Char | String | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Float32|Float64),_) | Enum _ ->
         makeEqOp r left right op
     | _ ->
         let comparison = compare com ctx r left right
@@ -1977,7 +1977,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         match i.SignatureArgTypes with
         | [Array _] ->
             Helper.LibCall(com, "BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | [Number ((Int64|Int64),_)] ->
+        | [Number ((Int64|UInt64),_)] ->
             Helper.LibCall(com, "BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             Helper.LibCall(com, "BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some

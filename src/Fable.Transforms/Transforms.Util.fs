@@ -483,18 +483,21 @@ module AST =
         | String, (:? string as x) -> StringConstant x |> makeValue r
         | Char, (:? char as x) -> CharConstant x |> makeValue r
         // Integer types
-        | Number(UInt8, uom), x -> NumberConstant(x, UInt8, uom) |> makeValue r
-        | Number(Int8, uom), x -> NumberConstant(x, Int8, uom) |> makeValue r
-        | Number(Int16, uom), x -> NumberConstant(x, Int16, uom) |> makeValue r
-        | Number(UInt16, uom), x -> NumberConstant(x, UInt16, uom) |> makeValue r
-        | Number(Int32, uom), x -> NumberConstant(x, Int32, uom) |> makeValue r
-        | Number(UInt32, uom), x -> NumberConstant(x, UInt32, uom) |> makeValue r
-        | Number(Int64, uom), x -> NumberConstant(x, Int64, uom) |> makeValue r
-        | Number(UInt64, uom), x -> NumberConstant(x, UInt64, uom) |> makeValue r
+        | Number(Int8, uom), (:? int8 as x) -> NumberConstant(x, Int8, uom) |> makeValue r
+        | Number(UInt8, uom), (:? uint8 as x) -> NumberConstant(x, UInt8, uom) |> makeValue r
+        | Number(Int16, uom), (:? int16 as x) -> NumberConstant(x, Int16, uom) |> makeValue r
+        | Number(UInt16, uom), (:? uint16 as x) -> NumberConstant(x, UInt16, uom) |> makeValue r
+        | Number(Int32, uom), (:? int32 as x) -> NumberConstant(x, Int32, uom) |> makeValue r
+        | Number(UInt32, uom), (:? uint32 as x) -> NumberConstant(x, UInt32, uom) |> makeValue r
+        | Number(Int64, uom), (:? int64 as x) -> NumberConstant(x, Int64, uom) |> makeValue r
+        | Number(UInt64, uom), (:? uint64 as x) -> NumberConstant(x, UInt64, uom) |> makeValue r
         // Float types
         | Number(Float32, uom), (:? float32 as x) -> NumberConstant(x, Float32, uom) |> makeValue r
         | Number(Float64, uom), (:? float as x) -> NumberConstant(x, Float64, uom) |> makeValue r
         | Number(Decimal, uom), (:? decimal as x) -> NumberConstant(x, Decimal, uom) |> makeValue r
+        // Pointer types
+        | Number(NativeInt, uom), (:? nativeint as x) -> NumberConstant(x, Int64, uom) |> makeValue r
+        | Number(UNativeInt, uom), (:? unativeint as x) -> NumberConstant(x, UInt64, uom) |> makeValue r
         // Enums
         | Enum e, (:? int64 as x) -> EnumConstant(NumberConstant(x, Int64, None) |> makeValue None, e) |> makeValue r
         | Enum e, (:? uint64 as x) -> EnumConstant(NumberConstant(x, UInt64, None) |> makeValue None, e) |> makeValue r

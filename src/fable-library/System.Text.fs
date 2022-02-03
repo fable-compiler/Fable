@@ -7,6 +7,7 @@ type StringBuilder(value: string, capacity: int) =
     new (value: string) = StringBuilder(value, 16)
     new () = StringBuilder("", 16)
     member x.Append(s: string) = buf.Add(s); x
+    member x.Append(s: string, startIndex: int, count: int) = buf.Add(s.Substring(startIndex, count)); x
     member x.Append(c: char) = buf.Add(string c); x
     member x.Append(o: int) = buf.Add(string o); x
     member x.Append(o: float) = buf.Add(string o); x

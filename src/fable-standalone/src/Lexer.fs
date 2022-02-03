@@ -171,7 +171,7 @@ let private getSymbolFromTokens (tokens: FSharpTokenInfo list) line col (lineStr
             match k with
             | Ident | GenericTypeParameter | StaticallyResolvedTypeParameter | Keyword -> true
             | _ -> false)
-            /// Gets the option if Some x, otherwise try to get another value
+            // Gets the option if Some x, otherwise try to get another value
 
         |> orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
         |> Option.map (fun token ->
