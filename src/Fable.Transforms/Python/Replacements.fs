@@ -536,6 +536,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
             makeUnOp None Boolean expr UnaryNot
 
     match left.Type with
+    | Number (Decimal,_) ->
+        Helper.LibCall(com, "decimal", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
+    | Number (BigInt,_) ->
+        Helper.LibCall(com, "big_int", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
     | Builtin (BclGuid
     | BclTimeSpan)
     | Boolean
@@ -557,12 +563,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Builtin (FSharpSet _
     | FSharpMap _) ->
         Helper.InstanceCall(left, "Equals", Boolean, [ right ])
-        |> is equal
-    | Number (Decimal,_) ->
-        Helper.LibCall(com, "decimal", "equals", Boolean, [ left; right ], ?loc = r)
-        |> is equal
-    | Number (BigInt,_) ->
-        Helper.LibCall(com, "big_int", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
     | DeclaredType _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [ left; right ], ?loc = r)
@@ -588,6 +588,10 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
+    | Number (Decimal,_) ->
+        Helper.LibCall(com, "decimal", "compare", Number(Int32, None), [ left; right ], ?loc = r)
+    | Number (BigInt,_) ->
+        Helper.LibCall(com, "big_int", "compare", Number(Int32, None), [ left; right ], ?loc = r)
     | Builtin (BclGuid
     | BclTimeSpan)
     | Boolean
@@ -597,10 +601,6 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Enum _ -> Helper.LibCall(com, "util", "comparePrimitives", Number(Int32, None), [ left; right ], ?loc = r)
     | Builtin (BclDateTime
     | BclDateTimeOffset) -> Helper.LibCall(com, "date", "compare", Number(Int32, None), [ left; right ], ?loc = r)
-    | Number (Decimal,_) ->
-        Helper.LibCall(com, "decimal", "compare", Number(Int32, None), [ left; right ], ?loc = r)
-    | Number (BigInt,_) ->
-        Helper.LibCall(com, "big_int", "compare", Number(Int32, None), [ left; right ], ?loc = r)
     | DeclaredType _ -> Helper.LibCall(com, "util", "compare", Number(Int32, None), [ left; right ], ?loc = r)
     | Array t ->
         let f = makeComparerFunction com ctx t
@@ -617,7 +617,7 @@ and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
     | Boolean
     | Char
     | String
-    | Number _
+    | Number ((Int8|Int16|Int32|UInt8|UInt16|UInt32|Int64|UInt64|Float32|Float64),_)
     | Enum _ -> makeEqOp r left right op
     | _ ->
         let comparison = compare com ctx r left right

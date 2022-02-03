@@ -440,14 +440,14 @@ let equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     if equal then expr
     //     else makeUnOp None Boolean expr UnaryNot
     match left.Type with
+    // | Builtin (BclDecimal|BclBigInt as bt) ->
+    //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Builtin (BclGuid|BclTimeSpan)
     // | Boolean | Char | String | Number _ | Enum _ ->
     //     let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
     //     makeBinOp r Boolean left right op
     // | Builtin (BclDateTime|BclDateTimeOffset) ->
     //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    // | Builtin (BclDecimal|BclBigInt as bt) ->
-    //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Array _ ->
     //     Helper.LibCall(com, "Array", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
     // | List _ ->
@@ -470,15 +470,15 @@ let equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
+    | Number (Decimal,_) ->
+        Helper.LibCall(com, "Decimal", "compare", Number(Int32, None), [ left; right ], ?loc = r)
+    | Number (BigInt,_) ->
+        Helper.LibCall(com, "BigInt", "compare", Number(Int32, None), [ left; right ], ?loc = r)
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
-    | Number (Decimal,_) ->
-        Helper.LibCall(com, "Decimal", "compare", Number(Int32, None), [ left; right ], ?loc = r)
-    | Number (BigInt,_) ->
-        Helper.LibCall(com, "BigInt", "compare", Number(Int32, None), [ left; right ], ?loc = r)
     // | Array _ ->
     //     Helper.LibCall(com, "Array", "compareTo", Number(Int32, None), [left; right], ?loc=r)
     // | List _ ->
@@ -497,7 +497,8 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 /// Wraps comparison with the binary operator, like `comparison < 0`
 let compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
     match left.Type with
-    | Boolean | Char | String | Number _ | Enum _
+    | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Int64|UInt64|Float32|Float64),_)
+    | Boolean | Char | String | Enum _
     | GenericParam _ | Array _ | List _
     | Builtin (BclGuid|BclTimeSpan) ->
         makeEqOp r left right op

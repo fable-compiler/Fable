@@ -288,12 +288,9 @@ module Reflection =
         | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
-        | Fable.Number(Decimal,_) ->
-            let cons = libValue com ctx "Decimal" "default"
-            jsInstanceof cons expr
-        | Fable.Number(BigInt,_) ->
-            let cons = libValue com ctx "BigInt/z" "BigInteger"
-            jsInstanceof cons expr
+        | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
+        | Fable.Number(BigInt,_) -> jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
+        | Fable.Number((Int64|UInt64),_) -> jsInstanceof (libValue com ctx "Long" "default") expr
         | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
@@ -955,6 +952,9 @@ module Util =
             | _, (:? uint32 as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _, (:? float32 as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _, (:? float as x) -> Expression.numericLiteral(x, ?loc=r)
+            // We don't really support pointers for JS compilation, but compile them as numbers for standalone self-compilation
+            | _, (:? nativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _, (:? unativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
