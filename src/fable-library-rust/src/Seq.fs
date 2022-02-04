@@ -574,10 +574,15 @@ let toArray (xs: 'T seq): 'T[] =
     res |> asArray
 
 let toList (xs: 'T seq): 'T list =
-    let mutable acc = []
-    for x in xs do
-        acc <- x::acc
-    List.rev acc // TODO: optimize to avoid reverse
+    // let mutable acc = []
+    // for x in xs do
+    //     acc <- x::acc
+    // List.rev acc // TODO: optimize to avoid reverse
+    use e = ofSeq xs
+    List.unfold (fun (e: IEnumerator<'T>) ->
+        if e.MoveNext()
+        then Some(e.Current, e)
+        else None) e
 
 let foldBack folder (xs: 'T seq) state =
     Array.foldBack folder (toArray xs) state
@@ -635,7 +640,11 @@ let head (xs: 'T seq) =
     | None -> invalidArg "source" SR.inputSequenceEmpty
 
 let initialize count f =
-    unfold (fun i -> if (i < count) then Some(f i, i + 1) else None) 0
+    let gen i =
+        if (i < count)
+        then Some(f i, i + 1)
+        else None
+    unfold gen 0
 
 let initializeInfinite f =
     initialize (System.Int32.MaxValue) f

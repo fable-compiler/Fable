@@ -953,12 +953,12 @@ let ``String.Join works`` () =
     System.String.Join("--", [|"a"; "b"; "c"|])
     |> equal "a--b--c"
 
-// [<Fact>]
-// let ``String.Join works II`` () =
-//     System.String.Join("--", "a", "b", "c")
-//     |> equal "a--b--c"
-//     System.String.Join("--", seq { yield "a"; yield "b"; yield "c" })
-//     |> equal "a--b--c"
+[<Fact>]
+let ``String.Join works II`` () =
+    System.String.Join("--", "a", "b", "c")
+    |> equal "a--b--c"
+    System.String.Join("--", seq { yield "a"; yield "b"; yield "c" })
+    |> equal "a--b--c"
 
 // [<Fact>]
 // let ``String.Join with indices works`` () =
@@ -1010,12 +1010,12 @@ let ``System.String.Join with long array works`` () =
     let s = System.String.Join("", a)
     s.Length |> equal n
 
-// [<Fact>]
-// let ``System.String.Join with long seq works`` () =
-//     let n = 1_000_000
-//     let a = seq { for i in 1..n -> "a" }
-//     let s = System.String.Join("", a)
-//     s.Length |> equal n
+[<Fact>]
+let ``System.String.Join with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = System.String.Join("", a)
+    s.Length |> equal n
 
 [<Fact>]
 let ``System.String.Concat with long array works`` () =
@@ -1024,26 +1024,26 @@ let ``System.String.Concat with long array works`` () =
     let s = System.String.Concat(a)
     s.Length |> equal n
 
-// [<Fact>]
-// let ``System.String.Concat with long seq works`` () =
-//     let n = 1_000_000
-//     let a = seq { for i in 1..n -> "a" }
-//     let s = System.String.Concat(a)
-//     s.Length |> equal n
+[<Fact>]
+let ``System.String.Concat with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = System.String.Concat(a)
+    s.Length |> equal n
 
-// [<Fact>]
-// let ``String.concat with long array works`` () =
-//     let n = 1_000_000
-//     let a = [| for i in 1..n -> "a" |]
-//     let s = String.concat "" a
-//     s.Length |> equal n
+[<Fact>]
+let ``String.concat with long array works`` () =
+    let n = 1_000_000
+    let a = [| for i in 1..n -> "a" |]
+    let s = String.concat "" a
+    s.Length |> equal n
 
-// [<Fact>]
-// let ``String.concat with long seq works`` () =
-//     let n = 1_000_000
-//     let a = seq { for i in 1..n -> "a" }
-//     let s = String.concat "" a
-//     s.Length |> equal n
+[<Fact>]
+let ``String.concat with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.concat "" a
+    s.Length |> equal n
 
 // [<Fact>]
 // let ``String.Remove works`` () =
@@ -1064,71 +1064,6 @@ let ``System.String.Concat with long array works`` () =
 //     |> equal "foo is bar"
 
 // [<Fact>]
-// let ``Enumerating string works`` () =
-//     let mutable res = ""
-//     for c in "HELLO" |> Seq.rev do
-//         res <- res + (string c)
-//     equal "OLLEH" res
-
-// // String - F# module functions
-
-// [<Fact>]
-// let ``String.concat works`` () =
-//     String.concat "--" ["a"; "b"; "c"] |> equal "a--b--c"
-//     seq { yield "a"; yield "b"; yield "c" }
-//     |> String.concat "-" |> equal "a-b-c"
-
-// [<Fact>]
-// let ``String.forall and exists work`` () =
-//     "!!!" |> String.forall (fun c -> c = '!') |> equal true
-//     "a!a" |> String.forall (fun c -> c = '!') |> equal false
-//     "aaa" |> String.forall (fun c -> c = '!') |> equal false
-
-// [<Fact>]
-// let ``String.init works`` () =
-//     String.init 3 (fun i -> "a")
-//     |> equal "aaa"
-
-// [<Fact>]
-// let ``String.collect works`` () =
-//     "abc" |> String.collect (fun c -> "bcd")
-//     |> equal "bcdbcdbcd"
-
-// [<Fact>]
-// let ``String.iter works`` () =
-//     let res = ref ""
-//     "Hello world!"
-//     |> String.iter (fun c -> res := !res + c.ToString())
-//     equal "Hello world!" !res
-
-// [<Fact>]
-// let ``String.iteri works`` () =
-//     let mutable res = ""
-//     "Hello world!"
-//     |> String.iteri (fun c i -> res <- res + i.ToString() + c.ToString())
-//     equal "H0e1l2l3o4 5w6o7r8l9d10!11" res
-
-[<Fact>]
-let ``String.length (function) works`` () =
-    "AbC" |> String.length
-    |> equal 3
-
-// [<Fact>]
-// let ``String.map works`` () =
-//     "Hello world!" |> String.map (fun c -> if c = 'H' then '_' else c)
-//     |> equal "_ello world!"
-
-// [<Fact>]
-// let ``String.mapi works`` () =
-//     "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
-//     |> equal "__llo world!"
-
-// [<Fact>]
-// let ``String.replicate works`` () =
-//     String.replicate 3 "hi there"
-//     |> equal "hi therehi therehi there"
-
-// [<Fact>]
 // let ``String.IsNullOrWhiteSpace works on string with blanks`` () =
 //     String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
 //     |> equal false
@@ -1139,24 +1074,95 @@ let ``String.length (function) works`` () =
 //     |> equal true
 
 // [<Fact>]
-// let ``String.filter works`` () =
-//     String.filter (fun x -> x <> '.') "a.b.c"
-//     |> equal "abc"
+// let ``Enumerating string works`` () =
+//     let mutable res = ""
+//     for c in "HELLO" |> Seq.rev do
+//         res <- res + (string c)
+//     equal "OLLEH" res
 
-// [<Fact>]
-// let ``String.filter works when predicate matches everything`` () =
-//     String.filter (fun x -> x <> '.') "abc"
-//     |> equal "abc"
+// String - F# module functions
 
-// [<Fact>]
-// let ``String.filter works when predicate doesn't match`` () =
-//     String.filter (fun x -> x <> '.') "..."
-//     |> equal ""
+[<Fact>]
+let ``String.concat works`` () =
+    String.concat "--" ["a"; "b"; "c"] |> equal "a--b--c"
+    seq { yield "a"; yield "b"; yield "c" }
+    |> String.concat "-" |> equal "a-b-c"
 
-// [<Fact>]
-// let ``String.filter works with empty string`` () =
-//     String.filter (fun x -> x <> '.') ""
-//     |> equal ""
+[<Fact>]
+let ``String.exists works`` () =
+    "!!!" |> String.exists (fun c -> c = '!') |> equal true
+    "a!a" |> String.exists (fun c -> c = '!') |> equal true
+    "aaa" |> String.exists (fun c -> c = '!') |> equal false
+
+[<Fact>]
+let ``String.forall works`` () =
+    "!!!" |> String.forall (fun c -> c = '!') |> equal true
+    "a!a" |> String.forall (fun c -> c = '!') |> equal false
+    "aaa" |> String.forall (fun c -> c = '!') |> equal false
+
+[<Fact>]
+let ``String.init works`` () =
+    String.init 3 (fun i -> "a")
+    |> equal "aaa"
+
+[<Fact>]
+let ``String.collect works`` () =
+    "abc" |> String.collect (fun c -> "bcd")
+    |> equal "bcdbcdbcd"
+
+[<Fact>]
+let ``String.iter works`` () =
+    let mutable res = ""
+    "Hello world!"
+    |> String.iter (fun c -> res <- res + c.ToString())
+    equal "Hello world!" res
+
+[<Fact>]
+let ``String.iteri works`` () =
+    let mutable res = ""
+    "Hello world!"
+    |> String.iteri (fun c i -> res <- res + i.ToString() + c.ToString())
+    equal "H0e1l2l3o4 5w6o7r8l9d10!11" res
+
+[<Fact>]
+let ``String.length (function) works`` () =
+    "AbC" |> String.length
+    |> equal 3
+
+[<Fact>]
+let ``String.map works`` () =
+    "Hello world!" |> String.map (fun c -> if c = 'H' then '_' else c)
+    |> equal "_ello world!"
+
+[<Fact>]
+let ``String.mapi works`` () =
+    "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
+    |> equal "__llo world!"
+
+[<Fact>]
+let ``String.replicate works`` () =
+    String.replicate 3 "hi there"
+    |> equal "hi therehi therehi there"
+
+[<Fact>]
+let ``String.filter works`` () =
+    String.filter (fun x -> x <> '.') "a.b.c"
+    |> equal "abc"
+
+[<Fact>]
+let ``String.filter works when predicate matches everything`` () =
+    String.filter (fun x -> x <> '.') "abc"
+    |> equal "abc"
+
+[<Fact>]
+let ``String.filter works when predicate doesn't match`` () =
+    String.filter (fun x -> x <> '.') "..."
+    |> equal ""
+
+[<Fact>]
+let ``String.filter works with empty string`` () =
+    String.filter (fun x -> x <> '.') ""
+    |> equal ""
 
 // #if FABLE_COMPILER
 // [<Fact>]

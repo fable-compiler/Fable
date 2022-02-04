@@ -204,6 +204,7 @@ let (|Builtin|_|) = function
 let getElementType = function
     | Array t -> t
     | List t -> t
+    | DeclaredType(_, [t]) -> t
     | _ -> Any
 
 let genericTypeInfoError (name: string) =

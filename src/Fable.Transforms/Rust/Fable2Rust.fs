@@ -437,7 +437,7 @@ module TypeInfo =
     let makeNativeCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
         let selector = moduleName + "::" + memberName
         let importName = getImportName com ctx moduleName selector
-        let callee = mkGenericPathExpr [importName] genArgs
+        let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
 
     let makeLibCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
@@ -1698,11 +1698,14 @@ module Util =
             mkFloat64LitExpr 0.
 
     let makeString com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "string" [value]
+        makeLibCall com ctx None "String" "string" [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
         makeLibCall com ctx genArgs "Native" "defaultOf" []
+
+    let makeEnum (com: IRustCompiler) ctx r value (entRef: Fable.EntityRef) =
+        com.TransformAsExpr(ctx, value)
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1861,7 +1864,7 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.EnumConstant (value, entRef) -> com.TransformAsExpr(ctx, value)
+        | Fable.EnumConstant (value, entRef) -> makeEnum com ctx r value entRef
         | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs) -> makeTuple com ctx r values false // temporary
         | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
@@ -3323,7 +3326,7 @@ module Util =
         | Some path ->
             let strBody = [
                 "let args: Vec<String> = std::env::args().collect()"
-                "let args: Vec<Rc<str>> = args[1..].iter().map(|s| Native::string(s)).collect()"
+                "let args: Vec<Rc<str>> = args[1..].iter().map(|s| String_::string(s)).collect()"
                 (String.concat "::" path) + "(&Native::arrayFrom(&args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
