@@ -96,10 +96,12 @@ let toNativeIndex expr =
 
 let toChar com (arg: Expr) =
     match arg.Type with
-    | Char | String -> arg
+    | Char -> arg
+    | String ->
+        Helper.LibCall(com, "String", "getCharAt", Char, [arg; makeIntConst 0])
     | _ ->
         let code = TypeCast(arg, Number(UInt32, None))
-        Helper.LibCall(com, "Native", "toChar", Char, [code])
+        Helper.LibCall(com, "String", "toChar", Char, [code])
 
 let toString com (ctx: Context) r (args: Expr list) =
     match args with
@@ -108,22 +110,23 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String -> head
-        | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan as bt) ->
-            Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
-        | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
-        | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
-        | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
-        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | Array _ | List _ ->
-            Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
+        | String -> head
+        // | Builtin BclGuid when tail.IsEmpty -> head
+        // | Builtin (BclGuid|BclTimeSpan as bt) ->
+        //     Helper.LibCall(com, coreModFor bt, "toString", String, args)
+        // | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
+        // | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
+        // | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
+        // | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
+        // | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
+        // | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        // | Array _ | List _ ->
+        //     Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
-        | _ -> Helper.LibCall(com, "Types", "toString", String, [head], ?loc=r)
+        | _ ->
+            Helper.InstanceCall(head, "to_string", String, [])
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -292,25 +295,41 @@ let round com (args: Expr list) =
         rounded::args.Tail
     | _ -> args
 
-let toList com returnType expr =
-    Helper.LibCall(com, "List", "ofSeq", returnType, [expr])
+// let toArray r t expr =
+//     let t = getElementType t
+//         match t with
+//         | Array t -> t
+//         // this is used also by Seq.cache, which returns `'T seq` instead of `'T array`
+//         | DeclaredType(_, [t]) -> t
+//         | t -> t
+//     Value(NewArrayFrom(expr, t), r)
 
-let toArray r t expr =
-    let t =
-        match t with
-        | Array t -> t
-        // this is used also by Seq.cache, which returns `'T seq` instead of `'T array`
-        | DeclaredType(_, [t]) -> t
-        | t -> t
-    Value(NewArrayFrom(expr, t), r)
-
-let stringToCharArray t e =
-    Helper.InstanceCall(e, "split", t, [makeStrConst ""])
-
-let toSeq t (expr: Expr) =
+let toArray com t (expr: Expr) =
     match expr.Type with
-    // Convert to array to get 16-bit code units, see #1279
-    | String -> stringToCharArray t expr
+    | Array _ -> expr
+    | List _ -> Helper.LibCall(com, "List", "toArray", t, [expr])
+    | String -> Helper.LibCall(com, "String", "toCharArray", t, [expr])
+    | IEnumerable -> Helper.LibCall(com, "Seq", "toArray", t, [expr])
+    | _ -> TypeCast(expr, t)
+
+let toList com t (expr: Expr) =
+    match expr.Type with
+    | List _ -> expr
+    | Array _ -> Helper.LibCall(com, "List", "ofArray", t, [expr])
+    | String ->
+        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "List", "ofArray", t, [a])
+    | IEnumerable -> Helper.LibCall(com, "Seq", "toList", t, [expr])
+    | _ -> TypeCast(expr, t)
+
+let toSeq com t (expr: Expr) =
+    match expr.Type with
+    | IEnumerable -> expr
+    | List _ -> Helper.LibCall(com, "Seq", "ofList", t, [expr])
+    | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [expr])
+    | String ->
+        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "Seq", "ofArray", t, [a])
     | _ -> TypeCast(expr, t)
 
 let getLength r t (expr: Expr) =
@@ -1002,10 +1021,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
-    | "CreateSequence", [xs] -> toSeq t xs |> Some
+    | "CreateSequence", [xs] -> toSeq com t xs |> Some
     | "CreateDictionary", [arg] ->
-        let a = Helper.LibCall(com, "Seq", "toArray", t, args)
-        Helper.LibCall(com, "Native", "hashMapFrom", t, [a]) |> Some
+        Helper.LibCall(com, "Native", "hashMapFrom", t, [toArray com t arg]) |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
@@ -1206,7 +1224,7 @@ let getEnumerator com r t (expr: Expr) =
         let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [expr])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r)
     | _ ->
-        // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+        // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
         Helper.InstanceCall(expr, "GetEnumerator", t, [], ?loc=r)
 
 let emitFormat (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) macro =
@@ -1222,15 +1240,15 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ ->
         match i.SignatureArgTypes with
         | [Char; Number(Int32, _)] ->
-            Helper.LibCall(com, "Native", "fromChar", t, args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "fromChar", t, args, ?loc=r) |> Some
         | [Array Char] ->
-            Helper.LibCall(com, "Native", "fromChars", t, args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "fromChars", t, args, ?loc=r) |> Some
         | [Array Char; Number(Int32, _); Number(Int32, _)] ->
-            Helper.LibCall(com, "Native", "fromChars2", t, args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "fromChars2", t, args, ?loc=r) |> Some
         | _ -> None
     | "get_Length", Some c, _ -> getLength r t c |> Some
     | "get_Chars", Some c, _ ->
-        Helper.LibCall(com, "Native", "getCharAt", t, c::args, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "getCharAt", t, c::args, ?loc=r) |> Some
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
         makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
@@ -1240,14 +1258,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Contains", Some c, _ ->
         match args with
         | [ExprType Char] ->
-            Helper.LibCall(com, "Native", "containsChar", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "containsChar", t, c::args, ?loc=r) |> Some
         | [ExprType String] ->
-            Helper.LibCall(com, "Native", "containsStr", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "containsStr", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "Replace", Some c, _ ->
         match args with
         | [ExprType String; ExprType String] ->
-            Helper.LibCall(com, "Native", "replace", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "replace", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "StartsWith", Some c, [_str] ->
         let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), args)
@@ -1258,7 +1276,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                     "ToUpperInvariant", "toUpperCase"
                     "ToLower",          "toLowerCase"
                     "ToLowerInvariant", "toLowerCase" ] methName, Some c, args ->
-        Helper.LibCall(com, "Native", methName, t, c::args, ?loc=r) |> Some
+        Helper.LibCall(com, "String", methName, t, c::args, ?loc=r) |> Some
     | ("IndexOf" | "LastIndexOf"), Some c, _ ->
         match args with
         | [ExprType Char]
@@ -1281,9 +1299,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "ToCharArray", Some c, _ ->
         match args with
         | [] ->
-            Helper.LibCall(com, "Native", "toCharArray", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "toCharArray", t, c::args, ?loc=r) |> Some
         | [ExprType(Number(Int32, None)); ExprType(Number(Int32, None))] ->
-            Helper.LibCall(com, "Native", "toCharArray2", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "toCharArray2", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "Split", Some c, _ ->
         match args with
@@ -1309,22 +1327,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Substring", Some c, _ ->
         match args with
         | [ExprType(Number(Int32, None))] ->
-            Helper.LibCall(com, "Native", "substring", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "substring", t, c::args, ?loc=r) |> Some
         | [ExprType(Number(Int32, None)); ExprType(Number(Int32, None))] ->
-            Helper.LibCall(com, "Native", "substring2", t, c::args, ?loc=r) |> Some
+            Helper.LibCall(com, "String", "substring2", t, c::args, ?loc=r) |> Some
         | _ -> None
-    | "Join", None, _ ->
-        match i.SignatureArgTypes with
-        | [String; Array _] ->
-            Helper.LibCall(com, "Native", "join", t, args, ?loc=r) |> Some
-        // | [_; Array _; Number _; Number _] -> "joinWithIndices"
-        | _ -> None
-    | "Concat", None, _ ->
-        match i.SignatureArgTypes with
-        | [Array _] ->
-            Helper.LibCall(com, "Native", "concat", t, args, ?loc=r) |> Some
-        // | [IEnumerable] ->
-        | _ -> None
+    | "Join", None, [sep; arg] ->
+        Helper.LibCall(com, "String", "join", t, [sep; toArray com t arg], ?loc=r) |> Some
+    | "Concat", None, [arg] ->
+        Helper.LibCall(com, "String", "concat", t, [toArray com t arg], ?loc=r) |> Some
     | "CompareOrdinal", None, _ ->
         Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc=r) |> Some
     | "Format", None, _ ->
@@ -1337,18 +1347,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Length", [arg] -> getLength r t arg |> Some
-    | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
-        // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-        Helper.LibCall(com, "Seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Map" | "MapIndexed" | "Collect"), _ ->
-        // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-        let name = Naming.lowerFirst i.CompiledName
-        emitExpr r t [Helper.LibCall(com, "Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
-    | "Concat", _ ->
-        Helper.LibCall(com, "Native", "join", t, args, ?loc=r) |> Some
-    // Rest of StringModule methods
+    | "Concat", [sep; arg] ->
+        Helper.LibCall(com, "String", "join", t, [sep; toArray com t arg], ?loc=r) |> Some
+    | ReplaceName [ "Initialize",     "init"
+                    "Iterate",        "iter"
+                    "IterateIndexed", "iteri"
+                    "MapIndexed",     "mapi" ] methName, args ->
+        Helper.LibCall(com, "String", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -1409,9 +1414,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [ArrayOrListLiteral(vals, typ)] ->
         makeArray typ vals |> Some
-    | ".ctor", _, args ->
-        // Helper.LibCall(com, "Native", "arrayFrom", t, args, ?loc=r) |> Some
-        Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor", _, [arg] -> toArray com t arg |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some(MaybeCasted(ar)), [arg] ->
@@ -1573,12 +1576,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "CopyTo", args ->
         copyToArray com r t i args
     | ("Concat" | "Transpose" as meth), [arg] ->
-        let arg =
-            match arg.Type with
-            | Array _ -> arg
-            | List _ -> Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
-            | _ -> Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
-        Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [toArray com t arg], i.SignatureArgTypes, ?loc=r) |> Some
     // | Patterns.DicContains nativeArrayFunctions meth, _ ->
     //     let args, thisArg = List.splitLast args
     //     let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -1625,12 +1623,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     | "OfSeq", [arg] ->
         Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Concat" | "Transpose" as meth), [arg] ->
-        let arg =
-            match arg.Type with
-            | List _ -> arg
-            | Array _ -> Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r)
-            | _ -> Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r)
-        Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [toList com t arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -1954,7 +1947,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "UnboxGeneric", _, [arg] -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx] ->
-        Helper.LibCall(com, "Native", "getCharAt", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "getCharAt", t, args, ?loc=r) |> Some
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
     | "SetArray", _, [ar; idx; value] -> setExpr r ar idx value |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
@@ -2087,9 +2080,8 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "Native", "hashSetEmpty", t, args) |> Some
     | ".ctor", _, [ExprType(Number _)] ->
         Helper.LibCall(com, "Native", "hashSetWithCapacity", t, args) |> Some
-    | ".ctor", _, [ExprType(IEnumerable)] ->
-        let a = Helper.LibCall(com, "Seq", "toArray", t, args)
-        Helper.LibCall(com, "Native", "hashSetFrom", t, [a]) |> Some
+    | ".ctor", _, [ExprTypeAs(IEnumerable, arg)] ->
+        Helper.LibCall(com, "Native", "hashSetFrom", t, [toArray com t arg]) |> Some
         // match i.SignatureArgTypes, args with
         // | [], _ ->
         //     makeHashSet com ctx r t (makeArray Any []) |> Some
@@ -2207,7 +2199,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
-        else toArray r t expr |> Some // convert to dynamic array
+        else toArray com t expr |> Some // convert to dynamic array
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
         Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2507,7 +2499,7 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let meth = Naming.lowerFirst i.CompiledName
         let expr = Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
-        else toArray r t expr |> Some // convert to dynamic array
+        else toArray com t expr |> Some // convert to dynamic array
     | "GetString", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
         Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some

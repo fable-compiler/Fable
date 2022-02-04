@@ -6,6 +6,7 @@ open Fable.Core.JsInterop
 let imports: unit[] = [|
     importAll "./Func.rs"
     importAll "./Native.rs"
+    importAll "./String.rs"
     importAll "./Interfaces.rs"
     importAll "./Option.rs"
     importAll "./Array.rs"
