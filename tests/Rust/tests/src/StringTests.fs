@@ -38,12 +38,6 @@ let ``Adding strings works`` () =
     actual |> equal "hello world"
 
 [<Fact>]
-let ``String length works`` () =
-    let s = "hello"
-    s.Length |> equal 5
-    String.length s |> equal 5
-
-[<Fact>]
 let ``String equality works`` () =
     let s1 = "hello"
     let s2 = "hello"
@@ -200,7 +194,6 @@ let ``String literal addition is optimized`` () =
 //     let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
 //         let formatStr = pf.Value
 //         formatStr
-
 //     equal "/hello/%s" (pathScan "/hello/%s")
 
 // [<Fact>]
@@ -485,14 +478,6 @@ let ``String literal addition is optimized`` () =
 //     |> equal "0.55 54.67% 2014-09-26 00:19"
 
 // [<Fact>]
-// let ``Padding works`` () =
-//     "3.14".PadLeft(10)    |> equal "    3.14"
-//     "3.14".PadRight(10)     |> equal "3.14    "
-//     "22".PadLeft(10, '0')   |> equal "0000000022"
-//     "-22".PadRight(10, 'X') |> equal "-22XXXXXXX"
-//     "333".PadLeft(1) |> equal "333"
-
-// [<Fact>]
 // let ``Padding with sprintf works`` () =
 //     sprintf "%10.1f" 3.14  |> equal "     3.1"
 //     sprintf "%-10.1f" 3.14 |> equal "3.1     "
@@ -508,15 +493,15 @@ let ``String literal addition is optimized`` () =
 
 // // Conversions
 
-// [<Fact>]
-// let ``Conversion char to int works`` () =
-//     equal 97 (int 'a')
-//     equal 'a' (char 97)
+[<Fact>]
+let ``Conversion char to int works`` () =
+    equal 97 (int 'a')
+    equal 'a' (char 97)
 
-// [<Fact>]
-// let ``Conversion string to char works`` () =
-//     equal 'a' (char "a")
-//     equal "a" (string 'a')
+[<Fact>]
+let ``Conversion string to char works`` () =
+    equal 'a' (char "a")
+    equal "a" (string 'a')
 
 // [<Fact>]
 // let ``Conversion string to negative int8 works`` () =
@@ -654,19 +639,19 @@ let ``String.ctor(char[], int, int) works`` () =
 //     System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
 //     System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
 
-// [<Fact>]
-// let ``String.IsNullOrEmpty works`` () =
-//     let args = [("", true); (null, true); ("test", false); (" \t", false)]
-//     for arg in args do
-//         System.String.IsNullOrEmpty(fst arg)
-//         |> equal (snd arg)
+[<Fact>]
+let ``String.IsNullOrEmpty works`` () =
+    System.String.IsNullOrEmpty("") |> equal true
+    // System.String.IsNullOrEmpty(null) |> equal true //TODO:
+    System.String.IsNullOrEmpty("test") |> equal false
+    System.String.IsNullOrEmpty(" \t") |> equal false
 
-// [<Fact>]
-// let ``String.IsNullOrWhiteSpace works`` () =
-//     let args = [("", true); (null, true); ("test", false); (" \t", true)]
-//     for arg in args do
-//         System.String.IsNullOrWhiteSpace(fst arg)
-//         |> equal (snd arg)
+[<Fact>]
+let ``String.IsNullOrWhiteSpace works`` () =
+    System.String.IsNullOrWhiteSpace("") |> equal true
+    // System.String.IsNullOrWhiteSpace(null) |> equal true //TODO:
+    System.String.IsNullOrWhiteSpace("test") |> equal false
+    System.String.IsNullOrWhiteSpace(" \t") |> equal true
 
 // System.String - instance methods
 
@@ -674,6 +659,26 @@ let ``String.ctor(char[], int, int) works`` () =
 let ``String.Contains works`` () =
     "ABC".Contains("B") |> equal true
     "ABC".Contains("Z") |> equal false
+
+[<Fact>]
+let ``String.PadLeft works`` () =
+    "3.14".PadLeft(10) |> equal "      3.14"
+    "333".PadLeft(1) |> equal "333"
+
+[<Fact>]
+let ``String.PadLeft with char works`` () =
+    "22".PadLeft(10, '0') |> equal "0000000022"
+    "22".PadLeft(1, '0') |> equal "22"
+
+[<Fact>]
+let ``String.PadRight works`` () =
+    "3.14".PadRight(10) |> equal "3.14      "
+    "333".PadRight(1) |> equal "333"
+
+[<Fact>]
+let ``String.PadRight with char works`` () =
+    "-22".PadRight(10, 'x') |> equal "-22xxxxxxx"
+    "-22".PadRight(1, 'x') |> equal "-22"
 
 // [<Fact>]
 // let ``String.Split works`` () =
@@ -822,12 +827,16 @@ let ``Access char by index works`` () =
 //     "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
 //     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
 
-// [<Fact>]
-// let ``String.StartsWith works`` () =
-//     let args = [("ab", true); ("cd", false); ("abcdx", false)]
-//     for arg in args do
-//         "abcd".StartsWith(fst arg)
-//         |> equal (snd arg)
+[<Fact>]
+let ``String.StartsWith works`` () =
+    "abcd".StartsWith("ab") |> equal true
+    "abcd".StartsWith("cd") |> equal false
+    "abcd".StartsWith("abcdx") |> equal false
+
+[<Fact>]
+let ``String.StartsWith char works`` () =
+    "abcd".StartsWith('a') |> equal true
+    "abcd".StartsWith('d') |> equal false
 
 // [<Fact>]
 // let ``String.StartsWith with StringComparison works`` () =
@@ -836,49 +845,60 @@ let ``Access char by index works`` () =
 //         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
+[<Fact>]
+let ``String.EndsWith works`` () =
+    "abcd".EndsWith("ab") |> equal false
+    "abcd".EndsWith("cd") |> equal true
+    "abcd".EndsWith("abcdx") |> equal false
+
+[<Fact>]
+let ``String.EndsWith char works`` () =
+    "abcd".EndsWith('a') |> equal false
+    "abcd".EndsWith('d') |> equal true
+
 // [<Fact>]
-// let ``String.EndsWith works`` () =
+// let ``String.EndsWith with StringComparison works`` () =
 //     let args = [("ab", false); ("cd", true); ("abcdx", false)]
 //     for arg in args do
-//         "abcd".EndsWith(fst arg)
+//         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
-// [<Fact>]
-// let ``String.Trim works`` () =
-//     "   abc   ".Trim()
-//     |> equal "abc"
+[<Fact>]
+let ``String.Trim works`` () =
+    "   abc   ".Trim()
+    |> equal "abc"
 
-// [<Fact>]
-// let ``String.Trim with chars works`` () =
-//     @"\\\abc///".Trim('\\','/')
-//     |> equal "abc"
+[<Fact>]
+let ``String.Trim with chars works`` () =
+    @"\\\abc///".Trim('\\','/')
+    |> equal "abc"
 
-// [<Fact>]
-// let ``String.Trim with special chars works`` () =
-//     @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
-//     |> equal "abc"
+[<Fact>]
+let ``String.Trim with special chars works`` () =
+    @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
+    |> equal "abc"
 
-// [<Fact>]
-// let ``String.TrimStart works`` () =
-//     "!!--abc   ".TrimStart('!','-')
-//     |> equal "abc   "
+[<Fact>]
+let ``String.TrimStart works`` () =
+    "!!--abc   ".TrimStart('!','-')
+    |> equal "abc   "
 
-// [<Fact>]
-// let ``String.TrimStart with chars works`` () =
-//     "   abc   ".TrimStart()
-//     |> equal "abc   "
+[<Fact>]
+let ``String.TrimStart with chars works`` () =
+    "   abc   ".TrimStart()
+    |> equal "abc   "
 
-// [<Fact>]
-// let ``String.TrimEnd works`` () =
-//     "   abc   ".TrimEnd()
-//     |> equal "   abc"
+[<Fact>]
+let ``String.TrimEnd works`` () =
+    "   abc   ".TrimEnd()
+    |> equal "   abc"
 
-// [<Fact>]
-// let ``String.TrimEnd with chars works`` () =
-//     "   abc??**".TrimEnd('*','?')
-//     |> equal "   abc"
-//     @"\foo\bar\".Replace("\\", "/").TrimEnd('/')
-//     |> equal "/foo/bar"
+[<Fact>]
+let ``String.TrimEnd with chars works`` () =
+    "   abc??**".TrimEnd('*','?')
+    |> equal "   abc"
+    @"\foo\bar\".Replace("\\", "/").TrimEnd('/')
+    |> equal "/foo/bar"
 
 [<Fact>]
 let ``String.Empty works`` () =
@@ -928,9 +948,16 @@ let ``String.ToLowerInvariant works`` () =
 [<Fact>]
 let ``String.Length works`` () =
     "AbC".Length |> equal 3
+    "a\u2003b".Length |> equal 3
+    ".\U0001f404.".Length
+#if FABLE_COMPILER_RUST
+    |> equal 3 // char is UTF32
+#else
+    |> equal 4 // char is UTF16
+#endif
 
 [<Fact>]
-let ``String item works`` () =
+let ``String.Item works`` () =
     "AbC".[1] |> equal 'b'
 
 [<Fact>]
@@ -957,15 +984,18 @@ let ``String.Join works`` () =
 let ``String.Join works II`` () =
     System.String.Join("--", "a", "b", "c")
     |> equal "a--b--c"
+
+[<Fact>]
+let ``String.Join with IEnumerable works`` () =
     System.String.Join("--", seq { yield "a"; yield "b"; yield "c" })
     |> equal "a--b--c"
 
-// [<Fact>]
-// let ``String.Join with indices works`` () =
-//     System.String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
-//     |> equal "b**c"
-//     System.String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
-//     |> equal "b*c*d"
+[<Fact>]
+let ``String.Join with indices works`` () =
+    System.String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
+    |> equal "b**c"
+    System.String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
+    |> equal "b*c*d"
 
 // [<Fact>]
 // let ``String.Join works with chars`` () = // See #1524
@@ -985,26 +1015,29 @@ let ``String.Join works II`` () =
 //     System.String.Join("--", 3I, 5I)
 //     |> equal "3--5"
 
-// [<Fact>]
-// let ``String.Join with single argument works`` () = // See #1182
-//     System.String.Join(",", "abc") |> equal "abc"
-//     System.String.Join(",", [|"abc"|]) |> equal "abc"
-//     System.String.Join(",", ["abc"]) |> equal "abc"
+[<Fact>]
+let ``String.Join with single argument works`` () = // See #1182
+    System.String.Join(",", "abc") |> equal "abc"
+    System.String.Join(",", [|"abc"|]) |> equal "abc"
+    System.String.Join(",", ["abc"]) |> equal "abc"
 
 [<Fact>]
-let ``System.String.Concat works`` () =
+let ``String.Concat works`` () =
     System.String.Concat([|"a"; "b"; "c"|])
     |> equal "abc"
 
-// [<Fact>]
-// let ``System.String.Concat works II`` () =
-//     System.String.Concat("a", "b", "c")
-//     |> equal "abc"
-//     System.String.Concat(seq { yield "a"; yield "b"; yield "c" })
-//     |> equal "abc"
+[<Fact>]
+let ``String.Concat works II`` () =
+    System.String.Concat("a", "b", "c")
+    |> equal "abc"
 
 [<Fact>]
-let ``System.String.Join with long array works`` () =
+let ``String.Concat with IEnumerable works`` () =
+    System.String.Concat(seq { yield "a"; yield "b"; yield "c" })
+    |> equal "abc"
+
+[<Fact>]
+let ``String.Join with long array works`` () =
     let n = 1_000_000
     let a = [| for i in 1..n -> "a" |]
     let s = System.String.Join("", a)
@@ -1018,14 +1051,14 @@ let ``System.String.Join with long seq works`` () =
     s.Length |> equal n
 
 [<Fact>]
-let ``System.String.Concat with long array works`` () =
+let ``String.Concat with long array works`` () =
     let n = 1_000_000
     let a = [| for i in 1..n -> "a" |]
     let s = System.String.Concat(a)
     s.Length |> equal n
 
 [<Fact>]
-let ``System.String.Concat with long seq works`` () =
+let ``String.Concat with long seq works`` () =
     let n = 1_000_000
     let a = seq { for i in 1..n -> "a" }
     let s = System.String.Concat(a)
@@ -1045,33 +1078,28 @@ let ``String.concat with long seq works`` () =
     let s = String.concat "" a
     s.Length |> equal n
 
-// [<Fact>]
-// let ``String.Remove works`` () =
-//     "abcd".Remove(2)
-//     |> equal "ab"
-//     "abcd".Remove(1,2)
-//     |> equal "ad"
-//     "abcd".Remove(0,2)
-//     |> equal "cd"
-//     "abcd".Remove(0,4)
-//     |> equal ""
-//     "abcd".Remove(0,0)
-//     |> equal "abcd"
+[<Fact>]
+let ``String.Remove works`` () =
+    "abcd".Remove(2) |> equal "ab"
+    "abcd".Remove(1,2) |> equal "ad"
+    "abcd".Remove(0,2) |> equal "cd"
+    "abcd".Remove(0,4) |> equal ""
+    "abcd".Remove(0,0) |> equal "abcd"
 
-// [<Fact>]
-// let ``String.Insert work`` () =
-//     "foobar".Insert(3, " is ")
-//     |> equal "foo is bar"
+[<Fact>]
+let ``String.Insert work`` () =
+    "foobar".Insert(3, " is ")
+    |> equal "foo is bar"
 
-// [<Fact>]
-// let ``String.IsNullOrWhiteSpace works on string with blanks`` () =
-//     String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
-//     |> equal false
+[<Fact>]
+let ``String.IsNullOrWhiteSpace works on string with blanks`` () =
+    System.String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
+    |> equal false
 
-// [<Fact>]
-// let ``String.IsNullOrWhiteSpace works on blank only string`` () =
-//     String.IsNullOrWhiteSpace "    "
-//     |> equal true
+[<Fact>]
+let ``String.IsNullOrWhiteSpace works on blank only string`` () =
+    System.String.IsNullOrWhiteSpace "    "
+    |> equal true
 
 // [<Fact>]
 // let ``Enumerating string works`` () =
@@ -1125,9 +1153,15 @@ let ``String.iteri works`` () =
     equal "H0e1l2l3o4 5w6o7r8l9d10!11" res
 
 [<Fact>]
-let ``String.length (function) works`` () =
-    "AbC" |> String.length
-    |> equal 3
+let ``String.length works`` () =
+    String.length "AbC" |> equal 3
+    String.length "a\u2003b" |> equal 3
+    String.length ".\U0001f404."
+#if FABLE_COMPILER_RUST
+    |> equal 3 // char is UTF32
+#else
+    |> equal 4 // char is UTF16
+#endif
 
 [<Fact>]
 let ``String.map works`` () =
