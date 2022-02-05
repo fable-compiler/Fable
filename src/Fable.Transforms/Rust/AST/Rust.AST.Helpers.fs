@@ -225,7 +225,7 @@ module Literals =
           span = DUMMY_SP }
 
     let mkCharLit (value: char): Lit =
-        { token = mkCharTokenLit (string value)
+        { token = mkCharTokenLit ((string value).escape_debug())
           kind = LitKind.Char(value)
           span = DUMMY_SP }
 
@@ -299,7 +299,7 @@ module Literals =
           span = DUMMY_SP }
 
     let mkStrLit (value: Symbol): Lit =
-        { token = mkStrTokenLit value
+        { token = mkStrTokenLit (value.escape_debug())
           kind = LitKind.Str(value, StrStyle.Cooked)
           span = DUMMY_SP }
 

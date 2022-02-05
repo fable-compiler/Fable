@@ -149,11 +149,18 @@ type System.String with
         if self.Length = 0 then None
         else Some(self.Chars(self.Length - 1))
     member self.escape_debug() =
-        // escape \t, \r, \n, \\, \', \", [^\x20-\x7F]
+        // escapes \\, \', \", \t, \r, \n, [\x00-\x1F]
+        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
+        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
+        let res = System.Text.RegularExpressions.Regex.Replace(res, @"[\x00-\x1F]",
+                    fun c -> System.String.Format(@"\u{{{0:x4}}}", int c.Value.[0]))
+        res
+    member self.escape_default() =
+        // escapes \\, \', \", \t, \r, \n, [^\x20-\x7F]
         let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
         let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
         let res = System.Text.RegularExpressions.Regex.Replace(res, @"[^\x20-\x7F]",
-                    fun c -> System.String.Format(@"\u{0:x4}", int c.Value.[0]))
+                    fun c -> System.String.Format(@"\u{{{0:x4}}}", int c.Value.[0]))
         res
 
 type System.Text.StringBuilder with
