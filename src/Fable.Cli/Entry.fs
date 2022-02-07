@@ -79,6 +79,7 @@ let knownCliArgs() = [
   ["--region"], []
   ["--precompiledLib"], []
   ["--noReflection"], []
+  ["--noParallelTypeCheck"], []
   ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
@@ -271,6 +272,8 @@ type Runner =
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
           NoCache = args.FlagEnabled "--noCache"
+          // TODO: If we select optimize we cannot have F#/Fable parallelization
+          NoParallelTypeCheck = args.FlagEnabled "--noParallelTypeCheck"
           Exclude = args.Value "--exclude"
           Replace =
             args.Values "--replace"
@@ -330,6 +333,7 @@ let clean (args: CliArgs) language rootDir =
             exit 0
 
     let mutable fileCount = 0
+    let mutable fableModulesDeleted = false
     let rec recClean dir =
         seq {
             yield! IO.Directory.GetFiles(dir, "*" + fileExt)
@@ -346,11 +350,15 @@ let clean (args: CliArgs) language rootDir =
         |> Array.iter (fun subdir ->
             if IO.Path.GetFileName(subdir) = Naming.fableModules then
                 IO.Directory.Delete(subdir, true)
+                fableModulesDeleted <- true
                 Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
             else recClean subdir)
 
     recClean cleanDir
-    Log.always("Clean completed! Files deleted: " + string fileCount)
+    if fileCount = 0 && not fableModulesDeleted then
+        Log.always("No files have been deleted. If Fable output is in another directory, pass it as argument.")
+    else
+        Log.always("Clean completed! Files deleted: " + string fileCount)
 
 [<EntryPoint>]
 let main argv =
