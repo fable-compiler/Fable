@@ -289,7 +289,7 @@ type Runner =
 
 let clean (args: CliArgs) rootDir =
     let language = argLanguage args
-    let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+    let ignoreDirs = set ["bin"; "obj"; "build"; "dist"; "node_modules"; Naming.fableModules]
 
     let fileExt =
         args.Value("-e", "--extension")
@@ -324,7 +324,7 @@ let clean (args: CliArgs) rootDir =
 
         IO.Directory.GetDirectories(dir)
         |> Array.filter (fun subdir ->
-            ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
+            subdir.StartsWith(".") || ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
         |> Array.iter (fun subdir ->
             if IO.Path.GetFileName(subdir) = Naming.fableModules then
                 IO.Directory.Delete(subdir, true)

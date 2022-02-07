@@ -218,31 +218,45 @@ module File =
     let withLock (dir: string) (action: unit -> 'T) =
         let mutable fileCreated = false
         let lockFile = Path.Join(dir, "fable.lock")
+        let waitMs = 1000
+        let timeoutMs = waitMs * 60 * 10
+        let maxAttempts = 3
         try
-            Directory.CreateDirectory dir |> ignore
+            // When processes run in parallel very closely, it may happen both try to create the lock file
+            // at the very exact time, in that case wait a random amount of ms and try again
+            let mutable attempt = 1
+            while not fileCreated && attempt <= maxAttempts do
+                try
+                    Directory.CreateDirectory dir |> ignore
 
-            let mutable acc = 0
-            let waitMs = 1000
-            let timeoutMs = waitMs * 60 * 10
-            while File.Exists(lockFile) do
-                if acc = 0 then
-                    // If the lock is too old assume it's there because of a failed compilation
-                    let creationTime = File.GetCreationTime(lockFile)
-                    if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
-                        Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
-                        try
-                            File.Delete(lockFile)
-                        with _ -> ()
+                    let mutable waitedMs = 0
+                    while File.Exists(lockFile) do
+                        if waitedMs = 0 then
+                            // If the lock is too old assume it's there because of a failed compilation
+                            let creationTime = File.GetCreationTime(lockFile)
+                            if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
+                                Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                                try
+                                    File.Delete(lockFile)
+                                with _ -> ()
+                            else
+                                Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                                Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                        elif waitedMs >= timeoutMs then
+                            FableError "LockTimeOut" |> raise
+                        waitedMs <- waitedMs + waitMs
+                        Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+
+                    File.Create(lockFile) |> ignore
+                    fileCreated <- true
+                with _ ->
+                    if attempt >= maxAttempts then
+                        reraise()
                     else
-                        Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
-                        Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
-                elif acc >= timeoutMs then
-                    FableError "LockTimeOut" |> raise
-                acc <- acc + waitMs
-                Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+                        attempt <- attempt + 1
+                        let waitMs = 100 * (Random().Next(10) + 1)
+                        Threading.Thread.Sleep(millisecondsTimeout=waitMs)
 
-            File.Create(lockFile) |> ignore
-            fileCreated <- true
             action()
         finally
             try

@@ -1,3 +1,16 @@
+### 3.7.0
+
+* Cache .fsproj parsing result
+* Run F# type check and Fable in parallel (use --noParallelTypeCheck flag to disable)
+* Automatic --runFast
+* Precompilation
+* --noReflection flag
+* Disable uncurrying functions passed as arguments to local lambdas
+* Seeded System.Random
+* Fix typeof(obj).IsInstanceOfType @chkn
+* Fix #2709: error when using JsInterop.import in inlined functions
+* Fix #2719: use with null disposable
+
 ### 3.7.0-beta-015
 
 * Run sub-process even if compilation was skipped
