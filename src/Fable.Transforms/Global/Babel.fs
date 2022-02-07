@@ -3,6 +3,20 @@ namespace rec Fable.AST.Babel
 
 open Fable.AST
 
+type AssignmentOperator =
+    | AssignEqual
+    | AssignMinus
+    | AssignPlus
+    | AssignMultiply
+    | AssignDivide
+    | AssignModulus
+    | AssignShiftLeft
+    | AssignShiftRightSignPropagating
+    | AssignShiftRightZeroFill
+    | AssignOrBitwise
+    | AssignXorBitwise
+    | AssignAndBitwise
+
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
 /// You can use this field to determine which interface a node implements.

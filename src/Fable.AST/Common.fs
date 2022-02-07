@@ -83,17 +83,3 @@ type BinaryOperator =
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-
-type AssignmentOperator =
-    | AssignEqual
-    | AssignMinus
-    | AssignPlus
-    | AssignMultiply
-    | AssignDivide
-    | AssignModulus
-    | AssignShiftLeft
-    | AssignShiftRightSignPropagating
-    | AssignShiftRightZeroFill
-    | AssignOrBitwise
-    | AssignXorBitwise
-    | AssignAndBitwise
