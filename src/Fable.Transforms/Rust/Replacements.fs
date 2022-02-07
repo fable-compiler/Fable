@@ -1308,18 +1308,18 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [ExprType Char]
         | [ExprType String]
-        | [ExprType Char; ExprType(Number(Int32, None))]
-        | [ExprType String; ExprType(Number(Int32, None))] ->
+        | [ExprType Char; ExprType(Number(Int32, _))]
+        | [ExprType String; ExprType(Number(Int32, _))] ->
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     | ("PadLeft" | "PadRight"), Some c, _ ->
         let methName = Naming.lowerFirst i.CompiledName
         match args with
-        | [ExprTypeAs(Number(Int32, None), arg)] ->
-            let ch = makeTypeConst r Char ' '
+        | [ExprTypeAs(Number(Int32, _), arg)] ->
+            let ch = makeTypeConst None Char ' '
             Helper.LibCall(com, "String", methName, t, [c; arg; ch], ?loc=r) |> Some
-        | [ExprType(Number(Int32, None)); ExprType Char] ->
+        | [ExprType(Number(Int32, _)); ExprType Char] ->
             Helper.LibCall(com, "String", methName, t, c::args, ?loc=r) |> Some
         | _ -> None
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
@@ -1336,7 +1336,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [] ->
             Helper.LibCall(com, "String", "toCharArray", t, c::args, ?loc=r) |> Some
-        | [ExprType(Number(Int32, None)); ExprType(Number(Int32, None))] ->
+        | [ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] ->
             Helper.LibCall(com, "String", "toCharArrayAt", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "Split", Some c, _ ->
@@ -1364,16 +1364,16 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "String", "insert", t, c::args, ?loc=r) |> Some
     | "Remove", Some c, _ ->
         match args with
-        | [ExprType(Number(Int32, None))] ->
+        | [ExprType(Number(Int32, _))] ->
             Helper.LibCall(com, "String", "remove", t, c::args, ?loc=r) |> Some
-        | [ExprType(Number(Int32, None)); ExprType(Number(Int32, None))] ->
+        | [ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] ->
             Helper.LibCall(com, "String", "removeAt", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "Substring", Some c, _ ->
         match args with
-        | [ExprType(Number(Int32, None))] ->
+        | [ExprType(Number(Int32, _))] ->
             Helper.LibCall(com, "String", "substring", t, c::args, ?loc=r) |> Some
-        | [ExprType(Number(Int32, None)); ExprType(Number(Int32, None))] ->
+        | [ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] ->
             Helper.LibCall(com, "String", "substringAt", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "Join", None, _ ->
@@ -1391,14 +1391,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 [sep; arg]
             | [ ExprTypeAs(String, sep);
                 ExprTypeAs(Array String, arg);
-                ExprTypeAs(Number(Int32, None), idx);
-                ExprTypeAs(Number(Int32, None), cnt) ] ->
+                ExprTypeAs(Number(Int32, _), idx);
+                ExprTypeAs(Number(Int32, _), cnt) ] ->
                 let arg = Helper.LibCall(com, "Array", "getSubArray", Array String, [arg; idx; cnt])
                 [sep; arg]
             | [ ExprTypeAs(Char, sep);
                 ExprTypeAs(Array String, arg);
-                ExprTypeAs(Number(Int32, None), idx);
-                ExprTypeAs(Number(Int32, None), cnt) ] ->
+                ExprTypeAs(Number(Int32, _), idx);
+                ExprTypeAs(Number(Int32, _), cnt) ] ->
                 let sep = Helper.LibCall(com, "String", "ofChar", String, [sep])
                 let arg = Helper.LibCall(com, "Array", "getSubArray", Array String, [arg; idx; cnt])
                 [sep; arg]
@@ -1490,7 +1490,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [] ->
         // makeArray (getElementType t) [] |> Some
         Helper.LibCall(com, "Native", "arrayEmpty", t, [], ?loc=r) |> Some
-    | ".ctor", _, [ExprTypeAs(Number(Int32, None), idx)] ->
+    | ".ctor", _, [ExprTypeAs(Number(Int32, _), idx)] ->
         Helper.LibCall(com, "Native", "arrayWithCapacity", t, [idx], ?loc=r) |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [ArrayOrListLiteral(vals, typ)] ->
@@ -1550,7 +1550,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         // can't use .sort() as it needs T: Ord
         Helper.LibCall(com, "Array", "sortInPlace", t, [ar], i.SignatureArgTypes, ?loc=r) |> Some
     | "Sort", Some ar, [ExprType(DelegateType _) as comparer] ->
-        let cmp = Helper.LibCall(com, "Native", "compare", t, [comparer], ?loc=r)
+        let cmp = Helper.LibCall(com, "Native", "comparer", t, [comparer], ?loc=r)
         Helper.InstanceCall(getMut ar, "sort_by", t, [cmp], ?loc=r) |> Some
     // | "Sort", Some ar, [arg] ->
     //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
@@ -1626,7 +1626,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         // can't use .sort() as it needs T: Ord
         Helper.LibCall(com, "Array", "sortInPlace", t, [ar], i.SignatureArgTypes, ?loc=r) |> Some
     | "Sort", None, [ar; ExprType(DelegateType _) as comparer] ->
-        let cmp = Helper.LibCall(com, "Native", "compare", t, [comparer], ?loc=r)
+        let cmp = Helper.LibCall(com, "Native", "comparer", t, [comparer], ?loc=r)
         Helper.InstanceCall(getMut ar, "sort_by", t, [cmp], ?loc=r) |> Some
     // | "Sort", None, [ar; arg] ->
     //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some

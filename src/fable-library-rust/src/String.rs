@@ -35,8 +35,7 @@ pub mod String_ {
     }
 
     pub fn ofChar(c: &char) -> string {
-        let mut buf = [0; 4];
-        let s = c.encode_utf8(&mut buf);
+        let s = [*c].iter().collect::<String>();
         string(&s)
     }
 
@@ -51,8 +50,7 @@ pub mod String_ {
     }
 
     pub fn fromChar(c: &char, count: &i32) -> string {
-        let mut buf = [0; 4];
-        let s = c.encode_utf8(&mut buf);
+        let s = [*c].iter().collect::<String>();
         string(&s.repeat(*count as usize))
     }
 
@@ -155,7 +153,7 @@ pub mod String_ {
     pub fn insert(s: &string, i: &i32, v: &string) -> string {
         let left = s.chars().take(*i as usize).collect::<String>();
         let right = s.chars().skip(*i as usize).collect::<String>();
-        string(&[left, v.to_string(), right].concat())
+        string(&[&left, v.as_ref(), &right].concat())
     }
 
     pub fn remove(s: &string, i: &i32) -> string {
@@ -166,7 +164,7 @@ pub mod String_ {
     pub fn removeAt(s: &string, i: &i32, count: &i32) -> string {
         let left = s.chars().take(*i as usize).collect::<String>();
         let right = s.chars().skip((i+count) as usize).collect::<String>();
-        string(&[left, right].concat())
+        string(&[left.as_str(), right.as_str()].concat())
     }
 
     pub fn substring(s: &string, i: &i32) -> string {
@@ -181,7 +179,7 @@ pub mod String_ {
         let n = s.chars().count();
         if *count as usize > n {
             let p = [*c].iter().collect::<String>();
-            let pad =  p.repeat(*count as usize - n);
+            let pad = p.repeat(*count as usize - n);
             string(&[&pad, s.as_ref()].concat())
         } else {
             s.clone()

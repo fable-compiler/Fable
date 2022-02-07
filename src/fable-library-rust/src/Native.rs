@@ -17,7 +17,7 @@ pub type Map_2<K, V> = Option<Rc<crate::Map_::MapTree_2<K, V>>>;
 
 // TODO: make public eventually
 type string = Rc<str>;
-type Seq<T> = Rc<dyn crate::Interfaces::IEnumerable_1<T>>;
+type seq<T> = Rc<dyn crate::Interfaces::IEnumerable_1<T>>;
 type RefCell<T> = Rc<MutCell<T>>;
 type Array<T> = Rc<MutCell<Vec<T>>>;
 type HashSet_1<T> = Rc<MutCell<HashSet<T>>>;
@@ -39,8 +39,8 @@ pub mod Native {
         Default::default()
     }
 
-    pub fn compare<T>(comparer: &Rc<impl Fn(&T, &T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
-        let comp = comparer.clone();
+    pub fn comparer<T>(comp: &Rc<impl Fn(&T, &T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
+        let comp = comp.clone();
         move |x, y| match comp(x, y) {
             i if i < 0 => Ordering::Less,
             i if i > 0 => Ordering::Greater,
@@ -99,6 +99,33 @@ pub mod Native {
 
     pub fn arrayCopy<T: Clone>(a: &Array<T>) -> Array<T> {
         array(a.to_vec())
+    }
+
+    // -----------------------------------------------------------
+    // Sequences
+    // -----------------------------------------------------------
+
+    pub fn seq_as_iter<T: Clone + 'static>(seq: &seq<T>) -> impl Iterator<Item = T> {
+        let en = seq.GetEnumerator();
+        let next = move || {
+            if en.MoveNext() {
+                Some(en.Current())
+            } else {
+                None
+            }
+        };
+        std::iter::from_fn(next)
+    }
+
+    pub fn iter_as_seq<T, I>(iter: I) -> seq<T>
+    where
+        T: Clone + 'static,
+        I: Clone + Iterator<Item = T> + 'static,
+    {
+        let iter = mkMut(iter);
+        let f = mkRef(move || iter.get_mut().next());
+        let en = crate::Seq::Enumerable::fromFunction(&f);
+        crate::Seq::mkSeq(&mkRef(move || en.clone()))
     }
 
     // -----------------------------------------------------------
