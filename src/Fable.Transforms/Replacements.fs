@@ -467,7 +467,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
     | Boolean | Char | String | Number _ | Enum _ ->
-        let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+        let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
         Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -1315,7 +1315,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | (Operators.inequality | "Neq"), [left; right] -> equals com ctx r false left right |> Some
     | (Operators.equality | "Eq"), [left; right] -> equals com ctx r true left right |> Some
-    | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> makeValue None) BinaryEqual |> Some
+    | "IsNull", [arg] -> nullCheck r true arg |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com ctx r left right |> Some
@@ -1400,10 +1400,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "get_Chars", Some c, _ ->
         Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
-        makeEqOp r x y BinaryEqualStrict |> Some
+        makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
         let left = Helper.LibCall(com, "String", "compare", Number(Int32, None), [x; y; kind])
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
+        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
@@ -1412,7 +1412,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
         let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), args)
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
+        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
@@ -2064,7 +2064,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
-        makeEqOp r left right BinaryEqualStrict |> Some
+        makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.LibCall(com, "Util", "physicalHash", Number(Int32, None), [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
@@ -2244,7 +2244,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqualStrict |> Some
+    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
@@ -2650,7 +2650,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         then propStr "length" thisArg.Value |> Some
         else propInt 0 thisArg.Value |> propStr "length" |> Some
     // Group
-    | "get_Success" -> makeEqOp r thisArg.Value (Value(Null thisArg.Value.Type, None)) BinaryUnequal |> Some
+    | "get_Success" -> nullCheck r false thisArg.Value |> Some
     // Match
     | "get_Groups" -> thisArg.Value |> Some
     // MatchCollection & GroupCollection

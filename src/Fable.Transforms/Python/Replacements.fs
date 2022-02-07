@@ -1583,8 +1583,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       | "Eq"),
       [ left; right ] -> equals com ctx r true left right |> Some
     | "IsNull", [ arg ] ->
-        makeEqOp r arg (Null arg.Type |> makeValue None) BinaryEqual
-        |> Some
+        nullCheck r true arg |> Some
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
@@ -1719,13 +1718,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "string", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc = r)
         |> Some
     | "Equals", Some x, [ y ]
-    | "Equals", None, [ x; y ] -> makeEqOp r x y BinaryEqualStrict |> Some
+    | "Equals", None, [ x; y ] -> makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [ y; kind ]
     | "Equals", None, [ x; y; kind ] ->
         let left =
             Helper.LibCall(com, "string", "compare", Number(Int32, None), [ x; y; kind ])
 
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict
+        makeEqOp r left (makeIntConst 0) BinaryEqual
         |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Contains", Some c, arg :: _ ->
@@ -1739,7 +1738,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "StartsWith", Some c, [ _str ] ->
         let left = Helper.InstanceCall(c, "find", Number(Int32, None), args)
 
-        makeEqOp r left (makeIntConst 0) BinaryEqualStrict
+        makeEqOp r left (makeIntConst 0) BinaryEqual
         |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, c, ?loc = r)
@@ -2729,7 +2728,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         |> Some
     | ("PhysicalEquality"
       | "PhysicalEqualityIntrinsic"),
-      [ left; right ] -> makeEqOp r left right BinaryEqualStrict |> Some
+      [ left; right ] -> makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash"
       | "PhysicalHashIntrinsic"),
       [ arg ] ->
@@ -2968,7 +2967,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
-    | "ReferenceEquals", _, [ left; right ] -> makeEqOp r left right BinaryEqualStrict |> Some
+    | "ReferenceEquals", _, [ left; right ] -> makeEqOp r left right BinaryEqual |> Some
     | "Equals", Some arg1, [ arg2 ]
     | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
@@ -3447,8 +3446,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             |> Some
     // Group
     | "get_Success" ->
-        makeEqOp r thisArg.Value (Value(Null thisArg.Value.Type, None)) BinaryUnequal
-        |> Some
+        nullCheck r false thisArg.Value |> Some
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
         // can be group index or group name

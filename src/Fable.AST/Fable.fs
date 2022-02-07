@@ -519,8 +519,6 @@ type Expr =
 //         match op with
 //         | BinaryEqual -> print e1 + " == " + print e2
 //         | BinaryUnequal -> print e1 + " != " + print e2
-//         | BinaryEqualStrict -> print e1 + " === " + print e2
-//         | BinaryUnequalStrict -> print e1 + " !== " + print e2
 //         | BinaryLess -> print e1 + " < " + print e2
 //         | BinaryLessOrEqual -> print e1 + " <= " + print e2
 //         | BinaryGreater -> print e1 + " > " + print e2

@@ -52,8 +52,6 @@ type UnaryOperator =
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
-    | BinaryEqualStrict
-    | BinaryUnequalStrict
     | BinaryLess
     | BinaryLessOrEqual
     | BinaryGreater

@@ -829,7 +829,7 @@ module TypeInfo =
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Rust.Expr =
             let typeof = Expression.unaryExpression(UnaryTypeof, expr)
-            Expression.binaryExpression(BinaryEqualStrict, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
+            Expression.binaryExpression(BinaryEqual, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Rust.Expr =
             Expression.binaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
@@ -2036,8 +2036,6 @@ module Util =
                 match op with
                 | BinaryOperator.BinaryEqual -> Rust.BinOpKind.Eq
                 | BinaryOperator.BinaryUnequal -> Rust.BinOpKind.Ne
-                | BinaryOperator.BinaryEqualStrict -> Rust.BinOpKind.Eq
-                | BinaryOperator.BinaryUnequalStrict -> Rust.BinOpKind.Ne
                 | BinaryOperator.BinaryLess -> Rust.BinOpKind.Lt
                 | BinaryOperator.BinaryLessOrEqual -> Rust.BinOpKind.Le
                 | BinaryOperator.BinaryGreater -> Rust.BinOpKind.Gt
@@ -2851,7 +2849,7 @@ module Util =
 *)
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
                 Some(expr, right)
             | Fable.Test(expr, Fable.OptionTest isSome, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)

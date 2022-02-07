@@ -343,7 +343,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         |> addErrorAndReturnNull com ctx.InlinePath r
     | ErasedUnion(tdef, genArgs, rule) ->
         match unionCase.Fields.Count with
-        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
         | 1 ->
             let fi = unionCase.Fields.[0]
             let typ =
@@ -373,7 +373,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
             return makeEqOp r
                 (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), typ, r))
                 value
-                BinaryEqualStrict
+                BinaryEqual
         | _ ->
             return "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -384,7 +384,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
     | StringEnum(_, rule) ->
-        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
     | DiscriminatedUnion(tdef,_) ->
         let tag = unionCaseTag com tdef unionCase
         return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)

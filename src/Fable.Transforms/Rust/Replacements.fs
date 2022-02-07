@@ -464,7 +464,7 @@ let equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     // | Builtin (BclGuid|BclTimeSpan)
     // | Boolean | Char | String | Number _ | Enum _ ->
-    //     let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+    //     let op = if equal then BinaryEqual else BinaryUnequal
     //     makeBinOp r Boolean left right op
     // | Builtin (BclDateTime|BclDateTimeOffset) ->
     //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -1147,7 +1147,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         setReference r arg v |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> makeValue None) BinaryEqual |> Some
+    | "IsNull", [arg] -> nullCheck r true arg |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
     | Patterns.SetContains Operators.compareSet, [left; right] ->
@@ -2004,7 +2004,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
-        makeEqOp r left right BinaryEqualStrict |> Some
+        makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.LibCall(com, "Util", "physicalHash", Number(Int32, None), [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
@@ -2209,7 +2209,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqualStrict |> Some
+    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
@@ -2536,7 +2536,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         then propStr "length" thisArg.Value |> Some
         else propInt 0 thisArg.Value |> propStr "length" |> Some
     // Group
-    | "get_Success" -> makeEqOp r thisArg.Value (Value(Null thisArg.Value.Type, None)) BinaryUnequal |> Some
+    | "get_Success" -> nullCheck r false thisArg.Value |> Some
     // Match
     | "get_Groups" -> thisArg.Value |> Some
     // MatchCollection & GroupCollection

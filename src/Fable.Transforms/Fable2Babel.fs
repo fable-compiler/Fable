@@ -277,7 +277,7 @@ module Reflection =
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
             let typeof = UnaryExpression(expr, "typeof", None)
-            Expression.binaryExpression(BinaryEqualStrict, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
+            Expression.binaryExpression(BinaryEqual, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
             BinaryExpression(expr, consExpr, "instanceof", range)
@@ -285,7 +285,7 @@ module Reflection =
         match typ with
         | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type
         | Fable.Any -> Expression.booleanLiteral(true)
-        | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
+        | Fable.Unit -> com.TransformAsExpr(ctx, expr) |> Util.makeNullCheck range true
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
@@ -692,6 +692,11 @@ module Util =
         match parts with
         | [] -> expr
         | m::ms -> get None expr m |> getParts ms
+
+    // Use non-strict equality for null checks
+    let makeNullCheck r isNull e =
+        let op = if isNull then "==" else "!="
+        BinaryExpression(e, Expression.nullLiteral(), op, r)
 
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
@@ -1216,8 +1221,14 @@ module Util =
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             Expression.unaryExpression(op, expr, ?loc=range)
 
-        | Fable.Binary(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
-            Expression.binaryExpression(op, left, right, ?loc=range)
+        | Fable.Binary(op, left, right) ->
+            match op, left, right with
+            | (BinaryEqual | BinaryUnequal), Fable.Value(Fable.Null _, _), e
+            | (BinaryEqual | BinaryUnequal), e,  Fable.Value(Fable.Null _, _) ->
+                com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+
+            | _, TransformExpr com ctx left, TransformExpr com ctx right ->
+                Expression.binaryExpression(op, left, right, ?loc=range)
 
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             Expression.logicalExpression(left, op, right, ?loc=range)
@@ -1393,19 +1404,16 @@ module Util =
         match kind with
         | Fable.TypeTest t ->
             transformTypeTest com ctx range expr t
-        | Fable.OptionTest nonEmpty ->
-            let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            Expression.binaryExpression(op, com.TransformAsExpr(ctx, expr), Expression.nullLiteral(), ?loc=range)
+        | Fable.OptionTest isSome ->
+            com.TransformAsExpr(ctx, expr) |> makeNullCheck range (not isSome)
         | Fable.ListTest nonEmpty ->
             let expr = com.TransformAsExpr(ctx, expr)
-            // let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            // Expression.binaryExpression(op, get None expr "tail", Expression.nullLiteral(), ?loc=range)
             let expr = libCall com ctx range "List" "isEmpty" [|expr|]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
             let actual = getUnionExprTag com ctx None expr
-            Expression.binaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
+            Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
         let consequent caseBody =
@@ -1480,8 +1488,10 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
-                Some(expr, right)
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+                match expr with
+                | Fable.Value(Fable.Null _, _) -> None
+                | expr -> Some(expr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
                 let right = makeIntConst tag

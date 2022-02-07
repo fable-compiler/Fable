@@ -82,8 +82,8 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(left)
             // TODO: review
             match operator with
-            | BinaryEqual | BinaryEqualStrict -> printer.Print(" == ")
-            | BinaryUnequal | BinaryUnequalStrict -> printer.Print(" != ")
+            | BinaryEqual -> printer.Print(" == ")
+            | BinaryUnequal -> printer.Print(" != ")
             | BinaryLess -> printer.Print(" < ")
             | BinaryLessOrEqual -> printer.Print(" <= ")
             | BinaryGreater -> printer.Print(" > ")

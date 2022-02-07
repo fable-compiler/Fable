@@ -89,13 +89,14 @@ let sub left right =
     Operation(Binary(BinaryMinus, left, right), left.Type, None)
 
 let eq left right =
-    Operation(Binary(BinaryEqualStrict, left, right), Boolean, None)
+    Operation(Binary(BinaryEqual, left, right), Boolean, None)
 
 let neq left right =
-    Operation(Binary(BinaryUnequalStrict, left, right), Boolean, None)
+    Operation(Binary(BinaryUnequal, left, right), Boolean, None)
 
-let isNull expr =
-    Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
+let nullCheck r isNull expr =
+    let op = if isNull then BinaryEqual else BinaryUnequal
+    Operation(Binary(op, expr, Value(Null expr.Type, None)), Boolean, r)
 
 let str txt = Value(StringConstant txt, None)
 

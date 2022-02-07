@@ -565,10 +565,8 @@ module Helpers =
         static member binaryExpression(operator_, left, right, ?loc) =
             let operator =
                 match operator_ with
-                | BinaryEqual -> "=="
-                | BinaryUnequal -> "!="
-                | BinaryEqualStrict -> "==="
-                | BinaryUnequalStrict -> "!=="
+                | BinaryEqual -> "==="
+                | BinaryUnequal -> "!=="
                 | BinaryLess -> "<"
                 | BinaryLessOrEqual -> "<="
                 | BinaryGreater -> ">"

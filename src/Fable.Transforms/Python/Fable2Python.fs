@@ -2110,37 +2110,23 @@ module Util =
         //     Expression.call (func, args), stmts' @ stmts
 
         | Fable.Binary (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+            let compare op =
+                Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
+
             match op with
-            | BinaryEqualStrict ->
-                match left, right with
-                | Expression.Constant _, _
-                | _, Expression.Constant _ -> Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-                | _, Expression.Name _ -> Expression.compare (left, BinaryEqualStrict, [ right ], ?loc = range), stmts @ stmts'
-                | _ ->
-                    // Use == for the rest
-                    Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-            | BinaryUnequalStrict ->
-                match left, right with
-                | Expression.Constant _, _
-                | _, Expression.Constant _ -> Expression.compare (left, BinaryUnequal, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
             | BinaryEqual ->
                 match left, right with
-                | Expression.Constant _, _ -> Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-                | _, Expression.Name ({ Id = Identifier ("None") }) ->
-                    Expression.compare (left, BinaryEqualStrict, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
+                | _, Name ({ Id = Identifier ("None") }) -> compare Is
+                // Use == for the rest
+                | _ -> compare Eq
             | BinaryUnequal ->
-                match right with
-                | Expression.Name ({ Id = Identifier ("None") }) ->
-                    let op = BinaryUnequalStrict
-                    Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
-
-            | BinaryLess
-            | BinaryLessOrEqual
-            | BinaryGreater
-            | BinaryGreaterOrEqual -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
+                match left, right with
+                | _, Name ({ Id = Identifier ("None") }) -> compare IsNot
+                | _ -> compare NotEq
+            | BinaryLess -> compare Lt
+            | BinaryLessOrEqual -> compare LtE
+            | BinaryGreater -> compare Gt
+            | BinaryGreaterOrEqual -> compare GtE
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2473,28 +2459,21 @@ module Util =
     let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
         match kind with
         | Fable.TypeTest t -> transformTypeTest com ctx range expr t
-        | Fable.OptionTest nonEmpty ->
-            let op =
-                if nonEmpty then
-                    BinaryUnequalStrict
-                else
-                    BinaryEqualStrict
 
+        | Fable.OptionTest nonEmpty ->
+            let op = if nonEmpty then IsNot else Is
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.compare (expr, op, [ Expression.none ], ?loc = range), stmts
+            Expression.compare (expr, [ op ], [ Expression.none ], ?loc = range), stmts
+
         | Fable.ListTest nonEmpty ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            // let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            // Expression.binaryExpression(op, get None expr "tail", Expression.none, ?loc=range)
-            let expr =
-                let expr = libCall com ctx range "list" "isEmpty" [ expr ]
+            let expr = libCall com ctx range "list" "isEmpty" [ expr ]
 
-                if nonEmpty then
-                    Expression.unaryOp (UnaryNot, expr, ?loc = range)
-                else
-                    expr
+            if nonEmpty then
+                Expression.unaryOp (UnaryNot, expr, ?loc = range), stmts
+            else
+                expr, stmts
 
-            expr, stmts
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
             let actual, stmts = getUnionExprTag com ctx None expr
@@ -2682,7 +2661,7 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) =
             function
-            | Fable.Operation (Fable.Binary (BinaryEqualStrict, expr, right), _, _) -> Some(expr, right)
+            | Fable.Operation (Fable.Binary (BinaryEqual, expr, right), _, _) -> Some(expr, right)
             | Fable.Test (expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
 
