@@ -287,7 +287,10 @@ export function format(str: string, ...args: any[]) {
     args.shift();
   }
 
-  return str.replace(formatRegExp, (_, idx, padLength, format, precision, pattern) => {
+  return str.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
+    if (idx < 0 || idx >= args.length) {
+      throw new Error("Index must be greater or equal to zero and less than the arguments' length.")
+    }
     let rep = args[idx];
     if (isNumeric(rep)) {
       precision = precision == null ? null : parseInt(precision, 10);

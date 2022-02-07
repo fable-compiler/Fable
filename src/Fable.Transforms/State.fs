@@ -144,6 +144,14 @@ type Project(projFile: string,
             Map.add key file this.ImplementationFiles
         Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
 
+    member this.Update(files: FSharpImplementationFileContents list) =
+        let implFiles =
+            (this.ImplementationFiles, files) ||> List.fold (fun implFiles file ->
+                let key = Path.normalizePathAndEnsureFsExtension file.FileName
+                let file = ImplFile.From(file)
+                Map.add key file implFiles)
+        Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
+
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
         inlineExprsDic.TryValue(memberUniqueName)
         |> Option.map (fun e -> e.Calculate(com))
