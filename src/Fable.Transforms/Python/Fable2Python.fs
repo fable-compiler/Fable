@@ -2104,10 +2104,10 @@ module Util =
             Expression.call (name, [ left ]), stmts
         | Fable.Unary (op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
 
-        | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            let func = Expression.name ("isinstance")
-            let args = [ left; right ]
-            Expression.call (func, args), stmts' @ stmts
+        // | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+        //     let func = Expression.name ("isinstance")
+        //     let args = [ left; right ]
+        //     Expression.call (func, args), stmts' @ stmts
 
         | Fable.Binary (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             match op with

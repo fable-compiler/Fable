@@ -77,8 +77,6 @@ type BinaryOperator =
     | BinaryOrBitwise
     | BinaryXorBitwise
     | BinaryAndBitwise
-    | BinaryIn
-    | BinaryInstanceOf
 
 type LogicalOperator =
     | LogicalOr

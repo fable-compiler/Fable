@@ -581,8 +581,6 @@ module Helpers =
                 | BinaryOrBitwise -> "|"
                 | BinaryXorBitwise -> "^"
                 | BinaryAndBitwise -> "&"
-                | BinaryIn -> "in"
-                | BinaryInstanceOf -> "instanceof"
             BinaryExpression(left, right, operator, loc)
         static member unaryExpression(operator_, argument, ?loc) =
             let operator =

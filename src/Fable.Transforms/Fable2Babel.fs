@@ -280,7 +280,7 @@ module Reflection =
             Expression.binaryExpression(BinaryEqualStrict, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
-            Expression.binaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
+            BinaryExpression(expr, consExpr, "instanceof", range)
 
         match typ with
         | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type

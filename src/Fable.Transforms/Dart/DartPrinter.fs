@@ -100,7 +100,6 @@ module PrinterExtensions =
             | BinaryOrBitwise -> printer.Print(" | ")
             | BinaryXorBitwise -> printer.Print(" ^ ")
             | BinaryAndBitwise -> printer.Print(" & ")
-            | BinaryIn | BinaryInstanceOf -> printer.AddError($"Operator not supported {operator}")
             printer.ComplexExpressionWithParens(right)
 
         member printer.PrintLiteral(kind: Literal) =

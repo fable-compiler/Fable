@@ -2057,8 +2057,6 @@ module Util =
                 | BinaryOperator.BinaryOrBitwise -> Rust.BinOpKind.BitOr
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
-                | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
-                | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
 
             let left = transformLeaveContextByValue com ctx left |> maybeAddParens left
             let right = transformLeaveContextByValue com ctx right |> maybeAddParens right

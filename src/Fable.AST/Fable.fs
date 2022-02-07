@@ -537,8 +537,6 @@ type Expr =
 //         | BinaryOrBitwise -> print e1 + " | " + print e2
 //         | BinaryXorBitwise -> print e1 + " ^ " + print e2
 //         | BinaryAndBitwise -> print e1 + " & " + print e2
-//         | BinaryIn -> print e1 + " in " + print e2
-//         | BinaryInstanceOf -> print e1 + " instanceof " + print e2
 
 //     and printUnaryOp op e =
 //         match op with

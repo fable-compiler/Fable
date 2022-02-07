@@ -550,8 +550,6 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | BinaryOperator.BinaryShiftLeft -> "<<"
             | BinaryOperator.BinaryShiftRightSignPropagating -> ">>"
             | BinaryOperator.BinaryShiftRightZeroFill -> ">>>"
-            | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
-            | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
         PhpBinaryOp(opstr, convertExpr com left, convertExpr com right)
     | Fable.Operation(Fable.Unary(op, expr),_,_) ->
         // the result of an unary operation
