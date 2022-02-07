@@ -545,9 +545,6 @@ type Expr =
 //         | UnaryNot -> "!" + print e
 //         | UnaryNotBitwise -> "~" + print e
 //         | UnaryAddressOf -> "&" + print e
-//         | UnaryTypeof -> "typeof " + print e
-//         | UnaryVoid -> "void " + print e
-//         | UnaryDelete -> "delete " + print e
 
 //     and print = function
 //         | IdentExpr i -> i.Name

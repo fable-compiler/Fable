@@ -276,7 +276,7 @@ module Reflection =
             Expression.booleanLiteral(false)
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
-            let typeof = Expression.unaryExpression(UnaryTypeof, expr)
+            let typeof = UnaryExpression(expr, "typeof", None)
             Expression.binaryExpression(BinaryEqualStrict, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
@@ -780,7 +780,7 @@ module Util =
 
     let undefined range =
 //        Undefined(?loc=range) :> Expression
-        Expression.unaryExpression(UnaryVoid, Expression.numericLiteral(0.), ?loc=range)
+        UnaryExpression(Expression.numericLiteral(0.), "void", range)
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -913,6 +913,7 @@ module Util =
             | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
+        | Fable.Unit -> UnaryExpression(com.TransformAsExpr(ctx, e), "void", e.Range)
         | _ -> com.TransformAsExpr(ctx, e)
 
     let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =

@@ -48,13 +48,6 @@ type UnaryOperator =
     | UnaryNot
     | UnaryNotBitwise
     | UnaryAddressOf
-    | UnaryTypeof
-    | UnaryVoid
-    | UnaryDelete
-
-type UpdateOperator =
-    | UpdateMinus
-    | UpdatePlus
 
 type BinaryOperator =
     | BinaryEqual

@@ -2085,11 +2085,11 @@ module Util =
 
     let transformOperation com ctx range opKind : Expression * Statement list =
         match opKind with
-        | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
-        | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
-            let func = Expression.name ("type")
-            let args = [ expr ]
-            Expression.call (func, args), stmts
+        // | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
+        // | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
+        //     let func = Expression.name ("type")
+        //     let args = [ expr ]
+        //     Expression.call (func, args), stmts
 
         // Transform `~(~(a/b))` to `a // b`
         | Fable.Unary (UnaryOperator.UnaryNotBitwise,

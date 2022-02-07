@@ -2030,9 +2030,6 @@ module Util =
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryAddressOf -> expr // already handled above
-            | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
-            | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
-            | UnaryOperator.UnaryVoid -> expr // no unary void
 
         | Fable.Binary(op, left, right) ->
             let kind =

@@ -3,6 +3,10 @@ namespace rec Fable.AST.Babel
 
 open Fable.AST
 
+type UpdateOperator =
+    | UpdateMinus
+    | UpdatePlus
+
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -590,9 +594,6 @@ module Helpers =
                 | UnaryNot -> "!"
                 | UnaryNotBitwise -> "~"
                 | UnaryAddressOf -> "" //"&"
-                | UnaryTypeof -> "typeof"
-                | UnaryVoid -> "void"
-                | UnaryDelete -> "delete"
             UnaryExpression(argument, operator, loc)
         static member updateExpression(operator_, prefix, argument, ?loc) : Expression =
             let operator =

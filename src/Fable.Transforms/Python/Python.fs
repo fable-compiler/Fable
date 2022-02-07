@@ -920,9 +920,6 @@ module PythonExtensions =
                 | UnaryNot -> Not
                 | UnaryNotBitwise -> Invert
                 // | UnaryAddressOf -> "&"
-                // | UnaryTypeof -> "typeof"
-                // | UnaryVoid ->
-                // | UnaryDelete -> "delete"
                 | _ -> failwith $"unaryOp: Operator {op} not supported"
 
             Expression.unaryOp (op, operand, ?loc = loc)
