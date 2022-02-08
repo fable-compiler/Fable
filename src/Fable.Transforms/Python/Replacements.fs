@@ -334,16 +334,6 @@ let round com (args: Expr list) =
 let toList com returnType expr =
     Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
-let toArray r t expr =
-    let t =
-        match t with
-        | Array t
-        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
-        | DeclaredType (_, [ t ]) -> t
-        | t -> t
-
-    Value(NewArrayFrom(expr, t), r)
-
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
 
@@ -441,29 +431,13 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
 let isCompatibleWithNativeComparison =
     function
-    | Number ((Decimal|BigInt),_)
-    | Array _
-    | List _
-    | Tuple _
-    | Option _
-    | MetaType
-    | Measure _ -> false
     | Builtin (BclGuid
-    | BclTimeSpan) -> true
-    // TODO: Non-record/union declared types without custom equality
-    // should be compatible with JS comparison
-    | DeclaredType _ -> false
-    | GenericParam _ -> false
-    | AnonymousRecordType _ -> false
-    | Any
-    | Unit
+    | BclTimeSpan)
     | Boolean
     | Number _
     | String
-    | Char
-    | Regex
-    | DelegateType _
-    | LambdaType _ -> true
+    | Char -> true
+    | _ -> false
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
@@ -595,16 +569,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Tuple _ -> Helper.LibCall(com, "util", "compareArrays", Number(Int32, NumberDetails.None), [ left; right ], ?loc = r)
     | _ -> Helper.LibCall(com, "util", "compare", Number(Int32, NumberDetails.None), [ left; right ], ?loc = r)
 
-/// Wraps comparison with the binary operator, like `comparison < 0`
-and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
-    match left.Type with
-    | Builtin (BclGuid
-    | BclTimeSpan)
-    | Boolean
-    | Char
-    | String
-    | Number ((Int8|Int16|Int32|UInt8|UInt16|UInt32|Int64|UInt64|Float32|Float64),_) -> makeEqOp r left right op
-    | _ ->
+/// Boolean comparison operators like <, >, <=, >=
+and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
+    if isCompatibleWithNativeComparison left.Type then
+        makeEqOp r left right op
+    else
         let comparison = compare com ctx r left right
         makeEqOp r comparison (makeIntConst 0) op
 
@@ -1573,21 +1542,21 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
     | (Operators.lessThan
       | "Lt"),
-      [ left; right ] -> compareIf com ctx r left right BinaryLess |> Some
+      [ left; right ] -> booleanCompare com ctx r left right BinaryLess |> Some
     | (Operators.lessThanOrEqual
       | "Lte"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryLessOrEqual
+        booleanCompare com ctx r left right BinaryLessOrEqual
         |> Some
     | (Operators.greaterThan
       | "Gt"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryGreater
+        booleanCompare com ctx r left right BinaryGreater
         |> Some
     | (Operators.greaterThanOrEqual
       | "Gte"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryGreaterOrEqual
+        booleanCompare com ctx r left right BinaryGreaterOrEqual
         |> Some
     | ("Min"
       | "Max"
@@ -2510,15 +2479,15 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ("Parse"
       | "TryParse"),
       _ -> parseNum com ctx r t i thisArg args
-    | Operators.lessThan, [ left; right ] -> compareIf com ctx r left right BinaryLess |> Some
+    | Operators.lessThan, [ left; right ] -> booleanCompare com ctx r left right BinaryLess |> Some
     | Operators.lessThanOrEqual, [ left; right ] ->
-        compareIf com ctx r left right BinaryLessOrEqual
+        booleanCompare com ctx r left right BinaryLessOrEqual
         |> Some
     | Operators.greaterThan, [ left; right ] ->
-        compareIf com ctx r left right BinaryGreater
+        booleanCompare com ctx r left right BinaryGreater
         |> Some
     | Operators.greaterThanOrEqual, [ left; right ] ->
-        compareIf com ctx r left right BinaryGreaterOrEqual
+        booleanCompare com ctx r left right BinaryGreaterOrEqual
         |> Some
     | (Operators.addition
       | Operators.subtraction
@@ -2667,21 +2636,21 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         |> Some
     | ("GenericLessThan"
       | "GenericLessThanIntrinsic"),
-      [ left; right ] -> compareIf com ctx r left right BinaryLess |> Some
+      [ left; right ] -> booleanCompare com ctx r left right BinaryLess |> Some
     | ("GenericLessOrEqual"
       | "GenericLessOrEqualIntrinsic"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryLessOrEqual
+        booleanCompare com ctx r left right BinaryLessOrEqual
         |> Some
     | ("GenericGreaterThan"
       | "GenericGreaterThanIntrinsic"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryGreater
+        booleanCompare com ctx r left right BinaryGreater
         |> Some
     | ("GenericGreaterOrEqual"
       | "GenericGreaterOrEqualIntrinsic"),
       [ left; right ] ->
-        compareIf com ctx r left right BinaryGreaterOrEqual
+        booleanCompare com ctx r left right BinaryGreaterOrEqual
         |> Some
     | ("GenericEquality"
       | "GenericEqualityIntrinsic"),

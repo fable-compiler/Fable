@@ -514,12 +514,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         let t = makeType ctx.GenericArgs targetType
-        match tryDefinition targetType with
-        | Some(_, Some fullName) ->
-            match fullName with
-            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.Api.toSeq com t inpExpr
-            | _ -> return Fable.TypeCast(inpExpr, t)
-        | _ -> return Fable.TypeCast(inpExpr, t)
+        return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"

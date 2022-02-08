@@ -68,7 +68,6 @@ module Lib =
         let entRef = JS.Replacements.constructor com ent
         com.TransformAsExpr(ctx, entRef)
 
-// TODO: This is too implementation-dependent, ideally move it to Replacements
 module Reflection =
     open Lib
 
@@ -334,8 +333,6 @@ module Reflection =
                     | None ->
                         warnAndEvalToFalse ent.FullName
 
-// TODO: I'm trying to tell apart the code to generate annotations, but it's not a very clear distinction
-// as there are many dependencies from/to the Util module below
 module Annotation =
     let getEntityGenParams (ent: Fable.Entity) =
         ent.GenericParameters
@@ -908,9 +905,16 @@ module Util =
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(ent,[_]) ->
-            match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-                makeArray com ctx exprs
+            match ent.FullName with
+            | Types.ienumerableGeneric | Types.ienumerable ->
+                match e with
+                | ExprType Fable.String ->
+                    // Convert to array to get 16-bit code units, see #1279
+                    let e = JS.Replacements.stringToCharArray e
+                    com.TransformAsExpr(ctx, e)
+                | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
+                    makeArray com ctx exprs
+                | _ -> com.TransformAsExpr(ctx, e)
             | _ -> com.TransformAsExpr(ctx, e)
         | Fable.Unit -> UnaryExpression(com.TransformAsExpr(ctx, e), "void", e.Range)
         | _ -> com.TransformAsExpr(ctx, e)
@@ -1482,8 +1486,8 @@ module Util =
         let (|Equals|_|) = function
             | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
                 match expr with
-                | Fable.Value(Fable.Null _, _) -> None
-                | expr -> Some(expr, right)
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
+                | _ -> None
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
                 let right = makeIntConst tag

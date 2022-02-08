@@ -2645,7 +2645,10 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) =
             function
-            | Fable.Operation (Fable.Binary (BinaryEqual, expr, right), _, _) -> Some(expr, right)
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+                match expr with
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
+                | _ -> None
             | Fable.Test (expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
 

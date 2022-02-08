@@ -305,23 +305,8 @@ let round com (args: Expr list) =
 let toList com returnType expr =
     Helper.LibCall(com, "List", "ofSeq", returnType, [expr])
 
-let toArray r t expr =
-    let t =
-        match t with
-        | Array t
-        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
-        | DeclaredType(_, [t]) -> t
-        | t -> t
-    Value(NewArrayFrom(expr, t), r)
-
-let stringToCharArray t e =
-    Helper.InstanceCall(e, "split", t, [makeStrConst ""])
-
-let toSeq t (e: Expr) =
-    match e.Type with
-    // Convert to array to get 16-bit code units, see #1279
-    | String -> stringToCharArray t e
-    | _ -> TypeCast(e, t)
+let stringToCharArray e =
+    Helper.InstanceCall(e, "split", Array Char, [makeStrConst ""])
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
     let unOp operator operand =
@@ -397,16 +382,11 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithNativeComparison = function
-    | Number ((Int64|UInt64|Decimal|BigInt),_)
-    | Array _ | List _ | Tuple _ | Option _ | MetaType | Measure _ -> false
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly) -> true
+    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
+    | Boolean | Char | String | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Float32|Float64),_) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
-    | DeclaredType _ -> false
-    | GenericParam _ -> false
-    | AnonymousRecordType _ -> false
-    | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | DelegateType _ | LambdaType _ -> true
+    | _ -> false
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
@@ -509,13 +489,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, NumberDetails.None), [left; right], ?loc=r)
 
-/// Wraps comparison with the binary operator, like `comparison < 0`
-and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
-    match left.Type with
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Float32|Float64),_) ->
+/// Boolean comparison operators like <, >, <=, >=
+and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
+    if isCompatibleWithNativeComparison left.Type then
         makeEqOp r left right op
-    | _ ->
+    else
         let comparison = compare com ctx r left right
         makeEqOp r comparison (makeIntConst 0) op
 
@@ -1174,7 +1152,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
-    | "CreateSequence", [xs] -> toSeq t xs |> Some
+    | "CreateSequence", [xs] -> TypeCast(xs, t) |> Some
     | "CreateDictionary", [arg] -> makeDictionary com ctx r t arg |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
     // Ranges
@@ -1313,10 +1291,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Hash", [arg] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com ctx r left right |> Some
-    | (Operators.lessThan | "Lt"), [left; right] -> compareIf com ctx r left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> compareIf com ctx r left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
-    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
+    | (Operators.lessThan | "Lt"), [left; right] -> booleanCompare com ctx r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> booleanCompare com ctx r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [left; right] -> booleanCompare com ctx r left right BinaryGreater |> Some
+    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max"|"Clamp" as meth), _ ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Util", Naming.lowerFirst meth, t, f::args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1371,7 +1349,7 @@ let implementedStringFunctions =
         |]
 
 let getEnumerator com r t expr =
-    Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+    Helper.LibCall(com, "Util", "getEnumerator", t, [expr], ?loc=r)
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1398,7 +1376,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
         let left = Helper.LibCall(com, "String", "compare", Number(Int32, NumberDetails.None), [x; y; kind])
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
-    | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
+    | "GetEnumerator", Some c, _ -> stringToCharArray c |> getEnumerator com r t |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
@@ -1434,7 +1412,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 | _ -> false
             Helper.LibCall(com, "String", methName, t, c::args, hasSpread=spread, ?loc=r) |> Some
     | "ToCharArray", Some c, _ ->
-        stringToCharArray t c |> Some
+        stringToCharArray c |> Some
     | "Split", Some c, _ ->
         match args with
         // Optimization
@@ -1480,11 +1458,11 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | "Length", [arg] -> getAttachedMemberWith r t arg "length" |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
+        let args = args |> List.replaceLast (fun e -> stringToCharArray e)
         Helper.LibCall(com, "Seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Map" | "MapIndexed" | "Collect"), _ ->
         // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
+        let args = args |> List.replaceLast (fun e -> stringToCharArray e)
         let name = Naming.lowerFirst i.CompiledName
         emitExpr r t [Helper.LibCall(com, "Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
     | "Concat", _ ->
@@ -1749,7 +1727,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         NewList(Some(x, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | "ToSeq", [x] -> toSeq t x |> Some
+    | "ToSeq", [x] -> TypeCast(x, t) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -1932,10 +1910,10 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         Helper.LibCall(com, "Decimal", "getBits", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse"), _ ->
         parseNum com ctx r t i thisArg args
-    | Operators.lessThan, [left; right] -> compareIf com ctx r left right BinaryLess |> Some
-    | Operators.lessThanOrEqual, [left; right] -> compareIf com ctx r left right BinaryLessOrEqual |> Some
-    | Operators.greaterThan, [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
-    | Operators.greaterThanOrEqual, [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
+    | Operators.lessThan, [left; right] -> booleanCompare com ctx r left right BinaryLess |> Some
+    | Operators.lessThanOrEqual, [left; right] -> booleanCompare com ctx r left right BinaryLessOrEqual |> Some
+    | Operators.greaterThan, [left; right] -> booleanCompare com ctx r left right BinaryGreater |> Some
+    | Operators.greaterThanOrEqual, [left; right] -> booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
     |(Operators.addition
     | Operators.subtraction
     | Operators.multiply
@@ -2034,13 +2012,13 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Compare", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
-        compareIf com ctx r left right BinaryLess |> Some
+        booleanCompare com ctx r left right BinaryLess |> Some
     | ("GenericLessOrEqual" | "GenericLessOrEqualIntrinsic"), [left; right] ->
-        compareIf com ctx r left right BinaryLessOrEqual |> Some
+        booleanCompare com ctx r left right BinaryLessOrEqual |> Some
     | ("GenericGreaterThan" | "GenericGreaterThanIntrinsic"), [left; right] ->
-        compareIf com ctx r left right BinaryGreater |> Some
+        booleanCompare com ctx r left right BinaryGreater |> Some
     | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [left; right] ->
-        compareIf com ctx r left right BinaryGreaterOrEqual |> Some
+        booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
     | ("GenericEquality" | "GenericEqualityIntrinsic"), [left; right] ->
         equals com ctx r true left right |> Some
     | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [left; right] ->

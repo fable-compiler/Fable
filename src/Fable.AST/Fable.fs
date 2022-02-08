@@ -575,7 +575,6 @@ type Expr =
 //                 | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> string(int x)
 //                 | Float32 | Float64 -> string x
 //             | RegexConstant(x,_) -> "/" + string x + "/" // TODO: flags
-//             | EnumConstant(e, _) -> "enum " + print e
 //             | NewOption(Some e, _) -> "Some " + print e
 //             | NewOption(None, _) -> "None"
 //             | NewTuple exprs -> printMulti "(" exprs ")"

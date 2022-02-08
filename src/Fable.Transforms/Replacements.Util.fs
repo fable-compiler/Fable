@@ -108,6 +108,15 @@ let genArg (com: ICompiler) (ctx: Context) r i (genArgs: (string * Type) list) =
         |> addError com ctx.InlinePath r
         Any)
 
+let toArray r t expr =
+    let t =
+        match t with
+        | Array t
+        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
+        | DeclaredType(_, [t]) -> t
+        | t -> t
+    Value(NewArrayFrom(expr, t), r)
+
 let getBoxedZero kind: obj =
     match kind with
     | Int8 -> 0y: int8

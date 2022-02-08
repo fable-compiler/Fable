@@ -819,7 +819,7 @@ module TypeInfo =
         | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
+        | Fable.Number _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
@@ -916,7 +916,6 @@ module Annotation =
         | Fable.String -> StringTypeAnnotation
         | Fable.Regex -> AnyTypeAnnotation
         | Fable.Number kind -> makeNumericTypeAnnotation com ctx kind
-        | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option genArg -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple genArgs -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
@@ -1407,8 +1406,7 @@ module Util =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.Enum _ ->
+        | _, Fable.Number(Int8 | Int16 | Int32) ->
             Expression.binaryExpression(BinaryOrBitwise, e, Expression.numericLiteral(0.))
         | _ -> e
 
