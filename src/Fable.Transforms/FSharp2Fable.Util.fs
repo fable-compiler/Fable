@@ -996,7 +996,18 @@ module TypeHelpers =
         elif tdef.IsDelegate then
             makeTypeFromDelegate ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
-            Fable.Enum(FsEnt.Ref tdef)
+            // F# seems to include a field with this name in the underlying type
+            let numberKind =
+                tdef.FSharpFields |> Seq.tryPick (fun fi ->
+                    match fi.Name with
+                    | "value__" when fi.FieldType.HasTypeDefinition ->
+                        match FsEnt.FullName fi.FieldType.TypeDefinition with
+                        | DicContains numberTypes kind -> Some kind
+                        | _ -> None
+                    | _ -> None)
+                |>  Option.defaultValue Int32
+            let details = FsEnt.Ref tdef |> Fable.NumberDetails.IsEnum
+            Fable.Number(numberKind, details)
         else
             match FsEnt.FullName tdef with
             // Fable "primitives"
@@ -1011,8 +1022,10 @@ module TypeHelpers =
             | Types.option -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, false)
             | Types.resizeArray -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
-            | DicContains numberTypes kind -> Fable.Number(kind, None)
-            | DicContains numbersWithMeasure kind -> Fable.Number(kind, getMeasureFullName genArgs |> Some)
+            | DicContains numberTypes kind -> Fable.Number(kind, Fable.NumberDetails.None)
+            | DicContains numbersWithMeasure kind ->
+                let details = getMeasureFullName genArgs |> Fable.NumberDetails.IsMeasure
+                Fable.Number(kind, details)
             | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
@@ -1231,7 +1244,7 @@ module TypeHelpers =
                         // -> cannot distinguish between 'normal' Any (like 'obj')
                         // and Erased Union (like Erased Union with string field)
                         true
-                    | IntNumber, Fable.Enum _ when rules.HasFlag Allow.EnumIntoInt ->
+                    | IntNumber, Fable.Number(_, Fable.NumberDetails.IsEnum _) when rules.HasFlag Allow.EnumIntoInt ->
                         // the underlying type of enum in F# is uint32
                         // For practicality: allow in all uint & int fields
                         true

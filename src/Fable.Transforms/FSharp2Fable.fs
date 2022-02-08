@@ -363,15 +363,16 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 1 ->
             let inline numberConst kind value =
-                Fable.Number (kind, None), Fable.Value (Fable.NumberConstant(value, kind, None), r)
-            let typ, value =
+                Fable.Number (kind, Fable.NumberDetails.None),
+                Fable.Value (Fable.NumberConstant(value, kind, Fable.NumberDetails.None), r)
+            let value =
                 match FsUnionCase.CompiledValue unionCase with
-                | None -> Fable.String, transformStringEnum rule unionCase
-                | Some (CompiledValue.Integer i) -> numberConst Int32 i
-                | Some (CompiledValue.Float f) -> numberConst Float64 f
-                | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
+                | None -> transformStringEnum rule unionCase
+                | Some (CompiledValue.Integer i) -> makeIntConst i
+                | Some (CompiledValue.Float f) -> makeFloatConst f
+                | Some (CompiledValue.Boolean b) -> makeBoolConst b
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), typ, r))
+                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), value.Type, r))
                 value
                 BinaryEqual
         | _ ->
@@ -695,7 +696,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         let w = {
                             Witness.TraitName = traitName
                             IsInstance = isInstance
-                            Expr = Fable.Delegate(args, body, None)
+                            Expr = Fable.Delegate(args, body, Fable.DelegateDetails.Create())
                         }
                         return { ctx with Witnesses = w::ctx.Witnesses }
                     })
@@ -1221,10 +1222,8 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
     |> function
         | [] -> None
         | decorators ->
-            let body = Fable.Delegate(args, body, None)
-            // Hack to tell the compiler this must be compiled as function (not arrow)
-            // so we don't have issues with bound this
-            let body = Fable.TypeCast(body, body.Type) //, Some("optimizable:function"))
+            // This must be compiled as JS `function` (not arrow) so we don't have issues with bound this
+            let body = Fable.Delegate(args, body, { Name = None; NotCompilableAsArrow = true })
             List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1244,7 +1243,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
         if memb.CompiledName = ".cctor" then
             [Fable.ActionDeclaration
                 { Body =
-                    Fable.Delegate(args, body, Some name)
+                    Fable.Delegate(args, body, Fable.DelegateDetails.Create(name=name))
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else

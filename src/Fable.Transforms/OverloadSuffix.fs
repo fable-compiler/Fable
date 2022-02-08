@@ -85,8 +85,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
     | Fable.Char -> Types.char
     | Fable.String -> Types.string
     | Fable.Regex -> Types.regex
-    | Fable.Enum ref -> ref.FullName
-    | Fable.Number(kind, uom) -> getNumberFullName uom kind
+    | Fable.Number(kind, detail) -> getNumberFullName false kind detail
 
 // From https://stackoverflow.com/a/37449594
 let private combineHashCodes (hashes: int seq) =

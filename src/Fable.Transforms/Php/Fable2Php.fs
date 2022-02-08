@@ -406,10 +406,6 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     | Fable.DelegateType _ -> ExType phpObj
     | Fable.LambdaType _ -> ExType phpObj
     | Fable.GenericParam _ -> ExType phpObj
-    | Fable.Enum ref ->
-        match com.TryFindType(ref) with
-        | Ok phpType -> InType phpType
-        | Error ent -> ExType { Name = ent.DisplayName; Namespace = None; Class = None }
     | Fable.Array t -> ArrayRef (convertTypeRef com t)
     | Fable.List _ -> ExType { Name = "FSharpList"; Namespace = Some "FSharpList"; Class = None }
     | Fable.Option(t,_) -> ExType { Name = "object"; Namespace = None; Class = None }
@@ -997,8 +993,6 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpConst(PhpConstNull)
     | Fable.CharConstant(c) ->
         PhpConst(PhpConstString (string c))
-    | Fable.EnumConstant(e,ref) ->
-        convertExpr com e
     | Fable.Null _ ->
         PhpConst(PhpConstNull)
     | Fable.NewList(Some(head,tail),_) ->

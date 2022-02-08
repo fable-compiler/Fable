@@ -146,27 +146,23 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
         | Fable.String  -> primitiveTypeInfo "string"
-        | Fable.Enum entRef ->
-            let ent = com.GetEntity(entRef)
-            let mutable numberKind = Int32
-            let cases =
-                ent.FSharpFields |> Seq.choose (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name with
-                    | "value__" ->
-                        match fi.FieldType with
-                        | Fable.Number(kind,_) -> numberKind <- kind
-                        | _ -> ()
-                        None
-                    | name ->
-                        let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-                        Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-                |> Seq.toArray
-                |> Expression.arrayExpression
-            [|Expression.stringLiteral(entRef.FullName); numberInfo numberKind; cases |]
-            |> libReflectionCall com ctx None "enum"
-        | Fable.Number(kind,_) ->
-            numberInfo kind
+        | Fable.Number(kind, details) ->
+            match details with
+            | Fable.NumberDetails.IsEnum entRef ->
+                let ent = com.GetEntity(entRef)
+                let cases =
+                    ent.FSharpFields |> Seq.choose (fun fi ->
+                        match fi.Name with
+                        | "value__" -> None
+                        | name ->
+                            let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+                            Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+                    |> Seq.toArray
+                    |> Expression.arrayExpression
+                [|Expression.stringLiteral(entRef.FullName); numberInfo kind; cases |]
+                |> libReflectionCall com ctx None "enum"
+            | _ ->
+                numberInfo kind
         | Fable.LambdaType(argType, returnType) ->
             genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.DelegateType(argTypes, returnType) ->
@@ -291,7 +287,7 @@ module Reflection =
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
         | Fable.Number(BigInt,_) -> jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
         | Fable.Number((Int64|UInt64),_) -> jsInstanceof (libValue com ctx "Long" "default") expr
-        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
+        | Fable.Number _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
@@ -397,7 +393,6 @@ module Annotation =
         | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
         | Fable.Number(BigInt,_) -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
-        | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
@@ -855,8 +850,7 @@ module Util =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number((Int8 | Int16 | Int32),_)
-        | _, Fable.Enum _ ->
+        | _, Fable.Number((Int8 | Int16 | Int32),_) ->
             Expression.binaryExpression(BinaryOrBitwise, e, Expression.numericLiteral(0.))
         | _ -> e
 
@@ -994,8 +988,6 @@ module Util =
                 then libCall com ctx r "Option" "some" [|e|]
                 else e
             | None -> undefined r
-        | Fable.EnumConstant(x,_) ->
-            com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
@@ -1493,7 +1485,7 @@ module Util =
                 | Fable.Value(Fable.Null _, _) -> None
                 | expr -> Some(expr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
                 let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
@@ -1593,8 +1585,8 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
+            let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberDetails.None)) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberDetails.None))
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
             [|multiVarDecl; switch1; switch2|]
         | None ->
@@ -1665,12 +1657,14 @@ module Util =
             transformFunctionWithAnnotations com ctx name [arg] body
             |> makeArrowFunctionExpression name
 
-        | Fable.Delegate(args, body, name) -> //, isArrow) ->
-            // | Some "function", Fable.Delegate(args, body, name) ->
-            //     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
-            //     Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
-            transformFunctionWithAnnotations com ctx name args body
-            |> makeArrowFunctionExpression name
+        | Fable.Delegate(args, body, details) ->
+            let name = details.Name
+            if details.NotCompilableAsArrow then
+                let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
+                Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
+            else
+                transformFunctionWithAnnotations com ctx name args body
+                |> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx members baseCall
@@ -1764,7 +1758,8 @@ module Util =
                 |> makeArrowFunctionExpression name
                 |> resolveExpr expr.Type returnStrategy|]
 
-        | Fable.Delegate(args, body, name) ->
+        | Fable.Delegate(args, body, details) ->
+            let name = details.Name
             [|transformFunctionWithAnnotations com ctx name args body
                 |> makeArrowFunctionExpression name
                 |> resolveExpr expr.Type returnStrategy|]
@@ -1949,7 +1944,7 @@ module Util =
         )
 
     let getUnionFieldsAsIdents (_com: IBabelCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberDetails.None)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 

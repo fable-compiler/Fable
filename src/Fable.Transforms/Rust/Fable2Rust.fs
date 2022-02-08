@@ -351,7 +351,6 @@ module TypeInfo =
         | Fable.Unit
         | Fable.Boolean
         | Fable.Char
-        | Fable.Enum _
         | Fable.Number _
         | Fable.GenericParam _
         // already RC-wrapped
@@ -568,24 +567,6 @@ module TypeInfo =
         | Decimal -> makeFullNamePathTy Types.decimal None
         | BigInt -> makeFullNamePathTy Types.bigint None
 
-    let transformEnumType (com: IRustCompiler) ctx (entRef: Fable.EntityRef): Rust.Ty =
-        let ent = com.GetEntity(entRef)
-        let mutable numberKind = Int32
-        let cases =
-            ent.FSharpFields |> Seq.iter (fun fi ->
-                // F# seems to include a field with this name in the underlying type
-                match fi.Name, fi.FieldType with
-                | "value__", Fable.Number(kind, _) -> numberKind <- kind
-                | _ -> ())
-        numberType numberKind
-        //         | name ->
-        //             let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-        //             Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-        //         |> Seq.toArray
-        //     |> Expression.arrayExpression
-        // [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
-        // |> libReflectionCall com ctx None "enum"
-
     let getInterfaceEntityPath (entRef: Fable.EntityRef) =
         match entRef.FullName with
         | Types.icollection
@@ -689,7 +670,6 @@ module TypeInfo =
             | Fable.Char    -> primitiveType "char"
             | Fable.String  -> primitiveType "str"
             | Fable.Number(kind, _) -> numberType kind
-            | Fable.Enum entRef -> transformEnumType com ctx entRef
             | Fable.LambdaType(_, returnType) ->
                 let argTypes, returnType = uncurryLambdaType t
                 transformClosureType com ctx argTypes returnType
@@ -1102,7 +1082,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, name) -> Some([arg], body, name)
-        | Fable.Delegate(args, body, name) -> Some(args, body, name)
+        | Fable.Delegate(args, body, details) -> Some(args, body, details.Name)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -1490,9 +1470,9 @@ module Util =
         match fromType, toType with
         | t1, t2 when t1 = t2 ->
             expr // no cast needed if types are the same
-        | (Fable.Number _ | Fable.Enum _), (Fable.Number _ | Fable.Enum _)->
+        | Fable.Number _, Fable.Number _ ->
             expr |> mkCastExpr ty
-        | Fable.Char, Fable.Number(UInt32, None) ->
+        | Fable.Char, Fable.Number(UInt32, Fable.NumberDetails.None) ->
             expr |> mkCastExpr ty
 
         // casts to IEnumerable
@@ -1704,9 +1684,6 @@ module Util =
         let genArgs = transformGenArgs com ctx [typ]
         makeLibCall com ctx genArgs "Native" "defaultOf" []
 
-    let makeEnum (com: IRustCompiler) ctx r value (entRef: Fable.EntityRef) =
-        com.TransformAsExpr(ctx, value)
-
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
             match value with
@@ -1864,7 +1841,6 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.EnumConstant (value, entRef) -> makeEnum com ctx r value entRef
         | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs) -> makeTuple com ctx r values false // temporary
         | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
@@ -2261,7 +2237,7 @@ module Util =
             let expr = transformExprMaybeIdentExpr com ctx fableExpr
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, None) ->
+            | Fable.Array t, Fable.Number(Int32, Fable.NumberDetails.None) ->
                 // // when indexing an array, cast index to usize
                 // let expr = expr |> mutableGetMut
                 // let prop = prop |> mkCastExpr (primitiveType "usize")
@@ -2381,7 +2357,7 @@ module Util =
         | Fable.ExprSet idx ->
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, None) ->
+            | Fable.Array t, Fable.Number(Int32, Fable.NumberDetails.None) ->
                 // when indexing an array, cast index to usize
                 let expr = expr |> mutableGetMut
                 let prop = prop |> mkCastExpr (primitiveType "usize")
@@ -2737,7 +2713,7 @@ module Util =
             cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                 let patOpt =
                     match caseExpr with
-                    | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, None), r) ->
+                    | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, Fable.NumberDetails.None), r) ->
                         makeUnionCasePat evalType evalName tag
                     | _ -> None
                 let pat =
@@ -2850,11 +2826,11 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
             | Fable.Test(expr, Fable.OptionTest isSome, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
                 let right = makeIntConst (if isSome then 0 else 1)
                 Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
                 let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
@@ -3036,8 +3012,8 @@ module Util =
         | Fable.Lambda(arg, body, name) ->
             transformLambda com ctx name [arg] body
 
-        | Fable.Delegate(args, body, name) ->
-            transformLambda com ctx name args body
+        | Fable.Delegate(args, body, details) ->
+            transformLambda com ctx details.Name args body
 
         | Fable.ObjectExpr (members, _, baseCall) ->
             transformObjectExpr com ctx members baseCall
