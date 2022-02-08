@@ -1282,6 +1282,7 @@ module Util =
         | "Equals" -> Expression.identifier ("__eq__")
         | "set" -> Expression.identifier ("__setitem__")
         | "get" -> Expression.identifier ("__getitem__")
+        | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name (name)
@@ -2100,12 +2101,19 @@ module Util =
             match op with
             | BinaryEqual ->
                 match left, right with
-                | _, Name ({ Id = Identifier ("None") }) -> compare Is
+                // Use == with literals
+                | Constant _, Name { Id = Identifier "None" } -> compare Eq
+                // Use `is` with None (except literals)
+                | _, Name { Id = Identifier "None" } -> compare Is
                 // Use == for the rest
                 | _ -> compare Eq
             | BinaryUnequal ->
                 match left, right with
-                | _, Name ({ Id = Identifier ("None") }) -> compare IsNot
+                // Use != with literals
+                | Constant _, Name { Id = Identifier "None" } -> compare NotEq
+                // Use `is not` with None (except literals)
+                | _, Name { Id = Identifier "None" } -> compare IsNot
+                 // Use != for the rest
                 | _ -> compare NotEq
             | BinaryLess -> compare Lt
             | BinaryLessOrEqual -> compare LtE
