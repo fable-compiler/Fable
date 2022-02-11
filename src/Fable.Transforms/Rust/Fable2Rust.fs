@@ -1723,15 +1723,16 @@ module Util =
         expr // all options are value options
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
-        let genArgs =
-            match exprs with
-            | [] -> transformGenArgs com ctx [typ]
-            | _ -> None
-        let array =
-            exprs
-            |> List.map (transformExprMaybeUnwrapRef com ctx)
-            |> mkArrayExpr
-        makeLibCall com ctx genArgs "Native" "arrayFrom" [array]
+        match exprs with
+        | [] ->
+            let genArgs = transformGenArgs com ctx [typ]
+            makeLibCall com ctx genArgs "Native" "arrayEmpty" []
+        | _ ->
+            let arrayExpr =
+                exprs
+                |> List.map (transformExprMaybeUnwrapRef com ctx)
+                |> mkArrayExpr
+            makeLibCall com ctx None "Native" "arrayFrom" [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
