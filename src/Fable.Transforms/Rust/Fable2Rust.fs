@@ -1080,8 +1080,8 @@ module Util =
         com.TransformAsExpr(ctx, e)
 
     let (|Function|_|) = function
-        | Fable.Lambda(arg, body, name) -> Some([arg], body, name)
-        | Fable.Delegate(args, body, details) -> Some(args, body, details.Name)
+        | Fable.Lambda(arg, body, info) -> Some([arg], body, info)
+        | Fable.Delegate(args, body, info) -> Some(args, body, info)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -1470,7 +1470,7 @@ module Util =
             expr // no cast needed if types are the same
         | Fable.Number _, Fable.Number _ ->
             expr |> mkCastExpr ty
-        | Fable.Char, Fable.Number(UInt32, Fable.NumberDetails.None) ->
+        | Fable.Char, Fable.Number(UInt32, Fable.NumberInfo.Empty) ->
             expr |> mkCastExpr ty
 
         // casts to IEnumerable
@@ -2235,7 +2235,7 @@ module Util =
             let expr = transformExprMaybeIdentExpr com ctx fableExpr
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, Fable.NumberDetails.None) ->
+            | Fable.Array t, Fable.Number(Int32, Fable.NumberInfo.Empty) ->
                 // // when indexing an array, cast index to usize
                 // let expr = expr |> mutableGetMut
                 // let prop = prop |> mkCastExpr (primitiveType "usize")
@@ -2355,7 +2355,7 @@ module Util =
         | Fable.ExprSet idx ->
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, Fable.NumberDetails.None) ->
+            | Fable.Array t, Fable.Number(Int32, Fable.NumberInfo.Empty) ->
                 // when indexing an array, cast index to usize
                 let expr = expr |> mutableGetMut
                 let prop = prop |> mkCastExpr (primitiveType "usize")
@@ -2711,7 +2711,7 @@ module Util =
             cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                 let patOpt =
                     match caseExpr with
-                    | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, Fable.NumberDetails.None), r) ->
+                    | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, Fable.NumberInfo.Empty), r) ->
                         makeUnionCasePat evalType evalName tag
                     | _ -> None
                 let pat =
@@ -2824,11 +2824,11 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
             | Fable.Test(expr, Fable.OptionTest isSome, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
                 let right = makeIntConst (if isSome then 0 else 1)
                 Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
                 let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
@@ -3007,11 +3007,11 @@ module Util =
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range kind expr
 
-        | Fable.Lambda(arg, body, name) ->
-            transformLambda com ctx name [arg] body
+        | Fable.Lambda(arg, body, info) ->
+            transformLambda com ctx info.Name [arg] body
 
-        | Fable.Delegate(args, body, details) ->
-            transformLambda com ctx details.Name args body
+        | Fable.Delegate(args, body, info) ->
+            transformLambda com ctx info.Name args body
 
         | Fable.ObjectExpr (members, _, baseCall) ->
             transformObjectExpr com ctx members baseCall

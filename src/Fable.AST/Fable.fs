@@ -115,8 +115,8 @@ type Entity =
     abstract IsEnum: bool
 
 [<RequireQualifiedAccess>]
-type NumberDetails =
-    | None
+type NumberInfo =
+    | Empty
     | IsMeasure of fullname: string
     | IsEnum of ent: EntityRef
 
@@ -129,7 +129,7 @@ type Type =
     | Char
     | String
     | Regex
-    | Number of kind: NumberKind * details: NumberDetails
+    | Number of kind: NumberKind * info: NumberInfo
     | Option of genericArg: Type * isStruct: bool
     | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type
@@ -236,7 +236,7 @@ type TypeInfoDetails =
         AllowGenerics: bool
     }
 
-type DelegateDetails =
+type FuncInfo =
     {
         Name: string option
         /// In JS indicates the function cannot be compiled as arrow function
@@ -244,6 +244,8 @@ type DelegateDetails =
     }
     static member Create(?name: string) =
         { Name = name; NotCompilableAsArrow = false }
+    static member Empty =
+        FuncInfo.Create()
 
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
@@ -257,7 +259,7 @@ type ValueKind =
     | BoolConstant of value: bool
     | CharConstant of value: char
     | StringConstant of value: string
-    | NumberConstant of value: obj * kind: NumberKind * details: NumberDetails
+    | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of values: Expr list * typ: Type
@@ -277,7 +279,7 @@ type ValueKind =
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
         | StringConstant _ -> String
-        | NumberConstant (_, kind, details) -> Number(kind, details)
+        | NumberConstant (_, kind, info) -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption (_, t, isStruct) -> Option(t, isStruct)
         | NewArray (_, t) -> Array t
@@ -416,9 +418,9 @@ type Expr =
 
     // Closures
     /// Lambdas are curried, they always have a single argument (which can be unit)
-    | Lambda of arg: Ident * body: Expr * name: string option
+    | Lambda of arg: Ident * body: Expr * info: FuncInfo
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * details: DelegateDetails
+    | Delegate of args: Ident list * body: Expr * info: FuncInfo
     | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests

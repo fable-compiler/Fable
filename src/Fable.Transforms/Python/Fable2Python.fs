@@ -241,9 +241,9 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool", []
         | Fable.Char -> primitiveTypeInfo "char", []
         | Fable.String -> primitiveTypeInfo "string", []
-        | Fable.Number(kind, details) ->
-            match details with
-            | Fable.NumberDetails.IsEnum entRef ->
+        | Fable.Number(kind, info) ->
+            match info with
+            | Fable.NumberInfo.IsEnum entRef ->
                 let ent = com.GetEntity(entRef)
                 let cases =
                     ent.FSharpFields
@@ -908,9 +908,9 @@ module Annotation =
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char -> Expression.name "str", []
         | Fable.String -> Expression.name "str", []
-        | Fable.Number (kind, details) ->
-            match kind, details with
-            | _, Fable.NumberDetails.IsEnum entRef ->
+        | Fable.Number (kind, info) ->
+            match kind, info with
+            | _, Fable.NumberInfo.IsEnum entRef ->
                 let ent = com.GetEntity(entRef)
                 let cases =
                     ent.FSharpFields
@@ -2658,7 +2658,7 @@ module Util =
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
                 | _ -> None
             | Fable.Test (expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberDetails.None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
 
                 let right = makeIntConst tag
                 Some(evalExpr, right)
@@ -2785,10 +2785,10 @@ module Util =
         match transformDecisionTreeAsSwitch treeExpr with
         | Some (evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
             let cases =
-                groupSwitchCases (Fable.Number(Int32, Fable.NumberDetails.None)) cases (defaultIndex, defaultBoundValues)
+                groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
 
             let defaultCase =
-                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberDetails.None))
+                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
 
             let switch1 =
                 transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
@@ -2928,12 +2928,13 @@ module Util =
 
         | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
 
-        | Fable.Lambda (arg, body, name) ->
+        | Fable.Lambda (arg, body, info) ->
+            let name  = info.Name
             transformFunctionWithAnnotations com ctx name [ arg ] body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.Delegate (args, body, details) ->
-            let name = details.Name
+        | Fable.Delegate (args, body, info) ->
+            let name = info.Name
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
@@ -3106,7 +3107,8 @@ module Util =
             @ (expr
                |> resolveExpr ctx Fable.Boolean returnStrategy)
 
-        | Fable.Lambda (arg, body, name) ->
+        | Fable.Lambda (arg, body, info) ->
+            let name = info.Name
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name [ arg ] body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3114,8 +3116,8 @@ module Util =
             stmts
             @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
-        | Fable.Delegate (args, body, details) ->
-            let name = details.Name
+        | Fable.Delegate (args, body, info) ->
+            let name = info.Name
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name args body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3420,7 +3422,7 @@ module Util =
         |> makeTypeParamDecl com ctx
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberDetails.None)) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 

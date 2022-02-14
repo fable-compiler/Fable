@@ -268,7 +268,7 @@ let rec namesof com ctx acc e =
     | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop::acc) e
     | acc, Get(e, FieldGet(fieldName, _), _, _) -> namesof com ctx (fieldName::acc) e
     | [], IdentExpr ident -> ident.DisplayName::acc |> Some
-    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
+    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), c) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
         then ident.DisplayName::acc |> Some

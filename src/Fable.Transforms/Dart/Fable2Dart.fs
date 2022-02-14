@@ -399,8 +399,8 @@ module Util =
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
 
-        | Fable.Lambda(arg, body, name) ->
-            transformFunction com ctx name [arg] body
+        | Fable.Lambda(arg, body, info) ->
+            transformFunction com ctx info.Name [arg] body
             |> makeAnonymousFunction
 
         // | Fable.Let(ident, value, body) ->
@@ -435,8 +435,8 @@ module Util =
         | Fable.Get(expr, kind, t, range) ->
             [transformGet com ctx range t expr kind |> resolveExpr returnStrategy]
 
-        | Fable.Lambda(arg, body, name) ->
-            transformFunction com ctx name [arg] body
+        | Fable.Lambda(arg, body, info) ->
+            transformFunction com ctx info.Name [arg] body
             |> makeAnonymousFunction
             |> resolveExpr returnStrategy
             |> List.singleton

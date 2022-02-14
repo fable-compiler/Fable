@@ -363,8 +363,8 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 1 ->
             let inline numberConst kind value =
-                Fable.Number (kind, Fable.NumberDetails.None),
-                Fable.Value (Fable.NumberConstant(value, kind, Fable.NumberDetails.None), r)
+                Fable.Number (kind, Fable.NumberInfo.Empty),
+                Fable.Value (Fable.NumberConstant(value, kind, Fable.NumberInfo.Empty), r)
             let value =
                 match FsUnionCase.CompiledValue unionCase with
                 | None -> transformStringEnum rule unionCase
@@ -691,7 +691,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         let w = {
                             Witness.TraitName = traitName
                             IsInstance = isInstance
-                            Expr = Fable.Delegate(args, body, Fable.DelegateDetails.Create())
+                            Expr = Fable.Delegate(args, body, Fable.FuncInfo.Empty)
                         }
                         return { ctx with Witnesses = w::ctx.Witnesses }
                     })
@@ -784,7 +784,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match args with
         | [arg] ->
             let! body = transformExpr com ctx body
-            return Fable.Lambda(arg, body, None)
+            return Fable.Lambda(arg, body, Fable.FuncInfo.Empty)
         | _ -> return failwith "makeFunctionArgs returns args with different length"
 
     // Getters and Setters
@@ -1238,7 +1238,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
         if memb.CompiledName = ".cctor" then
             [Fable.ActionDeclaration
                 { Body =
-                    Fable.Delegate(args, body, Fable.DelegateDetails.Create(name=name))
+                    Fable.Delegate(args, body, Fable.FuncInfo.Create(name=name))
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
