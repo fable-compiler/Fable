@@ -35,8 +35,7 @@ pub mod String_ {
     }
 
     pub fn ofChar(c: &char) -> string {
-        let mut buf = [0; 4];
-        let s = c.encode_utf8(&mut buf);
+        let s = [*c].iter().collect::<String>();
         string(&s)
     }
 
@@ -51,8 +50,7 @@ pub mod String_ {
     }
 
     pub fn fromChar(c: &char, count: &i32) -> string {
-        let mut buf = [0; 4];
-        let s = c.encode_utf8(&mut buf);
+        let s = [*c].iter().collect::<String>();
         string(&s.repeat(*count as usize))
     }
 
@@ -60,7 +58,7 @@ pub mod String_ {
         string(&a.iter().collect::<String>())
     }
 
-    pub fn fromCharsAt(a: &Array<char>, i: &i32, count: &i32) -> string {
+    pub fn fromChars2(a: &Array<char>, i: &i32, count: &i32) -> string {
         string(&a.iter().skip(*i as usize).take(*count as usize).collect::<String>())
     }
 
@@ -152,36 +150,117 @@ pub mod String_ {
         string(&s.replace(old.as_ref(), new.as_ref()))
     }
 
-    pub fn insert(s: &string, i: &i32, v: &string) -> string {
-        let left = s.chars().take(*i as usize).collect::<String>();
-        let right = s.chars().skip(*i as usize).collect::<String>();
-        string(&[left, v.to_string(), right].concat())
-    }
-
-    pub fn remove(s: &string, i: &i32) -> string {
-        let left = s.chars().take(*i as usize).collect::<String>();
-        string(&left)
-    }
-
-    pub fn removeAt(s: &string, i: &i32, count: &i32) -> string {
-        let left = s.chars().take(*i as usize).collect::<String>();
-        let right = s.chars().skip((i+count) as usize).collect::<String>();
-        string(&[left, right].concat())
-    }
-
     pub fn substring(s: &string, i: &i32) -> string {
+        if (*i < 0) { panic!("Argument out of range") }
         string(&s.chars().skip(*i as usize).collect::<String>())
     }
 
-    pub fn substringAt(s: &string, i: &i32, count: &i32) -> string {
+    pub fn substring2(s: &string, i: &i32, count: &i32) -> string {
+        if (*i < 0) || (*count < 0) { panic!("Argument out of range") }
         string(&s.chars().skip(*i as usize).take(*count as usize).collect::<String>())
+    }
+
+    pub fn insert(s: &string, i: &i32, v: &string) -> string {
+        let left = substring2(s, &0, i);
+        let right = substring(s, i);
+        string(&[left.as_ref(), v.as_ref(), right.as_ref()].concat())
+    }
+
+    pub fn remove(s: &string, i: &i32) -> string {
+        substring2(s, &0, i)
+    }
+
+    pub fn remove2(s: &string, i: &i32, count: &i32) -> string {
+        let left = substring2(s, &0, i);
+        let right = substring(s, &(i + count));
+        string(&[left.as_ref(), right.as_ref()].concat())
+    }
+
+
+    fn toIndex(offset: &i32, opt: Option<(&str, &str)>) -> i32 {
+        match opt {
+            Some((s, _)) => offset + s.chars().count() as i32,
+            None => -1,
+        }
+    }
+
+    pub fn indexOf(s: &string, p: &string) -> i32 {
+        toIndex(&0, s.split_once(p.as_ref()))
+    }
+
+    pub fn indexOf2(s: &string, p: &string, i: &i32) -> i32 {
+        toIndex(&i, substring(s, i).split_once(p.as_ref()))
+    }
+
+    pub fn indexOf3(s: &string, p: &string, i: &i32, count: &i32) -> i32 {
+        toIndex(&i, substring2(s, i, count).split_once(p.as_ref()))
+    }
+
+    pub fn indexOfChar(s: &string, c: &char) -> i32 {
+        toIndex(&0, s.split_once(*c))
+    }
+
+    pub fn indexOfChar2(s: &string, c: &char, i: &i32) -> i32 {
+        toIndex(i, substring(s, i).split_once(*c))
+    }
+
+    pub fn indexOfChar3(s: &string, c: &char, i: &i32, count: &i32) -> i32 {
+        toIndex(i, substring2(s, i, count).split_once(*c))
+    }
+
+    pub fn indexOfAny(s: &string, a: &Array<char>) -> i32 {
+        toIndex(&0, s.split_once(a.as_slice()))
+    }
+
+    pub fn indexOfAny2(s: &string, a: &Array<char>, i: &i32) -> i32 {
+        toIndex(i, substring(s, i).split_once(a.as_slice()))
+    }
+
+    pub fn indexOfAny3(s: &string, a: &Array<char>, i: &i32, count: &i32) -> i32 {
+        toIndex(i, substring2(s, i, count).split_once(a.as_slice()))
+    }
+
+    pub fn lastIndexOf(s: &string, p: &string) -> i32 {
+        toIndex(&0, s.rsplit_once(p.as_ref()))
+    }
+
+    pub fn lastIndexOf2(s: &string, p: &string, i: &i32) -> i32 {
+        toIndex(&0, substring2(s, &0, &(*i + 1)).rsplit_once(p.as_ref()))
+    }
+
+    pub fn lastIndexOf3(s: &string, p: &string, i: &i32, count: &i32) -> i32 {
+        toIndex(&(i - count), substring2(s, &(i-count+1), count).rsplit_once(p.as_ref()))
+    }
+
+    pub fn lastIndexOfChar(s: &string, c: &char) -> i32 {
+        toIndex(&0, s.rsplit_once(*c))
+    }
+
+    pub fn lastIndexOfChar2(s: &string, c: &char, i: &i32) -> i32 {
+        toIndex(&0, substring2(s, &0, &(*i + 1)).rsplit_once(*c))
+    }
+
+    pub fn lastIndexOfChar3(s: &string, c: &char, i: &i32, count: &i32) -> i32 {
+        toIndex(&(i - count), substring2(s, &(i-count+1), count).rsplit_once(*c))
+    }
+
+    pub fn lastIndexOfAny(s: &string, a: &Array<char>) -> i32 {
+        toIndex(&0, s.rsplit_once(a.as_slice()))
+    }
+
+    pub fn lastIndexOfAny2(s: &string, a: &Array<char>, i: &i32) -> i32 {
+        toIndex(&0, substring2(s, &0, &(*i + 1)).rsplit_once(a.as_slice()))
+    }
+
+    pub fn lastIndexOfAny3(s: &string, a: &Array<char>, i: &i32, count: &i32) -> i32 {
+        toIndex(&(i - count), substring2(s, &(i-count+1), count).rsplit_once(a.as_slice()))
     }
 
     pub fn padLeft(s: &string, count: &i32, c: &char) -> string {
         let n = s.chars().count();
         if *count as usize > n {
             let p = [*c].iter().collect::<String>();
-            let pad =  p.repeat(*count as usize - n);
+            let pad = p.repeat(*count as usize - n);
             string(&[&pad, s.as_ref()].concat())
         } else {
             s.clone()
@@ -199,11 +278,62 @@ pub mod String_ {
         }
     }
 
+    fn withSplitOptions(a: Vec<&str>, count: &i32, options: &i32) -> Array<string> {
+        let mut a: Vec<&str> = a;
+        if (*options & 1 != 0) {
+            a = a.into_iter().filter(|s| !s.is_empty()).collect();
+        }
+        if (*options & 2 != 0) {
+            a = a.into_iter().map(|s| s.trim()).collect();
+        }
+        if (*count >= 0) {
+            a = a.into_iter().take(*count as usize).collect()
+        }
+        let a = a.into_iter().map(|s| string(s)).collect();
+        array(a)
+    }
+
+    pub fn split(s: &string, p: &string, count: &i32, options: &i32) -> Array<string> {
+        let a: Vec<&str> =
+            if (*count >= 0) && (*options & 1 == 0) {
+                if p.is_empty() {
+                    s.splitn(*count as usize, char::is_whitespace).collect()
+                } else {
+                    s.splitn(*count as usize, p.as_ref()).collect()
+                }
+            } else {
+                if p.is_empty() {
+                    s.split(char::is_whitespace).collect()
+                } else {
+                    s.split(p.as_ref()).collect()
+                }
+            };
+        withSplitOptions(a, count, options)
+    }
+
+    pub fn splitChars(s: &string, p: &Array<char>, count: &i32, options: &i32) -> Array<string> {
+        let a: Vec<&str> =
+            if (*count >= 0) && (*options & 1 == 0) {
+                if p.is_empty() {
+                    s.splitn(*count as usize, char::is_whitespace).collect()
+                } else {
+                    s.splitn(*count as usize, p.as_slice()).collect()
+                }
+            } else {
+                if p.is_empty() {
+                    s.split(char::is_whitespace).collect()
+                } else {
+                    s.split(p.as_slice()).collect()
+                }
+            };
+        withSplitOptions(a, count, options)
+    }
+
     pub fn toCharArray(s: &string) -> Array<char> {
         array(s.chars().collect())
     }
 
-    pub fn toCharArrayAt(s: &string, i: &i32, count: &i32) -> Array<char> {
+    pub fn toCharArray2(s: &string, i: &i32, count: &i32) -> Array<char> {
         array(s.chars().skip(*i as usize).take(*count as usize).collect())
     }
 

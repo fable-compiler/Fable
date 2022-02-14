@@ -606,50 +606,82 @@ let ``String.ctor(char[], int, int) works`` () =
 
 // System.String - static methods
 
+[<Fact>]
+let ``System.String.Equals works`` () =
+    System.String.Equals("abc", "abc") |> equal true
+    System.String.Equals("ABC", "abc") |> equal false
+    System.String.Equals("abc", "abd") |> equal false
+    "abc".Equals("abc") |> equal true
+    "ABC".Equals("abc") |> equal false
+    "abc".Equals("abd") |> equal false
+
 // [<Fact>]
-// let ``System.String.Equals works`` () =
-//     System.String.Equals("abc", "abc") |> equal true
-//     System.String.Equals("ABC", "abc") |> equal false
-//     System.String.Equals("abc", "abd") |> equal false
-//     "abc".Equals("abc") |> equal true
-//     "ABC".Equals("abc") |> equal false
-//     "abc".Equals("abd") |> equal false
-//     System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
-//     System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
-//     "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
-//     "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
+// let ``System.String.Equals with comparison works`` () =
+//     System.String.Equals("ABC", "abc", System.StringComparison.Ordinal) |> equal false
+//     System.String.Equals("ABC", "abc", System.StringComparison.OrdinalIgnoreCase) |> equal true
+//     "ABC".Equals("abc", System.StringComparison.Ordinal) |> equal false
+//     "ABC".Equals("abc", System.StringComparison.OrdinalIgnoreCase) |> equal true
+
+[<Fact>]
+let ``String.CompareOrdinal works`` () =
+    System.String.CompareOrdinal("abc", "abc") = 0 |> equal true
+    System.String.CompareOrdinal("ABC", "abc") < 0 |> equal true
+    System.String.CompareOrdinal("abc", "abd") < 0 |> equal true
+    System.String.CompareOrdinal("bbc", "abd") > 0 |> equal true
+
+// [<Fact>]
+// let ``String.CompareOrdinal substring works`` () =
+//     System.String.CompareOrdinal("abc", 0, "bcd", 0, 3) < 0 |> equal true
+//     System.String.CompareOrdinal("abc", 1, "bcd", 0, 2) = 0 |> equal true
+
+// [<Fact>]
+// let ``String.CompareTo works`` () =
+//     "abc".CompareTo("abc") = 0 |> equal true
+//     "ABC".CompareTo("abc") > 0 |> equal true
+//     "abc".CompareTo("abd") < 0 |> equal true
 
 // [<Fact>]
 // let ``String.Compare works`` () =
-//     "ABC".CompareTo("abc") > 0 |> equal true
 //     System.String.Compare("abc", "abc") |> equal 0
 //     System.String.Compare("ABC", "abc") |> equal 1
 //     System.String.Compare("abc", "abd") |> equal -1
 //     System.String.Compare("bbc", "abd") |> equal 1
+
+// [<Fact>]
+// let ``String.Compare case-insensitive works`` () =
 //     System.String.Compare("ABC", "abc", false) |> equal 1
 //     System.String.Compare("ABC", "abc", true) |> equal 0
 //     System.String.Compare("ABC", "abd", true) |> equal -1
 //     System.String.Compare("BBC", "abd", true) |> equal 1
-//     System.String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
-//     System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
-//     System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
+
+// [<Fact>]
+// let ``String.Compare substring works`` () =
 //     System.String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
 //     System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
+
+// [<Fact>]
+// let ``String.Compare with comparison works`` () =
+//     System.String.Compare("ABC", "abc", System.StringComparison.CurrentCulture) > 0 |> equal true
+//     System.String.Compare("ABC", "abc", System.StringComparison.Ordinal) < 0 |> equal true
+//     System.String.Compare("ABC", "abc", System.StringComparison.OrdinalIgnoreCase) |> equal 0
+
+// [<Fact>]
+// let ``String.Compare substring with comparison works`` () =
+//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.CurrentCulture) > 0 |> equal true
+//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.Ordinal) < 0 |> equal true
+//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.OrdinalIgnoreCase) |> equal 0
 
 [<Fact>]
 let ``String.IsNullOrEmpty works`` () =
     System.String.IsNullOrEmpty("") |> equal true
-    // System.String.IsNullOrEmpty(null) |> equal true //TODO:
+    System.String.IsNullOrEmpty(null) |> equal true
     System.String.IsNullOrEmpty("test") |> equal false
     System.String.IsNullOrEmpty(" \t") |> equal false
 
 [<Fact>]
 let ``String.IsNullOrWhiteSpace works`` () =
     System.String.IsNullOrWhiteSpace("") |> equal true
-    // System.String.IsNullOrWhiteSpace(null) |> equal true //TODO:
+    System.String.IsNullOrWhiteSpace(null) |> equal true
     System.String.IsNullOrWhiteSpace("test") |> equal false
     System.String.IsNullOrWhiteSpace(" \t") |> equal true
 
@@ -680,91 +712,121 @@ let ``String.PadRight with char works`` () =
     "-22".PadRight(10, 'x') |> equal "-22xxxxxxx"
     "-22".PadRight(1, 'x') |> equal "-22"
 
-// [<Fact>]
-// let ``String.Split works`` () =
-//     "a b c  d".Split(' ')
-//     |> equal [|"a";"b";"c";"";"d"|]
-//     "a b c  d ".Split()
-//     |> equal [|"a";"b";"c";"";"d";""|]
-//     "a-b-c".Split()
-//     |> equal [|"a-b-c"|]
-//     "a-b-c".Split("")
-//     |> equal [|"a-b-c"|]
-//     "a\tb".Split()
-//     |> equal [|"a";"b"|]
-//     "a\nb".Split()
-//     |> equal [|"a";"b"|]
-//     "a\rb".Split()
-//     |> equal [|"a";"b"|]
-//     "a\u2003b".Split() // em space
-//     |> equal [|"a";"b"|]
-//     "a b c  d".Split(null)
-//     |> equal [|"a";"b";"c";"";"d"|]
-//     "a\tb".Split(null)
-//     |> equal [|"a";"b"|]
-//     "a\u2003b".Split(null) // em space
-//     |> equal [|"a";"b"|]
-//     let array = "a;b,c".Split(',', ';')
-//     "abc" = array.[0] + array.[1] + array.[2]
-//     |> equal true
-//     "a--b-c".Split([|"--"|], StringSplitOptions.None)
-//     |> equal [|"a";"b-c"|]
-//     " a-- b- c ".Split('-', 2, StringSplitOptions.None)
-//     |> equal [|" a"; "- b- c "|]
-//     "---o---o---".Split("--", StringSplitOptions.None)
-//     |> equal [|""; "-o"; "-o"; "-"|];
+[<Fact>]
+let ``String.Split with whitespace works`` () =
+    "a b cd".Split() |> equal [|"a";"b";"cd"|]
+    "a b c  d ".Split() |> equal [|"a";"b";"c";"";"d";""|]
+    "a-b-c".Split() |> equal [|"a-b-c"|]
+    "a-b-c".Split("") |> equal [|"a-b-c"|]
+    "a\tb".Split() |> equal [|"a";"b"|]
+    "a\nb".Split() |> equal [|"a";"b"|]
+    "a\rb".Split() |> equal [|"a";"b"|]
+    "a\u2003b".Split() |> equal [|"a";"b"|] // em space
+
+[<Fact>]
+let ``String.Split with null works`` () =
+    "a b c  d".Split(null) |> equal [|"a";"b";"c";"";"d"|]
+    "a\tb".Split(null) |> equal [|"a";"b"|]
+    "a\u2003b".Split(null) |> equal [|"a";"b"|] // em space
+
+[<Fact>]
+let ``String.Split with single separator works`` () =
+    "a b c  d".Split(' ') |> equal [|"a";"b";"c";"";"d"|]
+    "---o---o---".Split("--", System.StringSplitOptions.None)
+    |> equal [|""; "-o"; "-o"; "-"|];
+    "a--b-c".Split([|"--"|], System.StringSplitOptions.None)
+    |> equal [|"a";"b-c"|]
+
+[<Fact>]
+let ``String.Split with multiple char args works`` () =
+    "a;b,c".Split(',', ';') |> equal [|"a"; "b"; "c"|]
 
 // [<Fact>]
-// let ``String.Split with remove empties works`` () =
-//     "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
-//     |> (=) [|"a";"b";"c";"d"|] |> equal true
-//     " a-- b- c ".Split("-", 2, StringSplitOptions.RemoveEmptyEntries)
-//     |> (=) [|" a"; " b- c "|] |> equal true
-//     "---o---o---".Split("--", StringSplitOptions.RemoveEmptyEntries)
-//     |> (=) [|"-o"; "-o"; "-"|] |> equal true
-//     let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
-//     "abc" = array.[0] + array.[1] + array.[2]
-//     |> equal true
+// let ``String.Split with string array works`` () =
+//     "a;b,c".Split([|","; ";"|], System.StringSplitOptions.None)
+//     |> equal [|"a"; "b"; "c"|]
+
+[<Fact>]
+let ``String.Split with RemoveEmptyEntries works`` () =
+    "a b c  d ".Split([|" "|], System.StringSplitOptions.RemoveEmptyEntries)
+    |> equal [|"a"; "b"; "c"; "d"|]
+    " a-- b- c ".Split('-', System.StringSplitOptions.RemoveEmptyEntries)
+    |> equal [|" a"; " b"; " c "|]
+    "---o---o---".Split("--", System.StringSplitOptions.RemoveEmptyEntries)
+    |> equal [|"-o"; "-o"; "-"|]
+    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.RemoveEmptyEntries)
+    |> equal [|"a"; "b"; "c"|]
+
+[<Fact>]
+let ``String.Split with TrimEntries works`` () =
+    "a b c  d ".Split([|" "|], System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; "b"; "c"; ""; "d"; ""|]
+    " a-- b- c ".Split('-', System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; ""; "b"; "c"|]
+    "---o---o---".Split("--", System.StringSplitOptions.TrimEntries)
+    |> equal [|""; "-o"; "-o"; "-"|]
+    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.TrimEntries)
+    |> equal [|""; ""; "a"; "b"; "c"|]
+
+[<Fact>]
+let ``String.Split with RemoveEmptyEntries and TrimEntries works`` () =
+    "a b c  d ".Split([|" "|], System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; "b"; "c"; "d"|]
+    " a-- b- c ".Split('-', System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; "b"; "c"|]
+    "---o---o---".Split("--", System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    |> equal [|"-o"; "-o"; "-"|]
+    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; "b"; "c"|]
+
+[<Fact>]
+let ``String.Split with count works`` () =
+    "a b  c d".Split ([|' '|], 2)
+    |> equal [|"a";"b  c d"|]
+    " a-- b- c ".Split('-', 2, System.StringSplitOptions.None)
+    |> equal [|" a"; "- b- c "|]
+    "a-b-c".Split("-", 1)
+    |> equal [|"a-b-c"|]
+    "a-b-c".Split("", System.Int32.MaxValue)
+    |> equal [|"a-b-c"|]
+
+[<Fact>]
+let ``String.Split with count and consecutive separators works`` () =
+    "-----".Split("-", 4, System.StringSplitOptions.None)
+    |> equal [|"";"";"";"--"|]
+    "     ".Split(" ", 4, System.StringSplitOptions.TrimEntries)
+    |> equal [|"";"";"";""|]
+    "-----".Split("-", 4, System.StringSplitOptions.RemoveEmptyEntries)
+    |> equal [||]
+    "     ".Split(" ", 4, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    |> equal [||]
+
+[<Fact>]
+let ``String.Split with count and TrimEntries works`` () =
+    " a-- b- c ".Split("-", 2, System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; "- b- c"|]
+    " a-- b- c ".Split('-', 3, System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; ""; "b- c"|]
+    "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.TrimEntries)
+    |> equal [|"a"; ""; "b,c;d"|]
 
 // [<Fact>]
-// let ``String.Split with count works`` () =
-//     let array = "a b  c d".Split ([|' '|], 2)
-//     equal "a" array.[0]
-//     equal "b  c d" array.[1]
-//     "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
-//     |> (=) [|"a";"b";"c;d"|] |> equal true
-//     "a-b-c".Split("", System.Int32.MaxValue)
-//     |> (=) [|"a-b-c"|] |> equal true
+// let ``String.Split with count and RemoveEmptyEntries works`` () =
+//     " a-- b- c ".Split("-", 2, System.StringSplitOptions.RemoveEmptyEntries)
+//     |> equal [|" a"; " b- c "|]
+//     " a-- b- c ".Split('-', 3, System.StringSplitOptions.TrimEntries)
+//     |> equal [|"a"; ""; "b- c"|]
+//     "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.RemoveEmptyEntries)
+//     |> equal [|"a";"b";"c;d"|]
 
 // [<Fact>]
-// let ``String.Split with empty works`` () =
-//     let array = "a b cd".Split()
-//     array |> equal [| "a"; "b"; "cd" |]
-
-// [<Fact>]
-// let ``String.Split with trim entries works`` () =
-//     " a-- b- c ".Split('-', 2, StringSplitOptions.TrimEntries)
-//     |> (=) [|"a"; "- b- c"|] |> equal true
-//     " a-- b- c ".Split('-', 3, StringSplitOptions.TrimEntries)
-//     |> (=) [|"a"; ""; "b- c"|] |> equal true
-
-// [<Fact>]
-// let ``String.Split with trim and remove entries works`` () =
-//     " a-- b- c ".Split([| "-" |], 2, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+// let ``String.Split with count, RemoveEmptyEntries and TrimEntries works`` () =
+//     " a-- b- c ".Split([| "-" |], 2, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
 //     |> equal [|"a"; "b- c"|]
-//     " a-- b- c ".Split([| '-' |], 3, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+//     " a-- b- c ".Split([| '-' |], 3, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
 //     |> equal  [|"a"; "b"; "c"|]
-
-// [<Fact>]
-// let ``String.Split with consecutive separators works`` () =
-//     "     ".Split(" ", 4,  StringSplitOptions.None)
-//     |> equal [|"";"";"";"    "|]
-//     "     ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries)
-//     |> equal [||]
-//     "     ".Split(" ", 4,  StringSplitOptions.TrimEntries)
-//     |> equal [|"";"";"";""|]
-//     "     ".Split(" ", 4,  StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
-//     |> equal [||]
+//     "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+//     |> equal [|"a";"b";"c;d"|]
 
 [<Fact>]
 let ``String.Replace works`` () =
@@ -778,54 +840,63 @@ let ``Access char by index works`` () =
     equal 'c' c
     equal 'd' (char ((int c) + 1))
 
-// [<Fact>]
-// let ``String.IndexOf char works`` () =
-//     "abcd".IndexOf('b') * 100 + "abcd".IndexOf('e')
-//     |> equal 99
+[<Fact>]
+let ``String.IndexOf char works`` () =
+    "abcd".IndexOf('b') * 100 + "abcd".IndexOf('e')
+    |> equal 99
 
-// [<Fact>]
-// let ``String.IndexOf char works with offset`` () =
-//     "abcdbc".IndexOf('b', 3)
-//     |> equal 4
+[<Fact>]
+let ``String.IndexOf char works with offset`` () =
+    "abcdbc".IndexOf('b', 3)
+    |> equal 4
 
-// [<Fact>]
-// let ``String.LastIndexOf char works`` () =
-//     "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
-//     |> equal 399
+[<Fact>]
+let ``String.LastIndexOf char works`` () =
+    "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
+    |> equal 399
 
-// [<Fact>]
-// let ``String.LastIndexOf char works with offset`` () =
-//     "abcdbcebc".LastIndexOf('b', 3)
-//     |> equal 1
+[<Fact>]
+let ``String.LastIndexOf char works with offset`` () =
+    "abcdbcebc".LastIndexOf('b', 3)
+    |> equal 1
 
-// [<Fact>]
-// let ``String.IndexOf works`` () =
-//     "abcd".IndexOf("bc") * 100 + "abcd".IndexOf("bd")
-//     |> equal 99
+[<Fact>]
+let ``String.IndexOf works`` () =
+    "abcd".IndexOf("bc") * 100 + "abcd".IndexOf("bd")
+    |> equal 99
 
-// [<Fact>]
-// let ``String.IndexOf works with offset`` () =
-//     "abcdbc".IndexOf("bc", 3)
-//     |> equal 4
+[<Fact>]
+let ``String.IndexOf works with offset`` () =
+    "abcdbc".IndexOf("bc", 3)
+    |> equal 4
 
-// [<Fact>]
-// let ``String.LastIndexOf works`` () =
-//     "abcdbc".LastIndexOf("bc") * 100 + "abcd".LastIndexOf("bd")
-//     |> equal 399
+[<Fact>]
+let ``String.LastIndexOf works`` () =
+    "abcdbc".LastIndexOf("bc") * 100 + "abcd".LastIndexOf("bd")
+    |> equal 399
 
-// [<Fact>]
-// let ``String.LastIndexOf works with offset`` () =
-//     "abcdbcebc".LastIndexOf("bc", 3)
-//     |> equal 1
+[<Fact>]
+let ``String.LastIndexOf works with offset`` () =
+    "abcdbcebc".LastIndexOf("bc", 3)
+    |> equal 1
 
-// [<Fact>]
-// let ``String.IndexOfAny works`` () =
-//     "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
-//     "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
-//     "abcdbcebc".IndexOfAny([|'b'|], 2, 2) |> equal -1
-//     "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
-//     "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
-//     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+[<Fact>]
+let ``String.IndexOfAny works`` () =
+    "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
+    "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
+    "abcdbcebc".IndexOfAny([|'b'|], 2, 2) |> equal -1
+    "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
+    "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
+    "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+
+[<Fact>]
+let ``String.LastIndexOfAny works`` () =
+    "abcdbcebc".LastIndexOfAny([|'b'|]) |> equal 7
+    "abcdbcebc".LastIndexOfAny([|'b'|], 6) |> equal 4
+    "abcdbcebc".LastIndexOfAny([|'b'|], 6, 2) |> equal -1
+    "abcdbcebc".LastIndexOfAny([|'f';'e'|]) |> equal 6
+    "abcdbcebc".LastIndexOfAny([|'f';'e'|], 6) |> equal 6
+    "abcdbcebc".LastIndexOfAny([|'f';'e'|], 7, 1) |> equal -1
 
 [<Fact>]
 let ``String.StartsWith works`` () =
@@ -842,7 +913,7 @@ let ``String.StartsWith char works`` () =
 // let ``String.StartsWith with StringComparison works`` () =
 //     let args = [("ab", true); ("cd", false); ("abcdx", false)]
 //     for arg in args do
-//         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+//         "ABCD".StartsWith(fst arg, System.StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
 [<Fact>]
@@ -860,7 +931,7 @@ let ``String.EndsWith char works`` () =
 // let ``String.EndsWith with StringComparison works`` () =
 //     let args = [("ab", false); ("cd", true); ("abcdx", false)]
 //     for arg in args do
-//         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+//         "ABCD".EndsWith(fst arg, System.StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
 [<Fact>]
