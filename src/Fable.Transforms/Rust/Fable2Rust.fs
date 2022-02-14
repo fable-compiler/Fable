@@ -657,7 +657,10 @@ module TypeInfo =
         let ty =
             match t with
             | Fable.Measure _
-            | Fable.Any -> mkUnitTy () //mkInferTy () // primitiveType "obj"
+            | Fable.Any ->
+                if ctx.Typegen.IsParamType
+                then mkInferTy ()
+                else mkUnitTy () // primitiveType "obj"
             | Fable.GenericParam(name, _) ->
                 mkGenericPathTy [name] None
                 // match Map.tryFind name genMap with
@@ -1087,6 +1090,10 @@ module Util =
     let (|Lets|_|) = function
         | Fable.Let(ident, value, body) -> Some([ident, value], body)
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
+        | _ -> None
+
+    let (|IFormattable|_|) = function
+        | Replacements.Util.IsEntity (Types.iformattable) _ -> Some()
         | _ -> None
 
     let (|IEquatable|_|) = function
@@ -3648,6 +3655,8 @@ module Util =
                 | _ -> []
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
+                | IFormattable ->
+                    [ makeGenBound ["core";"fmt";"Debug"] [] ]
                 | IEquatable _ ->
                     [ makeRawBound "Eq"
                     ; makeGenBound ["core";"hash";"Hash"] [] ]

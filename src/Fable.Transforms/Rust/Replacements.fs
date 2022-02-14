@@ -319,6 +319,14 @@ let toSeq com t (expr: Expr) =
         Helper.LibCall(com, "Seq", "ofArray", t, [a])
     | _ -> TypeCast(expr, t)
 
+let emitFormat (com: ICompiler) r t (args: Expr list) macro =
+    let args =
+        match args with
+        | (StringConst _)::restArgs -> args
+        | [] -> (makeStrConst "") :: args
+        | _ -> (makeStrConst "{0}") :: args
+    macro |> emitExpr r t args
+
 let getLength r t (expr: Expr) =
     let i = Helper.InstanceCall(expr, "len", Number(UNativeInt, NumberInfo.Empty), [], ?loc=r)
     TypeCast(i, t)
@@ -879,23 +887,25 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
-let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[]) (printHoleContent: int -> string) =
+let printTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[]) (printHoleContent: int -> string) =
     // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
     // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
-    let escape (str: string) =
-        str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
 
-    let sb = System.Text.StringBuilder("`")
+    // let escape (str: string) =
+    //     str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+
+    let sb = System.Text.StringBuilder()
+    // sb.Append("`")
     let mutable prevIndex = 0
 
     for i = 0 to holes.Length - 1 do
         let m = holes.[i]
-        let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
-        sb.Append(strPart + "${" + (printHoleContent i) + "}") |> ignore
+        let strPart = str.Substring(prevIndex, m.Index - prevIndex)
+        sb.Append(strPart + "{" + (printHoleContent i) + "}") |> ignore
         prevIndex <- m.Index + m.Length
 
-    sb.Append(str.Substring(prevIndex) |> escape) |> ignore
-    sb.Append("`") |> ignore
+    sb.Append(str.Substring(prevIndex)) |> ignore
+    // sb.Append("`") |> ignore
     sb.ToString()
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -955,8 +965,9 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
             // (though it does resolve double braces {{ }})
             let str = str.Replace("%%" , "%")
-            printJsTaggedTemplate str holes (fun i -> $"${i}")
-            |> emitExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
+            let fmt = printTaggedTemplate str holes (fun i -> $"{i}")
+            let args = makeStrConst fmt :: templateArgs
+            "format!" |> emitFormat com r String args |> Some
         // TODO: We could still use a JS template for formatting to increase performance?
         | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
@@ -1229,14 +1240,6 @@ let getEnumerator com r t (expr: Expr) =
         // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
         Helper.InstanceCall(expr, "GetEnumerator", t, [], ?loc=r)
 
-let emitFormat (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) macro =
-    let args =
-        match args with
-        | (StringConst _)::restArgs -> args
-        | [] -> (makeStrConst "") :: args
-        | _ -> (makeStrConst "{0}") :: args
-    macro |> emitExpr r t args
-
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
@@ -1439,7 +1442,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "Util", "compare", t, args, ?loc=r) |> Some
     // TODO: more compare overloads
     | "Format", None, _ ->
-        "format!" |> emitFormat com r t i thisArg args |> Some
+        "format!" |> emitFormat com r t args |> Some
     // | Patterns.SetContains implementedStringFunctions, thisArg, args ->
     //     Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes,
     //                     hasSpread=i.HasSpread, ?thisArg=thisArg, ?loc=r) |> Some
@@ -1478,10 +1481,10 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
                     |> Array.toList
                     |> makeArray String
                 "$0($1)", fnArg::fmtArg::args, 2
-        let jsTaggedTemplate =
+        let taggedTemplate =
             let holes = matches |> Array.map (fun m -> {| Index = m.Index; Length = m.Length |})
-            printJsTaggedTemplate str holes (fun i -> "$" + string(i + offset))
-        emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
+            printTaggedTemplate str holes (fun i -> "$" + string(i + offset))
+        emitExpr r t args (callMacro + taggedTemplate) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> getAttachedMemberWith r t (getAttachedMember x "args") "length" |> Some
     | "GetArgument", Some x, [idx] -> getExpr r t (getAttachedMember x "args") idx |> Some
@@ -2318,14 +2321,14 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_Out" -> typedObjExpr t [] |> Some // empty object
-    | "Write" -> "print!" |> emitFormat com r t i thisArg args |> Some
-    | "WriteLine" -> "println!" |> emitFormat com r t i thisArg args |> Some
+    | "Write" -> "print!" |> emitFormat com r t args |> Some
+    | "WriteLine" -> "println!" |> emitFormat com r t args |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Write" -> "print!" |> emitFormat com r t i thisArg args |> Some
-    | "WriteLine" -> "println!" |> emitFormat com r t i thisArg args |> Some
+    | "Write" -> "print!" |> emitFormat com r t args |> Some
+    | "WriteLine" -> "println!" |> emitFormat com r t args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
         let unit = Value(Null Unit, None)
