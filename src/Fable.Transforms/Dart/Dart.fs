@@ -1,6 +1,20 @@
 // Loosely based on https://pub.dev/documentation/analyzer/latest/dart_ast_ast/dart_ast_ast-library.html
 module rec Fable.AST.Dart
 
+type AssignmentOperator =
+    | AssignEqual
+    | AssignMinus
+    | AssignPlus
+    | AssignMultiply
+    | AssignDivide
+    | AssignModulus
+    | AssignShiftLeft
+    | AssignShiftRightSignPropagating
+    | AssignShiftRightZeroFill
+    | AssignOrBitwise
+    | AssignXorBitwise
+    | AssignAndBitwise
+
 type Type =
     // Built in
     | Integer

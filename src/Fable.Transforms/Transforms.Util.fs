@@ -268,21 +268,21 @@ module AST =
 
     /// Only matches lambda immediately nested within each other
     let rec nestedLambda checkArity expr =
-        let rec inner accArgs body name =
+        let rec inner accArgs body info =
             match body with
-            | Lambda(arg, body, None) ->
-                inner (arg::accArgs) body name
-            | _ -> List.rev accArgs, body, name
+            | Lambda(arg, body, { Name = None }) ->
+                inner (arg::accArgs) body info
+            | _ -> List.rev accArgs, body, info
         match expr with
-        | Lambda(arg, body, name) ->
-            let args, body, name = inner [arg] body name
+        | Lambda(arg, body, info) ->
+            let args, body, info = inner [arg] body info
             if checkArity then
                 match expr.Type with
                 | NestedLambdaType(argTypes, _)
-                    when List.sameLength args argTypes -> Some(args, body, name)
+                    when List.sameLength args argTypes -> Some(args, body, info)
                 | _ -> None
             else
-                Some(args, body, name)
+                Some(args, body, info)
         | _ -> None
 
     let (|NestedLambdaWithSameArity|_|) expr =
@@ -304,17 +304,19 @@ module AST =
         | _ -> None
 
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
-        let rec uncurryLambdaInner name accArgs remainingArity expr =
-            if remainingArity = Some 0
-            then Delegate(List.rev accArgs, expr, name) |> Some
+        let rec uncurryLambdaInner (name: string option) accArgs remainingArity expr =
+            if remainingArity = Some 0 then
+                let info = FuncInfo.Create(?name=name)
+                Delegate(List.rev accArgs, expr, info) |> Some
             else
                 match expr, remainingArity with
-                | Lambda(arg, body, name2), _ ->
+                | Lambda(arg, body, info), _ ->
                     let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
-                    uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
+                    uncurryLambdaInner (Option.orElse info.Name name) (arg::accArgs) remainingArity body
                 // If there's no arity expectation we can return the flattened part
                 | _, None when List.isEmpty accArgs |> not ->
-                    Delegate(List.rev accArgs, expr, name) |> Some
+                    let info = FuncInfo.Create(?name=name)
+                    Delegate(List.rev accArgs, expr, info) |> Some
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
         match expr with
@@ -351,9 +353,8 @@ module AST =
         | MaybeCasted(Value(BoolConstant v, _)) -> Some v
         | _ -> None
 
-    let (|NumberOrEnumConst|_|) = function
+    let (|NumberConst|_|) = function
         | MaybeCasted(Value(NumberConstant(value, kind, _), _)) -> Some(value, kind)
-        | MaybeCasted(Value(EnumConstant(Value(NumberConstant(value, kind, _), _),_),_)) -> Some(value, kind)
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
@@ -366,7 +367,6 @@ module AST =
             | ThisValue _ | BaseValue _ -> true
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
-            | EnumConstant(e, _) -> canHaveSideEffects e
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewOption(Some e,_,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
@@ -465,16 +465,16 @@ module AST =
         NewArray(arrExprs, elementType) |> makeValue None
 
     let makeDelegate args body =
-        Delegate(args, body, None)
+        Delegate(args, body, FuncInfo.Empty)
 
     let makeLambda (args: Ident list) (body: Expr) =
         (args, body) ||> List.foldBack (fun arg body ->
-            Lambda(arg, body, None))
+            Lambda(arg, body, FuncInfo.Empty))
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
-    let makeIntConst (x: int) = NumberConstant (x, Int32, None) |> makeValue None
-    let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
+    let makeIntConst (x: int) = NumberConstant (x, Int32, NumberInfo.Empty) |> makeValue None
+    let makeFloatConst (x: float) = NumberConstant (x, Float64, NumberInfo.Empty) |> makeValue None
 
     let makeTypeConst r (typ: Type) (value: obj) =
         match typ, value with
@@ -483,30 +483,22 @@ module AST =
         | String, (:? string as x) -> StringConstant x |> makeValue r
         | Char, (:? char as x) -> CharConstant x |> makeValue r
         // Integer types
-        | Number(Int8, uom), (:? int8 as x) -> NumberConstant(x, Int8, uom) |> makeValue r
-        | Number(UInt8, uom), (:? uint8 as x) -> NumberConstant(x, UInt8, uom) |> makeValue r
-        | Number(Int16, uom), (:? int16 as x) -> NumberConstant(x, Int16, uom) |> makeValue r
-        | Number(UInt16, uom), (:? uint16 as x) -> NumberConstant(x, UInt16, uom) |> makeValue r
-        | Number(Int32, uom), (:? int32 as x) -> NumberConstant(x, Int32, uom) |> makeValue r
-        | Number(UInt32, uom), (:? uint32 as x) -> NumberConstant(x, UInt32, uom) |> makeValue r
-        | Number(Int64, uom), (:? int64 as x) -> NumberConstant(x, Int64, uom) |> makeValue r
-        | Number(UInt64, uom), (:? uint64 as x) -> NumberConstant(x, UInt64, uom) |> makeValue r
+        | Number(Int8, info), (:? int8 as x) -> NumberConstant(x, Int8, info) |> makeValue r
+        | Number(UInt8, info), (:? uint8 as x) -> NumberConstant(x, UInt8, info) |> makeValue r
+        | Number(Int16, info), (:? int16 as x) -> NumberConstant(x, Int16, info) |> makeValue r
+        | Number(UInt16, info), (:? uint16 as x) -> NumberConstant(x, UInt16, info) |> makeValue r
+        | Number(Int32, info), (:? int32 as x) -> NumberConstant(x, Int32, info) |> makeValue r
+        | Number(UInt32, info), (:? uint32 as x) -> NumberConstant(x, UInt32, info) |> makeValue r
+        | Number(Int64, info), (:? int64 as x) -> NumberConstant(x, Int64, info) |> makeValue r
+        | Number(UInt64, info), (:? uint64 as x) -> NumberConstant(x, UInt64, info) |> makeValue r
         // Float types
-        | Number(Float32, uom), (:? float32 as x) -> NumberConstant(x, Float32, uom) |> makeValue r
-        | Number(Float64, uom), (:? float as x) -> NumberConstant(x, Float64, uom) |> makeValue r
-        | Number(Decimal, uom), (:? decimal as x) -> NumberConstant(x, Decimal, uom) |> makeValue r
+        | Number(Float32, info), (:? float32 as x) -> NumberConstant(x, Float32, info) |> makeValue r
+        | Number(Float64, info), (:? float as x) -> NumberConstant(x, Float64, info) |> makeValue r
+        | Number(Decimal, info), (:? decimal as x) -> NumberConstant(x, Decimal, info) |> makeValue r
         // Pointer types
-        | Number(NativeInt, uom), (:? nativeint as x) -> NumberConstant(x, Int64, uom) |> makeValue r
-        | Number(UNativeInt, uom), (:? unativeint as x) -> NumberConstant(x, UInt64, uom) |> makeValue r
-        // Enums
-        | Enum e, (:? int64 as x) -> EnumConstant(NumberConstant(x, Int64, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? uint64 as x) -> EnumConstant(NumberConstant(x, UInt64, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? byte as x) -> EnumConstant(NumberConstant(x, UInt8, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? sbyte as x) -> EnumConstant(NumberConstant(x, Int8, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? int16 as x) -> EnumConstant(NumberConstant(x, Int16, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? uint16 as x) -> EnumConstant(NumberConstant(x, UInt16, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? int as x) -> EnumConstant(NumberConstant(x, Int32, None) |> makeValue None, e) |> makeValue r
-        | Enum e, (:? uint32 as x) -> EnumConstant(NumberConstant(x, UInt32, None) |> makeValue None, e) |> makeValue r
+        | Number(NativeInt, info), (:? nativeint as x) -> NumberConstant(x, Int64, info) |> makeValue r
+        | Number(UNativeInt, info), (:? unativeint as x) -> NumberConstant(x, UInt64, info) |> makeValue r
+        // Unit
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const
@@ -645,9 +637,7 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number(kind1, None), Number(kind2, None) -> kind1 = kind2
-        | Number(kind1, Some uom1), Number(kind2, Some uom2) -> uom1 = uom2 && kind1 = kind2
-        | Enum ent1, Enum ent2 -> ent1 = ent2
+        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info2 = info2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -667,9 +657,22 @@ module AST =
             && listEquals (typeEquals strict) gen1 gen2
         | _ -> false
 
-    let getNumberFullName uom kind =
-        let name =
-            match kind with
+    let rec getEntityFullName prettify (entRef: EntityRef) gen =
+        let fullname = entRef.FullName
+        if List.isEmpty gen then fullname
+        else
+            let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
+            let fullname =
+                if prettify then
+                    match fullname with
+                    | Types.result -> "Result"
+                    | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
+                    | _ -> fullname // TODO: Prettify other types?
+                else fullname
+            fullname + "[" + gen + "]"
+
+    and getNumberFullName prettify kind info =
+        let getKindName = function
             | Int8    -> Types.int8
             | UInt8   -> Types.uint8
             | Int16   -> Types.int16
@@ -684,29 +687,16 @@ module AST =
             | Float32 -> Types.float32
             | Float64 -> Types.float64
             | Decimal -> Types.decimal
-        match uom with
-        | None -> name
-        | Some uom -> name + "[" + uom + "]"
+        match info with
+        | NumberInfo.Empty -> getKindName kind
+        | NumberInfo.IsMeasure uom -> getKindName kind + "[" + uom + "]"
+        | NumberInfo.IsEnum ent -> getEntityFullName prettify ent []
 
-    let rec getTypeFullName prettify t =
-        let getEntityFullName (entRef: EntityRef) gen =
-            let fullname = entRef.FullName
-            if List.isEmpty gen then fullname
-            else
-                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
-                let fullname =
-                    if prettify then
-                        match fullname with
-                        | Types.result -> "Result"
-                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
-                        | _ -> fullname // TODO: Prettify other types?
-                    else fullname
-                fullname + "[" + gen + "]"
+    and getTypeFullName prettify t =
         match t with
         | Measure fullname -> fullname
         | AnonymousRecordType _ -> ""
         | GenericParam(name,_) -> "'" + name
-        | Enum ent -> getEntityFullName ent []
         | Regex    -> Types.regex
         | MetaType -> Types.type_
         | Unit    -> Types.unit
@@ -714,7 +704,7 @@ module AST =
         | Char    -> Types.char
         | String  -> Types.string
         | Any -> Types.object
-        | Number(kind, uom) -> getNumberFullName uom kind
+        | Number(kind, info) -> getNumberFullName prettify kind info
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
@@ -745,7 +735,7 @@ module AST =
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"
         | DeclaredType(ent, gen) ->
-            getEntityFullName ent gen
+            getEntityFullName prettify ent gen
 
     let addRanges (locs: SourceLocation option seq) =
         let addTwo (r1: SourceLocation option) (r2: SourceLocation option) =
@@ -776,7 +766,6 @@ module AST =
             | TypeInfo _ | Null _ | UnitConstant
             | BoolConstant _ | CharConstant _ | StringConstant _
             | NumberConstant _ | RegexConstant _ -> e
-            | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
             | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r

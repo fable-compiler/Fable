@@ -57,9 +57,6 @@ let error (com: ICompiler) msg =
     | Rust -> Rust.Replacements.error msg
     | _ -> JS.Replacements.error msg
 
-let toSeq (_com: ICompiler) t (e: Expr) =
-    JS.Replacements.toSeq t e
-
 let defaultof (com: ICompiler) ctx typ =
     match com.Options.Language with
     | Rust -> Rust.Replacements.getZero com ctx typ

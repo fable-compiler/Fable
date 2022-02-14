@@ -82,8 +82,8 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(left)
             // TODO: review
             match operator with
-            | BinaryEqual | BinaryEqualStrict -> printer.Print(" == ")
-            | BinaryUnequal | BinaryUnequalStrict -> printer.Print(" != ")
+            | BinaryEqual -> printer.Print(" == ")
+            | BinaryUnequal -> printer.Print(" != ")
             | BinaryLess -> printer.Print(" < ")
             | BinaryLessOrEqual -> printer.Print(" <= ")
             | BinaryGreater -> printer.Print(" > ")
@@ -100,7 +100,6 @@ module PrinterExtensions =
             | BinaryOrBitwise -> printer.Print(" | ")
             | BinaryXorBitwise -> printer.Print(" ^ ")
             | BinaryAndBitwise -> printer.Print(" & ")
-            | BinaryIn | BinaryInstanceOf -> printer.AddError($"Operator not supported {operator}")
             printer.ComplexExpressionWithParens(right)
 
         member printer.PrintLiteral(kind: Literal) =
@@ -154,10 +153,7 @@ module PrinterExtensions =
                 | UnaryNotBitwise -> printUnaryOp "~" expr
                 // TODO: I think Dart doesn't accept + prefix, check
                 | UnaryPlus
-                | UnaryAddressOf
-                | UnaryTypeof
-                | UnaryVoid
-                | UnaryDelete -> printer.Print(expr)
+                | UnaryAddressOf -> printer.Print(expr)
 
             | BinaryExpression(op, left, right, isInt) ->
                 printer.PrintBinaryExpression(op, left, right, isInt)

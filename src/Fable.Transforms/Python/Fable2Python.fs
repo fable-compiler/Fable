@@ -241,41 +241,35 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool", []
         | Fable.Char -> primitiveTypeInfo "char", []
         | Fable.String -> primitiveTypeInfo "string", []
-        | Fable.Enum entRef ->
-            let ent = com.GetEntity(entRef)
-            let mutable numberKind = Int32
+        | Fable.Number(kind, info) ->
+            match info with
+            | Fable.NumberInfo.IsEnum entRef ->
+                let ent = com.GetEntity(entRef)
+                let cases =
+                    ent.FSharpFields
+                    |> Seq.choose (fun fi ->
+                        match fi.Name with
+                        | "value__" -> None
+                        | name ->
+                            let value =
+                                match fi.LiteralValue with
+                                | Some v -> Convert.ToDouble v
+                                | None -> 0.
 
-            let cases =
-                ent.FSharpFields
-                |> Seq.choose (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name with
-                    | "value__" ->
-                        match fi.FieldType with
-                        | Fable.Number (kind, _) -> numberKind <- kind
-                        | _ -> ()
+                            Expression.tuple (
+                                [ Expression.constant (name)
+                                  Expression.constant (value) ]
+                            )
+                            |> Some)
+                    |> Seq.toList
+                    |> Expression.list
 
-                        None
-                    | name ->
-                        let value =
-                            match fi.LiteralValue with
-                            | Some v -> Convert.ToDouble v
-                            | None -> 0.
-
-                        Expression.tuple (
-                            [ Expression.constant (name)
-                              Expression.constant (value) ]
-                        )
-                        |> Some)
-                |> Seq.toList
-                |> Expression.list
-
-            [ Expression.constant (entRef.FullName)
-              numberInfo numberKind
-              cases ]
-            |> libReflectionCall com ctx None "enum",
-            []
-        | Fable.Number (kind, _) -> numberInfo kind, []
+                [ Expression.constant (entRef.FullName)
+                  numberInfo kind
+                  cases ]
+                |> libReflectionCall com ctx None "enum",
+                []
+            | _ -> numberInfo kind, []
         | Fable.LambdaType (argType, returnType) -> genericTypeInfo "lambda" [| argType; returnType |]
         | Fable.DelegateType (argTypes, returnType) -> genericTypeInfo "delegate" ([| yield! argTypes; yield returnType |])
         | Fable.Tuple (genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
@@ -429,8 +423,7 @@ module Reflection =
         | Fable.Char
         | Fable.String _ -> pyTypeof "<class 'str'>" expr
         // TODO: Testing against bigints and decimals
-        | Fable.Number _
-        | Fable.Enum _ -> pyTypeof "<class 'int'>" expr
+        | Fable.Number _ -> pyTypeof "<class 'int'>" expr
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
         | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
@@ -915,44 +908,37 @@ module Annotation =
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char -> Expression.name "str", []
         | Fable.String -> Expression.name "str", []
-        | Fable.Enum entRef ->
-            let ent = com.GetEntity(entRef)
-            // TODO: Maybe we can skip discovering the type, as only int types are allowed
-            // for enums, so in Python it'll always be "int"
-            let mutable numberKind = Int32
+        | Fable.Number (kind, info) ->
+            match kind, info with
+            | _, Fable.NumberInfo.IsEnum entRef ->
+                let ent = com.GetEntity(entRef)
+                let cases =
+                    ent.FSharpFields
+                    |> Seq.choose (fun fi ->
+                        match fi.Name with
+                        | "value__" -> None
+                        | name ->
+                            let value =
+                                match fi.LiteralValue with
+                                | Some v -> Convert.ToDouble v
+                                | None -> 0.
 
-            let cases =
-                ent.FSharpFields
-                |> Seq.choose (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name with
-                    | "value__" ->
-                        match fi.FieldType with
-                        | Fable.Number (kind, _) -> numberKind <- kind
-                        | _ -> ()
+                            Expression.tuple (
+                                [ Expression.constant (name)
+                                  Expression.constant (value) ]
+                            )
+                            |> Some)
+                    |> Seq.toList
+                    |> Expression.list
 
-                        None
-                    | name ->
-                        let value =
-                            match fi.LiteralValue with
-                            | Some v -> Convert.ToDouble v
-                            | None -> 0.
-
-                        Expression.tuple (
-                            [ Expression.constant (name)
-                              Expression.constant (value) ]
-                        )
-                        |> Some)
-                |> Seq.toList
-                |> Expression.list
-
-            [ Expression.constant (entRef.FullName)
-              numberInfo numberKind
-              cases ]
-            |> libReflectionCall com ctx None "enum",
-            []
-        | Fable.Type.Number (Decimal, _) -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
-        | Fable.Number (kind, _) -> numberInfo kind, []
+                [ Expression.constant (entRef.FullName)
+                  numberInfo kind
+                  cases ]
+                |> libReflectionCall com ctx None "enum",
+                []
+            | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
+            | _ ->
+                numberInfo kind, []
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = Util.uncurryLambdaType t
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
@@ -989,7 +975,7 @@ module Annotation =
         let id = makeImportTypeId com ctx moduleName typeName
         makeGenericTypeAnnotation com ctx id genArgs None
 
-    let makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics =
+    let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedGenerics =
         // printfn "DeclaredType: %A" entRef.FullName
         match entRef.FullName, genArgs with
         | Types.result, _ ->
@@ -1296,6 +1282,7 @@ module Util =
         | "Equals" -> Expression.identifier ("__eq__")
         | "set" -> Expression.identifier ("__setitem__")
         | "get" -> Expression.identifier ("__getitem__")
+        | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name (name)
@@ -1578,8 +1565,7 @@ module Util =
           Fable.Number ((Int8
                         | Int16
                         | Int32),
-                        _)
-        | _, Fable.Enum _ -> Expression.boolOp (BoolOperator.Or, [ e; Expression.constant (0) ])
+                        _) -> Expression.boolOp (BoolOperator.Or, [ e; Expression.constant (0) ])
         | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' (e) ]
@@ -1784,7 +1770,6 @@ module Util =
                 else
                     e, stmts
             | None -> undefined r, []
-        | Fable.EnumConstant (x, _) -> com.TransformAsExpr(ctx, x)
         | Fable.NewRecord (values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
 
@@ -2085,11 +2070,11 @@ module Util =
 
     let transformOperation com ctx range opKind : Expression * Statement list =
         match opKind with
-        | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
-        | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
-            let func = Expression.name ("type")
-            let args = [ expr ]
-            Expression.call (func, args), stmts
+        // | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
+        // | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
+        //     let func = Expression.name ("type")
+        //     let args = [ expr ]
+        //     Expression.call (func, args), stmts
 
         // Transform `~(~(a/b))` to `a // b`
         | Fable.Unary (UnaryOperator.UnaryNotBitwise,
@@ -2104,43 +2089,36 @@ module Util =
             Expression.call (name, [ left ]), stmts
         | Fable.Unary (op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
 
-        | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            let func = Expression.name ("isinstance")
-            let args = [ left; right ]
-            Expression.call (func, args), stmts' @ stmts
+        // | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+        //     let func = Expression.name ("isinstance")
+        //     let args = [ left; right ]
+        //     Expression.call (func, args), stmts' @ stmts
 
         | Fable.Binary (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+            let compare op =
+                Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
+
             match op with
-            | BinaryEqualStrict ->
-                match left, right with
-                | Expression.Constant _, _
-                | _, Expression.Constant _ -> Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-                | _, Expression.Name _ -> Expression.compare (left, BinaryEqualStrict, [ right ], ?loc = range), stmts @ stmts'
-                | _ ->
-                    // Use == for the rest
-                    Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-            | BinaryUnequalStrict ->
-                match left, right with
-                | Expression.Constant _, _
-                | _, Expression.Constant _ -> Expression.compare (left, BinaryUnequal, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
             | BinaryEqual ->
                 match left, right with
-                | Expression.Constant _, _ -> Expression.compare (left, BinaryEqual, [ right ], ?loc = range), stmts @ stmts'
-                | _, Expression.Name ({ Id = Identifier ("None") }) ->
-                    Expression.compare (left, BinaryEqualStrict, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
+                // Use == with literals
+                | Constant _, Name { Id = Identifier "None" } -> compare Eq
+                // Use `is` with None (except literals)
+                | _, Name { Id = Identifier "None" } -> compare Is
+                // Use == for the rest
+                | _ -> compare Eq
             | BinaryUnequal ->
-                match right with
-                | Expression.Name ({ Id = Identifier ("None") }) ->
-                    let op = BinaryUnequalStrict
-                    Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
-                | _ -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
-
-            | BinaryLess
-            | BinaryLessOrEqual
-            | BinaryGreater
-            | BinaryGreaterOrEqual -> Expression.compare (left, op, [ right ], ?loc = range), stmts @ stmts'
+                match left, right with
+                // Use != with literals
+                | Constant _, Name { Id = Identifier "None" } -> compare NotEq
+                // Use `is not` with None (except literals)
+                | _, Name { Id = Identifier "None" } -> compare IsNot
+                 // Use != for the rest
+                | _ -> compare NotEq
+            | BinaryLess -> compare Lt
+            | BinaryLessOrEqual -> compare LtE
+            | BinaryGreater -> compare Gt
+            | BinaryGreaterOrEqual -> compare GtE
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2473,28 +2451,21 @@ module Util =
     let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
         match kind with
         | Fable.TypeTest t -> transformTypeTest com ctx range expr t
-        | Fable.OptionTest nonEmpty ->
-            let op =
-                if nonEmpty then
-                    BinaryUnequalStrict
-                else
-                    BinaryEqualStrict
 
+        | Fable.OptionTest nonEmpty ->
+            let op = if nonEmpty then IsNot else Is
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.compare (expr, op, [ Expression.none ], ?loc = range), stmts
+            Expression.compare (expr, [ op ], [ Expression.none ], ?loc = range), stmts
+
         | Fable.ListTest nonEmpty ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            // let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            // Expression.binaryExpression(op, get None expr "tail", Expression.none, ?loc=range)
-            let expr =
-                let expr = libCall com ctx range "list" "isEmpty" [ expr ]
+            let expr = libCall com ctx range "list" "isEmpty" [ expr ]
 
-                if nonEmpty then
-                    Expression.unaryOp (UnaryNot, expr, ?loc = range)
-                else
-                    expr
+            if nonEmpty then
+                Expression.unaryOp (UnaryNot, expr, ?loc = range), stmts
+            else
+                expr, stmts
 
-            expr, stmts
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
             let actual, stmts = getUnionExprTag com ctx None expr
@@ -2682,9 +2653,12 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) =
             function
-            | Fable.Operation (Fable.Binary (BinaryEqualStrict, expr, right), _, _) -> Some(expr, right)
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+                match expr with
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
+                | _ -> None
             | Fable.Test (expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
 
                 let right = makeIntConst tag
                 Some(evalExpr, right)
@@ -2811,10 +2785,10 @@ module Util =
         match transformDecisionTreeAsSwitch treeExpr with
         | Some (evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
             let cases =
-                groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
+                groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
 
             let defaultCase =
-                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
+                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
 
             let switch1 =
                 transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
@@ -2954,11 +2928,13 @@ module Util =
 
         | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
 
-        | Fable.Lambda (arg, body, name) ->
+        | Fable.Lambda (arg, body, info) ->
+            let name  = info.Name
             transformFunctionWithAnnotations com ctx name [ arg ] body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.Delegate (args, body, name) ->
+        | Fable.Delegate (args, body, info) ->
+            let name = info.Name
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
@@ -3131,7 +3107,8 @@ module Util =
             @ (expr
                |> resolveExpr ctx Fable.Boolean returnStrategy)
 
-        | Fable.Lambda (arg, body, name) ->
+        | Fable.Lambda (arg, body, info) ->
+            let name = info.Name
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name [ arg ] body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3139,7 +3116,8 @@ module Util =
             stmts
             @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
-        | Fable.Delegate (args, body, name) ->
+        | Fable.Delegate (args, body, info) ->
+            let name = info.Name
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name args body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3444,7 +3422,7 @@ module Util =
         |> makeTypeParamDecl com ctx
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 

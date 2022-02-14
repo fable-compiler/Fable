@@ -406,10 +406,6 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     | Fable.DelegateType _ -> ExType phpObj
     | Fable.LambdaType _ -> ExType phpObj
     | Fable.GenericParam _ -> ExType phpObj
-    | Fable.Enum ref ->
-        match com.TryFindType(ref) with
-        | Ok phpType -> InType phpType
-        | Error ent -> ExType { Name = ent.DisplayName; Namespace = None; Class = None }
     | Fable.Array t -> ArrayRef (convertTypeRef com t)
     | Fable.List _ -> ExType { Name = "FSharpList"; Namespace = Some "FSharpList"; Class = None }
     | Fable.Option(t,_) -> ExType { Name = "object"; Namespace = None; Class = None }
@@ -540,40 +536,25 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | BinaryOperator.BinaryAndBitwise -> "&"
             | BinaryOperator.BinaryOrBitwise -> "|"
             | BinaryOperator.BinaryXorBitwise -> "^"
-            | BinaryOperator.BinaryEqual -> "=="
-            | BinaryOperator.BinaryUnequal -> "!="
-            | BinaryOperator.BinaryEqualStrict -> "==="
-            | BinaryOperator.BinaryUnequalStrict -> "!=="
+            | BinaryOperator.BinaryEqual -> "==="
+            | BinaryOperator.BinaryUnequal -> "!=="
             | BinaryOperator.BinaryModulus -> "%"
             | BinaryOperator.BinaryDivide -> "/"
             | BinaryOperator.BinaryExponent -> "**"
             | BinaryOperator.BinaryShiftLeft -> "<<"
             | BinaryOperator.BinaryShiftRightSignPropagating -> ">>"
             | BinaryOperator.BinaryShiftRightZeroFill -> ">>>"
-            | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
-            | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
         PhpBinaryOp(opstr, convertExpr com left, convertExpr com right)
     | Fable.Operation(Fable.Unary(op, expr),_,_) ->
-        // the result of an unary operation
-        match op with
-        | UnaryOperator.UnaryVoid ->
-            // there is no void function in Php. One in defined in FSharp.Core.php
-            // it takes a value and returns nothing
-            com.AddRequire("fable-library/FSharp.Core.php")
-            PhpFunctionCall(PhpIdent phpVoid, [convertExpr com expr])
-        | _ ->
-            let opStr =
-                match op with
-                | UnaryOperator.UnaryNot -> "!"
-                | UnaryOperator.UnaryMinus -> "-"
-                | UnaryOperator.UnaryPlus -> "+"
-                | UnaryOperator.UnaryNotBitwise -> "~~~"
-                | UnaryOperator.UnaryAddressOf -> failwith "UnaryAddressOf not supported"
-                | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
-                | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
-                | UnaryOperator.UnaryVoid -> failwith "Should not happen"
+        let opStr =
+            match op with
+            | UnaryOperator.UnaryNot -> "!"
+            | UnaryOperator.UnaryMinus -> "-"
+            | UnaryOperator.UnaryPlus -> "+"
+            | UnaryOperator.UnaryNotBitwise -> "~~~"
+            | UnaryOperator.UnaryAddressOf -> failwith "UnaryAddressOf not supported"
 
-            PhpUnaryOp(opStr, convertExpr com expr)
+        PhpUnaryOp(opStr, convertExpr com expr)
     | Fable.Operation(Fable.Logical(op, left, right),_,_) ->
         // this is a binary logical operation
         let opstr =
@@ -1012,8 +993,6 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpConst(PhpConstNull)
     | Fable.CharConstant(c) ->
         PhpConst(PhpConstString (string c))
-    | Fable.EnumConstant(e,ref) ->
-        convertExpr com e
     | Fable.Null _ ->
         PhpConst(PhpConstNull)
     | Fable.NewList(Some(head,tail),_) ->

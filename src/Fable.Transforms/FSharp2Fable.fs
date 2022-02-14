@@ -343,7 +343,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         |> addErrorAndReturnNull com ctx.InlinePath r
     | ErasedUnion(tdef, genArgs, rule) ->
         match unionCase.Fields.Count with
-        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
         | 1 ->
             let fi = unionCase.Fields.[0]
             let typ =
@@ -363,17 +363,18 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 1 ->
             let inline numberConst kind value =
-                Fable.Number (kind, None), Fable.Value (Fable.NumberConstant(value, kind, None), r)
-            let typ, value =
+                Fable.Number (kind, Fable.NumberInfo.Empty),
+                Fable.Value (Fable.NumberConstant(value, kind, Fable.NumberInfo.Empty), r)
+            let value =
                 match FsUnionCase.CompiledValue unionCase with
-                | None -> Fable.String, transformStringEnum rule unionCase
-                | Some (CompiledValue.Integer i) -> numberConst Int32 i
-                | Some (CompiledValue.Float f) -> numberConst Float64 f
-                | Some (CompiledValue.Boolean b) -> Fable.Boolean, Fable.Value (Fable.BoolConstant b, r)
+                | None -> transformStringEnum rule unionCase
+                | Some (CompiledValue.Integer i) -> makeIntConst i
+                | Some (CompiledValue.Float f) -> makeFloatConst f
+                | Some (CompiledValue.Boolean b) -> makeBoolConst b
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), typ, r))
+                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), value.Type, r))
                 value
-                BinaryEqualStrict
+                BinaryEqual
         | _ ->
             return "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -384,7 +385,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
     | StringEnum(_, rule) ->
-        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
     | DiscriminatedUnion(tdef,_) ->
         let tag = unionCaseTag com tdef unionCase
         return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)
@@ -513,12 +514,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         let t = makeType ctx.GenericArgs targetType
-        match tryDefinition targetType with
-        | Some(_, Some fullName) ->
-            match fullName with
-            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.Api.toSeq com t inpExpr
-            | _ -> return Fable.TypeCast(inpExpr, t)
-        | _ -> return Fable.TypeCast(inpExpr, t)
+        return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
@@ -695,7 +691,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         let w = {
                             Witness.TraitName = traitName
                             IsInstance = isInstance
-                            Expr = Fable.Delegate(args, body, None)
+                            Expr = Fable.Delegate(args, body, Fable.FuncInfo.Empty)
                         }
                         return { ctx with Witnesses = w::ctx.Witnesses }
                     })
@@ -788,7 +784,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match args with
         | [arg] ->
             let! body = transformExpr com ctx body
-            return Fable.Lambda(arg, body, None)
+            return Fable.Lambda(arg, body, Fable.FuncInfo.Empty)
         | _ -> return failwith "makeFunctionArgs returns args with different length"
 
     // Getters and Setters
@@ -1221,10 +1217,8 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FS
     |> function
         | [] -> None
         | decorators ->
-            let body = Fable.Delegate(args, body, None)
-            // Hack to tell the compiler this must be compiled as function (not arrow)
-            // so we don't have issues with bound this
-            let body = Fable.TypeCast(body, body.Type) //, Some("optimizable:function"))
+            // This must be compiled as JS `function` (not arrow) so we don't have issues with bound this
+            let body = Fable.Delegate(args, body, { Name = None; NotCompilableAsArrow = true })
             List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1244,7 +1238,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
         if memb.CompiledName = ".cctor" then
             [Fable.ActionDeclaration
                 { Body =
-                    Fable.Delegate(args, body, Some name)
+                    Fable.Delegate(args, body, Fable.FuncInfo.Create(name=name))
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else

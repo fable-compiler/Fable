@@ -20,7 +20,6 @@ let getSubExpressions = function
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
-        | EnumConstant(e, _) -> [e]
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
         | NewArray(exprs, _) -> exprs
@@ -180,7 +179,6 @@ let noSideEffectBeforeIdent identName expr =
             | ThisValue _ | BaseValue _
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
-            | EnumConstant(e, _) -> findIdentOrSideEffect e
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewArrayFrom(e,_)
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
@@ -218,8 +216,8 @@ let canInlineArg identName value body =
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
-        | Lambda(arg, body, name) -> Some([arg], body, name)
-        | Delegate(args, body, name) -> Some(args, body, name)
+        | Lambda(arg, body, info) -> Some([arg], body, info)
+        | Delegate(args, body, info) -> Some(args, body, info)
         | _ -> None
 
     let (|ImmediatelyApplicable|_|) = function
@@ -282,8 +280,8 @@ module private Transforms =
                 let value =
                     match value with
                     // Ident becomes the name of the function (mainly used for tail call optimizations)
-                    | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
-                    | Delegate(args, funBody, _) -> Delegate(args, funBody, Some ident.Name)
+                    | Lambda(arg, funBody, info) -> Lambda(arg, funBody, { info with Name = Some ident.Name })
+                    | Delegate(args, funBody, info) -> Delegate(args, funBody, { info with Name = Some ident.Name })
                     | value -> value
                 replaceValues (Map [ident.Name, value]) letBody
             else e
@@ -370,13 +368,13 @@ module private Transforms =
                                                                           && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let(ident, Delegate(args, fnBody, None), letBody)
+            Let(ident, Delegate(args, fnBody, FuncInfo.Empty), letBody)
         // Anonymous lambda immediately applied
-        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
+        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, { Name = Some name }), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
             let info = makeCallInfo None argExprs (args |> List.map (fun a -> a.Type))
-            Delegate(args, fnBody, Some name)
+            Delegate(args, fnBody, FuncInfo.Create(name=name))
             |> makeCall r t info
         | e -> e
 

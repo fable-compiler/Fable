@@ -114,6 +114,12 @@ type Entity =
     abstract IsByRef: bool
     abstract IsEnum: bool
 
+[<RequireQualifiedAccess>]
+type NumberInfo =
+    | Empty
+    | IsMeasure of fullname: string
+    | IsEnum of ent: EntityRef
+
 type Type =
     | Measure of fullname: string
     | MetaType
@@ -123,8 +129,7 @@ type Type =
     | Char
     | String
     | Regex
-    | Number of kind: NumberKind * uom: string option
-    | Enum of ref: EntityRef
+    | Number of kind: NumberKind * info: NumberInfo
     | Option of genericArg: Type * isStruct: bool
     | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type
@@ -146,7 +151,7 @@ type Type =
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
         // TODO: Check numbers with measure?
-        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ | Measure _ -> []
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> []
 
     member this.MapGenerics f =
         match this with
@@ -158,7 +163,7 @@ type Type =
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
         | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
-        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | Enum _ | GenericParam _ | Measure _ -> this
+        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> this
 
 type ActionDecl = {
     Body: Expr
@@ -231,6 +236,17 @@ type TypeInfoDetails =
         AllowGenerics: bool
     }
 
+type FuncInfo =
+    {
+        Name: string option
+        /// In JS indicates the function cannot be compiled as arrow function
+        NotCompilableAsArrow: bool
+    }
+    static member Create(?name: string) =
+        { Name = name; NotCompilableAsArrow = false }
+    static member Empty =
+        FuncInfo.Create()
+
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
     // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
@@ -243,9 +259,8 @@ type ValueKind =
     | BoolConstant of value: bool
     | CharConstant of value: char
     | StringConstant of value: string
-    | NumberConstant of value: obj * kind: NumberKind * uom: string option
+    | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
-    | EnumConstant of value: Expr * ref: EntityRef
     | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of values: Expr list * typ: Type
     | NewArrayFrom of value: Expr * typ: Type
@@ -264,9 +279,8 @@ type ValueKind =
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
         | StringConstant _ -> String
-        | NumberConstant (_, kind, uom) -> Number(kind, uom)
+        | NumberConstant (_, kind, info) -> Number(kind, info)
         | RegexConstant _ -> Regex
-        | EnumConstant (_, ent) -> Enum ent
         | NewOption (_, t, isStruct) -> Option(t, isStruct)
         | NewArray (_, t) -> Array t
         | NewArrayFrom (_, t) -> Array t
@@ -404,9 +418,9 @@ type Expr =
 
     // Closures
     /// Lambdas are curried, they always have a single argument (which can be unit)
-    | Lambda of arg: Ident * body: Expr * name: string option
+    | Lambda of arg: Ident * body: Expr * info: FuncInfo
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * name: string option //* TODO: isArrow: bool
+    | Delegate of args: Ident list * body: Expr * info: FuncInfo
     | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
@@ -519,8 +533,6 @@ type Expr =
 //         match op with
 //         | BinaryEqual -> print e1 + " == " + print e2
 //         | BinaryUnequal -> print e1 + " != " + print e2
-//         | BinaryEqualStrict -> print e1 + " === " + print e2
-//         | BinaryUnequalStrict -> print e1 + " !== " + print e2
 //         | BinaryLess -> print e1 + " < " + print e2
 //         | BinaryLessOrEqual -> print e1 + " <= " + print e2
 //         | BinaryGreater -> print e1 + " > " + print e2
@@ -537,8 +549,6 @@ type Expr =
 //         | BinaryOrBitwise -> print e1 + " | " + print e2
 //         | BinaryXorBitwise -> print e1 + " ^ " + print e2
 //         | BinaryAndBitwise -> print e1 + " & " + print e2
-//         | BinaryIn -> print e1 + " in " + print e2
-//         | BinaryInstanceOf -> print e1 + " instanceof " + print e2
 
 //     and printUnaryOp op e =
 //         match op with
@@ -547,9 +557,6 @@ type Expr =
 //         | UnaryNot -> "!" + print e
 //         | UnaryNotBitwise -> "~" + print e
 //         | UnaryAddressOf -> "&" + print e
-//         | UnaryTypeof -> "typeof " + print e
-//         | UnaryVoid -> "void " + print e
-//         | UnaryDelete -> "delete " + print e
 
 //     and print = function
 //         | IdentExpr i -> i.Name
@@ -570,7 +577,6 @@ type Expr =
 //                 | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> string(int x)
 //                 | Float32 | Float64 -> string x
 //             | RegexConstant(x,_) -> "/" + string x + "/" // TODO: flags
-//             | EnumConstant(e, _) -> "enum " + print e
 //             | NewOption(Some e, _) -> "Some " + print e
 //             | NewOption(None, _) -> "None"
 //             | NewTuple exprs -> printMulti "(" exprs ")"

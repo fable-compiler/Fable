@@ -48,19 +48,10 @@ type UnaryOperator =
     | UnaryNot
     | UnaryNotBitwise
     | UnaryAddressOf
-    | UnaryTypeof
-    | UnaryVoid
-    | UnaryDelete
-
-type UpdateOperator =
-    | UpdateMinus
-    | UpdatePlus
 
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
-    | BinaryEqualStrict
-    | BinaryUnequalStrict
     | BinaryLess
     | BinaryLessOrEqual
     | BinaryGreater
@@ -77,23 +68,7 @@ type BinaryOperator =
     | BinaryOrBitwise
     | BinaryXorBitwise
     | BinaryAndBitwise
-    | BinaryIn
-    | BinaryInstanceOf
 
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-
-type AssignmentOperator =
-    | AssignEqual
-    | AssignMinus
-    | AssignPlus
-    | AssignMultiply
-    | AssignDivide
-    | AssignModulus
-    | AssignShiftLeft
-    | AssignShiftRightSignPropagating
-    | AssignShiftRightZeroFill
-    | AssignOrBitwise
-    | AssignXorBitwise
-    | AssignAndBitwise

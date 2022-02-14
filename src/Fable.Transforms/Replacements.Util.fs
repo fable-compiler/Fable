@@ -89,13 +89,14 @@ let sub left right =
     Operation(Binary(BinaryMinus, left, right), left.Type, None)
 
 let eq left right =
-    Operation(Binary(BinaryEqualStrict, left, right), Boolean, None)
+    Operation(Binary(BinaryEqual, left, right), Boolean, None)
 
 let neq left right =
-    Operation(Binary(BinaryUnequalStrict, left, right), Boolean, None)
+    Operation(Binary(BinaryUnequal, left, right), Boolean, None)
 
-let isNull expr =
-    Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
+let nullCheck r isNull expr =
+    let op = if isNull then BinaryEqual else BinaryUnequal
+    Operation(Binary(op, expr, Value(Null expr.Type, None)), Boolean, r)
 
 let str txt = Value(StringConstant txt, None)
 
@@ -106,6 +107,15 @@ let genArg (com: ICompiler) (ctx: Context) r i (genArgs: (string * Type) list) =
         "Couldn't find generic argument in position " + (string i)
         |> addError com ctx.InlinePath r
         Any)
+
+let toArray r t expr =
+    let t =
+        match t with
+        | Array t
+        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
+        | DeclaredType(_, [t]) -> t
+        | t -> t
+    Value(NewArrayFrom(expr, t), r)
 
 let getBoxedZero kind: obj =
     match kind with
@@ -258,7 +268,7 @@ let rec namesof com ctx acc e =
     | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop::acc) e
     | acc, Get(e, FieldGet(fieldName, _), _, _) -> namesof com ctx (fieldName::acc) e
     | [], IdentExpr ident -> ident.DisplayName::acc |> Some
-    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
+    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), c) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
         then ident.DisplayName::acc |> Some

@@ -3,6 +3,24 @@ namespace rec Fable.AST.Babel
 
 open Fable.AST
 
+type UpdateOperator =
+    | UpdateMinus
+    | UpdatePlus
+
+type AssignmentOperator =
+    | AssignEqual
+    | AssignMinus
+    | AssignPlus
+    | AssignMultiply
+    | AssignDivide
+    | AssignModulus
+    | AssignShiftLeft
+    | AssignShiftRightSignPropagating
+    | AssignShiftRightZeroFill
+    | AssignOrBitwise
+    | AssignXorBitwise
+    | AssignAndBitwise
+
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
 /// You can use this field to determine which interface a node implements.
@@ -547,10 +565,8 @@ module Helpers =
         static member binaryExpression(operator_, left, right, ?loc) =
             let operator =
                 match operator_ with
-                | BinaryEqual -> "=="
-                | BinaryUnequal -> "!="
-                | BinaryEqualStrict -> "==="
-                | BinaryUnequalStrict -> "!=="
+                | BinaryEqual -> "==="
+                | BinaryUnequal -> "!=="
                 | BinaryLess -> "<"
                 | BinaryLessOrEqual -> "<="
                 | BinaryGreater -> ">"
@@ -567,8 +583,6 @@ module Helpers =
                 | BinaryOrBitwise -> "|"
                 | BinaryXorBitwise -> "^"
                 | BinaryAndBitwise -> "&"
-                | BinaryIn -> "in"
-                | BinaryInstanceOf -> "instanceof"
             BinaryExpression(left, right, operator, loc)
         static member unaryExpression(operator_, argument, ?loc) =
             let operator =
@@ -578,9 +592,6 @@ module Helpers =
                 | UnaryNot -> "!"
                 | UnaryNotBitwise -> "~"
                 | UnaryAddressOf -> "" //"&"
-                | UnaryTypeof -> "typeof"
-                | UnaryVoid -> "void"
-                | UnaryDelete -> "delete"
             UnaryExpression(argument, operator, loc)
         static member updateExpression(operator_, prefix, argument, ?loc) : Expression =
             let operator =

@@ -68,7 +68,6 @@ module Lib =
         let entRef = JS.Replacements.constructor com ent
         com.TransformAsExpr(ctx, entRef)
 
-// TODO: This is too implementation-dependent, ideally move it to Replacements
 module Reflection =
     open Lib
 
@@ -146,27 +145,23 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
         | Fable.String  -> primitiveTypeInfo "string"
-        | Fable.Enum entRef ->
-            let ent = com.GetEntity(entRef)
-            let mutable numberKind = Int32
-            let cases =
-                ent.FSharpFields |> Seq.choose (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name with
-                    | "value__" ->
-                        match fi.FieldType with
-                        | Fable.Number(kind,_) -> numberKind <- kind
-                        | _ -> ()
-                        None
-                    | name ->
-                        let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-                        Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-                |> Seq.toArray
-                |> Expression.arrayExpression
-            [|Expression.stringLiteral(entRef.FullName); numberInfo numberKind; cases |]
-            |> libReflectionCall com ctx None "enum"
-        | Fable.Number(kind,_) ->
-            numberInfo kind
+        | Fable.Number(kind, info) ->
+            match info with
+            | Fable.NumberInfo.IsEnum entRef ->
+                let ent = com.GetEntity(entRef)
+                let cases =
+                    ent.FSharpFields |> Seq.choose (fun fi ->
+                        match fi.Name with
+                        | "value__" -> None
+                        | name ->
+                            let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+                            Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+                    |> Seq.toArray
+                    |> Expression.arrayExpression
+                [|Expression.stringLiteral(entRef.FullName); numberInfo kind; cases |]
+                |> libReflectionCall com ctx None "enum"
+            | _ ->
+                numberInfo kind
         | Fable.LambdaType(argType, returnType) ->
             genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.DelegateType(argTypes, returnType) ->
@@ -276,22 +271,22 @@ module Reflection =
             Expression.booleanLiteral(false)
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
-            let typeof = Expression.unaryExpression(UnaryTypeof, expr)
-            Expression.binaryExpression(BinaryEqualStrict, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
+            let typeof = UnaryExpression(expr, "typeof", None)
+            Expression.binaryExpression(BinaryEqual, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
-            Expression.binaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
+            BinaryExpression(expr, consExpr, "instanceof", range)
 
         match typ with
         | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type
         | Fable.Any -> Expression.booleanLiteral(true)
-        | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
+        | Fable.Unit -> com.TransformAsExpr(ctx, expr) |> Util.makeNullCheck range true
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
         | Fable.Number(BigInt,_) -> jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
         | Fable.Number((Int64|UInt64),_) -> jsInstanceof (libValue com ctx "Long" "default") expr
-        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
+        | Fable.Number _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
@@ -338,8 +333,6 @@ module Reflection =
                     | None ->
                         warnAndEvalToFalse ent.FullName
 
-// TODO: I'm trying to tell apart the code to generate annotations, but it's not a very clear distinction
-// as there are many dependencies from/to the Util module below
 module Annotation =
     let getEntityGenParams (ent: Fable.Entity) =
         ent.GenericParameters
@@ -397,7 +390,6 @@ module Annotation =
         | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
         | Fable.Number(BigInt,_) -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
-        | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
@@ -693,6 +685,11 @@ module Util =
         | [] -> expr
         | m::ms -> get None expr m |> getParts ms
 
+    // Use non-strict equality for null checks
+    let makeNullCheck r isNull e =
+        let op = if isNull then "==" else "!="
+        BinaryExpression(e, Expression.nullLiteral(), op, r)
+
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
         |> Expression.arrayExpression
@@ -780,7 +777,7 @@ module Util =
 
     let undefined range =
 //        Undefined(?loc=range) :> Expression
-        Expression.unaryExpression(UnaryVoid, Expression.numericLiteral(0.), ?loc=range)
+        UnaryExpression(Expression.numericLiteral(0.), "void", range)
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -850,8 +847,7 @@ module Util =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number((Int8 | Int16 | Int32),_)
-        | _, Fable.Enum _ ->
+        | _, Fable.Number((Int8 | Int16 | Int32),_) ->
             Expression.binaryExpression(BinaryOrBitwise, e, Expression.numericLiteral(0.))
         | _ -> e
 
@@ -909,10 +905,18 @@ module Util =
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(ent,[_]) ->
-            match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-                makeArray com ctx exprs
+            match ent.FullName with
+            | Types.ienumerableGeneric | Types.ienumerable ->
+                match e with
+                | ExprType Fable.String ->
+                    // Convert to array to get 16-bit code units, see #1279
+                    let e = JS.Replacements.stringToCharArray e
+                    com.TransformAsExpr(ctx, e)
+                | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
+                    makeArray com ctx exprs
+                | _ -> com.TransformAsExpr(ctx, e)
             | _ -> com.TransformAsExpr(ctx, e)
+        | Fable.Unit -> UnaryExpression(com.TransformAsExpr(ctx, e), "void", e.Range)
         | _ -> com.TransformAsExpr(ctx, e)
 
     let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
@@ -988,8 +992,6 @@ module Util =
                 then libCall com ctx r "Option" "some" [|e|]
                 else e
             | None -> undefined r
-        | Fable.EnumConstant(x,_) ->
-            com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
@@ -1215,8 +1217,14 @@ module Util =
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             Expression.unaryExpression(op, expr, ?loc=range)
 
-        | Fable.Binary(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
-            Expression.binaryExpression(op, left, right, ?loc=range)
+        | Fable.Binary(op, left, right) ->
+            match op, left, right with
+            | (BinaryEqual | BinaryUnequal), Fable.Value(Fable.Null _, _), e
+            | (BinaryEqual | BinaryUnequal), e,  Fable.Value(Fable.Null _, _) ->
+                com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+
+            | _, TransformExpr com ctx left, TransformExpr com ctx right ->
+                Expression.binaryExpression(op, left, right, ?loc=range)
 
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             Expression.logicalExpression(left, op, right, ?loc=range)
@@ -1392,19 +1400,16 @@ module Util =
         match kind with
         | Fable.TypeTest t ->
             transformTypeTest com ctx range expr t
-        | Fable.OptionTest nonEmpty ->
-            let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            Expression.binaryExpression(op, com.TransformAsExpr(ctx, expr), Expression.nullLiteral(), ?loc=range)
+        | Fable.OptionTest isSome ->
+            com.TransformAsExpr(ctx, expr) |> makeNullCheck range (not isSome)
         | Fable.ListTest nonEmpty ->
             let expr = com.TransformAsExpr(ctx, expr)
-            // let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            // Expression.binaryExpression(op, get None expr "tail", Expression.nullLiteral(), ?loc=range)
             let expr = libCall com ctx range "List" "isEmpty" [|expr|]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
             let actual = getUnionExprTag com ctx None expr
-            Expression.binaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
+            Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
         let consequent caseBody =
@@ -1479,10 +1484,12 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
-                Some(expr, right)
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+                match expr with
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
+                | _ -> None
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
                 let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
@@ -1582,8 +1589,8 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
+            let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
             [|multiVarDecl; switch1; switch2|]
         | None ->
@@ -1650,16 +1657,19 @@ module Util =
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range kind expr
 
-        | Fable.Lambda(arg, body, name) ->
+        | Fable.Lambda(arg, body, info) ->
+            let name = info.Name
             transformFunctionWithAnnotations com ctx name [arg] body
             |> makeArrowFunctionExpression name
 
-        | Fable.Delegate(args, body, name) -> //, isArrow) ->
-            // | Some "function", Fable.Delegate(args, body, name) ->
-            //     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
-            //     Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
-            transformFunctionWithAnnotations com ctx name args body
-            |> makeArrowFunctionExpression name
+        | Fable.Delegate(args, body, info) ->
+            let name = info.Name
+            if info.NotCompilableAsArrow then
+                let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
+                Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
+            else
+                transformFunctionWithAnnotations com ctx name args body
+                |> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx members baseCall
@@ -1748,12 +1758,14 @@ module Util =
         | Fable.Test(expr, kind, range) ->
             [|transformTest com ctx range kind expr |> resolveExpr Fable.Boolean returnStrategy|]
 
-        | Fable.Lambda(arg, body, name) ->
+        | Fable.Lambda(arg, body, info) ->
+            let name = info.Name
             [|transformFunctionWithAnnotations com ctx name [arg] body
                 |> makeArrowFunctionExpression name
                 |> resolveExpr expr.Type returnStrategy|]
 
-        | Fable.Delegate(args, body, name) ->
+        | Fable.Delegate(args, body, info) ->
+            let name = info.Name
             [|transformFunctionWithAnnotations com ctx name args body
                 |> makeArrowFunctionExpression name
                 |> resolveExpr expr.Type returnStrategy|]
@@ -1938,7 +1950,7 @@ module Util =
         )
 
     let getUnionFieldsAsIdents (_com: IBabelCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 
