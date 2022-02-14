@@ -17,7 +17,7 @@ module Naming =
     let allKeywords = HashSet(kw.RustKeywords)
     let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
     let rustPrelude = HashSet(kw.RustPrelude)
-    let morePrelude = HashSet(["Debug"; "Array"; "List"; "Map"; "Set"])
+    let morePrelude = HashSet(["Array"; "List"; "Map"; "Set"])
 
     let rawIdent (ident: string) =
         if ident.StartsWith("r#")
