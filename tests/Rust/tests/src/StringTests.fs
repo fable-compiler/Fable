@@ -251,74 +251,111 @@ let ``String literal addition is optimized`` () =
 //     sprintf "%A" o |> ignore
 // #endif
 
-// [<Fact>]
-// let ``F# nameof works`` () =
-//     M.f 12 |> equal "x"
-//     nameof M |> equal "M"
-//     nameof M.f |> equal "f"
+module M =
+    let f x = nameof x
+
+[<Fact>]
+let ``F# nameof works`` () =
+    M.f 12 |> equal "x"
+    nameof M |> equal "M"
+    nameof M.f |> equal "f"
+
+[<Fact>]
+let ``string interpolation works`` () =
+    let name = "Phillip"
+    let age = 29
+    $"Name: {name}, Age: %i{age}"
+    |> equal "Name: Phillip, Age: 29"
+
+[<Fact>]
+let ``string interpolation works with inline expressions`` () =
+    $"I think {3.0 + 0.14} is close to {float32 System.Math.PI}!"
+    |> equal "I think 3.14 is close to 3.1415927!"
+
+[<Fact>]
+let ``string interpolation works with anonymous records`` () =
+    let person =
+        {|  Name = "John"
+            Surname = "Doe"
+            Age = 32
+            Country = "The United Kingdom" |}
+    $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+    |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+
+[<Fact>]
+let ``Interpolated strings keep empty lines`` () =
+    let s1 = $"""1
+
+
+    {1+1}
+
+
+3"""
+    let s2 = """1
+
+
+    2
+
+
+3"""
+    equal s1 s2
+    equal s1.Length s2.Length
+    equal 13 s1.Length
+
+[<Fact>]
+let ``Can use backslash is interpolated strings`` () =
+    $"\n{1+1}\n" |> equal """
+2
+"""
+
+[<Fact>]
+let ``Backslash is escaped in interpolated strings`` () = // See #2649
+    $"\\" |> equal @"\"
+    $"\\".Length |> equal 1
+    $@"\" |> equal @"\"
+    $@"\".Length |> equal 1
+    @$"\ " |> equal @"\ "
+    @$"\ ".Length |> equal 2
+    $"\\{4}" |> equal @"\4"
+    $"\\{4}".Length |> equal 2
+    $@"\{4}" |> equal @"\4"
+    $@"\{4}".Length |> equal 2
+    @$"\{4}" |> equal @"\4"
+    @$"\{4}".Length |> equal 2
+
+[<Fact>]
+let ``interpolated string with double % should be unescaped`` () =
+    $"{100}%%" |> equal "100%"
+
+[<Fact>]
+let ``interpolated string with format and double % should be unescaped`` () =
+    $"%f{100.456667}%%" |> equal "100.456667%"
+
+[<Fact>]
+let ``interpolated string with double % should not interfere with holes afterwards `` () =
+    $"%%{99. - 1.5}" |> equal "%97.5"
 
 // [<Fact>]
-// let ``string interpolation works`` () =
-//     let name = "Phillip"
-//     let age = 29
-//     sprintf $"Name: {name}, Age: %i{age}"
-//     |> equal "Name: Phillip, Age: 29"
+// let ``interpolated string with double % should not interfere with format afterwards `` () =
+//     $"%%%g{99. - 1.5}" |> equal "%97.5"
+
+[<Fact>]
+let ``interpolated string with consecutive holes work`` () =
+    $"""{"foo"}{5}""" |> equal "foo5"
+    $"""%s{"foo"}%i{5}""" |> equal "foo5"
+    $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
 // [<Fact>]
-// let ``string interpolation works with inline expressions`` () =
-//     $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
-//     |> equal "I think 3.14 is close to 3.14159265!"
+// let ``interpolated string with double braces should be unescaped`` () =
+//     $"{{ {100} }}" |> equal "{ 100 }"
 
 // [<Fact>]
-// let ``string interpolation works with anonymous records`` () =
-//     let person =
-//         {| Name = "John"
-//         Surname = "Doe"
-//         Age = 32
-//         Country = "The United Kingdom" |}
-//     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
-//     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+// let ``interpolated string with format and double braces should be unescaped`` () =
+//     $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
 // [<Fact>]
-// let ``Interpolated strings keep empty lines`` () =
-//     let s1 = $"""1
-
-
-//     {1+1}
-
-
-// 3"""
-//     let s2 = """1
-
-
-//     2
-
-
-// 3"""
-//     equal s1 s2
-//     equal s1.Length s2.Length
-//     equal 13 s1.Length
-
-// [<Fact>]
-// let ``Can use backslash is interpolated strings`` () =
-//     $"\n{1+1}\n" |> equal """
-// 2
-// """
-
-// [<Fact>]
-// let ``Backslash is escaped in interpolated strings`` () = // See #2649
-//     $"\\" |> equal @"\"
-//     $"\\".Length |> equal 1
-//     $@"\" |> equal @"\"
-//     $@"\".Length |> equal 1
-//     @$"\" |> equal @"\"
-//     @$"\".Length |> equal 1
-//     $"\\{4}" |> equal @"\4"
-//     $"\\{4}".Length |> equal 2
-//     $@"\{4}" |> equal @"\4"
-//     $@"\{4}".Length |> equal 2
-//     @$"\{4}" |> equal @"\4"
-//     @$"\{4}".Length |> equal 2
+// let ``sprintf with double % should be unescaped`` () =
+//     sprintf "%d%%" 100 |> equal "100%"
 
 // [<Fact>]
 // let ``sprintf \"%A\" with lists works`` () =
@@ -1269,6 +1306,12 @@ let ``String.filter works with empty string`` () =
     String.filter (fun x -> x <> '.') ""
     |> equal ""
 
+// See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
+[<Fact>]
+let ``String.filter with Char.IsDigit as a predicate doesn't hang`` () =
+    "Hello! 123" |> String.filter System.Char.IsDigit
+    |> equal "123"
+
 // #if FABLE_COMPILER
 // [<Fact>]
 // let ``System.Environment.NewLine works`` () =
@@ -1296,41 +1339,6 @@ let ``String.filter works with empty string`` () =
 //     System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
 //     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
 //     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
-
-// // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
-// [<Fact>]
-// let ``Passing Char.IsDigit as a function reference doesn't make String.filter hang`` () =
-//     "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
-
-// [<Fact>]
-// let ``sprintf with double % should be unescaped`` () =
-//     sprintf "%d%%" 100 |> equal "100%"
-
-// [<Fact>]
-// let ``interpolated string with double % should be unescaped`` () =
-//     $"{100}%%" |> equal "100%"
-
-// [<Fact>]
-// let ``interpolated string with format and double % should be unescaped`` () =
-//     $"%.2f{100.4566666}%%" |> equal "100.46%"
-
-// [<Fact>]
-// let ``interpolated string with double % should not interfere with holes afterwards `` () =
-//     $"%%{99. - 1.5}".Replace(",", ".") |> equal "%97.5"
-
-// [<Fact>]
-// let ``interpolated string with double braces should be unescaped`` () =
-//     $"{{ {100} }}" |> equal "{ 100 }"
-
-// [<Fact>]
-// let ``interpolated string with format and double braces should be unescaped`` () =
-//     $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
-
-// [<Fact>]
-// let ``interpolated string with consecutive holes work`` () =
-//     $"""{"foo"}{5}""" |> equal "foo5"
-//     $"""%s{"foo"}%i{5}""" |> equal "foo5"
-//     $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
 // [<Fact>]
 // let ``Can create FormattableString`` () =
