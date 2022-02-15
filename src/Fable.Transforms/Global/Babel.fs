@@ -82,7 +82,7 @@ type Expression =
 
 type Pattern =
     | RestElement of name: string * argument: Pattern * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
-    | Identifier of Identifier
+    | Identifier of name: Identifier
 
     member this.Name =
         match this with
