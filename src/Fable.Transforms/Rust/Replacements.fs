@@ -919,7 +919,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | _ -> None
     | "PrintFormatToString", _, _ ->
         match args with
-        | [template] when template.Type = String -> Some template
+        | [template] -> Some template
         | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatLine", _, _ ->
         Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -942,29 +942,29 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
         // Optimization: try to convert f# interpolated string to JS template
         // for better performance
+        let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
         let template =
             match str with
             | StringConst str ->
-                (Some [], Regex.Matches(str, "((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
+                // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
+                // (though it does resolve double braces {{ }})
+                let str = str.Replace("%%" , "%")
+                (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
                 ||> Seq.fold (fun acc m ->
                     match acc with
                     | None -> None
                     | Some acc ->
                         let doesNotNeedFormat =
                             not m.Groups.[1].Success
-                            || m.Groups.[1].Value = "%s"
-                            || m.Groups.[1].Value = "%i"
-                        if doesNotNeedFormat then
-                            {| Index = m.Index; Length = m.Length |}::acc |> Some
+                            || (Array.contains m.Groups.[1].Value simpleFormats)
+                        if doesNotNeedFormat
+                        then {| Index = m.Index; Length = m.Length |}::acc |> Some
                         else None)
                 |> Option.map (fun holes -> str, List.toArray holes |> Array.rev)
             | _ -> None
 
         match template with
         | Some(str, holes) ->
-            // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
-            // (though it does resolve double braces {{ }})
-            let str = str.Replace("%%" , "%")
             let fmt = printTaggedTemplate str holes (fun i -> $"{i}")
             let args = makeStrConst fmt :: templateArgs
             "format!" |> emitFormat com r String args |> Some
