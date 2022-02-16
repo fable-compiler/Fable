@@ -242,8 +242,7 @@ module PrinterExtensions =
 
             let (|ImmediatelyApplied|_|) = function
                 | CallExpression(callee, appliedArgs, _) when parameters.Length = appliedArgs.Length ->
-                    // To be sure we're not running side effects when deleting the function,
-                    // check the callee is an identifier (accept non-computed member expressions too?)
+                    // To be sure we're not running side effects when deleting the function check the callee is an identifier
                     match callee with
                     | Expression.Identifier(_) ->
                         Array.zip parameters appliedArgs
