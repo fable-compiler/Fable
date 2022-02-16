@@ -953,3 +953,11 @@ let ``test Array.groupBy returns valid array`` () =
     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
     worked |> equal true
 *)
+
+[<Fact>]
+let ``Array.windowed works`` () = // See #1716
+    let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
+    Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+    Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 7 nums |> Array.isEmpty |> equal true
