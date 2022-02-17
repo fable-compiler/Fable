@@ -6,7 +6,8 @@ open System
 module Util =
     /// Used to indicate that a member is only implemented in native Javascript
     let inline jsNative<'T> : 'T =
-        try failwith "JS only" // try/catch is just for padding so it doesn't get optimized
+        // try/catch is just for padding so it doesn't get optimized
+        try failwith "You've hit dummy code used for Fable bindings. This probably means you're compiling Fable code to .NET by mistake, please check."
         with ex -> raise ex
 
 module Experimental =

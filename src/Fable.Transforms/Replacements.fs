@@ -1162,7 +1162,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
-            "A function supposed to be replaced by JS native code has been called, please check."
+            "A function supposed to be replaced by native code has been called, please check."
             |> StringConstant |> makeValue None
         makeThrow r t (error runtimeMsg) |> Some
     | _, ("nameof"|"nameof2" as meth) ->
