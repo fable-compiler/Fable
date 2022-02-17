@@ -898,7 +898,7 @@ let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGener
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> allocateArray
+    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i-windowSize..i-1]
     res
