@@ -404,6 +404,13 @@ module Helpers =
     let cleanNameAsRustIdentifier (name: string) =
         name.Replace(' ','_').Replace('`','_')
 
+    let memberNameAsRustIdentifier (name: string) part =
+        let f = cleanNameAsRustIdentifier
+        match part with
+        | Naming.InstanceMemberPart(s, o) -> (f s) + "_" + o
+        | Naming.StaticMemberPart(s, o) -> (f s) + "__" + o
+        | Naming.NoMemberPart -> f name
+
     let getEntityDeclarationName (com: Compiler) (entRef: Fable.EntityRef) =
         let entityName = getEntityMangledName (TrimRootModule com) entRef
         let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
@@ -442,8 +449,11 @@ module Helpers =
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
     let getMemberDeclarationName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         let name, part = getMemberMangledName (TrimRootModule com) memb
-        let name = cleanNameAsJsIdentifier name
-        let part = part.Replace(cleanNameAsJsIdentifier)
+        let name, part =
+            match com.Options.Language with
+            | Rust -> cleanNameAsRustIdentifier memb.CompiledName, Naming.NoMemberPart //TODO: overload suffix
+                // memberNameAsRustIdentifier name part, Naming.NoMemberPart
+            | _ -> cleanNameAsJsIdentifier name, part.Replace(cleanNameAsJsIdentifier)
 
         let sanitizedName =
             match com.Options.Language with
@@ -454,7 +464,6 @@ module Helpers =
                     | Some _ -> name
                     | _ -> Fable.PY.Naming.toSnakeCase name
                 Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
-            | Rust -> Naming.sanitizeIdent (fun _ -> false) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
         sanitizedName, hasOverloadSuffix
@@ -1734,10 +1743,7 @@ module Util =
 
     let memberRef (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
-        let memberName, hasOverloadSuffix =
-            match com.Options.Language with
-            | Rust -> memb.FullName, false //TODO: overload suffix
-            | _ -> getMemberDeclarationName com memb
+        let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
             memb.DeclaringEntity
             |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
@@ -2097,6 +2103,17 @@ module Util =
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
+
+    let makeCallInfoMemb callee args sigArgTypes (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
+        {
+            ThisArg = callee
+            Args = args
+            SignatureArgTypes = sigArgTypes
+            HasSpread = hasParamArray memb
+            IsConstructor = false
+            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
+            OptimizableInto = None
+        }
 
     let makeCallInfoFrom (com: IFableCompiler) (ctx: Context) r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {

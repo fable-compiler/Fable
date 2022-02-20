@@ -873,9 +873,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! valueExpr = transformExpr com ctx valueExpr
         match valToSet.DeclaringEntity with
         | Some ent when ent.IsFSharpModule && com.Options.Language = Rust ->
-            // Mutable module values are compiled as functions returning refcells
+            // For Rust mutable module values are compiled as functions returning refcells
+            let callInfo = makeCallInfoMemb None [] [] valToSet
             let valToSet = makeValueFrom com ctx r valToSet
-            let callInfo = makeCallInfo None [] []
             let callExpr = makeCall r valToSet.Type callInfo valToSet
             return Fable.Set(callExpr, Fable.ValueSet, valueExpr.Type, valueExpr, r)
         | Some ent when ent.IsFSharpModule && isPublicMember valToSet ->

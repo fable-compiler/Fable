@@ -573,6 +573,9 @@ module Exprs =
           attrs = mkVec []
           tokens = None }
 
+    let mkLabel name: Label =
+        { ident = mkIdent ("'_" + name) }
+
     let mkExprField attrs name expr is_shorthand is_placeholder: ExprField =
         { attrs = mkVec attrs
           id = DUMMY_NODE_ID
@@ -686,6 +689,16 @@ module Exprs =
         ExprKind.AddrOf(BorrowKind.Ref, Mutability.Mut, expr)
         |> mkExpr
 
+    let mkBreakExpr nameOpt exprOpt: Expr =
+        let labelOpt = nameOpt |> Option.map mkLabel
+        ExprKind.Break(labelOpt, exprOpt)
+        |> mkExpr
+
+    let mkContinueExpr nameOpt: Expr =
+        let labelOpt = nameOpt |> Option.map mkLabel
+        ExprKind.Continue(labelOpt)
+        |> mkExpr
+
     let mkErrLitExpr value: Expr =
         value
         |> mkErrLit
@@ -751,12 +764,16 @@ module Exprs =
         ExprKind.Assign(left, right, DUMMY_SP)
         |> mkExpr
 
-    let mkBlockExpr (statements: Stmt seq): Expr =
+    let mkBlockExpr block: Expr =
+        ExprKind.Block(block, None)
+        |> mkExpr
+
+    let mkStmtBlockExpr (statements: Stmt seq): Expr =
         ExprKind.Block(mkBlock statements, None)
         |> mkExpr
 
-    let mkLabelBlockExpr symbol block: Expr =
-        ExprKind.Block(block, Some { ident = mkIdent symbol })
+    let mkLabelBlockExpr name (statements: Stmt seq): Expr =
+        ExprKind.Block(mkBlock statements, Some(mkLabel name))
         |> mkExpr
 
     let mkIfThenExpr ifExpr thenExpr: Expr =
@@ -766,18 +783,26 @@ module Exprs =
 
     let mkIfThenElseExpr ifExpr thenExpr elseExpr: Expr =
         let thenBlock = mkExprBlock thenExpr
-        let elseBlock = [elseExpr |> mkExprStmt] |> mkBlockExpr
+        let elseBlock = mkExprBlock elseExpr |> mkBlockExpr
         ExprKind.If(ifExpr, thenBlock, Some elseBlock)
         |> mkExpr
 
-    let mkWhileExpr condExpr bodyExpr: Expr =
+    let mkWhileExpr nameOpt condExpr bodyExpr: Expr =
+        let labelOpt = nameOpt |> Option.map mkLabel
         let bodyBlock = mkSemiBlock bodyExpr
-        ExprKind.While(condExpr, bodyBlock, None)
+        ExprKind.While(condExpr, bodyBlock, labelOpt)
         |> mkExpr
 
-    let mkForLoopExpr var rangeExpr bodyExpr: Expr =
+    let mkForLoopExpr nameOpt var rangeExpr bodyExpr: Expr =
+        let labelOpt = nameOpt |> Option.map mkLabel
         let bodyBlock = mkSemiBlock bodyExpr
-        ExprKind.ForLoop(var, rangeExpr, bodyBlock, None)
+        ExprKind.ForLoop(var, rangeExpr, bodyBlock, labelOpt)
+        |> mkExpr
+
+    let mkLoopExpr nameOpt bodyExpr: Expr =
+        let labelOpt = nameOpt |> Option.map mkLabel
+        let bodyBlock = mkSemiBlock bodyExpr
+        ExprKind.Loop(bodyBlock, labelOpt)
         |> mkExpr
 
     let mkTryBlockExpr bodyExpr: Expr =

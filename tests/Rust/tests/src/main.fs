@@ -26,6 +26,7 @@ let tests: unit[] = [|
     importAll "SeqTests.rs"
     importAll "SetTests.rs"
     importAll "StringTests.rs"
+    importAll "TailCallTests.rs"
     importAll "TupleTests.rs"
     importAll "UnionTests.rs"
 |]
