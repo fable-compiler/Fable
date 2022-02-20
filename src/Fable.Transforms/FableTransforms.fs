@@ -100,6 +100,37 @@ let isIdentCaptured identName expr =
                 loop isClosure (sub @ restExprs)
     loop false [expr]
 
+let isTailRecursive identName expr =
+    let mutable isTailRec = true
+    let mutable isRecursive = false
+    let rec loop inTailPos = function
+        | CurriedApply(IdentExpr i, _, _, _)
+        | Call(IdentExpr i, _, _, _) as e when i.Name = identName ->
+            isRecursive <- true
+            isTailRec <- isTailRec && inTailPos
+            getSubExpressions e |> List.iter (loop false)
+        | Sequential exprs ->
+            let lastIndex = (List.length exprs) - 1
+            exprs |> List.iteri (fun i e -> loop (i = lastIndex) e)
+        | Let(_, value, body) ->
+            loop false value
+            loop inTailPos body
+        | LetRec(bindings, body) ->
+            List.map snd bindings |> List.iter (loop false)
+            loop inTailPos body
+        | IfThenElse(cond, thenExpr, elseExpr, _) ->
+            loop false cond
+            loop inTailPos thenExpr
+            loop inTailPos elseExpr
+        | DecisionTree(expr, targets) ->
+            loop false expr
+            List.map snd targets |> List.iter (loop inTailPos)
+        | e ->
+            getSubExpressions e |> List.iter (loop false)
+    loop true expr
+    isTailRec <- isTailRec && isRecursive
+    isRecursive, isTailRec
+
 let replaceValues replacements expr =
     if Map.isEmpty replacements
     then expr

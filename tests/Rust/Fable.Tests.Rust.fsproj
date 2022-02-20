@@ -40,6 +40,7 @@
     <Compile Include="tests/src/SeqTests.fs" />
     <Compile Include="tests/src/SetTests.fs" />
     <Compile Include="tests/src/StringTests.fs" />
+    <Compile Include="tests/src/TailCallTests.fs" />
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
     <Compile Include="tests/src/main.fs" />
