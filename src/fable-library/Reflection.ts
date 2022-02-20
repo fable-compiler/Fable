@@ -219,7 +219,7 @@ export function isEnum(t: TypeInfo) {
 }
 
 export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
-  return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
+  return (t2.fullname === obj_type.fullname) || (t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2)));
 }
 
 function isErasedToNumber(t: TypeInfo) {

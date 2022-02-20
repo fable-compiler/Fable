@@ -944,6 +944,12 @@ let tests =
         typeof<SubclassTest2>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
         typeof<SubclassTest3>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
 
+    testCase "IsSubclassOf returns true for System.Object" <| fun () ->
+        typeof<SubclassTest2>.IsSubclassOf(typeof<obj>) |> equal true
+        typeof<string>.IsSubclassOf(typeof<obj>) |> equal true
+        typeof<int>.IsSubclassOf(typeof<obj>) |> equal true
+        typeof<unit -> unit>.IsSubclassOf(typeof<obj>) |> equal true
+
     testCase "IsInstanceOfType works with class types" <| fun () ->
         let s1, s2 = SubclassTest1(), SubclassTest2()
         typeof<obj>.IsInstanceOfType(s1) |> equal true
