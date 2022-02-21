@@ -838,14 +838,10 @@ module Exprs =
     let mkMethodCallExprOnce (name: Symbol) genArgs (callee: Expr) args: Expr =
         let ident = mkIdent name
         let segment = mkPathSegment ident genArgs
-        let arguments = callee::args |> mkVec
         match callee.kind, args with
         | ExprKind.MethodCall(seg, args2, _), []
-                when seg = segment && args2.Count = 1 ->
-            callee
-        | _ ->
-            ExprKind.MethodCall(segment, arguments, DUMMY_SP)
-            |> mkExpr
+            when seg = segment && args2.Count = 1 -> callee
+        | _ -> mkMethodCallExpr name genArgs callee args
 
     let mkMacCallExpr (mac: MacCall): Expr =
         ExprKind.MacCall mac

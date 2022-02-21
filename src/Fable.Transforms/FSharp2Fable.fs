@@ -1294,7 +1294,10 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
     let entFullName = declaringEntity.FullName
-    let name = Naming.removeGetSetPrefix memb.CompiledName
+    let name =
+        match (com :> Compiler).Options.Language with
+        | Rust -> getMemberDeclarationName com memb |> fst
+        | _ -> Naming.removeGetSetPrefix memb.CompiledName
     let isGetter = memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
     let isSetter = not isGetter && memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
     let hasSpread = not isGetter && not isSetter && hasParamArray memb

@@ -2,6 +2,7 @@ namespace rec Fable.Transforms.FSharp2Fable
 
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Text
 open Fable
@@ -354,6 +355,7 @@ type IFableCompiler =
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Helpers =
+
     let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
         if ent.IsFSharpAbbreviation then
             let t = ent.AbbreviatedType
@@ -402,14 +404,18 @@ module Helpers =
         else name.Replace('.','_').Replace('`','$')
 
     let cleanNameAsRustIdentifier (name: string) =
-        name.Replace(' ','_').Replace('`','_')
+        let name = Regex.Replace(name, @"[\s`'"".]", "_")
+        let name = Regex.Replace(name, @"[^\w]",
+            fun c -> String.Format(@"{0:x4}", int c.Value.[0]))
+        name
 
     let memberNameAsRustIdentifier (name: string) part =
         let f = cleanNameAsRustIdentifier
+        let join sep s o = (f s) + (if o = "" then "" else sep + o)
         match part with
-        | Naming.InstanceMemberPart(s, o) -> (f s) + "_" + o
-        | Naming.StaticMemberPart(s, o) -> (f s) + "__" + o
-        | Naming.NoMemberPart -> f name
+        | Naming.InstanceMemberPart(s, o) -> join "_" s o, Naming.NoMemberPart
+        | Naming.StaticMemberPart(s, o) -> join "__" s o, Naming.NoMemberPart
+        | Naming.NoMemberPart -> f name, part.Replace(f)
 
     let getEntityDeclarationName (com: Compiler) (entRef: Fable.EntityRef) =
         let entityName = getEntityMangledName (TrimRootModule com) entRef
@@ -434,7 +440,7 @@ module Helpers =
                 if ent.IsFSharpModule then
                     match trimRootModule, entName with
                     | TrimRootModule com, _ when com.Options.Language = Rust ->
-                        memb.CompiledName, Naming.NoMemberPart // no module prefix for Rust
+                        memb.CompiledName, Naming.NoMemberPart // module prefix for Rust
                     | _, "" ->
                         memb.CompiledName, Naming.NoMemberPart
                     | _, moduleName ->
@@ -451,8 +457,7 @@ module Helpers =
         let name, part = getMemberMangledName (TrimRootModule com) memb
         let name, part =
             match com.Options.Language with
-            | Rust -> cleanNameAsRustIdentifier memb.CompiledName, Naming.NoMemberPart //TODO: overload suffix
-                // memberNameAsRustIdentifier name part, Naming.NoMemberPart
+            | Rust -> memberNameAsRustIdentifier name part
             | _ -> cleanNameAsJsIdentifier name, part.Replace(cleanNameAsJsIdentifier)
 
         let sanitizedName =
@@ -464,6 +469,7 @@ module Helpers =
                     | Some _ -> name
                     | _ -> Fable.PY.Naming.toSnakeCase name
                 Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | Rust -> Naming.buildNameWithoutSanitation name part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
         sanitizedName, hasOverloadSuffix
@@ -1744,6 +1750,12 @@ module Util =
     let memberRef (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
+        let memberName =
+            match com.Options.Language, memb.DeclaringEntity with
+            // for Rust use full name with non-instance calls
+            | Rust, Some ent when not(memb.IsInstanceMember) ->
+                ent.FullName + "." + memberName
+            | _ -> memberName
         let file =
             memb.DeclaringEntity
             |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
@@ -2133,6 +2145,7 @@ module Util =
             args = transformOptionalArguments com ctx r memb genArgs args,
             sigArgTypes = getArgTypes com memb,
             hasSpread = hasParamArray memb,
+            isCons = memb.IsConstructor,
             memberInfo = FsMemberFunctionOrValue.CallMemberInfo(memb))
         |> makeCallWithArgInfo com ctx r typ genArgs callee memb
 

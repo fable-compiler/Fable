@@ -842,8 +842,9 @@ module Util =
 
     type NamedTailCallOpportunity(_com: IRustCompiler, ctx, name, args: Fable.Ident list) =
         let args = args |> List.filter (fun arg -> not (arg.IsThisArgument))
+        let label = splitLast name
         interface ITailCallOpportunity with
-            member _.Label = name
+            member _.Label = label
             member _.Args = args
             member _.IsRecursiveRef(e) =
                 match e with
@@ -1797,31 +1798,14 @@ module Util =
                 && List.length tc.Args = List.length callInfo.Args ->
                 optimizeTailCall com ctx range tc callInfo.Args
             | _ ->
-                match callInfo.CallMemberInfo, callInfo.ThisArg with
-                |  Some mi, Some thisArg ->
-                    let namesp, name = splitNameSpace mi.FullName
-                    let callee = com.TransformAsExpr(ctx, thisArg)
-                    mkMethodCallExpr name None callee args
-                | Some mi, None ->
-                    let callee =
-                        // TODO: perhaps only use full path for non-local calls
-                        let path =
-                            match mi.DeclaringEntity with
-                            | Some ent ->
-                                // we want compiled name where possible
-                                let memberName =
-                                    let name = mi.CompiledName
-                                    if mi.IsGetter then name |> Fable.Naming.removeGetSetPrefix
-                                    elif name.EndsWith(".ctor") then name.Replace(".ctor", "new")
-                                    else name
-                                ent.FullName + "." + (memberName |> cleanNameAsRustIdentifier)
-                            | _ ->
-                                mi.FullName
-                                    .Replace(".( .ctor )", "::new")
-                                    .Replace(".``.ctor``", "::new")
-                        makeFullNamePathExpr path None
-                    mkCallExpr callee args
-                | None, _ ->
+                match callInfo.ThisArg, calleeExpr with
+                |  Some thisArg, Fable.IdentExpr id ->
+                    let callee = transformExprMaybeIdentExpr com ctx thisArg
+                    mkMethodCallExpr id.Name None callee args
+                // | None, Fable.IdentExpr id ->
+                //     let callee = makeFullNamePathExpr id.Name None
+                //     mkCallExpr callee args
+                | _ ->
                     let callee = transformCallee com ctx calleeExpr
                     mkCallExpr callee args
 
@@ -2578,7 +2562,7 @@ module Util =
         | Fable.MemberDeclaration decl ->
             decl.Info.Attributes
             |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint)
-            |> Option.map (fun _ -> [decl.Name])
+            |> Option.map (fun _ -> [splitLast decl.Name])
         | Fable.ActionDeclaration decl -> None
         | Fable.ClassDeclaration decl -> None
 
@@ -2601,35 +2585,6 @@ module Util =
             [fnItem]
         | None -> []
 
-    let transformModuleMember com ctx (decl: Fable.MemberDecl) =
-        // uses thread_local for static initialization
-        let name = decl.Name
-        let fableExpr = decl.Body
-        let value = transformAsExpr com ctx fableExpr
-        let value =
-            if decl.Info.IsMutable
-            then value |> makeMutValue |> makeRcValue
-            else value
-        let attrs = []
-        let ty = transformType com ctx fableExpr.Type
-        let ty =
-            if decl.Info.IsMutable
-            then ty |> makeMutTy com ctx |> makeRcTy com ctx
-            else ty
-
-        let staticItem = mkStaticItem attrs name ty (Some value) |> mkNonPublicItem
-        let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
-        let valueStmt = mkEmitStmt $"{name}.with(|{name}_| {name}_.clone())"
-
-        let attrs = []
-        let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some
-        let fnDecl = mkFnDecl [] (mkFnRetTy ty)
-        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
-        let fnItem = mkFnItem attrs decl.Name fnKind
-        // let fnItem =
-        //     if decl.Info.IsPublic then fnItem
-        //     else mkNonPublicItem fnItem
-        [fnItem]
 (*
     let makeEntityTypeParamDecl (com: IRustCompiler) _ctx (ent: Fable.Entity) =
         if com.Options.Typescript then
@@ -2841,9 +2796,11 @@ module Util =
         if name.IsNone then false, false
         else FableTransforms.isTailRecursive name.Value body
 
-    let transformFunctionBody com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) isTailRec =
-        if isTailRec then
+    let transformFunctionBody com ctx (args: Fable.Ident list) (body: Fable.Expr) =
+        match ctx.TailCallOpportunity with
+        | Some tc ->
             // tail call elimination setup (temp vars, loop, break)
+            let label = tc.Label
             let args = args |> List.filter (fun arg -> not (arg.IsMutable || arg.IsThisArgument))
             let mutArgs = args |> List.map (fun arg -> { arg with IsMutable = true })
             let idExprs = args |> List.map (fun arg -> Fable.IdentExpr arg)
@@ -2852,10 +2809,10 @@ module Util =
             let body = FableTransforms.replaceValues argMap body
             let letStmts, ctx = makeLetStmts com ctx bindings Map.empty
             let loopBody = transformLeaveContextByValue com ctx body
-            let loopExpr = mkBreakExpr name (Some(mkParenExpr loopBody))
-            let loopStmt = mkLoopExpr name loopExpr |> mkExprStmt
+            let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
+            let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt
             letStmts @ [loopStmt] |> mkStmtBlockExpr
-        else
+        | _ ->
             transformLeaveContextByValue com ctx body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
@@ -2864,7 +2821,7 @@ module Util =
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
         let fnDecl = transformFunctionDecl com ctx args body.Type
         let ctx = getFunctionCtx com ctx name args body isTailRec
-        let fnBody = transformFunctionBody com ctx name args body isTailRec
+        let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genParams
 
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
@@ -2875,7 +2832,7 @@ module Util =
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
         let ctx = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
-        let fnBody = transformFunctionBody com ctx name args body isTailRec
+        let fnBody = transformFunctionBody com ctx args body
         let closureExpr = mkClosureExpr fnDecl fnBody
         let closureExpr =
             if isRecursive && not isTailRec then
@@ -2990,8 +2947,9 @@ module Util =
         mkItemStmt fnItem, ctx
 
     let transformModuleFunction (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
+        let name = splitLast decl.Name
         let fnDecl, fnBody, fnGenParams =
-            transformFunction com ctx (Some decl.Name) decl.Args decl.Body
+            transformFunction com ctx (Some decl.FullDisplayName) decl.Args decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3005,13 +2963,44 @@ module Util =
             decl.Info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test" [])
-        let fnItem = mkFnItem attrs decl.Name kind
+        let fnItem = mkFnItem attrs name kind
+        // let fnItem =
+        //     if decl.Info.IsPublic then fnItem
+        //     else mkNonPublicItem fnItem
+        [fnItem]
+
+    let transformModuleMember com ctx (decl: Fable.MemberDecl) =
+        // uses thread_local for static initialization
+        let name = splitLast decl.Name
+        let fableExpr = decl.Body
+        let value = transformAsExpr com ctx fableExpr
+        let value =
+            if decl.Info.IsMutable
+            then value |> makeMutValue |> makeRcValue
+            else value
+        let attrs = []
+        let ty = transformType com ctx fableExpr.Type
+        let ty =
+            if decl.Info.IsMutable
+            then ty |> makeMutTy com ctx |> makeRcTy com ctx
+            else ty
+
+        let staticItem = mkStaticItem attrs name ty (Some value) |> mkNonPublicItem
+        let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
+        let valueStmt = mkEmitStmt $"{name}.with(|value| value.clone())"
+
+        let attrs = []
+        let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some
+        let fnDecl = mkFnDecl [] (mkFnRetTy ty)
+        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+        let fnItem = mkFnItem attrs name fnKind
         // let fnItem =
         //     if decl.Info.IsPublic then fnItem
         //     else mkNonPublicItem fnItem
         [fnItem]
 
     let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
+        let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
             transformFunction com ctx (Some membName) args body
         let fnBodyBlock =
@@ -3025,7 +3014,7 @@ module Util =
             info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test" [])
-        let fnItem = mkFnAssocItem attrs membName kind
+        let fnItem = mkFnAssocItem attrs name kind
         fnItem
 
 (*
@@ -3164,7 +3153,7 @@ module Util =
                     fields |> List.map (fun ident -> ident.Type)
                 ), None)
         let info = FSharp2Fable.MemberInfo()
-        let name = declName + "new" //TODO: is this correct?
+        let name = declName //TODO: is this correct?
         transformAssocMemberFunction com ctx info name fields body
 
     let interfacesToIgnore =
@@ -3250,9 +3239,7 @@ module Util =
                         Fable.Let(ident, nullOfT, acc)) // will be transformed as declaration only
                 body
             | e -> e
-            // TODO: get rid of the extra sequential block somehow as it is creating an unnecessary
-            // clone before returning. Can a nested sequential be flattened into a function body?
-        let ctor = { ctor with Body = body; Name = "new" }
+        let ctor = { ctor with Body = body }
         let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
         transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
 
@@ -3337,7 +3324,8 @@ module Util =
                 let decls =
                     let makeDecl (decl: Fable.MemberDecl) =
                         withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                            transformAssocMemberFunction com ctx decl.Info decl.Name decl.Args decl.Body
+                            let name = if decl.Info.IsInstance then decl.Name else decl.FullDisplayName
+                            transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
                     decl.AttachedMembers
                     |> List.filter (fun m -> tmethods |> Set.contains m.Name)
                     |> List.map makeDecl
