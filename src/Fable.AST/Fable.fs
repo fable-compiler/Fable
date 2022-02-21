@@ -307,6 +307,7 @@ type TestKind =
 type Witness =
     { TraitName: string
       IsInstance: bool
+      FileName: string
       Expr: Expr }
     member this.ArgTypes =
         match this.Expr with

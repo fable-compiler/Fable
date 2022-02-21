@@ -645,7 +645,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
                 return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
             | Some w ->
-                let callInfo = makeCallInfo None argExprs w.ArgTypes
+                let callInfo = makeCallInfo None argExprs argTypes
                 return makeCall r typ callInfo w.Expr
 
     | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
@@ -693,6 +693,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         let w: Fable.Witness = {
                             TraitName = traitName
                             IsInstance = isInstance
+                            FileName = com.CurrentFile
                             Expr = Fable.Delegate(args, body, None)
                         }
                         return { ctx with Witnesses = w::ctx.Witnesses }
@@ -1521,35 +1522,35 @@ type FableCompiler(com: Compiler) =
                 | None -> v
             | t -> t.MapGenerics(resolveGenArg ctx)
 
-        let rec resolveExpr ctx expr =
+        let rec resolveExpr ctx fileName expr =
             expr |> visitFromOutsideIn (function
                 // Resolve bindings
                 | Fable.Let(i, v, b) ->
                     let i = resolveIdent ctx i
-                    let v = resolveExpr ctx v
+                    let v = resolveExpr ctx fileName v
                     let ctx = { ctx with Scope = (None, i, Some v)::ctx.Scope }
-                    Fable.Let(i, v, resolveExpr ctx b) |> Some
+                    Fable.Let(i, v, resolveExpr ctx fileName b) |> Some
 
                 | Fable.LetRec(bindings, b) ->
                     let ctx, bindings =
                         ((ctx, bindings), bindings) ||> List.fold(fun (ctx, bindings) (i, e) ->
                             let i = resolveIdent ctx i
-                            let e = resolveExpr ctx e
+                            let e = resolveExpr ctx fileName e
                             { ctx with Scope = (None, i, Some e)::ctx.Scope }, (i, e)::bindings)
-                    Fable.LetRec(List.rev bindings, resolveExpr ctx b) |> Some
+                    Fable.LetRec(List.rev bindings, resolveExpr ctx fileName b) |> Some
 
                 // Resolve idents in other expressions
                 | Fable.IdentExpr i -> Fable.IdentExpr(resolveIdent ctx i) |> Some
-                | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx b, n) |> Some
-                | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx b, n) |> Some
-                | Fable.DecisionTree(e, targets) -> Fable.DecisionTree(resolveExpr ctx e, targets |> List.map(fun (idents, e) -> List.map (resolveIdent ctx) idents, resolveExpr ctx e)) |> Some
-                | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx s, resolveExpr ctx l, resolveExpr ctx b, u, r) |> Some
-                | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx e)), (d |> Option.map (resolveExpr ctx)), r) |> Some
+                | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx fileName b, n) |> Some
+                | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx fileName b, n) |> Some
+                | Fable.DecisionTree(e, targets) -> Fable.DecisionTree(resolveExpr ctx fileName e, targets |> List.map(fun (idents, e) -> List.map (resolveIdent ctx) idents, resolveExpr ctx fileName e)) |> Some
+                | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx fileName s, resolveExpr ctx fileName l, resolveExpr ctx fileName b, u, r) |> Some
+                | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx fileName b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx fileName e)), (d |> Option.map (resolveExpr ctx fileName)), r) |> Some
                 | Fable.ObjectExpr(members, t, baseCall) ->
                     let members = members |> List.map (fun m ->
                         { m with Args = List.map (resolveIdent ctx) m.Args
-                                 Body = resolveExpr ctx m.Body })
-                    Fable.ObjectExpr(members, resolveGenArg ctx t, baseCall |> Option.map (resolveExpr ctx)) |> Some
+                                 Body = resolveExpr ctx fileName m.Body })
+                    Fable.ObjectExpr(members, resolveGenArg ctx t, baseCall |> Option.map (resolveExpr ctx fileName)) |> Some
 
                 // Resolve imports. TODO: add test
                 | Fable.Import(info, t, r) as e ->
@@ -1557,14 +1558,14 @@ type FableCompiler(com: Compiler) =
                         // If it happens we're importing a member in the current file
                         // use IdentExpr instead of Import
                         let isImportToSameFile =
-                            inExpr.FileName = com.CurrentFile && (
+                            fileName = com.CurrentFile && (
                                 let dirName, fileName = Path.GetDirectoryAndFileNames(info.Path)
                                 dirName = "." && fileName = Path.GetFileName(com.CurrentFile)
                             )
                         if isImportToSameFile then
                             Fable.IdentExpr { makeTypedIdent t info.Selector with Range = r }
                         else
-                            let path = fixImportedRelativePath com info.Path inExpr.FileName
+                            let path = fixImportedRelativePath com info.Path fileName
                             Fable.Import({ info with Path = path }, t, r)
                     else e
                     |> Some
@@ -1580,28 +1581,29 @@ type FableCompiler(com: Compiler) =
                     | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs, t, r) ->
                         let t = resolveGenArg ctx t
                         let argTypes = argTypes |> List.map (resolveGenArg ctx)
-                        let argExprs = argExprs |> List.map (resolveExpr ctx)
+                        let argExprs = argExprs |> List.map (resolveExpr ctx fileName)
 
                         match tryFindWitness ctx argTypes isInstance traitName with
                         | None ->
                            let sourceTypes = sourceTypes |> List.map (resolveGenArg ctx)
                            transformTraitCall this ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
                         | Some w ->
-                            let callInfo = makeCallInfo None argExprs w.ArgTypes
-                            makeCall r t callInfo w.Expr |> Some
+                            let callee = resolveExpr ctx w.FileName w.Expr
+                            let callInfo = makeCallInfo None argExprs argTypes
+                            makeCall r t callInfo callee |> Some
 
                     | Fable.UnresolvedInlineCall(membUniqueName, genArgs, witnesses, callee, info, t, r) ->
                         let t = resolveGenArg ctx t
-                        let callee = callee |> Option.map (resolveExpr ctx)
-                        let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx)
-                                               Args = info.Args |> List.map (resolveExpr ctx) }
+                        let callee = callee |> Option.map (resolveExpr ctx fileName)
+                        let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx fileName)
+                                               Args = info.Args |> List.map (resolveExpr ctx fileName) }
                         let genArgs = genArgs |> List.map (resolveGenArg ctx)
                         let ctx = { ctx with Witnesses = witnesses @ ctx.Witnesses }
                         inlineExpr this ctx r t genArgs callee info membUniqueName |> Some
 
                     | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall, typ, r) ->
                         let resolveArg arg =
-                            let arg = resolveExpr ctx arg
+                            let arg = resolveExpr ctx fileName arg
                             let t = arg.Type
                             let t' = resolveGenArg ctx t
                             if t <> t' then Fable.TypeCast(arg, t', None) else arg
@@ -1614,7 +1616,7 @@ type FableCompiler(com: Compiler) =
                         | Some e -> Some e
                         | None when info.IsInterface ->
                             match attachedCall with
-                            | Some e -> resolveExpr ctx e |> Some
+                            | Some e -> resolveExpr ctx fileName e |> Some
                             | None ->
                                 "Unexpected, missing attached call in unresolved replace call"
                                 |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1624,7 +1626,7 @@ type FableCompiler(com: Compiler) =
                 | _ -> None)
 
         let ctx = { ctx with ScopeInlineArgs = ctx.ScopeInlineArgs @ bindings }
-        bindings, resolveExpr ctx inExpr.Body
+        bindings, resolveExpr ctx inExpr.FileName inExpr.Body
 
     interface IFableCompiler with
         member _.WarnOnlyOnce(msg, ?range) =
