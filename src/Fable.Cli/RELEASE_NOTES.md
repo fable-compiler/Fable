@@ -1,3 +1,7 @@
+### 3.7.2
+
+* Fix the fixes in the previous release
+
 ### 3.7.1
 
 * Fix #2809: Generic trait calls in multiple nested inlined functions
