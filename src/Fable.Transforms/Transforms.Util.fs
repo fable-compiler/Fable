@@ -371,8 +371,9 @@ module AST =
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewOption(Some e,_,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
+            | StringTemplate(_,_,exprs)
             | NewTuple(exprs,_)
-            | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
+            | NewUnion(exprs,_,_,_) -> List.exists canHaveSideEffects exprs
             // Arrays can be mutable
             | NewArray _ | NewArrayFrom _ -> true
             | NewRecord _ | NewAnonymousRecord _ -> true
@@ -767,6 +768,7 @@ module AST =
             | TypeInfo _ | Null _ | UnitConstant
             | BoolConstant _ | CharConstant _ | StringConstant _
             | NumberConstant _ | RegexConstant _ -> e
+            | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
             | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r

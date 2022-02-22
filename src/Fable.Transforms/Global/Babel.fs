@@ -109,6 +109,7 @@ type Pattern =
 
 type Literal =
     | StringLiteral of StringLiteral
+    | StringTemplate of tag: Expression option * parts: string array * values: Expression array * loc: SourceLocation option
     | DirectiveLiteral of DirectiveLiteral
     | NullLiteral of loc: SourceLocation option
     | BooleanLiteral of value: bool * loc: SourceLocation option

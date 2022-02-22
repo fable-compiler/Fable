@@ -985,6 +985,9 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         | _ ->
             addError com [] range $"Numeric literal is not supported: {x.GetType().FullName}"
             PhpConst(PhpConstNull)
+    | Fable.StringTemplate _ ->
+        addError com [] range $"String templates are not supported"
+        PhpConst(PhpConstNull)
     | Fable.StringConstant(s) ->
         PhpConst(PhpConstString s)
     | Fable.BoolConstant(b) ->

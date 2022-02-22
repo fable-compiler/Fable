@@ -1019,25 +1019,6 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
-let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[]) (printHoleContent: int -> string) =
-    // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
-    // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
-    let escape (str: string) =
-        Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
-
-    let sb = System.Text.StringBuilder("`")
-    let mutable prevIndex = 0
-
-    for i = 0 to holes.Length - 1 do
-        let m = holes.[i]
-        let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
-        sb.Append(strPart + "${" + (printHoleContent i) + "}") |> ignore
-        prevIndex <- m.Index + m.Length
-
-    sb.Append(str.Substring(prevIndex) |> escape) |> ignore
-    sb.Append("`") |> ignore
-    sb.ToString()
-
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
@@ -1070,34 +1051,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
-        // Optimization: try to convert f# interpolated string to JS template
-        // for better performance
-        let template =
-            match str with
-            | StringConst str ->
-                // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
-                // (though it does resolve double braces {{ }})
-                let str = str.Replace("%%" , "%")
-                (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
-                ||> Seq.fold (fun acc m ->
-                    match acc with
-                    | None -> None
-                    | Some acc ->
-                        let doesNotNeedFormat =
-                            not m.Groups.[1].Success
-                            || m.Groups.[1].Value = "%s"
-                            || m.Groups.[1].Value = "%i"
-                        if doesNotNeedFormat then
-                            {| Index = m.Index; Length = m.Length |}::acc |> Some
-                        else None)
-                |> Option.map (fun holes -> str, List.toArray holes |> Array.rev)
-            | _ -> None
-
-        match template with
-        | Some(str, holes) ->
-            printJsTaggedTemplate str holes (fun i -> $"${i}")
-            |> emitExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
-        // TODO: We could still use a JS template for formatting to increase performance?
+        match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
+        | Some v -> makeValue r v |> Some
         | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
@@ -1474,22 +1429,20 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
-        let callMacro, args, offset =
+        let tag =
             if not hasFormat then
-                let fnArg = Helper.LibValue(com, "String", "fmt", t)
-                "$0", fnArg::args, 1
+                Helper.LibValue(com, "String", "fmt", Any) |> Some
             else
-                let fnArg = Helper.LibValue(com, "String", "fmtWith", t)
                 let fmtArg =
                     matches
                     |> Array.map (fun m -> makeStrConst m.Groups.[1].Value)
                     |> Array.toList
                     |> makeArray String
-                "$0($1)", fnArg::fmtArg::args, 2
-        let jsTaggedTemplate =
-            let holes = matches |> Array.map (fun m -> {| Index = m.Index; Length = m.Length |})
-            printJsTaggedTemplate str holes (fun i -> "$" + string(i + offset))
-        emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
+                Helper.LibCall(com, "String", "fmtWith", Any, [fmtArg]) |> Some
+        let holes = matches |> Array.map (fun m -> {| Index = m.Index; Length = m.Length |})
+        let template = makeStringTemplate tag str holes args |> makeValue r
+        // Use a type cast to keep the FormattableString type
+        TypeCast(template, t) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> getAttachedMemberWith r t (getAttachedMember x "args") "length" |> Some
     | "GetArgument", Some x, [idx] -> getExpr r t (getAttachedMember x "args") idx |> Some

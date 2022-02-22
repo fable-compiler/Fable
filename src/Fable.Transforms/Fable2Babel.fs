@@ -942,6 +942,10 @@ module Util =
         | Fable.BoolConstant x -> Expression.booleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> Expression.stringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> Expression.stringLiteral(x, ?loc=r)
+        | Fable.StringTemplate(tag, parts, values) ->
+            let tag = tag |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+            let values = values |> List.mapToArray (fun e -> com.TransformAsExpr(ctx, e))
+            StringTemplate(tag, List.toArray parts, values, r) |> Literal
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
             | Decimal, (:? decimal as x) -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx

@@ -1500,6 +1500,7 @@ module Util =
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
+        | Fable.StringTemplate _ -> failwith "TODO: String templates are not supported"
         | Fable.NumberConstant (x, kind, _) -> makeNumber com ctx r value.Type kind x
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)

@@ -323,7 +323,19 @@ module PrinterExtensions =
             | Literal.StringLiteral(l) -> printer.Print(l)
             | BooleanLiteral(value, loc) -> printer.Print((if value then "true" else "false"), ?loc=loc)
             | NumericLiteral(value, loc) -> printer.PrintNumeric(value, loc)
-            | Literal.DirectiveLiteral(l) -> failwith "not implemented"
+            | Literal.DirectiveLiteral(l) -> failwith "Not implement: Directive literal"
+            | StringTemplate(tag, parts, values, loc) ->
+                let escape str = Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`")
+                printer.AddLocation(loc)
+                printer.PrintOptional(tag)
+                printer.Print("`")
+                for i = 0 to parts.Length - 2 do
+                    printer.Print(escape parts.[i])
+                    printer.Print("${")
+                    printer.Print(values.[i])
+                    printer.Print("}")
+                printer.Print(Array.last parts |> escape)
+                printer.Print("`")
 
         member printer.Print(stmt: Statement) =
             match stmt with

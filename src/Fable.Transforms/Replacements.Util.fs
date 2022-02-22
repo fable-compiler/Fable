@@ -2,6 +2,8 @@ module Fable.Transforms.Replacements.Util
 
 #nowarn "1182"
 
+open System.Text.RegularExpressions
+
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -253,6 +255,40 @@ let makeRuntimeType genArgs fullName =
 
 let makeFSharpCoreType genArgs fullName =
     makeDeclaredType "FSharp.Core" genArgs fullName
+
+let makeStringTemplate tag (str: string) (holes: {| Index: int; Length: int |}[]) values =
+    let mutable prevIndex = 0
+    let parts = [
+        for i = 0 to holes.Length - 1 do
+            let m = holes.[i]
+            let strPart = str.Substring(prevIndex, m.Index - prevIndex)
+            prevIndex <- m.Index + m.Length
+            strPart
+        str.Substring(prevIndex)
+    ]
+    StringTemplate(tag, parts, values)
+
+let makeStringTemplateFrom simpleFormats values = function
+    | StringConst str ->
+        // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
+        // (though it does resolve double braces {{ }})
+        let str = str.Replace("%%" , "%")
+        (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
+        ||> Seq.fold (fun acc m ->
+            match acc with
+            | None -> None
+            | Some acc ->
+                // TODO: If arguments need format, format them individually
+                let doesNotNeedFormat =
+                    not m.Groups.[1].Success
+                    || (Array.contains m.Groups.[1].Value simpleFormats)
+                if doesNotNeedFormat
+                then {| Index = m.Index; Length = m.Length |}::acc |> Some
+                else None)
+        |> Option.map (fun holes ->
+            let holes = List.toArray holes |> Array.rev
+            makeStringTemplate None str holes values)
+    | _ -> None
 
 let rec namesof com ctx acc e =
     match acc, e with
