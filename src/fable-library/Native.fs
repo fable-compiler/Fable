@@ -24,8 +24,9 @@ module Helpers =
     let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] =
-        if isNull cons then JS.Constructors.Array.Create(len)
-        else cons.Allocate(len)
+        if jsTypeof cons = "function"
+        then cons.Allocate(len)
+        else JS.Constructors.Array.Create(len)
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr

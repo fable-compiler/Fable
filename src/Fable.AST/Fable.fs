@@ -337,7 +337,7 @@ type ReplaceCallInfo =
       IsModuleValue: bool
       IsInterface: bool
       DeclaringEntityFullName: string
-      GenericArgs: (string * Type) list }
+      GenericArgs: Type list }
 
 type EmitInfo =
     { Macro: string
@@ -401,13 +401,23 @@ type ExtendedSet =
         | Curry (expr, _) -> expr.Type
         | Debugger | RegionStart _ -> Unit
 
+type Witness =
+    { TraitName: string
+      IsInstance: bool
+      FileName: string
+      Expr: Expr }
+    member this.ArgTypes =
+        match this.Expr with
+        | Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
+        | _ -> []
+
 /// Unresolved expressions are used in precompiled inline functions.
-/// They will be resolved in the call context where the context is available.
+/// They will be resolved in the call site where the context is available.
 type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?
     | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list
     | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option
-    | UnresolvedInlineCall of memberUniqueName: string * genArgs: (string * Type) list * callee: Expr option * info: CallInfo
+    | UnresolvedInlineCall of memberUniqueName: string * genArgs: Type list * witnesses: Witness list * callee: Expr option * info: CallInfo
 
 type Expr =
     /// Identifiers that reference another expression

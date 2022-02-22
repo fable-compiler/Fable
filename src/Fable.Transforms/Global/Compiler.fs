@@ -46,6 +46,7 @@ type InlineExpr =
     { Args: Fable.Ident list
       Body: Fable.Expr
       FileName: string
+      GenericArgs: string list
       ScopeIdents: Set<string> }
 
 type CompilerPlugins =

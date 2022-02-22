@@ -4,18 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.0</Version>
-    <PackageVersion>3.7.0</PackageVersion>
-    <PackageReleaseNotes>* Cache .fsproj parsing result
-* Run F# type check and Fable in parallel (use --noParallelTypeCheck flag to disable)
-* Automatic --runFast
-* Precompilation
-* --noReflection flag
-* Disable uncurrying functions passed as arguments to local lambdas
-* Seeded System.Random
-* Fix typeof(obj).IsInstanceOfType @chkn
-* Fix #2709: error when using JsInterop.import in inlined functions
-* Fix #2719: use with null disposable</PackageReleaseNotes>
+    <Version>3.7.1</Version>
+    <PackageVersion>3.7.1</PackageVersion>
+    <PackageReleaseNotes>* Fix #2809: Generic trait calls in multiple nested inlined functions
+* Fix #2817: Optimization - Remove wrapping lambdas when possible</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

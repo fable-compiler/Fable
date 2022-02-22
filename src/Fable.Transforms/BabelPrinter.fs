@@ -154,30 +154,29 @@ module PrinterExtensions =
 
         member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement,
                 typeParameters: TypeParameterDeclaration option, returnType: TypeAnnotation option, loc, ?isDeclaration, ?isArrow) =
-            let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
-                Array.zip passedArgs appliedAgs
-                |> Array.forall (function
-                    | RestElement(name=name), Expression.Identifier(Identifier(name=idName)) -> name = idName
-                    | _ -> false)
+
+            let (|ImmediatelyApplied|_|) = function
+                | CallExpression(callee, appliedArgs, _) when parameters.Length = appliedArgs.Length ->
+                    // To be sure we're not running side effects when deleting the function check the callee is an identifier
+                    match callee with
+                    | Expression.Identifier(_) ->
+                        Array.zip parameters appliedArgs
+                        |> Array.forall (function
+                            | Pattern.Identifier(Identifier(name=name1)), Expression.Identifier(Identifier(name=name2)) -> name1 = name2
+                            | _ -> false)
+                        |> function true -> Some callee | false -> None
+                    | _ -> None
+                | _ -> None
 
             let isDeclaration = defaultArg isDeclaration false
             let isArrow = defaultArg isArrow false
-
             printer.AddLocation(loc)
 
             // Check if we can remove the function
             let skipExpr =
                 match body.Body with
-                | [| ReturnStatement(argument, loc) |] when not isDeclaration ->
-                    match argument with
-                    | CallExpression(callee, arguments, loc) when parameters.Length = arguments.Length ->
-                        // To be sure we're not running side effects when deleting the function,
-                        // check the callee is an identifier (accept non-computed member expressions too?)
-                        match callee with
-                        | Expression.Identifier(_) when areEqualPassedAndAppliedArgs parameters arguments ->
-                            Some callee
-                        | _ -> None
-                    | _ -> None
+                | [| ReturnStatement(ImmediatelyApplied e, _) |] when not isDeclaration -> Some e
+                | [| ExpressionStatement(ImmediatelyApplied e) |] when isArrow && not isDeclaration -> Some e
                 | _ -> None
 
             match skipExpr with
@@ -192,7 +191,7 @@ module PrinterExtensions =
                     printer.PrintOptional(returnType)
                     printer.Print(" => ")
                     match body.Body with
-                    | [| ReturnStatement(argument, loc) |] ->
+                    | [| ReturnStatement(argument, _loc) |] ->
                         match argument with
                         | ObjectExpression(_) -> printer.WithParens(argument)
                         | MemberExpression(name, object, property, computed, loc) ->
