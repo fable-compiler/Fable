@@ -267,8 +267,7 @@ type FsWatcher(delayMs: int) =
     do
         watcher.OnFileChange.Add(fun path -> observable.Trigger(path))
         watcher.OnError.Add(fun ev ->
-            Log.always("Watcher found an error, some events may have been lost.")
-            Log.verbose(lazy ev.GetException().Message)
+            Log.verbose(lazy $"[WATCHER] {ev.GetException().Message}")
         )
 
     member _.BasePath = watcher.BasePath
