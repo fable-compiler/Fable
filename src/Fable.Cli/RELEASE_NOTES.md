@@ -1,3 +1,8 @@
+### 3.7.1
+
+* Fix #2809: Generic trait calls in multiple nested inlined functions
+* Fix #2817: Optimization - Remove wrapping lambdas when possible
+
 ### 3.7.0
 
 * Cache .fsproj parsing result

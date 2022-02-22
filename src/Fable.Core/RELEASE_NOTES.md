@@ -1,3 +1,8 @@
+### 3.6.2
+
+* Fix #2805: Improve jsNative error messages
+* Revert changes in Core.JS, see Fulma/issues/294
+
 ### 3.6.1
 
 * TypescriptTaggedUnion @cannorin

@@ -1592,6 +1592,75 @@ module Uncurry =
     let tests = [ ]
     #endif
 
+module MultipleInlines =
+    open Aether
+    open Aether.Operators
+
+    //
+    // Types with required nesting and optics to reproduce error
+    //
+    type private Result<'T> =
+        | Ok of 'T
+        | Error of string
+
+    type private PaymentFrequencyDto =
+        | Weekly = 1
+        | Fortnightly = 2
+        | Monthly = 3
+        | Quarterly = 4
+        | Annual = 5
+
+    type private InsurancePolicyDetailsDto = {
+        PaymentFrequency : PaymentFrequencyDto
+        Discount : decimal option
+    } with
+        static member discount_ : Prism<InsurancePolicyDetailsDto, decimal> =
+            (fun p -> p.Discount),
+            (fun x p ->
+                match p with
+                | p when p.Discount.IsSome -> {p with Discount = Some x}
+                | p -> p)
+        static member paymentFrequency_ : Lens<InsurancePolicyDetailsDto, PaymentFrequencyDto> =
+            (fun p -> p.PaymentFrequency), (fun x p -> { p with PaymentFrequency = x })
+
+    type private AccountDetailsDto = {
+        Tag : string
+        InsurancePolicyData : InsurancePolicyDetailsDto option
+    } with
+        static member insurancePolicyData_ : Prism<AccountDetailsDto, InsurancePolicyDetailsDto> =
+            (fun p -> p.InsurancePolicyData),
+            (fun x p ->
+                match p with
+                | p when p.InsurancePolicyData.IsSome -> {p with InsurancePolicyData = Some x}
+                | p -> p)
+
+
+    type private AccountDto = {
+        Details : AccountDetailsDto
+    } with
+        static member details_ : Lens<AccountDto, AccountDetailsDto> =
+            (fun p -> p.Details), (fun x p -> {p with Details = x})
+
+    let tests = [
+        testCase "Trait call works with multiple inlined functions I" <| fun () -> // See #2809
+            let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
+            let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
+
+            let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = Optic.get (details_ >?> optic) account
+
+            getP InsurancePolicyDetailsDto.discount_
+            |> equal None
+
+        testCase "Trait call works with multiple inlined functions II" <| fun () -> // See #2809
+            let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
+            let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
+
+            let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = account^.(details_ >?> optic)
+
+            getP InsurancePolicyDetailsDto.discount_
+            |> equal None
+    ]
+
 let tests =
     testList "Applicative" (
         tests1
@@ -1604,4 +1673,5 @@ let tests =
         @ CurriedApplicative.tests
         @ Curry.tests
         @ Uncurry.tests
+        @ MultipleInlines.tests
     )

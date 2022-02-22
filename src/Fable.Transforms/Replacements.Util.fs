@@ -53,14 +53,6 @@ let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
 
-let resolveArgTypes argTypes (genArgs: (string * Type) list) =
-    argTypes |> List.map (function
-        | GenericParam(name,_) as t ->
-            genArgs |> List.tryPick (fun (name2, t) ->
-                if name = name2 then Some t else None)
-            |> Option.defaultValue t
-        | t -> t)
-
 let asOptimizable optimization = function
     | Call(e, i, t, r) -> Call(e, { i with OptimizableInto = Some optimization }, t, r)
     | e -> e
@@ -100,9 +92,8 @@ let nullCheck r isNull expr =
 
 let str txt = Value(StringConstant txt, None)
 
-let genArg (com: ICompiler) (ctx: Context) r i (genArgs: (string * Type) list) =
+let genArg (com: ICompiler) (ctx: Context) r i (genArgs: Type list) =
     List.tryItem i genArgs
-    |> Option.map snd
     |> Option.defaultWith (fun () ->
         "Couldn't find generic argument in position " + (string i)
         |> addError com ctx.InlinePath r
@@ -383,9 +374,16 @@ let (|RequireStringConst|_|) com (ctx: Context) r e =
         addError com ctx.InlinePath r "Expecting string literal"
         Some "")
 
-let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
-    sourceTypes |> List.tryPick (function
-        | DeclaredType(ent,_) ->
-            let ent = com.GetEntity(ent)
-            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
-        | _ -> None)
+let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
+   let argTypes = argExprs |> List.map (fun a -> a.Type)
+   match FSharp2Fable.TypeHelpers.tryFindWitness ctx argTypes false opName with
+   | Some w ->
+       let callInfo = makeCallInfo None argExprs w.ArgTypes
+       makeCall r t callInfo w.Expr |> Some
+   | None ->
+        sourceTypes |> List.tryPick (function
+            | DeclaredType(ent,_) ->
+                let ent = com.GetEntity(ent)
+                FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
+            | _ -> None)
+        |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)

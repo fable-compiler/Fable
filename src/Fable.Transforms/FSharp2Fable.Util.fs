@@ -300,15 +300,6 @@ type MemberInfo(?attributes: FSharpAttribute seq,
         member _.IsEnumerator = defaultArg isEnumerator false
         member _.IsMangled = defaultArg isMangled false
 
-type Witness =
-    { TraitName: string
-      IsInstance: bool
-      Expr: Fable.Expr }
-    member this.ArgTypes =
-        match this.Expr with
-        | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
-        | _ -> []
-
 type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
 
 type Context =
@@ -325,7 +316,7 @@ type Context =
       BoundMemberThis: Fable.Ident option
       InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
-      Witnesses: Witness list
+      Witnesses: Fable.Witness list
     }
 
     static member Create(?usedRootNames) =
@@ -889,11 +880,12 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
-    // Sometimes the names of user-declared and compiler-generated clash, see #1900
     let genParamName (genParam: FSharpGenericParameter) =
-        if genParam.IsCompilerGenerated
-        then genParam.Name.Replace("?", "$") + "$"
-        else genParam.Name
+        // Sometimes the names of user-declared and compiler-generated clash, see #1900
+        //if genParam.IsCompilerGenerated then genParam.Name.Replace("?", "$") + "$" else genParam.Name
+
+        // Conflicting generic param names seem to have been solved in FCS
+        genParam.Name
 
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
         let name = genParamName genParam
@@ -1125,14 +1117,14 @@ module TypeHelpers =
 
     let tryFindMember _com (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
-                let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
-                if args1Length = args2Length then
-                    let args2 =
-                        args2
-                        |> Seq.collect (fun g ->
-                            g |> Seq.map (fun p -> makeType genArgs p.Type) |> Seq.toList)
-                    listEquals (typeEquals false) args1 (Seq.toList args2)
-                else false
+            let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
+            if args1Length = args2Length then
+                let args2 =
+                    args2
+                    |> Seq.collect (fun g ->
+                        g |> Seq.map (fun p -> makeType genArgs p.Type) |> Seq.toList)
+                listEquals (typeEquals false) args1 (Seq.toList args2)
+            else false
 
         match entity with
         | :? FsEnt as entity ->
@@ -1559,20 +1551,15 @@ module Util =
             | None -> None
         Fable.TryCatch(body, catchClause, finalizer, r)
 
-    let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
-        // Prevent iterating the sequence twice when calculating length
-        let genArgs = Seq.toArray genArgs
-
-        let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
-            Seq.zip (genParams |> Seq.map genParamName) genArgs
-
+    let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
         match memb.DeclaringEntity with
         // It seems that for F# types memb.GenericParameters contains all generics
         // but for BCL types we need to check the DeclaringEntity generics too
         | Some ent when genArgs.Length > memb.GenericParameters.Count ->
             Seq.append ent.GenericParameters memb.GenericParameters
         | _ -> upcast memb.GenericParameters
-        |> matchGenericParams genArgs
+        |> Seq.map genParamName
+        |> fun genParams -> Seq.zip genParams genArgs
 
     /// Takes only the first CurriedParameterGroup into account.
     /// If there's only a single unit parameter, returns 0.
@@ -1860,7 +1847,7 @@ module Util =
                 $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
         msg |> addErrorAndReturnNull com ctx.InlinePath r
 
-    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
+    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ genArgs (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
@@ -1874,7 +1861,7 @@ module Util =
                 OverloadSuffix =
                     if ent.IsFSharpModule then ""
                     else FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
-                GenericArgs = genArgs.Value }
+                GenericArgs = genArgs }
             match ctx.PrecompilingInlineFunction with
             | Some _ ->
                 // Deal with reraise so we don't need to save caught exception every time
@@ -1974,7 +1961,7 @@ module Util =
         | _ -> None
         |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
 
-    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: (string * Fable.Type) list) callee (info: Fable.CallInfo) membUniqueName =
+    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Fable.Type list) callee (info: Fable.CallInfo) membUniqueName =
         let args: Fable.Expr list =
             match callee with
             | Some c -> c::info.Args
@@ -1988,7 +1975,9 @@ module Util =
             | { ToFile = file; ToRange = r }::_ -> file, r
             | [] -> com.CurrentFile, r
 
-        let ctx = { ctx with GenericArgs = Map genArgs
+        let genArgs = List.zipSafe inExpr.GenericArgs genArgs |> Map
+
+        let ctx = { ctx with GenericArgs = genArgs
                              InlinePath = { ToFile = inExpr.FileName
                                             ToRange = inExpr.Body.Range
                                             FromFile = fromFile
@@ -2017,16 +2006,15 @@ module Util =
             let body = if t <> body.Type then Fable.TypeCast(body, t) else body
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
-    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee info (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb then
-            let genArgs = genArgs.Value
             let membUniqueName = getMemberUniqueName memb
             match ctx.PrecompilingInlineFunction with
             | Some memb2 when memb.Equals(memb2) ->
                 $"Recursive functions cannot be inlined: (%s{memb.FullName})"
                 |> addErrorAndReturnNull com [] r |> Some
             | Some _ ->
-                let e = Fable.UnresolvedInlineCall(membUniqueName, genArgs, callee, info)
+                let e = Fable.UnresolvedInlineCall(membUniqueName, genArgs,  ctx.Witnesses, callee, info)
                 Fable.Unresolved(e, t, r) |> Some
             | None ->
                 inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
@@ -2034,7 +2022,7 @@ module Util =
 
     /// Removes optional arguments set to None in tail position
     let transformOptionalArguments (_com: IFableCompiler) (_ctx: Context) (_r: SourceLocation option)
-                (memb: FSharpMemberOrFunctionOrValue) (_genArgs: Lazy<_>) (args: Fable.Expr list) =
+                (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args
@@ -2051,7 +2039,7 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com (ctx: Context) r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com (ctx: Context) r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
@@ -2105,11 +2093,11 @@ module Util =
             callAttachedMember com r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls entity memb && com.Options.Language <> Rust ->
-            let typ = makeType (Map genArgs.Value) memb.FullType
+            let typ = makeType ctx.GenericArgs memb.FullType
             memberRef com r typ memb
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
-            let typ = makeType (Map genArgs.Value) memb.ReturnParameter.Type
+            let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callExpr =
                 memberRef com r Fable.Any memb
                 |> makeCall r typ callInfo
@@ -2127,22 +2115,12 @@ module Util =
             OptimizableInto = None
         }
 
-    let makeCallInfoFrom (com: IFableCompiler) (ctx: Context) r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
-        {
-            ThisArg = callee
-            Args = transformOptionalArguments com ctx r memb genArgs args
-            SignatureArgTypes = getArgTypes com memb
-            HasSpread = hasParamArray memb
-            IsConstructor = false
-            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
-            OptimizableInto = None
-        }
-
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
+        let newCtxGenArgs = matchGenericParamsFrom memb genArgs |> Seq.toList
+        let ctx = { ctx with GenericArgs = (ctx.GenericArgs, newCtxGenArgs) ||> Seq.fold (fun map (k, v) -> Map.add k v map) }
         Fable.CallInfo.Make(
             ?thisArg = callee,
-            args = transformOptionalArguments com ctx r memb genArgs args,
+            args = transformOptionalArguments com ctx r memb args,
             sigArgTypes = getArgTypes com memb,
             hasSpread = hasParamArray memb,
             isCons = memb.IsConstructor,

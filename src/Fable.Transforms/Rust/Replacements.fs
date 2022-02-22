@@ -341,7 +341,7 @@ let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])
     |> nativeCall
 
-let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
+let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), t, r)
     let binOp op left right =
@@ -382,7 +382,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | _ ->
             $"Operator %s{opName} not found in %A{argTypes}"
             |> addErrorAndReturnNull com ctx.InlinePath r
-    let argTypes = resolveArgTypes argTypes genArgs
+    let argTypes = args |> List.map (fun a -> a.Type)
     match argTypes with
     | Number(BigInt|Decimal as kind,_)::_ ->
         let modName, opName =
@@ -405,9 +405,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
-    | CustomOp com ctx opName argTypes m ->
-        let genArgs = genArgs |> Seq.map snd
-        FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
+    | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithNativeComparison = function
@@ -619,8 +617,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> emptyGuid()
     | Builtin (BclKeyValuePair(k,v)) ->
         makeTuple None [getZero com ctx k; getZero com ctx v]
-    | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
-        FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
+    | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ ->
         Helper.LibCall(com, "Native", "defaultOf", t, [])
 
@@ -630,14 +627,13 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Number (kind, uom) -> NumberConstant (getBoxedOne kind, kind, uom) |> makeValue None
     | Number (BigInt,_) -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 1])
     | Number (Decimal,_) -> makeIntConst 1 |> makeDecimalFromExpr com None t
-    | ListSingleton(CustomOp com ctx "get_One" [] m) ->
-        FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
+    | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
     let x = makeUniqueIdent ctx t "x"
     let y = makeUniqueIdent ctx t "y"
-    let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y] [t; t] []
+    let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
     Delegate([x; y], body, FuncInfo.Empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
@@ -650,7 +646,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent ctx t "x"
         let i = makeUniqueIdent ctx (Number(Int32, NumberInfo.Empty)) "i"
-        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number(Int32, NumberInfo.Empty)] []
+        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
         Delegate([x; i], body, FuncInfo.Empty)
     objExpr [
         "GetZero", getZero com ctx t |> makeDelegate []
@@ -1082,19 +1078,20 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Math functions
     // TODO: optimize square pow: x * x
     | ("Pow" | "PowInteger" | "op_Exponentiation"), _ ->
-        let argTypes = resolveArgTypes i.SignatureArgTypes i.GenericArgs
+        let argTypes = args |> List.map (fun a -> a.Type)
         match argTypes with
-        | Number(Decimal,_)::_  ->
+        | Number(Decimal,_)::_ ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | Number((Float32 | Float64), _)::_ ->
             let meth = if i.CompiledName = "PowInteger" then "powi" else "powf"
             math r t args i.SignatureArgTypes meth |> Some
+        | CustomOp com ctx r t "Pow" args e -> Some e
         | _ ->
             math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), _ ->
         let meth = Naming.lowerFirst meth
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Number(Decimal,_)::_  ->
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
             Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             let meth = if meth = "ceiling" then "ceil" else meth
@@ -1104,22 +1101,22 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Log", [arg] ->
         math r t args i.SignatureArgTypes "ln" |> Some
     | "Abs", _ ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Number(Decimal,_)::_  ->
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
             Helper.LibCall(com, "Decimal", "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | ("Acos" | "Asin" | "Atan" | "Atan2" | "Cos" | "Cosh" | "Exp"), _
     | ("Log2" | "Log10"| "Sin" | "Sinh" | "Sqrt" | "Tan" | "Tanh"), _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Round", [arg] ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Number(Decimal,_)::_  ->
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
             Helper.LibCall(com, "Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             Helper.InstanceCall(arg, "round", t, [], ?loc=r) |> Some
     | "Truncate", [arg] ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Number(Decimal,_)::_  ->
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
             Helper.LibCall(com, "Decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             Helper.InstanceCall(arg, "trunc", t, [], ?loc=r) |> Some
@@ -1159,7 +1156,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Not", [operand] -> // TODO: Check custom operator?
         makeUnOp r t operand UnaryNot |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
-        applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
+        applyOp com ctx r t i.CompiledName args |> Some
     // Type info
     | "TypeOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
     | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo r |> Some
@@ -1912,7 +1909,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | Operators.divideByInt
     | Operators.modulus
     | Operators.unaryNegation), _ ->
-        applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
+        applyOp com ctx r t i.CompiledName args |> Some
     | "op_Explicit", _ ->
         match t with
         | Number(kind,_) ->
@@ -1979,8 +1976,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | Naming.EndsWith "Dynamic" operation, arg::_ ->
         let operation = if operation = Operators.divideByInt then operation else "op_" + operation
         if operation = "op_Explicit" then Some arg // TODO
-        else applyOp com ctx r t operation args i.SignatureArgTypes i.GenericArgs |> Some
-    | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
+        else applyOp com ctx r t operation args |> Some
+    | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "GenericZero", _ -> Helper.LibCall(com, "Native", "getZero", t, []) |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure"

@@ -117,6 +117,14 @@ module List =
         | Some i -> List.splitAt i xs
         | None -> xs, []
 
+    /// Only zips first elements until length differs
+    let zipSafe (xs: 'T1 list) (ys: 'T2 list) =
+        let rec inner acc xs ys =
+            match xs, ys with
+            | x::xs, y::ys -> inner ((x,y)::acc) xs ys
+            | _ -> List.rev acc
+        inner [] xs ys
+
 [<RequireQualifiedAccess>]
 module Result =
     let mapEither mapOk mapError = function

@@ -154,63 +154,56 @@ module PrinterExtensions =
 
         member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement,
                 typeParameters: TypeParameterDeclaration option, returnType: TypeAnnotation option, loc, ?isDeclaration, ?isArrow) =
-            let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
-                Array.zip passedArgs appliedAgs
-                |> Array.forall (function
-                    | RestElement(name=name), Expression.Identifier(Identifier(name=idName)) -> name = idName
-                    | _ -> false)
 
-            let isDeclaration = defaultArg isDeclaration false
-            let isArrow = defaultArg isArrow false
-
-            printer.AddLocation(loc)
-
-            // Check if we can remove the function
-            let skipExpr =
-                match body.Body with
-                | [| ReturnStatement(argument, loc) |] when not isDeclaration ->
-                    match argument with
-                    | CallExpression(callee, arguments, loc) when parameters.Length = arguments.Length ->
-                        // To be sure we're not running side effects when deleting the function,
-                        // check the callee is an identifier (accept non-computed member expressions too?)
-                        match callee with
-                        | Expression.Identifier(_) when areEqualPassedAndAppliedArgs parameters arguments ->
-                            Some callee
-                        | _ -> None
+            let (|ImmediatelyApplied|_|) = function
+                | CallExpression(callee, appliedArgs, _) when parameters.Length = appliedArgs.Length ->
+                    // To be sure we're not running side effects when deleting the function check the callee is an identifier
+                    match callee with
+                    | Expression.Identifier(_) ->
+                        Array.zip parameters appliedArgs
+                        |> Array.forall (function
+                            | Pattern.Identifier(Identifier(name=name1)), Expression.Identifier(Identifier(name=name2)) -> name1 = name2
+                            | _ -> false)
+                        |> function true -> Some callee | false -> None
                     | _ -> None
                 | _ -> None
 
-            match skipExpr with
-            | Some e -> printer.Print(e)
-            | None ->
-                if isArrow then
-                    // Remove parens if we only have one argument? (and no annotation)
-                    printer.PrintOptional(typeParameters)
-                    printer.Print("(")
-                    printer.PrintCommaSeparatedArray(parameters)
-                    printer.Print(")")
-                    printer.PrintOptional(returnType)
-                    printer.Print(" => ")
-                    match body.Body with
-                    | [| ReturnStatement(argument, loc) |] ->
-                        match argument with
-                        | ObjectExpression(_) -> printer.WithParens(argument)
-                        | MemberExpression(name, object, property, computed, loc) ->
-                            match object with
-                            | ObjectExpression(_) -> printer.PrintMemberExpression(name, object, property, computed, loc, objectWithParens=true)
-                            | _ -> printer.Print(argument)
-                        | _ -> printer.ComplexExpressionWithParens(argument)
-                    | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
-                else
-                    printer.Print("function ")
-                    printer.PrintOptional(id)
-                    printer.PrintOptional(typeParameters)
-                    printer.Print("(")
-                    printer.PrintCommaSeparatedArray(parameters)
-                    printer.Print(")")
-                    printer.PrintOptional(returnType)
-                    printer.Print(" ")
-                    printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+            let isDeclaration = defaultArg isDeclaration false
+            let isArrow = defaultArg isArrow false
+            printer.AddLocation(loc)
+
+            match body.Body with
+            // Check if we can remove the function
+            | [| ReturnStatement(ImmediatelyApplied e, _) |] when not isDeclaration ->
+                printer.Print(e)
+            | _ when isArrow ->
+                // Remove parens if we only have one argument? (and no annotation)
+                printer.PrintOptional(typeParameters)
+                printer.Print("(")
+                printer.PrintCommaSeparatedArray(parameters)
+                printer.Print(")")
+                printer.PrintOptional(returnType)
+                printer.Print(" => ")
+                match body.Body with
+                | [| ReturnStatement(argument, _loc) |] ->
+                    match argument with
+                    | ObjectExpression(_) -> printer.WithParens(argument)
+                    | MemberExpression(name, object, property, computed, loc) ->
+                        match object with
+                        | ObjectExpression(_) -> printer.PrintMemberExpression(name, object, property, computed, loc, objectWithParens=true)
+                        | _ -> printer.Print(argument)
+                    | _ -> printer.ComplexExpressionWithParens(argument)
+                | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+            | _ ->
+                printer.Print("function ")
+                printer.PrintOptional(id)
+                printer.PrintOptional(typeParameters)
+                printer.Print("(")
+                printer.PrintCommaSeparatedArray(parameters)
+                printer.Print(")")
+                printer.PrintOptional(returnType)
+                printer.Print(" ")
+                printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
         member printer.WithParens(expr: Expression) =
             printer.Print("(")

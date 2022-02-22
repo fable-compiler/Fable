@@ -5,10 +5,13 @@ open System
 [<AutoOpen>]
 module Util =
     /// Used to indicate that a member is only implemented in the native target language
-    let nativeOnly<'T> : 'T = failwith "Native only"
+    let inline nativeOnly<'T> : 'T =
+        // try/catch is just for padding so it doesn't get optimized
+        try failwith "You've hit dummy code used for Fable bindings. This probably means you're compiling Fable code to .NET by mistake, please check."
+        with ex -> raise ex
 
     /// Alias of nativeOnly
-    let jsNative<'T> : 'T = failwith "JS only"
+    let inline jsNative<'T> : 'T = nativeOnly<'T>
 
     /// Marks the start of a region. When using the --delimiter option,
     /// Fable will try to match these regions with areas surrounded by
