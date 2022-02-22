@@ -20,6 +20,7 @@ let getSubExpressions = function
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
+        | StringTemplate(_,_,exprs) -> exprs
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
         | NewArray(exprs, _) -> exprs
@@ -214,6 +215,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewArrayFrom(e,_)
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
+            | StringTemplate(_,_,exprs)
             | NewArray(exprs,_)
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)

@@ -259,6 +259,9 @@ type ValueKind =
     | BoolConstant of value: bool
     | CharConstant of value: char
     | StringConstant of value: string
+    /// String interpolation with support for JS tagged templates
+    /// String parts length should always be values.Length + 1
+    | StringTemplate of tag: Expr option * parts: string list * values: Expr list
     | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
@@ -278,7 +281,7 @@ type ValueKind =
         | UnitConstant -> Unit
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
-        | StringConstant _ -> String
+        | StringConstant _ | StringTemplate _ -> String
         | NumberConstant (_, kind, info) -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption (_, t, isStruct) -> Option(t, isStruct)
