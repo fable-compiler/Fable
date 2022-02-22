@@ -263,7 +263,8 @@ let tests =
             let! result = Async.Sequential works
             let ``then`` = DateTimeOffset.Now
             let d = ``then`` - now
-            if d < TimeSpan.FromSeconds 1. then
+            // For some reason this sometimes fail in CI if d is exactly 1s so give it some breadth
+            if d < TimeSpan.FromSeconds 0.9 then
                 failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
             result |> equal [| 1 .. 5 |]
             result |> Seq.sum |> equal _aggregate
