@@ -883,13 +883,6 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
-let makeFormat (parts: string list) =
-    let sb = System.Text.StringBuilder()
-    sb.Append(List.head parts) |> ignore
-    List.tail parts |> List.iteri (fun i part ->
-        sb.Append($"{{{i}}}" + part) |> ignore)
-    sb.ToString()
-
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
@@ -923,14 +916,9 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
        ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
         let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
-        let template = makeStringTemplateFrom simpleFormats templateArgs str
-        match template with
-        | Some(StringTemplate(tag, parts, values)) ->
-            let fmt = makeFormat parts
-            let args = makeStrConst fmt :: values
-            "format!" |> emitFormat com r String args |> Some
-        | _ ->
-            Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
+        match makeStringTemplateFrom simpleFormats templateArgs str with
+        | Some stringTemplate -> makeValue r stringTemplate |> Some // Value(StringTemplate)
+        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
