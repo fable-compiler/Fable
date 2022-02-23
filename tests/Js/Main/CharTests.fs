@@ -218,4 +218,22 @@ let tests =
         testCase "Char addition works" <| fun _ ->
             'A' + 'B' |> int |> equal 131
             'A' + char 7 |> int |> equal 72
+
+        testCase "Adding char converted to string works" <| fun _ -> // See #2832
+            let formatAmountNumber (d:decimal) =
+                let rounded = Math.Round(d,2)
+                if rounded = 0.M then "0,00" else
+                let number = if rounded < 0.M then ceil rounded else floor rounded
+                let decimalPart = abs(rounded - number)
+                let negative = d < 0.M
+                let number = string (abs number)
+                let mutable s = (sprintf "%.2f" decimalPart).Replace("0.",",")
+                for i in 0..number.Length-1 do
+                    if i > 0 && i % 3 = 0 then
+                        s <- "." + s
+                    let char = number.[number.Length-1-i]
+                    s <- char.ToString() + s
+                if negative then "-" + s else s
+
+            formatAmountNumber 50.M |> equal "50,00"
     ]
