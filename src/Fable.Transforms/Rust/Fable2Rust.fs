@@ -1477,6 +1477,20 @@ module Util =
         let expr = mkGenericPathExpr [rawIdent "self"] None
         expr
 
+    let makeFormat (parts: string list) =
+        let sb = System.Text.StringBuilder()
+        sb.Append(List.head parts) |> ignore
+        List.tail parts |> List.iteri (fun i part ->
+            sb.Append($"{{{i}}}" + part) |> ignore)
+        sb.ToString()
+
+    let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
+        let fmt = makeFormat parts
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
+        let args = transformCallArgs com ctx true false values []
+        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
+        makeString com ctx expr
+
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         let unimplemented () =
             $"Value %A{value} is not implemented yet"
@@ -1500,7 +1514,7 @@ module Util =
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
-        | Fable.StringTemplate _ -> failwith "TODO: String templates are not supported"
+        | Fable.StringTemplate (_tag, parts, values) -> formatString com ctx parts values
         | Fable.NumberConstant (x, kind, _) -> makeNumber com ctx r value.Type kind x
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
