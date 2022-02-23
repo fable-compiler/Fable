@@ -1,3 +1,8 @@
+### 3.7.3
+
+* Fix #2832: Adding a converted char to string
+* Fix Type.IsSubclassOf(obj) @chkn
+
 ### 3.7.2
 
 * Fix the fixes in the previous release
