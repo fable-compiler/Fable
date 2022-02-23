@@ -430,7 +430,8 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
 let toChar (arg: Expr) =
     match arg.Type with
-    | Char | String -> arg
+    | Char -> arg
+    | String -> TypeCast(arg, Char, None)
     | _ -> Helper.GlobalCall("String", Char, [arg], memb="fromCharCode")
 
 let toString com (ctx: Context) r (args: Expr list) =
@@ -440,7 +441,8 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String -> head
+        | String -> head
+        | Char -> TypeCast(head, String, None)
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
