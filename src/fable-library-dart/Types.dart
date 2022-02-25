@@ -1,4 +1,9 @@
 class Union {
   int $tag;
-  Union(this.$tag);
+  List<Object> $fields;
+  Union(this.$tag, this.$fields);
+}
+
+class MyUnion extends Union {
+  MyUnion(tag, fields) : super(tag, fields);
 }

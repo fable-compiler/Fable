@@ -1,8 +1,8 @@
 #load "src/Fable.PublishUtils/PublishUtils.fs"
 
-open PublishUtils
 open System
 open System.Text.RegularExpressions
+open PublishUtils
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
@@ -235,6 +235,24 @@ let buildLibraryRust() =
 //     let baseDir = __SOURCE_DIRECTORY__
 //     if not (pathExists (baseDir </> "build/fable-library-rust")) then
 //         buildLibraryRust()
+
+let buildLibraryDart() =
+    let sourceDir = "src/fable-library-dart"
+    let buildDir = "build/fable-library-dart"
+    cleanDirs [buildDir]
+
+//    let fableLib = "."
+//    runFableWithArgsInDir sourceDir [
+//        "--outDir " + resolveDir buildDir
+//        "--fableLib " + fableLib
+//        "--lang Dart"
+//        "--exclude Fable.Core"
+//        "--define FABLE_LIBRARY"
+//        "--noCache"
+//    ]
+
+    makeDirRecursive buildDir
+    copyFiles sourceDir "*.dart" buildDir
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -506,6 +524,9 @@ let testRust() =
     runInDir buildDir "cargo test"
 
 let testDart(isWatch) =
+    if not (pathExists "build/fable-library-dart") then
+        buildLibraryDart()
+
     let projectDir = "tests/Dart"
     let runDir = "tests/Dart/run"
 
@@ -649,7 +670,7 @@ let publishPackages restArgs =
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
     for (pkg, buildAction) in packages do
-        if System.Char.IsUpper pkg.[0] then
+        if Char.IsUpper pkg.[0] then
             let projFile = "src" </> pkg </> pkg + ".fsproj"
             pushFableNuget projFile ["Pack", "true"] buildAction
         else
@@ -703,6 +724,7 @@ match BUILD_ARGS_LOWER with
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
+| ("fable-library-dart" | "library-dart")::_ -> buildLibraryDart()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
