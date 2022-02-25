@@ -377,7 +377,8 @@ let main argv =
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
                 Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-                Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
+                // Log.always("Thanks to the contributor! @" + Contributors.getRandom() + "\n")
+                Log.always("Stop Russian aggression against Ukraine!\n")
 
         match commands with
         | ["--help"] -> return printHelp()

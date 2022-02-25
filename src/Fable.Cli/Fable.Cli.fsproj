@@ -4,10 +4,9 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.3</Version>
-    <PackageVersion>3.7.3</PackageVersion>
-    <PackageReleaseNotes>* Fix #2832: Adding a converted char to string
-* Fix Type.IsSubclassOf(obj) @chkn</PackageReleaseNotes>
+    <Version>3.7.4</Version>
+    <PackageVersion>3.7.4</PackageVersion>
+    <PackageReleaseNotes>* Change intro message</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

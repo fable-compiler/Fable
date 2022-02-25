@@ -1,3 +1,7 @@
+### 3.7.4
+
+* Change intro message
+
 ### 3.7.3
 
 * Fix #2832: Adding a converted char to string
