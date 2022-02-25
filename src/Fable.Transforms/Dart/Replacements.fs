@@ -721,17 +721,15 @@ let tryEntityRef (com: Compiler) entFullName =
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
     | _ -> None
 
-let tryConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent
-    then tryEntityRef com ent.FullName
-    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
-
-let constructor com ent =
-    match tryConstructor com ent with
-    | Some e -> e
+let entityRef com ent =
+    let entRef =
+        if FSharp2Fable.Util.isReplacementCandidate ent
+        then tryEntityRef com ent.FullName
+        else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
+    match entRef with
+    | Some r -> r
     | None ->
-        ent.FullName
-        |> sprintf "Cannot find %s constructor"
+        $"Cannot find {ent.FullName} reference"
         |> addErrorAndReturnNull com [] None
 
 let tryOp com r t op args =
@@ -760,10 +758,8 @@ let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
         if ent.IsValueType
-        then tryConstructor com ent
-        else None
-        |> Option.map (fun e -> Helper.ConstructorCall(e, t, []))
-        |> Option.defaultWith (fun () -> Null t |> makeValue None)
+        then Helper.ConstructorCall(entityRef com ent, t, [])
+        else Null t |> makeValue None
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
@@ -967,7 +963,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             emitExpr r t [] "this" |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> com.GetEntity(ent) |> constructor com |> Some
+            | DeclaredType(ent, _) -> com.GetEntity(ent) |> entityRef com |> Some
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
@@ -2060,7 +2056,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.ConstructorCall(constructor com ent, t, [], ?loc=r) |> Some
+            Helper.ConstructorCall(entityRef com ent, t, [], ?loc=r) |> Some
         | t -> $"Cannot create instance of type unresolved at compile time: %A{t}"
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d

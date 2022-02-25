@@ -500,6 +500,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         let buildDir, libDir =
             match opts.FableOptions.Language with
             | Python -> "fable-library-py/fable_library", "fable_library"
+            | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
@@ -665,7 +666,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
-            | Dart -> IO.Path.GetDirectoryName(opts.ProjFile), [] // TODO
             | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
             | _ -> copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
