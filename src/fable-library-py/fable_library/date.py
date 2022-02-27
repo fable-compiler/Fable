@@ -47,9 +47,8 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
     def match(match: Match[str]) -> str:
         group = match.group()
         m = group[:1]
-        print(match)
-
         rep = None
+
         if m == "y":
             y = date.astimezone(timezone.utc).year if utc else date.year
             rep = y % 100 if len(group) < 4 else y
