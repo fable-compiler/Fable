@@ -295,11 +295,7 @@ def initialize(n: int, f: Callable[[int], str]) -> str:
     if n < 0:
         raise Exception("String length must be non-negative")
 
-    xs = [""] * n
-    for i in range(n):
-        xs[i] = f(i)
-
-    return "".join(xs)
+    return "".join([f(i) for i in range(n)])
 
 
 def insert(string: str, startIndex: int, value: str):

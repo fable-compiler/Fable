@@ -447,15 +447,14 @@ let ``test Array.isEmpty works`` () =
     Array.isEmpty [|"a"|] |> equal false
     Array.isEmpty [||] |> equal true
 
-(*
 [<Fact>]
 let ``test Array.iter works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = ref 0.
     xs |> Array.iter (fun x ->
-       total := !total + x
+       total.Value <- total.Value + x
     )
-    !total |> equal 10.
+    total.Value |> equal 10.
 
 [<Fact>]
 let ``test Array.iter2 works`` () =
@@ -471,19 +470,19 @@ let ``test Array.iteri works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = ref 0.
     xs |> Array.iteri (fun i x ->
-       total := !total + (float i) * x
+       total.Value <- total.Value + (float i) * x
     )
-    !total |> equal 20.
+    total.Value |> equal 20.
 
 [<Fact>]
 let ``test Array.iteri2 works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = ref 0.
     Array.iteri2 (fun i x y ->
-       total := !total + (float i) * x + (float i) * y
+       total.Value <- total.Value + (float i) * x + (float i) * y
     ) xs xs
-    !total |> equal 40.
-*)
+    total.Value |> equal 40.
+
 [<Fact>]
 let ``test Array.length works`` () =
     let xs = [|"a"; "a"; "a"; "a"|]

@@ -44,15 +44,14 @@ def year(d: datetime) -> int:
 
 
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
-    def match(m: Match[str]) -> str:
-        match = m.group()
-        m = match[:1]
-        print(match)
-
+    def match(match: Match[str]) -> str:
+        group = match.group()
+        m = group[:1]
         rep = None
+
         if m == "y":
             y = date.astimezone(timezone.utc).year if utc else date.year
-            rep = y % 100 if len(match) < 4 else y
+            rep = y % 100 if len(group) < 4 else y
         elif m == "M":
             rep = date.astimezone(timezone.utc).month if utc else date.month
         elif m == "H":
@@ -66,10 +65,9 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
             rep = rep // 1000
 
         if rep:
-            return f"0{rep}" if (rep < 10 and len(match) > 1) else f"{rep}"
-        else:
-            return match
-        return ""
+            return f"0{rep}" if (rep < 10 and len(group) > 1) else f"{rep}"
+
+        return group
 
     ret = formatRegExp.sub(match, format)
     return ret

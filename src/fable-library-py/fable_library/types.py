@@ -1,8 +1,17 @@
 from __future__ import annotations
-
 import array
 from abc import abstractmethod
-from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar
+from typing import (
+    Any,
+    ByteString,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    MutableSequence,
+    Optional,
+    TypeVar,
+)
 from typing import Union as Union_
 from typing import cast
 
@@ -66,7 +75,12 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
+        return (
+            self.name
+            + (" (" if with_parens else " ")
+            + fields
+            + (")" if with_parens else "")
+        )
 
     def __repr__(self) -> str:
         return str(self)
@@ -134,9 +148,23 @@ def record_equals(self: _T, other: _T) -> bool:
 
 def record_to_string(self: Record) -> str:
     if hasattr(self, "__slots__"):
-        return "{ " + "\n  ".join(map(lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__)) + " }"
+        return (
+            "{ "
+            + "\n  ".join(
+                map(
+                    lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__
+                )
+            )
+            + " }"
+        )
     else:
-        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
+        return (
+            "{ "
+            + "\n  ".join(
+                map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())
+            )
+            + " }"
+        )
 
 
 def record_get_hashcode(self: Record) -> int:
@@ -288,16 +316,19 @@ def Int32Array(lst: List[int]):
     return array.array("i", lst)
 
 
-def Uint32Array(lst: List[int]):
+def Uint32Array(lst: List[int]) -> MutableSequence[int]:
     return array.array("I", lst)
 
 
-def Float32Array(lst: List[float]):
+def Float32Array(lst: List[float]) -> MutableSequence[float]:
     return array.array("f", lst)
 
 
-def Float64Array(lst: List[float]):
+def Float64Array(lst: List[float]) -> MutableSequence[float]:
     return array.array("d", lst)
+
+
+Array = Union_[List[_T], MutableSequence[_T], ByteString]
 
 
 def is_exception(x: Any):
@@ -306,6 +337,7 @@ def is_exception(x: Any):
 
 __all__ = [
     "Attribute",
+    "Array",
     "Exception",
     "is_exception",
     "Int8Array",

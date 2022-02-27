@@ -241,10 +241,11 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool", []
         | Fable.Char -> primitiveTypeInfo "char", []
         | Fable.String -> primitiveTypeInfo "string", []
-        | Fable.Number(kind, info) ->
+        | Fable.Number (kind, info) ->
             match info with
             | Fable.NumberInfo.IsEnum entRef ->
                 let ent = com.GetEntity(entRef)
+
                 let cases =
                     ent.FSharpFields
                     |> Seq.choose (fun fi ->
@@ -912,6 +913,7 @@ module Annotation =
             match kind, info with
             | _, Fable.NumberInfo.IsEnum entRef ->
                 let ent = com.GetEntity(entRef)
+
                 let cases =
                     ent.FSharpFields
                     |> Seq.choose (fun fi ->
@@ -937,8 +939,7 @@ module Annotation =
                 |> libReflectionCall com ctx None "enum",
                 []
             | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
-            | _ ->
-                numberInfo kind, []
+            | _ -> numberInfo kind, []
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = Util.uncurryLambdaType t
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
@@ -953,8 +954,8 @@ module Annotation =
             | Fable.Type.Number (Int32, _)
             | Fable.Type.Number (UInt32, _)
             | Fable.Type.Number (Float32, _)
-            | Fable.Type.Number (Float64, _) -> stdlibModuleTypeHint com ctx "typing" "MutableSequence" [ genArg ]
-            | _ -> stdlibModuleTypeHint com ctx "typing" "List" [ genArg ]
+            | Fable.Type.Number (Float64, _)
+            | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType (_, genArgs) ->
@@ -2113,7 +2114,7 @@ module Util =
                 | Constant _, Name { Id = Identifier "None" } -> compare NotEq
                 // Use `is not` with None (except literals)
                 | _, Name { Id = Identifier "None" } -> compare IsNot
-                 // Use != for the rest
+                // Use != for the rest
                 | _ -> compare NotEq
             | BinaryLess -> compare Lt
             | BinaryLessOrEqual -> compare LtE
@@ -2929,12 +2930,14 @@ module Util =
         | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
 
         | Fable.Lambda (arg, body, info) ->
-            let name  = info.Name
+            let name = info.Name
+
             transformFunctionWithAnnotations com ctx name [ arg ] body
             |||> makeArrowFunctionExpression com ctx name
 
         | Fable.Delegate (args, body, info) ->
             let name = info.Name
+
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
@@ -3109,6 +3112,7 @@ module Util =
 
         | Fable.Lambda (arg, body, info) ->
             let name = info.Name
+
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name [ arg ] body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3118,6 +3122,7 @@ module Util =
 
         | Fable.Delegate (args, body, info) ->
             let name = info.Name
+
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name args body
                 |||> makeArrowFunctionExpression com ctx name
