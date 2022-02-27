@@ -479,7 +479,7 @@ let ``test Array.iteri2 works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = ref 0.
     Array.iteri2 (fun i x y ->
-       total <- total.Value + (float i) * x + (float i) * y
+       total.Value <- total.Value + (float i) * x + (float i) * y
     ) xs xs
     total.Value |> equal 40.
 
