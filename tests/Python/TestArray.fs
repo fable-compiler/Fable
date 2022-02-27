@@ -447,15 +447,14 @@ let ``test Array.isEmpty works`` () =
     Array.isEmpty [|"a"|] |> equal false
     Array.isEmpty [||] |> equal true
 
-(*
 [<Fact>]
 let ``test Array.iter works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let total = ref 0.
     xs |> Array.iter (fun x ->
-       total := !total + x
+       total.Value <- total.Value + x
     )
-    !total |> equal 10.
+    total.Value |> equal 10.
 
 [<Fact>]
 let ``test Array.iter2 works`` () =
@@ -483,7 +482,7 @@ let ``test Array.iteri2 works`` () =
        total := !total + (float i) * x + (float i) * y
     ) xs xs
     !total |> equal 40.
-*)
+
 [<Fact>]
 let ``test Array.length works`` () =
     let xs = [|"a"; "a"; "a"; "a"|]
@@ -944,7 +943,6 @@ let ``test Array.tail works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
-(*
 [<Fact>]
 let ``test Array.groupBy returns valid array`` () =
     let xs = [|1; 2|]
@@ -952,7 +950,6 @@ let ``test Array.groupBy returns valid array`` () =
     let actualKey, actualGroup = actual.[0]
     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
     worked |> equal true
-*)
 
 [<Fact>]
 let ``Array.windowed works`` () = // See #1716

@@ -29,5 +29,5 @@ def to_hex(x: int) -> str:
     return "{0:x}".format(x)
 
 
-def multiply(x: int, y: int) -> int:
+def multiply(x: float, y: float) -> float:
     return x * y
