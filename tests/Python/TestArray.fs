@@ -943,6 +943,7 @@ let ``test Array.tail works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
+(*
 [<Fact>]
 let ``test Array.groupBy returns valid array`` () =
     let xs = [|1; 2|]
@@ -950,6 +951,7 @@ let ``test Array.groupBy returns valid array`` () =
     let actualKey, actualGroup = actual.[0]
     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
     worked |> equal true
+*)
 
 [<Fact>]
 let ``Array.windowed works`` () = // See #1716
