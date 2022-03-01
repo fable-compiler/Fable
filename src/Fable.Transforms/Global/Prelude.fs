@@ -476,6 +476,8 @@ module Path =
         path.Replace('\\', '/').TrimEnd('/')
 
     let Combine (path1: string, path2: string) =
+#if FABLE_COMPILER
+        // TODO: Make sure path2 is not absolute in the polyfill
         let path1 =
             if path1.Length = 0 then path1
             else (path1.TrimEnd [|'\\';'/'|]) + "/"
@@ -483,6 +485,9 @@ module Path =
             if path2.StartsWith("./") then path2.[2..]
             else path2.TrimStart [|'\\';'/'|]
         path1 + path2
+#else
+        IO.Path.Combine(path1, path2)
+#endif
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")
