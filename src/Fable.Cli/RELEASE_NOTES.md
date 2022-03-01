@@ -1,3 +1,7 @@
+### 3.7.5
+
+* Prevent combining absolute paths
+
 ### 3.7.4
 
 * Change intro message
