@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ main, beyond ]
+    branches: [ main, snake_island ]
   pull_request:
-    branches: [ main, beyond ]
+    branches: [ main, snake_island ]
 
 jobs:
   # Separate build job for JS
