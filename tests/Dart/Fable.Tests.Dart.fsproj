@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Tests.Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="ComparisonTests.fs" />
     <Compile Include="UnionTests.fs" />
   </ItemGroup>
 </Project>

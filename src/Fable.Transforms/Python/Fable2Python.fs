@@ -3077,7 +3077,10 @@ module Util =
 
                 stmts
                 @ (expr |> resolveExpr ctx e.Type returnStrategy)
-            | Fable.Throw (TransformExpr com ctx (e, stmts), _) -> stmts @ [ Statement.raise (e) ]
+            | Fable.Throw (expr, _) ->
+                match expr with
+                | None -> failwith "TODO: rethrow"
+                | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise (e) ]
             | Fable.Debugger -> []
             | Fable.RegionStart header -> [ Statement.RegionStart header ]
 

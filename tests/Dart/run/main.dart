@@ -1,7 +1,9 @@
-import '../ArithmeticTests.fs.dart' as Arithmetic;
-import '../UnionTests.fs.dart' as Union;
+import '../ArithmeticTests.fs.dart' as arithmetic;
+import '../ComparisonTests.fs.dart' as comparison;
+import '../UnionTests.fs.dart' as union;
 
 void main() {
-  Arithmetic.tests();
-  Union.tests();
+  arithmetic.tests();
+  comparison.tests();
+  union.tests();
 }

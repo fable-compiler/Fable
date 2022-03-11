@@ -390,7 +390,7 @@ type TestKind =
 
 /// Instructions that are not coming from the F# AST but are used by Fable internally.
 type ExtendedSet =
-    | Throw of expr: Expr * typ: Type
+    | Throw of expr: Expr option * typ: Type
     | Debugger
     /// When using the delimiter option, this marks the start of a region
     /// that we'll try to match with delimited regions in the target file

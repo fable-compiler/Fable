@@ -2559,8 +2559,10 @@ module Util =
             | Fable.Curry(e, arity) ->
                 // transformCurry com ctx e arity //TODO: check arity, if curry is needed
                 transformAsExpr com ctx e
-            | Fable.Throw(TransformExpr com ctx msg, _) ->
-                mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
+            | Fable.Throw(expr, _) ->
+                match expr with
+                | None -> failwith "TODO: rethrow"
+                | Some(TransformExpr com ctx msg) -> mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
             | Fable.Debugger
             | Fable.RegionStart _ ->
                 // TODO:

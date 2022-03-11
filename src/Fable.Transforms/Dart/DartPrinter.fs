@@ -1,5 +1,6 @@
 ﻿module Fable.Transforms.DartPrinter
 
+open System.Text.RegularExpressions
 open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.Printer
@@ -12,7 +13,8 @@ module PrinterExtensions =
         member this.AddWarning(msg, ?range) =
             this.AddLog(msg, Fable.Severity.Warning , ?range=range)
 
-        member printer.PrintBlock(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
+        member printer.PrintBlock(nodes: 'a list, printNode: Printer -> 'a -> unit, ?printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
+            let printSeparator = defaultArg printSeparator (fun _ -> ())
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("{")
             printer.PrintNewLine()
@@ -50,9 +52,116 @@ module PrinterExtensions =
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
-        member printer.Print(t: Type) =
+        // TODO: Most of this code matches BabelPrinter.PrintEmitExpression, can we refactor it?
+        member printer.PrintEmitExpression(value: string, args: Expression list) =
+            let inline replace pattern (f: Match -> string) input =
+                Regex.Replace(input, pattern, f)
+
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+                let segmentLength = segmentEnd - segmentStart
+                if segmentLength > 0 then
+                    let segment = value.Substring(segmentStart, segmentLength)
+
+                    let subSegments = Regex.Split(segment, @"\r?\n")
+                    for i = 1 to subSegments.Length do
+                        let subSegment =
+                            // Remove whitespace in front of new lines,
+                            // indent will be automatically applied
+                            if printer.Column = 0 then subSegments.[i - 1].TrimStart()
+                            else subSegments.[i - 1]
+                        if subSegment.Length > 0 then
+                            printer.Print(subSegment)
+                            if i < subSegments.Length then
+                                printer.PrintNewLine()
+
+            // Macro transformations
+            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+            let value =
+                value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
+
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match args.[i] with
+                    | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
+
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match List.tryItem i args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
+
+                // If placeholder is followed by !, emit string literals as native code: "let $0! = $1"
+                |> replace @"\$(\d+)!" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match List.tryItem i args with
+                    | Some(Literal(StringLiteral value)) -> value
+                    | _ -> "")
+
+            let matches = Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
+                for i = 0 to matches.Count - 1 do
+                    let m = matches.[i]
+                    let isSurroundedWithParens =
+                        m.Index > 0
+                        && m.Index + m.Length < value.Length
+                        && value.[m.Index - 1] = '('
+                        && value.[m.Index + m.Length] = ')'
+
+                    let segmentStart =
+                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                        else 0
+
+                    printSegment printer value segmentStart m.Index
+
+                    let argIndex = int m.Value.[1..]
+                    match List.tryItem argIndex args with
+                    | Some e when isSurroundedWithParens -> printer.Print(e)
+                    | Some e -> printer.PrintWithParensIfComplex(e)
+                    | None -> ()
+
+                let lastMatch = matches.[matches.Count - 1]
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+            else
+                printSegment printer value 0 value.Length
+
+        member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit, ?skipIfEmpty) =
+            let skipIfEmpty = defaultArg skipIfEmpty false
+            let rec printList = function
+                | [] -> ()
+                | [item] -> printItem item
+                | item::items ->
+                    printItem item
+                    printer.Print(separator)
+                    printList items
+            match skipIfEmpty, items with
+            | true, [] -> ()
+            | _, items ->
+                printer.Print(left)
+                printList items
+                printer.Print(right)
+
+        member printer.PrintList(left, idents: Ident list, right, ?printType: bool) =
+            printer.PrintList(left, ", ", right, idents, fun x ->
+                printer.PrintIdent(x, ?printType=printType)
+            )
+
+        member printer.PrintList(left, items: string list, right, ?skipIfEmpty) =
+            printer.PrintList(left, ", ", right, items, (fun (x: string) -> printer.Print(x)), ?skipIfEmpty=skipIfEmpty)
+
+        member printer.PrintList(left, items: Expression list, right) =
+            printer.PrintList(left, ", ", right, items, fun (x: Expression) -> printer.Print(x))
+
+        member printer.PrintType(t: Type) =
             match t with
             | Void -> printer.Print("void")
+            | MetaType -> printer.Print("Type")
             | Boolean -> printer.Print("bool")
             | String -> printer.Print("String")
             | Integer -> printer.Print("int")
@@ -61,32 +170,65 @@ module PrinterExtensions =
             | Dynamic -> printer.Print("dynamic")
             | List t ->
                 printer.Print("List<")
-                printer.Print(t)
+                printer.PrintType(t)
                 printer.Print(">")
             | Nullable t ->
-                printer.Print(t)
+                printer.PrintType(t)
                 printer.Print("?")
-            | t -> printer.AddError($"TODO: Print type %A{t}")
+            | Generic name ->
+                printer.Print(name)
+            | TypeReference(ref, gen) ->
+                printer.PrintIdent(ref)
+                printer.PrintList("<", ", ", ">", gen, printer.PrintType, skipIfEmpty=true)
+            | Function(argTypes, returnType) ->
+                match returnType with
+                | Void -> ()
+                | returnType ->
+                    printer.PrintType(returnType)
+                    printer.Print(" ")
+                // Probably this won't work if we have multiple args
+                let argTypes = argTypes |> List.filter (function Void -> false | _ -> true)
+                printer.PrintList("Function(", ", ", ")", argTypes, printer.PrintType)
 
-        member printer.WithParens(expr: Expression) =
+        member printer.PrintWithParens(expr: Expression) =
             printer.Print("(")
             printer.Print(expr)
             printer.Print(")")
 
-        // TODO
-        member printer.ComplexExpressionWithParens(expr: Expression) =
+        member printer.PrintWithParensIfNotIdent(expr: Expression) =
             match expr with
-            | Literal(IntegerLiteral v) when v < 0L -> printer.WithParens(expr)
-            | Literal(DoubleLiteral v) when v < 0. -> printer.WithParens(expr)
+            | IdentExpression _
+            | PropertyAccess _ -> printer.Print(expr)
+            | _ -> printer.PrintWithParens(expr)
+
+        member printer.PrintWithParensIfComplex(expr: Expression) =
+            match expr with
+            | ThisExpression
+            | SuperExpression
             | Literal _
+            | TypeLiteral _
             | IdentExpression _
             | PropertyAccess _
             | IndexExpression _
-            | InvocationExpression _ -> printer.Print(expr)
-            | _ -> printer.WithParens(expr)
+            | AsExpression _
+            | IsExpression _
+            | InvocationExpression _
+            | UpdateExpression _
+            | UnaryExpression _
+            | BinaryExpression _
+            | LogicalExpression _
+            | ThrowExpression _
+            | RethrowExpression _
+                -> printer.Print(expr)
+
+            | ConditionalExpression _
+            | AnonymousFunction _
+            | AssignmentExpression _
+            | EmitExpression _
+                -> printer.PrintWithParens(expr)
 
         member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, isInt) =
-            printer.ComplexExpressionWithParens(left)
+            printer.PrintWithParensIfComplex(left)
             // TODO: review
             match operator with
             | BinaryEqual -> printer.Print(" == ")
@@ -107,7 +249,14 @@ module PrinterExtensions =
             | BinaryOrBitwise -> printer.Print(" | ")
             | BinaryXorBitwise -> printer.Print(" ^ ")
             | BinaryAndBitwise -> printer.Print(" & ")
-            printer.ComplexExpressionWithParens(right)
+            printer.PrintWithParensIfComplex(right)
+
+        member printer.PrintLogicalExpression(operator: LogicalOperator, left: Expression, right: Expression) =
+            printer.PrintWithParensIfComplex(left)
+            match operator with
+            | LogicalAnd -> printer.Print(" && ")
+            | LogicalOr -> printer.Print(" || ")
+            printer.PrintWithParensIfComplex(right)
 
         member printer.PrintLiteral(kind: Literal) =
             match kind with
@@ -131,33 +280,124 @@ module PrinterExtensions =
                     | value -> value
                 printer.Print(value)
 
-        member printer.PrintIdent(ident: Ident) =
+        member printer.PrintIdent(ident: Ident, ?printType) =
+            let printType = defaultArg printType false
+            if printType then
+                printer.PrintType(ident.Type)
+                printer.Print(" ")
             match ident.Prefix with
             | None -> ()
             | Some p -> printer.Print(p + ".")
             printer.Print(ident.Name)
 
+        member printer.PrintIfStatment(test: Expression, consequent, alternate) =
+            printer.Print("if (")
+            printer.Print(test)
+            printer.Print(") ")
+            printer.PrintBlock(consequent, skipNewLineAtEnd=true)
+            match alternate with
+            | [] -> ()
+            | alternate ->
+                match alternate with
+                | [IfStatement(test, consequent, alternate)] ->
+                    printer.Print(" else ")
+                    printer.PrintIfStatment(test, consequent, alternate)
+                | alternate ->
+                    // Get productive statements and skip `else` if they're empty
+                    alternate
+                    |> List.filter printer.IsProductiveStatement
+                    |> function
+                        | [] -> ()
+                        | statements ->
+                            printer.Print(" else ")
+                            printer.PrintBlock(statements)
+            if printer.Column > 0 then
+                printer.PrintNewLine()
+
         member printer.Print(statement: Statement) =
             match statement with
+            | IfStatement(test, consequent, alternate) ->
+                printer.PrintIfStatment(test, consequent, alternate)
+
+            | ForStatement(init, test, update, body) ->
+                printer.Print("for (")
+                match init with
+                | None -> ()
+                | Some(ident, value) ->
+                    printer.Print("final " + ident.Name + " = ")
+                    printer.Print(value)
+                printer.Print("; ")
+                match test with
+                | None -> ()
+                | Some test -> printer.Print(test)
+                printer.Print("; ")
+                match update with
+                | None -> ()
+                | Some update -> printer.Print(update)
+                printer.Print(") ")
+                printer.PrintBlock(body)
+
+            | ForInStatement(param, iterable, body) ->
+                printer.Print("for (final " + param.Name + " in ")
+                printer.PrintWithParensIfComplex(iterable)
+                printer.Print(") ")
+                printer.PrintBlock(body)
+
+            | WhileStatement(test, body) ->
+                printer.Print("while (")
+                printer.Print(test)
+                printer.Print(") ")
+                printer.PrintBlock(body)
+
+            | TryStatement(body, handlers, finalizer) ->
+                printer.Print("try ")
+                printer.PrintBlock(body, skipNewLineAtEnd=true)
+                for handler in handlers do
+                    match handler.Test with
+                    | None -> ()
+                    | Some test ->
+                        printer.Print(" on ")
+                        printer.PrintType(test)
+                    match handler.Param with
+                    | None -> ()
+                    | Some param -> printer.Print(" catch (" + param.Name + ")")
+                    printer.Print(" ")
+                    printer.PrintBlock(handler.Body, skipNewLineAtEnd=true)
+                match finalizer with
+                | [] -> ()
+                | finalizer ->
+                    printer.Print(" finally ")
+                    printer.PrintBlock(finalizer, skipNewLineAtEnd=true)
+                printer.PrintNewLine()
+
             | ReturnStatement e ->
                 printer.Print("return ")
                 printer.Print(e)
+
             | BreakStatement label ->
                 match label with
                 | None -> printer.Print("break")
                 | Some label -> printer.Print("break " + label)
+
             | ContinueStatement label ->
                 match label with
                 | None -> printer.Print("continue")
                 | Some label -> printer.Print("continue " + label)
-            | Label _label ->
-                printer.AddError("TODO: label")
+
+            | LabeledStatement(label, body) ->
+                printer.Print(label + ":")
+                printer.PrintNewLine()
+                printer.Print(body)
+
+            | LocalFunctionDeclaration f ->
+                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericParams, f.Args, f.Body)
+
             | ExpressionStatement e ->
                 printer.Print(e)
+
             | LocalVariableDeclaration(ident, kind, value) ->
                 printer.PrintVariableDeclaration(ident, kind, ?value=value)
-            | LocalFunctionDeclaration _ ->
-                printer.AddError("TODO: local function declaration")
+
             | SwitchStatement(discriminant, cases, defaultCase) ->
                 printer.Print("switch (")
                 printer.Print(discriminant)
@@ -170,7 +410,7 @@ module PrinterExtensions =
                     | None -> ()
                 ]
 
-                printer.PrintBlock(cases, (fun p c ->
+                printer.PrintBlock(cases, fun p c ->
                     match c with
                     | Choice1Of2 c ->
                         for g in c.Guards do
@@ -204,11 +444,25 @@ module PrinterExtensions =
                             p.Print(";")
                             p.PrintNewLine()
                         p.PopIndentation()
-                ), fun _ -> ())
+                )
 
         member printer.Print(expr: Expression) =
             match expr with
+            | EmitExpression(value, args) -> printer.PrintEmitExpression(value, args)
+
+            | ThrowExpression e ->
+                printer.Print("throw ")
+                printer.Print(e)
+
+            | RethrowExpression -> printer.Print("rethrow")
+
+            | SuperExpression -> printer.Print("super")
+
+            | ThisExpression -> printer.Print("this")
+
             | Literal kind -> printer.PrintLiteral(kind)
+
+            | TypeLiteral t -> printer.PrintType(t)
 
             | IdentExpression i -> printer.PrintIdent(i)
 
@@ -221,22 +475,33 @@ module PrinterExtensions =
                     printer.Print(test)
                 | test, Literal(BooleanLiteral(false)), Literal(BooleanLiteral(true)) ->
                     printer.Print("!")
-                    printer.ComplexExpressionWithParens(test)
+                    printer.PrintWithParensIfComplex(test)
                 | test, _, Literal(BooleanLiteral(false)) ->
-                    printer.ComplexExpressionWithParens(test)
+                    printer.PrintWithParensIfComplex(test)
                     printer.Print(" && ")
-                    printer.ComplexExpressionWithParens(consequent)
+                    printer.PrintWithParensIfComplex(consequent)
                 | _ ->
-                    printer.ComplexExpressionWithParens(test)
+                    printer.PrintWithParensIfComplex(test)
                     printer.Print(" ? ")
-                    printer.ComplexExpressionWithParens(consequent)
+                    printer.PrintWithParensIfComplex(consequent)
                     printer.Print(" : ")
-                    printer.ComplexExpressionWithParens(alternate)
+                    printer.PrintWithParensIfComplex(alternate)
+
+            | UpdateExpression(op, isPrefix, expr) ->
+                let printOp = function
+                    | UpdateMinus -> printer.Print("--")
+                    | UpdatePlus -> printer.Print("++")
+                if isPrefix then
+                    printOp op
+                    printer.PrintWithParensIfComplex(expr)
+                else
+                    printer.PrintWithParensIfComplex(expr)
+                    printOp op
 
             | UnaryExpression(op, expr) ->
                 let printUnaryOp (op: string) (expr: Expression) =
                     printer.Print(op)
-                    printer.ComplexExpressionWithParens(expr)
+                    printer.PrintWithParensIfNotIdent(expr)
                 match op with
                 | UnaryMinus -> printUnaryOp "-" expr
                 | UnaryNot -> printUnaryOp "!" expr
@@ -249,7 +514,7 @@ module PrinterExtensions =
                 printer.PrintBinaryExpression(op, left, right, isInt)
 
             | LogicalExpression(op, left, right) ->
-                failwith "todo: print LogicalExpression"
+                printer.PrintLogicalExpression(op, left, right)
 
             | AssignmentExpression(target, kind, value) ->
                 let op =
@@ -272,91 +537,83 @@ module PrinterExtensions =
                 printer.Print(value)
 
             | PropertyAccess(expr, prop) ->
-                printer.ComplexExpressionWithParens(expr)
+                printer.PrintWithParensIfComplex(expr)
                 printer.Print("." + prop)
 
             | IndexExpression(expr, index) ->
-                printer.ComplexExpressionWithParens(expr)
-                printer.Print("[" + string index + "]")
+                printer.PrintWithParensIfComplex(expr)
+                printer.Print("[")
+                printer.Print(index)
+                printer.Print("]")
 
             | AsExpression(expr, typ) ->
-                printer.ComplexExpressionWithParens(expr)
+                printer.PrintWithParensIfComplex(expr)
                 printer.Print(" as ")
-                printer.Print(typ)
+                printer.PrintType(typ)
 
             | IsExpression(expr, typ, isNot) ->
-                printer.ComplexExpressionWithParens(expr)
+                printer.PrintWithParensIfComplex(expr)
                 if isNot then
                     printer.Print(" !is ")
                 else
                     printer.Print(" is ")
-                printer.Print(typ)
+                printer.PrintType(typ)
 
             | InvocationExpression(caller, _genArgs, args) -> // TODO: genArgs
-                printer.Print(caller)
+                printer.PrintWithParensIfNotIdent(caller)
                 printer.PrintList("(", args, ")")
 
-            | AnonymousFunction(args, Choice1Of2 body, _genParams) -> // TODO: genArgs
+            | AnonymousFunction(args, body, _genParams) -> // TODO: genArgs
                 printer.PrintList("(", args, ") ", printType=true)
-                printer.PrintBlock(body, skipNewLineAtEnd=true)
+                printer.PrintFunctionBody(body, isExpression=true)
 
-            | AnonymousFunction(args, Choice2Of2 body, _genParams) -> // TODO: genArgs
-                printer.PrintList("(", args, ")", printType=true)
-                printer.Print(" => ")
-                printer.Print(body)
-
-            // | e -> printer.AddError($"TODO: Print expression %A{e}")
-
-        member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit) =
-            let rec printList = function
-                | [] -> ()
-                | [item] -> printItem item
-                | item::items ->
-                    printItem item
-                    printer.Print(separator)
-                    printList items
-            printer.Print(left)
-            printList items
-            printer.Print(right)
-
-        member printer.PrintList(left, idents: Ident list, right, ?printType: bool) =
-            let printType = defaultArg printType false
-            printer.PrintList(left, ", ", right, idents, fun x ->
-                if printType then
-                    printer.Print(x.Type)
-                    printer.Print(" ")
-                printer.Print(x.Name)
-            )
-
-        member printer.PrintList(left, items: string list, right) =
-            printer.PrintList(left, ", ", right, items, fun (x: string) -> printer.Print(x))
-
-        member printer.PrintList(left, items: Expression list, right) =
-            printer.PrintList(left, ", ", right, items, fun (x: Expression) -> printer.Print(x))
-
-        member printer.PrintClassDeclaration(decl: ClassDeclaration) =
+        member printer.PrintClassDeclaration(decl: Class) =
+            if decl.IsAbstract then
+                printer.Print("abstract ")
             printer.Print("class " + decl.Name + " ")
             let callSuper =
                 match decl.Extends with
                 | None -> false
-                | Some i ->
+                | Some t ->
                     printer.Print("extends ")
-                    printer.PrintIdent(i)
+                    printer.PrintType(t)
                     printer.Print(" ")
                     true
 
+            printer.PrintList("implements ", ", ", " ", decl.Implements, printer.PrintType, skipIfEmpty=true)
+
             let members = [
+                yield! decl.InstanceVariables |> List.map Choice1Of3
                 match decl.Constructor with
-                | Some c -> Choice1Of2 c
+                | Some c -> Choice2Of3 c
                 | None -> ()
-                yield! decl.Members |> List.map Choice2Of2
+                yield! decl.InstanceMethods |> List.map Choice3Of3
             ]
 
             printer.PrintBlock(members, (fun p m ->
                 match m with
-                | Choice1Of2 c ->
+                | Choice1Of3 v ->
+                    if v.IsOverride then
+                        p.Print("@override")
+                        p.PrintNewLine()
+                    p.PrintVariableDeclaration(v.Ident, v.Kind, ?value=v.Value)
+                    p.Print(";")
+
+                // Constructor
+                | Choice2Of3 c ->
+                    if c.IsConst then
+                        p.Print("const ")
+                    if c.IsFactory then
+                        p.Print("factory ")
                     p.Print(decl.Name)
-                    p.PrintList("(", c.Args, ")", printType=true)
+                    printer.PrintList("(", ", ", ")", c.Args, function
+                        | ConsThisArg name ->
+                            printer.Print("this.")
+                            printer.Print(name)
+                        | ConsArg i ->
+                            printer.PrintIdent(i, printType=true)
+                    )
+
                     if callSuper then
                         p.Print(": super")
                         p.PrintList("(", c.SuperArgs, ")")
@@ -365,24 +622,53 @@ module PrinterExtensions =
                     | body ->
                         p.Print(" ")
                         p.PrintBlock(body)
-                | Choice2Of2(m, kind) -> p.PrintFunctionDeclaration(m)
+                | Choice3Of3 m ->
+                    if m.IsOverride then
+                        p.Print("@override")
+                        p.PrintNewLine()
+
+                    match m.Kind with
+                    | IsGetter ->
+                        p.PrintType(m.ReturnType)
+                        p.Print(" get " + m.Name)
+                        p.PrintFunctionBody(?body=m.Body)
+                    | IsSetter ->
+                        p.PrintType(m.ReturnType)
+                        p.Print(" set " + m.Name)
+                        printer.PrintList("(", m.Args, ") ", printType=true)
+                        p.PrintFunctionBody(?body=m.Body)
+                    | IsMethod ->
+                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericParams, m.Args, ?body=m.Body)
             ), fun p -> p.PrintNewLine())
 
-        member printer.PrintFunctionDeclaration(decl: FunctionDeclaration) =
-            printer.Print(decl.ReturnType)
+        member printer.PrintFunctionBody(?body: Statement list, ?isExpression: bool) =
+            let isExpression = defaultArg isExpression false
+            match body with
+            | None -> printer.Print(";")
+            | Some [ReturnStatement expr] ->
+                printer.Print(" => ")
+                printer.Print(expr)
+                if not isExpression then
+                    printer.Print(";")
+            | Some body ->
+                printer.Print(" ")
+                printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
+
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: string list, args: Ident list, ?body: Statement list) =
+            printer.PrintType(returnType)
             printer.Print(" ")
-            printer.Print(decl.Name)
-            match decl.GenericParams with
-            | [] -> ()
-            | genParams -> printer.PrintList("<", genParams, ">")
-            printer.PrintList("(", decl.Args, ")", printType=true)
-            printer.Print(" ")
-            printer.PrintBlock(decl.Body, skipNewLineAtEnd=true)
+            printer.Print(name)
+            printer.PrintList("<", genParams, ">", skipIfEmpty=true)
+            printer.PrintList("(", args, ")", printType=true)
+            printer.PrintFunctionBody(?body=body)
 
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
             match value with
             | None ->
-                printer.Print(ident.Type)
+                match kind with
+                | Final -> printer.Print("final ")
+                | _ -> ()
+                printer.PrintType(ident.Type)
                 printer.Print(" " + ident.Name)
             | Some value ->
                 match kind with
@@ -400,8 +686,8 @@ let run (writer: Writer) (file: File): Async<unit> =
         | ClassDeclaration decl ->
             printer.PrintClassDeclaration(decl)
 
-        | FunctionDeclaration decl ->
-            printer.PrintFunctionDeclaration(decl)
+        | FunctionDeclaration d ->
+            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericParams, d.Args, d.Body)
             printer.PrintNewLine()
 
         | VariableDeclaration(ident, kind, value) ->

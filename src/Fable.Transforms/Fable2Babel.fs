@@ -1744,7 +1744,8 @@ module Util =
             match kind with
             | Fable.RegionStart _ -> [||]
             | Fable.Curry(e, arity) -> [|transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy|]
-            | Fable.Throw(TransformExpr com ctx e, _) -> [|Statement.throwStatement(e, ?loc=r)|]
+            | Fable.Throw(Some(TransformExpr com ctx e), _) -> [|Statement.throwStatement(e, ?loc=r)|]
+            | Fable.Throw(None, _) -> [|Statement.throwStatement(Expression.nullLiteral(), ?loc=r)|]
             | Fable.Debugger -> [|Statement.debuggerStatement(?loc=r)|]
 
         | Fable.TypeCast(e, t) ->

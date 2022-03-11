@@ -430,61 +430,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
-        let modName =
-            match kind with
-            | Decimal -> "Decimal"
-            | BigInt -> "BigInt"
-            | _ -> "Long"
-        Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
-        let op = if equal then BinaryEqual else BinaryUnequal
-        makeBinOp r Boolean left right op
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (FSharpSet _|FSharpMap _) ->
-        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Array t ->
-        let f = makeEqualityFunction com ctx t
-        Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
-    | List _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
+    // TODO: arrays, check if we need custom equality for tuples too
+//    | Array t ->
     | _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        if equal then BinaryEqual else BinaryUnequal
+        |> makeEqOp r left right
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
-    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
-        let modName =
-            match kind with
-            | Decimal -> "Decimal"
-            | BigInt -> "BigInt"
-            | _ -> "Long"
-        Helper.LibCall(com, modName, "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Array t ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number(Int32, NumberInfo.Empty), [f; left; right], ?loc=r)
-    | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+    // TODO: arrays, check if we need custom comparison for tuples too
+    // | Array t ->
+    | _ -> Helper.InstanceCall(left, "compareTo", Number(Int32, NumberInfo.Empty), [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -2197,7 +2154,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
+    | "ReferenceEquals", _, [left; right] -> Helper.GlobalCall("identical", t, [left; right], ?loc=r) |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some

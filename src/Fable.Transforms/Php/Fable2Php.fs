@@ -1242,7 +1242,9 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
     | Fable.Extended(Fable.Debugger, _) ->
         [ PhpDo (PhpFunctionCall(PhpIdent (unscopedIdent "assert"), [ PhpConst (PhpConstBool false)])) ]
     | Fable.Extended(Fable.Throw(expr, _ ),_) ->
-            [ PhpThrow(convertExpr com expr)]
+        match expr with
+        | None -> failwith "TODO: rethrow"
+        | Some expr -> [ PhpThrow(convertExpr com expr)]
     | Fable.Extended(Fable.Curry(expr, arrity),_) ->
         failwith "Curry is not implemented"
 

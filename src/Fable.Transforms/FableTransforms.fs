@@ -10,8 +10,8 @@ let getSubExpressions = function
     | Import _ -> []
     | Extended(kind, _) ->
         match kind with
-        | Curry(e, _)
-        | Throw(e, _) -> [e]
+        | Curry(e, _) -> [e]
+        | Throw(e, _) -> Option.toList e
         | Debugger
         | RegionStart _ -> []
     | Value(kind,_) ->

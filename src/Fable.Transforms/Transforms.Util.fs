@@ -565,8 +565,8 @@ module AST =
     let emitStatement r t args macro =
         emit r t args true macro
 
-    let makeThrow r t err =
-        Extended(Throw(err, t), r)
+    let makeThrow r t (err: Expr) =
+        Extended(Throw(Some err, t), r)
 
     let makeDebugger range =
         Extended(Debugger, range)
@@ -640,7 +640,7 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info2 = info2
+        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -760,7 +760,7 @@ module AST =
         | Extended(kind, r) ->
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)
-            | Throw(e, t) -> Extended(Throw(f e, t), r)
+            | Throw(e, t) -> Extended(Throw(Option.map f e, t), r)
             | Debugger
             | RegionStart _ -> e
         | Value(kind, r) ->
