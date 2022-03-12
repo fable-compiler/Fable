@@ -1072,18 +1072,18 @@ module Util =
                 if info.IsValue || (not compileAsClass && info.IsGetter) then
                     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
                 elif info.IsGetter then
-                    [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
+                    [makeMethod ObjectGetter prop computed false memb.ArgIdents memb.Body]
                 elif info.IsSetter then
-                    [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
+                    [makeMethod ObjectSetter prop computed false memb.ArgIdents memb.Body]
                 elif info.IsEnumerator then
-                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
+                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.ArgIdents memb.Body
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
                         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
                     [method; iterator]
                 else
-                    [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
+                    [makeMethod ObjectMeth prop computed info.HasSpread memb.ArgIdents memb.Body]
             )
 
         if not compileAsClass then
@@ -1117,57 +1117,34 @@ module Util =
             Expression.newExpression(classExpr, [||])
 
     let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
-        let tryGetParamObjInfo (memberInfo: Fable.CallMemberInfo) =
-            let tryGetParamNames (parameters: Fable.ParamInfo list) =
-                (Some [], parameters) ||> List.fold (fun acc p ->
-                    match acc, p.Name with
-                    | Some acc, Some name -> Some(name::acc)
-                    | _ -> None)
-                |> function
-                    | Some names -> List.rev names |> Some
-                    | None ->
-                        "ParamObj cannot be used with unnamed parameters"
-                        |> addWarning com [] r
-                        None
-
-            match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
-            // Check only members with multiple non-curried arguments
-            | [parameters], Some ent when not (List.isEmpty parameters) ->
-                // Skip check for core assemblies
-                match ent.Path with
-                | Fable.CoreAssemblyName _ -> None
-                | _ -> com.TryGetEntity(ent)
-                |> Option.bind (fun ent ->
-                    if ent.IsFSharpModule then None
-                    else
-                        ent.MembersFunctionsAndValues
-                        |> Seq.tryFind (fun m ->
-                            m.IsInstance = memberInfo.IsInstance
-                            && m.CompiledName = memberInfo.CompiledName
-                            && match m.CurriedParameterGroups with
-                                | [parameters2] when List.sameLength parameters parameters2 ->
-                                    List.zip parameters parameters2 |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                                | _ -> false))
-                |> Option.bind (fun m ->
-                    m.Attributes |> Seq.tryPick (fun a ->
-                        if a.Entity.FullName = Atts.paramObject then
-                            let index =
-                                match a.ConstructorArgs with
-                                | (:? int as index)::_ -> index
-                                | _ -> 0
-                            tryGetParamNames parameters |> Option.map (fun paramNames ->
-                                {| Index = index; Parameters = paramNames |})
-                        else None
-                    ))
-                | _ -> None
-
         let paramObjInfo, hasSpread, args =
             match info with
             | CallInfo i ->
                 let paramObjInfo =
                     match i.CallMemberInfo with
                     // ParamObject is not compatible with arg spread
-                    | Some mi when not i.HasSpread -> tryGetParamObjInfo mi
+                    | Some mi when not i.HasSpread ->
+                        let addWarning() =
+                            "ParamObj cannot be used with unnamed parameters"
+                            |> addWarning com [] r
+
+                        let mutable i = -1
+                        (None, List.concat mi.CurriedParameterGroups) ||> List.fold (fun acc p ->
+                            i <- i + 1
+                            match acc with
+                            | Some(namedIndex, names) ->
+                                match p.Name with
+                                | Some name -> Some(namedIndex, name::names)
+                                | None -> addWarning(); None
+                            | None when p.IsNamed ->
+                                match p.Name with
+                                | Some name ->
+                                    let namedIndex = i
+                                    Some(namedIndex, [name])
+                                | None -> addWarning(); None
+                            | None -> None)
+                        |> Option.map (fun (index, names) ->
+                            {| Index = index; Parameters = List.rev names |})
                     | _ -> None
                 paramObjInfo, i.HasSpread, i.Args
             | NoCallInfo args -> None, false, args
@@ -2049,7 +2026,7 @@ module Util =
         let isStatic = not memb.Info.IsInstance
         let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
         let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.ArgIdents memb.Body
         let key, computed = memberFromName memb.Name
         ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
         |> Array.singleton
@@ -2060,7 +2037,7 @@ module Util =
             let key, computed = memberFromName name
             ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
         let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.ArgIdents memb.Body
         [|
             yield makeMethod memb.Name args body
             if memb.Info.IsEnumerator then
@@ -2125,7 +2102,7 @@ module Util =
     let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
         let classIdent = Expression.identifier(classDecl.Name)
         let consArgs, consBody, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
+            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.ArgIdents cons.Body
 
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
@@ -2183,7 +2160,7 @@ module Util =
                         let value = transformAsExpr com ctx decl.Body
                         [declareModuleMember decl.Info.IsPublic decl.Name decl.Info.IsMutable value]
                     else
-                        [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
+                        [transformModuleFunction com ctx decl.Info decl.Name decl.ArgIdents decl.Body]
 
                 if decl.ExportDefault then
                     decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]

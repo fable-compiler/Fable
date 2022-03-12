@@ -170,17 +170,26 @@ type ActionDecl = {
     UsedNames: Set<string>
 }
 
+type ArgDecl = {
+    Ident: Ident
+    IsOptional: bool
+    IsNamed: bool
+} with
+    static member Create(ident: Ident, ?isOptional, ?isNamed) =
+        { Ident = ident; IsOptional = defaultArg isOptional false; IsNamed = defaultArg isNamed false }
+
 type MemberDecl = {
     Name: string
     FullDisplayName: string
-    Args: Ident list
+    Args: ArgDecl list
     Body: Expr
     Info: MemberInfo
     UsedNames: Set<string>
     /// This can only be set once per file
     /// for a declaration in the root scope
     ExportDefault: bool
-}
+} with
+    member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
 
 type ClassDecl = {
     Name: string
@@ -295,7 +304,8 @@ type ValueKind =
 
 type ParamInfo =
     { Name: string option
-      Type: Type }
+      Type: Type
+      IsNamed: bool }
 
 type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list

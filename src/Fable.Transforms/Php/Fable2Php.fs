@@ -844,7 +844,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         PhpNewArray [
             for m in members do
                 PhpArrayString m.Name,
-                    convertFunction com m.Body m.Args
+                    convertFunction com m.Body m.ArgIdents
         ]
     | Fable.Expr.Lambda(arg,body,_) ->
         // lambda is transpiled as a function
@@ -1264,12 +1264,12 @@ let convertMemberDecl (com: IPhpCompiler) (decl: Fable.MemberDecl) =
         fixName decl.Name //.Substring(typ.Name.Length + 2) |> fixName
 
     if decl.Info.IsInstance then
-        com.SetThisArgument(fixName decl.Args.[0].Name)
+        com.SetThisArgument(fixName decl.ArgIdents.[0].Name)
 
     let body = convertExprToStatement com decl.Body Return
     com.ClearThisArgument()
     { PhpFun.Name = fixName name;
-      PhpFun.Args = [ for arg in decl.Args.[1..] do
+      PhpFun.Args = [ for arg in decl.ArgIdents.[1..] do
                         match arg.Type with
                         | Fable.Unit -> ()
                         | _ -> fixName arg.Name ]
@@ -1315,7 +1315,7 @@ let convertDecl (com: IPhpCompiler)  decl =
                             | _ -> expr
 
                         {
-                            Args =  [ for arg in ctor.Args do
+                            Args =  [ for arg in ctor.ArgIdents do
                                         fixName arg.Name ]
                             Body = convertExprToStatement com (simplifyCtor ctor.Body) Do
                         }
@@ -1359,7 +1359,7 @@ let convertDecl (com: IPhpCompiler)  decl =
         else
             let body = convertExprToStatement com decl.Body Return
             [{ PhpFun.Name = fixName decl.Name
-               Args = [ for arg in decl.Args do
+               Args = [ for arg in decl.ArgIdents do
                         fixName arg.Name ]
                Matchings = []
                Body = body

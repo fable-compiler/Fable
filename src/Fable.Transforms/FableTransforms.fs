@@ -431,7 +431,7 @@ module private Transforms =
 
     let uncurryMemberArgs (m: MemberDecl) =
         if m.Info.IsValue then m
-        else { m with Body = curryIdentsAndReplaceInBody m.Args m.Body }
+        else { m with Body = curryIdentsAndReplaceInBody m.ArgIdents m.Body }
 
     let curryReceivedArgs (com: Compiler) e =
         match e with
@@ -600,7 +600,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
                 Sequential [baseCall; cons.Body]
-                |> curryIdentsAndReplaceInBody cons.Args
+                |> curryIdentsAndReplaceInBody cons.ArgIdents
                 |> transformExpr com
                 |> function
                     | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall

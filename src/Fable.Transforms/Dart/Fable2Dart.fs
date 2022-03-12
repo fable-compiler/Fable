@@ -1090,14 +1090,14 @@ module Util =
 
     let transformModuleFunction (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let returnType = transformType com ctx memb.Body.Type
-        let args, body = getMemberArgsAndBody com ctx (NonAttached memb.Name) memb.Args memb.Body
+        let args, body = getMemberArgsAndBody com ctx (NonAttached memb.Name) memb.ArgIdents memb.Body
         let isEntryPoint =
             memb.Info.Attributes
             |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         if isEntryPoint then
             failwith "todo: main function"
         else
-            let argTypes = memb.Args |> List.map (fun a -> a.Type)
+            let argTypes = memb.ArgIdents |> List.map (fun a -> a.Type)
             let rec getGenParams = function
                 | Fable.GenericParam(name, _constraints) -> [name]
                 | t -> t.Generics |> List.collect getGenParams

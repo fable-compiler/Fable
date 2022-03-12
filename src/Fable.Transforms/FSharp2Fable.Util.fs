@@ -125,10 +125,23 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         m.CurriedParameterGroups
         |> Seq.mapToList (Seq.mapToList (fun p -> FsParam.Make(p)))
 
+    static member TryParamObjectIndex(m: FSharpMemberOrFunctionOrValue) =
+        m.Attributes
+        |> Helpers.tryFindAtt Atts.paramObject
+        |> Option.map (fun (att: FSharpAttribute) ->
+            match Seq.tryItem 0 att.ConstructorArguments with
+            | Some(_, (:?int as index)) -> index
+            | _ -> 0)
+
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+        let namedParamsIndex =
+            FsMemberFunctionOrValue.TryParamObjectIndex(m)
+            |> Option.defaultValue -1
+
         { CurriedParameterGroups =
-            m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToList (fun p ->
-                { Name = p.Name; Type = TypeHelpers.makeType Map.empty p.Type }))
+            m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
+                let isNamed = namedParamsIndex > -1 && i >= namedParamsIndex
+                { Name = p.Name; Type = TypeHelpers.makeType Map.empty p.Type; IsNamed = isNamed }))
           IsInstance = m.IsInstanceMember
           IsGetter = m.IsPropertyGetterMethod
           FullName = m.FullName
@@ -871,9 +884,6 @@ module Patterns =
             | _ -> None
         else None
 
-    let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
-        tryFindAtt fullName ent.Attributes
-
     let inline (|FableType|) _com (ctx: Context) t = TypeHelpers.makeType ctx.GenericArgs t
 
 module TypeHelpers =
@@ -1516,26 +1526,52 @@ module Util =
                 newContext, arg::accArgs)
         ctx, List.rev args
 
-    let bindMemberArgs com ctx (args: FSharpMemberOrFunctionOrValue list list) =
-        let ctx, transformedArgs, args =
+    let bindMemberArgs com ctx (memb: FSharpMemberOrFunctionOrValue option) (args: FSharpMemberOrFunctionOrValue list list) =
+        // The F# compiler "untuples" the args in methods
+        let args = List.concat args
+        let paramObjIndex, args =
+            match memb with
+            | Some m ->
+                let paramObjIndex = FsMemberFunctionOrValue.TryParamObjectIndex(m)
+                let params_ = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
+                let args =
+                    if List.sameLength args params_ then
+                        params_ |> List.map Some |> List.zip args
+                    else args |> List.map (fun a -> a, None)
+                paramObjIndex, args
+            | None -> None, args |> List.map (fun a -> a, None)
+
+        let ctx, thisArg, args =
             match args with
-            | (firstArg::restArgs1)::restArgs2 when firstArg.IsMemberThisValue ->
+            | (firstArg,_)::restArgs when firstArg.IsMemberThisValue ->
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
-                ctx, [thisArg], restArgs1::restArgs2
-            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
+                ctx, [Fable.ArgDecl.Create thisArg], restArgs
+            | (firstArg,_)::restArgs when firstArg.IsConstructorThisValue ->
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
-                ctx, [thisArg], restArgs1::restArgs2
+                ctx, [Fable.ArgDecl.Create thisArg], restArgs
             | _ -> ctx, [], args
+
+        let mutable i = -1
         let ctx, args =
-            (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
-                // The F# compiler "untuples" the args in methods
-                let ctx, untupledArg = makeFunctionArgs com ctx tupledArg
-                ctx, untupledArg@accArgs)
-        ctx, transformedArgs @ args
+            ((ctx, []), args) ||> List.fold (fun (ctx, accArgs) (arg, param) ->
+                i <- i + 1
+                let isNamed =
+                    match paramObjIndex with
+                    | Some paramObjIndex -> i >= paramObjIndex
+                    | None -> false
+                let isOptional =
+                    match param with
+                    | Some p -> p.IsOptionalArg
+                    | None -> false
+                let ctx, argIdent = putIdentInScope com ctx arg None
+                let arg = Fable.ArgDecl.Create(argIdent, isOptional=isOptional, isNamed=isNamed)
+                ctx, arg::accArgs)
+
+        ctx, thisArg @ (List.rev args)
 
     let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -1659,10 +1695,22 @@ module Util =
             | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion -> true
             | _ -> false)
 
+    let isErasedOrStringEnumFSharpEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
+            | Some(Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion) -> true
+            | _ -> false)
+
     let isGlobalOrImportedEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.Entity.FullName with
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
+            | _ -> false)
+
+    let isGlobalOrImportedFSharpEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
+            | Some(Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false)
 
     let isAttachMembersEntity (com: Compiler) (ent: FSharpEntity) =

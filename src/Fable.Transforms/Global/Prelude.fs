@@ -25,6 +25,12 @@ module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
+    let mapToListIndexed (f: int -> 'a -> 'b) (xs: 'a seq) =
+        let mutable i = -1
+        ([], xs) ||> Seq.fold (fun li x ->
+            i <- i + 1
+            (f i x)::li) |> List.rev
+
     let chooseToList (f: 'a -> 'b option) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> match f x with Some x -> x::li | None -> li) |> List.rev
 

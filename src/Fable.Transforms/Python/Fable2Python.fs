@@ -1899,12 +1899,12 @@ module Util =
 
                 if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name ("property") ]
-                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
                 elif info.IsSetter then
                     let decorators = [ Expression.name $"{memb.Name}.setter" ]
-                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
                 elif info.IsEnumerator then
-                    let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
+                    let method = makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body []
 
                     let iterator =
                         let body = enumerator2iterator com ctx
@@ -1914,7 +1914,7 @@ module Util =
 
                     [ method; iterator ]
                 else
-                    [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ])
+                    [ makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body [] ])
 
         let baseExpr, classMembers =
             baseCall
@@ -3617,7 +3617,7 @@ module Util =
                   Expression.name ($"{memb.Name}.setter") ]
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.ArgIdents memb.Body
 
         let key =
             memberFromName com ctx memb.Name
@@ -3659,7 +3659,7 @@ module Util =
             Statement.functionDef (key, args, body = body, decoratorList = decorators, returns = returnType)
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.ArgIdents memb.Body
 
         let self = Arg.arg ("self")
 
@@ -3797,14 +3797,14 @@ module Util =
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
         let consArgs, consBody, _returnType =
-            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
+            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.ArgIdents cons.Body
 
-        let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
+        let isOptional = Helpers.isOptional (cons.ArgIdents |> Array.ofList)
 
         // Change exposed constructor's return type from None to entity type.
         let returnType =
             let availableGenerics =
-                cons.Args
+                cons.ArgIdents
                 |> List.map (fun arg -> arg.Type)
                 |> getGenericTypeParams
 
@@ -3946,7 +3946,7 @@ module Util =
                         stmts
                         @ declareModuleMember ctx decl.Info.IsPublic name (Some ta) value
                     else
-                        transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
+                        transformModuleFunction com ctx decl.Info decl.Name decl.ArgIdents decl.Body
 
                 if decl.ExportDefault then
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
