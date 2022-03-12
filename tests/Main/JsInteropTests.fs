@@ -315,6 +315,11 @@ let tests =
             ar.length |> equal 4
         | _ -> failwith "Not an array"
 
+    testCase "IsInstanceOfType works with interfaces decorated with Global" <| fun () ->
+        let ar = ResizeArray [| 1; 2; 3 |] |> box
+        typeof<JsArray>.IsInstanceOfType(ar) |> equal true
+        typeof<JsArray>.IsInstanceOfType("foo") |> equal false
+
     testCase "Decorators work" <| fun () ->
         myComplexAdder 3 4 |> equal 7
         myComplexAdder 6 7 |> equal 13
