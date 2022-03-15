@@ -799,6 +799,7 @@ module Util =
         | NonAttached of funcName: string
         | Attached of isStatic: bool
 
+    // TODO: NamedParams
     let getMemberArgsAndBody (com: IBabelCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
         let funcName, genTypeParams, args, body =
             match kind, args with
@@ -1117,15 +1118,15 @@ module Util =
             Expression.newExpression(classExpr, [||])
 
     let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
-        let paramObjInfo, hasSpread, args =
+        let namedParamsInfo, hasSpread, args =
             match info with
             | CallInfo i ->
-                let paramObjInfo =
+                let namedParamsInfo =
                     match i.CallMemberInfo with
-                    // ParamObject is not compatible with arg spread
+                    // ParamObject/NamedParams attribute is not compatible with arg spread
                     | Some mi when not i.HasSpread ->
-                        let addWarning() =
-                            "ParamObj cannot be used with unnamed parameters"
+                        let addUnnammedParamsWarning() =
+                            "NamedParams cannot be used with unnamed parameters"
                             |> addWarning com [] r
 
                         let mutable i = -1
@@ -1135,36 +1136,41 @@ module Util =
                             | Some(namedIndex, names) ->
                                 match p.Name with
                                 | Some name -> Some(namedIndex, name::names)
-                                | None -> addWarning(); None
+                                | None -> addUnnammedParamsWarning(); None
                             | None when p.IsNamed ->
                                 match p.Name with
                                 | Some name ->
                                     let namedIndex = i
                                     Some(namedIndex, [name])
-                                | None -> addWarning(); None
+                                | None -> addUnnammedParamsWarning(); None
                             | None -> None)
                         |> Option.map (fun (index, names) ->
                             {| Index = index; Parameters = List.rev names |})
                     | _ -> None
-                paramObjInfo, i.HasSpread, i.Args
+                namedParamsInfo, i.HasSpread, i.Args
             | NoCallInfo args -> None, false, args
 
         let args, objArg =
-            match paramObjInfo with
+            match namedParamsInfo with
             | None -> args, None
             | Some i when i.Index > List.length args -> args, None
             | Some i ->
                 let args, objValues = List.splitAt i.Index args
-                let _, objKeys = List.splitAt i.Index i.Parameters
-                let objKeys = List.take (List.length objValues) objKeys
-                let objArg =
-                    List.zip objKeys objValues
-                    |> List.choose (function
-                        | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
-                        | k, v -> Some(k, v))
-                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                    |> makeJsObject
-                args, Some objArg
+                let objValuesLen = List.length objValues
+                if List.length i.Parameters < objValuesLen then
+                    "NamedParams detected but more arguments present than param names"
+                    |> addWarning com [] r
+                    args, None
+                else
+                    let objKeys = List.take objValuesLen i.Parameters
+                    let objArg =
+                        List.zip objKeys objValues
+                        |> List.choose (function
+                            | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
+                            | k, v -> Some(k, v))
+                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                        |> makeJsObject
+                    args, Some objArg
 
         let args =
             match args with

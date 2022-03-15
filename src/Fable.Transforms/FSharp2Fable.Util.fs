@@ -125,7 +125,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         m.CurriedParameterGroups
         |> Seq.mapToList (Seq.mapToList (fun p -> FsParam.Make(p)))
 
-    static member TryParamObjectIndex(m: FSharpMemberOrFunctionOrValue) =
+    static member TryNamedParamsIndex(m: FSharpMemberOrFunctionOrValue) =
         m.Attributes
         |> Helpers.tryFindAtt Atts.paramObject
         |> Option.map (fun (att: FSharpAttribute) ->
@@ -135,7 +135,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
         let namedParamsIndex =
-            FsMemberFunctionOrValue.TryParamObjectIndex(m)
+            FsMemberFunctionOrValue.TryNamedParamsIndex(m)
             |> Option.defaultValue -1
 
         { CurriedParameterGroups =
@@ -171,6 +171,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsGetter = m.IsPropertyGetterMethod
         member _.IsSetter = m.IsPropertySetterMethod
         member _.IsProperty = m.IsProperty
+        member _.IsOverrideOrExplicitInterfaceImplementation = m.IsOverrideOrExplicitInterfaceImplementation
 
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
@@ -295,6 +296,7 @@ type MemberInfo(?attributes: FSharpAttribute seq,
                     ?isSetter: bool,
                     ?isProperty: bool,
                     ?isEnumerator: bool,
+                    ?isOverride: bool,
                     ?isMangled: bool) =
     interface Fable.MemberInfo with
         member _.Attributes =
@@ -302,6 +304,7 @@ type MemberInfo(?attributes: FSharpAttribute seq,
             | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
             | None -> upcast []
         member _.HasSpread = defaultArg hasSpread false
+        member _.IsMangled = defaultArg isMangled false
         member _.IsInline = defaultArg isInline false
         member _.IsPublic = defaultArg isPublic true
         member _.IsInstance = defaultArg isInstance true
@@ -311,7 +314,7 @@ type MemberInfo(?attributes: FSharpAttribute seq,
         member _.IsSetter = defaultArg isSetter false
         member _.IsProperty = defaultArg isProperty false
         member _.IsEnumerator = defaultArg isEnumerator false
-        member _.IsMangled = defaultArg isMangled false
+        member _.IsOverrideOrExplicitInterfaceImplementation = defaultArg isOverride false
 
 type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
 
@@ -1529,16 +1532,16 @@ module Util =
     let bindMemberArgs com ctx (memb: FSharpMemberOrFunctionOrValue option) (args: FSharpMemberOrFunctionOrValue list list) =
         // The F# compiler "untuples" the args in methods
         let args = List.concat args
-        let paramObjIndex, args =
+        let namedParamsIndex, args =
             match memb with
             | Some m ->
-                let paramObjIndex = FsMemberFunctionOrValue.TryParamObjectIndex(m)
+                let namedParamsIndex = FsMemberFunctionOrValue.TryNamedParamsIndex(m)
                 let params_ = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
                 let args =
                     if List.sameLength args params_ then
                         params_ |> List.map Some |> List.zip args
                     else args |> List.map (fun a -> a, None)
-                paramObjIndex, args
+                namedParamsIndex, args
             | None -> None, args |> List.map (fun a -> a, None)
 
         let ctx, thisArg, args =
@@ -1560,8 +1563,8 @@ module Util =
             ((ctx, []), args) ||> List.fold (fun (ctx, accArgs) (arg, param) ->
                 i <- i + 1
                 let isNamed =
-                    match paramObjIndex with
-                    | Some paramObjIndex -> i >= paramObjIndex
+                    match namedParamsIndex with
+                    | Some namedParamsIndex -> i >= namedParamsIndex
                     | None -> false
                 let isOptional =
                     match param with

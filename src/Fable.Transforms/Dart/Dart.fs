@@ -34,7 +34,6 @@ type Type =
     | List of Type
     | Nullable of Type
 
-    // We will likely need to add the constraints
     | Generic of name: string
     | TypeReference of Ident * generics: Type list
     | Function of argTypes: Type list * returnType: Type
@@ -54,6 +53,8 @@ type Literal =
     | NullLiteral
     | ListLiteral of values: Expression list * isConst: bool
 
+type CallArg = string option * Expression
+
 type Expression =
     | SuperExpression
     | ThisExpression
@@ -65,7 +66,7 @@ type Expression =
     | IndexExpression of expr: Expression * index: Expression
     | AsExpression of expr: Expression * typ: Type
     | IsExpression of expr: Expression * typ: Type * isNot: bool
-    | InvocationExpression of expr: Expression * genArgs: Type list * args: Expression list
+    | InvocationExpression of expr: Expression * genArgs: Type list * args: CallArg list
     | UpdateExpression of operator: UpdateOperator * isPrefix: bool * expr: Expression
     | UnaryExpression of operator: UnaryOperator * expr: Expression
     | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
@@ -89,20 +90,28 @@ type Expression =
     static member propertyAccess(expr, prop) = PropertyAccess(expr, prop)
     static member asExpression(expr, typ) = AsExpression(expr, typ)
     static member isExpression(expr, typ, ?isNot) = IsExpression(expr, typ, defaultArg isNot false)
-    static member invocationExpression(expr, prop, args, ?genArgs) =
+    static member invocationExpression(expr: Expression, args: CallArg list, ?genArgs) =
+        InvocationExpression(expr, defaultArg genArgs [], args)
+    static member invocationExpression(expr: Expression, ?genArgs) =
+        InvocationExpression(expr, defaultArg genArgs [], [])
+    static member invocationExpression(expr: Expression, args: Expression list, ?genArgs) =
+        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a))
+    static member invocationExpression(expr: Expression, prop: string, args: CallArg list, ?genArgs) =
         let expr = PropertyAccess(expr, prop)
         InvocationExpression(expr, defaultArg genArgs [], args)
-    static member invocationExpression(expr, args, ?genArgs) = InvocationExpression(expr, defaultArg genArgs [], args)
+    static member invocationExpression(expr: Expression, prop: string, args: Expression list, ?genArgs) =
+        let expr = PropertyAccess(expr, prop)
+        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a))
     static member updateExpression(operator, expr, ?isPrefix) = UpdateExpression(operator, defaultArg isPrefix false, expr)
     static member unaryExpression(operator, expr) = UnaryExpression(operator, expr)
     static member binaryExpression(operator, left, right, ?isInt) = BinaryExpression(operator, left, right, defaultArg isInt false)
     static member logicalExpression(operator, left, right) = LogicalExpression(operator, left, right)
     static member conditionalExpression(test, consequent, alternate) = ConditionalExpression(test, consequent, alternate)
-    static member anonymousFunction(args, body: Statement list, ?genParams) =
-        AnonymousFunction(args, body, defaultArg genParams [])
-    static member anonymousFunction(args, body: Expression, ?genParams) =
+    static member anonymousFunction(args, body: Statement list, ?genArgs) =
+        AnonymousFunction(args, body, defaultArg genArgs [])
+    static member anonymousFunction(args, body: Expression, ?genArgs) =
         let body = [Statement.returnStatement body]
-        AnonymousFunction(args, body, defaultArg genParams [])
+        AnonymousFunction(args, body, defaultArg genArgs [])
     static member assignmentExpression(target, value, ?kind) = AssignmentExpression(target, defaultArg kind AssignEqual, value)
     static member emitExpression(value, args) = EmitExpression(value, args)
     static member throwExpression(value) = ThrowExpression(value)
@@ -155,23 +164,28 @@ type Statement =
         TryStatement(body, defaultArg handlers [], defaultArg finalizer [])
     static member variableDeclaration(ident, ?kind, ?value) =
         LocalVariableDeclaration(ident, defaultArg kind Final, value)
-    static member functionDeclaration(name: string, args: Ident list, body: Statement list, returnType: Type, ?genParams: string list) =
+    static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genArgs: string list) =
         LocalFunctionDeclaration {
             Name = name
             Args = args
             Body = body
             ReturnType = returnType
-            GenericParams = defaultArg genParams []
+            GenericArgs = defaultArg genArgs []
         }
     static member switchStatement(discriminant, cases, defaultCase) =
         SwitchStatement(discriminant, cases, defaultCase)
 
+type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool) =
+    member _.Ident = ident
+    member _.IsOptional = defaultArg isOptional false
+    member _.IsNamed = defaultArg isNamed false
+
 type FunctionDecl =
     {
         Name: string
-        Args: Ident list
+        Args: FunctionArg list
         Body: Statement list
-        GenericParams: string list
+        GenericArgs: string list
         ReturnType: Type
     }
 
@@ -182,7 +196,7 @@ type ConsArg =
 type Constructor(?args, ?body, ?superArgs, ?isConst, ?isFactory) =
     member _.Args: ConsArg list = defaultArg args []
     member _.Body: Statement list = defaultArg body []
-    member _.SuperArgs: Ident list = defaultArg superArgs []
+    member _.SuperArgs: CallArg list = defaultArg superArgs []
     member _.IsConst = defaultArg isConst false
     member _.IsFactory = defaultArg isFactory false
 
@@ -197,15 +211,18 @@ type MethodKind =
     | IsGetter
     | IsSetter
 
-type InstanceMethod(name, args, returnType, ?genParams, ?body, ?kind, ?isOverride) =
+// TODO: generic constraints
+type InstanceMethod(name, args, returnType, ?genArgs, ?body, ?kind, ?isOverride, ?isStatic) =
     member _.Name: string = name
-    member _.Args: Ident list = args
+    member _.Args: FunctionArg list = args
     member _.Body: Statement list option = body
-    member _.GenericParams: string list = defaultArg genParams []
+    member _.GenericArgs: string list = defaultArg genArgs []
     member _.ReturnType: Type = returnType
     member _.Kind: MethodKind = defaultArg kind IsMethod
     member _.IsOverride = defaultArg isOverride false
+    member _.IsStatic = defaultArg isStatic false
 
+// TODO: generic constraints
 type Class(name, ?constructor, ?extends, ?implements, ?variables, ?methods, ?isAbstract) =
     member _.Name: string = name
     member _.IsAbstract = defaultArg isAbstract false
@@ -223,13 +240,13 @@ type Declaration =
     static member variableDeclaration(ident, kind, value) =
         VariableDeclaration(ident, kind, value)
 
-    static member functionDeclaration(name: string, args: Ident list, body: Statement list, returnType: Type, ?genParams: string list) =
+    static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genArgs: string list) =
         FunctionDeclaration {
             Name = name
             Args = args
             Body = body
             ReturnType = returnType
-            GenericParams = defaultArg genParams []
+            GenericArgs = defaultArg genArgs []
         }
 
     static member classDeclaration(name, ?isAbstract, ?constructor, ?extends, ?implements, ?variables, ?methods) =

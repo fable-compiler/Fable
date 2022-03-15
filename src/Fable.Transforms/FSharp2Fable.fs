@@ -190,32 +190,39 @@ let private resolveImportMemberBinding (ident: Fable.Ident) (info: Fable.ImportI
     if info.Selector = Naming.placeholder then { info with Selector = ident.Name }
     else info
 
-let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
-                (entityAndMember: (FSharpEntity * FSharpMemberOrFunctionOrValue) option)
+let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts
+                (implementingEntity: FSharpEntity option)
                 (sign: FSharpAbstractSignature)
                 attributes =
-    let declaringEntityFields = HashSet<_>()
-    let declaringEntityName =
-        match entityAndMember with
-        | Some(ent, _) ->
-            ent.FSharpFields
-            |> Seq.iter (fun x -> declaringEntityFields.Add(x.Name) |> ignore)
-            ent.FullName
+    let implementingEntityFields = HashSet<_>()
+    let implementingEntityName =
+        match implementingEntity with
+        | Some e ->
+            e.FSharpFields |> Seq.iter (fun x -> implementingEntityFields.Add(x.Name) |> ignore)
+            e.FullName
         | None -> ""
 
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
     let indexedProp = (isGetter && countNonCurriedParamsForSignature sign > 0)
                         || (isSetter && countNonCurriedParamsForSignature sign > 1)
-    let name, isMangled, isGetter, isSetter, isEnumerator, hasSpread =
-        match entityAndMember with
-        | Some(ent, memb) ->
+
+    let memb, entFullName, name, isMangled, isGetter, isSetter, isEnumerator, hasSpread =
+        // Don't use the type from the arguments as the override may come
+        // from another type, like ToString()
+        match tryDefinition sign.DeclaringType with
+        | None ->
+            None, None, Naming.removeGetSetPrefix sign.Name, false, isGetter, isSetter, false, false
+        | Some(ent, entFullName) ->
+            let memb =
+                ent.TryGetMembersFunctionsAndValues()
+                |> Seq.tryFind (fun x -> x.CompiledName = sign.Name)
             let isEnumerator =
                 sign.Name = "GetEnumerator"
-                && declaringEntityName = "System.Collections.Generic.IEnumerable`1"
+                && entFullName = Some "System.Collections.Generic.IEnumerable`1"
             let hasSpread =
                 if isGetter || isSetter then false
-                else hasParamArray memb
+                else match memb with Some m -> hasParamArray m | None -> false
             let isMangled = isMangledAbstractEntity com ent
             let name, isGetter, isSetter =
                 if isMangled then
@@ -233,16 +240,16 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                         else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
                     // Setters can have same name as getters, assume there will always be a getter
                     if not isSetter &&
-                        (nonMangledNameConflicts declaringEntityName name || declaringEntityFields.Contains(name)) then
+                        (nonMangledNameConflicts implementingEntityName name || implementingEntityFields.Contains(name)) then
                         $"Member %s{name} is duplicated, use Mangle attribute to prevent conflicts with interfaces"
-                        // TODO: Temporarily emitting a warning, because this errors in old libraries,
-                        // like Fable.React.HookBindings
+                        // TODO: Temporarily emitting a warning, because this errors in old libraries, like Fable.React.HookBindings
                         |> addWarning com ctx.InlinePath r
                     name, isGetter, isSetter
-            name, isMangled, isGetter, isSetter, isEnumerator, hasSpread
-        | None ->
-            Naming.removeGetSetPrefix sign.Name, false, isGetter, isSetter, false, false
-    name, MemberInfo(attributes=attributes,
+            memb, entFullName, name, isMangled, isGetter, isSetter, isEnumerator, hasSpread
+
+    memb, entFullName, name, MemberInfo(
+                             isOverride=true,
+                             attributes=attributes,
                              hasSpread=hasSpread,
                              isGetter=isGetter,
                              isSetter=isSetter,
@@ -259,23 +266,14 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
     let mapOverride (over: FSharpObjectExprOverride): Thunk<Fable.MemberDecl> =
       trampoline {
         let signature = over.Signature
-        // Don't use the type from the arguments as the override may come
-        // from another type, like ToString()
-        let entityAndMember =
-            tryDefinition signature.DeclaringType
-            |> Option.bind (fun (ent, _) ->
-                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                // information like ParamArray, we need to check the source method.
-                ent.TryGetMembersFunctionsAndValues()
-                |> Seq.tryFind (fun x -> x.CompiledName = signature.Name)
-                |> Option.map (fun m -> ent, m))
-        let ctx, args = bindMemberArgs com ctx (Option.map snd entityAndMember) over.CurriedParameterGroups
+        let r = makeRangeFrom over.Body
+        let memb, entFullName, name, info = getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature []
+        let ctx, args = bindMemberArgs com ctx memb over.CurriedParameterGroups
         let! body = transformExpr com ctx over.Body
-        let name, info = getAttachedMemberInfo com ctx body.Range nonMangledNameConflicts entityAndMember signature []
         return { Name = name
                  FullDisplayName =
-                     match tryDefinition signature.DeclaringType with
-                     | Some(_, Some entFullName) -> entFullName + "." + signature.Name
+                     match entFullName with
+                     | Some entFullName -> entFullName + "." + signature.Name
                      | _ -> signature.Name
                  Args = args
                  Body = body
@@ -1275,13 +1273,13 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         then transformMemberValue com ctx isPublic name fullDisplayName memb body
         else transformMemberFunction com ctx isPublic name fullDisplayName memb args body
 
-let private transformAttachedMember (com: FableCompiler) (ctx: Context)
-            (declaringEntity: FSharpEntity) (signature: FSharpAbstractSignature)
+let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
+            (implementingEntity: FSharpEntity) (signature: FSharpAbstractSignature)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx (Some memb) args
     let body = transformExpr com bodyCtx body |> run
-    let entFullName = declaringEntity.FullName
-    let name, info = getAttachedMemberInfo com ctx body.Range com.NonMangledAttachedMemberConflicts (Some(declaringEntity, memb)) signature memb.Attributes
+    let entFullName = implementingEntity.FullName
+    let _memb, _entFullName, name, info = getImplementedSignatureInfo com ctx body.Range com.NonMangledAttachedMemberConflicts (Some implementingEntity) signature memb.Attributes
     com.AddAttachedMember(entFullName,
         { Name = name
           FullDisplayName = entFullName + "." + signature.Name
@@ -1333,11 +1331,11 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         // Ignore attached members generated by the F# compiler (for comparison and equality)
         if not memb.IsCompilerGenerated then
             match memb.DeclaringEntity with
-            | Some declaringEntity ->
-                if isGlobalOrImportedFSharpEntity declaringEntity then ()
-                elif isErasedOrStringEnumFSharpEntity declaringEntity then
+            | Some ent ->
+                if isGlobalOrImportedFSharpEntity ent then ()
+                elif isErasedOrStringEnumFSharpEntity ent then
                     // Ignore abstract members for classes, see #2295
-                    if declaringEntity.IsFSharpUnion || declaringEntity.IsFSharpRecord then
+                    if ent.IsFSharpUnion || ent.IsFSharpRecord then
                         let r = makeRange memb.DeclarationLocation |> Some
                         "Erased unions/records cannot implement abstract members"
                         |> addError com ctx.InlinePath r
@@ -1345,7 +1343,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
                     // Not sure when it's possible that a member implements multiple abstract signatures
                     memb.ImplementedAbstractSignatures
                     |> Seq.tryHead
-                    |> Option.iter (fun s -> transformAttachedMember com ctx declaringEntity s memb args body)
+                    |> Option.iter (fun s -> transformImplementedSignature com ctx ent s memb args body)
             | None -> ()
         []
     else

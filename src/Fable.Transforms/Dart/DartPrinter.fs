@@ -5,6 +5,12 @@ open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.Printer
 
+type ListPos =
+    | IsFirst
+    | IsMiddle
+    | IsLast
+    | IsSingle
+
 module PrinterExtensions =
     type Printer with
         member this.AddError(msg, ?range) =
@@ -131,21 +137,31 @@ module PrinterExtensions =
             else
                 printSegment printer value 0 value.Length
 
-        member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit, ?skipIfEmpty) =
+        member printer.PrintList(left: string, right: string, items: 'a list, printItemAndSeparator: ListPos -> 'a -> unit, ?skipIfEmpty) =
             let skipIfEmpty = defaultArg skipIfEmpty false
-            let rec printList = function
+            let rec printList isFirst = function
                 | [] -> ()
-                | [item] -> printItem item
+                | [item] ->
+                    let pos = if isFirst then IsSingle else IsLast
+                    printItemAndSeparator pos item
                 | item::items ->
-                    printItem item
-                    printer.Print(separator)
-                    printList items
+                    let pos = if isFirst then IsFirst else IsMiddle
+                    printItemAndSeparator pos item
+                    printList false items
             match skipIfEmpty, items with
             | true, [] -> ()
             | _, items ->
                 printer.Print(left)
-                printList items
+                printList true items
                 printer.Print(right)
+
+        member printer.PrintList(left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit, ?skipIfEmpty) =
+            let printItem pos item =
+                printItem item
+                match pos with
+                | IsSingle | IsLast -> ()
+                | IsFirst | IsMiddle -> printer.Print(separator)
+            printer.PrintList(left, right, items, printItem, ?skipIfEmpty=skipIfEmpty)
 
         member printer.PrintList(left, idents: Ident list, right, ?printType: bool) =
             printer.PrintList(left, ", ", right, idents, fun x ->
@@ -157,6 +173,32 @@ module PrinterExtensions =
 
         member printer.PrintList(left, items: Expression list, right) =
             printer.PrintList(left, ", ", right, items, fun (x: Expression) -> printer.Print(x))
+
+        member printer.PrintCallArgAndSeparator (pos: ListPos) ((name, expr): CallArg) =
+            let isNamed =
+                match name with
+                | None -> false
+                | Some name ->
+                    match pos with
+                    | IsFirst | IsSingle ->
+                        printer.PrintNewLine()
+                        printer.PushIndentation()
+                    | IsMiddle | IsLast -> ()
+                    printer.Print(name + ": ")
+                    true
+            printer.Print(expr)
+            match pos with
+            | IsSingle | IsLast ->
+                if isNamed then
+                    printer.PrintNewLine()
+                    printer.PopIndentation()
+                else ()
+            | IsFirst | IsMiddle ->
+                if isNamed then
+                    printer.Print(",")
+                    printer.PrintNewLine()
+                else
+                    printer.Print(", ")
 
         member printer.PrintType(t: Type) =
             match t with
@@ -390,7 +432,7 @@ module PrinterExtensions =
                 printer.Print(body)
 
             | LocalFunctionDeclaration f ->
-                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericParams, f.Args, f.Body)
+                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericArgs, f.Args, f.Body)
 
             | ExpressionStatement e ->
                 printer.Print(e)
@@ -561,7 +603,7 @@ module PrinterExtensions =
 
             | InvocationExpression(caller, _genArgs, args) -> // TODO: genArgs
                 printer.PrintWithParensIfNotIdent(caller)
-                printer.PrintList("(", args, ")")
+                printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator)
 
             | AnonymousFunction(args, body, _genParams) -> // TODO: genArgs
                 printer.PrintList("(", args, ") ", printType=true)
@@ -616,7 +658,7 @@ module PrinterExtensions =
 
                     if callSuper then
                         p.Print(": super")
-                        p.PrintList("(", c.SuperArgs, ")")
+                        printer.PrintList("(", ")", c.SuperArgs, printer.PrintCallArgAndSeparator)
                     match c.Body with
                     | [] -> p.Print(";")
                     | body ->
@@ -635,10 +677,11 @@ module PrinterExtensions =
                     | IsSetter ->
                         p.PrintType(m.ReturnType)
                         p.Print(" set " + m.Name)
-                        printer.PrintList("(", m.Args, ") ", printType=true)
+                        let argIdents = m.Args |> List.map (fun a -> a.Ident)
+                        printer.PrintList("(", argIdents, ") ", printType=true)
                         p.PrintFunctionBody(?body=m.Body)
                     | IsMethod ->
-                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericParams, m.Args, ?body=m.Body)
+                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericArgs, m.Args, ?body=m.Body)
             ), fun p -> p.PrintNewLine())
 
         member printer.PrintFunctionBody(?body: Statement list, ?isExpression: bool) =
@@ -654,12 +697,41 @@ module PrinterExtensions =
                 printer.Print(" ")
                 printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
 
-        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: string list, args: Ident list, ?body: Statement list) =
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: string list, args: FunctionArg list, ?body: Statement list) =
             printer.PrintType(returnType)
             printer.Print(" ")
             printer.Print(name)
             printer.PrintList("<", genParams, ">", skipIfEmpty=true)
-            printer.PrintList("(", args, ")", printType=true)
+
+            let mutable prevArg: FunctionArg option = None
+            printer.PrintList("(", ")", args, fun pos arg ->
+                if arg.IsNamed then
+                    match prevArg with
+                    | None -> printer.Print("{")
+                    | Some a when not a.IsNamed -> printer.Print("{")
+                    | Some _ -> ()
+                elif arg.IsOptional then
+                    match prevArg with
+                    | None -> printer.Print("[")
+                    | Some a when not a.IsOptional -> printer.Print("[")
+                    | Some _ -> ()
+                else
+                    ()
+
+                printer.PrintIdent(arg.Ident, printType=true)
+
+                match pos with
+                | IsSingle | IsLast ->
+                    if arg.IsNamed then
+                        printer.Print("}")
+                    elif arg.IsOptional then
+                        printer.Print("]")
+                    else ()
+                | IsFirst | IsMiddle ->
+                    printer.Print(", ")
+
+                prevArg <- Some arg
+            )
             printer.PrintFunctionBody(?body=body)
 
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
@@ -687,7 +759,7 @@ let run (writer: Writer) (file: File): Async<unit> =
             printer.PrintClassDeclaration(decl)
 
         | FunctionDeclaration d ->
-            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericParams, d.Args, d.Body)
+            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericArgs, d.Args, d.Body)
             printer.PrintNewLine()
 
         | VariableDeclaration(ident, kind, value) ->
@@ -701,6 +773,9 @@ let run (writer: Writer) (file: File): Async<unit> =
     async {
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
+
+        printer.Print("// ignore_for_file: non_constant_identifier_names")
+        printer.PrintNewLine()
 
         for i in file.Imports do
             let path = printer.MakeImportPath(i.Path)

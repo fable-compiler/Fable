@@ -79,6 +79,7 @@ type MemberInfo =
     abstract IsSetter: bool
     abstract IsProperty: bool
     abstract IsEnumerator: bool
+    abstract IsOverrideOrExplicitInterfaceImplementation: bool
 
 type MemberFunctionOrValue =
     inherit MemberInfo
@@ -190,6 +191,7 @@ type MemberDecl = {
     ExportDefault: bool
 } with
     member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
+    member this.ArgTypes = this.Args |> List.map (fun a -> a.Ident.Type)
 
 type ClassDecl = {
     Name: string

@@ -257,6 +257,7 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
+    let inline (|EntFullName|) (e: EntityRef) = e.FullName
 
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
