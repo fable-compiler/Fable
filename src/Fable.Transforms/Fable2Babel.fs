@@ -129,6 +129,16 @@ module Reflection =
                 if not(Array.isEmpty generics) then
                     Expression.arrayExpression(generics)
             |]
+        let genericGlobalOrImportedEntity generics (ent: Fable.Entity) =
+            libReflectionCall com ctx None "class" [|
+                yield Expression.stringLiteral(ent.FullName)
+                match generics with
+                | [||] -> yield Util.undefined None
+                | generics -> yield Expression.arrayExpression(generics)
+                match tryJsConstructor com ctx ent with
+                | Some cons -> yield cons
+                | None -> ()
+            |]
         match t with
         | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj"
@@ -218,9 +228,10 @@ module Reflection =
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 // Check if the entity is actually declared in JS code
                 // TODO: Interfaces should be declared when generating Typescript
-                if ent.IsInterface
+                if FSharp2Fable.Util.isGlobalOrImportedEntity ent then
+                    genericGlobalOrImportedEntity generics ent
+                elif ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
                     || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent.FullName generics
                 // TODO: Strictly measure types shouldn't appear in the runtime, but we support it for now
