@@ -1,6 +1,7 @@
 ﻿module Fable.Transforms.DartPrinter
 
 open System.Text.RegularExpressions
+open Fable
 open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.Printer
@@ -14,10 +15,10 @@ type ListPos =
 module PrinterExtensions =
     type Printer with
         member this.AddError(msg, ?range) =
-            this.AddLog(msg, Fable.Severity.Error, ?range=range)
+            this.AddLog(msg, Severity.Error, ?range=range)
 
         member this.AddWarning(msg, ?range) =
-            this.AddLog(msg, Fable.Severity.Warning , ?range=range)
+            this.AddLog(msg, Severity.Warning , ?range=range)
 
         member printer.PrintBlock(nodes: 'a list, printNode: Printer -> 'a -> unit, ?printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let printSeparator = defaultArg printSeparator (fun _ -> ())
@@ -255,6 +256,7 @@ module PrinterExtensions =
             | AsExpression _
             | IsExpression _
             | InvocationExpression _
+            | SequenceExpression _
             | UpdateExpression _
             | UnaryExpression _
             | BinaryExpression _
@@ -416,7 +418,10 @@ module PrinterExtensions =
                 printer.Print("return ")
                 printer.Print(e)
 
-            | BreakStatement label ->
+            | BreakStatement(label, ignoreDeadCode) ->
+                if ignoreDeadCode then
+                    printer.Print("// ignore: dead_code")
+                    printer.PrintNewLine()
                 match label with
                 | None -> printer.Print("break")
                 | Some label -> printer.Print("break " + label)
@@ -490,6 +495,18 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
+            | SequenceExpression(seqExprFn, exprs) ->
+                let rec flatten result = function
+                    | [] -> List.rev result
+                    | SequenceExpression(_, exprs)::restExprs ->
+                        let exprs = flatten [] exprs |> List.fold (fun r e -> e::r) result
+                        flatten exprs restExprs
+                    | expr::restExprs -> flatten (expr::result) restExprs
+                let exprs, returnExpr = flatten [] exprs |> List.splitLast
+                let exprs = ListLiteral(exprs, false) |> Literal
+                Expression.invocationExpression(Expression.identExpression seqExprFn, [exprs; returnExpr])
+                |> printer.Print
+
             | EmitExpression(value, args) -> printer.PrintEmitExpression(value, args)
 
             | ThrowExpression e ->
@@ -601,11 +618,15 @@ module PrinterExtensions =
                     printer.Print(" is ")
                 printer.PrintType(typ)
 
-            | InvocationExpression(caller, _genArgs, args) -> // TODO: genArgs
+            | InvocationExpression(caller, genArgs, args, isConst) ->
+                if isConst then
+                    printer.Print("const ")
                 printer.PrintWithParensIfNotIdent(caller)
+                printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty=true)
                 printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator)
 
-            | AnonymousFunction(args, body, _genParams) -> // TODO: genArgs
+            | AnonymousFunction(args, body, genArgs) ->
+                printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
                 printer.PrintList("(", args, ") ", printType=true)
                 printer.PrintFunctionBody(body, isExpression=true)
 
@@ -697,11 +718,11 @@ module PrinterExtensions =
                 printer.Print(" ")
                 printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
 
-        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: string list, args: FunctionArg list, ?body: Statement list) =
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genArgs: string list, args: FunctionArg list, ?body: Statement list) =
             printer.PrintType(returnType)
             printer.Print(" ")
             printer.Print(name)
-            printer.PrintList("<", genParams, ">", skipIfEmpty=true)
+            printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
 
             let mutable prevArg: FunctionArg option = None
             printer.PrintList("(", ")", args, fun pos arg ->
@@ -746,7 +767,6 @@ module PrinterExtensions =
                 match kind with
                 | Const -> printer.Print("const " + ident.Name + " = ")
                 | Final -> printer.Print("final " + ident.Name + " = ")
-                | VarConst -> printer.Print("var " + ident.Name + " = const ")
                 | Var -> printer.Print("var " + ident.Name + " = ")
                 printer.Print(value)
 

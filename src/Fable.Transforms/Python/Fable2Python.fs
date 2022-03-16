@@ -1724,8 +1724,8 @@ module Util =
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ) -> makeArray com ctx values typ
-        | Fable.NewArrayFrom (size, typ) ->
+        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx values typ
+        | Fable.NewArrayFrom (size, typ, _isMutable) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
             let arg, stmts = com.TransformAsExpr(ctx, size)
 

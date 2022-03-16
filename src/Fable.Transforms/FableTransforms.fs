@@ -23,8 +23,8 @@ let getSubExpressions = function
         | StringTemplate(_,_,exprs) -> exprs
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
-        | NewArray(exprs, _) -> exprs
-        | NewArrayFrom(e, _) -> [e]
+        | NewArray(exprs, _, _) -> exprs
+        | NewArrayFrom(e, _, _) -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
@@ -212,11 +212,11 @@ let noSideEffectBeforeIdent identName expr =
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
-            | NewArrayFrom(e,_)
+            | NewArrayFrom(e,_,_)
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | StringTemplate(_,_,exprs)
-            | NewArray(exprs,_)
+            | NewArray(exprs,_,_)
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)

@@ -1002,7 +1002,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         libCall com "List" "FSharpList" "cons" [ convertExpr com head; convertExpr com tail]
     | Fable.NewList(None,_) ->
         libCall com "List" "FSharpList" "_empty" []
-    | Fable.NewArray(values,_) ->
+    | Fable.NewArray(values,_,_) ->
         PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
 
     | Fable.NewOption(opt,_,_) ->
@@ -1018,7 +1018,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         match ident with
         | None -> PhpParent
         | Some ident -> convertExpr com (Fable.IdentExpr ident)
-    | Fable.NewArrayFrom(size,_) ->
+    | Fable.NewArrayFrom(size,_,_) ->
         PhpNewArray([])
     | Fable.RegexConstant(source, flags) ->
         let modifiers =

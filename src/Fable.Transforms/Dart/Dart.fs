@@ -56,6 +56,8 @@ type Literal =
 type CallArg = string option * Expression
 
 type Expression =
+    // Pseudo-expression so we can flatten nested sequence expressions before printing
+    | SequenceExpression of seqExprFn: Ident * exprs: Expression list
     | SuperExpression
     | ThisExpression
     | Literal of value: Literal
@@ -66,7 +68,7 @@ type Expression =
     | IndexExpression of expr: Expression * index: Expression
     | AsExpression of expr: Expression * typ: Type
     | IsExpression of expr: Expression * typ: Type * isNot: bool
-    | InvocationExpression of expr: Expression * genArgs: Type list * args: CallArg list
+    | InvocationExpression of expr: Expression * genArgs: Type list * args: CallArg list * isConst: bool
     | UpdateExpression of operator: UpdateOperator * isPrefix: bool * expr: Expression
     | UnaryExpression of operator: UnaryOperator * expr: Expression
     | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
@@ -78,7 +80,8 @@ type Expression =
     | ThrowExpression of value: Expression
     | RethrowExpression
 
-    static member listLiteral(values, ?isConst) = ListLiteral(values, defaultArg isConst false) |> Literal
+    static member sequenceExpression(seqExprFn, exprs) =
+        SequenceExpression(seqExprFn, exprs)
     static member integerLiteral(value) = IntegerLiteral value |> Literal
     static member integerLiteral(value: int) = IntegerLiteral value |> Literal
     static member doubleLiteral(value) = DoubleLiteral value |> Literal
@@ -90,18 +93,18 @@ type Expression =
     static member propertyAccess(expr, prop) = PropertyAccess(expr, prop)
     static member asExpression(expr, typ) = AsExpression(expr, typ)
     static member isExpression(expr, typ, ?isNot) = IsExpression(expr, typ, defaultArg isNot false)
-    static member invocationExpression(expr: Expression, args: CallArg list, ?genArgs) =
-        InvocationExpression(expr, defaultArg genArgs [], args)
-    static member invocationExpression(expr: Expression, ?genArgs) =
-        InvocationExpression(expr, defaultArg genArgs [], [])
-    static member invocationExpression(expr: Expression, args: Expression list, ?genArgs) =
-        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a))
-    static member invocationExpression(expr: Expression, prop: string, args: CallArg list, ?genArgs) =
+    static member invocationExpression(expr: Expression, args: CallArg list, ?genArgs, ?isConst) =
+        InvocationExpression(expr, defaultArg genArgs [], args, defaultArg isConst false)
+    static member invocationExpression(expr: Expression, ?genArgs, ?isConst) =
+        InvocationExpression(expr, defaultArg genArgs [], [], defaultArg isConst false)
+    static member invocationExpression(expr: Expression, args: Expression list, ?genArgs, ?isConst) =
+        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a), defaultArg isConst false)
+    static member invocationExpression(expr: Expression, prop: string, args: CallArg list, ?genArgs, ?isConst) =
         let expr = PropertyAccess(expr, prop)
-        InvocationExpression(expr, defaultArg genArgs [], args)
-    static member invocationExpression(expr: Expression, prop: string, args: Expression list, ?genArgs) =
+        InvocationExpression(expr, defaultArg genArgs [], args, defaultArg isConst false)
+    static member invocationExpression(expr: Expression, prop: string, args: Expression list, ?genArgs, ?isConst) =
         let expr = PropertyAccess(expr, prop)
-        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a))
+        InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a), defaultArg isConst false)
     static member updateExpression(operator, expr, ?isPrefix) = UpdateExpression(operator, defaultArg isPrefix false, expr)
     static member unaryExpression(operator, expr) = UnaryExpression(operator, expr)
     static member binaryExpression(operator, left, right, ?isInt) = BinaryExpression(operator, left, right, defaultArg isInt false)
@@ -120,8 +123,6 @@ type Expression =
 type VariableDeclarationKind =
     | Final
     | Const
-    /// Variable is mutable but value is constant (union, list, immutable record...)
-    | VarConst
     | Var
 
 type SwitchCase(guards: Expression list, body: Statement list) =
@@ -142,7 +143,7 @@ type Statement =
     | TryStatement of body: Statement list * handlers: CatchClause list * finalizer: Statement list
     | SwitchStatement of discriminant: Expression * cases: SwitchCase list * defaultCase: Statement list option
     | ReturnStatement of Expression
-    | BreakStatement of label: string option
+    | BreakStatement of label: string option * ignoreDeadCode: bool
     | ContinueStatement of label: string option
     | ExpressionStatement of Expression
     | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option
@@ -160,6 +161,10 @@ type Statement =
         ForInStatement(param, iterable, body)
     static member whileStatement(test, body) =
         WhileStatement(test, body)
+    static member breakStatement(?label, ?ignoreDeadCode) =
+        BreakStatement(label, defaultArg ignoreDeadCode false)
+    static member continueStatement(?label) =
+        ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =
         TryStatement(body, defaultArg handlers [], defaultArg finalizer [])
     static member variableDeclaration(ident, ?kind, ?value) =

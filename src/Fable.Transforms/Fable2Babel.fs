@@ -977,8 +977,8 @@ module Util =
             | _, (:? unativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
-        | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
+        | Fable.NewArray (values, typ, _isMutable) -> makeTypedArray com ctx typ values
+        | Fable.NewArrayFrom (size, typ, _isMutable) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail
@@ -1239,7 +1239,7 @@ module Util =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.OptimizableInto, callInfo.Args with
-            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), range) |> Some
+            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any, true), range) |> Some
             | Some "pojo", keyValueList::caseRule::_ -> JS.Replacements.makePojo com (Some caseRule) keyValueList
             | Some "pojo", keyValueList::_ -> JS.Replacements.makePojo com None keyValueList
             | _ -> None

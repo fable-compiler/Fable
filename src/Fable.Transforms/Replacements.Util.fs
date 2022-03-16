@@ -108,7 +108,7 @@ let toArray r t expr =
         // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
         | DeclaredType(_, [t]) -> t
         | t -> t
-    Value(NewArrayFrom(expr, t), r)
+    Value(NewArrayFrom(expr, t, true), r)
 
 let getBoxedZero kind: obj =
     match kind with
@@ -331,7 +331,7 @@ let (|ListLiteral|_|) e =
     | _ -> None
 
 let (|ArrayOrListLiteral|_|) = function
-    | MaybeCasted(Value((NewArray(vals, t)|ListLiteral(vals, t)),_)) -> Some(vals, t)
+    | MaybeCasted(Value((NewArray(vals, t,_)|ListLiteral(vals, t)),_)) -> Some(vals, t)
     | _ -> None
 
 let (|IsEntity|_|) fullName = function

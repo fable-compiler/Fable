@@ -706,7 +706,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
             match values with
             | [] -> makeBoolConst true
             | [ value ] -> value
-            | values -> Value(NewArray(values, Any), None)
+            | values -> Value(NewArray(values, Any, true), None)
 
         objValue (Naming.applyCaseRule caseRule name, value)
 
@@ -1768,14 +1768,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             |> Some
         | [ Value (CharConstant _, _) as separator ]
         | [ StringConst _ as separator ]
-        | [ Value (NewArray ([ separator ], _), _) ] ->
+        | [ Value (NewArray ([ separator ], _, _), _) ] ->
             Helper.InstanceCall(c, "split", t, [ separator ])
             |> Some
         | [arg1; ExprType(Number(_, NumberInfo.IsEnum _)) as arg2] ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
-                | _ -> Value(NewArray([ arg1 ], String), None)
+                | _ -> Value(NewArray([ arg1 ], String, true), None)
 
             let args = [ arg1; Value(Null Any, None); arg2 ]
 
@@ -2072,7 +2072,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let newArray size t = Value(NewArrayFrom(size, t), None)
+    let newArray size t = Value(NewArrayFrom(size, t, true), None)
 
     let createArray size value =
         match t, value with
@@ -2464,7 +2464,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
       ([ low; mid; high; isNegative; scale ] as args) ->
         Helper.LibCall(com, "decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ".ctor", [ Value (NewArray (([ low; mid; high; signExp ] as args), _), _) ] ->
+    | ".ctor", [ Value (NewArray ([ low; mid; high; signExp ] as args, _, _), _) ] ->
         Helper.LibCall(com, "decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ".ctor", [ arg ] ->
@@ -3844,7 +3844,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | "get_GenericTypeArguments"
             | "GetGenericArguments" ->
                 let arVals = exprType.Generics |> List.map (makeTypeInfo r)
-                NewArray(arVals, Any) |> makeValue r |> Some
+                NewArray(arVals, Any, true) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
 

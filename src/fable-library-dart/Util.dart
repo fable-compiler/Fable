@@ -1,7 +1,7 @@
 void ignore([Object? _arg]) {
 }
 
-T sequenceExpression<T>(List<Object> _exprs, T returnValue) {
+T sequenceExpr<T>(List<Object> _exprs, T returnValue) {
   return returnValue;
 }
 

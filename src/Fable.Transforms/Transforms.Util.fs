@@ -465,7 +465,7 @@ module AST =
         Value(NewTuple(values, false), r)
 
     let makeArray elementType arrExprs =
-        NewArray(arrExprs, elementType) |> makeValue None
+        NewArray(arrExprs, elementType, true) |> makeValue None
 
     let makeDelegate args body =
         Delegate(args, body, FuncInfo.Empty)
@@ -507,10 +507,10 @@ module AST =
         // in F# AST as BasicPatterns.Const
         | Array (Number(kind, uom)), (:? (byte[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom)) |> makeValue r
+            NewArray (values, Number(kind, uom), true) |> makeValue r
         | Array (Number(kind, uom)), (:? (uint16[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom)) |> makeValue r
+            NewArray (values, Number(kind, uom), true) |> makeValue r
         | _ -> FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})" |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -773,8 +773,8 @@ module AST =
             | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
-            | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
-            | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
+            | NewArray(exprs, t, i) -> NewArray(List.map f exprs, t, i) |> makeValue r
+            | NewArrayFrom(e, t, i) -> NewArrayFrom(f e, t, i) |> makeValue r
             | NewList(ht, t) ->
                 let ht = ht |> Option.map (fun (h,t) -> f h, f t)
                 NewList(ht, t) |> makeValue r

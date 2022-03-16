@@ -1519,8 +1519,8 @@ module Util =
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
-        | Fable.NewArray (values, typ) -> makeArray com ctx r typ values
-        | Fable.NewArrayFrom (expr, typ) -> makeArrayFrom com ctx r typ expr
+        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx r typ values
+        | Fable.NewArrayFrom (expr, typ, _isMutable) -> makeArrayFrom com ctx r typ expr
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
