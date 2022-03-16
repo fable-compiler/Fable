@@ -1,3 +1,7 @@
+### 3.7.6
+
+* Type.IsInstanceOfType works for interfaces decorated with Global/Import @chkn
+
 ### 3.7.5
 
 * Prevent combining absolute paths
