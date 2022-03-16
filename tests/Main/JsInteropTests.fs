@@ -85,6 +85,9 @@ type MyCustomHTMLElement() =
 
 let myMeth (x: int) (y: int) = x - y
 
+let curry2 (f: 'a -> 'b -> 'c) = f
+let inline curryInline2 (f: 'a -> 'b -> 'c) = f
+
 type IMyOptions =
     interface end
 
@@ -418,6 +421,16 @@ let tests =
 
         o?foo <- fun x y -> x / y
         o?foo(25, 5) |> equal 5
+
+    testCase "Function returned by other functions kept curried" <| fun () -> // See #2840
+        let o = createObj [
+            "add1" ==> curry2(fun a b -> a + b * 2)
+            "add2" ==> curryInline2(fun a b -> a + b - 1)
+        ]
+        let f1 = o?add1(2)
+        let f2 = o?add2(5)
+        f1 3 |> equal 8
+        f2 4 |> equal 8
 
     testCase "KeyValueList works at compile time" <| fun () ->
         let opts =
