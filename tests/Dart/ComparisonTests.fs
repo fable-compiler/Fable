@@ -8,8 +8,12 @@ type RTest = { a: int; b: int }
 
 let tests() =
     testCase "Union equality works" <| fun () ->
-        let u1 = A 2
-        let u2 = A 2
+        // Prevent objects being compiled as const
+        // so the ReferenceEquals assertion below works
+        let mutable x = 1
+        x <- x + 1
+        let u1 = A x
+        let u2 = A x
         let u3 = A 4
         let u4 = B 2
         equal true (u1 = u2)
@@ -21,8 +25,12 @@ let tests() =
         Object.ReferenceEquals(u1, u2) |> equal false
 
     testCase "Record equality works" <| fun () ->
-        let r1 = { a = 1; b = 2 }
-        let r2 = { a = 1; b = 2 }
+        // Prevent objects being compiled as const
+        // so the ReferenceEquals assertion below works
+        let mutable x = 1
+        x <- x + 1
+        let r1 = { a = 1; b = x }
+        let r2 = { a = 1; b = x }
         let r3 = { a = 1; b = 4 }
         equal true (r1 = r2)
         equal false (r1 = r3)
