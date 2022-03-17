@@ -284,7 +284,7 @@ module File =
                         elif waitedMs >= timeoutMs then
                             Fable.AST.Fable.FableError "LockTimeOut" |> raise
                         waitedMs <- waitedMs + waitMs
-                        Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+                        Thread.Sleep(millisecondsTimeout=waitMs)
 
                     File.Create(lockFile) |> ignore
                     fileCreated <- true
@@ -294,7 +294,7 @@ module File =
                     else
                         attempt <- attempt + 1
                         let waitMs = 100 * (Random().Next(10) + 1)
-                        Threading.Thread.Sleep(millisecondsTimeout=waitMs)
+                        Thread.Sleep(millisecondsTimeout=waitMs)
 
             action()
         finally
@@ -626,6 +626,7 @@ module Json =
             let isSetter = this.ReadBoolean(&reader)
             let isProperty = this.ReadBoolean(&reader)
             let isEnumerator = this.ReadBoolean(&reader)
+            let isOverride = this.ReadBoolean(&reader)
             reader.Read() |> ignore // Skip end array
             { new Fable.MemberInfo with
                 member _.Attributes = attributes
@@ -639,7 +640,8 @@ module Json =
                 member _.IsGetter = isGetter
                 member _.IsSetter = isSetter
                 member _.IsProperty = isProperty
-                member _.IsEnumerator = isEnumerator }
+                member _.IsEnumerator = isEnumerator
+                member _.IsOverrideOrExplicitInterfaceImplementation = isOverride }
 
         override _.Write(writer, value, options) =
             writer.WriteStartArray()
@@ -659,6 +661,7 @@ module Json =
             writer.WriteBooleanValue(value.IsSetter)
             writer.WriteBooleanValue(value.IsProperty)
             writer.WriteBooleanValue(value.IsEnumerator)
+            writer.WriteBooleanValue(value.IsOverrideOrExplicitInterfaceImplementation)
             writer.WriteEndArray()
 
     type DoubleConverter() =
@@ -688,7 +691,7 @@ module Json =
             let i = reader.GetInt32()
             pool.[i]
 
-        override _.Write(writer, value, _options) =
+        override _.Write(_writer, _value, _options) =
             failwith "Read only"
 
     type StringPoolWriter() =

@@ -1519,8 +1519,8 @@ module Util =
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
-        | Fable.NewArray (values, typ) -> makeArray com ctx r typ values
-        | Fable.NewArrayFrom (expr, typ) -> makeArrayFrom com ctx r typ expr
+        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx r typ values
+        | Fable.NewArrayFrom (expr, typ, _isMutable) -> makeArrayFrom com ctx r typ expr
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
@@ -2559,8 +2559,10 @@ module Util =
             | Fable.Curry(e, arity) ->
                 // transformCurry com ctx e arity //TODO: check arity, if curry is needed
                 transformAsExpr com ctx e
-            | Fable.Throw(TransformExpr com ctx msg, _) ->
-                mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
+            | Fable.Throw(expr, _) ->
+                match expr with
+                | None -> failwith "TODO: rethrow"
+                | Some(TransformExpr com ctx msg) -> mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
             | Fable.Debugger
             | Fable.RegionStart _ ->
                 // TODO:
@@ -2964,7 +2966,7 @@ module Util =
     let transformModuleFunction (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
         let fnDecl, fnBody, fnGenParams =
-            transformFunction com ctx (Some decl.FullDisplayName) decl.Args decl.Body
+            transformFunction com ctx (Some decl.FullDisplayName) decl.ArgIdents decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3226,7 +3228,7 @@ module Util =
             match ctor.Body with
             | Fable.Sequential exprs ->
                 let idents = getEntityFieldsAsIdents com ent
-                let argNames = ctor.Args |> List.map (fun arg -> arg.Name) |> Set.ofList
+                let argNames = ctor.ArgIdents |> List.map (fun arg -> arg.Name) |> Set.ofList
                 let identMap = idents |> List.map (fun id ->
                     let uniqueName = makeUniqueName id.Name argNames
                     id.Name, { id with Name = uniqueName; IsMutable = false }) |> Map.ofList
@@ -3256,7 +3258,7 @@ module Util =
             | e -> e
         let ctor = { ctor with Body = body }
         let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
-        transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.Args ctor.Body
+        transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.ArgIdents ctor.Body
 
     let transformClassMembers (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         let withCurrentScope ctx (usedNames: Set<string>) f =
@@ -3317,7 +3319,7 @@ module Util =
                         decl.AttachedMembers |> List.filter (fun m ->
                             Set.contains m.Name nonInterfaceMembersSet)
                     for m in membersNotDeclared ->
-                        let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                        let fnDecl = transformFunctionDecl com ctx m.ArgIdents m.Body.Type
                         let generics = makeGenerics [] //TODO: add generics?
                         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                         mkFnAssocItem [] m.Name fnKind
@@ -3340,7 +3342,7 @@ module Util =
                     let makeDecl (decl: Fable.MemberDecl) =
                         withCurrentScope ctx decl.UsedNames <| fun ctx ->
                             let name = if decl.Info.IsInstance then decl.Name else decl.FullDisplayName
-                            transformAssocMemberFunction com ctx decl.Info name decl.Args decl.Body
+                            transformAssocMemberFunction com ctx decl.Info name decl.ArgIdents decl.Body
                     decl.AttachedMembers
                     |> List.filter (fun m -> tmethods |> Set.contains m.Name)
                     |> List.map makeDecl

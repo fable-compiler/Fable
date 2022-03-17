@@ -914,7 +914,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
+    | ".ctor", _, str::(Value(NewArray(templateArgs, _, _), _) as values)::_ ->
         let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
         match makeStringTemplateFrom simpleFormats templateArgs str with
         | Some stringTemplate -> makeValue r stringTemplate |> Some // Value(StringTemplate)
@@ -1302,11 +1302,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ExprTypeAs(String, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; arg2; arg3], ?loc=r) |> Some
 
-        | [Value(NewArray([arg1], String), _)] ->
+        | [Value(NewArray([arg1], String, _), _)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; makeIntConst -1; makeIntConst 0], ?loc=r) |> Some
-        | [Value(NewArray([arg1], String), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
+        | [Value(NewArray([arg1], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; makeIntConst -1; arg2], ?loc=r) |> Some
-        | [Value(NewArray([arg1], String), _); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
+        | [Value(NewArray([arg1], String, _), _); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; arg2; arg3], ?loc=r) |> Some
 
         | [ExprTypeAs(Char, arg1)] ->
@@ -1416,7 +1416,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // because the strings array will always have the same reference so it can be used as a key in a WeakMap
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
-    | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+    | "Create", None, [StringConst str; Value(NewArray(args, _, _),_)] ->
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
         let tag =
@@ -1565,9 +1565,9 @@ let createArray (com: ICompiler) ctx r t size value =
     match t, value with
     | Array typ, None ->
         let value = getZero com ctx typ
-        Value(NewArrayFrom(makeTuple None [value; size], typ), r)
+        Value(NewArrayFrom(makeTuple None [value; size], typ, true), r)
     | Array typ, Some value ->
-        Value(NewArrayFrom(makeTuple None [value; size], typ), r)
+        Value(NewArrayFrom(makeTuple None [value; size], typ, true), r)
     | _ ->
         $"Expecting an array type but got %A{t}"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1838,7 +1838,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([low; mid; high; isNegative; scale] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", [Value(NewArray(([low; mid; high; signExp] as args),_),_)] ->
+    | ".ctor", [Value(NewArray([low; mid; high; signExp] as args,_,_),_)] ->
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
         match arg.Type with
@@ -2741,7 +2741,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
             | "get_GenericTypeArguments" | "GetGenericArguments" ->
                 let arVals = exprType.Generics |> List.map (makeTypeInfo r)
-                NewArray(arVals, Any) |> makeValue r |> Some
+                NewArray(arVals, Any, true) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
                 let exprType =

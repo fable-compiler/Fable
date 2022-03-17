@@ -25,6 +25,12 @@ module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
+    let mapToListIndexed (f: int -> 'a -> 'b) (xs: 'a seq) =
+        let mutable i = -1
+        ([], xs) ||> Seq.fold (fun li x ->
+            i <- i + 1
+            (f i x)::li) |> List.rev
+
     let chooseToList (f: 'a -> 'b option) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> match f x with Some x -> x::li | None -> li) |> List.rev
 
@@ -240,6 +246,9 @@ module Naming =
         | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
         | CaseRules.KebabCase -> dashify "-" name
         | CaseRules.None | _ -> name
+
+    // TODO: Reserved words for other languages
+    // Dart: List, identical...
 
     let jsKeywords =
         System.Collections.Generic.HashSet [
@@ -622,7 +631,7 @@ module Path =
         else false
 
     /// Creates a relative path from one file or folder to another.
-    let getRelativeFileOrDirPath fromIsDir fromFullPath toIsDir toFullPath =
+    let getRelativeFileOrDirPath fromIsDir (fromFullPath: string) toIsDir (toFullPath: string) =
         // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
             let mutable c = 0  //index up to which the paths are the same
@@ -647,16 +656,13 @@ module Path =
             if isDir
             then Combine (path, Naming.dummyFile)
             else path
-        // Normalizing shouldn't be necessary at this stage but just in case
-        let fromFullPath = normalizePath fromFullPath
-        let toFullPath = normalizePath toFullPath
         if fromFullPath.[0] <> toFullPath.[0] then
             // If paths start differently, it means we're on Windows
             // and drive letters are different, so just return the toFullPath
             toFullPath
         else
-            let fromPath = addDummyFile fromIsDir fromFullPath
-            let toPath = addDummyFile toIsDir toFullPath
+            let fromPath = addDummyFile fromIsDir fromFullPath |> normalizePath
+            let toPath = addDummyFile toIsDir toFullPath |> normalizePath
             match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
             | "" -> "."
             // Some folders start with a period, see #1599

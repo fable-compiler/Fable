@@ -629,7 +629,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
             match values with
             | [] -> makeBoolConst true
             | [value] -> value
-            | values -> Value(NewArray(values, Any), None)
+            | values -> Value(NewArray(values, Any, true), None)
         objValue(Naming.applyCaseRule caseRule name, value)
 
     // let rec findKeyValueList scope identName =
@@ -1052,7 +1052,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
+    | ".ctor", _, str::(Value(NewArray(templateArgs, _, _), _) as values)::_ ->
         match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
@@ -1370,20 +1370,20 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst " "]) |> Some
         | [Value(CharConstant _,_) as separator]
         | [StringConst _ as separator]
-        | [Value(NewArray([separator],_),_)] ->
+        | [Value(NewArray([separator],_,_),_)] ->
             Helper.InstanceCall(c, "split", t, [separator]) |> Some
         | [arg1; ExprType(Number(_, NumberInfo.IsEnum _)) as arg2] ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
-                | _ -> Value(NewArray([arg1], String), None)
+                | _ -> Value(NewArray([arg1], String, true), None)
             let args = [arg1; Value(Null Any, None); arg2]
             Helper.LibCall(com, "String", "split", t, c::args, ?loc=r) |> Some
         | arg1::args ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
-                | _ -> Value(NewArray([arg1], String), None)
+                | _ -> Value(NewArray([arg1], String, true), None)
             Helper.LibCall(com, "String", "split", t, arg1::args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Join", None, _ ->
         let methName =
@@ -1428,7 +1428,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // because the strings array will always have the same reference so it can be used as a key in a WeakMap
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
-    | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+    | "Create", None, [StringConst str; Value(NewArray(args,_,_),_)] ->
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
         let tag =
@@ -1607,7 +1607,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let newArray size t =
-        Value(NewArrayFrom(size, t), None)
+        Value(NewArrayFrom(size, t, true), None)
     let createArray size value =
         match t, value with
         | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
@@ -1848,7 +1848,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([low; mid; high; isNegative; scale] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", [Value(NewArray(([low; mid; high; signExp] as args),_),_)] ->
+    | ".ctor", [Value(NewArray([low; mid; high; signExp] as args,_,_),_)] ->
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
         match arg.Type with
@@ -2818,7 +2818,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
             | "get_GenericTypeArguments" | "GetGenericArguments" ->
                 let arVals = exprType.Generics |> List.map (makeTypeInfo r)
-                NewArray(arVals, Any) |> makeValue r |> Some
+                NewArray(arVals, Any, true) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
                 let exprType =

@@ -693,6 +693,8 @@ module Helpers =
                 + "."
             | false, "." -> ""
             | false, path ->
+                // HACK: References to fable_modules are failing, not sure why
+                let path = if path.StartsWith("/") then path.[1..] else path
                 path
                     .Replace("../", "")
                     .Replace("./", "")
@@ -1724,8 +1726,8 @@ module Util =
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ) -> makeArray com ctx values typ
-        | Fable.NewArrayFrom (size, typ) ->
+        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx values typ
+        | Fable.NewArrayFrom (size, typ, _isMutable) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
             let arg, stmts = com.TransformAsExpr(ctx, size)
 
@@ -1899,12 +1901,12 @@ module Util =
 
                 if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name ("property") ]
-                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
                 elif info.IsSetter then
                     let decorators = [ Expression.name $"{memb.Name}.setter" ]
-                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
                 elif info.IsEnumerator then
-                    let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
+                    let method = makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body []
 
                     let iterator =
                         let body = enumerator2iterator com ctx
@@ -1914,7 +1916,7 @@ module Util =
 
                     [ method; iterator ]
                 else
-                    [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ])
+                    [ makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body [] ])
 
         let baseExpr, classMembers =
             baseCall
@@ -3077,7 +3079,10 @@ module Util =
 
                 stmts
                 @ (expr |> resolveExpr ctx e.Type returnStrategy)
-            | Fable.Throw (TransformExpr com ctx (e, stmts), _) -> stmts @ [ Statement.raise (e) ]
+            | Fable.Throw (expr, _) ->
+                match expr with
+                | None -> failwith "TODO: rethrow"
+                | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise (e) ]
             | Fable.Debugger -> []
             | Fable.RegionStart header -> [ Statement.RegionStart header ]
 
@@ -3614,7 +3619,7 @@ module Util =
                   Expression.name ($"{memb.Name}.setter") ]
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.ArgIdents memb.Body
 
         let key =
             memberFromName com ctx memb.Name
@@ -3656,7 +3661,7 @@ module Util =
             Statement.functionDef (key, args, body = body, decoratorList = decorators, returns = returnType)
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.ArgIdents memb.Body
 
         let self = Arg.arg ("self")
 
@@ -3794,14 +3799,14 @@ module Util =
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
         let consArgs, consBody, _returnType =
-            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
+            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.ArgIdents cons.Body
 
-        let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
+        let isOptional = Helpers.isOptional (cons.ArgIdents |> Array.ofList)
 
         // Change exposed constructor's return type from None to entity type.
         let returnType =
             let availableGenerics =
-                cons.Args
+                cons.ArgIdents
                 |> List.map (fun arg -> arg.Type)
                 |> getGenericTypeParams
 
@@ -3943,7 +3948,7 @@ module Util =
                         stmts
                         @ declareModuleMember ctx decl.Info.IsPublic name (Some ta) value
                     else
-                        transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
+                        transformModuleFunction com ctx decl.Info decl.Name decl.ArgIdents decl.Body
 
                 if decl.ExportDefault then
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
@@ -3986,8 +3991,9 @@ module Util =
             imports
             |> List.map (fun im ->
                 //printfn "Import: %A" im
+                if im.Module.Contains("fable_modules") then
+                    ()
                 let moduleName = im.Module |> Helpers.rewriteFableImport com
-
                 match im.Name with
                 | Some "*"
                 | Some "default" ->

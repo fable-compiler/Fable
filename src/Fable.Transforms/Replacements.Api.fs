@@ -17,7 +17,7 @@ let uncurryExprAtRuntime com arity (expr: Expr) =
     Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
 
 let partialApplyAtRuntime com t arity (fn: Expr) (args: Expr list) =
-    let args = NewArray(args, Any) |> makeValue None
+    let args = NewArray(args, Any, true) |> makeValue None
     Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
 
 let checkArity com t arity expr =

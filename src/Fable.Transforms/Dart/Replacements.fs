@@ -430,61 +430,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
-        let modName =
-            match kind with
-            | Decimal -> "Decimal"
-            | BigInt -> "BigInt"
-            | _ -> "Long"
-        Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
-        let op = if equal then BinaryEqual else BinaryUnequal
-        makeBinOp r Boolean left right op
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (FSharpSet _|FSharpMap _) ->
-        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Array t ->
-        let f = makeEqualityFunction com ctx t
-        Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
-    | List _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
+    // TODO: arrays, check if we need custom equality for tuples too
+//    | Array t ->
     | _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        if equal then BinaryEqual else BinaryUnequal
+        |> makeEqOp r left right
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
-    | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
-        let modName =
-            match kind with
-            | Decimal -> "Decimal"
-            | BigInt -> "BigInt"
-            | _ -> "Long"
-        Helper.LibCall(com, modName, "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Array t ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number(Int32, NumberInfo.Empty), [f; left; right], ?loc=r)
-    | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    | _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+    // TODO: arrays, check if we need custom comparison for tuples too
+    // | Array t ->
+    | _ -> Helper.InstanceCall(left, "compareTo", Number(Int32, NumberInfo.Empty), [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -626,7 +583,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
             match values with
             | [] -> makeBoolConst true
             | [value] -> value
-            | values -> Value(NewArray(values, Any), None)
+            | values -> Value(NewArray(values, Any, true), None)
         objValue(Naming.applyCaseRule caseRule name, value)
 
     // let rec findKeyValueList scope identName =
@@ -1064,7 +1021,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray(templateArgs, _), _) as values)::_ ->
+    | ".ctor", _, str::(Value(NewArray(templateArgs, _, true), _) as values)::_ ->
         // Optimization: try to convert f# interpolated string to JS template
         // for better performance
         let template =
@@ -1408,20 +1365,20 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst " "]) |> Some
         | [Value(CharConstant _,_) as separator]
         | [StringConst _ as separator]
-        | [Value(NewArray([separator],_),_)] ->
+        | [Value(NewArray([separator],_,_),_)] ->
             Helper.InstanceCall(c, "split", t, [separator]) |> Some
         | [arg1; ExprType(Number(_, NumberInfo.IsEnum _)) as arg2] ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
-                | _ -> Value(NewArray([arg1], String), None)
+                | _ -> Value(NewArray([arg1], String, true), None)
             let args = [arg1; Value(Null Any, None); arg2]
             Helper.LibCall(com, "String", "split", t, c::args, ?loc=r) |> Some
         | arg1::args ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
-                | _ -> Value(NewArray([arg1], String), None)
+                | _ -> Value(NewArray([arg1], String, true), None)
             Helper.LibCall(com, "String", "split", t, arg1::args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Join", None, _ ->
         let methName =
@@ -1466,7 +1423,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // because the strings array will always have the same reference so it can be used as a key in a WeakMap
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
-    | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+    | "Create", None, [StringConst str; Value(NewArray(args,_,_),_)] ->
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
         let callMacro, args, offset =
@@ -1647,7 +1604,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let newArray size t =
-        Value(NewArrayFrom(size, t), None)
+        Value(NewArrayFrom(size, t, true), None)
     let createArray size value =
         match t, value with
         | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
@@ -1888,7 +1845,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([low; mid; high; isNegative; scale] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", [Value(NewArray(([low; mid; high; signExp] as args),_),_)] ->
+    | ".ctor", [Value(NewArray([low; mid; high; signExp] as args,_,_),_)] ->
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
         match arg.Type with
@@ -2197,7 +2154,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
+    | "ReferenceEquals", _, [left; right] -> Helper.GlobalCall("identical", t, [left; right], ?loc=r) |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
@@ -2858,7 +2815,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
             | "get_GenericTypeArguments" | "GetGenericArguments" ->
                 let arVals = exprType.Generics |> List.map (makeTypeInfo r)
-                NewArray(arVals, Any) |> makeValue r |> Some
+                NewArray(arVals, Any, true) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
                 let exprType =

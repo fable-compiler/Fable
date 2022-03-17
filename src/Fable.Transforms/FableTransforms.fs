@@ -10,8 +10,8 @@ let getSubExpressions = function
     | Import _ -> []
     | Extended(kind, _) ->
         match kind with
-        | Curry(e, _)
-        | Throw(e, _) -> [e]
+        | Curry(e, _) -> [e]
+        | Throw(e, _) -> Option.toList e
         | Debugger
         | RegionStart _ -> []
     | Value(kind,_) ->
@@ -23,8 +23,8 @@ let getSubExpressions = function
         | StringTemplate(_,_,exprs) -> exprs
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
-        | NewArray(exprs, _) -> exprs
-        | NewArrayFrom(e, _) -> [e]
+        | NewArray(exprs, _, _) -> exprs
+        | NewArrayFrom(e, _, _) -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
@@ -212,11 +212,11 @@ let noSideEffectBeforeIdent identName expr =
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
-            | NewArrayFrom(e,_)
+            | NewArrayFrom(e,_,_)
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | StringTemplate(_,_,exprs)
-            | NewArray(exprs,_)
+            | NewArray(exprs,_,_)
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)
@@ -431,7 +431,7 @@ module private Transforms =
 
     let uncurryMemberArgs (m: MemberDecl) =
         if m.Info.IsValue then m
-        else { m with Body = curryIdentsAndReplaceInBody m.Args m.Body }
+        else { m with Body = curryIdentsAndReplaceInBody m.ArgIdents m.Body }
 
     let curryReceivedArgs (com: Compiler) e =
         match e with
@@ -600,7 +600,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
                 Sequential [baseCall; cons.Body]
-                |> curryIdentsAndReplaceInBody cons.Args
+                |> curryIdentsAndReplaceInBody cons.ArgIdents
                 |> transformExpr com
                 |> function
                     | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall

@@ -79,6 +79,7 @@ type MemberInfo =
     abstract IsSetter: bool
     abstract IsProperty: bool
     abstract IsEnumerator: bool
+    abstract IsOverrideOrExplicitInterfaceImplementation: bool
 
 type MemberFunctionOrValue =
     inherit MemberInfo
@@ -170,17 +171,27 @@ type ActionDecl = {
     UsedNames: Set<string>
 }
 
+type ArgDecl = {
+    Ident: Ident
+    IsOptional: bool
+    IsNamed: bool
+} with
+    static member Create(ident: Ident, ?isOptional, ?isNamed) =
+        { Ident = ident; IsOptional = defaultArg isOptional false; IsNamed = defaultArg isNamed false }
+
 type MemberDecl = {
     Name: string
     FullDisplayName: string
-    Args: Ident list
+    Args: ArgDecl list
     Body: Expr
     Info: MemberInfo
     UsedNames: Set<string>
     /// This can only be set once per file
     /// for a declaration in the root scope
     ExportDefault: bool
-}
+} with
+    member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
+    member this.ArgTypes = this.Args |> List.map (fun a -> a.Ident.Type)
 
 type ClassDecl = {
     Name: string
@@ -265,8 +276,9 @@ type ValueKind =
     | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
-    | NewArray of values: Expr list * typ: Type
-    | NewArrayFrom of value: Expr * typ: Type
+    // isMutable is currently unused but added in case ImmutableArray is added to FSharp.Core
+    | NewArray of values: Expr list * typ: Type * isMutable: bool
+    | NewArrayFrom of value: Expr * typ: Type * isMutable: bool
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
@@ -285,8 +297,8 @@ type ValueKind =
         | NumberConstant (_, kind, info) -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption (_, t, isStruct) -> Option(t, isStruct)
-        | NewArray (_, t) -> Array t
-        | NewArrayFrom (_, t) -> Array t
+        | NewArray (_, t, _) -> Array t
+        | NewArrayFrom (_, t, _) -> Array t
         | NewList (_, t) -> List t
         | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
@@ -295,7 +307,8 @@ type ValueKind =
 
 type ParamInfo =
     { Name: string option
-      Type: Type }
+      Type: Type
+      IsNamed: bool }
 
 type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list
@@ -390,7 +403,7 @@ type TestKind =
 
 /// Instructions that are not coming from the F# AST but are used by Fable internally.
 type ExtendedSet =
-    | Throw of expr: Expr * typ: Type
+    | Throw of expr: Expr option * typ: Type
     | Debugger
     /// When using the delimiter option, this marks the start of a region
     /// that we'll try to match with delimited regions in the target file

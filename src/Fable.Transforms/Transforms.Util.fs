@@ -257,6 +257,7 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
+    let inline (|EntFullName|) (e: EntityRef) = e.FullName
 
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
@@ -464,7 +465,7 @@ module AST =
         Value(NewTuple(values, false), r)
 
     let makeArray elementType arrExprs =
-        NewArray(arrExprs, elementType) |> makeValue None
+        NewArray(arrExprs, elementType, true) |> makeValue None
 
     let makeDelegate args body =
         Delegate(args, body, FuncInfo.Empty)
@@ -506,10 +507,10 @@ module AST =
         // in F# AST as BasicPatterns.Const
         | Array (Number(kind, uom)), (:? (byte[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom)) |> makeValue r
+            NewArray (values, Number(kind, uom), true) |> makeValue r
         | Array (Number(kind, uom)), (:? (uint16[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom)) |> makeValue r
+            NewArray (values, Number(kind, uom), true) |> makeValue r
         | _ -> FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})" |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -565,8 +566,8 @@ module AST =
     let emitStatement r t args macro =
         emit r t args true macro
 
-    let makeThrow r t err =
-        Extended(Throw(err, t), r)
+    let makeThrow r t (err: Expr) =
+        Extended(Throw(Some err, t), r)
 
     let makeDebugger range =
         Extended(Debugger, range)
@@ -640,7 +641,7 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info2 = info2
+        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -760,7 +761,7 @@ module AST =
         | Extended(kind, r) ->
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)
-            | Throw(e, t) -> Extended(Throw(f e, t), r)
+            | Throw(e, t) -> Extended(Throw(Option.map f e, t), r)
             | Debugger
             | RegionStart _ -> e
         | Value(kind, r) ->
@@ -772,8 +773,8 @@ module AST =
             | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
-            | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
-            | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
+            | NewArray(exprs, t, i) -> NewArray(List.map f exprs, t, i) |> makeValue r
+            | NewArrayFrom(e, t, i) -> NewArrayFrom(f e, t, i) |> makeValue r
             | NewList(ht, t) ->
                 let ht = ht |> Option.map (fun (h,t) -> f h, f t)
                 NewList(ht, t) |> makeValue r

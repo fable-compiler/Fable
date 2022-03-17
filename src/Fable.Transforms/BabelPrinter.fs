@@ -402,28 +402,25 @@ module PrinterExtensions =
         member printer.PrintEmitExpression(value, args, loc) =
             printer.AddLocation(loc)
 
-            let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
-                System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+            let inline replace pattern (f: Match -> string) input =
+                Regex.Replace(input, pattern, f)
 
             let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
                 let segmentLength = segmentEnd - segmentStart
                 if segmentLength > 0 then
                     let segment = value.Substring(segmentStart, segmentLength)
 
-                    // TODO: In Fable 3 we're using emit for js template strings, if we give them
-                    // their own AST entry in Fable 4 we can activate the below code to clean up printed code
-                    printer.Print(segment)
-                    // let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
-                    // for i = 1 to subSegments.Length do
-                    //     let subSegment =
-                    //         // Remove whitespace in front of new lines,
-                    //         // indent will be automatically applied
-                    //         if printer.Column = 0 then subSegments.[i - 1].TrimStart()
-                    //         else subSegments.[i - 1]
-                    //     if subSegment.Length > 0 then
-                    //         printer.Print(subSegment)
-                    //         if i < subSegments.Length then
-                    //             printer.PrintNewLine()
+                    let subSegments = Regex.Split(segment, @"\r?\n")
+                    for i = 1 to subSegments.Length do
+                        let subSegment =
+                            // Remove whitespace in front of new lines,
+                            // indent will be automatically applied
+                            if printer.Column = 0 then subSegments.[i - 1].TrimStart()
+                            else subSegments.[i - 1]
+                        if subSegment.Length > 0 then
+                            printer.Print(subSegment)
+                            if i < subSegments.Length then
+                                printer.PrintNewLine()
 
             // Macro transformations
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
