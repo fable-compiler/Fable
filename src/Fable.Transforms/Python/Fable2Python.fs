@@ -693,6 +693,8 @@ module Helpers =
                 + "."
             | false, "." -> ""
             | false, path ->
+                // HACK: References to fable_modules are failing, not sure why
+                let path = if path.StartsWith("/") then path.[1..] else path
                 path
                     .Replace("../", "")
                     .Replace("./", "")
@@ -3989,8 +3991,9 @@ module Util =
             imports
             |> List.map (fun im ->
                 //printfn "Import: %A" im
+                if im.Module.Contains("fable_modules") then
+                    ()
                 let moduleName = im.Module |> Helpers.rewriteFableImport com
-
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
