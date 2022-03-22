@@ -1,3 +1,9 @@
+### 3.7.7
+
+* Fix #2840: Keep delegates of arity 1 curried @JaggerJo
+* Fix #2844: 1-len array slices starting at 0 work @Prunkles
+* Fix #2845: Regex.Matches infinite loop @jpacker
+
 ### 3.7.6
 
 * Type.IsInstanceOfType works for interfaces decorated with Global/Import @chkn
