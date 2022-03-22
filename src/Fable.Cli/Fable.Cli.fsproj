@@ -4,9 +4,11 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.6</Version>
-    <PackageVersion>3.7.6</PackageVersion>
-    <PackageReleaseNotes>* Type.IsInstanceOfType works for interfaces decorated with Global/Import @chkn</PackageReleaseNotes>
+    <Version>3.7.7</Version>
+    <PackageVersion>3.7.7</PackageVersion>
+    <PackageReleaseNotes>* Fix #2840: Keep delegates of arity 1 curried @JaggerJo
+* Fix #2844: 1-len array slices starting at 0 work @Prunkles
+* Fix #2845: Regex.Matches infinite loop @jpacker</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

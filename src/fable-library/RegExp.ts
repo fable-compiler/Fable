@@ -36,15 +36,22 @@ export function match(reg: RegExp, input: string, startAt = 0) {
 }
 
 export function matches(reg: RegExp, input: string, startAt = 0) {
+  if (input == null) {
+    throw new Error("Input cannot ve null");
+  }
   reg.lastIndex = startAt;
   if (!reg.global) {
     throw new Error("Non-global RegExp"); // Prevent infinite loop
   }
-  let m = reg.exec(input);
   const matches: RegExpExecArray[] = [];
-  while (m !== null) {
+  let m: RegExpExecArray | null;
+  // tslint:disable-next-line:no-conditional-assignment
+  while ((m = reg.exec(input)) != null) {
     matches.push(m);
-    m = reg.exec(input);
+    // It can happen the regex gets stuck at the end of the input, see #2845
+    if (m.index >= input.length) {
+      break;
+    }
   }
   return matches;
 }
