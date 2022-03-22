@@ -609,8 +609,8 @@ let permute f (array: 'T[]) =
 
 let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
     let lower = defaultArg lower 0
-    let upper = defaultArg upper 0
-    let length = (if upper > 0 then upper else target.Length - 1) - lower
+    let upper = defaultArg upper -1
+    let length = (if upper >= 0 then upper else target.Length - 1) - lower
     // can't cast to TypedArray, so can't use TypedArray-specific methods
     // if isTypedArrayImpl target && source.Length <= length then
     //     typedArraySetImpl target source lower

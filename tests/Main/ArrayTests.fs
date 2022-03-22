@@ -152,6 +152,12 @@ let tests =
         equal xs.[2] "X"
         equal xs.[3] "D"
 
+    testCase "Array slice works for slices of length 1 starting at 0" <| fun () -> // See #2844
+        let a = [|1;2;3;4;5;6|]
+        a.[0..0] <- [|999|]
+        a.[3..3] <- [|999|]
+        a |> equal [|999; 2; 3; 999; 5; 6|]
+
     testCase "Array literals work" <| fun () ->
         let x = [| 1; 2; 3; 4; 5 |]
         equal 5 x.Length
