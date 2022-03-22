@@ -673,9 +673,10 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | "System.DateTimeKind" -> makeImportLib com Any "DateTimeKind" "Date" |> Some
     | _ -> None
 
 let entityRef com ent =
@@ -2309,7 +2310,11 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Kind" | "get_Offset" ->
+    | "get_Year" | "get_Month" | "get_Day" | "get_Hour" | "get_Minute" | "get_Second" | "get_Millisecond" ->
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
+    | "get_Kind" ->
+        Helper.LibCall(com, moduleName, "kind", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
