@@ -3,7 +3,7 @@ import 'Util.dart' as util;
 abstract class Union {
   final int tag;
   final List<Object> fields;
-  
+
   int compareTagAndFields(Union other) {
     if (other.tag == tag) {
       // Assume fields have same length
@@ -32,7 +32,7 @@ abstract class Union {
 
   @override
   int get hashCode =>
-    util.combineHashCodes([tag, ...fields.map((e) => e.hashCode)]);  
+    util.combineHashCodes([tag, ...fields.map((e) => e.hashCode)]);
 }
 
 // class MyUnion extends Union implements Comparable<MyUnion> {
@@ -75,4 +75,35 @@ abstract class Record {
 //     }
 //     return r;
 //   }
-// } 
+// }
+
+class EmptyIterator<T> implements Iterator<T> {
+  @override
+  T get current => throw Exception("Empty iterator");
+
+  @override
+  bool moveNext() {
+    return false;
+  }
+}
+
+class CustomIterator<T> implements Iterator<T> {
+  T? _current;
+  final T? Function() _moveNext;
+
+  @override
+  T get current => this._current ?? (throw Exception("Iterator not initialized"));
+
+  @override
+  bool moveNext() {
+    final next = _moveNext();
+    if (next != null) {
+      _current = next;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  CustomIterator(this._moveNext);
+}

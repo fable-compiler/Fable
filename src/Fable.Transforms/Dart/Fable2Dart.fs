@@ -451,6 +451,20 @@ module Util =
         | Fable.StringTemplate _ ->
             "TODO: StringTemplate is not supported yet"
             |> addErrorAndReturnNull com r
+        | Fable.NumberConstant(v, _, Fable.NumberInfo.IsEnum entRef) ->
+            let ent = com.GetEntity(entRef)
+            ent.FSharpFields
+            |> Seq.tryPick (fun fi ->
+                match fi.LiteralValue with
+                | Some v2 when v = v2 -> Some fi.Name
+                | _ -> None)
+            |> function
+                | None ->
+                    $"Cannot find case name for enum value {v} ({ent.FullName})"
+                    |> addErrorAndReturnNull com r
+                | Some name ->
+                    let typeRef = getEntityRef com ctx ent
+                    Expression.propertyAccess(typeRef.Expr, name)
         | Fable.NumberConstant(x, kind, _) ->
             match kind, x with
             | Int8, (:? int8 as x) -> Expression.integerLiteral(int64 x)
