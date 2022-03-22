@@ -184,6 +184,12 @@ let tests =
         test "[A-E]" 10
         test "(ZZ)+" 0
 
+    testCase "Regex.Matches doesn't fall in infinte loop" <| fun () -> // See #2845
+        let input = "aaa"
+        let pattern = @".*"
+        let ms = Regex.Matches(input, pattern)
+        ms.Count |> equal 2
+
     testCase "Regex.Split works" <| fun _ ->
         let test str expected =
             let splits = Regex.Split(str, "[;,]")
