@@ -88,6 +88,8 @@ let myMeth (x: int) (y: int) = x - y
 let curry2 (f: 'a -> 'b -> 'c) = f
 let inline curryInline2 (f: 'a -> 'b -> 'c) = f
 
+type Curry<'T1, 'T2> = delegate of 'T1 -> 'T2
+
 type IMyOptions =
     interface end
 
@@ -426,11 +428,14 @@ let tests =
         let o = createObj [
             "add1" ==> curry2(fun a b -> a + b * 2)
             "add2" ==> curryInline2(fun a b -> a + b - 1)
+            "add3" ==> Curry(fun a -> Curry(fun b -> a + b))
         ]
         let f1 = o?add1(2)
         let f2 = o?add2(5)
         f1 3 |> equal 8
         f2 4 |> equal 8
+        let f3 = o?add3(5)
+        f3 4 |> equal 9
 
     testCase "KeyValueList works at compile time" <| fun () ->
         let opts =
