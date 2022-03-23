@@ -31,19 +31,19 @@ let tests =
         Regex(@"\\t").IsMatch("foo\tbar") |> equal false
 
     testCase "Regex.Options works" <| fun _ ->
-        let option1 = int RegexOptions.IgnoreCase
-        let option2 = int RegexOptions.ECMAScript
+        let option1 = RegexOptions.IgnoreCase
+        let option2 = RegexOptions.ECMAScript
         let options = option1 ||| option2
-        let r = Regex("[a-z]", unbox options)
+        let r = Regex("[a-z]", options)
         int r.Options |> equal 257
 
     testCase "Regex.IsMatch with IgnoreCase and Multiline works" <| fun _ ->
         let str = "ab\ncd"
-        let option1 = int RegexOptions.IgnoreCase
-        let option2 = int RegexOptions.Multiline
+        let option1 = RegexOptions.IgnoreCase
+        let option2 = RegexOptions.Multiline
         let options = option1 ||| option2
         let test pattern expected =
-            Regex.IsMatch(str, pattern, unbox options)
+            Regex.IsMatch(str, pattern, options)
             |> equal expected
         test "^ab" true
         test "^cd" true

@@ -654,7 +654,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
 
-let tryEntityRef (com: Compiler) entFullName =
+let tryReplacedEntityRef (com: Compiler) entFullName =
     match entFullName with
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
@@ -679,12 +679,13 @@ let tryEntityRef (com: Compiler) entFullName =
     | "System.DateTimeKind" -> makeImportLib com Any "DateTimeKind" "Date" |> Some
     | _ -> None
 
+let tryEntityRef com ent =
+    if FSharp2Fable.Util.isReplacementCandidate ent
+    then tryReplacedEntityRef com ent.FullName
+    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
+
 let entityRef com ent =
-    let entRef =
-        if FSharp2Fable.Util.isReplacementCandidate ent
-        then tryEntityRef com ent.FullName
-        else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
-    match entRef with
+    match tryEntityRef com ent with
     | Some r -> r
     | None ->
         $"Cannot find {ent.FullName} reference"
@@ -2522,9 +2523,9 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | _ -> false
 
     let createRegex r t args =
-        let makeRegexConst r (pattern: string) flags =
-            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
-            RegexConstant(pattern, flags) |> makeValue r
+//        let makeRegexConst r (pattern: string) flags =
+//            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
+//            RegexConstant(pattern, flags) |> makeValue r
 
         let (|RegexFlags|_|) e =
             let rec getFlags = function
@@ -2542,8 +2543,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
                 | _ -> None
             getFlags e
         match args with
-        | [StringConst pattern] -> makeRegexConst r pattern []
-        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags
+//        | [StringConst pattern] -> makeRegexConst r pattern []
+//        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags
         | _ -> Helper.LibCall(com, "RegExp", "create", t, args, ?loc=r)
 
     match i.CompiledName with
