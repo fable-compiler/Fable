@@ -30,17 +30,31 @@ int options(RegExp reg) {
 
 String replace(Pattern reg, String input, String replacement,
     [int? limit, int offset = 0]) {
-  // TODO: If replacement uses groups we need to use replaceAllMapped
-  // replacement =
-  //   replacement
-  //   // $0 doesn't work with JS regex, see #1155
-  //   .replace(/\$0/g, (_s) => "$&")
-  //   // named groups in replacement are `${name}` in .Net, but `$<name>` in JS (in regex: groups are `(?<name>...)` in both)
-  //   .replace(/\${([^}]+)}/g, "\$<$1>");
-
-  if (limit != null) {
-    throw Exception("Todo: replace with limit");
+  // TODO: limit
+  final replaceGroup = RegExp(r'(?<!\$)\$(\d+)');
+  if (replaceGroup.hasMatch(replacement)) {
+    return input.replaceAllMapped(reg, (match) {
+      return replacement.replaceAllMapped(replaceGroup, (repMatch) {
+        final g = repMatch.group(1);
+        return g != null ? match.group(int.parse(g)) ?? '' : '';
+      });
+    });
   } else {
-    return input.replaceAll(reg, replacement);
+    // ${secondMatch}
+    final replaceNamedGroup = RegExp(r'(?<!\$)\${([^}]+)}');
+    if (replaceNamedGroup.hasMatch(replacement)) {
+      return input.replaceAllMapped(reg, (match) {
+        if (match is RegExpMatch) {
+          return replacement.replaceAllMapped(replaceNamedGroup, (repMatch) {
+            final g = repMatch.group(1);
+            return g != null ? match.namedGroup(g) ?? '' : '';
+          });
+        } else {
+          return '';
+        }
+      });
+    } else {
+      return input.replaceAll(reg, replacement);
+    }
   }
 }

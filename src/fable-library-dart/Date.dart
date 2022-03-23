@@ -1,5 +1,9 @@
 // We define Unspecified for .NET compatibility but it's not used in Dart DateTime
-enum DateTimeKind { Unspecified, Utc, Local }
+class DateTimeKind {
+  static const Unspecified = 0;
+  static const Utc = 1;
+  static const Local = 2;
+}
 
 // Dart DateTime limits, from https://stackoverflow.com/a/67148809
 // Use .NET values instead? Problem is we cannot set DateTimeKind.Unspecified
@@ -15,25 +19,25 @@ int ticksToUnixEpochMilliseconds(int ticks) {
   return ticks ~/ 10000 - 62135596800000;
 }
 
-void _checkKind(DateTimeKind kind) {
+void _checkKind(int kind) {
   if (kind == DateTimeKind.Unspecified) {
     throw Exception("DateTimeKind.Unspecified is not supported");
   }
 }
 
 DateTime create(int year, int month, int day,
-    [int h = 0, int m = 0, int s = 0, int ms = 0, DateTimeKind kind = DateTimeKind.Local]) {
+    [int h = 0, int m = 0, int s = 0, int ms = 0, int kind = DateTimeKind.Local]) {
   _checkKind(kind);
   return kind == DateTimeKind.Utc
       ? DateTime.utc(year, month, day, h, m, s, ms)
       : DateTime(year, month, day, h, m, s, ms);
 }
 
-DateTime fromTicks(int ticks, [DateTimeKind kind = DateTimeKind.Local]) {
+DateTime fromTicks(int ticks, [int kind = DateTimeKind.Local]) {
   _checkKind(kind);
   final ms = ticksToUnixEpochMilliseconds(ticks);
   return DateTime.fromMillisecondsSinceEpoch(ms,
       isUtc: kind == DateTimeKind.Utc);
 }
 
-DateTimeKind kind(DateTime dt) => dt.isUtc ? DateTimeKind.Utc : DateTimeKind.Local;
+int kind(DateTime dt) => dt.isUtc ? DateTimeKind.Utc : DateTimeKind.Local;

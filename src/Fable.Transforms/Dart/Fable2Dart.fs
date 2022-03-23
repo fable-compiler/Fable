@@ -236,11 +236,16 @@ module Util =
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
             preferStatement || elseExpr.Type = Fable.Unit || isStatement ctx false thenExpr || isStatement ctx false elseExpr
 
+    let (|DartInt|_|) = function
+        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
+        | _ -> None
+
+    let (|DartDouble|_|) = function
+        | Float32 | Float64 -> Some DartDouble
+        | _ -> None
+
     let isInt64OrLess = function
-        | Fable.Number(kind, _) ->
-            match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> true
-            | Float32 | Float64 | Decimal | NativeInt | UNativeInt | BigInt -> false
+        | Fable.Number(DartInt, _) -> true
         | _ -> false
 
     // Binary operatios should be const if the operands are, but if necessary let's fold constants binary ops in FableTransforms
@@ -475,20 +480,25 @@ module Util =
         | Fable.StringTemplate _ ->
             "TODO: StringTemplate is not supported yet"
             |> addErrorAndReturnNull com r
-        | Fable.NumberConstant(v, kind, Fable.NumberInfo.IsEnum entRef) ->
-            let ent = com.GetEntity(entRef)
-            tryGetEntityIdent com ctx ent
-            |> Option.bind (fun typeRef ->
-                ent.FSharpFields
-                |> Seq.tryPick (fun fi ->
-                    match fi.LiteralValue with
-                    | Some v2 when v = v2 -> Some(typeRef, fi.Name)
-                    | _ -> None))
-            |> function
-                | None -> transformNumberLiteral com r kind v
-                | Some(typeRef, name) -> Expression.propertyAccess(typeRef.Expr, name)
+
+// Dart enums are limited as we cannot set arbitrary values or combine as flags
+// so for now we compile F# enums as ints
+
+//        | Fable.NumberConstant(v, kind, Fable.NumberInfo.IsEnum entRef) ->
+//            let ent = com.GetEntity(entRef)
+//            tryGetEntityIdent com ctx ent
+//            |> Option.bind (fun typeRef ->
+//                ent.FSharpFields
+//                |> Seq.tryPick (fun fi ->
+//                    match fi.LiteralValue with
+//                    | Some v2 when v = v2 -> Some(typeRef, fi.Name)
+//                    | _ -> None))
+//            |> function
+//                | None -> transformNumberLiteral com r kind v
+//                | Some(typeRef, name) -> Expression.propertyAccess(typeRef.Expr, name)
         | Fable.NumberConstant(x, kind, _) ->
             transformNumberLiteral com r kind x
+
         | Fable.RegexConstant _ ->
             "TODO: RegexConstant is not supported yet"
             |> addErrorAndReturnNull com r
@@ -635,6 +645,9 @@ module Util =
             else
                 let t = transformType com ctx t
                 Expression.asExpression(expr, t)
+
+        | Fable.Number(DartInt, _), ExprType(Fable.Number(DartInt, _))
+        | Fable.Number(DartDouble, _), ExprType(Fable.Number(DartDouble, _)) -> com.TransformAsExpr(ctx, expr)
         | _ ->
             let t = transformType com ctx t
             Expression.asExpression(com.TransformAsExpr(ctx, expr), t)
