@@ -676,7 +676,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
-    | "System.DateTimeKind" -> makeImportLib com Any "DateTimeKind" "Date" |> Some
+//    | "System.DateTimeKind" -> makeImportLib com Any "DateTimeKind" "Date" |> Some
     | _ -> None
 
 let tryEntityRef com ent =

@@ -185,7 +185,7 @@ module Dart =
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.EscapeStringLiteral(str) =
-                Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("'", @"\'")
+                str.Replace(@"\", @"\\").Replace(@"$", @"\$").Replace("\r", @"\r").Replace("\n", @"\n").Replace("'", @"\'")
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
