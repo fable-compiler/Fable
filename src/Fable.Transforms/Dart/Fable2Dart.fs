@@ -129,11 +129,19 @@ module Util =
     let makeMutableListExpr values: Expression =
         ListLiteral(values, false) |> Literal
 
-    let getEntityRef (com: IDartCompiler) ctx ent =
-        let entRef = Dart.Replacements.entityRef com ent
-        match com.TransformAsExpr(ctx, entRef) with
-        | IdentExpression ident -> ident
-        | _ -> failwith $"Unexpected, entity ref for {ent.FullName} is not an identifer"
+    let tryGetEntityIdent (com: IDartCompiler) ctx ent =
+        Dart.Replacements.tryEntityRef com ent
+        |> Option.bind (fun entRef ->
+            match com.TransformAsExpr(ctx, entRef) with
+            | IdentExpression ident -> Some ident
+            | _ -> addError com [] None $"Unexpected, entity ref for {ent.FullName} is not an identifer"; None)
+
+    let getEntityIdent (com: IDartCompiler) ctx (ent: Fable.Entity) =
+        match tryGetEntityIdent com ctx ent with
+        | Some ident -> ident
+        | None ->
+            addError com [] None $"Cannot find reference for {ent.FullName}"
+            makeIdent MetaType ent.DisplayName
 
     // TODO: Check conversions like ToString > toString
     let get left memberName =
@@ -406,7 +414,7 @@ module Util =
             let ent = com.GetEntity(ref)
             // TODO: Discard measure types
             let genArgs = genArgs |> List.map (transformType com ctx)
-            TypeReference(getEntityRef com ctx ent, genArgs)
+            TypeReference(getEntityIdent com ctx ent, genArgs)
         | Fable.AnonymousRecordType _
         | Fable.Regex -> Dynamic // TODO
 
@@ -437,6 +445,22 @@ module Util =
         |> Expression.identExpression
         |> getParts parts
 
+    let transformNumberLiteral com r kind (x: obj) =
+        match kind, x with
+        | Int8, (:? int8 as x) -> Expression.integerLiteral(int64 x)
+        | UInt8, (:? uint8 as x) -> Expression.integerLiteral(int64 x)
+        | Int16, (:? int16 as x) -> Expression.integerLiteral(int64 x)
+        | UInt16, (:? uint16 as x) -> Expression.integerLiteral(int64 x)
+        | Int32, (:? int32 as x) -> Expression.integerLiteral(x)
+        | UInt32, (:? uint32 as x) -> Expression.integerLiteral(int64 x)
+        | Int64, (:? int64 as x) -> Expression.integerLiteral(x)
+        | UInt64, (:? uint64 as x) -> Expression.integerLiteral(int64 x)
+        | Float32, (:? float32 as x) -> Expression.doubleLiteral(float x)
+        | Float64, (:? float as x) -> Expression.doubleLiteral(x)
+        | _ ->
+            $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
+            |> addErrorAndReturnNull com r
+
     let transformValue (com: IDartCompiler) (ctx: Context) (r: SourceLocation option) value: Expression =
         match value with
         | Fable.ThisValue _ -> ThisExpression
@@ -451,35 +475,20 @@ module Util =
         | Fable.StringTemplate _ ->
             "TODO: StringTemplate is not supported yet"
             |> addErrorAndReturnNull com r
-        | Fable.NumberConstant(v, _, Fable.NumberInfo.IsEnum entRef) ->
+        | Fable.NumberConstant(v, kind, Fable.NumberInfo.IsEnum entRef) ->
             let ent = com.GetEntity(entRef)
-            ent.FSharpFields
-            |> Seq.tryPick (fun fi ->
-                match fi.LiteralValue with
-                | Some v2 when v = v2 -> Some fi.Name
-                | _ -> None)
+            tryGetEntityIdent com ctx ent
+            |> Option.bind (fun typeRef ->
+                ent.FSharpFields
+                |> Seq.tryPick (fun fi ->
+                    match fi.LiteralValue with
+                    | Some v2 when v = v2 -> Some(typeRef, fi.Name)
+                    | _ -> None))
             |> function
-                | None ->
-                    $"Cannot find case name for enum value {v} ({ent.FullName})"
-                    |> addErrorAndReturnNull com r
-                | Some name ->
-                    let typeRef = getEntityRef com ctx ent
-                    Expression.propertyAccess(typeRef.Expr, name)
+                | None -> transformNumberLiteral com r kind v
+                | Some(typeRef, name) -> Expression.propertyAccess(typeRef.Expr, name)
         | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Int8, (:? int8 as x) -> Expression.integerLiteral(int64 x)
-            | UInt8, (:? uint8 as x) -> Expression.integerLiteral(int64 x)
-            | Int16, (:? int16 as x) -> Expression.integerLiteral(int64 x)
-            | UInt16, (:? uint16 as x) -> Expression.integerLiteral(int64 x)
-            | Int32, (:? int32 as x) -> Expression.integerLiteral(x)
-            | UInt32, (:? uint32 as x) -> Expression.integerLiteral(int64 x)
-            | Int64, (:? int64 as x) -> Expression.integerLiteral(x)
-            | UInt64, (:? uint64 as x) -> Expression.integerLiteral(int64 x)
-            | Float32, (:? float32 as x) -> Expression.doubleLiteral(float x)
-            | Float64, (:? float as x) -> Expression.doubleLiteral(x)
-            | _ ->
-                $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
-                |> addErrorAndReturnNull com r
+            transformNumberLiteral com r kind x
         | Fable.RegexConstant _ ->
             "TODO: RegexConstant is not supported yet"
             |> addErrorAndReturnNull com r
@@ -512,7 +521,7 @@ module Util =
             let ent = com.GetEntity(ref)
             let args = values |> List.map (transformAsExpr com ctx)
             let genArgs = genArgs |> List.map (transformType com ctx)
-            let consRef = getEntityRef com ctx ent
+            let consRef = getEntityIdent com ctx ent
             let isConst, args =
                 let isConst = List.forall (isConstExpr ctx) args && (ent.FSharpFields |> List.forall (fun f -> not f.IsMutable))
                 if isConst then true, List.map removeConst args
@@ -526,7 +535,7 @@ module Util =
             let fields = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let args = [Expression.integerLiteral(tag); makeImmutableListExpr ctx fields]
             let genArgs = genArgs |> List.map (transformType com ctx)
-            let consRef = getEntityRef com ctx ent
+            let consRef = getEntityIdent com ctx ent
             let isConst, args =
                 if List.forall (isConstExpr ctx) args then true, List.map removeConst args
                 else false, args
