@@ -39,18 +39,21 @@ export function matches(reg: RegExp, input: string, startAt = 0) {
   if (input == null) {
     throw new Error("Input cannot ve null");
   }
-  reg.lastIndex = startAt;
   if (!reg.global) {
     throw new Error("Non-global RegExp"); // Prevent infinite loop
   }
+  reg.lastIndex = startAt;
   const matches: RegExpExecArray[] = [];
   let m: RegExpExecArray | null;
+  let lastMatchIndex = -1;
   // tslint:disable-next-line:no-conditional-assignment
   while ((m = reg.exec(input)) != null) {
-    matches.push(m);
-    // It can happen the regex gets stuck at the end of the input, see #2845
-    if (m.index >= input.length) {
-      break;
+    // It can happen even global regex get stuck, see #2845
+    if (m.index === lastMatchIndex) {
+      reg.lastIndex++
+    } else {
+      lastMatchIndex = m.index;
+      matches.push(m);
     }
   }
   return matches;

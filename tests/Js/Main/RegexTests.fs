@@ -184,11 +184,25 @@ let tests =
         test "[A-E]" 10
         test "(ZZ)+" 0
 
-    testCase "Regex.Matches doesn't fall in infinte loop" <| fun () -> // See #2845
-        let input = "aaa"
-        let pattern = @".*"
-        let ms = Regex.Matches(input, pattern)
-        ms.Count |> equal 2
+    testCase "Regex.Matches doesn't fall in infinite loop" <| fun () -> // See #2845
+        let test input pattern expected =
+            Regex.Matches(input, pattern)
+            |> Seq.cast<Match>
+            |> Seq.map (fun m -> m.Value)
+            |> Seq.toList
+            |> equal expected
+
+        test "aaa" @".*" ["aaa"; ""]
+        test "ab" @"(?<=a)(?=b)" [""]
+
+        // unescaped pattern: (?<=")(?:\\\\|\\"|.)*(?=")|[A-Za-z0-9_-]+
+        let pattern = @"(?<="")(?:\\\\|\\""|.)*(?="")|[A-Za-z0-9_-]+"
+        test "\"\"" pattern [""]
+        test "a \"\" b" pattern ["a"; ""; "b"]
+        test "a \"b \\\"c\" de\"f\"" pattern ["a"; "b \\\"c\" de\"f"]
+        test "a\" \\\\\" \\\"\"\" \"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\" \"b \\\"c\" de\"f"]
+        test "a\" \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
+        test "a\" \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
 
     testCase "Regex.Split works" <| fun _ ->
         let test str expected =

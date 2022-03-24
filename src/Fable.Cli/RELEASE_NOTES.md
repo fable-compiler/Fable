@@ -1,8 +1,12 @@
+### 3.7.8
+
+* Fix #2845: Cover more edge cases @Prunkles
+
 ### 3.7.7
 
 * Fix #2840: Keep delegates of arity 1 curried @JaggerJo
-* Fix #2844: 1-len array slices starting at 0 work @Prunkles
-* Fix #2845: Regex.Matches infinite loop @jpacker
+* Fix #2844: 1-len array slices starting at 0 work @jpacker
+* Fix #2845: Regex.Matches infinite loop @Prunkles
 
 ### 3.7.6
 
