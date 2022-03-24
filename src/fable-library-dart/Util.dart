@@ -35,3 +35,12 @@ int compareList<T extends Comparable<T>>(List<T> xs, List<T> ys) {
   }
   return 0;
 }
+
+String int32ToString(int i, [int radix = 10]) {
+  if (radix == 10) {
+    return i.toString();
+  } else {
+    i = i < 0 ? 0xFFFFFFFF + i + 1 : i;
+    return i.toRadixString(radix);
+  }
+}

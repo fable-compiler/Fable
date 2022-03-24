@@ -22,7 +22,7 @@ let tests() =
         let option1 = RegexOptions.IgnoreCase
         let option2 = RegexOptions.Multiline
         let options = option1 ||| option2
-        let test pattern expected =
+        let test (pattern: string) (expected: obj) =
             Regex.IsMatch(str, pattern, options)
             |> equal expected
         test "^ab" true
