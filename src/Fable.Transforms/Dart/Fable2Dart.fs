@@ -595,7 +595,8 @@ module Util =
                             |> Option.defaultValue false
                         )
                 let args = if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg) else args
-                Expression.invocationExpression(callee, args, isConst=isConst)
+                let genArgs = callInfo.GenericArgs |> List.map (transformType com ctx)
+                Expression.invocationExpression(callee, args, genArgs, isConst=isConst)
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx range (NoCallInfo args) with
@@ -1313,6 +1314,7 @@ module Util =
             Declaration.functionDeclaration("main", args, body, Void)
         else
             let returnType = transformType com ctx memb.Body.Type
+            // TODO: Use generic parameters instead
             let genArgs = memb.Body.Type::memb.ArgTypes |> getGenericArgs
             Declaration.functionDeclaration(memb.Name, args, body, returnType, genArgs=genArgs)
 

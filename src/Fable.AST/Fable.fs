@@ -324,6 +324,7 @@ type CallInfo =
       /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
       SignatureArgTypes: Type list
+      GenericArgs: Type list
       CallMemberInfo: CallMemberInfo option
       HasSpread: bool
       IsConstructor: bool
@@ -331,6 +332,7 @@ type CallInfo =
       OptimizableInto: string option }
     static member Make(?thisArg: Expr,
                        ?args: Expr list,
+                       ?genArgs: Type list,
                        ?sigArgTypes: Type list,
                        ?memberInfo: CallMemberInfo,
                        ?hasSpread: bool,
@@ -338,6 +340,7 @@ type CallInfo =
                        ?optimizable: string) =
         { ThisArg = thisArg
           Args = defaultArg args []
+          GenericArgs = defaultArg genArgs []
           SignatureArgTypes = defaultArg sigArgTypes []
           CallMemberInfo = memberInfo
           HasSpread = defaultArg hasSpread false

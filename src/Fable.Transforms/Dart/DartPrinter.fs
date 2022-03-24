@@ -627,7 +627,7 @@ module PrinterExtensions =
 
             | AnonymousFunction(args, body, genArgs) ->
                 printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
-                printer.PrintList("(", args, ") ", printType=true)
+                printer.PrintList("(", args, ")", printType=true)
                 printer.PrintFunctionBody(body, isExpression=true)
 
         member printer.PrintClassDeclaration(decl: Class) =
@@ -794,15 +794,17 @@ let run (writer: Writer) (file: File): Async<unit> =
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
 
-        printer.Print("// ignore_for_file: non_constant_identifier_names")
+        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types")
         printer.PrintNewLine()
 
-        for i in file.Imports do
+        file.Imports
+        |> List.sortBy (fun i -> i.Path)
+        |> List.iter (fun i ->
             let path = printer.MakeImportPath(i.Path)
             match i.LocalIdent with
             | None -> printer.Print("import '" + path + "';")
             | Some localId -> printer.Print("import '" + path + "' as " + localId + ";")
-            printer.PrintNewLine()
+            printer.PrintNewLine())
 
         printer.PrintNewLine()
         do! printerImpl.Flush()

@@ -2155,23 +2155,13 @@ module Util =
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
-    let makeCallInfoMemb callee args sigArgTypes (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
-        {
-            ThisArg = callee
-            Args = args
-            SignatureArgTypes = sigArgTypes
-            HasSpread = hasParamArray memb
-            IsConstructor = false
-            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
-            OptimizableInto = None
-        }
-
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let newCtxGenArgs = matchGenericParamsFrom memb genArgs |> Seq.toList
         let ctx = { ctx with GenericArgs = (ctx.GenericArgs, newCtxGenArgs) ||> Seq.fold (fun map (k, v) -> Map.add k v map) }
         Fable.CallInfo.Make(
             ?thisArg = callee,
             args = transformOptionalArguments com ctx r memb args,
+            genArgs = genArgs,
             sigArgTypes = getArgTypes com memb,
             hasSpread = hasParamArray memb,
             isCons = memb.IsConstructor,
