@@ -304,6 +304,35 @@ let rec namesof com ctx acc e =
     | [], _ -> None
     | acc, _ -> Some acc
 
+let curriedApply r t applied args =
+    CurriedApply(applied, args, t, r)
+
+let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
+    let argType, retType =
+        match t with
+        | LambdaType(argType, retType) -> argType, retType
+        | _ -> Any, Any
+    let interType =
+        match f1.Type with
+        | LambdaType(_, interType) -> interType
+        | _ -> Any
+    let arg = makeUniqueIdent ctx argType "arg"
+    // Eagerly evaluate and capture the value of the functions, see #2851
+    // If possible, the bindings will be optimized away in FableTransforms
+    let capturedFun1Var = makeUniqueIdent ctx argType "f1"
+    let capturedFun2Var = makeUniqueIdent ctx argType "f2"
+    let argExpr =
+        match argType with
+        // Erase unit references, because the arg may be erased
+        | Unit -> Value(UnitConstant, None)
+        | _ -> IdentExpr arg
+    let body =
+        [argExpr]
+        |> curriedApply None interType (IdentExpr capturedFun1Var)
+        |> List.singleton
+        |> curriedApply r retType (IdentExpr capturedFun2Var)
+    Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, FuncInfo.Empty)))
+
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
 let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
 

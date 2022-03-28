@@ -6,6 +6,8 @@ open Fable.Core
 open Util.Testing
 open Util2.Extensions
 
+let mutable private fn = id
+
 let [<Literal>] LITERAL_JSON = """{
     "widget": {
         "debug": true,
@@ -1236,4 +1238,9 @@ let tests =
 
         for (l, r, ``l + r``) in ``inlineData PR #2683`` do
             runCase l r ``l + r``
+
+    testCase "References captured by >> are eagerly evaluated" <| fun () -> // See #2851
+        let times2 x = x * 2
+        fn <- fn >> times2
+        fn 5 |> equal 10
   ]

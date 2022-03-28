@@ -1061,27 +1061,6 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | _ -> None
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let curriedApply r t applied args =
-        CurriedApply(applied, args, t, r)
-
-    let compose (com: ICompiler) r t f1 f2 =
-        let argType, retType =
-            match t with
-            | LambdaType(argType, retType) -> argType, retType
-            | _ -> Any, Any
-        let tempVar = makeUniqueIdent ctx argType "arg"
-        let tempVarExpr =
-            match argType with
-            // Erase unit references, because the arg may be erased
-            | Unit -> Value(UnitConstant, None)
-            | _ -> IdentExpr tempVar
-        let body =
-            [tempVarExpr]
-            |> curriedApply None Any f1
-            |> List.singleton
-            |> curriedApply r retType f2
-        Lambda(tempVar, body, FuncInfo.Empty)
-
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
         Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
@@ -1131,8 +1110,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
     | "op_PipeRight3", [x; y; z; f]
     | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
-    | "op_ComposeRight", [f1; f2] -> compose com r t f1 f2 |> Some
-    | "op_ComposeLeft", [f2; f1] -> compose com r t f1 f2 |> Some
+    | "op_ComposeRight", [f1; f2] -> compose com ctx r t f1 f2 |> Some
+    | "op_ComposeLeft", [f2; f1] -> compose com ctx r t f1 f2 |> Some
     // Strings
     | ("PrintFormatToString"             // sprintf
     |  "PrintFormatToStringThen"         // Printf.ksprintf
