@@ -83,6 +83,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
 
     static member GetFableModulesFromDir(baseDir: string): string =
         IO.Path.Combine(baseDir, Naming.fableModules)
+        |> Path.normalizePath
 
     static member GetFableModulesFromProject(projFile: string, outDir: string option): string =
         let fableModulesDir =
@@ -521,22 +522,26 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
         | Some _, _ -> "" // Fable Library path will be taken from the precompiled info
         | None, Some path -> Path.normalizeFullPath path
         | None, None ->
-            let assemblyDir =
-                Process.getCurrentAssembly().Location
-                |> Path.GetDirectoryName
+            let assemblyDir = AppContext.BaseDirectory
 
             let defaultFableLibraryPaths =
                 [ "../../../fable-library/"               // running from nuget tools package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/net5
+                  "../../../../../build/fable-library/"   // running from bin/Release/net5
+                  "fable-library/" ]
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
 
             let fableLibrarySource =
                 defaultFableLibraryPaths
-                |> List.tryFind IO.Directory.Exists
-                |> Option.defaultValue (List.last defaultFableLibraryPaths)
-
-            if File.isDirectoryEmpty fableLibrarySource then
-                FableError $"fable-library directory is empty, please build FableLibrary: %s{fableLibrarySource}" |> raise
+                |> List.tryFind (File.isDirectoryEmpty >> not)
+                |> Option.defaultWith(fun () ->
+                    [
+                        yield "Cannot find fable-library in any of the following directories:"
+                        for p in defaultFableLibraryPaths do
+                            yield "  " + p
+                    ]
+                    |> String.concat Environment.NewLine
+                    |> FableError
+                    |> raise)
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableModulesDir, "fable-library" + "." + Literals.VERSION)

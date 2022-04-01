@@ -247,7 +247,7 @@ module File =
                         waitedMs <- waitedMs + waitMs
                         Threading.Thread.Sleep(millisecondsTimeout=waitMs)
 
-                    File.Create(lockFile) |> ignore
+                    use _ = File.Create(lockFile)
                     fileCreated <- true
                 with _ ->
                     if attempt >= maxAttempts then
@@ -262,7 +262,8 @@ module File =
             try
                 if fileCreated then
                     File.Delete(lockFile)
-            with _ -> ()
+            with e ->
+                Log.always $"Could not delete lock file: {lockFile} ({e.Message})"
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -421,9 +422,9 @@ module Imports =
     let getTargetAbsolutePath (pathResolver: PathResolver) importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
-        // It may happen the importPath is already in outDir,
-        // for example package sources in fable_modules folder
-        if importPath.StartsWith(outDir) then importPath
+        // It may happen the importPath is already in outDir, for example package sources in fable_modules folder.
+        // (Case insensitive comparison because in some Windows build servers paths can start with C:/ or c:/)
+        if importPath.StartsWith(outDir, StringComparison.OrdinalIgnoreCase) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
             let targetDir = pathResolver.GetOrAddDeduplicateTargetDir(importDir, fun currentTargetDirs ->
