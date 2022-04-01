@@ -1,3 +1,8 @@
+### 3.7.9
+
+* Fix #2851: References captured by >> eagerly eval
+* Fix wrong out paths when using lower case drive letter
+
 ### 3.7.8
 
 * Fix #2845: Cover more edge cases @Prunkles
