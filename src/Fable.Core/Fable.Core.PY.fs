@@ -1,5 +1,3 @@
-namespace Fable.Import
-
 namespace Fable.Core
 
 open System

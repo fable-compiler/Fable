@@ -51,6 +51,9 @@ type IDartCompiler =
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Util =
+
+    open Fable.AST.Dart
+
     let (|TransformExpr|) (com: IDartCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
 
@@ -124,10 +127,10 @@ module Util =
         let isConst, values =
             if List.forall (isConstExpr ctx) values then true, List.map removeConst values
             else false, values
-        ListLiteral(values, isConst) |> Literal
+        Expression.listLiteral(values, isConst)
 
     let makeMutableListExpr values: Expression =
-        ListLiteral(values, false) |> Literal
+        Expression.listLiteral(values)
 
     let tryGetEntityIdent (com: IDartCompiler) ctx ent =
         Dart.Replacements.tryEntityRef com ent
@@ -145,7 +148,7 @@ module Util =
 
     // TODO: Check conversions like ToString > toString
     let get left memberName =
-        PropertyAccess(left, memberName)
+        PropertyAccess(left, memberName, isConst=false)
 
     let getExpr left expr =
         IndexExpression(left, expr)
@@ -251,6 +254,7 @@ module Util =
     // Binary operatios should be const if the operands are, but if necessary let's fold constants binary ops in FableTransforms
     let isConstExpr (ctx: Context) = function
         | IdentExpression ident -> Set.contains ident.Name ctx.ConstIdents
+        | PropertyAccess(_,_,isConst)
         | InvocationExpression(_,_,_,isConst) -> isConst
         | Literal value ->
             match value with
@@ -404,7 +408,7 @@ module Util =
         | Fable.Option(TransformType com ctx genArg, _isStruct) -> Nullable genArg
         | Fable.Array(TransformType com ctx genArg) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
-            TypeReference(libValue com ctx "List" "List", [genArg])
+            TypeReference(libValue com ctx "List" "FsList", [genArg])
         | Fable.Tuple(genArgs, _isStruct) ->
             let tup = com.GetImportIdent(ctx, $"Tuple{genArgs.Length}", "package:tuple/tuple.dart")
             let genArgs = genArgs |> List.map (transformType com ctx)
@@ -502,6 +506,7 @@ module Util =
         | Fable.RegexConstant _ ->
             "TODO: RegexConstant is not supported yet"
             |> addErrorAndReturnNull com r
+
         | Fable.NewArray (values, typ, _isMutable) ->
             values
             |> List.map (transformAsExpr com ctx)
@@ -510,21 +515,43 @@ module Util =
         | Fable.NewArrayFrom (TransformExpr com ctx size, typ, _isMutable) ->
             let ident = makeIdent MetaType "List"
             Expression.invocationExpression(ident.Expr, [None, size], genArgs=[transformType com ctx typ])
-        | Fable.NewTuple(vals,_) ->
-            let tup = com.GetImportIdent(ctx, $"Tuple{vals.Length}", "package:tuple/tuple.dart")
-            let vals = vals |> List.map (transformAsExpr com ctx)
+
+        | Fable.NewTuple(args,_) ->
+            let tup = com.GetImportIdent(ctx, $"Tuple{args.Length}", "package:tuple/tuple.dart")
+            let args = args |> List.map (transformAsExpr com ctx)
             // Generic arguments can be omitted
 //            let genArgs = vals |> List.map (fun v -> transformType com ctx v.Type)
-            Expression.invocationExpression(tup.Expr, vals)
-        // TODO: optimization for nested constructors
+            let isConst, args =
+                if List.forall (isConstExpr ctx) args then true, List.map removeConst args
+                else false, args
+            Expression.invocationExpression(tup.Expr, args, isConst=isConst)
+
         | Fable.NewList(headAndTail, typ) ->
-            let list = libValue com ctx "List" "List"
-            let fn, args =
-                match headAndTail with
-                | None -> Expression.propertyAccess(list.Expr, "empty"), []
-                | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
-                    list.Expr, [head; tail]
-            Expression.invocationExpression(fn, args, genArgs=[transformType com ctx typ])
+            let rec getItems acc = function
+                | None -> List.rev acc, None
+                | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
+                | Some(head, tail) -> List.rev (head::acc), Some tail
+            match getItems [] headAndTail with
+            | [], None ->
+                libCall com ctx "List" "empty" []
+            | [TransformExpr com ctx expr], None ->
+                libCall com ctx "List" "singleton" [expr]
+            | exprs, None ->
+                exprs
+                |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                |> makeImmutableListExpr ctx
+                |> List.singleton
+                |> libCall com ctx "List" "ofArray"
+            | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
+                libCall com ctx "List" "cons" [head; tail]
+            | exprs, Some(TransformExpr com ctx tail) ->
+                let exprs =
+                    exprs
+                    |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                    |> makeImmutableListExpr ctx
+                [exprs; tail]
+                |> libCall com ctx "List" "ofArrayWithTail"
+
         | Fable.NewOption(None, _typ, _isStruct) -> Expression.nullLiteral()
         | Fable.NewOption(Some v, _typ, _isStruct) -> transformAsExpr com ctx v
         | Fable.NewRecord(values, ref, genArgs) ->
@@ -587,13 +614,14 @@ module Util =
             | Some(TransformExpr com ctx thisArg) -> Expression.invocationExpression(callee, (unnamedArg thisArg)::args)
             | None ->
                 let isConst =
-                    // For Dart bindings, use Struct attribute to mean they have a const constructor
                     callInfo.IsConstructor && List.forall (snd >> isConstExpr ctx) args && (
-                            callInfo.CallMemberInfo
-                            |> Option.bind (fun i -> i.DeclaringEntity)
-                            |> Option.map (fun e -> com.GetEntity(e).IsValueType)
-                            |> Option.defaultValue false
-                        )
+                        callInfo.CallMemberInfo
+                        |> Option.bind (fun i -> i.DeclaringEntity)
+                        |> Option.map (fun e ->
+                            com.GetEntity(e).Attributes
+                            |> Seq.exists (fun att -> att.Entity.FullName = Atts.dartIsConst))
+                        |> Option.defaultValue false
+                    )
                 let args = if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg) else args
                 let genArgs = callInfo.GenericArgs |> List.map (transformType com ctx)
                 Expression.invocationExpression(callee, args, genArgs, isConst=isConst)
@@ -679,7 +707,7 @@ module Util =
 
     let transformGet (com: IDartCompiler) ctx _range typ fableExpr kind =
         match kind with
-        | Fable.FieldGet(fieldName,_) ->
+        | Fable.FieldGet(fieldName, info) ->
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -687,7 +715,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            get expr fieldName
+            Expression.propertyAccess(expr, fieldName, isConst=info.IsConst)
 
         | Fable.UnionTag ->
             com.TransformAsExpr(ctx, fableExpr) |> getUnionExprTag

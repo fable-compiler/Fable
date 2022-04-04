@@ -33,6 +33,7 @@ module Atts =
     let [<Literal>] jsReflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] pyDecorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
     let [<Literal>] pyReflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
+    let [<Literal>] dartIsConst = "Fable.Core.Dart.IsConstAttribute"
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -384,8 +385,8 @@ module AST =
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects e
-            | FieldGet(_, isMutable) ->
-                if isMutable then true
+            | FieldGet(_, info) ->
+                if info.CanHaveSideEffects then true
                 else canHaveSideEffects e
             | _ -> true
         | _ -> true
@@ -587,7 +588,7 @@ module AST =
         Set(left, ExprSet memb, value.Type, value, r)
 
     let getAttachedMemberWith r t callee membName =
-        Get(callee, FieldGet(membName, true), t, r)
+        Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=true)), t, r)
 
     let getAttachedMember (e: Expr) membName =
         getAttachedMemberWith e.Range Any e membName

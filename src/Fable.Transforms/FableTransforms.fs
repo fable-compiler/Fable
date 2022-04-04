@@ -178,8 +178,8 @@ let noSideEffectBeforeIdent identName expr =
                 true
             else false
         // If the field is mutable we cannot inline, see #2683
-        | Get(e, FieldGet(_, isMutable), _, _) ->
-            if isMutable then
+        | Get(e, FieldGet(_, info), _, _) ->
+            if info.CanHaveSideEffects then
                 sideEffect <- true
                 true
             else findIdentOrSideEffect e

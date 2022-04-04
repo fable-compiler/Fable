@@ -76,7 +76,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
-        Delegate([], Get(callee, FieldGet(key, true), t, r), FuncInfo.Empty)
+        Delegate([], Get(callee, FieldGet(key, FieldInfo.Create(isMutable=true)), t, r), FuncInfo.Empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)

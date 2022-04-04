@@ -1,16 +1,18 @@
+// ignore_for_file: file_names
+
 import 'Types.dart' as types;
 import 'Util.dart' as util;
 
 abstract class FsList<T> extends Iterable<T> implements Comparable<FsList<T>> {
   T get head;
   FsList<T> get tail;
-  bool get isEmpty;
+  bool get isNil;
 
   @override
   Iterator<T> get iterator {
     FsList<T> current = this;
     return types.CustomIterator(() {
-      if (current.isEmpty) {
+      if (current.isNil) {
         return null;
       } else {
         var tmp = current;
@@ -23,7 +25,7 @@ abstract class FsList<T> extends Iterable<T> implements Comparable<FsList<T>> {
   @override
   bool operator ==(Object other) {
     if (other is FsList<T>) {
-      var iter1 = this.iterator;
+      var iter1 = iterator;
       var iter2 = other.iterator;
       while (iter1.moveNext()) {
         if (!iter2.moveNext() || iter1.current != iter2.current) {
@@ -36,11 +38,11 @@ abstract class FsList<T> extends Iterable<T> implements Comparable<FsList<T>> {
   }
 
   @override
-  int get hashCode => util.combineHashCodes(this.map((e) => e.hashCode));
+  int get hashCode => util.combineHashCodes(map((e) => e.hashCode));
 
   @override
   int compareTo(FsList<T> other) {
-    var iter1 = this.iterator;
+    var iter1 = iterator;
     var iter2 = other.iterator;
     while (iter1.moveNext()) {
       if (!iter2.moveNext()) {
@@ -61,28 +63,38 @@ abstract class FsList<T> extends Iterable<T> implements Comparable<FsList<T>> {
 }
 
 class Cons<T> extends FsList<T> {
+  @override
   T head;
+  @override
   FsList<T> tail;
-  bool get isEmpty => false;
+  @override
+  bool get isNil => false;
 
   Cons(this.head, this.tail);
 }
 
 class Nil<T> extends FsList<T> {
+  @override
   T get head => throw Exception('Empty list');
+  @override
   FsList<T> get tail => throw Exception('Empty list');
-  bool get isEmpty => true;
+  @override
+  bool get isNil => true;
 }
 
 FsList<T> empty<T>() => Nil<T>();
 
-FsList<T> ofArray<T>(List<T> xs) {
-  var li = empty<T>();
+FsList<T> singleton<T>(T x) => Cons(x, Nil<T>());
+
+FsList<T> ofArrayWithTail<T>(List<T> xs, FsList<T> tail) {
+  var li = tail;
   for (var i = xs.length - 1; i >= 0; i--) {
     li = Cons(xs[i], li);
   }
   return li;
 }
+
+FsList<T> ofArray<T>(List<T> xs) => ofArrayWithTail(xs, Nil<T>());
 
 FsList<T> ofSeq<T>(Iterable<T> xs) {
   var li = empty<T>();
