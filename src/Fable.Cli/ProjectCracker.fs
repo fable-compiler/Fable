@@ -87,6 +87,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
 
     static member GetFableModulesFromDir(baseDir: string): string =
         IO.Path.Combine(baseDir, Naming.fableModules)
+        |> Path.normalizePath
 
     static member GetFableModulesFromProject(projFile: string, outDir: string option, noCache: bool): string =
         let fableModulesDir =
@@ -505,13 +506,9 @@ let getFableLibraryPath (opts: CrackerOptions) =
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
         let fableLibrarySource =
-            Process.getCurrentAssembly().Location
-            |> Path.GetDirectoryName
-            |> File.tryFindDirectoryUpwards {| matches = [buildDir; "build/" + buildDir]; exclude = ["src"] |}
+            AppContext.BaseDirectory
+            |> File.tryFindNonEmptyDirectoryUpwards {| matches = [buildDir; "build/" + buildDir]; exclude = ["src"] |}
             |> Option.defaultWith (fun () -> Fable.FableError "Cannot find fable-library" |> raise)
-
-        if File.isDirectoryEmpty fableLibrarySource then
-            Fable.FableError $"fable-library directory is empty, please build FableLibrary: {fableLibrarySource}" |> raise
 
         Log.verbose(lazy ("fable-library: " + fableLibrarySource))
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)

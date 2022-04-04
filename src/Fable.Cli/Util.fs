@@ -196,11 +196,11 @@ module File =
             return ""
     }
 
-    let rec tryFindDirectoryUpwards (opts: {| matches: string list; exclude: string list |}) dir =
+    let rec tryFindNonEmptyDirectoryUpwards (opts: {| matches: string list; exclude: string list |}) dir =
         let tryParent() =
             let parent = Directory.GetParent(dir)
             if isNull parent then None
-            else tryFindDirectoryUpwards opts parent.FullName
+            else tryFindNonEmptyDirectoryUpwards opts parent.FullName
 
         let curDir = Path.GetFileName(dir)
         if opts.exclude |> List.exists (fun e -> String.Equals(curDir, e, StringComparison.OrdinalIgnoreCase)) then
@@ -286,7 +286,7 @@ module File =
                         waitedMs <- waitedMs + waitMs
                         Thread.Sleep(millisecondsTimeout=waitMs)
 
-                    File.Create(lockFile) |> ignore
+                    use _ = File.Create(lockFile)
                     fileCreated <- true
                 with _ ->
                     if attempt >= maxAttempts then
@@ -301,7 +301,8 @@ module File =
             try
                 if fileCreated then
                     File.Delete(lockFile)
-            with _ -> ()
+            with e ->
+                Log.always $"Could not delete lock file: {lockFile} ({e.Message})"
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -461,9 +462,9 @@ module Imports =
     let getTargetAbsolutePath (pathResolver: PathResolver) importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
-        // It may happen the importPath is already in outDir,
-        // for example package sources in fable_modules folder
-        if importPath.StartsWith(outDir) then importPath
+        // It may happen the importPath is already in outDir, for example package sources in fable_modules folder.
+        // (Case insensitive comparison because in some Windows build servers paths can start with C:/ or c:/)
+        if importPath.StartsWith(outDir, StringComparison.OrdinalIgnoreCase) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
             let targetDir = pathResolver.GetOrAddDeduplicateTargetDir(importDir, fun currentTargetDirs ->
