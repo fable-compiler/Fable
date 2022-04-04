@@ -1,3 +1,5 @@
+// ignore_for_file: file_names, constant_identifier_names
+
 // We define Unspecified for .NET compatibility but it's not used in Dart DateTime
 class DateTimeKind {
   static const Unspecified = 0;

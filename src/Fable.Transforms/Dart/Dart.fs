@@ -64,7 +64,7 @@ type Expression =
     // Dart AST doesn't include TypeLiteral with the other literals
     | TypeLiteral of value: Type
     | IdentExpression of ident: Ident
-    | PropertyAccess of expr: Expression * prop: string
+    | PropertyAccess of expr: Expression * prop: string * isConst: bool
     | IndexExpression of expr: Expression * index: Expression
     | AsExpression of expr: Expression * typ: Type
     | IsExpression of expr: Expression * typ: Type * isNot: bool
@@ -82,6 +82,7 @@ type Expression =
 
     static member sequenceExpression(seqExprFn, exprs) =
         SequenceExpression(seqExprFn, exprs)
+    static member listLiteral(values, ?isConst) = ListLiteral(values, isConst=defaultArg isConst false) |> Literal
     static member integerLiteral(value) = IntegerLiteral value |> Literal
     static member integerLiteral(value: int) = IntegerLiteral value |> Literal
     static member doubleLiteral(value) = DoubleLiteral value |> Literal
@@ -90,7 +91,7 @@ type Expression =
     static member nullLiteral() = NullLiteral |> Literal
     static member identExpression(ident) = IdentExpression(ident)
     static member indexExpression(expr, index) = IndexExpression(expr, index)
-    static member propertyAccess(expr, prop) = PropertyAccess(expr, prop)
+    static member propertyAccess(expr, prop, ?isConst) = PropertyAccess(expr, prop, isConst=defaultArg isConst false)
     static member asExpression(expr, typ) = AsExpression(expr, typ)
     static member isExpression(expr, typ, ?isNot) = IsExpression(expr, typ, defaultArg isNot false)
     static member invocationExpression(expr: Expression, args: CallArg list, ?genArgs, ?isConst) =
@@ -100,10 +101,10 @@ type Expression =
     static member invocationExpression(expr: Expression, args: Expression list, ?genArgs, ?isConst) =
         InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a), defaultArg isConst false)
     static member invocationExpression(expr: Expression, prop: string, args: CallArg list, ?genArgs, ?isConst) =
-        let expr = PropertyAccess(expr, prop)
+        let expr = PropertyAccess(expr, prop, false)
         InvocationExpression(expr, defaultArg genArgs [], args, defaultArg isConst false)
     static member invocationExpression(expr: Expression, prop: string, args: Expression list, ?genArgs, ?isConst) =
-        let expr = PropertyAccess(expr, prop)
+        let expr = PropertyAccess(expr, prop, false)
         InvocationExpression(expr, defaultArg genArgs [], args |> List.map (fun a -> None, a), defaultArg isConst false)
     static member updateExpression(operator, expr, ?isPrefix) = UpdateExpression(operator, defaultArg isPrefix false, expr)
     static member unaryExpression(operator, expr) = UnaryExpression(operator, expr)

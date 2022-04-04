@@ -383,10 +383,27 @@ type OperationKind =
     | Binary of operator: BinaryOperator * left: Expr * right: Expr
     | Logical of operator: LogicalOperator * left: Expr * right: Expr
 
+type FieldInfo =
+    {
+        IsMutable: bool
+        /// Indicates the field shouldn't be moved in beta reduction
+        MaybeCalculated: bool
+        /// In Dart indicates if the field is a constant
+        IsConst: bool
+    }
+    member this.CanHaveSideEffects =
+        this.IsMutable || this.MaybeCalculated
+    static member Create(?isMutable: bool, ?maybeCalculated: bool, ?isConst: bool) =
+        { IsMutable = defaultArg isMutable false
+          MaybeCalculated = defaultArg maybeCalculated false
+          IsConst = defaultArg isConst false }
+    static member Empty =
+        FieldInfo.Create()
+
 type GetKind =
     | TupleIndex of index: int
     | ExprGet of expr: Expr
-    | FieldGet of fieldName: string * isMutable: bool
+    | FieldGet of fieldName: string * info: FieldInfo
     | UnionField of caseIndex: int * fieldIndex: int
     | UnionTag
     | ListHead

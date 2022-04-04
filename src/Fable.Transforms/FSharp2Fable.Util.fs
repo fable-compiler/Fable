@@ -524,12 +524,10 @@ module Helpers =
             | None -> None)
 
     let hasAttribute attFullName (attributes: FSharpAttribute seq) =
-        let mutable found = false
-        let attFullName = Some attFullName
-        for att in attributes do
-            if not found then
-                found <- (nonAbbreviatedDefinition att.AttributeType).TryFullName = attFullName
-        found
+        attributes |> Seq.exists (fun att ->
+            match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
+            | Some attFullName2 -> attFullName = attFullName2
+            | None -> false)
 
     let tryPickAttribute attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
@@ -1880,8 +1878,12 @@ module Util =
                 else getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
             let t = memb.ReturnParameter.Type |> makeType Map.empty
-            // Set the field as mutable to prevent beta reduction
-            Fable.Get(callee, Fable.FieldGet(name, true), t, r)
+            // Set the field as maybe calculated so it's not displaced by beta reduction
+            let info = Fable.FieldInfo.Create(
+                maybeCalculated = true,
+                isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
+            )
+            Fable.Get(callee, Fable.FieldGet(name, info), t, r)
         elif isSetter then
             let membType = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
@@ -1968,7 +1970,7 @@ module Util =
                 Fable.Emit(emitInfo, typ, r) |> Some
             | _ -> None)
 
-    let (|Imported|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
+    let (|Imported|_|) (com: Compiler) r typ callInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome callInfo then Fable.Any else typ
         match tryGlobalOrImportedMember com importValueType memb, callInfo, entity with
         // Import called as function
@@ -2002,8 +2004,12 @@ module Util =
 
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls e memb then
-                    // Set the field as mutable just in case, so it's not displaced by beta reduction
-                    Fable.Get(moduleOrClassExpr, Fable.FieldGet(getMemberDisplayName memb, true), typ, r) |> Some
+                    // Set the field as maybe calculated so it's not displaced by beta reduction
+                    let info = Fable.FieldInfo.Create(
+                        maybeCalculated = true,
+                        isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
+                    )
+                    Fable.Get(moduleOrClassExpr, Fable.FieldGet(getMemberDisplayName memb, info), typ, r) |> Some
                 else
                     let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
                     callAttachedMember com r typ callInfo e memb |> Some

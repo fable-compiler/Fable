@@ -595,7 +595,7 @@ module PrinterExtensions =
                 printer.Print(op)
                 printer.Print(value)
 
-            | PropertyAccess(expr, prop) ->
+            | PropertyAccess(expr, prop, _isConst) ->
                 printer.PrintWithParensIfComplex(expr)
                 printer.Print("." + prop)
 

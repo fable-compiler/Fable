@@ -1864,7 +1864,7 @@ module Util =
             | _ ->
                 getExpr range expr prop
 
-        | Fable.FieldGet(fieldName, isMutable) ->
+        | Fable.FieldGet(fieldName, info) ->
             match fableExpr.Type with
             | Fable.AnonymousRecordType (fields, args) ->
                 // temporary - redirect anon to tuple calls
@@ -1878,7 +1878,7 @@ module Util =
             | _ ->
                 let expr = transformExprMaybeIdentExpr com ctx fableExpr
                 let field = getField range expr fieldName
-                if isMutable
+                if info.IsMutable
                 then field |> mutableGet
                 else field
 

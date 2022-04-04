@@ -76,7 +76,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
 
 let makeRefFromMutableField com ctx r t callee key =
-    let getter = Delegate([], Get(callee, FieldGet(key, true), t, r), FuncInfo.Empty)
+    let getter = Delegate([], Get(callee, FieldGet(key, FieldInfo.Create(isMutable=true)), t, r), FuncInfo.Empty)
 
     let setter =
         let v = makeUniqueIdent ctx t "v"

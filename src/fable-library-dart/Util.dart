@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 void ignore([Object? _arg]) {}
 
 T sequenceExpr<T>(List<Object> _exprs, T returnValue) {

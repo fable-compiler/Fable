@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 RegExp create(String pattern, [int options = 0]) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001

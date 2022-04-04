@@ -568,8 +568,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // static function call
         match callee with
         | Fable.Import({Selector = "op_UnaryNegation_Int32"},_,_) -> PhpUnaryOp("-", convertExpr com args.[0])
-        | Fable.Get(this, Fable.FieldGet(field, index),_,_) ->
-            PhpField(convertExpr com this, Prop.StrField (fixName field), None)
+        | Fable.Get(this, Fable.FieldGet(field, _),_,_) ->
+            PhpField(convertExpr com this, StrField (fixName field), None)
         | Fable.Get((Fable.Get(_,_,ty,_) as this), Fable.ExprGet(Fable.Value(Fable.StringConstant m, None)),_,_)
                 when match ty with Fable.Array _ -> true | _ -> false
                 ->

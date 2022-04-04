@@ -159,7 +159,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     let fieldName = Naming.removeGetSetPrefix traitName
                     entity.FSharpFields |> Seq.tryPick (fun fi ->
                         if fi.Name = fieldName then
-                            Fable.Get(thisArg.Value, Fable.FieldGet(fi.Name, fi.IsMutable), typ, r) |> Some
+                            Fable.Get(thisArg.Value, Fable.FieldGet(fi.Name, Fable.FieldInfo.Create(isMutable=fi.IsMutable)), typ, r) |> Some
                         else None)
                     |> Option.orElseWith (fun () ->
                         resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args)
@@ -170,7 +170,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                 Seq.zip sortedFieldNames entGenArgs
                 |> Seq.tryPick (fun (fi, _fiType) ->
                     if fi = fieldName then
-                        Fable.Get(thisArg.Value, Fable.FieldGet(fi, false), typ, r) |> Some
+                        Fable.Get(thisArg.Value, Fable.FieldGet(fi, Fable.FieldInfo.Empty), typ, r) |> Some
                     else None)
             | _ -> None
     ) |> Option.defaultWith (fun () ->
@@ -368,7 +368,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 | Some (CompiledValue.Float f) -> makeFloatConst f
                 | Some (CompiledValue.Boolean b) -> makeBoolConst b
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.FieldGet(tagName, false), value.Type, r))
+                (Fable.Get(unionExpr, Fable.FieldGet(tagName, Fable.FieldInfo.Empty), value.Type, r))
                 value
                 BinaryEqual
         | _ ->
@@ -790,14 +790,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        return Fable.Get(callee, Fable.FieldGet(fieldName, false), typ, r)
+        return Fable.Get(callee, Fable.FieldGet(fieldName, Fable.FieldInfo.Empty), typ, r)
 
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         // let typ = makeType ctx.GenericArgs fsExpr.Type
         let typ = makeType Map.empty field.FieldType
-        return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, field.IsMutable), typ, r)
+        return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, Fable.FieldInfo.Create(isMutable=field.IsMutable)), typ, r)
 
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
         let! tupleExpr = transformExpr com ctx tupleExpr
