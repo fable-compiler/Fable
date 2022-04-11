@@ -53,6 +53,8 @@ type Literal =
     | NullLiteral
     | ListLiteral of values: Expression list * isConst: bool
 
+type Annotation = Ident * Literal list
+
 type CallArg = string option * Expression
 
 type Expression =
@@ -61,6 +63,7 @@ type Expression =
     | SuperExpression
     | ThisExpression
     | Literal of value: Literal
+    | InterpolationString of parts: string list * values: Expression list
     // Dart AST doesn't include TypeLiteral with the other literals
     | TypeLiteral of value: Type
     | IdentExpression of ident: Ident
@@ -89,6 +92,7 @@ type Expression =
     static member booleanLiteral(value) = BooleanLiteral value |> Literal
     static member stringLiteral(value) = StringLiteral value |> Literal
     static member nullLiteral() = NullLiteral |> Literal
+    static member interpolationString(parts, values) = InterpolationString(parts, values)
     static member identExpression(ident) = IdentExpression(ident)
     static member indexExpression(expr, index) = IndexExpression(expr, index)
     static member propertyAccess(expr, prop, ?isConst) = PropertyAccess(expr, prop, isConst=defaultArg isConst false)
@@ -206,16 +210,18 @@ type Constructor(?args, ?body, ?superArgs, ?isConst, ?isFactory) =
     member _.IsConst = defaultArg isConst false
     member _.IsFactory = defaultArg isFactory false
 
-type InstanceVariable(ident, ?value, ?kind, ?isOverride) =
+type InstanceVariable(ident, ?value, ?kind, ?isOverride, ?isLate) =
     member _.Ident: Ident = ident
     member _.Kind: VariableDeclarationKind = defaultArg kind Final
     member _.Value: Expression option = value
     member _.IsOverride = defaultArg isOverride false
+    member _.IsLate = defaultArg isLate false
 
 type MethodKind =
     | IsMethod
     | IsGetter
     | IsSetter
+    | IsOperator
 
 // TODO: generic constraints
 type InstanceMethod(name, args, returnType, ?genArgs, ?body, ?kind, ?isOverride, ?isStatic) =
@@ -229,14 +235,16 @@ type InstanceMethod(name, args, returnType, ?genArgs, ?body, ?kind, ?isOverride,
     member _.IsStatic = defaultArg isStatic false
 
 // TODO: generic constraints
-type Class(name, ?constructor, ?extends, ?implements, ?variables, ?methods, ?isAbstract) =
+type Class(name, ?genArgs, ?constructor, ?extends, ?implements, ?variables, ?methods, ?isAbstract, ?annotations) =
     member _.Name: string = name
+    member _.GenericArgs: string list = defaultArg genArgs []
     member _.IsAbstract = defaultArg isAbstract false
     member _.Extends: Type option = extends
     member _.Implements: Type list = defaultArg implements []
     member _.Constructor: Constructor option = constructor
     member _.InstanceVariables: InstanceVariable list = defaultArg variables []
     member _.InstanceMethods: InstanceMethod list = defaultArg methods []
+    member _.Annotations: Annotation list = defaultArg annotations []
 
 type Declaration =
     | ClassDeclaration of Class
@@ -255,8 +263,8 @@ type Declaration =
             GenericArgs = defaultArg genArgs []
         }
 
-    static member classDeclaration(name, ?isAbstract, ?constructor, ?extends, ?implements, ?variables, ?methods) =
-        Class(name, ?isAbstract=isAbstract, ?constructor=constructor, ?extends=extends, ?implements=implements, ?variables=variables, ?methods=methods)
+    static member classDeclaration(name, ?genArgs, ?isAbstract, ?constructor, ?extends, ?implements, ?variables, ?methods) =
+        Class(name, ?genArgs=genArgs, ?isAbstract=isAbstract, ?constructor=constructor, ?extends=extends, ?implements=implements, ?variables=variables, ?methods=methods)
         |> ClassDeclaration
 
 type Import =

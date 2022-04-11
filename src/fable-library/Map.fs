@@ -505,13 +505,11 @@ module MapTree =
 
     let mkIEnumerator m =
         let mutable i = mkIterator m
-        { new IEnumerator<_> with
-              member _.Current = current i
-          interface System.Collections.IEnumerator with
-              member _.Current = box (current i)
+        { new IEnumerator<KeyValuePair<'a,'b>> with
+              member _.Current: KeyValuePair<'a,'b> = current i
+              member _.Current: obj = box (current i)
               member _.MoveNext() = moveNext i
               member _.Reset() = i <- mkIterator m
-          interface System.IDisposable with
               member _.Dispose() = ()}
 
     let toSeq s =

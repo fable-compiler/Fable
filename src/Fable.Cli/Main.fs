@@ -660,17 +660,18 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
         let workingDir = cliArgs.RootDir
 
         let exeFile, args =
-            match runProc.ExeFile with
-            | Naming.placeholder ->
+            match cliArgs.CompilerOptions.Language, runProc.ExeFile with
+            | (JavaScript | TypeScript), Naming.placeholder ->
                 let pathResolver = state.GetPathResolver()
                 let lastFile = Array.last projCracked.SourceFiles
                 let lastFilePath = getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
                 // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                 let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                 "node", lastFilePath::runProc.Args
-            | exeFile ->
+            | (JavaScript | TypeScript), exeFile ->
                 File.tryNodeModulesBin workingDir exeFile
                 |> Option.defaultValue exeFile, runProc.Args
+            | _, exeFile -> exeFile, runProc.Args
 
         if Option.isSome state.Watcher then
             Process.startWithEnv cliArgs.RunProcessEnv workingDir exeFile args

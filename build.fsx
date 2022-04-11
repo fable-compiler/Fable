@@ -111,7 +111,7 @@ module Unused =
 
 // TARGETS ---------------------------
 
-let buildLibraryWithOptions (opts: {| watch: bool |}) =
+let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
     let baseDir = __SOURCE_DIRECTORY__
 
     let projectDir = baseDir </> "src/fable-library"
@@ -145,13 +145,13 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
         runFableWithArgs projectDir fableOpts
         removeDirRecursive (buildDir </> ".fable")
 
-let buildLibrary() = buildLibraryWithOptions {| watch = false |}
-let watchLibraryJs() = buildLibraryWithOptions {| watch = true |}
+let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
+let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
 
-let buildLibraryIfNotExists() =
+let buildLibraryJsIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library")) then
-        buildLibrary()
+        buildLibraryJs()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -203,7 +203,7 @@ let buildLibraryPy() =
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
-let buildPyLibraryIfNotExists() =
+let buildLibraryPyIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library-py")) then
         buildLibraryPy()
@@ -241,18 +241,18 @@ let buildLibraryDart() =
     let buildDir = "build/fable-library-dart"
     cleanDirs [buildDir]
 
-//    let fableLib = "."
+    makeDirRecursive buildDir
+    copyFiles sourceDir "*.dart" buildDir
+
 //    runFableWithArgsInDir sourceDir [
 //        "--outDir " + resolveDir buildDir
-//        "--fableLib " + fableLib
+//        "--fableLib ."
 //        "--lang Dart"
 //        "--exclude Fable.Core"
 //        "--define FABLE_LIBRARY"
 //        "--noCache"
 //    ]
 
-    makeDirRecursive buildDir
-    copyFiles sourceDir "*.dart" buildDir
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -274,7 +274,7 @@ let testStandaloneFast() =
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
@@ -454,12 +454,12 @@ let testProjectConfigs() =
 let testIntegration() =
     runInDir "tests/Integration/Integration" "dotnet run -c Release"
 
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     runInDir "tests/Integration/Compiler" "dotnet run -c Release"
     testProjectConfigs()
 
 let testJs() =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     compileAndRunTestsWithMocha true "Main"
 
@@ -475,7 +475,7 @@ let testJs() =
         testStandaloneFast()
 
 let testPython() =
-    buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
+    buildLibraryPyIfNotExists() // NOTE: fable-library-py needs to be built separately.
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
@@ -553,7 +553,7 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibrary()
+            buildLibraryJs()
             updateVersionInFableTransforms version)
 
 let testRepos() =
@@ -657,7 +657,7 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibrary())
+        buildLibraryJs())
      "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
@@ -698,15 +698,15 @@ match BUILD_ARGS_LOWER with
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
 | "quicktest"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
-    buildPyLibraryIfNotExists()
+    buildLibraryPyIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --region --cwd ../quicktest-py --noCache"
 | "quicktest-dart"::_ ->
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest --exclude Fable.Core --noCache"
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest-dart --exclude Fable.Core --noCache --runWatch dart run Quicktest.fs.dart"
 | "run"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
@@ -720,7 +720,7 @@ match BUILD_ARGS_LOWER with
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibraryJs()
-| ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()

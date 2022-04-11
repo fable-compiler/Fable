@@ -105,21 +105,21 @@ and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
     let mutable it = xs
     let mutable current = Unchecked.defaultof<'T>
     interface System.Collections.Generic.IEnumerator<'T> with
-        member __.Current = current
+        member _.Current = current
     interface System.Collections.IEnumerator with
-        member __.Current = box (current)
-        member __.MoveNext() =
+        member _.Current = box (current)
+        member _.MoveNext() =
             match it.tail with
             | None -> false
             | Some t ->
                 current <- it.head
                 it <- t
                 true
-        member __.Reset() =
+        member _.Reset() =
             it <- xs
             current <- Unchecked.defaultof<'T>
     interface System.IDisposable with
-        member __.Dispose() = ()
+        member _.Dispose() = ()
 
 and 'T list when 'T: comparison = LinkedList<'T>
 and List<'T> when 'T: comparison = LinkedList<'T>

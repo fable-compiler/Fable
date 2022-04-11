@@ -481,13 +481,11 @@ module SetTree =
 
     let mkIEnumerator s =
         let mutable i = mkIterator s
-        { new IEnumerator<_> with
-              member _.Current = current i
-          interface System.Collections.IEnumerator with
-              member _.Current = box (current i)
+        { new IEnumerator<'a> with
+              member _.Current: 'a = current i
+              member _.Current: obj = box (current i)
               member _.MoveNext() = moveNext i
               member _.Reset() = i <- mkIterator s
-          interface System.IDisposable with
               member _.Dispose() = () }
 
     /// Set comparison.  Note this can be expensive.

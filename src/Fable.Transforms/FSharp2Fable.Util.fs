@@ -179,7 +179,6 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.GenericParameters = m.GenericParameters |> Seq.mapToList (fun x -> FsGenParam(x) :> Fable.GenericParam)
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
         member _.ReturnParameter = FsParam.Make(m.ReturnParameter)
-        member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
 type FsEnt(ent: FSharpEntity) =
@@ -260,6 +259,12 @@ type FsEnt(ent: FSharpEntity) =
 
         member _.AllInterfaces =
             ent.AllInterfaces |> Seq.choose (fun ifc ->
+                if ifc.HasTypeDefinition then
+                    Some(upcast FsDeclaredType(ifc.TypeDefinition, ifc.GenericArguments))
+                else None)
+
+        member _.DeclaredInterfaces =
+            ent.DeclaredInterfaces |> Seq.choose (fun ifc ->
                 if ifc.HasTypeDefinition then
                     Some(upcast FsDeclaredType(ifc.TypeDefinition, ifc.GenericArguments))
                 else None)
@@ -2149,9 +2154,14 @@ module Util =
 
             callAttachedMember com r typ callInfo entity memb
 
-        | _, Some entity when isModuleValueForCalls entity memb && com.Options.Language <> Rust ->
+        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
             memberRef com r typ memb
+
+        | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
+            let classExpr = FsEnt entity |> entityRef com
+            Fable.Call(classExpr, { callInfo with IsConstructor = true }, typ, r)
+
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
             let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
