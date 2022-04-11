@@ -191,16 +191,20 @@ module Naming =
             found <- found || not(isIdentChar i ident.[i])
         found
 
-    let sanitizeIdentForbiddenChars (ident: string) =
+    let sanitizeIdentForbiddenCharsWith replace (ident: string) =
         if hasIdentForbiddenChars ident then
-            System.String.Concat(seq {
-                for i = 0 to (ident.Length - 1) do
-                    let c = ident.[i]
-                    if isIdentChar i c
-                    then yield string c
-                    else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
-                })
+            Seq.init ident.Length (fun i ->
+                let c = ident.[i]
+                if isIdentChar i c
+                then string c
+                else replace c
+            )
+            |> String.Concat
         else ident
+
+    let sanitizeIdentForbiddenChars (ident: string) =
+        ident |> sanitizeIdentForbiddenCharsWith (fun c ->
+            "$" + String.Format("{0:X}", int c).PadLeft(4, '0'))
 
     let replaceRegex (pattern: string) (value: string) (input: string) =
         Regex.Replace(input, pattern, value)

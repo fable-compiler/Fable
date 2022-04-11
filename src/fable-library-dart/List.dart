@@ -9,6 +9,11 @@ abstract class FsList<T> extends Iterable<T> implements Comparable<FsList<T>> {
   bool get isNil;
 
   @override
+  String toString() {
+    return List.from(this).toString();
+  }
+
+  @override
   Iterator<T> get iterator {
     FsList<T> current = this;
     return types.CustomIterator(() {

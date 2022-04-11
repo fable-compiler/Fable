@@ -1,4 +1,25 @@
+// ignore_for_file: file_names, non_constant_identifier_names
+
 import 'Util.dart' as util;
+
+abstract class IDisposable {
+  void Dispose();
+}
+
+abstract class IEqualityComparer<T> {
+  bool Equals(T a, T b);
+}
+
+abstract class IGenericAdder<T> {
+  T GetZero();
+  T Add(T a, T b);
+}
+
+abstract class IGenericAverager<T> {
+  T GetZero();
+  T Add(T a, T b);
+  T DivideByInt(T a, int b);
+}
 
 abstract class Union {
   final int tag;
@@ -22,6 +43,8 @@ abstract class Union {
   }
 
   const Union(this.tag, this.fields);
+
+  // TODO: implement toString
 
   @override
   bool operator ==(Object other) =>

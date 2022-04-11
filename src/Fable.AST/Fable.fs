@@ -89,7 +89,6 @@ type MemberFunctionOrValue =
     abstract GenericParameters: GenericParam list
     abstract CurriedParameterGroups: Parameter list list
     abstract ReturnParameter: Parameter
-    abstract IsExplicitInterfaceImplementation: bool
     abstract ApparentEnclosingEntity: EntityRef
 
 type Entity =
@@ -99,6 +98,7 @@ type Entity =
     abstract Attributes: Attribute seq
     abstract BaseType: DeclaredType option
     abstract AllInterfaces: DeclaredType seq
+    abstract DeclaredInterfaces: DeclaredType seq
     abstract GenericParameters: GenericParam list
     abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
     abstract FSharpFields: Field list
@@ -189,6 +189,7 @@ type MemberDecl = {
     /// This can only be set once per file
     /// for a declaration in the root scope
     ExportDefault: bool
+    DeclaringEntity: EntityRef option
 } with
     member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
     member this.ArgTypes = this.Args |> List.map (fun a -> a.Ident.Type)

@@ -6,7 +6,6 @@ module Native
 open System.Collections.Generic
 open Fable.Core
 open Fable.Core.PyInterop
-open Fable.Import
 
 [<AllowNullLiteral>]
 type Cons<'T> =

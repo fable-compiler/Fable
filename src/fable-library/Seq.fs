@@ -21,9 +21,9 @@ module SR =
 
 module Enumerator =
 
-    let noReset() = raise (new System.NotSupportedException(SR.resetNotSupported))
-    let notStarted() = raise (new System.InvalidOperationException(SR.enumerationNotStarted))
-    let alreadyFinished() = raise (new System.InvalidOperationException(SR.enumerationAlreadyFinished))
+    let noReset() = raise (System.NotSupportedException(SR.resetNotSupported))
+    let notStarted() = raise (System.InvalidOperationException(SR.enumerationNotStarted))
+    let alreadyFinished() = raise (System.InvalidOperationException(SR.enumerationAlreadyFinished))
 
     [<Sealed>]
     [<CompiledName("Seq")>]
@@ -47,13 +47,13 @@ module Enumerator =
 
     type FromFunctions<'T>(current, next, dispose) =
         interface IEnumerator<'T> with
-            member __.Current = current()
+            member _.Current = current()
         interface System.Collections.IEnumerator with
-            member __.Current = box (current())
-            member __.MoveNext() = next()
-            member __.Reset() = noReset()
+            member _.Current = box (current())
+            member _.MoveNext() = next()
+            member _.Reset() = noReset()
         interface System.IDisposable with
-            member __.Dispose() = dispose()
+            member _.Dispose() = dispose()
 
     let inline fromFunctions current next dispose: IEnumerator<'T> =
         new FromFunctions<_>(current, next, dispose) :> IEnumerator<'T>
@@ -208,7 +208,7 @@ module Enumerator =
 // [<RequireQualifiedAccess>]
 // module Seq =
 
-let indexNotFound() = raise (new System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
+let indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
 let checkNonNull argName arg = if isNull arg then nullArg argName
 

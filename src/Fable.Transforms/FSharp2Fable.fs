@@ -280,6 +280,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                  // UsedNames are not used for obj expr members
                  UsedNames = Set.empty
                  Info = info
+                 DeclaringEntity = tryDefinition signature.DeclaringType |> Option.map (fst >> FsEnt.Ref)
                  ExportDefault = false }
       }
 
@@ -1094,6 +1095,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               Body = body
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
+              DeclaringEntity = FsEnt.Ref(ent) |> Some
               ExportDefault = false }
         com.AddConstructor(fullName, cons, baseCall)
         []
@@ -1112,6 +1114,7 @@ let private transformImportWithInfo _com r typ info name fullDisplayName selecto
           Body = makeImportUserGenerated r typ selector path
           UsedNames = Set.empty
           Info = info
+          DeclaringEntity = None
           ExportDefault = false }]
 
 let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
@@ -1153,6 +1156,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               Body = fableValue
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
+              DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
               ExportDefault = false }]
 
 let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
@@ -1251,6 +1255,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   Body = body
                   UsedNames = set ctx.UsedNamesInDeclarationScope
                   Info = moduleMemberDeclarationInfo isPublic isValue memb
+                  DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
                   ExportDefault = false }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1285,6 +1290,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
           Body = body
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
+          DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
           ExportDefault = false })
 
 let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context)
@@ -1310,6 +1316,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           Body = body
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
+          DeclaringEntity = FsEnt.Ref(declaringEntity) |> Some
           ExportDefault = false })
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)

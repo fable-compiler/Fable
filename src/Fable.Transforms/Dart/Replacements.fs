@@ -29,7 +29,7 @@ let (|TypedArrayCompatible|_|) (com: Compiler) = function
     | _ -> None
 
 let error msg =
-    Helper.ConstructorCall(makeIdentExpr "Error", Any, [msg])
+    Helper.ConstructorCall(makeIdentExpr "Exception", Any, [msg])
 
 let coreModFor = function
     | BclGuid -> "Guid"
@@ -659,12 +659,12 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
-    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
-    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
+    | BuiltinDefinition BclTimer -> makeImportLib com MetaType "default" "Timer" |> Some
+    | BuiltinDefinition(FSharpReference _) -> makeImportLib com MetaType "FSharpRef" "Types" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com MetaType "FSharpResult$2" "Choice" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
         let membName = $"FSharpChoice${List.length genArgs}"
-        makeImportLib com Any membName "Choice" |> Some
+        makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -672,11 +672,22 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
-    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
+    | Types.matchFail -> makeImportLib com MetaType "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
-    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
-    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
-//    | "System.DateTimeKind" -> makeImportLib com Any "DateTimeKind" "Date" |> Some
+    | Types.systemException -> makeImportLib com MetaType "SystemException" "SystemException" |> Some
+    | Types.timeoutException -> makeImportLib com MetaType "TimeoutException" "SystemException" |> Some
+//    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
+    | Types.ienumerable | Types.ienumerableGeneric -> makeIdentExpr "Iterable" |> Some
+    | Types.ienumerator | Types.ienumeratorGeneric -> makeIdentExpr "Iterator" |> Some
+    | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
+    | Types.comparer -> makeIdentExpr "Comparator" |> Some
+    | Types.idisposable | Types.adder | Types.averager | Types.equalityComparer ->
+        let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
+        let entFullName =
+            match entFullName.IndexOf("`") with
+            | -1 -> entFullName
+            | i -> entFullName[0..i-1]
+        makeImportLib com MetaType entFullName "Types" |> Some
     | _ -> None
 
 let tryEntityRef com ent =
@@ -1024,34 +1035,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str::(Value(NewArray(templateArgs, _, true), _) as values)::_ ->
-        // Optimization: try to convert f# interpolated string to JS template
-        // for better performance
-        let template =
-            match str with
-            | StringConst str ->
-                // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
-                // (though it does resolve double braces {{ }})
-                let str = str.Replace("%%" , "%")
-                (Some [], Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)") |> Seq.cast<Match>)
-                ||> Seq.fold (fun acc m ->
-                    match acc with
-                    | None -> None
-                    | Some acc ->
-                        let doesNotNeedFormat =
-                            not m.Groups.[1].Success
-                            || m.Groups.[1].Value = "%s"
-                            || m.Groups.[1].Value = "%i"
-                        if doesNotNeedFormat then
-                            {| Index = m.Index; Length = m.Length |}::acc |> Some
-                        else None)
-                |> Option.map (fun holes -> str, List.toArray holes |> Array.rev)
-            | _ -> None
-
-        match template with
-        | Some(str, holes) ->
-            printJsTaggedTemplate str holes (fun i -> $"${i}")
-            |> emitExpr r String templateArgs |> Some // Use String type so we can remove `toText` wrapper
-        // TODO: We could still use a JS template for formatting to increase performance?
+        match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
+        | Some v -> makeValue r v |> Some
         | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
@@ -1275,8 +1260,8 @@ let implementedStringFunctions =
            "Substring"
         |]
 
-let getEnumerator com r t expr =
-    Helper.LibCall(com, "Util", "getEnumerator", t, [expr], ?loc=r)
+let getEnumerator (_com: ICompiler) r t expr =
+    getAttachedMemberWith r t expr "iterator"
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2126,7 +2111,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> getAttachedMemberWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
     | _ -> None
@@ -2608,13 +2593,9 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | _ -> None
 
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg with
-    | Some callee ->
-        // Enumerators are mangled, use the fully qualified name
-        let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
-        let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
-        let methName = entityName + "." + i.CompiledName
-        Helper.InstanceCall(callee, methName, t, args, ?loc=r) |> Some
+    match thisArg, i.CompiledName with
+    | Some callee, "get_Current" -> getAttachedMemberWith r t callee "current" |> Some
+    | Some callee, "MoveNext" -> Helper.InstanceCall(callee, "moveNext", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
@@ -2934,6 +2915,8 @@ let private replacedModules =
     "System.Collections.Generic.List`1.Enumerator", enumerators
     "System.Collections.Generic.HashSet`1.Enumerator", enumerators
     "System.CharEnumerator", enumerators
+    Types.ienumerator, enumerators
+    Types.ienumeratorGeneric, enumerators
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.IList", resizeArrays

@@ -322,15 +322,15 @@ module private Transforms =
 
     /// Returns arity of lambda (or lambda option) types
     let getLambdaTypeArity t =
-        let rec getLambdaTypeArity acc = function
-            | LambdaType(_, returnType) ->
-                getLambdaTypeArity (acc + 1) returnType
-            | t -> acc, t
+        let rec getLambdaTypeArity accArity accArgs = function
+            | LambdaType(arg, returnType) ->
+                getLambdaTypeArity (accArity + 1) (arg::accArgs) returnType
+            | t -> accArity, List.rev accArgs, t
         match t with
-        | LambdaType(_, returnType)
-        | Option(LambdaType(_, returnType),_) ->
-            getLambdaTypeArity 1 returnType
-        | _ -> 0, t
+        | LambdaType(arg, returnType)
+        | Option(LambdaType(arg, returnType),_) ->
+            getLambdaTypeArity 1 [arg] returnType
+        | _ -> 0, [], t
 
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
@@ -340,16 +340,21 @@ module private Transforms =
                 | None -> e
             | e -> e) body
 
-    let curryIdentsAndReplaceInBody (idents: Ident list) body =
-        let replacements =
-            (Map.empty, idents) ||> List.fold (fun replacements id ->
-                let arity, _ = getLambdaTypeArity id.Type
-                if arity > 1
-                then Map.add id.Name arity replacements
-                else replacements)
+    let curryArgIdentsAndReplaceInBody (args: Ident list) body =
+        let replacements, args =
+            ((Map.empty, []), args) ||> List.fold (fun (replacements, uncurriedArgs) arg ->
+                let arity, argTypes, returnType = getLambdaTypeArity arg.Type
+                if arity > 1 then
+                    let uncurriedType =
+                        // getLambdaTypeArity also accepts optional lambdas
+                        match arg.Type with
+                        | Option(_, isStruct) -> Option(DelegateType(argTypes, returnType), isStruct)
+                        | _ -> DelegateType(argTypes, returnType)
+                    Map.add arg.Name arity replacements, { arg with Type = uncurriedType}::uncurriedArgs
+                else replacements, arg::uncurriedArgs)
         if Map.isEmpty replacements
-        then body
-        else curryIdentsInBody replacements body
+        then List.rev args, body
+        else List.rev args, curryIdentsInBody replacements body
 
     let uncurryExpr com arity expr =
         let matches arity arity2 =
@@ -388,7 +393,7 @@ module private Transforms =
             match expectedType with
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
-                let arity, _ = getLambdaTypeArity expectedType
+                let arity, _, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
                 else arg)
@@ -431,25 +436,28 @@ module private Transforms =
 
     let uncurryMemberArgs (m: MemberDecl) =
         if m.Info.IsValue then m
-        else { m with Body = curryIdentsAndReplaceInBody m.ArgIdents m.Body }
+        else
+            let args, body = curryArgIdentsAndReplaceInBody m.ArgIdents m.Body
+            let args = List.zip m.Args args |> List.map (fun (d, i) -> { d with Ident = i })
+            { m with Args = args; Body = body }
 
     let curryReceivedArgs (com: Compiler) e =
         match e with
         // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
         // | Lambda(arg, body, name)
         | Delegate(args, body, name) ->
-            let body = curryIdentsAndReplaceInBody args body
+            let args, body = curryArgIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
         | Get(callee, (FieldGet _ | UnionField _), t, r) ->
             match getLambdaTypeArity t, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
-            | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
+            | (arity, _, GenericParam _), AnonymousRecordType _ when arity > 0 ->
                 let e = Replacements.Api.checkArity com t arity e
                 if arity > 1 then Extended(Curry(e, arity), r)
                 else e
-            | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
+            | (arity, _, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
@@ -599,12 +607,14 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
             | Some cons, Some baseCall ->
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
-                Sequential [baseCall; cons.Body]
-                |> curryIdentsAndReplaceInBody cons.ArgIdents
-                |> transformExpr com
+                let args, body =
+                    Sequential [baseCall; cons.Body]
+                    |> curryArgIdentsAndReplaceInBody cons.ArgIdents
+                let args = List.zip cons.Args args |> List.map (fun (d, i) -> { d with Ident = i })
+                transformExpr com body
                 |> function
-                    | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall
-                    | body -> Some { cons with Body = body }, None // Unexpected, raise error?
+                    | Sequential [baseCall; body] -> Some { cons with Args = args; Body = body }, Some baseCall
+                    | body -> Some { cons with Args = args; Body = body }, None // Unexpected, raise error?
 
         { decl with Constructor = cons
                     BaseCall = baseCall

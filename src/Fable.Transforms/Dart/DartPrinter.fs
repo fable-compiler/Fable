@@ -248,6 +248,7 @@ module PrinterExtensions =
             match expr with
             | ThisExpression
             | SuperExpression
+            | InterpolationString _
             | Literal _
             | TypeLiteral _
             | IdentExpression _
@@ -368,7 +369,7 @@ module PrinterExtensions =
                 match init with
                 | None -> ()
                 | Some(ident, value) ->
-                    printer.Print("final " + ident.Name + " = ")
+                    printer.Print("var " + ident.Name + " = ")
                     printer.Print(value)
                 printer.Print("; ")
                 match test with
@@ -521,6 +522,30 @@ module PrinterExtensions =
 
             | Literal kind -> printer.PrintLiteral(kind)
 
+            | InterpolationString(parts, values) ->
+                let escape str =
+                    Regex.Replace(str, @"(?<!\\)\\", @"\\")
+                        .Replace("'", @"\'")
+                        .Replace("$", @"\$")
+                let quotes =
+                    if parts |> List.exists (fun p -> p.Contains("\n"))
+                    then "'''"
+                    else "'"
+                printer.Print(quotes)
+                for i = 0 to parts.Length - 2 do
+                    printer.Print(escape parts.[i])
+                    match values.[i] with
+                    | IdentExpression i ->
+                        printer.Print("$")
+                        printer.PrintIdent(i)
+                        printer.Print("")
+                    | v ->
+                        printer.Print("${")
+                        printer.Print(v)
+                        printer.Print("}")
+                printer.Print(List.last parts |> escape)
+                printer.Print(quotes)
+
             | TypeLiteral t -> printer.PrintType(t)
 
             | IdentExpression i -> printer.PrintIdent(i)
@@ -633,7 +658,9 @@ module PrinterExtensions =
         member printer.PrintClassDeclaration(decl: Class) =
             if decl.IsAbstract then
                 printer.Print("abstract ")
-            printer.Print("class " + decl.Name + " ")
+            printer.Print("class " + decl.Name)
+            printer.PrintList("<", decl.GenericArgs, ">", skipIfEmpty=true)
+            printer.Print(" ")
             let callSuper =
                 match decl.Extends with
                 | None -> false
@@ -659,6 +686,9 @@ module PrinterExtensions =
                     if v.IsOverride then
                         p.Print("@override")
                         p.PrintNewLine()
+                    match v.Kind with
+                    | Final when v.IsLate -> p.Print("late ")
+                    | _ -> ()
                     p.PrintVariableDeclaration(v.Ident, v.Kind, ?value=v.Value)
                     p.Print(";")
 
@@ -703,6 +733,8 @@ module PrinterExtensions =
                         p.PrintFunctionBody(?body=m.Body)
                     | IsMethod ->
                         p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericArgs, m.Args, ?body=m.Body)
+                    | IsOperator ->
+                        p.PrintFunctionDeclaration(m.ReturnType, "operator " + m.Name, m.GenericArgs, m.Args, ?body=m.Body)
             ), fun p -> p.PrintNewLine())
 
         member printer.PrintFunctionBody(?body: Statement list, ?isExpression: bool) =
