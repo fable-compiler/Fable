@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+        <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Global.fs" />
+        <Compile Include="Array.fs" />
+<!--        <Compile Include="Seq.fs" />-->
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
+    </ItemGroup>
+
+</Project>

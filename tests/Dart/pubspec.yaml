@@ -1,5 +1,5 @@
-name: cli
-description: A simple command-line application.
+name: fable_tests
+description: Fable tests
 version: 1.0.0
 # homepage: https://www.example.com
 
@@ -10,5 +10,8 @@ environment:
 #   path: ^1.8.0
 
 dev_dependencies:
-  pedantic: ^1.10.0
+  flutter_lints: ^1.0.0
   test: ^1.17.12
+
+dependencies:
+  tuple: ^2.0.0

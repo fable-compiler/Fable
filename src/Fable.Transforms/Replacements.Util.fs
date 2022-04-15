@@ -39,6 +39,13 @@ type Helper =
         Call(callee, { info with HasSpread = defaultArg hasSpread false
                                  IsConstructor = defaultArg isConstructor false }, returnType, loc)
 
+    static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
+                                ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
+        let callee = makeImportUserGenerated None Any selector path
+        let info = makeCallInfo thisArg args (defaultArg argTypes [])
+        Call(callee, { info with HasSpread = defaultArg hasSpread false
+                                 IsConstructor = defaultArg isConstructor false }, returnType, loc)
+
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list,
                              ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee =

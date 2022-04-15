@@ -5,6 +5,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.AST
+open Fable.Transforms.Dart.Replacements.Util
 
 type ReturnStrategy =
     | Return
@@ -123,14 +124,16 @@ module Util =
     let makeReturnBlock expr =
         [Statement.returnStatement expr]
 
-    let makeImmutableListExpr ctx values: Expression =
+    let makeImmutableListExpr com ctx typ values: Expression =
+        let typ = transformType com ctx typ
         let isConst, values =
             if List.forall (isConstExpr ctx) values then true, List.map removeConst values
             else false, values
-        Expression.listLiteral(values, isConst)
+        Expression.listLiteral(values, typ, isConst)
 
-    let makeMutableListExpr values: Expression =
-        Expression.listLiteral(values)
+    let makeMutableListExpr com ctx typ values: Expression =
+        let typ = transformType com ctx typ
+        Expression.listLiteral(values, typ)
 
     let tryGetEntityIdent (com: IDartCompiler) ctx ent =
         Dart.Replacements.tryEntityRef com ent
@@ -245,14 +248,6 @@ module Util =
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
             preferStatement || elseExpr.Type = Fable.Unit || isStatement ctx false thenExpr || isStatement ctx false elseExpr
 
-    let (|DartInt|_|) = function
-        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
-        | _ -> None
-
-    let (|DartDouble|_|) = function
-        | Float32 | Float64 -> Some DartDouble
-        | _ -> None
-
     let isInt64OrLess = function
         | Fable.Number(DartInt, _) -> true
         | _ -> false
@@ -264,7 +259,7 @@ module Util =
         | InvocationExpression(_,_,_,isConst) -> isConst
         | Literal value ->
             match value with
-            | ListLiteral(_values, isConst) -> isConst
+            | ListLiteral(_,_,isConst) -> isConst
             | IntegerLiteral _
             | DoubleLiteral _
             | BooleanLiteral _
@@ -277,7 +272,7 @@ module Util =
         | InvocationExpression(e, g, a, _isConst) -> InvocationExpression(e, g, a, false)
         | Literal value as e ->
             match value with
-            | ListLiteral(values, _isConst) -> ListLiteral(values, false) |> Literal
+            | ListLiteral(values, typ, _isConst) -> ListLiteral(values, typ, false) |> Literal
             | _ -> e
         | e -> e
 
@@ -512,7 +507,7 @@ module Util =
         | Fable.NewArray (values, typ, _isMutable) ->
             values
             |> List.map (transformAsExpr com ctx)
-            |> makeMutableListExpr
+            |> makeMutableListExpr com ctx typ
         // TODO: Use List.filled for allocation and List.from for other expressions
         | Fable.NewArrayFrom (TransformExpr com ctx size, typ, _isMutable) ->
             let ident = makeIdent MetaType "List"
@@ -541,7 +536,7 @@ module Util =
             | exprs, None ->
                 exprs
                 |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                |> makeImmutableListExpr ctx
+                |> makeImmutableListExpr com ctx typ
                 |> List.singleton
                 |> libCall com ctx "List" "ofArray"
             | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
@@ -550,7 +545,7 @@ module Util =
                 let exprs =
                     exprs
                     |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                    |> makeImmutableListExpr ctx
+                    |> makeImmutableListExpr com ctx typ
                 [exprs; tail]
                 |> libCall com ctx "List" "ofArrayWithTail"
 
@@ -572,7 +567,7 @@ module Util =
         | Fable.NewUnion(values, tag, ref, genArgs) ->
             let ent = com.GetEntity(ref)
             let fields = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-            let args = [Expression.integerLiteral(tag); makeImmutableListExpr ctx fields]
+            let args = [Expression.integerLiteral(tag); makeImmutableListExpr com ctx Fable.Any fields]
             let genArgs = genArgs |> List.map (transformType com ctx)
             let consRef = getEntityIdent com ctx ent
             let isConst, args =
@@ -625,6 +620,7 @@ module Util =
                         |> Option.defaultValue false
                     )
                 let args = if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg) else args
+                // Maybe we can omit generic args if they can be inferred from the arguments
                 let genArgs = callInfo.GenericArgs |> List.map (transformType com ctx)
                 Expression.invocationExpression(callee, args, genArgs, isConst=isConst)
 
@@ -663,9 +659,13 @@ module Util =
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(EntFullName(Types.ienumerableGeneric | Types.ienumerable), [_]),
-          Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> makeImmutableListExpr ctx
+          Replacements.Util.ArrayOrListLiteral(exprs, typ) ->
+            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> makeImmutableListExpr com ctx typ
         | Fable.Any, _ -> com.TransformAsExpr(ctx, expr)
+
+        | Fable.Unit, _ ->
+            [com.TransformAsExpr(ctx, expr)]
+            |> libCall com ctx "Util" "ignore"
 
         // TODO: Casting to parent classes should be removed too
         // And vice versa, if the interface is not directly implemented we should DO use an as expression
@@ -735,8 +735,7 @@ module Util =
             | Fable.Value(Fable.NewTuple(exprs,_), _) ->
                 com.TransformAsExpr(ctx, List.item index exprs)
             | TransformExpr com ctx expr ->
-                let index = Expression.integerLiteral(index)
-                Expression.indexExpression(expr, index)
+                Expression.propertyAccess(expr, $"item%i{index + 1}")
 
         | Fable.OptionValue ->
             com.TransformAsExpr(ctx, fableExpr)
@@ -1212,7 +1211,9 @@ module Util =
             | Fable.RegionStart _ -> []
 
         | Fable.TypeCast(e, t) ->
-            [transformCast com ctx t e |> resolveExpr returnStrategy]
+            match t with
+            | Fable.Unit -> transformAsStatements com ctx ReturnVoid e
+            | t -> [transformCast com ctx t e |> resolveExpr returnStrategy]
 
         | Fable.Value(kind, r) ->
             match kind with
@@ -1381,6 +1382,7 @@ module Util =
 
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
+        let genArgs = ent.GenericParameters |> List.map (fun p -> p.Name)
         let methods =
             ent.MembersFunctionsAndValues
             |> Seq.choose (fun m ->
@@ -1407,7 +1409,7 @@ module Util =
                 )
             )
             |> Seq.toList
-        [Declaration.classDeclaration(decl.Name, methods=methods, isAbstract=true)]
+        [Declaration.classDeclaration(decl.Name, genArgs=genArgs, methods=methods, isAbstract=true)]
 
     let transformUnionDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
         let extends = libTypeRef com ctx "Types" "Union" []
@@ -1484,10 +1486,11 @@ module Util =
             InstanceMethod("==", [FunctionArg other], Boolean, body=body, kind=MethodKind.IsOperator, isOverride=true)
 
         let hashCode =
+            let intType = Fable.Number(Int32, Fable.NumberInfo.Empty)
             let body =
                 fields
                 |> List.map (fun f -> Expression.propertyAccess(Expression.identExpression f, "hashCode"))
-                |> makeImmutableListExpr ctx
+                |> makeImmutableListExpr com ctx intType
                 |> List.singleton
                 |> libCall com ctx "Util" "combineHashCodes"
                 |> makeReturnBlock
@@ -1599,11 +1602,9 @@ module Util =
             |> List.collect (fun ifc ->
                 let t = transformDeclaredType com ctx ifc.Entity ifc.GenericArgs
                 match ifc.Entity.FullName with
-                | Types.ienumerableGeneric ->
-                    implementsIterable <- Some t
-                    []
-                | Types.ienumeratorGeneric ->
-                    [t; TypeReference(libValue com ctx "Types" "IDisposable", [])]
+                | Types.ienumerableGeneric -> implementsIterable <- Some t; []
+                | Types.ienumerable -> []
+                | Types.ienumeratorGeneric -> [t; TypeReference(libValue com ctx "Types" "IDisposable", [])]
                 | _ -> [t])
 
         let extends =
@@ -1685,7 +1686,7 @@ module Util =
                     else failwith "TODO: transformClassWithCompilerGeneratedConstructor"
 
     let getIdentForImport (ctx: Context) (path: string) =
-        Path.GetFileNameWithoutExtension(path).Replace(".", "_")
+        Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> getUniqueNameInRootScope ctx
 

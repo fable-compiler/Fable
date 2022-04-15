@@ -468,6 +468,9 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType, true) |> makeValue None
 
+    let makeArrayWithRange r elementType arrExprs =
+        NewArray(arrExprs, elementType, true) |> makeValue r
+
     let makeDelegate args body =
         Delegate(args, body, FuncInfo.Empty)
 

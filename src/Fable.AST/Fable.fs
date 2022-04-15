@@ -277,8 +277,9 @@ type ValueKind =
     | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
-    // isMutable is currently unused but added in case ImmutableArray is added to FSharp.Core
+    /// isMutable is currently unused but added in case ImmutableArray is added to FSharp.Core
     | NewArray of values: Expr list * typ: Type * isMutable: bool
+    /// TODO: This is ambiguous, value can be the size (allocation) or an iterable, fix?
     | NewArrayFrom of value: Expr * typ: Type * isMutable: bool
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
