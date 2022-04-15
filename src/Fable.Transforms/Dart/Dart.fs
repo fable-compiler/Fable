@@ -51,7 +51,7 @@ type Literal =
     | BooleanLiteral of value: bool
     | StringLiteral of value: string
     | NullLiteral
-    | ListLiteral of values: Expression list * isConst: bool
+    | ListLiteral of values: Expression list * typ: Type * isConst: bool
 
 type Annotation = Ident * Literal list
 
@@ -85,7 +85,7 @@ type Expression =
 
     static member sequenceExpression(seqExprFn, exprs) =
         SequenceExpression(seqExprFn, exprs)
-    static member listLiteral(values, ?isConst) = ListLiteral(values, isConst=defaultArg isConst false) |> Literal
+    static member listLiteral(values, typ, ?isConst) = ListLiteral(values, typ, isConst=defaultArg isConst false) |> Literal
     static member integerLiteral(value) = IntegerLiteral value |> Literal
     static member integerLiteral(value: int) = IntegerLiteral value |> Literal
     static member doubleLiteral(value) = DoubleLiteral value |> Literal

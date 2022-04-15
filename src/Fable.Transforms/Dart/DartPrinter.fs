@@ -254,18 +254,18 @@ module PrinterExtensions =
             | IdentExpression _
             | PropertyAccess _
             | IndexExpression _
-            | AsExpression _
-            | IsExpression _
             | InvocationExpression _
-            | SequenceExpression _
             | UpdateExpression _
             | UnaryExpression _
-            | BinaryExpression _
-            | LogicalExpression _
-            | ThrowExpression _
             | RethrowExpression _
                 -> printer.Print(expr)
 
+            | SequenceExpression _
+            | BinaryExpression _
+            | LogicalExpression _
+            | ThrowExpression _
+            | AsExpression _
+            | IsExpression _
             | ConditionalExpression _
             | AnonymousFunction _
             | AssignmentExpression _
@@ -305,11 +305,17 @@ module PrinterExtensions =
 
         member printer.PrintLiteral(kind: Literal) =
             match kind with
-            | NullLiteral -> printer.Print(null)
-            | ListLiteral(values, isConst) ->
+            | NullLiteral -> printer.Print("null")
+            | ListLiteral(values, typ, isConst) ->
                 if isConst then
                     printer.Print("const ")
-                printer.PrintList("[", values, "]")
+                match values with
+                | [] ->
+                    printer.Print("<")
+                    printer.PrintType(typ)
+                    printer.Print(">[]")
+                | values ->
+                    printer.PrintList("[", values, "]")
             | BooleanLiteral v -> printer.Print(if v then "true" else "false")
             | StringLiteral value ->
                 printer.Print("'")
@@ -322,6 +328,7 @@ module PrinterExtensions =
                     match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
                     | "∞" -> "double.infinity"
                     | "-∞" -> "-double.infinity"
+                    | value when not(value.Contains(".")) -> value + ".0"
                     | value -> value
                 printer.Print(value)
 
@@ -504,7 +511,7 @@ module PrinterExtensions =
                         flatten exprs restExprs
                     | expr::restExprs -> flatten (expr::result) restExprs
                 let exprs, returnExpr = flatten [] exprs |> List.splitLast
-                let exprs = ListLiteral(exprs, false) |> Literal
+                let exprs = ListLiteral(exprs, Object, false) |> Literal
                 Expression.invocationExpression(Expression.identExpression seqExprFn, [exprs; returnExpr])
                 |> printer.Print
 

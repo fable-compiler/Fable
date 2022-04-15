@@ -244,15 +244,14 @@ let buildLibraryDart() =
     makeDirRecursive buildDir
     copyFiles sourceDir "*.dart" buildDir
 
-//    runFableWithArgsInDir sourceDir [
-//        "--outDir " + resolveDir buildDir
-//        "--fableLib ."
-//        "--lang Dart"
-//        "--exclude Fable.Core"
-//        "--define FABLE_LIBRARY"
-//        "--noCache"
-//    ]
-
+    runFableWithArgsInDir sourceDir [
+        "--outDir " + resolveDir buildDir
+        "--fableLib ."
+        "--lang Dart"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+        "--noCache"
+    ]
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -527,8 +526,8 @@ let testDart(isWatch) =
     if not (pathExists "build/fable-library-dart") then
         buildLibraryDart()
 
-    let projectDir = "tests/Dart"
-    let runDir = "tests/Dart/run"
+    let runDir = "tests/Dart"
+    let projectDir = runDir + "/src"
 
     runFableWithArgs projectDir [
         "--exclude Fable.Core"
