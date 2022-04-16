@@ -58,8 +58,8 @@ type Constraint =
     | IsEnum
 
 type GenericParam =
-    abstract Name: string
-    abstract Constraints: Constraint seq
+    { Name: string
+      Constraints: Constraint list }
 
 type Parameter =
     { Name: string option
@@ -185,6 +185,7 @@ type MemberDecl = {
     Args: ArgDecl list
     Body: Expr
     Info: MemberInfo
+    GenericParams: GenericParam list
     UsedNames: Set<string>
     /// This can only be set once per file
     /// for a declaration in the root scope

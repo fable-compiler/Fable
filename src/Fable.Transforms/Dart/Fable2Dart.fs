@@ -206,6 +206,7 @@ module Util =
         | Fable.Value(v,_) ->
             match v with
             | Fable.UnitConstant _ -> true
+            | Fable.NewOption(Some expr, _, _) -> isStatement ctx preferStatement expr
             | _ -> false
 
         | Fable.Unresolved _
@@ -432,7 +433,35 @@ module Util =
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdentWith com ctx id.Type id.Name |> Expression.identExpression
 
-    let transformLocalVarDeclaration com ctx (fableIdent: Fable.Ident) value =
+    let transformGenericParam (com: IDartCompiler) ctx ownerFullName (g: Fable.GenericParam): GenericParam =
+        let warn() =
+            "Dart only accepts single inheritance constraints, "
+            + $"you may need to explicitly cast values of generic type %s{g.Name} in %s{ownerFullName} "
+            + "when accessing interface members."
+            |> addWarning com [] None
+            None
+
+        let extends =
+            g.Constraints
+            |> Seq.chooseToList (function
+                | Fable.Constraint.CoercesTo t -> Some t
+                | _ -> None)
+            |> function
+                | [] -> None
+                | [t] ->
+                    match t with
+                    | Fable.DeclaredType(e, _) ->
+                        let e = com.GetEntity(e)
+                        if e.IsInterface && e.FullName <> Types.ienumerableGeneric
+                        then warn()
+                        else transformType com ctx t |> Some
+                    | _ -> warn()
+                | _ -> warn()
+
+        { Name = g.Name; Extends = extends }
+
+    let transformLocalVarDeclaration com ctx (fableIdent: Fable.Ident) fableValue =
+        let value = transformBindingExprBody com ctx fableIdent fableValue
         let ident = transformIdent com ctx fableIdent
         let kind, value = getVarKind ctx fableIdent.IsMutable value
         let ctx =
@@ -440,11 +469,12 @@ module Util =
             | Const -> { ctx with ConstIdents = Set.add ident.Name ctx.ConstIdents }
             | Var | Final -> ctx
         match kind, value with
-        | Final, AnonymousFunction(args, body, genArgs, returnType) ->
+        | Final, AnonymousFunction(args, body, genParams, returnType) ->
             let args = args |> List.map FunctionArg
-            ctx, ident, Statement.functionDeclaration(ident.Name, args, body, returnType, genArgs=genArgs)
+            let genParams = genParams |> List.map (fun g -> { Name = g; Extends = None })
+            ctx, [Statement.functionDeclaration(ident.Name, args, body, returnType, genParams=genParams)]
         | _ ->
-            ctx, ident, Statement.variableDeclaration(ident, kind, value)
+            ctx, [Statement.variableDeclaration(ident, kind, value)]
 
     let transformImport (com: IDartCompiler) ctx r (selector: string) (path: string) =
         let selector, parts =
@@ -835,11 +865,10 @@ module Util =
         assign range ret value
 
     let transformSetAsStatements (com: IDartCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        match fableExpr with
-        | Fable.IdentExpr var when isStatement ctx true value ->
-            let var = transformIdent com ctx var
-            com.TransformAsStatements(ctx, Assign var.Expr, value)
-        | _ ->
+        if isStatement ctx false value then
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            com.TransformAsStatements(ctx, Assign expr, value)
+        else
             [transformSet com ctx range fableExpr value kind |> ExpressionStatement]
 
     let transformBindingExprBody (com: IDartCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -861,10 +890,7 @@ module Util =
             let decl = Statement.variableDeclaration(var, Var)
             ctx, decl :: com.TransformAsStatements(ctx, Assign var.Expr, value)
         else
-            let ctx, _, decl =
-                transformBindingExprBody com ctx var value
-                |> transformLocalVarDeclaration com ctx var
-            ctx, [decl]
+            transformLocalVarDeclaration com ctx var value
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
         let cases =
@@ -1242,6 +1268,8 @@ module Util =
         | Fable.Value(kind, r) ->
             match kind with
             | Fable.UnitConstant -> []
+            | Fable.NewOption(Some expr, _, _) when isStatement ctx false expr ->
+                transformAsStatements com ctx returnStrategy expr
             | kind -> [transformValue com ctx r kind |> resolveExpr returnStrategy]
 
         | Fable.IdentExpr id ->
@@ -1349,21 +1377,9 @@ module Util =
                 Expression.updateExpression(op2, paramExpr)
             )]
 
-    let getMemberGenericArgs (com: IDartCompiler) (declaringEntity: Fable.EntityRef option) argAndReturnTypes =
-        let rec getGenParams = function
-            | Fable.GenericParam(name, _constraints) -> [name]
-            | t -> t.Generics |> List.collect getGenParams
-        let genArgs =
-            (Set.empty, argAndReturnTypes) ||> List.fold (fun genArgs t ->
-                (genArgs, getGenParams t) ||> List.fold (fun genArgs n -> Set.add n genArgs))
-            |> List.ofSeq
-        match genArgs, declaringEntity with
-        | [], _ -> []
-        | genArgs, None -> []
-        | genArgs, Some ent ->
-            let ent = com.GetEntity(ent)
-            let entGenParams = ent.GenericParameters |> List.map (fun p -> p.Name) |> set
-            genArgs |> List.filter (entGenParams.Contains >> not)
+    let getMemberGenericParams (com: IDartCompiler) ctx (membDecl: Fable.MemberDecl): GenericParam list =
+        let fullName = membDecl.FullDisplayName
+        membDecl.GenericParams |> List.map (transformGenericParam com ctx fullName)
 
     let getMemberArgsAndBody (com: IDartCompiler) ctx kind (args: Fable.ArgDecl list) (body: Fable.Expr) =
         let funcName, args, body =
@@ -1400,12 +1416,12 @@ module Util =
         if isEntryPoint then
             Declaration.functionDeclaration("main", args, body, Void)
         else
-            let genArgs = memb.Body.Type::memb.ArgTypes |> getMemberGenericArgs com memb.DeclaringEntity
-            Declaration.functionDeclaration(memb.Name, args, body, returnType, genArgs=genArgs)
+            let genParams = getMemberGenericParams com ctx memb
+            Declaration.functionDeclaration(memb.Name, args, body, returnType, genParams=genParams)
 
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let genArgs = ent.GenericParameters |> List.map (fun p -> p.Name)
+        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx ent.FullName)
         let methods =
             ent.MembersFunctionsAndValues
             |> Seq.choose (fun m ->
@@ -1432,7 +1448,7 @@ module Util =
                 )
             )
             |> Seq.toList
-        [Declaration.classDeclaration(decl.Name, genArgs=genArgs, methods=methods, isAbstract=true)]
+        [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 
     let transformUnionDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
         let extends = libTypeRef com ctx "Types" "Union" []
@@ -1561,7 +1577,7 @@ module Util =
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
-        let genArgs = memb.Body.Type::memb.ArgTypes |> getMemberGenericArgs com memb.DeclaringEntity
+        let genParams = getMemberGenericParams com ctx memb
         let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Args memb.Body
 
@@ -1584,21 +1600,21 @@ module Util =
         InstanceMethod(name, args, returnType,
                        body=body,
                        kind=kind,
-                       genArgs=genArgs,
+                       genParams=genParams,
                        isStatic=isStatic,
                        isOverride=memb.Info.IsOverrideOrExplicitInterfaceImplementation)
 
     let transformClassWithImplicitConstructor (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl) =
-        let genArgs = classEnt.GenericParameters |> List.map (fun p -> p.Name)
+        let genParams = classEnt.GenericParameters |> List.map (transformGenericParam com ctx classEnt.FullName)
         let classIdent = makeIdent MetaType classDecl.Name
-        let classType = TypeReference(classIdent, genArgs |> List.map Generic)
+        let classType = TypeReference(classIdent, genParams |> List.map (fun g -> Generic g.Name))
         let consArgDecls, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor cons.Args cons.Body
         let consArgs = consArgDecls |> List.map (fun a -> a.Ident)
 
         let exposedCons =
             let argExprs = consArgs |> List.map Expression.identExpression
             let exposedConsBody = Expression.invocationExpression(classIdent.Expr, argExprs) |> makeReturnBlock
-            Declaration.functionDeclaration(cons.Name, consArgDecls, exposedConsBody, classType, genArgs=genArgs)
+            Declaration.functionDeclaration(cons.Name, consArgDecls, exposedConsBody, classType, genParams=genParams)
 
         // TODO: Analize the constructor body to see if we can assign fields
         // directly and prevent declarign them as late final
@@ -1645,7 +1661,7 @@ module Util =
         [
             Declaration.classDeclaration(
                 classDecl.Name,
-                genArgs = genArgs,
+                genParams = genParams,
                 ?extends = extends,
                 implements = implements,
                 constructor = constructor,

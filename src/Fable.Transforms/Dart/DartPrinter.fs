@@ -164,16 +164,26 @@ module PrinterExtensions =
                 | IsFirst | IsMiddle -> printer.Print(separator)
             printer.PrintList(left, right, items, printItem, ?skipIfEmpty=skipIfEmpty)
 
-        member printer.PrintList(left, idents: Ident list, right, ?printType: bool) =
+        member printer.PrintList(left, items: string list, right, ?skipIfEmpty) =
+            printer.PrintList(left, ", ", right, items, (fun (x: string) -> printer.Print(x)), ?skipIfEmpty=skipIfEmpty)
+
+        member printer.PrintIdentList(left, idents: Ident list, right, ?printType: bool) =
             printer.PrintList(left, ", ", right, idents, fun x ->
                 printer.PrintIdent(x, ?printType=printType)
             )
 
-        member printer.PrintList(left, items: string list, right, ?skipIfEmpty) =
-            printer.PrintList(left, ", ", right, items, (fun (x: string) -> printer.Print(x)), ?skipIfEmpty=skipIfEmpty)
-
-        member printer.PrintList(left, items: Expression list, right) =
+        member printer.PrintExprList(left, items: Expression list, right) =
             printer.PrintList(left, ", ", right, items, fun (x: Expression) -> printer.Print(x))
+
+        member printer.PrintGenericParams(items: GenericParam list) =
+            printer.PrintList("<", ", ", ">", items, (fun (g: GenericParam) ->
+                printer.Print(g.Name)
+                match g.Extends with
+                | None -> ()
+                | Some e ->
+                    printer.Print(" extends ")
+                    printer.PrintType(e)
+            ), skipIfEmpty=true)
 
         member printer.PrintCallArgAndSeparator (pos: ListPos) ((name, expr): CallArg) =
             let isNamed =
@@ -316,7 +326,7 @@ module PrinterExtensions =
                     printer.PrintType(typ)
                     printer.Print(">[]")
                 | values ->
-                    printer.PrintList("[", values, "]")
+                    printer.PrintExprList("[", values, "]")
             | BooleanLiteral v -> printer.Print(if v then "true" else "false")
             | StringLiteral value ->
                 printer.Print("'")
@@ -446,7 +456,7 @@ module PrinterExtensions =
                 printer.Print(body)
 
             | LocalFunctionDeclaration f ->
-                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericArgs, f.Args, f.Body)
+                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericParams, f.Args, f.Body)
 
             | ExpressionStatement e ->
                 printer.Print(e)
@@ -664,14 +674,14 @@ module PrinterExtensions =
 
             | AnonymousFunction(args, body, genArgs, _returnType) ->
                 printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
-                printer.PrintList("(", args, ")", printType=true)
+                printer.PrintIdentList("(", args, ")", printType=true)
                 printer.PrintFunctionBody(body, isExpression=true)
 
         member printer.PrintClassDeclaration(decl: Class) =
             if decl.IsAbstract then
                 printer.Print("abstract ")
             printer.Print("class " + decl.Name)
-            printer.PrintList("<", decl.GenericArgs, ">", skipIfEmpty=true)
+            printer.PrintGenericParams(decl.GenericParams)
             printer.Print(" ")
             let callSuper =
                 match decl.Extends with
@@ -741,12 +751,12 @@ module PrinterExtensions =
                         p.PrintType(m.ReturnType)
                         p.Print(" set " + m.Name)
                         let argIdents = m.Args |> List.map (fun a -> a.Ident)
-                        printer.PrintList("(", argIdents, ") ", printType=true)
+                        printer.PrintIdentList("(", argIdents, ") ", printType=true)
                         p.PrintFunctionBody(?body=m.Body, isModuleOrClassMember=true)
                     | IsMethod ->
-                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericArgs, m.Args, ?body=m.Body, isModuleOrClassMember=true)
+                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericParams, m.Args, ?body=m.Body, isModuleOrClassMember=true)
                     | IsOperator ->
-                        p.PrintFunctionDeclaration(m.ReturnType, "operator " + m.Name, m.GenericArgs, m.Args, ?body=m.Body, isModuleOrClassMember=true)
+                        p.PrintFunctionDeclaration(m.ReturnType, "operator " + m.Name, m.GenericParams, m.Args, ?body=m.Body, isModuleOrClassMember=true)
             ), fun p -> p.PrintNewLine())
 
         member printer.PrintFunctionBody(?body: Statement list, ?isModuleOrClassMember: bool, ?isExpression: bool) =
@@ -765,11 +775,11 @@ module PrinterExtensions =
                 printer.Print(" ")
                 printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
 
-        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genArgs: string list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: GenericParam list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
             printer.PrintType(returnType)
             printer.Print(" ")
             printer.Print(name)
-            printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
+            printer.PrintGenericParams(genParams)
 
             let mutable prevArg: FunctionArg option = None
             printer.PrintList("(", ")", args, fun pos arg ->
@@ -841,7 +851,7 @@ let run (writer: Writer) (file: File): Async<unit> =
             printer.PrintClassDeclaration(decl)
 
         | FunctionDeclaration d ->
-            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericArgs, d.Args, d.Body, isModuleOrClassMember=true)
+            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericParams, d.Args, d.Body, isModuleOrClassMember=true)
             printer.PrintNewLine()
 
         | VariableDeclaration(ident, kind, value) ->
@@ -856,7 +866,7 @@ let run (writer: Writer) (file: File): Async<unit> =
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
 
-        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types")
+        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types, constant_identifier_names")
         printer.PrintNewLine()
 
         file.Imports
