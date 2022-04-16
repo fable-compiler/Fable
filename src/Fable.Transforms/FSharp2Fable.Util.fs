@@ -85,7 +85,7 @@ type FsAtt(att: FSharpAttribute) =
         member _.Entity = FsEnt.Ref att.AttributeType
         member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
 
-type FsGenParam(gen: FSharpGenericParameter) =
+type FsGenParam =
     static member Constraint(c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
             TypeHelpers.makeType Map.empty c.CoercesToTarget
@@ -103,11 +103,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
         else None // TODO: Document these cases
 
     static member Constraints(gen: FSharpGenericParameter) =
-        gen.Constraints |> Seq.choose FsGenParam.Constraint
+        gen.Constraints |> Seq.chooseToList FsGenParam.Constraint
 
-    interface Fable.GenericParam with
-        member _.Name = TypeHelpers.genParamName gen
-        member _.Constraints = FsGenParam.Constraints gen
+    static member Create(gen: FSharpGenericParameter): Fable.GenericParam =
+        { Name = TypeHelpers.genParamName gen
+          Constraints = FsGenParam.Constraints gen }
 
 type FsParam =
     static member Make(name, typ): Fable.Parameter =
@@ -176,7 +176,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
-        member _.GenericParameters = m.GenericParameters |> Seq.mapToList (fun x -> FsGenParam(x) :> Fable.GenericParam)
+        member _.GenericParameters = m.GenericParameters |> Seq.mapToList FsGenParam.Create
         member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
         member _.ReturnParameter = FsParam.Make(m.ReturnParameter)
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
@@ -270,7 +270,7 @@ type FsEnt(ent: FSharpEntity) =
                 else None)
 
         member _.GenericParameters =
-            ent.GenericParameters |> Seq.mapToList (fun x -> FsGenParam(x) :> Fable.GenericParam)
+            ent.GenericParameters |> Seq.mapToList FsGenParam.Create
 
         member _.FSharpFields =
             ent.FSharpFields |> Seq.mapToList (fun x -> FsField(x) :> Fable.Field)

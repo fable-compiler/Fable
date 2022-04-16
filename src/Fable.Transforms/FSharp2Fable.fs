@@ -277,6 +277,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                      | _ -> signature.Name
                  Args = args
                  Body = body
+                 GenericParams = over.GenericParameters |> Seq.mapToList FsGenParam.Create
                  // UsedNames are not used for obj expr members
                  UsedNames = Set.empty
                  Info = info
@@ -1093,6 +1094,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               FullDisplayName = fullName
               Args = args
               Body = body
+              GenericParams = []
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               DeclaringEntity = FsEnt.Ref(ent) |> Some
@@ -1112,6 +1114,7 @@ let private transformImportWithInfo _com r typ info name fullDisplayName selecto
           FullDisplayName = fullDisplayName
           Args = []
           Body = makeImportUserGenerated r typ selector path
+          GenericParams = []
           UsedNames = Set.empty
           Info = info
           DeclaringEntity = None
@@ -1154,6 +1157,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               FullDisplayName = fullDisplayName
               Args = []
               Body = fableValue
+              GenericParams = []
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
@@ -1253,6 +1257,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   FullDisplayName = fullDisplayName
                   Args = args
                   Body = body
+                  GenericParams = memb.GenericParameters |> Seq.mapToList FsGenParam.Create
                   UsedNames = set ctx.UsedNamesInDeclarationScope
                   Info = moduleMemberDeclarationInfo isPublic isValue memb
                   DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
@@ -1288,6 +1293,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
           FullDisplayName = entFullName + "." + signature.Name
           Args = args
           Body = body
+          GenericParams = signature.MethodGenericParameters |> Seq.mapToList FsGenParam.Create
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
@@ -1314,6 +1320,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           FullDisplayName = entFullName + "." + name
           Args = args
           Body = body
+          GenericParams = memb.GenericParameters |> Seq.mapToList FsGenParam.Create
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           DeclaringEntity = FsEnt.Ref(declaringEntity) |> Some

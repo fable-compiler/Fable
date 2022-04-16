@@ -72,6 +72,7 @@ let objValue (k, v): MemberDecl =
         FullDisplayName = k
         Args = []
         Body = v
+        GenericParams = []
         UsedNames = Set.empty
         Info = FSharp2Fable.MemberInfo(isValue=true)
         ExportDefault = false
