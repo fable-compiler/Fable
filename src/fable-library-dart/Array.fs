@@ -26,6 +26,9 @@ module Native =
     [<Emit("$0.toList(growable: false)")>]
     let toList (xs: 'T seq): 'T[] = nativeOnly
 
+    [<Emit("$0.reversed.toList(growable: false)")>]
+    let reversed (xs: 'T[]): 'T[] = nativeOnly
+
 let private indexNotFound() =
     failwith "An index satisfying the predicate was not found in the collection."
 
@@ -112,7 +115,7 @@ let indexed (source: 'T[]) =
     Native.generate source.Length (fun i -> i, source[i])
 
 let truncate (count: int) (array: 'T[]): 'T[] =
-    let count = max 0 count
+    let count = max 0 count |> min array.Length
     Native.sublist array 0 count
 
 let concatArrays (arrays: 'T[][]): 'T[] =
@@ -142,18 +145,17 @@ let concat (arrays: 'T[] seq): 'T[] =
 let collect (mapping: 'T -> 'U[]) (array: 'T[]): 'U[] =
     map mapping array |> concatArrays
 
-let initialize count initializer =
+let initialize (count: int) (initializer: int -> 'a): 'a[] =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     Native.generate count initializer
 
-let pairwise (array: 'T[]) =
+let pairwise (array: 'T[]): ('T * 'T)[] =
     if array.Length < 2 then [||]
     else
         let count = array.Length - 1
         Native.generate (count - 1) (fun i -> array[i], array[i+1])
 
-(*
-let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): bool =
     let rec loop i =
         if i >= array.Length
         then false
@@ -162,47 +164,40 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
             else loop (i + 1)
     loop 0
 
-let replicate count initial =
+let replicate (count: int) (initial: 'T): 'T array =
     // Shorthand version: = initialize count (fun _ -> initial)
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
-    let result: 'T array = allocateArrayFromCons cons count
-    for i = 0 to result.Length-1 do
-        result[i] <- initial
-    result
+    Native.generate count (fun _ -> initial)
 
-let copy (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let res = allocateArrayFrom array array.Length
-    //     for i = 0 to array.Length-1 do
-    //         res[i] <- array[i]
-    //     res
-    // else
-    copyImpl array
+let copy (array: 'T[]): 'T[] =
+    Native.sublist array 0 array.Length
 
-let reverse (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let res = allocateArrayFrom array array.Length
-    //     let mutable j = array.Length-1
-    //     for i = 0 to array.Length-1 do
-    //         res[j] <- array[i]
-    //         j <- j - 1
-    //     res
-    // else
-    copyImpl array |> reverseImpl
+let reverse (array: 'T[]): 'T[] =
+    Native.reversed array
 
-let scan<'T, 'State> folder (state: 'State) (array: 'T[]) =
-    let res = allocateArrayFromCons cons (array.Length + 1)
-    res[0] <- state
-    for i = 0 to array.Length - 1 do
-        res[i + 1] <- folder res[i] array[i]
-    res
+let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State[] =
+    let mutable state = state
+    Native.generate (array.Length + 1) (fun i ->
+        if i = 0 then state
+        else
+            state <- folder state array[i - 1]
+            state)
 
-let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) =
-    let res = allocateArrayFromCons cons (array.Length + 1)
-    res[array.Length] <- state
-    for i = array.Length - 1 downto 0 do
-        res[i] <- folder array[i] res[i + 1]
-    res
+(*
+let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (array: 'T[]) (state: 'State): 'State[] =
+    let len = array.Length
+    let mutable state = state
+    Native.generate (len + 1) (fun i ->
+        if i = 0 then state
+        else
+            state <- folder array[ - 1] state
+            state)
+
+//    let res = allocateArrayFromCons cons (array.Length + 1)
+//    res[array.Length] <- state
+//    for i = array.Length - 1 downto 0 do
+//        res[i] <- folder array[i] res[i + 1]
+//    res
 
 let skip count (array: 'T[]) =
     if count > array.Length then invalidArg "count" "count is greater than array length"
@@ -356,14 +351,14 @@ let findLastIndex predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let findIndexBack predicate (array: _[]) =
+let findIndexBack (predicate: 'a -> bool) (array: _[]): int =
     let rec loop i =
         if i < 0 then indexNotFound()
         elif predicate array[i] then i
         else loop (i - 1)
     loop (array.Length - 1)
 
-let tryFindIndexBack predicate (array: _[]) =
+let tryFindIndexBack (predicate: 'a -> bool) (array: _[]): int option =
     let rec loop i =
         if i < 0 then None
         elif predicate array[i] then Some i

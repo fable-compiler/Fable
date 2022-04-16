@@ -6,8 +6,12 @@ abstract class IDisposable {
   void Dispose();
 }
 
+void dispose(dynamic d) {
+  (d as IDisposable).Dispose();
+}
+
 abstract class IEqualityComparer<T> {
-  bool Equals(T a, T b);
+  bool Equals<T>(T a, T b);
 }
 
 abstract class IGenericAdder<T> {

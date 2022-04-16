@@ -1,8 +1,8 @@
 // ignore_for_file: file_names
 
-void ignore([Object? _arg]) {}
+void ignore([dynamic _arg]) {}
 
-T sequenceExpr<T>(List<Object> _exprs, T returnValue) {
+T sequenceExpr<T>(List<dynamic> _exprs, T returnValue) {
   return returnValue;
 }
 

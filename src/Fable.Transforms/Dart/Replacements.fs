@@ -105,23 +105,17 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String -> head
+        | Char -> head // TODO: Chars are represented as integers in dart
+        | String -> head
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
         | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
-        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | Array _ | List _ ->
-            Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
-        // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
-        // | DeclaredType(ent, _) ->
-        | _ -> Helper.LibCall(com, "Types", "toString", String, [head], ?loc=r)
+        | _ -> Helper.InstanceCall(head, "toString", String, tail)
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -1080,13 +1074,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let msg = add (add msg (str "\\nParameter name: ")) argName
         makeThrow r t (error msg) |> Some
     | "Raise", [arg] -> makeThrow r t arg |> Some
-    | "Reraise", _ ->
-        match ctx.CaughtException with
-        | Some ex -> makeThrow r t (IdentExpr ex) |> Some
-        | None ->
-            "`reraise` used in context where caught exception is not available, please report"
-            |> addError com ctx.InlinePath r
-            makeThrow r t (error (str "")) |> Some
+    | "Reraise", _ -> Extended(Throw(None, t), r) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
@@ -1624,8 +1612,7 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let disposables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    // `use` will call Dispose without a null check so use a safe version just in case, see #2719
-    | "Dispose", Some c -> Helper.LibCall(com, "Util", "disposeSafe", t, [c], ?loc=r) |> Some
+    | "Dispose", Some c -> Helper.LibCall(com, "Types", "dispose", t, [c], ?loc=r) |> Some
     | _ -> None
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1640,14 +1627,14 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
     // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValueOptionValue) doesn't do a null check
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_Value", Some c -> getOptionValue r t c |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_Value", Some c -> getOptionValue r t c |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
@@ -1657,8 +1644,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
-    | "GetValue", [c] ->
-        Helper.LibCall(com, "Option", "value", t, args, ?loc=r) |> Some
+    | "GetValue", [c] -> getOptionValue r t c |> Some
     | ("OfObj" | "OfNullable"), _ ->
         Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
     | ("ToObj" | "ToNullable"), _ ->
