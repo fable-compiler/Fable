@@ -1568,7 +1568,14 @@ type FableCompiler(com: Compiler) =
                             { ctx with Scope = (None, i, Some e)::ctx.Scope }, (i, e)::bindings)
                     Fable.LetRec(List.rev bindings, resolveExpr ctx fileName b) |> Some
 
-                // Resolve idents in other expressions
+                // Resolve idents and gen args in other expressions
+                | Fable.Call(callee, info, typ, r) ->
+                    let info =
+                        { info with
+                              ThisArg = Option.map (resolveExpr ctx fileName) info.ThisArg
+                              Args = List.map (resolveExpr ctx fileName) info.Args
+                              GenericArgs = List.map (resolveGenArg ctx) info.GenericArgs }
+                    Fable.Call(resolveExpr ctx fileName callee, info, resolveGenArg ctx typ, r) |> Some
                 | Fable.IdentExpr i -> Fable.IdentExpr(resolveIdent ctx i) |> Some
                 | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx fileName b, n) |> Some
                 | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx fileName b, n) |> Some

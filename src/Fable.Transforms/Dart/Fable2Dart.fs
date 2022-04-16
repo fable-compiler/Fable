@@ -48,12 +48,10 @@ type IDartCompiler =
     abstract TransformType: Context * Fable.Type -> Type
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy * Fable.Expr -> Statement list
-    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> Ident list * Statement list
+    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> Ident list * Statement list * Type
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Util =
-
-    open Fable.AST.Dart
 
     let (|TransformExpr|) (com: IDartCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
@@ -286,11 +284,11 @@ module Util =
 
     /// Immediately Invoked Function Expression
     let iife (com: IDartCompiler) ctx (expr: Fable.Expr) =
-        let args, body = com.TransformFunction(ctx, None, [], expr)
-        let fn = Expression.anonymousFunction(args, body)
+        let args, body, t = com.TransformFunction(ctx, None, [], expr)
+        let fn = Expression.anonymousFunction(args, body, t)
         Expression.invocationExpression(fn)
 
-    let optimizeTailCall (com: IDartCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
+    let optimizeTailCall (com: IDartCompiler) (ctx: Context) _range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs = function
             | [] -> tempVars
             | (argId, arg: Fable.Expr)::rest ->
@@ -395,7 +393,7 @@ module Util =
     let rec transformType (com: IDartCompiler) (ctx: Context) (t: Fable.Type) =
         match t with
         | Fable.Measure _
-        | Fable.Any -> Object
+        | Fable.Any -> Dynamic
         | Fable.Unit -> Void
         | Fable.MetaType -> MetaType
         | Fable.Boolean -> Boolean
@@ -441,7 +439,12 @@ module Util =
             match kind with
             | Const -> { ctx with ConstIdents = Set.add ident.Name ctx.ConstIdents }
             | Var | Final -> ctx
-        ctx, ident, Statement.variableDeclaration(ident, kind, value)
+        match kind, value with
+        | Final, AnonymousFunction(args, body, genArgs, returnType) ->
+            let args = args |> List.map FunctionArg
+            ctx, ident, Statement.functionDeclaration(ident.Name, args, body, returnType, genArgs=genArgs)
+        | _ ->
+            ctx, ident, Statement.variableDeclaration(ident, kind, value)
 
     let transformImport (com: IDartCompiler) ctx r (selector: string) (path: string) =
         let selector, parts =
@@ -644,7 +647,7 @@ module Util =
         | _ ->
             [transformCall com ctx range callee callInfo |> resolveExpr returnStrategy]
 
-    let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
+    let transformCurriedApplyAsStatements com ctx range _t returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
         | (Return|ReturnVoid), Some tc when tc.IsRecursiveRef(callee)
@@ -652,6 +655,24 @@ module Util =
             optimizeTailCall com ctx range tc args
         | _ ->
             [transformCurriedApply com ctx range callee args |> resolveExpr returnStrategy]
+
+    let typeImplementsOrExtends (com: IDartCompiler) (baseEnt: Fable.Entity) (t: Fable.Type) =
+        match baseEnt.FullName, t with
+        | Types.ienumerableGeneric, (Fable.Array _ | Fable.List _) -> true
+        | baseFullName, Fable.DeclaredType(e, _) ->
+            let e = com.GetEntity(e)
+            if baseEnt.IsInterface then
+                e.AllInterfaces |> Seq.exists (fun i -> i.Entity.FullName = baseFullName)
+            else
+                let rec extends baseFullName (e: Fable.Entity) =
+                    match e.BaseType with
+                    | Some baseType ->
+                        if baseType.Entity.FullName = baseFullName
+                        then true
+                        else com.GetEntity(baseType.Entity) |> extends baseFullName
+                    | None -> false
+                extends baseFullName e
+        | _ -> false
 
     let transformCast (com: IDartCompiler) (ctx: Context) t expr: Expression =
         match t, expr with
@@ -667,15 +688,14 @@ module Util =
             [com.TransformAsExpr(ctx, expr)]
             |> libCall com ctx "Util" "ignore"
 
-        // TODO: Casting to parent classes should be removed too
-        // And vice versa, if the interface is not directly implemented we should DO use an as expression
         | Fable.DeclaredType(ent, _), _ ->
-            let expr = com.TransformAsExpr(ctx, expr)
+            let dartExpr = com.TransformAsExpr(ctx, expr)
             let ent = com.GetEntity(ent)
-            if ent.IsInterface then expr
+            if typeImplementsOrExtends com ent expr.Type
+            then dartExpr
             else
                 let t = transformType com ctx t
-                Expression.asExpression(expr, t)
+                Expression.asExpression(dartExpr, t)
 
         | Fable.Number(DartInt, _), ExprType(Fable.Number(DartInt, _))
         | Fable.Number(DartDouble, _), ExprType(Fable.Number(DartDouble, _)) -> com.TransformAsExpr(ctx, expr)
@@ -738,7 +758,7 @@ module Util =
                 Expression.propertyAccess(expr, $"item%i{index + 1}")
 
         | Fable.OptionValue ->
-            com.TransformAsExpr(ctx, fableExpr)
+            com.TransformAsExpr(ctx, fableExpr) |> NotNullAssert
 
         | Fable.UnionTag ->
             com.TransformAsExpr(ctx, fableExpr) |> getUnionExprTag
@@ -751,7 +771,7 @@ module Util =
             | Fable.Any -> index
             | typ -> Expression.asExpression(index, transformType com ctx typ)
 
-    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Ident list * Statement list =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Ident list * Statement list * Type =
         let tailcallChance = Option.map (fun name ->
             NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
@@ -763,7 +783,11 @@ module Util =
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
 
-        let ret = if body.Type = Fable.Unit then ReturnVoid else Return
+        let ret, returnType =
+            match body.Type with
+            | Fable.Unit -> ReturnVoid, Void
+            | t -> Return, transformType com ctx t
+
         let body = transformAsStatements com ctx ret body
 
         let args, body =
@@ -798,7 +822,7 @@ module Util =
                     Statement.variableDeclaration(transformIdent com ctx id, Var))
                 yield! body
             ]
-        )
+        ), returnType
 
     let transformSet (com: IDartCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -821,8 +845,8 @@ module Util =
     let transformBindingExprBody (com: IDartCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         | Function(args, body) ->
-            let args, body = transformFunction com ctx (Some var.Name) args body
-            Expression.anonymousFunction(args, body)
+            let args, body, t = transformFunction com ctx (Some var.Name) args body
+            Expression.anonymousFunction(args, body, t)
         | _ ->
             if var.IsMutable then com.TransformAsExpr(ctx, value)
             else com.TransformAsExpr(ctx, value)
@@ -1120,12 +1144,12 @@ module Util =
             transformTest com ctx range kind expr
 
         | Fable.Lambda(arg, body, info) ->
-            let args, body = transformFunction com ctx info.Name [arg] body
-            Expression.anonymousFunction(args, body)
+            let args, body, t = transformFunction com ctx info.Name [arg] body
+            Expression.anonymousFunction(args, body, t)
 
         | Fable.Delegate(args, body, info) ->
-            let args, body = transformFunction com ctx info.Name args body
-            Expression.anonymousFunction(args, body)
+            let args, body, t = transformFunction com ctx info.Name args body
+            Expression.anonymousFunction(args, body, t)
 
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx expr.Range members baseCall
@@ -1230,14 +1254,14 @@ module Util =
             [transformTest com ctx range kind expr |> resolveExpr returnStrategy]
 
         | Fable.Lambda(arg, body, info) ->
-            let args, body = transformFunction com ctx info.Name [arg] body
-            Expression.anonymousFunction(args, body)
+            let args, body, t = transformFunction com ctx info.Name [arg] body
+            Expression.anonymousFunction(args, body, t)
             |> resolveExpr returnStrategy
             |> List.singleton
 
         | Fable.Delegate(args, body, info) ->
-            let args, body = transformFunction com ctx info.Name args body
-            Expression.anonymousFunction(args, body)
+            let args, body, t = transformFunction com ctx info.Name args body
+            Expression.anonymousFunction(args, body, t)
             |> resolveExpr returnStrategy
             |> List.singleton
 
@@ -1360,23 +1384,22 @@ module Util =
 
         let argsMap = args |> List.map (fun a -> a.Ident.Name, a) |> Map
         let argIdents = args |> List.map (fun a -> a.Ident)
-        let argIdents, body = transformFunction com ctx funcName argIdents body
+        let argIdents, body, returnType = transformFunction com ctx funcName argIdents body
         let args = argIdents |> List.map (fun a ->
             match Map.tryFind a.Name argsMap with
             | None -> FunctionArg(a)
             | Some a' -> FunctionArg(a, isOptional=a'.IsOptional, isNamed=a'.IsNamed)
         )
-        args, body
+        args, body, returnType
 
     let transformModuleFunction (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
-        let args, body = getMemberArgsAndBody com ctx (NonAttached memb.Name) memb.Args memb.Body
+        let args, body, returnType = getMemberArgsAndBody com ctx (NonAttached memb.Name) memb.Args memb.Body
         let isEntryPoint =
             memb.Info.Attributes
             |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         if isEntryPoint then
             Declaration.functionDeclaration("main", args, body, Void)
         else
-            let returnType = transformType com ctx memb.Body.Type
             let genArgs = memb.Body.Type::memb.ArgTypes |> getMemberGenericArgs com memb.DeclaringEntity
             Declaration.functionDeclaration(memb.Name, args, body, returnType, genArgs=genArgs)
 
@@ -1538,9 +1561,8 @@ module Util =
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
-        let returnType = transformType com ctx memb.Body.Type
         let genArgs = memb.Body.Type::memb.ArgTypes |> getMemberGenericArgs com memb.DeclaringEntity
-        let args, body =
+        let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Args memb.Body
 
         let kind, name =
@@ -1570,7 +1592,7 @@ module Util =
         let genArgs = classEnt.GenericParameters |> List.map (fun p -> p.Name)
         let classIdent = makeIdent MetaType classDecl.Name
         let classType = TypeReference(classIdent, genArgs |> List.map Generic)
-        let consArgDecls, consBody = getMemberArgsAndBody com ctx ClassConstructor cons.Args cons.Body
+        let consArgDecls, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor cons.Args cons.Body
         let consArgs = consArgDecls |> List.map (fun a -> a.Ident)
 
         let exposedCons =

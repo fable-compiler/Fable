@@ -237,16 +237,16 @@ let buildLibraryRust() =
 //         buildLibraryRust()
 
 let buildLibraryDart() =
-    let sourceDir = "src/fable-library-dart"
-    let buildDir = "build/fable-library-dart"
+    let sourceDir = resolveDir "src/fable-library-dart"
+    let buildDir = resolveDir "build/fable-library-dart"
     cleanDirs [buildDir]
 
     makeDirRecursive buildDir
     copyFiles sourceDir "*.dart" buildDir
 
     runFableWithArgsInDir sourceDir [
-        "--outDir " + resolveDir buildDir
-        "--fableLib ."
+        "--outDir " + buildDir
+        "--fableLib " + buildDir
         "--lang Dart"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"

@@ -121,7 +121,6 @@ let toString com (ctx: Context) r (args: Expr list) =
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
         | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)

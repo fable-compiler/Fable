@@ -383,6 +383,7 @@ module AST =
         | Get(e,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
+            // TODO: Discard side effect for languages without the runtime check?
             | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects e
             | FieldGet(_, info) ->
@@ -586,6 +587,9 @@ module AST =
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
+
+    let getOptionValue r t e =
+        Get(e, OptionValue, t, r)
 
     let setExpr r left memb (value: Expr) =
         Set(left, ExprSet memb, value.Type, value, r)

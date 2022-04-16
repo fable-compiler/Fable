@@ -72,12 +72,13 @@ type Expression =
     | AsExpression of expr: Expression * typ: Type
     | IsExpression of expr: Expression * typ: Type * isNot: bool
     | InvocationExpression of expr: Expression * genArgs: Type list * args: CallArg list * isConst: bool
+    | NotNullAssert of expr: Expression
     | UpdateExpression of operator: UpdateOperator * isPrefix: bool * expr: Expression
     | UnaryExpression of operator: UnaryOperator * expr: Expression
     | BinaryExpression of operator: BinaryOperator * left: Expression * right: Expression * isInt: bool
     | LogicalExpression of operator: LogicalOperator * left: Expression * right: Expression
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression
-    | AnonymousFunction of args: Ident list * body: Statement list * genericParams: string list //* returnType: Type
+    | AnonymousFunction of args: Ident list * body: Statement list * genericParams: string list * returnType: Type
     | AssignmentExpression of target: Expression * kind: AssignmentOperator * value: Expression
     | EmitExpression of value: string * args: Expression list
     | ThrowExpression of value: Expression
@@ -115,11 +116,11 @@ type Expression =
     static member binaryExpression(operator, left, right, ?isInt) = BinaryExpression(operator, left, right, defaultArg isInt false)
     static member logicalExpression(operator, left, right) = LogicalExpression(operator, left, right)
     static member conditionalExpression(test, consequent, alternate) = ConditionalExpression(test, consequent, alternate)
-    static member anonymousFunction(args, body: Statement list, ?genArgs) =
-        AnonymousFunction(args, body, defaultArg genArgs [])
-    static member anonymousFunction(args, body: Expression, ?genArgs) =
+    static member anonymousFunction(args, body: Statement list, returnType, ?genArgs) =
+        AnonymousFunction(args, body, defaultArg genArgs [], returnType)
+    static member anonymousFunction(args, body: Expression, returnType, ?genArgs) =
         let body = [Statement.returnStatement body]
-        AnonymousFunction(args, body, defaultArg genArgs [])
+        AnonymousFunction(args, body, defaultArg genArgs [], returnType)
     static member assignmentExpression(target, value, ?kind) = AssignmentExpression(target, defaultArg kind AssignEqual, value)
     static member emitExpression(value, args) = EmitExpression(value, args)
     static member throwExpression(value) = ThrowExpression(value)

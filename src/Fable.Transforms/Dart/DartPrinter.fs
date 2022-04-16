@@ -257,6 +257,7 @@ module PrinterExtensions =
             | InvocationExpression _
             | UpdateExpression _
             | UnaryExpression _
+            | NotNullAssert _
             | RethrowExpression _
                 -> printer.Print(expr)
 
@@ -578,6 +579,10 @@ module PrinterExtensions =
                     printer.Print(" : ")
                     printer.PrintWithParensIfComplex(alternate)
 
+            | NotNullAssert expr ->
+                printer.PrintWithParensIfNotIdent(expr)
+                printer.Print("!")
+
             | UpdateExpression(op, isPrefix, expr) ->
                 let printOp = function
                     | UpdateMinus -> printer.Print("--")
@@ -657,7 +662,7 @@ module PrinterExtensions =
                 printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty=true)
                 printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator)
 
-            | AnonymousFunction(args, body, genArgs) ->
+            | AnonymousFunction(args, body, genArgs, _returnType) ->
                 printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
                 printer.PrintList("(", args, ")", printType=true)
                 printer.PrintFunctionBody(body, isExpression=true)
@@ -731,33 +736,36 @@ module PrinterExtensions =
                     | IsGetter ->
                         p.PrintType(m.ReturnType)
                         p.Print(" get " + m.Name)
-                        p.PrintFunctionBody(?body=m.Body)
+                        p.PrintFunctionBody(?body=m.Body, isModuleOrClassMember=true)
                     | IsSetter ->
                         p.PrintType(m.ReturnType)
                         p.Print(" set " + m.Name)
                         let argIdents = m.Args |> List.map (fun a -> a.Ident)
                         printer.PrintList("(", argIdents, ") ", printType=true)
-                        p.PrintFunctionBody(?body=m.Body)
+                        p.PrintFunctionBody(?body=m.Body, isModuleOrClassMember=true)
                     | IsMethod ->
-                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericArgs, m.Args, ?body=m.Body)
+                        p.PrintFunctionDeclaration(m.ReturnType, m.Name, m.GenericArgs, m.Args, ?body=m.Body, isModuleOrClassMember=true)
                     | IsOperator ->
-                        p.PrintFunctionDeclaration(m.ReturnType, "operator " + m.Name, m.GenericArgs, m.Args, ?body=m.Body)
+                        p.PrintFunctionDeclaration(m.ReturnType, "operator " + m.Name, m.GenericArgs, m.Args, ?body=m.Body, isModuleOrClassMember=true)
             ), fun p -> p.PrintNewLine())
 
-        member printer.PrintFunctionBody(?body: Statement list, ?isExpression: bool) =
+        member printer.PrintFunctionBody(?body: Statement list, ?isModuleOrClassMember: bool, ?isExpression: bool) =
+            let isModuleOrClassMember = defaultArg isModuleOrClassMember false
             let isExpression = defaultArg isExpression false
             match body with
-            | None -> printer.Print(";")
+            | None ->
+                if isModuleOrClassMember then printer.Print(";")
+                else printer.Print(" {}")
             | Some [ReturnStatement expr] ->
                 printer.Print(" => ")
                 printer.Print(expr)
-                if not isExpression then
+                if isModuleOrClassMember then
                     printer.Print(";")
             | Some body ->
                 printer.Print(" ")
                 printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
 
-        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genArgs: string list, args: FunctionArg list, ?body: Statement list) =
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genArgs: string list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
             printer.PrintType(returnType)
             printer.Print(" ")
             printer.Print(name)
@@ -792,21 +800,36 @@ module PrinterExtensions =
 
                 prevArg <- Some arg
             )
-            printer.PrintFunctionBody(?body=body)
+            printer.PrintFunctionBody(?body=body, ?isModuleOrClassMember=isModuleOrClassMember)
 
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
             match value with
-            | None ->
+            // Dart recommends not to explicitly initialize variables to null
+            | None | Some(Literal NullLiteral) ->
                 match kind with
                 | Final -> printer.Print("final ")
                 | _ -> ()
                 printer.PrintType(ident.Type)
                 printer.Print(" " + ident.Name)
+
             | Some value ->
-                match kind with
-                | Const -> printer.Print("const " + ident.Name + " = ")
-                | Final -> printer.Print("final " + ident.Name + " = ")
-                | Var -> printer.Print("var " + ident.Name + " = ")
+                let printType =
+                    // Nullable types must be typed explicitly
+                    match ident.Type with
+                    | Nullable _ -> true
+                    | _ -> false
+
+                match kind, printType with
+                | Const, _ -> printer.Print("const ")
+                | Final, _ -> printer.Print("final ")
+                | Var, false -> printer.Print("var ")
+                | Var, true -> ()
+
+                if printType then
+                    printer.PrintType(ident.Type)
+                    printer.Print(" ")
+
+                printer.Print(ident.Name + " = ")
                 printer.Print(value)
 
 open PrinterExtensions
@@ -818,7 +841,7 @@ let run (writer: Writer) (file: File): Async<unit> =
             printer.PrintClassDeclaration(decl)
 
         | FunctionDeclaration d ->
-            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericArgs, d.Args, d.Body)
+            printer.PrintFunctionDeclaration(d.ReturnType, d.Name, d.GenericArgs, d.Args, d.Body, isModuleOrClassMember=true)
             printer.PrintNewLine()
 
         | VariableDeclaration(ident, kind, value) ->
