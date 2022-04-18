@@ -321,7 +321,7 @@ module PrinterExtensions =
                 if isConst then
                     printer.Print("const ")
                 match values with
-                | [] ->
+                | [] when not isConst ->
                     printer.Print("<")
                     printer.PrintType(typ)
                     printer.Print(">[]")
