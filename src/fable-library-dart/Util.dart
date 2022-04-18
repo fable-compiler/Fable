@@ -1,11 +1,5 @@
 // ignore_for_file: file_names
 
-void ignore([dynamic _arg]) {}
-
-T sequenceExpr<T>(List<dynamic> _exprs, T returnValue) {
-  return returnValue;
-}
-
 // From https://stackoverflow.com/a/37449594
 int combineHashCodes(Iterable<int> hashes) =>
     hashes.isEmpty ? 0 : hashes.reduce((h1, h2) => ((h1 << 5) + h1) ^ h2);

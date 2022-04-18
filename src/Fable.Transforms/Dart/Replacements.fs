@@ -629,10 +629,6 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
-    | Types.matchFail -> makeImportLib com MetaType "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeIdentExpr "Exception" |> Some
-    | Types.systemException -> makeImportLib com MetaType "SystemException" "SystemException" |> Some
-    | Types.timeoutException -> makeImportLib com MetaType "TimeoutException" "SystemException" |> Some
 //    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
     | Types.ienumerable | Types.ienumerableGeneric -> makeIdentExpr "Iterable" |> Some
     | Types.ienumerator | Types.ienumeratorGeneric -> makeIdentExpr "Iterator" |> Some
@@ -645,6 +641,16 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
             | -1 -> entFullName
             | i -> entFullName[0..i-1]
         makeImportLib com MetaType entFullName "Types" |> Some
+//    | Types.matchFail -> makeImportLib com MetaType "MatchFailureException" "Types" |> Some
+//    | Types.systemException -> makeImportLib com MetaType "SystemException" "SystemException" |> Some
+//    | Types.timeoutException -> makeImportLib com MetaType "TimeoutException" "SystemException" |> Some
+    | Types.matchFail
+    | Types.systemException
+    | Types.timeoutException
+    | "System.NotSupportedException"
+    | "System.InvalidOperationException"
+    | "System.Collections.Generic.KeyNotFoundException"
+    | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | _ -> None
 
 let tryEntityRef com ent =

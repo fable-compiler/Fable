@@ -3,9 +3,14 @@
 import 'Util.dart' as util;
 
 class Unit {
+  Unit._() {}
 }
 
-final unit = new Unit();
+final unit = new Unit._();
+
+Unit ignore([dynamic _arg]) {
+  return unit;
+}
 
 abstract class IDisposable {
   void Dispose();
