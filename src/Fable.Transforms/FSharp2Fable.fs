@@ -1522,6 +1522,13 @@ type FableCompiler(com: Compiler) =
     member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
         let resolvedIdents = Dictionary()
 
+        let rec resolveGenArg (ctx: Context) = function
+            | Fable.GenericParam(name,_) as v ->
+                match Map.tryFind name ctx.GenericArgs with
+                | Some v -> v
+                | None -> v
+            | t -> t.MapGenerics(resolveGenArg ctx)
+
         let resolveIdent (ctx: Context) (ident: Fable.Ident) =
             if inExpr.ScopeIdents.Contains ident.Name then
                 let sanitizedName =
@@ -1532,7 +1539,7 @@ type FableCompiler(com: Compiler) =
                         ctx.UsedNamesInDeclarationScope.Add(resolvedName) |> ignore
                         resolvedIdents.Add(ident.Name, resolvedName)
                         resolvedName
-                { ident with Name = sanitizedName }
+                { ident with Name = sanitizedName; Type = resolveGenArg ctx ident.Type }
             else ident
 
         let rec foldArgs acc = function
@@ -1550,13 +1557,6 @@ type FableCompiler(com: Compiler) =
                 let argId = { argId with Type = arg.Type; IsCompilerGenerated = true }
                 let ctx = { ctx with Scope = (None, argId, Some arg)::ctx.Scope }
                 ctx, (argId, arg)::bindings)
-
-        let rec resolveGenArg (ctx: Context) = function
-            | Fable.GenericParam(name,_) as v ->
-                match Map.tryFind name ctx.GenericArgs with
-                | Some v -> v
-                | None -> v
-            | t -> t.MapGenerics(resolveGenArg ctx)
 
         let rec resolveExpr ctx fileName expr =
             expr |> visitFromOutsideIn (function

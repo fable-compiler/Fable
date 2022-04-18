@@ -1531,7 +1531,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = genArg com ctx r 0 i.GenericArgs
         makeArrayWithRange r t [] |> Some
     | "IsEmpty", [ar] ->
-        eq (getAttachedMemberWith r (Number(Int32, NumberInfo.Empty)) ar "length") (makeIntConst 0) |> Some
+        getAttachedMemberWith r t ar "isEmpty" |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
