@@ -256,8 +256,8 @@ module PrinterExtensions =
 
         member printer.PrintWithParensIfComplex(expr: Expression) =
             match expr with
-            | ThisExpression
-            | SuperExpression
+            | ThisExpression _
+            | SuperExpression _
             | InterpolationString _
             | Literal _
             | TypeLiteral _
@@ -271,7 +271,6 @@ module PrinterExtensions =
             | RethrowExpression _
                 -> printer.Print(expr)
 
-            | SequenceExpression _
             | BinaryExpression _
             | LogicalExpression _
             | ThrowExpression _
@@ -283,7 +282,7 @@ module PrinterExtensions =
             | EmitExpression _
                 -> printer.PrintWithParens(expr)
 
-        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, isInt) =
+        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, typ) =
             printer.PrintWithParensIfComplex(left)
             // TODO: review
             match operator with
@@ -299,7 +298,7 @@ module PrinterExtensions =
             | BinaryMinus -> printer.Print(" - ")
             | BinaryPlus -> printer.Print(" + ")
             | BinaryMultiply -> printer.Print(" * ")
-            | BinaryDivide -> printer.Print(if isInt then " ~/ " else " / ")
+            | BinaryDivide -> printer.Print(if typ = Integer then " ~/ " else " / ")
             | BinaryModulus -> printer.Print(" % ")
             | BinaryExponent -> printer.Print(" ** ")
             | BinaryOrBitwise -> printer.Print(" | ")
@@ -316,7 +315,7 @@ module PrinterExtensions =
 
         member printer.PrintLiteral(kind: Literal) =
             match kind with
-            | NullLiteral -> printer.Print("null")
+            | NullLiteral _ -> printer.Print("null")
             | ListLiteral(values, typ, isConst) ->
                 if isConst then
                     printer.Print("const ")
@@ -514,29 +513,17 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
-            | SequenceExpression(seqExprFn, exprs) ->
-                let rec flatten result = function
-                    | [] -> List.rev result
-                    | SequenceExpression(_, exprs)::restExprs ->
-                        let exprs = flatten [] exprs |> List.fold (fun r e -> e::r) result
-                        flatten exprs restExprs
-                    | expr::restExprs -> flatten (expr::result) restExprs
-                let exprs, returnExpr = flatten [] exprs |> List.splitLast
-                let exprs = ListLiteral(exprs, Object, false) |> Literal
-                Expression.invocationExpression(Expression.identExpression seqExprFn, [exprs; returnExpr])
-                |> printer.Print
+            | EmitExpression(value, args, _) -> printer.PrintEmitExpression(value, args)
 
-            | EmitExpression(value, args) -> printer.PrintEmitExpression(value, args)
-
-            | ThrowExpression e ->
+            | ThrowExpression(e, _) ->
                 printer.Print("throw ")
                 printer.Print(e)
 
-            | RethrowExpression -> printer.Print("rethrow")
+            | RethrowExpression _ -> printer.Print("rethrow")
 
-            | SuperExpression -> printer.Print("super")
+            | SuperExpression _ -> printer.Print("super")
 
-            | ThisExpression -> printer.Print("this")
+            | ThisExpression _ -> printer.Print("this")
 
             | Literal kind -> printer.PrintLiteral(kind)
 
@@ -616,8 +603,8 @@ module PrinterExtensions =
                 | UnaryPlus
                 | UnaryAddressOf -> printer.Print(expr)
 
-            | BinaryExpression(op, left, right, isInt) ->
-                printer.PrintBinaryExpression(op, left, right, isInt)
+            | BinaryExpression(op, left, right, typ) ->
+                printer.PrintBinaryExpression(op, left, right, typ)
 
             | LogicalExpression(op, left, right) ->
                 printer.PrintLogicalExpression(op, left, right)
@@ -642,11 +629,11 @@ module PrinterExtensions =
                 printer.Print(op)
                 printer.Print(value)
 
-            | PropertyAccess(expr, prop, _isConst) ->
+            | PropertyAccess(expr, prop, _typ, _isConst) ->
                 printer.PrintWithParensIfComplex(expr)
                 printer.Print("." + prop)
 
-            | IndexExpression(expr, index) ->
+            | IndexExpression(expr, index, _typ) ->
                 printer.PrintWithParensIfComplex(expr)
                 printer.Print("[")
                 printer.Print(index)
@@ -665,7 +652,7 @@ module PrinterExtensions =
                     printer.Print(" is ")
                 printer.PrintType(typ)
 
-            | InvocationExpression(caller, genArgs, args, isConst) ->
+            | InvocationExpression(caller, genArgs, args, _typ, isConst) ->
                 if isConst then
                     printer.Print("const ")
                 printer.PrintWithParensIfNotIdent(caller)
@@ -815,7 +802,7 @@ module PrinterExtensions =
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
             match value with
             // Dart recommends not to explicitly initialize variables to null
-            | None | Some(Literal NullLiteral) ->
+            | None | Some(Literal(NullLiteral _)) ->
                 match kind with
                 | Final -> printer.Print("final ")
                 | _ -> ()
