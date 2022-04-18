@@ -2,6 +2,11 @@
 
 import 'Util.dart' as util;
 
+class Unit {
+}
+
+final unit = new Unit();
+
 abstract class IDisposable {
   void Dispose();
 }

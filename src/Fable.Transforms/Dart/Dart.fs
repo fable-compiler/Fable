@@ -59,6 +59,7 @@ type CallArg = string option * Expression
 
 type Expression =
     // Pseudo-expression so we can flatten nested sequence expressions before printing
+    // TODO: Remove it when when we have improved transforming statements
     | SequenceExpression of seqExprFn: Ident * exprs: Expression list
     | SuperExpression
     | ThisExpression
