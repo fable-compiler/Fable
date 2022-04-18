@@ -119,7 +119,7 @@ class CustomIterator<T> implements Iterator<T> {
   final T? Function() _moveNext;
 
   @override
-  T get current => _current ?? (throw Exception("Iterator not initialized"));
+  T get current => _current ?? (throw Exception("Iterator has not started"));
 
   @override
   bool moveNext() {

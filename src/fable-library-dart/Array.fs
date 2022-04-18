@@ -2,6 +2,7 @@ module ArrayModule
 
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
+#nowarn "1182"
 
 open System.Collections.Generic
 open Fable.Core
@@ -34,6 +35,15 @@ let private indexNotFound() =
 
 let private differentLengths() =
     failwith "Arrays had different lengths"
+
+let reverseInPlace (array: 'T[]): unit =
+    let len = array.Length
+    let half = len / 2
+    for i = 0 to half - 1 do
+        let j = len - i - 1
+        let tmp = array[i]
+        array[i] <- array[j]
+        array[j] <- tmp
 
 let append (array1: 'T[]) (array2: 'T[]): 'T[] =
     let len1 = array1.Length
@@ -88,9 +98,9 @@ let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[
         f source1[i] source2[i] source3[i])
 
 let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (array: 'T[]): 'Result[] * 'State =
-    match array.Length with
-    | 0 -> [| |], state
-    | len ->
+    if Array.isEmpty array
+    then [| |], state
+    else
         let mutable acc = state
         let res = Native.generate array.Length (fun i ->
             let h,s = mapping acc array[i]
@@ -99,16 +109,17 @@ let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) (st
         res, acc
 
 let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (array: 'T[]) (state: 'State): 'Result[] * 'State =
-    let len = array.Length
-    match len with
-    | 0 -> [| |], state
-    | len ->
+    if Array.isEmpty array
+    then [| |], state
+    else
+        let len = array.Length
         let mutable acc = state
         let res = Native.generate len (fun i ->
             let i = len - i - 1
             let h,s = mapping array[i] acc
             acc <- s
             h)
+        reverseInPlace res
         res, acc
 
 let indexed (source: 'T[]) =
