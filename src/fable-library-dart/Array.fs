@@ -64,11 +64,11 @@ let getSubArray (array: 'T[]) (start: int) (count: int): 'T[] =
     Native.sublist array start (start + count)
 
 let last (array: 'T[]) =
-    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     array[array.Length-1]
 
 let tryLast (array: 'T[]) =
-    if array.Length = 0 then None
+    if Array.isEmpty array then None
     else Some array[array.Length-1]
 
 let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]): 'U[] =
@@ -424,7 +424,7 @@ let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
         action i array1[i] array2[i]
 
 let isEmpty (array: 'T[]) =
-    array.Length = 0
+    Array.isEmpty array
 
 let forAll predicate (array: 'T[]) =
     // if isTypedArrayImpl array then
@@ -549,7 +549,7 @@ let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
 
 let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
     if chunkSize < 1 then invalidArg "size" "The input must be positive."
-    if array.Length = 0 then [| [||] |]
+    if Array.isEmpty array then [| [||] |]
     else
         let result: 'T[][] = [||]
         // add each chunk to the result
@@ -602,7 +602,7 @@ let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
 
 let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array[0]
-    elif array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    elif Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else invalidArg "array" "Input array too long"
 
 let tryExactlyOne (array: 'T[]) =
@@ -611,15 +611,15 @@ let tryExactlyOne (array: 'T[]) =
     else None
 
 let head (array: 'T[]) =
-    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     else array[0]
 
 let tryHead (array: 'T[]) =
-    if array.Length = 0 then None
+    if Array.isEmpty array then None
     else Some array[0]
 
 let tail (array: 'T[]) =
-    if array.Length = 0 then invalidArg "array" "Not enough elements"
+    if Array.isEmpty array then invalidArg "array" "Not enough elements"
     skipImpl array 1
 
 let item index (array: _[]) =
@@ -667,14 +667,14 @@ let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State
     foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
 
 let reduce reduction (array: 'T[]) =
-    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if Array.isEmpty array then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     // if isTypedArrayImpl array then
     //     foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
     // else
     reduceImpl reduction array
 
 let reduceBack reduction (array: 'T[]) =
-    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if Array.isEmpty array then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     // if isTypedArrayImpl array then
     //     foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
     // else
@@ -723,7 +723,7 @@ let min (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (array: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-    if array.Length = 0 then
+    if Array.isEmpty array then
         invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let mutable total = averager.GetZero()
     for i = 0 to array.Length - 1 do
@@ -731,7 +731,7 @@ let average (array: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
     averager.DivideByInt(total, array.Length)
 
 let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>): 'T2 =
-    if array.Length = 0 then
+    if Array.isEmpty array then
         invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let mutable total = averager.GetZero()
     for i = 0 to array.Length - 1 do
@@ -751,7 +751,7 @@ let windowed (windowSize: int) (source: 'T[]): 'T[][] =
 let splitInto (chunks: int) (array: 'T[]): 'T[][] =
     if chunks < 1 then
         invalidArg "chunks" "The input must be positive."
-    if array.Length = 0 then
+    if Array.isEmpty array then
         [| [||] |]
     else
         let result: 'T[][] = [||]
