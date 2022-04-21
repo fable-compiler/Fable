@@ -813,7 +813,10 @@ module PrinterExtensions =
                 let printType =
                     // Nullable types must be typed explicitly
                     match ident.Type with
-                    | Nullable _ -> true
+                    | Nullable _ ->
+                        match value.Type with
+                        | Nullable _ -> false
+                        | _ -> true
                     | _ -> false
 
                 match kind, printType with

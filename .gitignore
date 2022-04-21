@@ -2,7 +2,7 @@
 .ionide/
 
 node_modules/
-temp/
+temp*/
 *.fs.js
 *.fs.js.map
 *.fs.php
