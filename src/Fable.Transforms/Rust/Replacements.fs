@@ -1434,8 +1434,6 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // Use Any to prevent creation of a typed array (not resizable)
-    // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
     | ".ctor", _, [] ->
         // makeArray (getElementType t) [] |> Some
         Helper.LibCall(com, "Native", "arrayEmpty", t, [], ?loc=r) |> Some

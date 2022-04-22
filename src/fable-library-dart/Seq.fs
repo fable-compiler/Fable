@@ -222,12 +222,12 @@ let generateIndexed create compute dispose =
 let append (xs: seq<'T>) (ys: seq<'T>) =
     concat [| xs; ys |]
 
-let cast (xs: System.Collections.IEnumerable) =
-    mkSeq (fun () ->
-        checkNonNull "source" xs
-        xs.GetEnumerator()
-        |> Enumerator.cast
-    )
+//let cast (xs: System.Collections.IEnumerable) =
+//    mkSeq (fun () ->
+//        checkNonNull "source" xs
+//        xs.GetEnumerator()
+//        |> Enumerator.cast
+//    )
 
 let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
     generate
@@ -530,7 +530,7 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: s
         (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
 
 let readOnly (xs: seq<'T>) =
-    checkNonNull "source" xs
+//    checkNonNull "source" xs
     map id xs
 
 type CachedSeq<'T>(cleanup,res:seq<'T>) =
@@ -544,7 +544,7 @@ type CachedSeq<'T>(cleanup,res:seq<'T>) =
 
 // Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
 let cache (source: seq<'T>) =
-    checkNonNull "source" source
+//    checkNonNull "source" source
     // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
     //
     // This code is required to be thread safe.
@@ -559,6 +559,7 @@ let cache (source: seq<'T>) =
     // None          = Unstarted.
     // Some(Some e)  = Started.
     // Some None     = Finished.
+    let mutable started = false
     let mutable enumeratorR = None
 
     let oneStepTo i =
@@ -567,13 +568,13 @@ let cache (source: seq<'T>) =
       if i >= prefix.Count then // is a step still required?
           // If not yet started, start it (create enumerator).
           let optEnumerator =
-              match enumeratorR with
-              | None ->
+              if not started then
                   let optEnumerator = Some (source.GetEnumerator())
-                  enumeratorR <- Some optEnumerator
+                  enumeratorR <- optEnumerator
+                  started <- true
                   optEnumerator
-              | Some optEnumerator ->
-                  optEnumerator
+              else
+                  enumeratorR
 
           match optEnumerator with
           | Some enumerator ->
@@ -581,7 +582,7 @@ let cache (source: seq<'T>) =
                   prefix.Add(enumerator.Current)
               else
                   enumerator.Dispose()     // Move failed, dispose enumerator,
-                  enumeratorR <- Some None // drop it and record finished.
+                  enumeratorR <- None      // drop it and record finished.
           | None -> ()
 
     let result =
@@ -602,7 +603,7 @@ let cache (source: seq<'T>) =
        lock prefix <| fun () ->
            prefix.Clear()
            match enumeratorR with
-           | Some (Some e) -> e.Dispose()
+           | Some e -> e.Dispose()
            | _ -> ()
            enumeratorR <- None
 

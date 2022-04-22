@@ -774,7 +774,7 @@ module PrinterExtensions =
                     printer.Print(";")
             | Some body ->
                 printer.Print(" ")
-                printer.PrintBlock(body, skipNewLineAtEnd=isExpression)
+                printer.PrintBlock(body, skipNewLineAtEnd=(isExpression || isModuleOrClassMember))
 
         member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: GenericParam list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
             printer.PrintType(returnType)
@@ -870,7 +870,8 @@ let run (writer: Writer) (file: File): Async<unit> =
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
 
-        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types, constant_identifier_names")
+        // If we manage to master null assertions maybe we can remove unnecessary_non_null_assertion
+        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types, constant_identifier_names, unnecessary_non_null_assertion")
         printer.PrintNewLine()
 
         file.Imports

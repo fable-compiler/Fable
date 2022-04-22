@@ -73,7 +73,7 @@ module Util =
         TypeReference(ident, genArgs)
 
     let makeTypeRefFromName typeName genArgs =
-        let ident = makeIdent MetaType typeName
+        let ident = makeImmutableIdent MetaType typeName
         makeTypeRef ident genArgs
 
     let libValue (com: IDartCompiler) ctx t moduleName memberName =
@@ -110,8 +110,8 @@ module Util =
 
     let unnamedArgs exprs: CallArg list = List.map unnamedArg exprs
 
-    let makeIdent typ name =
-        { Name = name; Type = typ; ImportModule = None }
+    let makeImmutableIdent typ name =
+        { Name = name; Type = typ; IsMutable = false; ImportModule = None }
 
     let makeReturnBlock expr =
         [Statement.returnStatement expr]
@@ -139,7 +139,7 @@ module Util =
         | Some ident -> ident
         | None ->
             addError com [] None $"Cannot find reference for {ent.FullName}"
-            makeIdent MetaType ent.DisplayName
+            makeImmutableIdent MetaType ent.DisplayName
 
     let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         let ent = com.GetEntity(entRef)
@@ -279,6 +279,10 @@ module Util =
         | Fable.Number(DartInt, _) -> true
         | _ -> false
 
+    let isImmutableIdent = function
+        | IdentExpression ident -> not ident.IsMutable
+        | _ -> false
+    
     // Binary operatios should be const if the operands are, but if necessary let's fold constants binary ops in FableTransforms
     let isConstExpr (ctx: Context) = function
         | CommentedExpression(_, expr) -> isConstExpr ctx expr
@@ -342,7 +346,7 @@ module Util =
         let statements1 =
             tempVars |> Seq.mapToList (fun (KeyValue(argId, tempVar)) ->
                 let tempVar = transformIdent com ctx tempVar
-                let argId = makeIdent tempVar.Type argId |> Expression.identExpression
+                let argId = makeImmutableIdent tempVar.Type argId |> Expression.identExpression
                 Statement.variableDeclaration(tempVar, value=argId))
 
         // Then assign argument expressions to the original argument identifiers
@@ -350,7 +354,7 @@ module Util =
         let statements2 =
             zippedArgs |> List.collect (fun (argId, arg) ->
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
-                let argId = transformIdentWith com ctx arg.Type argId |> Expression.identExpression
+                let argId = transformIdentWith com ctx false arg.Type argId |> Expression.identExpression
                 let statements, arg = transformAndCaptureExpr com ctx arg
                 statements @ [assign None argId arg |> ExpressionStatement])
 
@@ -433,10 +437,10 @@ module Util =
         let extractExpression mayHaveSideEffect (statements, capturedExpr: CapturedExpr) =
             match capturedExpr with
             | Some expr ->
-                if (not mayHaveSideEffect) || isConstExpr ctx expr then
+                if (not mayHaveSideEffect) || isImmutableIdent expr ||  isConstExpr ctx expr then
                     statements, expr
                 else
-                    let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeIdent expr.Type
+                    let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent expr.Type
                     let varDecl = Statement.variableDeclaration(ident, Final, expr)
                     statements @ [varDecl], ident.Expr
             | _ -> statements, ignoreExpr com ctx None
@@ -456,10 +460,10 @@ module Util =
     let combineCalleeAndArgStatements _com ctx calleeStatements argStatements (callee: Expression) =
         if List.isEmpty argStatements then
             calleeStatements, callee
-        elif isConstExpr ctx callee then
+        elif isImmutableIdent callee || isConstExpr ctx callee then
             calleeStatements @ argStatements, callee
         else
-            let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeIdent callee.Type
+            let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent callee.Type
             let varDecl = Statement.variableDeclaration(ident, Final, callee)
             calleeStatements @ [varDecl] @ argStatements, ident.Expr
 
@@ -533,15 +537,15 @@ module Util =
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
         | Fable.AnonymousRecordType _ -> Dynamic // TODO
 
-    let transformIdentWith (com: IDartCompiler) ctx typ name: Ident =
+    let transformIdentWith (com: IDartCompiler) ctx (isMutable: bool) (typ: Fable.Type) name: Ident =
         let typ = transformType com ctx typ
-        makeIdent typ name
+        { Name = name; Type = typ; IsMutable = isMutable; ImportModule = None }
 
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident): Ident =
-        transformIdentWith com ctx id.Type id.Name
+        transformIdentWith com ctx id.IsMutable id.Type id.Name
 
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
-        transformIdentWith com ctx id.Type id.Name |> Expression.identExpression
+        transformIdent com ctx id |> Expression.identExpression
 
     let transformGenericParam (com: IDartCompiler) ctx ownerFullName (g: Fable.GenericParam): GenericParam =
         let warn() =
@@ -641,7 +645,7 @@ module Util =
                 | RegexMultiline -> Some(Some "multiLine", Expression.booleanLiteral true)
                 | RegexGlobal
                 | RegexSticky -> None
-            let regexIdent = makeIdent MetaType "RegExp"
+            let regexIdent = makeImmutableIdent MetaType "RegExp"
             let args = [
                 None, Expression.stringLiteral source
                 yield! flags |> List.choose flagToArg
@@ -664,7 +668,7 @@ module Util =
         // We cannot allocate in Dart without filling the array to a non-null value
         | Fable.NewArray((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _) ->
             transformExprsAndResolve com ctx returnStrategy [expr] (fun exprs ->
-                let listIdent = makeIdent MetaType "List"
+                let listIdent = makeImmutableIdent MetaType "List"
                 let typ = transformType com ctx typ
                 Expression.invocationExpression(listIdent.Expr, "of", exprs, makeTypeRef listIdent [typ]))
 
@@ -898,7 +902,7 @@ module Util =
         match returnStrategy with
         | Capture ->
             let t = transformType com ctx t
-            let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeIdent t
+            let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent t
             let varDecl = Statement.variableDeclaration(ident, Var)
             Assign ident.Expr, [varDecl], Some ident.Expr
         | _ -> returnStrategy, [], None
@@ -959,6 +963,9 @@ module Util =
                 transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                     Expression.propertyAccess(expr, $"item%i{index + 1}", t))
 
+        // A bit confused about this, sometimes Dart complains the ! operator is not necessary
+        // but if I remove it in other cases compilation will fail even if there's a null check
+        // Note: it seems Dart doesn't check in LOCAL FUNCTIONS whether a value has been asserted non null
         | Fable.OptionValue ->
             transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
 
@@ -997,7 +1004,7 @@ module Util =
                 List.zip args tc.Args
                 |> List.map (fun (id, tcArg) ->
                     let t = transformType com ctx id.Type
-                    makeIdent t tcArg)
+                    makeImmutableIdent t tcArg)
 
             let varDecls =
                 List.zip args args'
@@ -1063,12 +1070,16 @@ module Util =
                     // Switch is only activated when guards are literals so we can ignore the statements
                     let guards = guards |> List.map (transformAndCaptureExpr com ctx >> snd)
                     let caseBody, _ = com.Transform(ctx, returnStrategy, expr)
-                    SwitchCase(guards, caseBody) |> Some
-                )
-        let defaultCase =
-            defaultCase
-            |> Option.map (fun expr -> com.Transform(ctx, returnStrategy, expr) |> fst)
+                    SwitchCase(guards, caseBody) |> Some)
 
+        let cases, defaultCase =
+            match defaultCase with
+            | Some expr -> cases, com.Transform(ctx, returnStrategy, expr) |> fst
+            | None ->
+                // Dart may complain if we're not covering all cases so turn the last case into default
+                let cases, lastCase = List.splitLast cases
+                cases, lastCase.Body
+        
         let evalStmnt, evalExpr = transformAndCaptureExpr com ctx evalExpr
         evalStmnt @ [Statement.switchStatement(evalExpr, cases, defaultCase)]
 
@@ -1211,7 +1222,6 @@ module Util =
             |> List.map Statement.variableDeclaration
         // Transform targets as switch
         let switch2 =
-            // Declare the last case as the default case?
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
             transformSwitch com ctx returnStrategy (targetId |> Fable.IdentExpr) cases None
         // Transform decision tree
@@ -1515,7 +1525,7 @@ module Util =
                                 | Some name -> name
                                 | None -> $"$arg{i}"
                             let t = transformType com ctx p.Type
-                            FunctionArg(makeIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
+                            FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
                         )
                     // TODO: genArgs
                     InstanceMethod(name, kind=kind, args=args, returnType=transformType com ctx m.ReturnParameter.Type)
@@ -1529,11 +1539,11 @@ module Util =
         let selfTypeRef = makeTypeRefFromName decl.Name []
         let implements = makeTypeRefFromName "Comparable" [selfTypeRef]
         let constructor =
-            let tag = makeIdent Integer "tag"
-            let fields = makeIdent (Type.List Object) "fields"
+            let tag = makeImmutableIdent Integer "tag"
+            let fields = makeImmutableIdent (Type.List Object) "fields"
             Constructor(args=[ConsArg tag; ConsArg fields], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
         let compareTo =
-            let other = makeIdent selfTypeRef "other"
+            let other = makeImmutableIdent selfTypeRef "other"
             let args = [Expression.identExpression other]
             let body =
                 Expression.invocationExpression(SuperExpression extends, "compareTagAndFields", args, Integer)
@@ -1563,7 +1573,7 @@ module Util =
                         Var
                     else
                         Final
-                let ident = transformIdentWith com ctx f.FieldType f.Name
+                let ident = transformIdentWith com ctx f.IsMutable f.FieldType f.Name
                 ident, InstanceVariable(ident, kind=kind), ConsThisArg f.Name)
             |> List.unzip3
 
@@ -1572,7 +1582,7 @@ module Util =
         // TODO: implement toString
         // TODO: check if there are already custom Equals, GetHashCode and/or CompareTo implementations
         let equals =
-            let other = makeIdent Object "other"
+            let other = makeImmutableIdent Object "other"
 
             let makeFieldEq (field: Ident) =
                 let otherField = Expression.propertyAccess(other.Expr, field.Name, field.Type) 
@@ -1611,8 +1621,8 @@ module Util =
             InstanceMethod("hashCode", [], Integer, kind=IsGetter, body=body, isOverride=true)
 
         let compareTo =
-            let r = makeIdent Integer "$r"
-            let other = makeIdent selfTypeRef "other"
+            let r = makeImmutableIdent Integer "$r"
+            let other = makeImmutableIdent selfTypeRef "other"
 
             let makeAssign (field: Ident) =
                 let otherField = Expression.propertyAccess(other.Expr, field.Name, field.Type)
@@ -1679,34 +1689,41 @@ module Util =
                        isStatic=isStatic,
                        isOverride=memb.Info.IsOverrideOrExplicitInterfaceImplementation)
 
-    let transformClassWithImplicitConstructor (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl) =
+    let transformClass (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl option) =
         let genParams = classEnt.GenericParameters |> List.map (transformGenericParam com ctx classEnt.FullName)
-        let classIdent = makeIdent MetaType classDecl.Name
+        let classIdent = makeImmutableIdent MetaType classDecl.Name
         let classType = TypeReference(classIdent, genParams |> List.map (fun g -> Generic g.Name))
-        let consArgDecls, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor [] cons.Args cons.Body
-        let consArgs = consArgDecls |> List.map (fun a -> a.Ident)
 
-        let exposedCons =
-            let argExprs = consArgs |> List.map Expression.identExpression
-            let exposedConsBody = Expression.invocationExpression(classIdent.Expr, argExprs, classType) |> makeReturnBlock
-            Declaration.functionDeclaration(cons.Name, consArgDecls, exposedConsBody, classType, genParams=genParams)
+        let constructor, variables, otherDecls =
+            match cons with
+            // TODO: Check if we need to generate the constructor
+            | None -> None, [], []
+            | Some cons ->
+                let consArgDecls, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor [] cons.Args cons.Body
+                let consArgs = consArgDecls |> List.map (fun a -> a.Ident)
 
-        // TODO: Analize the constructor body to see if we can assign fields
-        // directly and prevent declarign them as late final
-//        let hasMutableFields = classEnt.FSharpFields |> List.exists (fun f -> f.IsMutable)
-        let variables =
-            classEnt.FSharpFields |> List.map (fun f ->
-                let t = transformType com ctx f.FieldType
-                let ident = makeIdent t f.Name
-                let kind = if f.IsMutable then Var else Final
-                InstanceVariable(ident, kind=kind, isLate=true))
+                let exposedCons =
+                    let argExprs = consArgs |> List.map Expression.identExpression
+                    let exposedConsBody = Expression.invocationExpression(classIdent.Expr, argExprs, classType) |> makeReturnBlock
+                    Declaration.functionDeclaration(cons.Name, consArgDecls, exposedConsBody, classType, genParams=genParams)
 
-        let constructor = Constructor(
-            args = (List.map ConsArg consArgs),
-            body = consBody,
-            superArgs = (extractBaseArgs com ctx classDecl)
-//            isConst = not hasMutableFields
-        )
+                // TODO: Analize the constructor body to see if we can assign fields
+                // directly and prevent declarign them as late final
+        //        let hasMutableFields = classEnt.FSharpFields |> List.exists (fun f -> f.IsMutable)
+                let variables =
+                    classEnt.FSharpFields |> List.map (fun f ->
+                        let t = transformType com ctx f.FieldType
+                        let ident = makeImmutableIdent t f.Name
+                        let kind = if f.IsMutable then Var else Final
+                        InstanceVariable(ident, kind=kind, isLate=true))
+
+                let constructor = Constructor(
+                    args = (List.map ConsArg consArgs),
+                    body = consBody,
+                    superArgs = (extractBaseArgs com ctx classDecl)
+        //            isConst = not hasMutableFields
+                )
+                Some constructor, variables, [exposedCons] 
 
         let mutable implementsIterable = None
         let implements =
@@ -1733,17 +1750,17 @@ module Util =
                 |> Some
             | None, None -> None
 
-        [
+        let classDecl =
             Declaration.classDeclaration(
                 classDecl.Name,
                 genParams = genParams,
                 ?extends = extends,
                 implements = implements,
-                constructor = constructor,
+                ?constructor = constructor,
                 methods = classMethods,
                 variables = variables)
-            exposedCons
-        ]
+            
+        classDecl::otherDecls
 
     let transformDeclaration (com: IDartCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
@@ -1765,7 +1782,7 @@ module Util =
         | Fable.MemberDeclaration memb ->
             withCurrentScope ctx memb.UsedNames <| fun ctx ->
                 if memb.Info.IsValue then
-                    let ident = transformIdentWith com ctx memb.Body.Type memb.Name
+                    let ident = transformIdentWith com ctx memb.Info.IsMutable memb.Body.Type memb.Name
                     let statements, expr = transformAndCaptureExpr com ctx memb.Body
                     let value =
                         match statements with
@@ -1798,11 +1815,11 @@ module Util =
                 match decl.Constructor with
                 | Some cons ->
                     withCurrentScope ctx cons.UsedNames <| fun ctx ->
-                        transformClassWithImplicitConstructor com ctx ent decl instanceMethods cons
+                        transformClass com ctx ent decl instanceMethods (Some cons)
                 | None ->
                     if ent.IsFSharpUnion then transformUnionDeclaration com ctx decl ent
                     elif ent.IsFSharpRecord then transformRecordDeclaration com ctx decl ent
-                    else failwith "TODO: transformClassWithCompilerGeneratedConstructor"
+                    else transformClass com ctx ent decl instanceMethods None
 
     let getIdentForImport (ctx: Context) (path: string) =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
@@ -1848,7 +1865,7 @@ module Compiler =
                         imports.Add(path, { Path = path; LocalIdent = Some localId })
                         localId
                 let t = transformType com ctx t
-                let ident = makeIdent t localId
+                let ident = makeImmutableIdent t localId
                 match selector with
                 | Naming.placeholder ->
                     "`importMember` must be assigned to a variable"

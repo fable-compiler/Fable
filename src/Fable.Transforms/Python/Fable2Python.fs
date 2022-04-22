@@ -1322,24 +1322,25 @@ module Util =
             get com ctx None expr m false
             |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs typ =
+    let makeArray (com: IPythonCompiler) ctx exprs kind typ =
         let expr, stmts =
             exprs
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             |> Helpers.unzipArgs
 
         let letter =
-            match typ with
-            | Fable.Type.Number (UInt8, _) -> Some "B"
-            | Fable.Type.Number (Int8, _) -> Some "b"
-            | Fable.Type.Number (Int16, _) -> Some "h"
-            | Fable.Type.Number (UInt16, _) -> Some "H"
-            | Fable.Type.Number (Int32, _) -> Some "l"
-            | Fable.Type.Number (UInt32, _) -> Some "L"
-            | Fable.Type.Number (Int64, _) -> Some "q"
-            | Fable.Type.Number (UInt64, _) -> Some "Q"
-            | Fable.Type.Number (Float32, _) -> Some "f"
-            | Fable.Type.Number (Float64, _) -> Some "d"
+            match kind, typ with
+            | Fable.ResizeArray, _ -> None
+            | _, Fable.Type.Number (UInt8, _) -> Some "B"
+            | _, Fable.Type.Number (Int8, _) -> Some "b"
+            | _, Fable.Type.Number (Int16, _) -> Some "h"
+            | _, Fable.Type.Number (UInt16, _) -> Some "H"
+            | _, Fable.Type.Number (Int32, _) -> Some "l"
+            | _, Fable.Type.Number (UInt32, _) -> Some "L"
+            | _, Fable.Type.Number (Int64, _) -> Some "q"
+            | _, Fable.Type.Number (UInt64, _) -> Some "Q"
+            | _, Fable.Type.Number (Float32, _) -> Some "f"
+            | _, Fable.Type.Number (Float64, _) -> Some "d"
             | _ -> None
 
         match letter with
@@ -1699,7 +1700,8 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType (ent, [ _ ]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, typ) -> makeArray com ctx exprs typ
+            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, typ) ->
+                makeArray com ctx exprs Fable.ImmutableArray typ
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
@@ -1726,8 +1728,8 @@ module Util =
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (Fable.ArrayValues values, typ, _isMutable) -> makeArray com ctx values typ
-        | Fable.NewArray ((Fable.ArrayAlloc expr | Fable.ArrayFrom expr), typ, _isMutable) ->
+        | Fable.NewArray (Fable.ArrayValues values, typ, kind) -> makeArray com ctx values kind typ
+        | Fable.NewArray ((Fable.ArrayAlloc expr | Fable.ArrayFrom expr), _typ, _kind) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
             let arg, stmts = com.TransformAsExpr(ctx, expr)
 

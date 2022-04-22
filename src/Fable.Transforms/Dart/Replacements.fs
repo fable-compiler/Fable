@@ -1012,7 +1012,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        // We could add ?? as operator (or a custom string operator)
+        // so this can be a BinaryOp  
+        emit r t args false "$0 ?? $1" |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
@@ -1390,16 +1392,11 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // Use Any to prevent creation of a typed array (not resizable)
-    // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
-    | ".ctor", _, [] ->
-        makeArray Any [] |> Some
+    | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
     // Don't pass the size to `new Array()` because that would fill the array with null values
-    | ".ctor", _, [ExprType(Number _)] ->
-        makeArray Any [] |> Some
+    | ".ctor", _, [ExprType(Number _)] -> makeResizeArray (getElementType t) [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
-        makeArray Any vals |> Some
+    | ".ctor", _, [ArrayOrListLiteral(vals,_)] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("List", t, args, memb="of", ?loc=r)
         |> asOptimizable "array"
