@@ -406,11 +406,11 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     | Fable.DelegateType _ -> ExType phpObj
     | Fable.LambdaType _ -> ExType phpObj
     | Fable.GenericParam _ -> ExType phpObj
-    | Fable.Array t -> ArrayRef (convertTypeRef com t)
+    | Fable.Array(t,_) -> ArrayRef (convertTypeRef com t)
     | Fable.List _ -> ExType { Name = "FSharpList"; Namespace = Some "FSharpList"; Class = None }
     | Fable.Option(t,_) -> ExType { Name = "object"; Namespace = None; Class = None }
     | Fable.DeclaredType(ref, _) ->
-        let ent = com.GetEntity(ref)
+//        let ent = com.GetEntity(ref)
         match com.TryFindType(ref) with
         | Ok phpType -> InType phpType
         | Error ent -> ExType (getPhpTypeForEntity com ent)
@@ -1002,9 +1002,11 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         libCall com "List" "FSharpList" "cons" [ convertExpr com head; convertExpr com tail]
     | Fable.NewList(None,_) ->
         libCall com "List" "FSharpList" "_empty" []
-    | Fable.NewArray(values,_,_) ->
-        PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
-
+    | Fable.NewArray(kind,_,_) ->
+        match kind with
+        | Fable.ArrayValues values -> PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
+        | _ -> PhpNewArray([]) // TODO
+    
     | Fable.NewOption(opt,_,_) ->
         match opt with
         | Some expr -> convertExpr com expr
@@ -1013,13 +1015,10 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpNewArray[ for i in 0 .. values.Length - 1 do
                         PhpArrayString fields.[i], convertExpr com values.[i] ]
 
-
     | Fable.BaseValue(ident,_) ->
         match ident with
         | None -> PhpParent
         | Some ident -> convertExpr com (Fable.IdentExpr ident)
-    | Fable.NewArrayFrom(size,_,_) ->
-        PhpNewArray([])
     | Fable.RegexConstant(source, flags) ->
         let modifiers =
             flags

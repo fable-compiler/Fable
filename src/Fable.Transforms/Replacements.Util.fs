@@ -111,13 +111,13 @@ let genArg (com: ICompiler) (ctx: Context) r i (genArgs: Type list) =
         Any)
 
 let toArray r t expr =
-    let t =
+    let t, kind =
         match t with
-        | Array t
+        | Array(t, kind) -> t, kind
         // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
-        | DeclaredType(_, [t]) -> t
-        | t -> t
-    Value(NewArrayFrom(expr, t, true), r)
+        | DeclaredType(_, [t])
+        | t -> t, MutableArray
+    Value(NewArray(ArrayFrom expr, t, kind), r)
 
 let getBoxedZero kind: obj =
     match kind with
@@ -188,8 +188,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.byref -> Some(FSharpReference(Any))
     | Types.byref2 -> Some(FSharpReference(Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
-        List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
+    | Naming.StartsWith Types.choiceNonGeneric genArgs ->
+        List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -214,7 +214,7 @@ let (|Builtin|_|) = function
     | _ -> None
 
 let getElementType = function
-    | Array t -> t
+    | Array(t,_) -> t
     | List t -> t
     | DeclaredType(_, [t]) -> t
     | _ -> Any
@@ -226,7 +226,7 @@ let splitFullName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
-        | i -> fullname.[..i - 1]
+        | i -> fullname[..i - 1]
     match fullname.LastIndexOf(".") with
     | -1 -> "", fullname
     | i -> fullname.Substring(0, i), fullname.Substring(i + 1)
@@ -235,7 +235,7 @@ let getTypeNameFromFullName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
-        | i -> fullname.[.. i - 1]
+        | i -> fullname[.. i - 1]
 
     match fullname.LastIndexOf(".") with
     | -1 -> fullname
@@ -247,7 +247,7 @@ let rec getTypeName com (ctx: Context) r t =
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
         name
-    | Array elemType ->
+    | Array(elemType,_) -> // TODO: check kind
         getTypeName com ctx r elemType + "[]"
     | _ ->
         getTypeFullName false t |> splitFullName |> snd
@@ -269,7 +269,7 @@ let makeStringTemplate tag (str: string) (holes: {| Index: int; Length: int |}[]
     let mutable prevIndex = 0
     let parts = [
         for i = 0 to holes.Length - 1 do
-            let m = holes.[i]
+            let m = holes[i]
             let strPart = str.Substring(prevIndex, m.Index - prevIndex)
             prevIndex <- m.Index + m.Length
             strPart
@@ -289,8 +289,8 @@ let makeStringTemplateFrom simpleFormats values = function
             | Some acc ->
                 // TODO: If arguments need format, format them individually
                 let doesNotNeedFormat =
-                    not m.Groups.[1].Success
-                    || (Array.contains m.Groups.[1].Value simpleFormats)
+                    not m.Groups[1].Success
+                    || (Array.contains m.Groups[1].Value simpleFormats)
                 if doesNotNeedFormat
                 then {| Index = m.Index; Length = m.Length |}::acc |> Some
                 else None)
@@ -369,7 +369,7 @@ let (|ListLiteral|_|) e =
     | _ -> None
 
 let (|ArrayOrListLiteral|_|) = function
-    | MaybeCasted(Value((NewArray(vals, t,_)|ListLiteral(vals, t)),_)) -> Some(vals, t)
+    | MaybeCasted(Value((NewArray(ArrayValues vals, t,_)|ListLiteral(vals, t)),_)) -> Some(vals, t)
     | _ -> None
 
 let (|IsEntity|_|) fullName = function

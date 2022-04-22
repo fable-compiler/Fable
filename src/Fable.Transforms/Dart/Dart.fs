@@ -39,7 +39,7 @@ type Type =
     | Function of argTypes: Type list * returnType: Type
 
 type Ident =
-    { Prefix: string option // Namespace
+    { ImportModule: string option
       Name: string
       Type: Type }
     member this.Expr =
@@ -66,6 +66,7 @@ type Annotation = Ident * Literal list
 type CallArg = string option * Expression
 
 type Expression =
+    | CommentedExpression of comment: string * expr: Expression
     | SuperExpression of typ: Type
     | ThisExpression of typ: Type
     | Literal of value: Literal
@@ -91,6 +92,7 @@ type Expression =
     | RethrowExpression of typ: Type
     member this.Type =
         match this with
+        | CommentedExpression(_, e) -> e.Type
         | IsExpression _ -> Boolean
         | LogicalExpression _ -> Boolean
         | Literal value -> value.Type
@@ -117,6 +119,7 @@ type Expression =
         | AnonymousFunction(args,_,_,returnType) -> Function(args |> List.map (fun a -> a.Type), returnType)
         | AssignmentExpression _ -> Void
 
+    static member commented comment expr = CommentedExpression(comment, expr)
     static member listLiteral(values, typ, ?isConst) = ListLiteral(values, typ, isConst=defaultArg isConst false) |> Literal
     static member integerLiteral(value) = IntegerLiteral value |> Literal
     static member integerLiteral(value: int) = IntegerLiteral value |> Literal
@@ -172,6 +175,7 @@ type CatchClause(body, ?param, ?test) =
     member _.Body: Statement list = body
 
 type Statement =
+    | CommentedStatement of comment: string * statement: Statement
     | IfStatement of test: Expression * consequent: Statement list * alternate: Statement list
     | ForStatement of init: (Ident * Expression) option * test: Expression option * update: Expression option * body: Statement list
     | ForInStatement of param: Ident * iterable: Expression * body: Statement list
@@ -180,12 +184,14 @@ type Statement =
     | TryStatement of body: Statement list * handlers: CatchClause list * finalizer: Statement list
     | SwitchStatement of discriminant: Expression * cases: SwitchCase list * defaultCase: Statement list option
     | ReturnStatement of Expression
-    | BreakStatement of label: string option * ignoreDeadCode: bool
+    | BreakStatement of label: string option
     | ContinueStatement of label: string option
     | ExpressionStatement of Expression
     | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option
     | LocalFunctionDeclaration of FunctionDecl
     | LabeledStatement of label: string * body: Statement
+    static member commented comment statement =
+        CommentedStatement(comment, statement)
     static member returnStatement(arg) =
         ReturnStatement(arg)
     static member labeledStatement(label, body) =
@@ -198,8 +204,8 @@ type Statement =
         ForInStatement(param, iterable, body)
     static member whileStatement(test, body) =
         WhileStatement(test, body)
-    static member breakStatement(?label, ?ignoreDeadCode) =
-        BreakStatement(label, defaultArg ignoreDeadCode false)
+    static member breakStatement(?label) =
+        BreakStatement(label)        
     static member continueStatement(?label) =
         ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =

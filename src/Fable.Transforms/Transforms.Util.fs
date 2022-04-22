@@ -376,8 +376,12 @@ module AST =
             | StringTemplate(_,_,exprs)
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_) -> List.exists canHaveSideEffects exprs
-            // Arrays can be mutable
-            | NewArray _ | NewArrayFrom _ -> true
+            | NewArray(newKind, _, kind) ->
+                match kind, newKind with
+                | ImmutableArray, ArrayAlloc expr
+                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
+                | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
+                | _ -> true
             | NewRecord _ | NewAnonymousRecord _ -> true
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
@@ -452,7 +456,7 @@ module AST =
         let t =
             match t with
             | Option(_, isStruct) -> Option(Any, isStruct)
-            | Array _ -> Array Any
+            | Array(_, kind) -> Array(Any, kind)
             | List _ -> List Any
             | Tuple(genArgs, isStruct) ->
                 Tuple(genArgs |> List.map (fun _ -> Any), isStruct)
@@ -467,10 +471,10 @@ module AST =
         Value(NewTuple(values, false), r)
 
     let makeArray elementType arrExprs =
-        NewArray(arrExprs, elementType, true) |> makeValue None
+        NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
 
     let makeArrayWithRange r elementType arrExprs =
-        NewArray(arrExprs, elementType, true) |> makeValue r
+        NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
 
     let makeDelegate args body =
         Delegate(args, body, FuncInfo.Empty)
@@ -510,12 +514,12 @@ module AST =
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const
-        | Array (Number(kind, uom)), (:? (byte[]) as arr) ->
+        | Array (Number(kind, uom), arrayKind), (:? (byte[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom), true) |> makeValue r
-        | Array (Number(kind, uom)), (:? (uint16[]) as arr) ->
+            NewArray (ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
+        | Array (Number(kind, uom), arrayKind), (:? (uint16[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConstant (x, kind, uom) |> makeValue None) |> Seq.toList
-            NewArray (values, Number(kind, uom), true) |> makeValue r
+            NewArray (ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | _ -> FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})" |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -651,7 +655,7 @@ module AST =
         | Regex, Regex -> true
         | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
-        | Array t1, Array t2
+        | Array(t1, kind1), Array(t2, kind2) -> kind1 = kind2 && typeEquals strict t1 t2
         | List t1, List t2 -> typeEquals strict t1 t2
         | Tuple(ts1, isStruct1), Tuple(ts2, isStruct2) -> isStruct1 = isStruct2 && listEquals (typeEquals strict) ts1 ts2
         | LambdaType(a1, t1), LambdaType(a2, t2) ->
@@ -737,7 +741,7 @@ module AST =
                 let genArgsLength = List.length genArgs
                 let genArgs = String.concat "," genArgs
                 $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
-        | Array gen ->
+        | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen
@@ -781,8 +785,9 @@ module AST =
             | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
-            | NewArray(exprs, t, i) -> NewArray(List.map f exprs, t, i) |> makeValue r
-            | NewArrayFrom(e, t, i) -> NewArrayFrom(f e, t, i) |> makeValue r
+            | NewArray(ArrayValues exprs, t, i) -> NewArray(List.map f exprs |> ArrayValues, t, i) |> makeValue r
+            | NewArray(ArrayFrom expr, t, i) -> NewArray(f expr |> ArrayFrom, t, i) |> makeValue r
+            | NewArray(ArrayAlloc expr, t, i) -> NewArray(f expr |> ArrayAlloc, t, i) |> makeValue r
             | NewList(ht, t) ->
                 let ht = ht |> Option.map (fun (h,t) -> f h, f t)
                 NewList(ht, t) |> makeValue r

@@ -609,7 +609,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
-    | Array typ -> makeArray typ []
+    | Array(typ,_) -> makeArray typ []
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
@@ -747,7 +747,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | DeclaredType(e,_) ->
                     let e = com.GetEntity(e)
                     if e.IsFSharpUnion then
-                        let c = e.UnionCases.[tag]
+                        let c = e.UnionCases[tag]
                         let caseName = defaultArg c.CompiledName c.Name
                         if meth = "casenameWithFieldCount" then
                             Some(caseName, c.UnionCaseFields.Length)
@@ -914,7 +914,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray(templateArgs, _, _), _) as values)::_ ->
+    | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, _), _) as values)::_ ->
         let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
         match makeStringTemplateFrom simpleFormats templateArgs str with
         | Some stringTemplate -> makeValue r stringTemplate |> Some // Value(StringTemplate)
@@ -1175,9 +1175,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match i.SignatureArgTypes with
         | [Char; Number(Int32, _)] ->
             Helper.LibCall(com, "String", "fromChar", t, args, ?loc=r) |> Some
-        | [Array Char] ->
+        | [Array(Char,_)] ->
             Helper.LibCall(com, "String", "fromChars", t, args, ?loc=r) |> Some
-        | [Array Char; Number(Int32, _); Number(Int32, _)] ->
+        | [Array(Char,_); Number(Int32, _); Number(Int32, _)] ->
             Helper.LibCall(com, "String", "fromChars2", t, args, ?loc=r) |> Some
         | _ -> None
     | "get_Length", Some c, _ ->
@@ -1234,9 +1234,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             | [ExprType Char] -> Some "Char"
             | [ExprType Char; ExprType(Number(Int32, _))] -> Some "Char2"
             | [ExprType Char; ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] -> Some "Char3"
-            | [ExprType(Array Char)] -> Some ""
-            | [ExprType(Array Char); ExprType(Number(Int32, _))] -> Some "2"
-            | [ExprType(Array Char); ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] -> Some "3"
+            | [ExprType(Array(Char,_))] -> Some ""
+            | [ExprType(Array(Char,_)); ExprType(Number(Int32, _))] -> Some "2"
+            | [ExprType(Array(Char,_)); ExprType(Number(Int32, _)); ExprType(Number(Int32, _))] -> Some "3"
             | _ -> None
         match suffixOpt with
         | Some suffix ->
@@ -1259,7 +1259,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", methName, t, c::args, ?loc=r) |> Some
         | [ExprType Char] ->
             Helper.LibCall(com, "String", methName + "Char", t, c::args, ?loc=r) |> Some
-        | [ExprType(Array Char)] ->
+        | [ExprType(Array(Char,_))] ->
             Helper.LibCall(com, "String", methName + "Chars", t, c::args, ?loc=r) |> Some
         | _ -> None
     | "ToCharArray", Some c, _ ->
@@ -1281,11 +1281,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ExprTypeAs(String, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; arg2; arg3], ?loc=r) |> Some
 
-        | [Value(NewArray([arg1], String, _), _)] ->
+        | [Value(NewArray(ArrayValues [arg1], String, _), _)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; makeIntConst -1; makeIntConst 0], ?loc=r) |> Some
-        | [Value(NewArray([arg1], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
+        | [Value(NewArray(ArrayValues [arg1], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; makeIntConst -1; arg2], ?loc=r) |> Some
-        | [Value(NewArray([arg1], String, _), _); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
+        | [Value(NewArray(ArrayValues [arg1], String, _), _); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "split", t, [c; arg1; arg2; arg3], ?loc=r) |> Some
 
         | [ExprTypeAs(Char, arg1)] ->
@@ -1295,13 +1295,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ExprTypeAs(Char, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "splitChars", t, [c; makeArray Char [arg1]; arg2; arg3], ?loc=r) |> Some
 
-        | [ExprTypeAs(Array Char, arg1)] ->
+        | [ExprTypeAs(Array(Char,_), arg1)] ->
             Helper.LibCall(com, "String", "splitChars", t, [c; arg1; makeIntConst -1; makeIntConst 0], ?loc=r) |> Some
-        | [ExprTypeAs(Array Char, arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
+        | [ExprTypeAs(Array(Char,_), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2)] ->
             Helper.LibCall(com, "String", "splitChars", t, [c; arg1; makeIntConst -1; arg2], ?loc=r) |> Some
-        | [ExprTypeAs(Array Char, arg1); ExprTypeAs(Number(Int32, _), arg2)] ->
+        | [ExprTypeAs(Array(Char,_), arg1); ExprTypeAs(Number(Int32, _), arg2)] ->
             Helper.LibCall(com, "String", "splitChars", t, [c; arg1; arg2; makeIntConst 0], ?loc=r) |> Some
-        | [ExprTypeAs(Array Char, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
+        | [ExprTypeAs(Array(Char,_), arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3)] ->
             Helper.LibCall(com, "String", "splitChars", t, [c; arg1; arg2; arg3], ?loc=r) |> Some
 
         // TODO: handle arrays of string separators with more than one element
@@ -1329,24 +1329,24 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 ExprTypeAs(IEnumerable, arg) ] ->
                 [sep; toArray com t arg]
             | [ ExprTypeAs(String, sep);
-                ExprTypeAs(Array String, arg) ] ->
+                ExprTypeAs(Array(String,_), arg) ] ->
                 [sep; arg]
             | [ ExprTypeAs(Char, sep);
-                ExprTypeAs(Array String, arg) ] ->
+                ExprTypeAs(Array(String,_), arg) ] ->
                 let sep = Helper.LibCall(com, "String", "ofChar", String, [sep])
                 [sep; arg]
             | [ ExprTypeAs(String, sep);
-                ExprTypeAs(Array String, arg);
+                ExprTypeAs(Array(String,_), arg);
                 ExprTypeAs(Number(Int32, _), idx);
                 ExprTypeAs(Number(Int32, _), cnt) ] ->
-                let arg = Helper.LibCall(com, "Array", "getSubArray", Array String, [arg; idx; cnt])
+                let arg = Helper.LibCall(com, "Array", "getSubArray", Array(String, MutableArray), [arg; idx; cnt])
                 [sep; arg]
             | [ ExprTypeAs(Char, sep);
-                ExprTypeAs(Array String, arg);
+                ExprTypeAs(Array(String,_), arg);
                 ExprTypeAs(Number(Int32, _), idx);
                 ExprTypeAs(Number(Int32, _), cnt) ] ->
                 let sep = Helper.LibCall(com, "String", "ofChar", String, [sep])
-                let arg = Helper.LibCall(com, "Array", "getSubArray", Array String, [arg; idx; cnt])
+                let arg = Helper.LibCall(com, "Array", "getSubArray", Array(String, MutableArray), [arg; idx; cnt])
                 [sep; arg]
             | _ -> []
         if not (List.isEmpty args) then
@@ -1360,7 +1360,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ExprType String; ExprType String; ExprType String]
         | [ExprType String; ExprType String; ExprType String; ExprType String] ->
             Helper.LibCall(com, "String", "concat", t, [makeArray String args], ?loc=r) |> Some
-        | [ExprType(Array String)] ->
+        | [ExprType(Array(String,_))] ->
             Helper.LibCall(com, "String", "concat", t, args, ?loc=r) |> Some
         | _ -> None
     | "CompareTo", Some c, [ExprType String] ->
@@ -1395,16 +1395,16 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // because the strings array will always have the same reference so it can be used as a key in a WeakMap
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
-    | "Create", None, [StringConst str; Value(NewArray(args, _, _),_)] ->
+    | "Create", None, [StringConst str; Value(NewArray(ArrayValues args, _, _),_)] ->
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
-        let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
+        let hasFormat = matches |> Array.exists (fun m -> m.Groups[1].Value.Length > 0)
         let tag =
             if not hasFormat then
                 Helper.LibValue(com, "String", "fmt", Any) |> Some
             else
                 let fmtArg =
                     matches
-                    |> Array.map (fun m -> makeStrConst m.Groups.[1].Value)
+                    |> Array.map (fun m -> makeStrConst m.Groups[1].Value)
                     |> Array.toList
                     |> makeArray String
                 Helper.LibCall(com, "String", "fmtWith", Any, [fmtArg]) |> Some
@@ -1542,11 +1542,11 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
 let createArray (com: ICompiler) ctx r t size value =
     match t, value with
-    | Array typ, None ->
+    | Array(typ,_), None ->
         let value = getZero com ctx typ
-        Value(NewArrayFrom(makeTuple None [value; size], typ, true), r)
-    | Array typ, Some value ->
-        Value(NewArrayFrom(makeTuple None [value; size], typ, true), r)
+        Value(NewArray(makeTuple None [value; size] |> ArrayFrom, typ, MutableArray), r)
+    | Array(typ,_), Some value ->
+        Value(NewArray(makeTuple None [value; size] |> ArrayFrom, typ, MutableArray), r)
     | _ ->
         $"Expecting an array type but got %A{t}"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1817,11 +1817,11 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([low; mid; high; isNegative; scale] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", [Value(NewArray([low; mid; high; signExp] as args,_,_),_)] ->
+    | ".ctor", [Value(NewArray(ArrayValues ([low; mid; high; signExp] as args),_,_),_)] ->
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
         match arg.Type with
-        | Array (Number(Int32, NumberInfo.Empty)) ->
+        | Array (Number(Int32, NumberInfo.Empty),_) ->
             Helper.LibCall(com, "Decimal", "fromIntArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> makeDecimalFromExpr com r t arg |> Some
     | "GetBits", _ ->
@@ -2424,7 +2424,7 @@ let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "CreateInstance", None, ([_type] | [_type; (ExprType(Array Any))]) ->
+    | "CreateInstance", None, ([_type] | [_type; (ExprType(Array(Any,_)))]) ->
         Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
@@ -2714,19 +2714,19 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 |> BoolConstant |> makeValue r |> Some
             | "GetElementType" ->
                 match exprType with
-                | Array t -> makeTypeInfo r t |> Some
+                | Array(t,_) -> makeTypeInfo r t |> Some
                 | _ -> Null t |> makeValue r |> Some
             | "get_IsGenericType" ->
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
             | "get_GenericTypeArguments" | "GetGenericArguments" ->
                 let arVals = exprType.Generics |> List.map (makeTypeInfo r)
-                NewArray(arVals, Any, true) |> makeValue r |> Some
+                NewArray(ArrayValues arVals, Any, MutableArray) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
                 let exprType =
                     match exprType with
                     | Option(_, isStruct) -> Option(newGen.Head, isStruct)
-                    | Array _ -> Array newGen.Head
+                    | Array(_, kind) -> Array(newGen.Head, kind)
                     | List _ -> List newGen.Head
                     | LambdaType _ ->
                         let argTypes, returnType = List.splitLast newGen
@@ -2988,7 +2988,7 @@ let tryType = function
         if isStruct
         then Some(Types.valueOption, options, [genArg])
         else Some(Types.option, options, [genArg])
-    | Array genArg -> Some(Types.array, arrays, [genArg])
+    | Array(genArg,_) -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->
         match kind with

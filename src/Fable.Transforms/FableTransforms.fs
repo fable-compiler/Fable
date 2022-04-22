@@ -23,8 +23,11 @@ let getSubExpressions = function
         | StringTemplate(_,_,exprs) -> exprs
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
-        | NewArray(exprs, _, _) -> exprs
-        | NewArrayFrom(e, _, _) -> [e]
+        | NewArray(kind, _, _) ->
+            match kind with
+            | ArrayValues exprs -> exprs
+            | ArrayAlloc e
+            | ArrayFrom e -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
@@ -69,7 +72,7 @@ let getSubExpressions = function
 let deepExists (f: Expr -> bool) expr =
     let rec deepExistsInner (exprs: ResizeArray<Expr>) =
         let mutable found = false
-        let subExprs = ResizeArray()
+        let subExprs = FSharp.Collections.ResizeArray()
         for e in exprs do
             if not found then
                 subExprs.AddRange(getSubExpressions e)
@@ -77,7 +80,7 @@ let deepExists (f: Expr -> bool) expr =
         if found then true
         elif subExprs.Count > 0 then deepExistsInner subExprs
         else false
-    ResizeArray [|expr|] |> deepExistsInner
+    FSharp.Collections.ResizeArray [|expr|] |> deepExistsInner
 
 let isIdentUsed identName expr =
     expr |> deepExists (function
@@ -212,11 +215,14 @@ let noSideEffectBeforeIdent identName expr =
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
-            | NewArrayFrom(e,_,_)
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
+            | NewArray(kind,_,_) ->
+                match kind with
+                | ArrayValues exprs -> findIdentOrSideEffectInList exprs
+                | ArrayAlloc e
+                | ArrayFrom e -> findIdentOrSideEffect e
             | StringTemplate(_,_,exprs)
-            | NewArray(exprs,_,_)
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)
@@ -486,7 +492,7 @@ module private Transforms =
             let args = uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
-            let uci = com.GetEntity(ent).UnionCases.[tag]
+            let uci = com.GetEntity(ent).UnionCases[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
         | Set(e, FieldSet(fieldName), t, value, r) ->

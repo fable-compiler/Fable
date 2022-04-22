@@ -51,7 +51,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
         let genArgs = genArgs |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
         if isStruct then "struct " + genArgs
         else genArgs
-    | Fable.Array genArg ->
+    | Fable.Array(genArg, _) -> // TODO: check kind
         getTypeFastFullName genParams genArg + "[]"
     | Fable.List genArg ->
         getTypeFastFullName genParams genArg + " list"
