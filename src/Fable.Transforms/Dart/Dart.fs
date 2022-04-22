@@ -41,7 +41,8 @@ type Type =
 type Ident =
     { ImportModule: string option
       Name: string
-      Type: Type }
+      Type: Type
+      IsMutable: bool }
     member this.Expr =
         IdentExpression this
 
@@ -220,7 +221,7 @@ type Statement =
             ReturnType = returnType
             GenericParams = defaultArg genParams []
         }
-    static member switchStatement(discriminant, cases, defaultCase) =
+    static member switchStatement(discriminant, cases, ?defaultCase) =
         SwitchStatement(discriminant, cases, defaultCase)
 
 type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool) =

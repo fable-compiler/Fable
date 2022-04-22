@@ -403,7 +403,7 @@ module Annotation =
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
-        | Fable.Array(genArg,_) -> makeArrayTypeAnnotation com ctx genArg
+        | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
@@ -452,9 +452,9 @@ module Annotation =
         List.map (typeAnnotation com ctx) genArgs
         |> List.toArray |> TupleTypeAnnotation
 
-    let makeArrayTypeAnnotation com ctx genArg =
+    let makeArrayTypeAnnotation com ctx genArg kind =
         match genArg with
-        | JS.Replacements.TypedArrayCompatible com name ->
+        | JS.Replacements.TypedArrayCompatible com kind name ->
             makeSimpleTypeAnnotation com ctx name
         | _ ->
             makeNativeTypeAnnotation com ctx [genArg] "Array"
@@ -704,29 +704,29 @@ module Util =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
         |> Expression.arrayExpression
 
-    let makeTypedArray (com: IBabelCompiler) ctx t (args: Fable.Expr list) =
+    let makeTypedArray (com: IBabelCompiler) ctx t kind (args: Fable.Expr list) =
         match t with
-        | JS.Replacements.TypedArrayCompatible com jsName ->
+        | JS.Replacements.TypedArrayCompatible com kind jsName ->
             let args = [|makeArray com ctx args|]
             Expression.newExpression(Expression.identifier(jsName), args)
         | _ -> makeArray com ctx args
 
-    let getArrayCons com t =
+    let getArrayCons com t kind =
         match t with
-        | JS.Replacements.TypedArrayCompatible com name -> Expression.identifier name
+        | JS.Replacements.TypedArrayCompatible com kind name -> Expression.identifier name
         | _ -> Expression.identifier("Array")
 
-    let makeArrayAllocated (com: IBabelCompiler) ctx typ (size: Fable.Expr) =
-        let cons = getArrayCons com typ
+    let makeArrayAllocated (com: IBabelCompiler) ctx typ kind (size: Fable.Expr) =
+        let cons = getArrayCons com typ kind
         let size = com.TransformAsExpr(ctx, size)
         Expression.newExpression(cons, [|size |])
 
-    let makeArrayFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
+    let makeArrayFrom (com: IBabelCompiler) ctx typ kind (fableExpr: Fable.Expr) =
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-            makeTypedArray com ctx typ exprs
+            makeTypedArray com ctx typ kind exprs
         | _ ->
-            let cons = getArrayCons com typ
+            let cons = getArrayCons com typ kind
             let expr = com.TransformAsExpr(ctx, fableExpr)
             Expression.callExpression(get None cons "from", [|expr|])
     
@@ -977,11 +977,11 @@ module Util =
             | _, (:? unativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (kind, typ, _) ->
-            match kind with
-            | Fable.ArrayValues values -> makeTypedArray com ctx typ values
-            | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ size
-            | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ expr
+        | Fable.NewArray (newKind, typ, kind) ->
+            match newKind with
+            | Fable.ArrayValues values -> makeTypedArray com ctx typ kind values
+            | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
+            | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail

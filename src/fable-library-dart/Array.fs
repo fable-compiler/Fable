@@ -7,28 +7,81 @@ module ArrayModule
 open System.Collections.Generic
 open Fable.Core
 
-[<RequireQualifiedAccess>]
-module Native =
+[<RequireQualifiedAccess; Erase>]
+type Native =
+    /// Converts resize array without creating a new copy
+    [<Emit("$0")>]
+    static member convertResizeArray(array: ResizeArray<'T>): 'T[] = jsNative
+
     [<Emit("List.generate($0, $1, growable: false)")>]
-    let generate (len: int) (f: int -> 'T): 'T[] = jsNative
+    static member generate (len: int) (f: int -> 'T): 'T[] = jsNative
 
     [<Emit("$1.where($0).toList(growable: false)")>]
-    let where (f: 'T -> bool) (xs: 'T[]): 'T[] = jsNative
+    static member where (f: 'T -> bool) (xs: 'T[]): 'T[] = jsNative
 
     [<Emit("List.filled($0, $1, growable: false)")>]
-    let filled (len: int) (x: 'T): 'T[] = jsNative
+    static member filled (len: int) (x: 'T): 'T[] = jsNative
 
     [<Emit("$0.fillRange($1, $2, $3)")>]
-    let fillRange (xs: 'T[]) (start: int) (end_: int) (fill: 'T): unit = jsNative
+    static member fillRange (xs: 'T[]) (start: int) (end_: int) (fill: 'T): unit = jsNative
 
-    [<Emit("$0.sublist($1, $2)")>]
-    let sublist (xs: 'T[]) (start: int) (end_: int): 'T[] = jsNative
+    [<Emit("$0.sublist($1...)")>]
+    static member sublist (xs: 'T[], start: int, ?end_: int): 'T[] = jsNative
+
+    [<Emit("List.copyRange($0...)")>]
+    static member copyRange (target: 'T[], at: int, source: 'T[], start: int, ?end_: int): unit = jsNative
 
     [<Emit("$0.toList(growable: false)")>]
-    let toList (xs: 'T seq): 'T[] = nativeOnly
+    static member toList (xs: 'T seq): 'T[] = nativeOnly
 
     [<Emit("$0.reversed.toList(growable: false)")>]
-    let reversed (xs: 'T[]): 'T[] = nativeOnly
+    static member reversed (xs: 'T[]): 'T[] = nativeOnly
+
+    [<Emit("$0.add($1)")>]
+    static member add (xs: 'T[]) (x: 'T): unit = nativeOnly
+
+    [<Emit("$0.addAll($1)")>]
+    static member addAll (xs: 'T[]) (range: 'T seq): unit = nativeOnly
+
+    [<Emit("$0.insert($1...)")>]
+    static member insert (xs: 'T[]) (index: int) (x: 'T): unit = nativeOnly
+
+    [<Emit("$0.insertAll($1...)")>]
+    static member insertAll (xs: 'T[]) (index: int) (range: 'T seq): unit = nativeOnly
+
+    [<Emit("$0.remove($1)")>]
+    static member remove (xs: 'T[]) (value: obj): bool = nativeOnly
+
+    [<Emit("$0.removeAt($1)")>]
+    static member removeAt (xs: 'T[]) (index: int): 'T = nativeOnly
+
+    [<Emit("$0.removeLast()")>]
+    static member removeLast (xs: 'T[]): 'T = nativeOnly
+
+    [<Emit("$0.removeRange($1...)")>]
+    static member removeRange (xs: 'T[]) (start: int) (end_: int): unit = nativeOnly
+
+    [<Emit("$0.removeWhere($1...)")>]
+    static member removeWhere (xs: 'T[]) (predicate: 'T->bool): unit = nativeOnly
+
+    [<Emit("$0.contains($1)")>]
+    static member contains (xs: 'T[]) (value: obj): bool = nativeOnly
+
+    [<Emit("$0.indexOf($1...)")>]
+    static member indexOf (xs: 'T[], item: 'T, ?start: int): int = jsNative
+
+    [<Emit("$0.indexWhere($1...)")>]
+    static member indexWhere (xs: 'T[], predicate: 'T->bool, ?start: int): int = jsNative
+
+    [<Emit("$0.lastIndexOf($1...)")>]
+    static member lastIndexOf (xs: 'T[], item: 'T, ?start: int): 'T[] = jsNative
+
+    [<Emit("$0.lastIndexWhere($1...)")>]
+    static member lastIndexWhere (xs: 'T[], predicate: 'T->bool, ?start: int): 'T[] = jsNative
+
+    // Dart's native function includes a named argument `orElse` for an alternative predicate
+    [<Emit("$0.firstWhere($1...)")>]
+    static member firstWhere (xs: 'T[], predicate: 'T->bool): 'T = jsNative
 
 let private indexNotFound() =
     failwith "An index satisfying the predicate was not found in the collection."
@@ -61,7 +114,7 @@ let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): 'T[] =
     target
 
 let getSubArray (array: 'T[]) (start: int) (count: int): 'T[] =
-    Native.sublist array start (start + count)
+    Native.sublist(array, start, start + count)
 
 let last (array: 'T[]) =
     if Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
@@ -127,7 +180,7 @@ let indexed (source: 'T[]) =
 
 let truncate (count: int) (array: 'T[]): 'T[] =
     let count = max 0 count |> min array.Length
-    Native.sublist array 0 count
+    Native.sublist(array, 0, count)
 
 let concatArrays (arrays: 'T[][]): 'T[] =
     match arrays.Length with
@@ -181,7 +234,7 @@ let replicate (count: int) (initial: 'T): 'T array =
     Native.generate count (fun _ -> initial)
 
 let copy (array: 'T[]): 'T[] =
-    Native.sublist array 0 array.Length
+    Native.sublist(array, 0)
 
 let reverse (array: 'T[]): 'T[] =
     Native.reversed array
@@ -194,136 +247,108 @@ let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T
             state <- folder state array[i - 1]
             state)
 
-(*
 let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (array: 'T[]) (state: 'State): 'State[] =
     let len = array.Length
     let mutable state = state
-    Native.generate (len + 1) (fun i ->
-        if i = 0 then state
-        else
-            state <- folder array[ - 1] state
-            state)
-
-//    let res = allocateArrayFromCons cons (array.Length + 1)
-//    res[array.Length] <- state
-//    for i = array.Length - 1 downto 0 do
-//        res[i] <- folder array[i] res[i + 1]
-//    res
+    let res =
+        Native.generate (len + 1) (fun i ->
+            if i = 0 then state
+            else
+                state <- folder array[len - i] state
+                state)
+    reverseInPlace res
+    res
 
 let skip count (array: 'T[]) =
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = array.Length then
-        allocateArrayFromCons cons 0
+        Array.empty
     else
-        let count = if count < 0 then 0 else count
-        skipImpl array count
+        Native.sublist(array, max count 0)
 
 let skipWhile predicate (array: 'T[]) =
     let mutable count = 0
     while count < array.Length && predicate array[count] do
         count <- count + 1
     if count = array.Length then
-        allocateArrayFromCons cons 0
+        Array.empty
     else
-        skipImpl array count
+        Native.sublist(array, count)
 
 let take count (array: 'T[]) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = 0 then
-        allocateArrayFromCons cons 0
+        Array.empty
     else
-        subArrayImpl array 0 count
+        Native.sublist(array, 0, count)
 
 let takeWhile predicate (array: 'T[]) =
     let mutable count = 0
     while count < array.Length && predicate array[count] do
         count <- count + 1
     if count = 0 then
-        allocateArrayFromCons cons 0
+        Array.empty
     else
-        subArrayImpl array 0 count
+        Native.sublist(array, 0, count)
 
-let addInPlace (x: 'T) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    pushImpl array x |> ignore
+let addInPlace (x: 'T) (array: 'T[]): unit =
+    Native.add array x
 
-let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    for x in range do
-        addInPlace x array
+let addRangeInPlace (range: seq<'T>) (array: 'T[]): unit =
+    Native.addAll array range
 
-let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let mutable i = index
-    for x in range do
-        insertImpl array i x |> ignore
-        i <- i + 1
+let insertRangeInPlace (index: int) (range: seq<'T>) (array: 'T[]): unit =
+    Native.insertAll array index range
 
-let removeInPlace (item: 'T) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let i = indexOfImpl array item 0
-    if i > -1 then
-        spliceImpl array i 1 |> ignore
-        true
-    else
-        false
+let removeInPlace (item: 'T) (array: 'T[]): bool =
+    Native.remove array item
 
-let removeAllInPlace predicate (array: 'T[]) =
-    let rec countRemoveAll count =
-        let i = findIndexImpl predicate array
-        if i > -1 then
-            spliceImpl array i 1 |> ignore
-            countRemoveAll count + 1
-        else
-            count
-    countRemoveAll 0
+let removeAllInPlace (predicate: 'T -> bool) (array: 'T[]): int =
+    let len = array.Length
+    Native.removeWhere array predicate
+    len - array.Length
 
 // TODO: Check array lengths
-let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-    let diff = targetIndex - sourceIndex
-    for i = sourceIndex to sourceIndex + count - 1 do
-        target[i + diff] <- source[i]
+let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int): unit =
+    Native.copyRange(target, targetIndex, source, sourceIndex, sourceIndex + count)
 
-let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
+let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option): int =
     let start = defaultArg start 0
-    let i = indexOfImpl array item start
-    if count.IsSome && i >= start + count.Value then -1 else i
+    let i = Native.indexOf(array, item, start)
+    match count with
+    | Some count when i >= start + count -> -1
+    | _ -> i
 
 let partition (f: 'T -> bool) (source: 'T[]) =
-    let len = source.Length
-    let res1 = allocateArrayFromCons cons len
-    let res2 = allocateArrayFromCons cons len
-    let mutable iTrue = 0
-    let mutable iFalse = 0
-    for i = 0 to len - 1 do
-        if f source[i] then
-            res1[iTrue] <- source[i]
-            iTrue <- iTrue + 1
+    let res1 = ResizeArray()
+    let res2 = ResizeArray()
+    for x in source do
+        if f x then
+            res1.Add(x)
         else
-            res2[iFalse] <- source[i]
-            iFalse <- iFalse + 1
-    res1 |> truncate iTrue, res2 |> truncate iFalse
+            res2.Add(x)
+    Native.convertResizeArray res1, Native.convertResizeArray res2            
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
-    match findImpl predicate array with
-    | Some res -> res
-    | None -> indexNotFound()
+    Native.firstWhere(array, predicate)
 
 let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
-    findImpl predicate array
+    try
+        find predicate array |> Some
+    with _ -> None
 
 let findIndex (predicate: 'T -> bool) (array: 'T[]): int =
-    match findIndexImpl predicate array with
-    | index when index > -1 -> index
-    | _ -> indexNotFound()
+    match Native.indexWhere(array, predicate) with
+    | -1 -> indexNotFound()
+    | index -> index
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
-    match findIndexImpl predicate array with
-    | index when index > -1 -> Some index
-    | _ -> None
+    match Native.indexWhere(array, predicate) with
+    | -1 -> None
+    | index -> Some index
 
-let pick chooser (array: _[]) =
+let pick (chooser: 'a -> 'b option) (array: _[]): 'b =
     let rec loop i =
         if i >= array.Length then
             indexNotFound()
@@ -333,7 +358,7 @@ let pick chooser (array: _[]) =
             | Some res -> res
     loop 0
 
-let tryPick chooser (array: _[]) =
+let tryPick (chooser: 'a -> 'b option) (array: _[]): 'b option =
     let rec loop i =
         if i >= array.Length then None else
         match chooser array[i] with
@@ -341,21 +366,21 @@ let tryPick chooser (array: _[]) =
         | res -> res
     loop 0
 
-let findBack predicate (array: _[]) =
+let findBack (predicate: 'a -> bool) (array: _[]): 'a =
     let rec loop i =
         if i < 0 then indexNotFound()
         elif predicate array[i] then array[i]
         else loop (i - 1)
     loop (array.Length - 1)
 
-let tryFindBack predicate (array: _[]) =
+let tryFindBack (predicate: 'a -> bool) (array: _[]): 'a option =
     let rec loop i =
         if i < 0 then None
         elif predicate array[i] then Some array[i]
         else loop (i - 1)
     loop (array.Length - 1)
 
-let findLastIndex predicate (array: _[]) =
+let findLastIndex (predicate: 'a -> bool) (array: _[]): int =
     let rec loop i =
         if i < 0 then -1
         elif predicate array[i] then i
@@ -376,56 +401,45 @@ let tryFindIndexBack (predicate: 'a -> bool) (array: _[]): int option =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let choose (chooser: 'T->'U option) (array: 'T[]) =
-    let res: 'U[] = [||]
+let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
+    let res = ResizeArray<'U>()
     for i = 0 to array.Length - 1 do
         match chooser array[i] with
         | None -> ()
-        | Some y -> pushImpl res y |> ignore
+        | Some y -> res.Add(y)
+    Native.convertResizeArray res
 
-    match box cons with
-    | null -> res // avoid extra copy
-    | _ -> map id res cons
+let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
+    let mutable state = state    
+    for i = 0 to array.Length - 1 do
+        state <- folder i state array[i]
+    state
 
-let foldIndexed folder (state: 'State) (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     for i = 0 to array.Length - 1 do
-    //         acc <- folder i acc array[i]
-    //     acc
-    // else
-    foldIndexedImpl (fun acc x i -> folder i acc x) state array
+let fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
+    let mutable state = state    
+    for x in array do
+        state <- folder state x
+    state
 
-let fold folder (state: 'State) (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     for i = 0 to array.Length - 1 do
-    //         acc <- folder acc array[i]
-    //     acc
-    // else
-    foldImpl (fun acc x -> folder acc x) state array
-
-let iterate action (array: 'T[]) =
+let iterate (action: 'T -> unit) (array: 'T[]): unit =
     for i = 0 to array.Length - 1 do
         action array[i]
 
-let iterateIndexed action (array: 'T[]) =
+let iterateIndexed (action: int -> 'T -> unit) (array: 'T[]): unit =
     for i = 0 to array.Length - 1 do
         action i array[i]
 
-let iterate2 action (array1: 'T[]) (array2: 'T[]) =
+let iterate2 (action: 'T -> 'T -> unit) (array1: 'T[]) (array2: 'T[]): unit =
     if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action array1[i] array2[i]
 
-let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
+let iterateIndexed2 (action: int -> 'T -> 'T -> unit) (array1: 'T[]) (array2: 'T[]): unit =
     if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action i array1[i] array2[i]
 
-let isEmpty (array: 'T[]) =
-    Array.isEmpty array
-
+(*
 let forAll predicate (array: 'T[]) =
     // if isTypedArrayImpl array then
     //     let mutable i = 0
@@ -456,10 +470,6 @@ let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[
     let lower = defaultArg lower 0
     let upper = defaultArg upper -1
     let length = (if upper >= 0 then upper else target.Length - 1) - lower
-    // can't cast to TypedArray, so can't use TypedArray-specific methods
-    // if isTypedArrayImpl target && source.Length <= length then
-    //     typedArraySetImpl target source lower
-    // else
     for i = 0 to length do
         target[i + lower] <- source[i]
 

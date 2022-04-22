@@ -15,8 +15,10 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-let (|TypedArrayCompatible|_|) (com: Compiler) = function
-    | Number(kind,_) when com.Options.TypedArrays ->
+let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
+    match arrayKind, t with
+    | ResizeArray, _ -> None    
+    | _, Number(kind,_) when com.Options.TypedArrays ->
         match kind with
         | Int8 -> Some "Int8Array"
         | UInt8 -> Some "Uint8Array"
@@ -765,7 +767,8 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
             | Types.equalityComparer -> args @ [ makeEqualityComparer com ctx genArg ]
             | Types.arrayCons ->
                 match genArg with
-                | TypedArrayCompatible com consName ->
+                // We don't have a module for ResizeArray so let's assume the kind is MutableArray
+                | TypedArrayCompatible com MutableArray consName ->
                     let cons = [ makeImportLib com Any consName "types" ]
                     args @ cons
                 | _ ->
@@ -1869,13 +1872,11 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // Use Any to prevent creation of a typed array (not resizable)
-    // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
-    | ".ctor", _, [] -> makeArray Any [] |> Some
+    | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
     // Don't pass the size to `new Array()` because that would fill the array with null values
-    | ".ctor", _, [ ExprType (Number _) ] -> makeArray Any [] |> Some
+    | ".ctor", _, [ ExprType (Number _) ] -> makeResizeArray (getElementType t) [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [ ArrayOrListLiteral (vals, _) ] -> makeArray Any vals |> Some
+    | ".ctor", _, [ ArrayOrListLiteral (vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("list", t, args, ?loc = r)
         |> asOptimizable "array"

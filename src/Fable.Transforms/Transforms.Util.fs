@@ -470,6 +470,9 @@ module AST =
     let makeTuple r values =
         Value(NewTuple(values, false), r)
 
+    let makeResizeArray elementType arrExprs =
+        NewArray(ArrayValues arrExprs, elementType, ResizeArray) |> makeValue None
+    
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
 
