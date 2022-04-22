@@ -217,7 +217,7 @@ module TypeInfo =
     let isTypeOfType (com: IRustCompiler) isTypeOf isEntityOf entNames typ =
         match typ with
         | Fable.Option(genArg, _) -> isTypeOf com entNames genArg
-        | Fable.Array genArg -> isTypeOf com entNames genArg
+        | Fable.Array(genArg, _) -> isTypeOf com entNames genArg
         | Fable.List genArg -> isTypeOf com entNames genArg
         | Fable.Tuple(genArgs, _) ->
             List.forall (isTypeOf com entNames) genArgs
@@ -669,7 +669,7 @@ module TypeInfo =
                 transformClosureType com ctx argTypes returnType
             | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
             | Fable.Option(genArg, _) -> transformOptionType com ctx genArg
-            | Fable.Array genArg -> transformArrayType com ctx genArg
+            | Fable.Array(genArg, _) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex ->
                 // nonGenericTypeInfo Types.regex
@@ -1519,8 +1519,8 @@ module Util =
         | Fable.RegexConstant (source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
-        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx r typ values
-        | Fable.NewArrayFrom (expr, typ, _isMutable) -> makeArrayFrom com ctx r typ expr
+        | Fable.NewArray (Fable.ArrayValues values, typ, _isMutable) -> makeArray com ctx r typ values
+        | Fable.NewArray ((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _isMutable) -> makeArrayFrom com ctx r typ expr
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
@@ -1783,9 +1783,9 @@ module Util =
             // TODO: a more general way of doing this in Replacements
             let genArgs =
                 match info.Selector, typ with
-                | "Native::arrayEmpty", Fable.Array genArg ->
+                | "Native::arrayEmpty", Fable.Array(genArg, _) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::arrayWithCapacity", Fable.Array genArg ->
+                | "Native::arrayWithCapacity", Fable.Array(genArg, _) ->
                     transformGenArgs com ctx [genArg]
                 | ("Native::defaultOf" | "Native::getZero"), genArg ->
                     transformGenArgs com ctx [genArg]
@@ -1856,7 +1856,7 @@ module Util =
             let expr = transformExprMaybeIdentExpr com ctx fableExpr
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, Fable.NumberInfo.Empty) ->
+            | Fable.Array(t,_), Fable.Number(Int32, Fable.NumberInfo.Empty) ->
                 // // when indexing an array, cast index to usize
                 // let expr = expr |> mutableGetMut
                 // let prop = prop |> mkCastExpr (primitiveType "usize")
@@ -1977,7 +1977,7 @@ module Util =
         | Fable.ExprSet idx ->
             let prop = transformExprMaybeUnwrapRef com ctx idx
             match fableExpr.Type, idx.Type with
-            | Fable.Array t, Fable.Number(Int32, Fable.NumberInfo.Empty) ->
+            | Fable.Array(t,_), Fable.Number(Int32, Fable.NumberInfo.Empty) ->
                 // when indexing an array, cast index to usize
                 let expr = expr |> mutableGetMut
                 let prop = prop |> mkCastExpr (primitiveType "usize")

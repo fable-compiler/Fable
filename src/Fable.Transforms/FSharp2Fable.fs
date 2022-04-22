@@ -346,14 +346,14 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         match unionCase.Fields.Count with
         | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
         | 1 ->
-            let fi = unionCase.Fields.[0]
+            let fi = unionCase.Fields[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
                     let name = genParamName fi.FieldType.GenericParameter
                     let index =
                         tdef.GenericParameters
                         |> Seq.findIndex (fun arg -> arg.Name = name)
-                    genArgs.[index]
+                    genArgs[index]
                 else fi.FieldType
             let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
@@ -674,7 +674,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                 | FSharpExprPatterns.Call(callee, memb, _, _, _args) ->
                                     Some(memb.CompiledName, Option.isSome callee, args, body)
                                 | FSharpExprPatterns.AnonRecordGet(_, calleeType, fieldIndex) ->
-                                    let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
+                                    let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
                                     Some("get_" + fieldName, true, args, body)
                                 | FSharpExprPatterns.FSharpFieldGet(_, _, field) ->
                                     Some("get_" + field.Name, true, args, body)
@@ -790,7 +790,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.AnonRecordGet(callee, calleeType, fieldIndex) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformExpr com ctx callee
-        let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
+        let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
         return Fable.Get(callee, Fable.FieldGet(fieldName, Fable.FieldInfo.Empty), typ, r)
 
@@ -1486,7 +1486,7 @@ type FableCompiler(com: Compiler) =
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
         if attachedMembers.ContainsKey(entityFullName) then
-            attachedMembers.[entityFullName] <- f attachedMembers.[entityFullName]
+            attachedMembers[entityFullName] <- f attachedMembers[entityFullName]
         else
             let members = {| NonMangledNames = HashSet()
                              Members = ResizeArray()

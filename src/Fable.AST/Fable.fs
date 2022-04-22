@@ -133,7 +133,7 @@ type Type =
     | Number of kind: NumberKind * info: NumberInfo
     | Option of genericArg: Type * isStruct: bool
     | Tuple of genericArgs: Type list * isStruct: bool
-    | Array of genericArg: Type
+    | Array of genericArg: Type * kind: ArrayKind
     | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
@@ -144,7 +144,7 @@ type Type =
     member this.Generics =
         match this with
         | Option(gen, _)
-        | Array gen
+        | Array(gen,_)
         | List gen -> [ gen ]
         | LambdaType(argType, returnType) -> [ argType; returnType ]
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
@@ -157,7 +157,7 @@ type Type =
     member this.MapGenerics f =
         match this with
         | Option(gen, isStruct) -> Option(f gen, isStruct)
-        | Array gen -> Array(f gen)
+        | Array(gen, kind) -> Array(f gen, kind)
         | List gen -> List(f gen)
         | LambdaType(argType, returnType) -> LambdaType(f argType, f returnType)
         | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
@@ -260,6 +260,16 @@ type FuncInfo =
     static member Empty =
         FuncInfo.Create()
 
+type NewArrayKind =
+    | ArrayValues of values: Expr list
+    | ArrayAlloc of size: Expr
+    | ArrayFrom of expr: Expr
+
+type ArrayKind =
+    | ResizeArray
+    | MutableArray
+    | ImmutableArray
+
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
     // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
@@ -278,10 +288,7 @@ type ValueKind =
     | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
-    /// isMutable is currently unused but added in case ImmutableArray is added to FSharp.Core
-    | NewArray of values: Expr list * typ: Type * isMutable: bool
-    /// TODO: This is ambiguous, value can be the size (allocation) or an iterable, fix?
-    | NewArrayFrom of value: Expr * typ: Type * isMutable: bool
+    | NewArray of newKind: NewArrayKind * typ: Type * kind: ArrayKind
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
@@ -300,8 +307,7 @@ type ValueKind =
         | NumberConstant (_, kind, info) -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption (_, t, isStruct) -> Option(t, isStruct)
-        | NewArray (_, t, _) -> Array t
-        | NewArrayFrom (_, t, _) -> Array t
+        | NewArray (_, t, k) -> Array(t, k)
         | NewList (_, t) -> List t
         | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)

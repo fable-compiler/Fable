@@ -254,8 +254,11 @@ module PrinterExtensions =
             | PropertyAccess _ -> printer.Print(expr)
             | _ -> printer.PrintWithParens(expr)
 
-        member printer.PrintWithParensIfComplex(expr: Expression) =
+        /// Should the expression be printed with parens when nested?
+        member printer.IsComplex(expr: Expression) =
             match expr with
+            | CommentedExpression(_, e) -> printer.IsComplex(e)
+            
             | ThisExpression _
             | SuperExpression _
             | InterpolationString _
@@ -268,8 +271,7 @@ module PrinterExtensions =
             | UpdateExpression _
             | UnaryExpression _
             | NotNullAssert _
-            | RethrowExpression _
-                -> printer.Print(expr)
+            | RethrowExpression _ -> false
 
             | BinaryExpression _
             | LogicalExpression _
@@ -279,8 +281,13 @@ module PrinterExtensions =
             | ConditionalExpression _
             | AnonymousFunction _
             | AssignmentExpression _
-            | EmitExpression _
-                -> printer.PrintWithParens(expr)
+            | EmitExpression _ -> true
+        
+        member printer.PrintWithParensIfComplex(expr: Expression) =
+            if printer.IsComplex(expr) then
+                printer.PrintWithParens(expr)
+            else
+                printer.Print(expr)
 
         member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, typ) =
             printer.PrintWithParensIfComplex(left)
@@ -347,7 +354,7 @@ module PrinterExtensions =
             if printType then
                 printer.PrintType(ident.Type)
                 printer.Print(" ")
-            match ident.Prefix with
+            match ident.ImportModule with
             | None -> ()
             | Some p -> printer.Print(p + ".")
             printer.Print(ident.Name)
@@ -378,6 +385,11 @@ module PrinterExtensions =
 
         member printer.Print(statement: Statement) =
             match statement with
+            | CommentedStatement(comment, statement) ->
+                printer.Print("// " + comment)
+                printer.PrintNewLine()
+                printer.Print(statement)
+                
             | IfStatement(test, consequent, alternate) ->
                 printer.PrintIfStatment(test, consequent, alternate)
 
@@ -436,10 +448,7 @@ module PrinterExtensions =
                 printer.Print("return ")
                 printer.Print(e)
 
-            | BreakStatement(label, ignoreDeadCode) ->
-                if ignoreDeadCode then
-                    printer.Print("// ignore: dead_code")
-                    printer.PrintNewLine()
+            | BreakStatement(label) ->
                 match label with
                 | None -> printer.Print("break")
                 | Some label -> printer.Print("break " + label)
@@ -513,7 +522,12 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
-            | EmitExpression(value, args, _) -> printer.PrintEmitExpression(value, args)
+            | CommentedExpression(comment, expr) ->
+                printer.Print("/* " + comment + " */ ")
+                printer.Print(expr)
+            
+            | EmitExpression(value, args, _) ->
+                printer.PrintEmitExpression(value, args)
 
             | ThrowExpression(e, _) ->
                 printer.Print("throw ")

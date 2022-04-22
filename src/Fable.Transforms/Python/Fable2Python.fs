@@ -275,7 +275,7 @@ module Reflection =
         | Fable.DelegateType (argTypes, returnType) -> genericTypeInfo "delegate" ([| yield! argTypes; yield returnType |])
         | Fable.Tuple (genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option (genArg, _) -> genericTypeInfo "option" [| genArg |]
-        | Fable.Array genArg -> genericTypeInfo "array" [| genArg |]
+        | Fable.Array (genArg, _) -> genericTypeInfo "array" [| genArg |]
         | Fable.List genArg -> genericTypeInfo "list" [| genArg |]
         | Fable.Regex -> nonGenericTypeInfo Types.regex, []
         | Fable.MetaType -> nonGenericTypeInfo Types.type_, []
@@ -947,7 +947,7 @@ module Annotation =
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
-        | Fable.Array genArg ->
+        | Fable.Array (genArg, _) ->
             match genArg with
             | Fable.Type.Number (UInt8, _) -> stdlibModuleTypeHint com ctx "typing" "ByteString" []
             | Fable.Type.Number (Int8, _)
@@ -1726,15 +1726,15 @@ module Util =
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ, _isMutable) -> makeArray com ctx values typ
-        | Fable.NewArrayFrom (size, typ, _isMutable) ->
+        | Fable.NewArray (Fable.ArrayValues values, typ, _isMutable) -> makeArray com ctx values typ
+        | Fable.NewArray ((Fable.ArrayAlloc expr | Fable.ArrayFrom expr), typ, _isMutable) ->
             // printfn "NewArrayFrom: %A" (size, size.Type, typ)
-            let arg, stmts = com.TransformAsExpr(ctx, size)
+            let arg, stmts = com.TransformAsExpr(ctx, expr)
 
-            match size with
+            match expr with
             | Fable.Value(kind = Fable.ValueKind.NumberConstant(value = :? int as size)) when size = 0 -> Expression.list [], []
             | _ ->
-                match size.Type with
+                match expr.Type with
                 | Fable.Type.Number _ ->
                     let array = Expression.list [ Expression.constant (0) ]
                     Expression.binOp (array, Mult, arg), stmts
@@ -3433,7 +3433,7 @@ module Util =
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
-        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
+        let fieldsId = makeTypedIdent (Fable.Array(Fable.Any, Fable.MutableArray)) "fields"
         [| tagId; fieldsId |]
 
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =

@@ -178,7 +178,7 @@ module Reflection =
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
         | Fable.Tuple(genArgs,_)-> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option(genArg,_)-> genericTypeInfo "option" [|genArg|]
-        | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
+        | Fable.Array(genArg,_) -> genericTypeInfo "array" [|genArg|]
         | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
@@ -403,7 +403,7 @@ module Annotation =
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
-        | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
+        | Fable.Array(genArg,_) -> makeArrayTypeAnnotation com ctx genArg
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
@@ -670,7 +670,7 @@ module Util =
         match memberName with
         | "ToString" -> Expression.identifier("toString"), false
         | n when n.StartsWith("Symbol.") ->
-            Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
+            Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n[7..]), false), true
         | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
         | n -> Expression.identifier(n), false
 
@@ -711,24 +711,25 @@ module Util =
             Expression.newExpression(Expression.identifier(jsName), args)
         | _ -> makeArray com ctx args
 
-    let makeTypedAllocatedFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
-        let getArrayCons t =
-            match t with
-            | JS.Replacements.TypedArrayCompatible com name -> Expression.identifier name
-            | _ -> Expression.identifier("Array")
+    let getArrayCons com t =
+        match t with
+        | JS.Replacements.TypedArrayCompatible com name -> Expression.identifier name
+        | _ -> Expression.identifier("Array")
 
+    let makeArrayAllocated (com: IBabelCompiler) ctx typ (size: Fable.Expr) =
+        let cons = getArrayCons com typ
+        let size = com.TransformAsExpr(ctx, size)
+        Expression.newExpression(cons, [|size |])
+
+    let makeArrayFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
         match fableExpr with
-        | ExprType(Fable.Number _) ->
-            let cons = getArrayCons typ
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            Expression.newExpression(cons, [|expr|])
         | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
             makeTypedArray com ctx typ exprs
         | _ ->
-            let cons = getArrayCons typ
+            let cons = getArrayCons com typ
             let expr = com.TransformAsExpr(ctx, fableExpr)
             Expression.callExpression(get None cons "from", [|expr|])
-
+    
     let makeStringArray strings =
         strings
         |> List.mapToArray (fun x -> Expression.stringLiteral(x))
@@ -840,8 +841,8 @@ module Util =
             if not hasSpread || len = 0 then args
             else [|
                 if len > 1 then
-                    yield! args.[..len-2]
-                yield restElement args.[len-1]
+                    yield! args[..len-2]
+                yield restElement args[len-1]
             |]
 
         args, body, returnType, typeParamDecl
@@ -976,8 +977,11 @@ module Util =
             | _, (:? unativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, typ, _isMutable) -> makeTypedArray com ctx typ values
-        | Fable.NewArrayFrom (size, typ, _isMutable) -> makeTypedAllocatedFrom com ctx typ size
+        | Fable.NewArray (kind, typ, _) ->
+            match kind with
+            | Fable.ArrayValues values -> makeTypedArray com ctx typ values
+            | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ size
+            | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ expr
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail
@@ -1238,7 +1242,7 @@ module Util =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.OptimizableInto, callInfo.Args with
-            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any, true), range) |> Some
+            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
             | Some "pojo", keyValueList::caseRule::_ -> JS.Replacements.makePojo com (Some caseRule) keyValueList
             | Some "pojo", keyValueList::_ -> JS.Replacements.makePojo com None keyValueList
             | _ -> None
@@ -1624,7 +1628,7 @@ module Util =
                         | false -> [], expr)
             let hasAnyTargetWithMultiRefsBoundValues =
                 targetsWithMultiRefs |> List.exists (fun idx ->
-                    targets.[idx] |> fst |> List.isEmpty |> not)
+                    targets[idx] |> fst |> List.isEmpty |> not)
             if not hasAnyTargetWithMultiRefsBoundValues then
                 match transformDecisionTreeAsSwitch treeExpr with
                 | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
@@ -1949,7 +1953,7 @@ module Util =
 
     let getUnionFieldsAsIdents (_com: IBabelCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
-        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
+        let fieldsId = makeTypedIdent (Fable.Array(Fable.Any, Fable.MutableArray)) "fields"
         [| tagId; fieldsId |]
 
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
@@ -2063,8 +2067,8 @@ module Util =
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            [| typedIdent com ctx fieldIds.[0] |> Pattern.Identifier
-               typedIdent com ctx fieldIds.[1] |> Pattern.Identifier |> restElement |]
+            [| typedIdent com ctx fieldIds[0] |> Pattern.Identifier
+               typedIdent com ctx fieldIds[1] |> Pattern.Identifier |> restElement |]
         let body =
             BlockStatement([|
                 yield callSuperAsStatement []
@@ -2107,7 +2111,7 @@ module Util =
                     yield callSuperAsStatement []
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
-                    let right = wrapIntExpression field.FieldType args.[i]
+                    let right = wrapIntExpression field.FieldType args[i]
                     assign None left right |> ExpressionStatement)
                 |> Seq.toArray
             |])

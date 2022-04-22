@@ -54,7 +54,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
     static member CompiledName (uci: FSharpUnionCase) =
         uci.Attributes
         |> Helpers.tryFindAtt Atts.compiledName
-        |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments.[0] |> snd |> string)
+        |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string)
 
     static member FullName (uci: FSharpUnionCase) =
         // proper full compiled name (instead of uci.FullName)
@@ -66,7 +66,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
         uci.Attributes
         |> Helpers.tryFindAtt Atts.compiledValue
         |> Option.bind (fun (att: FSharpAttribute) ->
-            match snd att.ConstructorArguments.[0] with
+            match snd att.ConstructorArguments[0] with
             | :? int as value -> Some (CompiledValue.Integer value)
             | :? float as value -> Some (CompiledValue.Float value)
             | :? bool as value -> Some (CompiledValue.Boolean value)
@@ -418,7 +418,7 @@ module Helpers =
     let cleanNameAsRustIdentifier (name: string) =
         let name = Regex.Replace(name, @"[\s`'"".]", "_")
         let name = Regex.Replace(name, @"[^\w]",
-            fun c -> String.Format(@"{0:x4}", int c.Value.[0]))
+            fun c -> String.Format(@"{0:x4}", int c.Value[0]))
         name
 
     let memberNameAsRustIdentifier (name: string) part =
@@ -545,7 +545,7 @@ module Helpers =
         let consArgs = att.ConstructorArguments
         if consArgs.Count <= index then defValue
         else
-            consArgs.[index] |> snd |> f
+            consArgs[index] |> snd |> f
             |> Option.defaultValue defValue
 
     let tryBoolean: obj -> bool option = function (:? bool as x) -> Some x | _ -> None
@@ -644,8 +644,8 @@ module Helpers =
 
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
             if memb.CurriedParameterGroups.Count <> 1 then false else
-            let args = memb.CurriedParameterGroups.[0]
-            args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
+            let args = memb.CurriedParameterGroups[0]
+            args.Count > 0 && args[args.Count - 1].IsParamArrayArg
 
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
@@ -680,9 +680,9 @@ module Helpers =
             | None -> failwith "Union without definition"
             | Some(tdef, fullName) ->
                 match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption -> OptionUnion (typ.GenericArguments.[0], true)
-                | Types.option -> OptionUnion (typ.GenericArguments.[0], false)
-                | Types.list -> ListUnion typ.GenericArguments.[0]
+                | Types.valueOption -> OptionUnion (typ.GenericArguments[0], true)
+                | Types.option -> OptionUnion (typ.GenericArguments[0], false)
+                | Types.list -> ListUnion typ.GenericArguments[0]
                 | _ ->
                     tdef.Attributes |> Seq.tryPick (fun att ->
                         match att.AttributeType.TryFullName with
@@ -925,7 +925,7 @@ module TypeHelpers =
             let invokeMember =
                 tdef.MembersFunctionsAndValues
                 |> Seq.find (fun f -> f.DisplayName = "Invoke")
-            invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
+            invokeMember.CurriedParameterGroups[0] |> Seq.map (fun p -> p.Type),
             invokeMember.ReturnParameter.Type
         let argTypes, returnType =
             try
@@ -995,7 +995,7 @@ module TypeHelpers =
         if genArgs.Count > 0 then
             // TODO: Check it's effectively measure?
             // TODO: Raise error if we cannot get the measure fullname?
-            match tryDefinition genArgs.[0] with
+            match tryDefinition genArgs[0] with
             | Some(_, Some fullname) -> fullname
             | _ -> Naming.unknown
         else Naming.unknown
@@ -1015,7 +1015,7 @@ module TypeHelpers =
 
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
-            makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.MutableArray)
         elif tdef.IsDelegate then
             makeTypeFromDelegate ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
@@ -1043,7 +1043,7 @@ module TypeHelpers =
             | Types.type_ -> Fable.MetaType
             | Types.valueOption -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, true)
             | Types.option -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, false)
-            | Types.resizeArray -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            | Types.resizeArray -> Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.ResizeArray) 
             | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, Fable.NumberInfo.Empty)
             | DicContains numbersWithMeasure kind ->
@@ -1075,8 +1075,8 @@ module TypeHelpers =
             Fable.Tuple(genArgs, t.IsStructTupleType)
         // Function
         elif t.IsFunctionType then
-            let argType = makeType ctxTypeArgs t.GenericArguments.[0]
-            let returnType = makeType ctxTypeArgs t.GenericArguments.[1]
+            let argType = makeType ctxTypeArgs t.GenericArguments[0]
+            let returnType = makeType ctxTypeArgs t.GenericArguments[1]
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
             let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
@@ -1122,12 +1122,12 @@ module TypeHelpers =
 
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
-        then nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType |> Some
+        then nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType |> Some
         else None
 
     let tryGetInterfaceDefinitionFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0 then
-            let t = nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType
+            let t = nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
@@ -1225,8 +1225,8 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition tdef ->
                     match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments.[0], true)
-                    | Types.option -> Some(ty.GenericArguments.[0], false)
+                    | Types.valueOption -> Some(ty.GenericArguments[0], true)
+                    | Types.option -> Some(ty.GenericArguments[0], false)
                     | _ -> None
                 | _ -> None
             and (|UType|_|) (ty: FSharpType) =
@@ -1236,7 +1236,7 @@ module TypeHelpers =
                         &&
                         (
                             let name = tdef.DisplayName
-                            name.Length = 2 && name.[0] = 'U' && Char.IsDigit name.[1]
+                            name.Length = 2 && name[0] = 'U' && Char.IsDigit name[1]
                         )
                     then
                         Some ()
@@ -1608,17 +1608,17 @@ module Util =
     let countNonCurriedParams (meth: FSharpMemberOrFunctionOrValue) =
         let args = meth.CurriedParameterGroups
         if args.Count = 0 then 0
-        elif args.[0].Count = 1 then
-            if isUnit args.[0].[0].Type then 0 else 1
-        else args.[0].Count
+        elif args[0].Count = 1 then
+            if isUnit args[0].[0].Type then 0 else 1
+        else args[0].Count
 
     /// Same as `countNonCurriedParams` but applied to abstract signatures
     let countNonCurriedParamsForSignature (sign: FSharpAbstractSignature) =
         let args = sign.AbstractArguments
         if args.Count = 0 then 0
-        elif args.[0].Count = 1 then
-            if isUnit args.[0].[0].Type then 0 else 1
-        else args.[0].Count
+        elif args[0].Count = 1 then
+            if isUnit args[0].[0].Type then 0 else 1
+        else args[0].Count
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
@@ -1890,10 +1890,14 @@ module Util =
             )
             Fable.Get(callee, Fable.FieldGet(name, info), t, r)
         elif isSetter then
-            let membType = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
+            let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(name), membType, arg, r)
         else
+            let entityGenParamsCount = entity.GenericParameters.Count
+            let callInfo =
+                if callInfo.GenericArgs.Length < entityGenParamsCount then callInfo
+                else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
             getAttachedMember callee name |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) =
@@ -2086,10 +2090,10 @@ module Util =
     let transformOptionalArguments (_com: IFableCompiler) (_ctx: Context) (_r: SourceLocation option)
                 (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
-            || memb.CurriedParameterGroups.[0].Count <> (List.length args)
+            || memb.CurriedParameterGroups[0].Count <> (List.length args)
         then args
         else
-            (memb.CurriedParameterGroups.[0], args, (true, []))
+            (memb.CurriedParameterGroups[0], args, (true, []))
             |||> Seq.foldBack2 (fun par arg (keepChecking, acc) ->
                 if keepChecking && par.IsOptionalArg then
                     match arg with
@@ -2134,7 +2138,7 @@ module Util =
                     // Only compare args for overloads (single curried parameter group)
                     let compareArgs =
                         if memb.CurriedParameterGroups.Count <> 1 then None
-                        else memb.CurriedParameterGroups.[0] |> Seq.toArray |> Some
+                        else memb.CurriedParameterGroups[0] |> Seq.toArray |> Some
                     entity |> tryFindBaseEntity (fun ent ->
                         ent.TryGetMembersFunctionsAndValues() |> Seq.exists (fun m ->
                             m.IsInstanceMember
@@ -2142,8 +2146,8 @@ module Util =
                             && m.IsDispatchSlot
                             && (
                                 match compareArgs with
-                                | Some compareArgs when m.CurriedParameterGroups.Count = 1 && m.CurriedParameterGroups.[0].Count = compareArgs.Length ->
-                                    let compareArgs2 = m.CurriedParameterGroups.[0] |> Seq.toArray
+                                | Some compareArgs when m.CurriedParameterGroups.Count = 1 && m.CurriedParameterGroups[0].Count = compareArgs.Length ->
+                                    let compareArgs2 = m.CurriedParameterGroups[0] |> Seq.toArray
                                     Array.zip compareArgs compareArgs2
                                     |> Array.forall (fun (p1, p2) -> p1.Type.Equals(p2.Type))
                                 | _ -> true
