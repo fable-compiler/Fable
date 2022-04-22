@@ -19,6 +19,12 @@ type Native =
     [<Emit("$1.where($0).toList(growable: false)")>]
     static member where (f: 'T -> bool) (xs: 'T[]): 'T[] = jsNative
 
+    [<Emit("$1.every($0)")>]
+    static member every (f: 'T -> bool) (xs: 'T[]): bool = jsNative
+    
+    [<Emit("$1.reduce($0)")>]
+    static member reduce (combine: 'T->'T->'T) (xs: 'T[]): 'T = jsNative
+    
     [<Emit("List.filled($0, $1, growable: false)")>]
     static member filled (len: int) (x: 'T): 'T[] = jsNative
 
@@ -64,6 +70,9 @@ type Native =
     [<Emit("$0.removeWhere($1...)")>]
     static member removeWhere (xs: 'T[]) (predicate: 'T->bool): unit = nativeOnly
 
+    [<Emit("$0.sort($1...)")>]
+    static member sort (xs: 'T[], ?compare: 'T->'T->int): unit = nativeOnly
+    
     [<Emit("$0.contains($1)")>]
     static member contains (xs: 'T[]) (value: obj): bool = nativeOnly
 
@@ -409,12 +418,6 @@ let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
         | Some y -> res.Add(y)
     Native.convertResizeArray res
 
-let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
-    let mutable state = state    
-    for i = 0 to array.Length - 1 do
-        state <- folder i state array[i]
-    state
-
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
     let mutable state = state    
     for x in array do
@@ -439,34 +442,25 @@ let iterateIndexed2 (action: int -> 'T -> 'T -> unit) (array1: 'T[]) (array2: 'T
     for i = 0 to array1.Length - 1 do
         action i array1[i] array2[i]
 
-(*
-let forAll predicate (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable i = 0
-    //     let mutable result = true
-    //     while i < array.Length && result do
-    //         result <- predicate array[i]
-    //         i <- i + 1
-    //     result
-    // else
-    forAllImpl predicate array
+let forAll (predicate: 'T -> bool) (array: 'T[]): bool =
+    Native.every predicate array
 
-let permute f (array: 'T[]) =
+let permute (f: int -> int) (array: 'T[]): 'T[] =
     let size = array.Length
-    let res = copyImpl array
-    let checkFlags = allocateArray size
+    let res = Native.sublist(array, 0)
+    let checkFlags = Native.filled size 0
     iterateIndexed (fun i x ->
         let j = f i
         if j < 0 || j >= size then
             invalidOp "Not a valid permutation"
         res[j] <- x
         checkFlags[j] <- 1) array
-    let isValid = checkFlags |> forAllImpl ((=) 1)
+    let isValid = checkFlags |> forAll ((=) 1)
     if not isValid then
         invalidOp "Not a valid permutation"
     res
 
-let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]): unit =
     let lower = defaultArg lower 0
     let upper = defaultArg upper -1
     let length = (if upper >= 0 then upper else target.Length - 1) - lower
@@ -474,112 +468,101 @@ let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[
         target[i + lower] <- source[i]
 
 let sortInPlaceBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
-    sortInPlaceWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs
+    Native.sort(xs, fun x y -> comparer.Compare(projection x, projection y))
 
-let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) =
-    sortInPlaceWithImpl (fun x y -> comparer.Compare(x, y)) xs
+let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): unit =
+    Native.sort(xs, fun x y -> comparer.Compare(x, y))
 
-let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]) =
-    sortInPlaceWithImpl comparer xs
+let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
+    Native.sort(xs, comparer)
     xs
 
 let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyImpl xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (Native.sublist(xs, 0))
 
 let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyImpl xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (Native.sublist(xs, 0))
 
 let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyImpl xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (Native.sublist(xs, 0))
 
 let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyImpl xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (Native.sublist(xs, 0))
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
-    sortInPlaceWith comparer (copyImpl xs)
+    sortInPlaceWith comparer (Native.sublist(xs, 0))
 
 let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
     let len1 = xs.Length
     let len2 = ys.Length
-    let res = allocateArray (len1 * len2)
-    for i = 0 to xs.Length-1 do
-        for j = 0 to ys.Length-1 do
-            res[i * len2 + j] <- (xs[i], ys[j])
-    res
+    Native.generate (len1 * len2) (fun i ->
+        let x = xs[len1 / i]
+        let y = ys[len2 % i]
+        (x, y))
 
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
-    let res: 'T[] = [||]
+    let res = ResizeArray()
     let rec loop state =
         match generator state with
         | None -> ()
         | Some (x, s) ->
-            pushImpl res x |> ignore
+            res.Add(x)
             loop s
     loop state
-    res
+    Native.convertResizeArray res
 
-// TODO: We should pass Cons<'T> here (and unzip3) but 'a and 'b may differ
-let unzip (array: _[]) =
-    let len = array.Length
-    let res1 = allocateArray len
-    let res2 = allocateArray len
-    iterateIndexed (fun i (item1, item2) ->
-        res1[i] <- item1
-        res2[i] <- item2
-    ) array
-    res1, res2
+let unzip (array: ('a * 'b)[]): 'a[] * 'b[] =
+    let res1 = ResizeArray()
+    let res2 = ResizeArray()
+    for (item1, item2) in array do
+        res1.Add(item1)
+        res2.Add(item2)
+    Native.convertResizeArray res1, Native.convertResizeArray res2
 
-let unzip3 (array: _[]) =
-    let len = array.Length
-    let res1 = allocateArray len
-    let res2 = allocateArray len
-    let res3 = allocateArray len
-    iterateIndexed (fun i (item1, item2, item3) ->
-        res1[i] <- item1
-        res2[i] <- item2
-        res3[i] <- item3
-    ) array
-    res1, res2, res3
+let unzip3 (array: ('a * 'b * 'c)[]): 'a[] * 'b[] * 'c[] =
+    let res1 = ResizeArray()
+    let res2 = ResizeArray()
+    let res3 = ResizeArray()
+    for (item1, item2, item3) in array do
+        res1.Add(item1)
+        res2.Add(item2)
+        res3.Add(item3)
+    Native.convertResizeArray res1, Native.convertResizeArray res2, Native.convertResizeArray res3
 
-let zip (array1: 'T[]) (array2: 'U[]) =
+let zip (array1: 'T[]) (array2: 'U[]): ('T * 'U)[] =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
     if array1.Length <> array2.Length then differentLengths()
-    let result = allocateArray array1.Length
-    for i = 0 to array1.Length - 1 do
-        result[i] <- array1[i], array2[i]
-    result
+    Native.generate array1.Length (fun i -> array1[i], array2[i])
 
-let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
+let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]): ('T * 'U * 'U)[] =
     // Shorthand version: map3 (fun x y z -> x, y, z) array1 array2 array3
     if array1.Length <> array2.Length || array2.Length <> array3.Length then differentLengths()
-    let result = allocateArray array1.Length
-    for i = 0 to array1.Length - 1 do
-        result[i] <- array1[i], array2[i], array3[i]
-    result
+    Native.generate array1.Length (fun i -> array1[i], array2[i], array3[i])
 
 let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
     if chunkSize < 1 then invalidArg "size" "The input must be positive."
     if Array.isEmpty array then [| [||] |]
     else
-        let result: 'T[][] = [||]
+        let result = ResizeArray()
         // add each chunk to the result
         for x = 0 to int(System.Math.Ceiling(float(array.Length) / float(chunkSize))) - 1 do
             let start = x * chunkSize
-            let slice = subArrayImpl array start chunkSize
-            pushImpl result slice |> ignore
-        result
+            let slice = Native.sublist(array, start, chunkSize)
+            result.Add(slice)
+        Native.convertResizeArray result
 
 let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
     if index < 0 || index > array.Length then
         invalidArg "index" SR.indexOutOfBounds
-    subArrayImpl array 0 index, skipImpl array index
+    Native.sublist(array, 0, index), Native.sublist(array, index)
 
-let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    if isNull array1 then
-        if isNull array2 then 0 else -1
-    elif isNull array2 then
-        1
-    else
+let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]): int =
+// Null checks not necessary because Dart provides null safety
+//    if isNull array1 then
+//        if isNull array2 then 0 else -1
+//    elif isNull array2 then
+//        1
+//    else
         let mutable i = 0
         let mutable result = 0
         let length1 = array1.Length
@@ -592,12 +575,13 @@ let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
                 i <- i + 1
             result
 
-let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
-    if isNull array1 then
-        if isNull array2 then true else false
-    elif isNull array2 then
-        false
-    else
+let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]): bool =
+// Null checks not necessary because Dart provides null safety
+//    if isNull array1 then
+//        if isNull array2 then true else false
+//    elif isNull array2 then
+//        false
+//    else
         let mutable i = 0
         let mutable result = true
         let length1 = array1.Length
@@ -610,89 +594,73 @@ let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
                 i <- i + 1
             result
 
-let exactlyOne (array: 'T[]) =
+let exactlyOne (array: 'T[]): 'T =
     if array.Length = 1 then array[0]
     elif Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else invalidArg "array" "Input array too long"
 
-let tryExactlyOne (array: 'T[]) =
+let tryExactlyOne (array: 'T[]): 'T option =
     if array.Length = 1
     then Some (array[0])
     else None
 
-let head (array: 'T[]) =
+let head (array: 'T[]): 'T =
     if Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     else array[0]
 
-let tryHead (array: 'T[]) =
+let tryHead (array: 'T[]): 'T option =
     if Array.isEmpty array then None
     else Some array[0]
 
-let tail (array: 'T[]) =
+let tail (array: 'T[]): 'T[] =
     if Array.isEmpty array then invalidArg "array" "Not enough elements"
-    skipImpl array 1
+    Native.sublist(array, 1)
 
-let item index (array: _[]) =
+let item (index: int) (array: 'a[]): 'a =
     array[index]
 
-let tryItem index (array: 'T[]) =
+let tryItem (index: int) (array: 'T[]): 'T option =
     if index < 0 || index >= array.Length then None
     else Some array[index]
 
-let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     let size = array.Length
-    //     for i = 1 to size do
-    //         acc <- folder (i-1) array[size - i] acc
-    //     acc
-    // else
-    foldBackIndexedImpl (fun acc x i -> folder i x acc) state array
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (array: 'T[]) (state: 'State): 'State =
+    let mutable acc = state
+    for i = array.Length - 1 downto 0 do
+        acc <- folder array[i] acc
+    acc
 
-let foldBack<'T, 'State> folder (array: 'T[]) (state: 'State) =
-    // if isTypedArrayImpl array then
-    //     foldBackIndexed (fun _ x acc -> folder x acc) array state
-    // else
-    foldBackImpl (fun acc x -> folder x acc) state array
-
-let foldIndexed2 folder state (array1: _[]) (array2: _[]) =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (array1: 'T1[]) (array2: 'T2[]): 'State =
     let mutable acc = state
     if array1.Length <> array2.Length then failwith "Arrays have different lengths"
     for i = 0 to array1.Length - 1 do
-        acc <- folder i acc array1[i] array2[i]
+        acc <- folder acc array1[i] array2[i]
     acc
 
-let fold2<'T1, 'T2, 'State> folder (state: 'State) (array1: 'T1[]) (array2: 'T2[]) =
-    foldIndexed2 (fun _ acc x y -> folder acc x y) state array1 array2
-
-let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
+let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (array1: 'T1[]) (array2: 'T2[]) (state: 'State): 'State =
     let mutable acc = state
     if array1.Length <> array2.Length then differentLengths()
-    let size = array1.Length
-    for i = 1 to size do
-        acc <- folder (i-1) array1[size - i] array2[size - i] acc
+    for i = array1.Length - 1 downto 0 do
+        acc <- folder array1[i] array2[i] acc
     acc
 
-let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
-    foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
+let reduce (reduction: 'T -> 'T -> 'T) (array: 'T[]): 'T =
+    // Dart's native reduce will fail if collection is empty
+//    if Array.isEmpty array then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    Native.reduce reduction array
 
-let reduce reduction (array: 'T[]) =
+let reduceBack (reduction: 'T -> 'T -> 'T) (array: 'T[]): 'T =
     if Array.isEmpty array then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-    // if isTypedArrayImpl array then
-    //     foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
-    // else
-    reduceImpl reduction array
+    let mutable i = array.Length - 1
+    let mutable state = array[i]
+    while i > 0 do
+        i <- i - 1
+        state <- reduction array[i] state
+    state
 
-let reduceBack reduction (array: 'T[]) =
-    if Array.isEmpty array then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-    // if isTypedArrayImpl array then
-    //     foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
-    // else
-    reduceBackImpl reduction array
-
-let forAll2 predicate array1 array2 =
+let forAll2 (predicate: 'a -> 'b -> bool) (array1: 'a[]) (array2: 'b[]): bool =
     fold2 (fun acc x y -> acc && predicate x y) true array1 array2
 
+(*
 let rec existsOffset predicate (array: 'T[]) index =
     if index = array.Length then false
     else predicate array[index] || existsOffset predicate array (index+1)
@@ -771,7 +739,7 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
         for i = 0 to chunks - 1 do
             let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
             let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
-            let slice = subArrayImpl array start chunkSize
+            let slice = Native.sublist(array, start, chunkSize)
             pushImpl result slice |> ignore
         result
 

@@ -84,19 +84,19 @@ let tests () =
         let total = xs |> Array.fold (+) 0y
         total |> equal 10y
 
-//    testCase "Array.fold2 works" <| fun () ->
-//        let xs = [|1uy; 2uy; 3uy; 4uy|]
-//        let ys = [|1uy; 2uy; 3uy; 4uy|]
-//        let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
-//        total |> equal 20uy
-//
-//    testCase "Array.foldBack works" <| fun () ->
-//        let xs = [|1.; 2.; 3.; 4.|]
-//        let total = Array.foldBack (fun x acc -> acc - x) xs 0.
-//        total |> equal -10.
-//
-//    testCase "Array.foldBack2 works" <| fun () ->
-//        let xs = [|1; 2; 3; 4|]
-//        let ys = [|1; 2; 3; 4|]
-//        let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
-//        total |> equal -4
+    testCase "Array.fold2 works" <| fun () ->
+        let xs = [|1uy; 2uy; 3uy; 4uy|]
+        let ys = [|1uy; 2uy; 3uy; 4uy|]
+        let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
+        total |> equal 20uy
+
+    testCase "Array.foldBack works" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.|]
+        let total = Array.foldBack (fun x acc -> acc - x) xs 0.
+        total |> equal -10.
+
+    testCase "Array.foldBack2 works" <| fun () ->
+        let xs = [|1; 2; 3; 4|]
+        let ys = [|1; 2; 3; 4|]
+        let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+        total |> equal -4

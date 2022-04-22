@@ -20,6 +20,11 @@ void dispose(dynamic d) {
   (d as IDisposable).Dispose();
 }
 
+abstract class IComparer<T> {
+  int Compare<T>(T a, T b);
+}
+
+
 abstract class IEqualityComparer<T> {
   bool Equals<T>(T a, T b);
 }

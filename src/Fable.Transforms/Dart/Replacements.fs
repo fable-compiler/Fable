@@ -633,8 +633,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | Types.ienumerable | Types.ienumerableGeneric -> makeIdentExpr "Iterable" |> Some
     | Types.ienumerator | Types.ienumeratorGeneric -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
-    | Types.comparer -> makeIdentExpr "Comparator" |> Some
-    | Types.idisposable | Types.adder | Types.averager | Types.equalityComparer ->
+    | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparer ->
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
         let entFullName =
             match entFullName.IndexOf("`") with
@@ -1092,14 +1091,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | CustomOp com ctx r t "Pow" args e -> Some e
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
-    | ("Ceiling" | "Floor" as meth), _ ->
+    | ("Ceiling" | "Floor" as meth), [arg] ->
         let meth = Naming.lowerFirst meth
         match args with
         | ExprType(Number(Decimal,_))::_ ->
             Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
-            let meth = if meth = "ceiling" then "ceil" else meth
-            math r t args i.SignatureArgTypes meth |> Some
+            let meth = if meth = "ceiling" then "ceilToDouble" else "floorToDouble"
+            Helper.InstanceCall(arg, meth, t, [], ?loc=r) |> Some
     | "Log", [arg1; arg2] ->
         // "Math.log($0) / Math.log($1)"
         let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "log"
