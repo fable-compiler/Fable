@@ -14,14 +14,14 @@ type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
 type Helper =
-    static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?loc: SourceLocation) =
-        let info = defaultArg argTypes [] |> makeCallInfo None args
+    static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?genArgs, ?loc: SourceLocation) =
+        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(consExpr, { info with IsConstructor = true }, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
-                               ?argTypes: Type list, ?loc: SourceLocation) =
+                               ?argTypes: Type list, ?genArgs, ?loc: SourceLocation) =
         let callee = getAttachedMember callee memb
-        let info = defaultArg argTypes [] |> makeCallInfo None args
+        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, info, returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
@@ -33,26 +33,27 @@ type Helper =
         makeImportLib com returnType coreMember coreModule
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
-                           ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
+                           ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
+                
         let callee = makeImportLib com Any coreMember coreModule
-        let info = makeCallInfo thisArg args (defaultArg argTypes [])
+        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, { info with HasSpread = defaultArg hasSpread false
                                  IsConstructor = defaultArg isConstructor false }, returnType, loc)
 
     static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
-                                ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
+                                ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportUserGenerated None Any selector path
-        let info = makeCallInfo thisArg args (defaultArg argTypes [])
+        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, { info with HasSpread = defaultArg hasSpread false
                                  IsConstructor = defaultArg isConstructor false }, returnType, loc)
 
-    static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list,
+    static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list, ?genArgs,
                              ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee =
             match memb with
             | Some memb -> getAttachedMember (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
-        let info = makeCallInfo None args (defaultArg argTypes [])
+        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, { info with IsConstructor = defaultArg isConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =

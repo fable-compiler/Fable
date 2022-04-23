@@ -1065,7 +1065,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
+        Helper.GlobalCall("Math", t, args, argTypes, memb=meth, ?loc=r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), _ ->
@@ -1302,7 +1302,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             fsFormat com ctx r t i thisArg args
     | "get_Length", Some c, _ -> getAttachedMemberWith r t c "length" |> Some
     | "get_Chars", Some c, _ ->
-        Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, thisArg=c, ?loc=r) |> Some
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
         makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
@@ -1318,7 +1318,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         let left = Helper.InstanceCall(c, "indexOf", Number(Int32, NumberInfo.Empty), args)
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "StartsWith", Some c, [_str; _comp] ->
-        Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg=c, ?loc=r) |> Some
     | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
                     "ToUpperInvariant", "toUpperCase"
                     "ToLower",          "toLocaleLowerCase"
