@@ -228,12 +228,12 @@ let pairwise (array: 'T[]): ('T * 'T)[] =
         let count = array.Length - 1
         Native.generate (count - 1) (fun i -> array[i], array[i+1])
 
-let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): bool =
+let contains<'T when 'T : equality> (value: 'T) (array: 'T[]): bool =
     let rec loop i =
         if i >= array.Length
         then false
         else
-            if eq.Equals (value, array[i]) then true
+            if value = array[i] then true
             else loop (i + 1)
     loop 0
 
@@ -470,27 +470,26 @@ let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[
 let sortInPlaceBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
     Native.sort(xs, fun x y -> comparer.Compare(projection x, projection y))
 
-let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): unit =
-    Native.sort(xs, fun x y -> comparer.Compare(x, y))
-
-let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
+let sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     Native.sort(xs, comparer)
     xs
 
-let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (Native.sublist(xs, 0))
+let sort (xs: 'T[]): 'T[] =
+    let xs = Native.sublist(xs, 0)
+    Native.sort xs
+    xs
 
 let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (Native.sublist(xs, 0))
+    Native.sublist(xs, 0) |> sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y))
 
 let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (Native.sublist(xs, 0))
+    Native.sublist(xs, 0) |> sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1)
 
 let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (Native.sublist(xs, 0))
+    Native.sublist(xs, 0) |> sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1)
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
-    sortInPlaceWith comparer (Native.sublist(xs, 0))
+    Native.sublist(xs, 0) |> sortInPlaceWith comparer
 
 let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
     let len1 = xs.Length

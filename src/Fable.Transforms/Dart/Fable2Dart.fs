@@ -547,36 +547,13 @@ module Util =
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdent com ctx id |> Expression.identExpression
 
-    let transformGenericParam (com: IDartCompiler) ctx ownerFullName (g: Fable.GenericParam): GenericParam =
-        let warn() =
-            "Dart only accepts single inheritance constraints, "
-            + $"you may need to explicitly cast values of generic type %s{g.Name} in %s{ownerFullName} "
-            + "when accessing interface members."
-            |> addWarning com [] None
-            None
-
+    let transformGenericParam (com: IDartCompiler) ctx (g: Fable.GenericParam): GenericParam =
         let extends =
             g.Constraints
-            |> Seq.chooseToList (function
-                | Fable.Constraint.CoercesTo t -> Some t
+            |> List.tryPick (function
+                | Fable.Constraint.CoercesTo t ->
+                    transformType com ctx t |> Some
                 | _ -> None)
-            |> function
-                | [] -> None
-                | [t] ->
-                    match t with
-                    | Fable.DeclaredType(e, _) ->
-                        let e = com.GetEntity(e)
-                        if e.IsInterface then
-                            match e.FullName with
-                            // We assume Iterable is extended not implemented
-                            | Types.ienumerableGeneric -> transformType com ctx t |> Some
-                            // We use types.dispose to call .Dispose so it's ok to ignore the constraint
-                            | Types.idisposable -> None
-                            | _ -> warn()
-                        else
-                            transformType com ctx t |> Some
-                    | _ -> warn()
-                | _ -> warn()
 
         { Name = g.Name; Extends = extends }
 
@@ -786,7 +763,6 @@ module Util =
             | Some e -> transform com ctx returnStrategy e
             | None ->
                 let t = transformType com ctx t
-                // Maybe we can omit generic args if they can be inferred from the arguments
                 let genArgs = callInfo.GenericArgs |> List.map (transformType com ctx)
                 let calleeStatements, callee = transformAndCaptureExpr com ctx callee
                 let argStatements, args = transformCallArgs com ctx range (CallInfo callInfo)
@@ -1460,10 +1436,6 @@ module Util =
             let memberGenParams = memberGenParams |> List.map (fun p -> p.Name) |> set
             localGenParams |> List.filter (memberGenParams.Contains >> not)
 
-    let getMemberGenericParams (com: IDartCompiler) ctx (membDecl: Fable.MemberDecl): GenericParam list =
-        let fullName = membDecl.FullDisplayName
-        membDecl.GenericParams |> List.map (transformGenericParam com ctx fullName)
-
     let getMemberArgsAndBody (com: IDartCompiler) ctx kind (genParams: Fable.GenericParam list) (args: Fable.ArgDecl list) (body: Fable.Expr) =
         let funcName, args, body =
             match kind, args with
@@ -1500,12 +1472,12 @@ module Util =
         if isEntryPoint then
             Declaration.functionDeclaration("main", args, body, Void)
         else
-            let genParams = getMemberGenericParams com ctx memb
+            let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
             Declaration.functionDeclaration(memb.Name, args, body, returnType, genParams=genParams)
 
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx ent.FullName)
+        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
             |> Seq.choose (fun m ->
@@ -1662,7 +1634,7 @@ module Util =
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
-        let genParams = getMemberGenericParams com ctx memb
+        let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
         let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.GenericParams memb.Args memb.Body
 
@@ -1690,7 +1662,7 @@ module Util =
                        isOverride=memb.Info.IsOverrideOrExplicitInterfaceImplementation)
 
     let transformClass (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl option) =
-        let genParams = classEnt.GenericParameters |> List.map (transformGenericParam com ctx classEnt.FullName)
+        let genParams = classEnt.GenericParameters |> List.map (transformGenericParam com ctx)
         let classIdent = makeImmutableIdent MetaType classDecl.Name
         let classType = TypeReference(classIdent, genParams |> List.map (fun g -> Generic g.Name))
 

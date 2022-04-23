@@ -21,12 +21,21 @@ void dispose(dynamic d) {
 }
 
 abstract class IComparer<T> {
-  int Compare<T>(T a, T b);
+  int Compare(T a, T b);
+}
+
+class Comparer<T> implements IComparer<T> {
+  final int Function(T, T) _comparer;
+  Comparer(this._comparer);
+  @override
+  int Compare(T a, T b) {
+    return _comparer(a, b);
+  }
 }
 
 
 abstract class IEqualityComparer<T> {
-  bool Equals<T>(T a, T b);
+  bool Equals(T a, T b);
 }
 
 abstract class IGenericAdder<T> {
