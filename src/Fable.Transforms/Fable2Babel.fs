@@ -1030,14 +1030,18 @@ module Util =
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Language = TypeScript
-                then makeGenTypeParamInst com ctx genArgs
-                else None
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
             let values = (ofInt tag)::values |> List.toArray
-            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+
+            if FSharp2Fable.Util.isNoReflectionEntity ent then
+                libConsCall com ctx r "Types" "CommonUnion" values
+            else
+                let consRef = ent |> jsConstructor com ctx
+                let typeParamInst =
+                    if com.Options.Language = TypeScript
+                    then makeGenTypeParamInst com ctx genArgs
+                    else None
+                Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -2051,40 +2055,40 @@ module Util =
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let fieldIds = getUnionFieldsAsIdents com ctx ent
-        let args =
-            [| typedIdent com ctx fieldIds.[0] |> Pattern.Identifier
-               typedIdent com ctx fieldIds.[1] |> Pattern.Identifier |> restElement |]
-        let body =
-            BlockStatement([|
-                yield callSuperAsStatement []
-                yield! fieldIds |> Array.map (fun id ->
-                    let left = get None thisExpr id.Name
-                    let right =
-                        match id.Type with
-                        | Fable.Number _ ->
-                            Expression.binaryExpression(BinaryOrBitwise, identAsExpr id, Expression.numericLiteral(0.))
-                        | _ -> identAsExpr id
-                    assign None left right |> ExpressionStatement)
-            |])
-        let cases =
+        // NoReflection unions do not get their own classes but share CommonUnion
+        if FSharp2Fable.Util.isNoReflectionEntity ent then
+            []
+        else
+            let fieldIds = getUnionFieldsAsIdents com ctx ent
+            let args =
+                [| typedIdent com ctx fieldIds.[0] |> Pattern.Identifier
+                   typedIdent com ctx fieldIds.[1] |> Pattern.Identifier |> restElement |]
             let body =
-                ent.UnionCases
-                |> Seq.map (getUnionCaseName >> makeStrConst)
-                |> Seq.toList
-                |> makeArray com ctx
-                |>  Statement.returnStatement
-                |> Array.singleton
-                |> BlockStatement
-            ClassMember.classMethod(ClassFunction, Expression.identifier("cases"), [||], body)
+                BlockStatement([|
+                    yield callSuperAsStatement []
+                    yield! fieldIds |> Array.map (fun id ->
+                        let left = get None thisExpr id.Name
+                        let right =
+                            match id.Type with
+                            | Fable.Number _ ->
+                                Expression.binaryExpression(BinaryOrBitwise, identAsExpr id, Expression.numericLiteral(0.))
+                            | _ -> identAsExpr id
+                        assign None left right |> ExpressionStatement)
+                |])
+            let cases =
+                let body =
+                    ent.UnionCases
+                    |> Seq.map (getUnionCaseName >> makeStrConst)
+                    |> Seq.toList
+                    |> makeArray com ctx
+                    |>  Statement.returnStatement
+                    |> Array.singleton
+                    |> BlockStatement
+                ClassMember.classMethod(ClassFunction, Expression.identifier("cases"), [||], body)
 
-        let baseExpr = libValue com ctx "Types" "Union" |> Some
-        let classMembers =
-            if FSharp2Fable.Util.isNoReflectionEntity ent then
-                classMembers
-            else
-                Array.append [|cases|] classMembers
-        declareType com ctx ent entName args body baseExpr classMembers
+            let baseExpr = libValue com ctx "Types" "Union" |> Some
+            let classMembers = Array.append [|cases|] classMembers
+            declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getEntityFieldsAsIdents com ent

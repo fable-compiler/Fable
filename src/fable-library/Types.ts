@@ -54,6 +54,49 @@ export function unionToString(name: string, fields: any[]) {
   }
 }
 
+export class CommonUnion implements IEquatable<CommonUnion>, IComparable<CommonUnion> {
+  public tag!: number;
+  public fields!: any[];
+
+  public toJSON() {
+    return this.fields.length === 0 ? String(this.tag) : [String(this.tag)].concat(this.fields);
+  }
+
+  public toString() {
+    return unionToString(String(this.tag), this.fields);
+  }
+
+  public GetHashCode() {
+    const hashes = this.fields.map((x: any) => structuralHash(x));
+    hashes.splice(0, 0, numberHash(this.tag));
+    return combineHashCodes(hashes);
+  }
+
+  public Equals(other: CommonUnion) {
+    if (this === other) {
+      return true;
+    } else if (!sameConstructor(this, other)) {
+      return false;
+    } else if (this.tag === other.tag) {
+      return equalArrays(this.fields, other.fields);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(other: CommonUnion) {
+    if (this === other) {
+      return 0;
+    } else if (!sameConstructor(this, other)) {
+      return -1;
+    } else if (this.tag === other.tag) {
+      return compareArrays(this.fields, other.fields);
+    } else {
+      return this.tag < other.tag ? -1 : 1;
+    }
+  }
+}
+
 export abstract class Union implements IEquatable<Union>, IComparable<Union> {
   public tag!: number;
   public fields!: any[];
