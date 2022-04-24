@@ -30,6 +30,10 @@ type EraseAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = EraseAttribute()
 
+/// Used on unions or records to disable emitting code required to support reflection.
+/// Reflection of unions or records that reference a type with this attribute may cause runtime errors.
+/// Unions also reuse the same base class instead of having a specialized class for each.
+[<AttributeUsage(AttributeTargets.Class)>]
 type NoReflectionAttribute() =
     inherit Attribute()
 
