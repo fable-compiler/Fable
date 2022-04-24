@@ -505,7 +505,7 @@ module Util =
     let transformType (com: IDartCompiler) (ctx: Context) (t: Fable.Type) =
         match t with
         | Fable.Measure _
-        | Fable.Any -> Dynamic
+        | Fable.Any -> Dynamic // TODO: Object instead? Seems to create issues with Dart compiler sometimes.
         | Fable.Unit -> Void
         | Fable.MetaType -> MetaType
         | Fable.Boolean -> Boolean
@@ -1259,8 +1259,8 @@ module Util =
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr |> resolve
 
-    let transformTest (com: IDartCompiler) ctx _range returnStrategy kind expr =
-        transformExprAndResolve com ctx returnStrategy expr (fun expr ->
+    let transformTest (com: IDartCompiler) ctx _range returnStrategy kind fableExpr =
+        transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
             match kind with
             | Fable.TypeTest t ->
                 Expression.isExpression(expr, transformType com ctx t)
@@ -1273,6 +1273,16 @@ module Util =
                 if nonEmpty then Expression.unaryExpression(UnaryNot, expr) else expr
             | Fable.UnionCaseTest tag ->
                 let expected = Expression.integerLiteral tag
+                let expected =                
+                    match fableExpr.Type with
+                    | Fable.DeclaredType(entityRef, _genericArgs) ->
+                        let ent = com.GetEntity(entityRef)
+                        match List.tryItem tag ent.UnionCases with
+                        | Some c ->
+                            let caseName = getUnionCaseName c
+                            Expression.commented caseName expected
+                        | None -> expected
+                    | _ -> expected
                 let actual = getUnionExprTag expr
                 Expression.binaryExpression(BinaryEqual, actual, expected, Boolean))
 
@@ -1795,7 +1805,7 @@ module Util =
 
     let getIdentForImport (ctx: Context) (path: string) =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
-        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+        |> fun name -> Naming.applyCaseRule Core.CaseRules.SnakeCase name + "_mod"
         |> getUniqueNameInRootScope ctx
 
 module Compiler =

@@ -107,10 +107,10 @@ let tests () =
         xs |> Array.sort |> Array.take 3 |> Array.reduce (+) |> equal 0
         ys |> Array.sort |> Array.item 1 |> equal "a"
 
-//    testCase "Array.sort with tuples works" <| fun () ->
-//        let xs = [|3; 1; 1; -3|]
-//        let ys = [|"a"; "c"; "B"; "d"|]
-//        (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
+    testCase "Array.sort with tuples works" <| fun () ->
+        let xs = [|3; 1; 1; -3|]
+        let ys = [|"a"; "c"; "B"; "d"|]
+        (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
 
     testCase "Array.truncate works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.; 5.|]

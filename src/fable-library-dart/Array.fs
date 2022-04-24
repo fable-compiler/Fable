@@ -470,13 +470,16 @@ let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[
 let sortInPlaceBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
     Native.sort(xs, fun x y -> comparer.Compare(projection x, projection y))
 
+let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) =
+    Native.sort(xs, fun x y -> comparer.Compare(x, y))
+
 let sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     Native.sort(xs, comparer)
     xs
 
-let sort (xs: 'T[]): 'T[] =
+let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
     let xs = Native.sublist(xs, 0)
-    Native.sort xs
+    Native.sort(xs, fun x y -> comparer.Compare(x, y))
     xs
 
 let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =

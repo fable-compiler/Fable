@@ -341,10 +341,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithNativeComparison = function
-    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Int64|UInt64|Float32|Float64),_) -> true
-    // TODO: Non-record/union declared types without custom equality
-    // should be compatible with JS comparison
+    | Number((Int8|Int16|Int32|UInt8|UInt16|UInt32|Int64|UInt64|Float32|Float64),_) -> true
     | _ -> false
 
 // Overview of hash rules:
@@ -387,23 +384,29 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
         | _ -> "structuralHash"
     Helper.LibCall(com, "Util", methodName, Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
 
+let tupleToList = function
+    | Value(NewTuple(vals, _), r) -> makeArrayWithRange r Any vals
+    | e -> Helper.InstanceCall(e, "toList", Any, [])
+
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    // TODO: arrays, check if we need custom equality for tuples too
-//    | Array(t,_) ->
+    // Dart's tuple has structural equality by default
+//    | Tuple _ -> Helper.LibCall(com, "Util", "equalList", Boolean, [tupleToList left; tupleToList right], ?loc=r) |> is equal
+    | Array _ -> Helper.LibCall(com, "Util", "equalList", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
         if equal then BinaryEqual else BinaryUnequal
         |> makeEqOp r left right
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    let returnType = Number(Int32, NumberInfo.Empty)
     match left.Type with
-    // TODO: arrays, check if we need custom comparison for tuples too
-    // | Array(t,_) ->
-    | _ -> Helper.InstanceCall(left, "compareTo", Number(Int32, NumberInfo.Empty), [right], ?loc=r)
+    | Tuple _ -> Helper.LibCall(com, "Util", "compareList", returnType, [tupleToList left; tupleToList right], ?loc=r)
+    | Array _ -> Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
+    | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -1529,11 +1532,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         getAttachedMemberWith r t ar "isEmpty" |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
-    | "Sort", [arg] ->
-        // Don't inject comparer as native sort will be used
-        Helper.LibCall(com, "Array", "sort", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | "SortInPlace", [arg] ->
-        Helper.InstanceCall(arg, "sort", t, [], ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args

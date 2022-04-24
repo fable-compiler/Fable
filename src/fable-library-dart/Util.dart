@@ -19,14 +19,18 @@ bool equalList<T>(List<T> xs, List<T> ys) {
   }
 }
 
-int compareList<T extends Comparable<T>>(List<T> xs, List<T> ys) {
+// We use dynamic because this is also used for tuples
+int compareList(List<dynamic> xs, List<dynamic> ys) {
   if (xs.length != ys.length) {
     return xs.length < ys.length ? -1 : 1;
   }
-  for (var i = 0, j = 0; i < xs.length; i++) {
-    j = xs[i].compareTo(ys[i]);
-    if (j != 0) {
-      return j;
+  for (var i = 0; i < xs.length; i++) {
+    final x = xs[i];
+    if (x is Comparable) {
+      final j = x.compareTo(ys[i]);
+      if (j != 0) {
+        return j;
+      }
     }
   }
   return 0;
