@@ -249,6 +249,11 @@ module Reflection =
                 elif ent.IsMeasure then
                     [| Expression.stringLiteral(ent.FullName) |]
                     |> libReflectionCall com ctx None "measure"
+                elif FSharp2Fable.Util.isNoReflectionEntity ent then
+                    $"{ent.FullName} is annotated with NoReflectionAttribute, but is being used in types which support reflection. This may lead to runtime errors."
+                    |> addWarning com [] r
+
+                    Expression.nullLiteral()
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
@@ -1984,7 +1989,7 @@ module Util =
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
-        if com.Options.NoReflection then
+        if com.Options.NoReflection || FSharp2Fable.Util.isNoReflectionEntity ent then
             [typeDeclaration]
         else
             let reflectionDeclaration =
@@ -2074,7 +2079,11 @@ module Util =
             ClassMember.classMethod(ClassFunction, Expression.identifier("cases"), [||], body)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
-        let classMembers = Array.append [|cases|] classMembers
+        let classMembers =
+            if FSharp2Fable.Util.isNoReflectionEntity ent then
+                classMembers
+            else
+                Array.append [|cases|] classMembers
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =

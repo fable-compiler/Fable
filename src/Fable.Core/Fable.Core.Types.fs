@@ -30,6 +30,9 @@ type EraseAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = EraseAttribute()
 
+type NoReflectionAttribute() =
+    inherit Attribute()
+
 /// Used for "tagged" union types, which is commonly used in TypeScript.
 type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
     inherit Attribute()

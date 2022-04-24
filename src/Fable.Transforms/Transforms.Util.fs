@@ -29,6 +29,7 @@ module Atts =
     let [<Literal>] paramObject = "Fable.Core.ParamObjectAttribute"// typeof<Fable.Core.ParamObjectAttribute>.FullName
     let [<Literal>] decorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
     let [<Literal>] reflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
+    let [<Literal>] noReflection = "Fable.Core.NoReflectionAttribute"
 
 [<RequireQualifiedAccess>]
 module Types =

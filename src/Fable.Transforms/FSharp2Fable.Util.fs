@@ -1528,6 +1528,9 @@ module Util =
             | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion -> true
             | _ -> false)
 
+    let isNoReflectionEntity (ent: Fable.Entity) =
+        ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.noReflection)
+
     let isGlobalOrImportedEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.Entity.FullName with
