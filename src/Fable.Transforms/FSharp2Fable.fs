@@ -1524,6 +1524,7 @@ let resolveInlinedCallInfo com ctx info (callInfo: Fable.CallInfo) =
           GenericArgs = List.map (resolveInlinedGenArg ctx) callInfo.GenericArgs }
 
 let resolveInlinedExpr (com: IFableCompiler) ctx info expr =
+    // TODO: At this point we should probably deal with all cases instead of using visitFromOutsideIn
     expr |> visitFromOutsideIn (function
         // Resolve bindings
         | Fable.Let(i, v, b) ->
