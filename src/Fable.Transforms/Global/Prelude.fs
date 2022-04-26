@@ -150,6 +150,12 @@ module Patterns =
 
     let (|SetContains|_|) set item =
         if Set.contains item set then Some SetContains else None
+    
+    let (|ListLast|_|) (xs: 'a list) =
+        if List.isEmpty xs then None
+        else
+            let xs, last = List.splitLast xs
+            Some(xs, last)
 
 module Naming =
     open Fable.Core

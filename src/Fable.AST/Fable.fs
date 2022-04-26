@@ -191,6 +191,7 @@ type MemberDecl = {
     /// for a declaration in the root scope
     ExportDefault: bool
     DeclaringEntity: EntityRef option
+    XmlDoc: string option
 } with
     member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
     member this.ArgTypes = this.Args |> List.map (fun a -> a.Ident.Type)
@@ -201,6 +202,7 @@ type ClassDecl = {
     Constructor: MemberDecl option
     BaseCall: Expr option
     AttachedMembers: MemberDecl list
+    XmlDoc: string option
 }
 
 type ModuleDecl = {
@@ -462,7 +464,7 @@ type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?
     | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list
     | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option
-    | UnresolvedInlineCall of memberUniqueName: string * genArgs: Type list * witnesses: Witness list * callee: Expr option * info: CallInfo
+    | UnresolvedInlineCall of memberUniqueName: string * witnesses: Witness list * callee: Expr option * info: CallInfo
 
 type Expr =
     /// Identifiers that reference another expression

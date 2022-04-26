@@ -25,6 +25,7 @@ let BUILD_ARGS_LOWER =
 module Util =
     let cleanDirs dirs =
         for dir in dirs do
+            printfn $"Clean {dir}"
             removeDirRecursive dir
 
     let resolveDir dir =
@@ -175,6 +176,7 @@ let buildLibraryTs() =
 
 // TODO: move to PublishUtils.fs ?
 let copyFiles sourceDir searchPattern destDir =
+    printfn $"Copy {sourceDir </> searchPattern} to {destDir}"
     for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
         let fileName = IO.Path.GetFileName(source)
         let target = destDir </> fileName
@@ -236,12 +238,16 @@ let buildLibraryRust() =
 //     if not (pathExists (baseDir </> "build/fable-library-rust")) then
 //         buildLibraryRust()
 
-let buildLibraryDart() =
+let buildLibraryDart(clean: bool) =
     let sourceDir = resolveDir "src/fable-library-dart"
     let buildDir = resolveDir "build/fable-library-dart"
-    cleanDirs [buildDir]
+    
+    if clean then
+        cleanDirs [buildDir]
+        makeDirRecursive buildDir
+        copyFiles sourceDir "pubspec.*" buildDir
+        copyFiles sourceDir "analysis_options.yaml" buildDir
 
-    makeDirRecursive buildDir
     copyFiles sourceDir "*.dart" buildDir
 
     runFableWithArgsInDir sourceDir [
@@ -524,7 +530,7 @@ let testRust() =
 
 let testDart(isWatch) =
     if not (pathExists "build/fable-library-dart") then
-        buildLibraryDart()
+        buildLibraryDart(true)
 
     let runDir = "tests/Dart"
     let projectDir = runDir + "/src"
@@ -675,8 +681,8 @@ let publishPackages restArgs =
         else
             pushNpm ("src" </> pkg) buildAction
 
-let minify<'T> =
-    BUILD_ARGS_LOWER |> List.contains "--no-minify" |> not
+let hasFlag flag =
+    BUILD_ARGS_LOWER |> List.contains flag
 
 match BUILD_ARGS_LOWER with
 // | "check-sourcemaps"::_ ->
@@ -688,7 +694,9 @@ match BUILD_ARGS_LOWER with
 | "test-mocha"::_ -> compileAndRunTestsWithMocha true "Main"
 | "test-mocha-fast"::_ -> compileAndRunTestsWithMocha false "Main"
 | "test-react"::_ -> testReact()
-| "test-standalone"::_ -> testStandalone(minify)
+| "test-standalone"::_ ->
+    let minify = hasFlag "--no-minify" |> not
+    testStandalone(minify)
 | "test-standalone-fast"::_ -> testStandaloneFast()
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
@@ -723,9 +731,16 @@ match BUILD_ARGS_LOWER with
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
-| ("fable-library-dart" | "library-dart")::_ -> buildLibraryDart()
-| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
-| ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
+| ("fable-library-dart" | "library-dart")::_ ->
+    let clean = hasFlag "--no-clean" |> not
+    buildLibraryDart(clean)
+
+| ("fable-compiler-js"|"compiler-js")::_ ->
+    let minify = hasFlag "--no-minify" |> not
+    buildCompilerJs(minify)
+| ("fable-standalone"|"standalone")::_ ->
+    let minify = hasFlag "--no-minify" |> not
+    buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->

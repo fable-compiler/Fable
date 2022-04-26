@@ -1120,6 +1120,10 @@ module TypeHelpers =
     let isAbstract (ent: FSharpEntity) =
        hasAttribute Atts.abstractClass ent.Attributes
 
+    let tryGetXmlDoc = function
+        | FSharpXmlDoc.FromXmlText(xmlDoc) -> xmlDoc.GetXmlText() |> Some
+        | _ -> None
+    
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
         then nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType |> Some
@@ -1535,31 +1539,35 @@ module Util =
     let bindMemberArgs com ctx (memb: FSharpMemberOrFunctionOrValue option) (args: FSharpMemberOrFunctionOrValue list list) =
         // The F# compiler "untuples" the args in methods
         let args = List.concat args
-        let namedParamsIndex, args =
+        let args, params_, namedParamsIndex =
             match memb with
             | Some m ->
-                let namedParamsIndex = FsMemberFunctionOrValue.TryNamedParamsIndex(m)
                 let params_ = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
-                let args =
-                    if List.sameLength args params_ then
-                        params_ |> List.map Some |> List.zip args
-                    else args |> List.map (fun a -> a, None)
-                namedParamsIndex, args
-            | None -> None, args |> List.map (fun a -> a, None)
+                let namedParamsIndex = FsMemberFunctionOrValue.TryNamedParamsIndex(m)
+                args, Some params_, namedParamsIndex
+            | None -> args, None, None
 
+        let combineArgsParams args params_ =
+            match params_ with
+            | Some params_ when List.sameLength args params_ ->
+                params_ |> List.map Some |> List.zip args
+            | _ -> args |> List.map (fun a -> a, None)
+        
         let ctx, thisArg, args =
             match args with
-            | (firstArg,_)::restArgs when firstArg.IsMemberThisValue ->
+            | firstArg::restArgs when firstArg.IsMemberThisValue ->
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
+                let restArgs = combineArgsParams restArgs params_
                 ctx, [Fable.ArgDecl.Create thisArg], restArgs
-            | (firstArg,_)::restArgs when firstArg.IsConstructorThisValue ->
+            | firstArg::restArgs when firstArg.IsConstructorThisValue ->
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
+                let restArgs = combineArgsParams restArgs params_
                 ctx, [Fable.ArgDecl.Create thisArg], restArgs
-            | _ -> ctx, [], args
+            | _ -> ctx, [], combineArgsParams args params_
 
         let mutable i = -1
         let ctx, args =
@@ -1832,7 +1840,7 @@ module Util =
             ent.TryFullName = Some baseFullName)
         |> Option.isSome
 
-    let isMangledAbstractEntity com (ent: FSharpEntity) =
+    let isMangledAbstractEntity (com: Compiler) (ent: FSharpEntity) =
         match ent.TryFullName with
         // By default mangle interfaces in System namespace as they are not meant to interact with JS
         // except those that are used in fable-library Typescript files
@@ -1840,13 +1848,14 @@ module Util =
             match fullName with
             | Types.object
             | Types.idisposable
-            | Types.icomparable
             | "System.IObservable`1"
             | "System.IObserver`1"
             | Types.ienumerableGeneric
             // These are used for injections
             | Types.comparer
             | Types.equalityComparer -> false
+            | Types.icomparable -> false
+            | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true
         // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.PY namespaces
         | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
@@ -1909,7 +1918,7 @@ module Util =
                 $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
         msg |> addErrorAndReturnNull com ctx.InlinePath r
 
-    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ genArgs (callInfo: Fable.CallInfo)
+    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
@@ -1923,12 +1932,12 @@ module Util =
                 OverloadSuffix =
                     if ent.IsFSharpModule then ""
                     else FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
-                GenericArgs = genArgs }
+                GenericArgs = callInfo.GenericArgs }
             match ctx.PrecompilingInlineFunction with
             | Some _ ->
                 // Deal with reraise so we don't need to save caught exception every time
                 match ctx.CaughtException, info.DeclaringEntityFullName, info.CompiledName with
-                | Some ex, "Microsoft.FSharp.Core.Operators", "Reraise" ->
+                | Some ex, "Microsoft.FSharp.Core.Operators", "Reraise" when com.Options.Language <> Dart ->
                     makeThrow r typ (Fable.IdentExpr ex) |> Some
                 | _ ->
                     // If it's an interface compile the call to the attached member just in case
@@ -2027,7 +2036,7 @@ module Util =
         | _ -> None
         |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
 
-    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Fable.Type list) callee (info: Fable.CallInfo) membUniqueName =
+    let inlineExpr (com: IFableCompiler) (ctx: Context) r t callee (info: Fable.CallInfo) membUniqueName =
         let args: Fable.Expr list =
             match callee with
             | Some c -> c::info.Args
@@ -2041,7 +2050,7 @@ module Util =
             | { ToFile = file; ToRange = r }::_ -> file, r
             | [] -> com.CurrentFile, r
 
-        let genArgs = List.zipSafe inExpr.GenericArgs genArgs |> Map
+        let genArgs = List.zipSafe inExpr.GenericArgs info.GenericArgs |> Map
 
         let ctx = { ctx with GenericArgs = genArgs
                              InlinePath = { ToFile = inExpr.FileName
@@ -2072,7 +2081,7 @@ module Util =
             let body = if t <> body.Type then Fable.TypeCast(body, t) else body
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
-    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb then
             let membUniqueName = getMemberUniqueName memb
             match ctx.PrecompilingInlineFunction with
@@ -2080,10 +2089,10 @@ module Util =
                 $"Recursive functions cannot be inlined: (%s{memb.FullName})"
                 |> addErrorAndReturnNull com [] r |> Some
             | Some _ ->
-                let e = Fable.UnresolvedInlineCall(membUniqueName, genArgs,  ctx.Witnesses, callee, info)
+                let e = Fable.UnresolvedInlineCall(membUniqueName, ctx.Witnesses, callee, info)
                 Fable.Unresolved(e, t, r) |> Some
             | None ->
-                inlineExpr com ctx r t genArgs callee info membUniqueName |> Some
+                inlineExpr com ctx r t callee info membUniqueName |> Some
         else None
 
     /// Removes optional arguments set to None in tail position
@@ -2105,12 +2114,12 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com (ctx: Context) r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
-        | Replaced com ctx r typ genArgs callInfo replaced -> replaced
-        | Inlined com ctx r typ genArgs callee callInfo expr, _ -> expr
+        | Replaced com ctx r typ callInfo replaced -> replaced
+        | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
         | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
             if isModuleValueForCalls entity memb then funcExpr
@@ -2186,7 +2195,7 @@ module Util =
             hasSpread = hasParamArray memb,
             isCons = memb.IsConstructor,
             memberInfo = FsMemberFunctionOrValue.CallMemberInfo(memb))
-        |> makeCallWithArgInfo com ctx r typ genArgs callee memb
+        |> makeCallWithArgInfo com ctx r typ callee memb
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType ctx.GenericArgs v.FullType

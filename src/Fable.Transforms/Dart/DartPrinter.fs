@@ -74,8 +74,8 @@ module PrinterExtensions =
                         let subSegment =
                             // Remove whitespace in front of new lines,
                             // indent will be automatically applied
-                            if printer.Column = 0 then subSegments.[i - 1].TrimStart()
-                            else subSegments.[i - 1]
+                            if printer.Column = 0 then subSegments[i - 1].TrimStart()
+                            else subSegments[i - 1]
                         if subSegment.Length > 0 then
                             printer.Print(subSegment)
                             if i < subSegments.Length then
@@ -87,26 +87,26 @@ module PrinterExtensions =
                 value
                 |> replace @"\$(\d+)\.\.\." (fun m ->
                     let rep = ResizeArray()
-                    let i = int m.Groups.[1].Value
+                    let i = int m.Groups[1].Value
                     for j = i to args.Length - 1 do
                         rep.Add("$" + string j)
                     String.concat ", " rep)
 
                 |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
-                    let i = int m.Groups.[1].Value
-                    match args.[i] with
-                    | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
-                    | _ -> m.Groups.[3].Value)
+                    let i = int m.Groups[1].Value
+                    match args[i] with
+                    | Literal(BooleanLiteral(value=value)) when value -> m.Groups[2].Value
+                    | _ -> m.Groups[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                    let i = int m.Groups.[2].Value
+                    let i = int m.Groups[2].Value
                     match List.tryItem i args with
-                    | Some _ -> m.Groups.[1].Value
+                    | Some _ -> m.Groups[1].Value
                     | None -> "")
 
                 // If placeholder is followed by !, emit string literals as native code: "let $0! = $1"
                 |> replace @"\$(\d+)!" (fun m ->
-                    let i = int m.Groups.[1].Value
+                    let i = int m.Groups[1].Value
                     match List.tryItem i args with
                     | Some(Literal(StringLiteral value)) -> value
                     | _ -> "")
@@ -114,26 +114,26 @@ module PrinterExtensions =
             let matches = Regex.Matches(value, @"\$\d+")
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
-                    let m = matches.[i]
+                    let m = matches[i]
                     let isSurroundedWithParens =
                         m.Index > 0
                         && m.Index + m.Length < value.Length
-                        && value.[m.Index - 1] = '('
-                        && value.[m.Index + m.Length] = ')'
+                        && value[m.Index - 1] = '('
+                        && value[m.Index + m.Length] = ')'
 
                     let segmentStart =
-                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                        if i > 0 then matches[i-1].Index + matches[i-1].Length
                         else 0
 
                     printSegment printer value segmentStart m.Index
 
-                    let argIndex = int m.Value.[1..]
+                    let argIndex = int m.Value[1..]
                     match List.tryItem argIndex args with
                     | Some e when isSurroundedWithParens -> printer.Print(e)
                     | Some e -> printer.PrintWithParensIfComplex(e)
                     | None -> ()
 
-                let lastMatch = matches.[matches.Count - 1]
+                let lastMatch = matches[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
                 printSegment printer value 0 value.Length
@@ -496,14 +496,17 @@ module PrinterExtensions =
                         p.PushIndentation()
                         for s in c.Body do
                             p.Print(s)
-                            p.Print(";")
-                            p.PrintNewLine()
+                            p.PrintStatementSeparator()
 
-                        match List.tryLast c.Body with
-                        | Some(ContinueStatement _)
-                        | Some(BreakStatement _)
-                        | Some(ReturnStatement _) -> ()
-                        | _ ->
+                        let rec needsBreak statements =
+                            match List.tryLast statements with
+                            | Some(ContinueStatement _)
+                            | Some(BreakStatement _)
+                            | Some(ReturnStatement _) -> false
+                            | Some(IfStatement(_, consequent, alternate)) -> needsBreak consequent || needsBreak alternate 
+                            | _ -> true
+
+                        if needsBreak c.Body then
                             p.Print("break;")
                             p.PrintNewLine()
 
@@ -552,8 +555,8 @@ module PrinterExtensions =
                     else "'"
                 printer.Print(quotes)
                 for i = 0 to parts.Length - 2 do
-                    printer.Print(escape parts.[i])
-                    match values.[i] with
+                    printer.Print(escape parts[i])
+                    match values[i] with
                     | IdentExpression i ->
                         printer.Print("$")
                         printer.PrintIdent(i)
@@ -579,7 +582,11 @@ module PrinterExtensions =
                 | test, Literal(BooleanLiteral(false)), Literal(BooleanLiteral(true)) ->
                     printer.Print("!")
                     printer.PrintWithParensIfComplex(test)
-                | test, _, Literal(BooleanLiteral(false)) ->
+                | test, Literal(BooleanLiteral(true)), alternate ->
+                    printer.PrintWithParensIfComplex(test)
+                    printer.Print(" || ")
+                    printer.PrintWithParensIfComplex(alternate)
+                | test, consequent, Literal(BooleanLiteral(false)) ->
                     printer.PrintWithParensIfComplex(test)
                     printer.Print(" && ")
                     printer.PrintWithParensIfComplex(consequent)
@@ -709,9 +716,8 @@ module PrinterExtensions =
                     if v.IsOverride then
                         p.Print("@override")
                         p.PrintNewLine()
-                    match v.Kind with
-                    | Final when v.IsLate -> p.Print("late ")
-                    | _ -> ()
+                    if v.IsLate then
+                        p.Print("late ")
                     p.PrintVariableDeclaration(v.Ident, v.Kind, ?value=v.Value)
                     p.Print(";")
 
@@ -722,13 +728,7 @@ module PrinterExtensions =
                     if c.IsFactory then
                         p.Print("factory ")
                     p.Print(decl.Name)
-                    printer.PrintList("(", ", ", ")", c.Args, function
-                        | ConsThisArg name ->
-                            printer.Print("this.")
-                            printer.Print(name)
-                        | ConsArg i ->
-                            printer.PrintIdent(i, printType=true)
-                    )
+                    printer.PrintFunctionArgs(c.Args)
 
                     if callSuper then
                         p.Print(": super")
@@ -776,12 +776,7 @@ module PrinterExtensions =
                 printer.Print(" ")
                 printer.PrintBlock(body, skipNewLineAtEnd=(isExpression || isModuleOrClassMember))
 
-        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: GenericParam list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
-            printer.PrintType(returnType)
-            printer.Print(" ")
-            printer.Print(name)
-            printer.PrintGenericParams(genParams)
-
+        member printer.PrintFunctionArgs(args: FunctionArg list) =
             let mutable prevArg: FunctionArg option = None
             printer.PrintList("(", ")", args, fun pos arg ->
                 if arg.IsNamed then
@@ -797,7 +792,10 @@ module PrinterExtensions =
                 else
                     ()
 
-                printer.PrintIdent(arg.Ident, printType=true)
+                if arg.IsConsThisArg then
+                    printer.Print("this." + arg.Ident.Name)
+                else
+                    printer.PrintIdent(arg.Ident, printType=true)    
 
                 match pos with
                 | IsSingle | IsLast ->
@@ -811,6 +809,13 @@ module PrinterExtensions =
 
                 prevArg <- Some arg
             )
+                    
+        member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: GenericParam list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
+            printer.PrintType(returnType)
+            printer.Print(" ")
+            printer.Print(name)
+            printer.PrintGenericParams(genParams)
+            printer.PrintFunctionArgs(args)
             printer.PrintFunctionBody(?body=body, ?isModuleOrClassMember=isModuleOrClassMember)
 
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
@@ -871,7 +876,7 @@ let run (writer: Writer) (file: File): Async<unit> =
         let printer = printerImpl :> Printer
 
         // If we manage to master null assertions maybe we can remove unnecessary_non_null_assertion
-        printer.Print("// ignore_for_file: non_constant_identifier_names, camel_case_types, constant_identifier_names, unnecessary_non_null_assertion")
+        printer.Print("// ignore_for_file: camel_case_types, constant_identifier_names, non_constant_identifier_names, unnecessary_non_null_assertion, unnecessary_this")
         printer.PrintNewLine()
 
         file.Imports

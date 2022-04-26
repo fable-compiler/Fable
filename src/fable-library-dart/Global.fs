@@ -21,3 +21,7 @@ module SR =
     let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
     let differentLengths = "The collections had different lengths."
     let notEnoughElements = "The input sequence has an insufficient number of elements."
+    let enumerationAlreadyFinished = "Enumeration already finished."
+    let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
+    let resetNotSupported = "Reset is not supported on this enumerator."
+

@@ -282,7 +282,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                  UsedNames = Set.empty
                  Info = info
                  DeclaringEntity = tryDefinition signature.DeclaringType |> Option.map (fst >> FsEnt.Ref)
-                 ExportDefault = false }
+                 ExportDefault = false
+                 XmlDoc = None }
       }
 
     trampoline {
@@ -755,7 +756,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         let altElseExpr =
             match elseExpr with
-            | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
                 let errorMessage = "Match failure"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Fable.Value(Fable.StringConstant errorMessage, None) |> Replacements.Api.error com
@@ -783,6 +784,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match args with
         | [arg] ->
             let! body = transformExpr com ctx body
+            let body = flattenLambdaBodyWithTupleArgs arg body
             return Fable.Lambda(arg, body, Fable.FuncInfo.Empty)
         | _ -> return failwith "makeFunctionArgs returns args with different length"
 
@@ -970,7 +972,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets =
             match snd (List.last decisionTargets) with
-            | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
                 match decisionExpr with
                 | FSharpExprPatterns.IfThenElse(FSharpExprPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
@@ -1098,7 +1100,8 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               DeclaringEntity = FsEnt.Ref(ent) |> Some
-              ExportDefault = false }
+              ExportDefault = false
+              XmlDoc = tryGetXmlDoc memb.XmlDoc }
         com.AddConstructor(fullName, cons, baseCall)
         []
 
@@ -1118,7 +1121,8 @@ let private transformImportWithInfo _com r typ info name fullDisplayName selecto
           UsedNames = Set.empty
           Info = info
           DeclaringEntity = None
-          ExportDefault = false }]
+          ExportDefault = false
+          XmlDoc = None }]
 
 let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
     if isMutable && isPublic then // See #1314
@@ -1161,7 +1165,8 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
-              ExportDefault = false }]
+              ExportDefault = false
+              XmlDoc = tryGetXmlDoc memb.XmlDoc }]
 
 let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
     MemberInfo(memb.Attributes,
@@ -1171,8 +1176,7 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
                    isInstance=memb.IsInstanceMember,
                    isMutable=memb.IsMutable) :> _
 
-// JS-only feature, in Fable 4 it should be abstracted
-let private applyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+let private applyJsPyDecorators (com: IFableCompiler) (_ctx: Context) name (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
     let methodInfo =
         lazy
             let returnType = makeType Map.empty memb.ReturnParameter.Type
@@ -1249,9 +1253,12 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
             let args, body, isValue =
-                match applyDecorators com ctx name memb argIdents body with
-                | None -> args, body, false
-                | Some body -> [], body, true
+                match com.Options.Language with
+                | JavaScript | TypeScript | Python ->
+                    match applyJsPyDecorators com ctx name memb argIdents body with
+                    | None -> args, body, false
+                    | Some body -> [], body, true
+                | _ -> args, body, false
             [Fable.MemberDeclaration
                 { Name = name
                   FullDisplayName = fullDisplayName
@@ -1261,7 +1268,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   UsedNames = set ctx.UsedNamesInDeclarationScope
                   Info = moduleMemberDeclarationInfo isPublic isValue memb
                   DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
-                  ExportDefault = false }]
+                  ExportDefault = false
+                  XmlDoc = tryGetXmlDoc memb.XmlDoc }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
@@ -1297,7 +1305,8 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           DeclaringEntity = memb.DeclaringEntity |> Option.map FsEnt.Ref
-          ExportDefault = false })
+          ExportDefault = false
+          XmlDoc = tryGetXmlDoc memb.XmlDoc })
 
 let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context)
             (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1324,7 +1333,8 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           DeclaringEntity = FsEnt.Ref(declaringEntity) |> Some
-          ExportDefault = false })
+          ExportDefault = false
+          XmlDoc = tryGetXmlDoc memb.XmlDoc })
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
@@ -1418,11 +1428,11 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls |> List.collect (fun fsDecl ->
         match fsDecl with
-        | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
+        | FSharpImplementationFileDeclaration.Entity(fsEnt, sub) ->
             match sub with
-            | [] when isIgnoredLeafEntity ent -> []
+            | [] when isIgnoredLeafEntity fsEnt -> []
             | [] ->
-                let entRef = FsEnt.Ref ent
+                let entRef = FsEnt.Ref fsEnt
                 let ent = (com :> Compiler).GetEntity(entRef)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     []
@@ -1437,13 +1447,14 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                               Entity = entRef
                               Constructor = None
                               BaseCall = None
-                              AttachedMembers = [] }]
+                              AttachedMembers = []
+                              XmlDoc = tryGetXmlDoc fsEnt.XmlDoc }]
             // This adds modules in the AST for languages that support them (like Rust)
-            | sub when (ent.IsFSharpModule || ent.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
-                let entRef = FsEnt.Ref ent
+            | sub when (fsEnt.IsFSharpModule || fsEnt.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
+                let entRef = FsEnt.Ref fsEnt
                 let members = transformDeclarations com ctx sub
                 [Fable.ModuleDeclaration
-                    { Name = ent.CompiledName
+                    { Name = fsEnt.CompiledName
                       Entity = entRef
                       Members = members }]
             | sub ->
@@ -1479,6 +1490,145 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
         | _, Some e -> FsEnt.FullName e
         | _, None -> ""
     getRootModuleInner None declarations
+
+let resolveInlinedGenArg (ctx: Context) = function
+    | Fable.GenericParam(name,_) as v ->
+        match Map.tryFind name ctx.GenericArgs with
+        | Some v -> v
+        | None -> v
+    | t -> t.MapGenerics(resolveInlinedGenArg ctx)
+
+type InlineExprInfo = {
+    FileName: string
+    ScopeIdents: Set<string>
+    ResolvedIdents: Dictionary<string, string>
+}
+
+let resolveInlinedIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident) =
+    if info.ScopeIdents.Contains ident.Name then
+        let sanitizedName =
+            match info.ResolvedIdents.TryGetValue(ident.Name) with
+            | true, resolvedName -> resolvedName
+            | false, _ ->
+                let resolvedName = Naming.preventConflicts (isUsedName ctx) ident.Name
+                ctx.UsedNamesInDeclarationScope.Add(resolvedName) |> ignore
+                info.ResolvedIdents.Add(ident.Name, resolvedName)
+                resolvedName
+        { ident with Name = sanitizedName; Type = resolveInlinedGenArg ctx ident.Type }
+    else ident
+
+let resolveInlinedCallInfo com ctx info (callInfo: Fable.CallInfo) =
+    { callInfo with
+          ThisArg = Option.map (resolveInlinedExpr com ctx info) callInfo.ThisArg
+          Args = List.map (resolveInlinedExpr com ctx info) callInfo.Args
+          GenericArgs = List.map (resolveInlinedGenArg ctx) callInfo.GenericArgs }
+
+let resolveInlinedExpr (com: IFableCompiler) ctx info expr =
+    expr |> visitFromOutsideIn (function
+        // Resolve bindings
+        | Fable.Let(i, v, b) ->
+            let i = resolveInlinedIdent ctx info i
+            let v = resolveInlinedExpr com ctx info v
+            let ctx = { ctx with Scope = (None, i, Some v)::ctx.Scope }
+            Fable.Let(i, v, resolveInlinedExpr com ctx info b) |> Some
+
+        | Fable.LetRec(bindings, b) ->
+            let ctx, bindings =
+                ((ctx, bindings), bindings) ||> List.fold(fun (ctx, bindings) (i, e) ->
+                    let i = resolveInlinedIdent ctx info i
+                    let e = resolveInlinedExpr com ctx info e
+                    { ctx with Scope = (None, i, Some e)::ctx.Scope }, (i, e)::bindings)
+            Fable.LetRec(List.rev bindings, resolveInlinedExpr com ctx info b) |> Some
+
+        // Resolve idents and gen args in other expressions
+        | Fable.Call(callee, callInfo, typ, r) ->
+            let callInfo = resolveInlinedCallInfo com ctx info callInfo
+            Fable.Call(resolveInlinedExpr com ctx info callee, callInfo, resolveInlinedGenArg ctx typ, r) |> Some
+        | Fable.Emit(emitInfo, typ, r) ->
+            let emitInfo = { emitInfo with CallInfo = resolveInlinedCallInfo com ctx info emitInfo.CallInfo }
+            Fable.Emit(emitInfo, resolveInlinedGenArg ctx typ, r) |> Some
+        | Fable.IdentExpr i -> Fable.IdentExpr(resolveInlinedIdent ctx info i) |> Some
+        | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveInlinedIdent ctx info arg, resolveInlinedExpr com ctx info b, n) |> Some
+        | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveInlinedIdent ctx info) args, resolveInlinedExpr com ctx info b, n) |> Some
+        | Fable.DecisionTree(e, targets) -> Fable.DecisionTree(resolveInlinedExpr com ctx info e, targets |> List.map(fun (idents, e) -> List.map (resolveInlinedIdent ctx info) idents, resolveInlinedExpr com ctx info e)) |> Some
+        | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveInlinedIdent ctx info i, resolveInlinedExpr com ctx info s, resolveInlinedExpr com ctx info l, resolveInlinedExpr com ctx info b, u, r) |> Some
+        | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveInlinedExpr com ctx info b, (c |> Option.map (fun (i, e) -> resolveInlinedIdent ctx info i, resolveInlinedExpr com ctx info e)), (d |> Option.map (resolveInlinedExpr com ctx info)), r) |> Some
+        | Fable.ObjectExpr(members, t, baseCall) ->
+            let members = members |> List.map (fun m ->
+                { m with Args = List.map (fun a -> { a with Ident = resolveInlinedIdent ctx info a.Ident }) m.Args
+                         Body = resolveInlinedExpr com ctx info m.Body })
+            Fable.ObjectExpr(members, resolveInlinedGenArg ctx t, baseCall |> Option.map (resolveInlinedExpr com ctx info)) |> Some
+
+        // Resolve imports. TODO: add test
+        | Fable.Import(importInfo, t, r) as e ->
+            if Path.isRelativePath importInfo.Path then
+                // If it happens we're importing a member in the current file
+                // use IdentExpr instead of Import
+                let isImportToSameFile =
+                    info.FileName = com.CurrentFile && (
+                        let dirName, info = Path.GetDirectoryAndFileNames(importInfo.Path)
+                        dirName = "." && info = Path.GetFileName(com.CurrentFile)
+                    )
+                if isImportToSameFile then
+                    Fable.IdentExpr { makeTypedIdent t importInfo.Selector with Range = r }
+                else
+                    let path = fixImportedRelativePath com importInfo.Path info.FileName
+                    Fable.Import({ importInfo with Path = path }, t, r)
+            else e
+            |> Some
+
+        // Resolve type info
+        | Fable.Value(Fable.TypeInfo(t, d), r) ->
+            let t = resolveInlinedGenArg ctx t
+            Fable.Value(Fable.TypeInfo(t, d), r) |> Some
+
+        // Resolve the unresolved
+        | Fable.Unresolved(e, t, r) ->
+            match e with
+            | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs) ->
+                let t = resolveInlinedGenArg ctx t
+                let argTypes = argTypes |> List.map (resolveInlinedGenArg ctx)
+                let argExprs = argExprs |> List.map (resolveInlinedExpr com ctx info)
+
+                match tryFindWitness ctx argTypes isInstance traitName with
+                | None ->
+                   let sourceTypes = sourceTypes |> List.map (resolveInlinedGenArg ctx)
+                   transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
+                | Some w ->
+                    let callee = resolveInlinedExpr com ctx { info with FileName = w.FileName } w.Expr
+                    let callInfo = makeCallInfo None argExprs argTypes
+                    makeCall r t callInfo callee |> Some            
+
+            | Fable.UnresolvedInlineCall(membUniqueName, witnesses, callee, callInfo) ->
+                let t = resolveInlinedGenArg ctx t
+                let callee = callee |> Option.map (resolveInlinedExpr com ctx info)
+                let callInfo = resolveInlinedCallInfo com ctx info callInfo
+                let ctx = { ctx with Witnesses = witnesses @ ctx.Witnesses }
+                inlineExpr com ctx r t callee callInfo membUniqueName |> Some
+                
+            | Fable.UnresolvedReplaceCall(thisArg, args, callInfo, attachedCall) ->
+                let resolveArg arg =
+                    let arg = resolveInlinedExpr com ctx info arg
+                    let t = arg.Type
+                    let t' = resolveInlinedGenArg ctx t
+                    if t <> t' then Fable.TypeCast(arg, t') else arg
+
+                let typ = resolveInlinedGenArg ctx t
+                let thisArg = thisArg |> Option.map resolveArg
+                let args = args |> List.map resolveArg
+                let callInfo = { callInfo with GenericArgs = callInfo.GenericArgs |> List.map (resolveInlinedGenArg ctx) }
+                match com.TryReplace(ctx, r, typ, callInfo, thisArg, args) with
+                | Some e -> Some e
+                | None when callInfo.IsInterface ->
+                    match attachedCall with
+                    | Some e -> resolveInlinedExpr com ctx info e |> Some
+                    | None ->
+                        "Unexpected, missing attached call in unresolved replace call"
+                        |> addErrorAndReturnNull com ctx.InlinePath r
+                        |> Some
+                | None -> failReplace com ctx r callInfo |> Some
+
+        | _ -> None)
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
@@ -1519,29 +1669,7 @@ type FableCompiler(com: Compiler) =
     member this.TryReplace(ctx, r, t, info, thisArg, args) =
         Replacements.Api.tryCall this ctx r t info thisArg args
 
-    member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
-        let resolvedIdents = Dictionary()
-
-        let rec resolveGenArg (ctx: Context) = function
-            | Fable.GenericParam(name,_) as v ->
-                match Map.tryFind name ctx.GenericArgs with
-                | Some v -> v
-                | None -> v
-            | t -> t.MapGenerics(resolveGenArg ctx)
-
-        let resolveIdent (ctx: Context) (ident: Fable.Ident) =
-            if inExpr.ScopeIdents.Contains ident.Name then
-                let sanitizedName =
-                    match resolvedIdents.TryGetValue(ident.Name) with
-                    | true, resolvedName -> resolvedName
-                    | false, _ ->
-                        let resolvedName = Naming.preventConflicts (isUsedName ctx) ident.Name
-                        ctx.UsedNamesInDeclarationScope.Add(resolvedName) |> ignore
-                        resolvedIdents.Add(ident.Name, resolvedName)
-                        resolvedName
-                { ident with Name = sanitizedName; Type = resolveGenArg ctx ident.Type }
-            else ident
-
+    member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =        
         let rec foldArgs acc = function
             | argIdent::restArgIdents, argExpr::restArgExprs ->
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
@@ -1549,127 +1677,23 @@ type FableCompiler(com: Compiler) =
                 foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, argIdent.Type, false), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
 
+        let info: InlineExprInfo = {
+            FileName = inExpr.FileName
+            ScopeIdents = inExpr.ScopeIdents
+            ResolvedIdents = Dictionary()
+        }
+        
         let ctx, bindings =
             ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
-                let argId = resolveIdent ctx argId
+                let argId = resolveInlinedIdent ctx info argId
                 // Change type and mark argId as compiler-generated so Fable also
                 // tries to inline it in DEBUG mode (some patterns depend on this)
                 let argId = { argId with Type = arg.Type; IsCompilerGenerated = true }
                 let ctx = { ctx with Scope = (None, argId, Some arg)::ctx.Scope }
                 ctx, (argId, arg)::bindings)
 
-        let rec resolveExpr ctx fileName expr =
-            expr |> visitFromOutsideIn (function
-                // Resolve bindings
-                | Fable.Let(i, v, b) ->
-                    let i = resolveIdent ctx i
-                    let v = resolveExpr ctx fileName v
-                    let ctx = { ctx with Scope = (None, i, Some v)::ctx.Scope }
-                    Fable.Let(i, v, resolveExpr ctx fileName b) |> Some
-
-                | Fable.LetRec(bindings, b) ->
-                    let ctx, bindings =
-                        ((ctx, bindings), bindings) ||> List.fold(fun (ctx, bindings) (i, e) ->
-                            let i = resolveIdent ctx i
-                            let e = resolveExpr ctx fileName e
-                            { ctx with Scope = (None, i, Some e)::ctx.Scope }, (i, e)::bindings)
-                    Fable.LetRec(List.rev bindings, resolveExpr ctx fileName b) |> Some
-
-                // Resolve idents and gen args in other expressions
-                | Fable.Call(callee, info, typ, r) ->
-                    let info =
-                        { info with
-                              ThisArg = Option.map (resolveExpr ctx fileName) info.ThisArg
-                              Args = List.map (resolveExpr ctx fileName) info.Args
-                              GenericArgs = List.map (resolveGenArg ctx) info.GenericArgs }
-                    Fable.Call(resolveExpr ctx fileName callee, info, resolveGenArg ctx typ, r) |> Some
-                | Fable.IdentExpr i -> Fable.IdentExpr(resolveIdent ctx i) |> Some
-                | Fable.Lambda(arg, b, n) -> Fable.Lambda(resolveIdent ctx arg, resolveExpr ctx fileName b, n) |> Some
-                | Fable.Delegate(args, b, n) -> Fable.Delegate(List.map (resolveIdent ctx) args, resolveExpr ctx fileName b, n) |> Some
-                | Fable.DecisionTree(e, targets) -> Fable.DecisionTree(resolveExpr ctx fileName e, targets |> List.map(fun (idents, e) -> List.map (resolveIdent ctx) idents, resolveExpr ctx fileName e)) |> Some
-                | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveIdent ctx i, resolveExpr ctx fileName s, resolveExpr ctx fileName l, resolveExpr ctx fileName b, u, r) |> Some
-                | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveExpr ctx fileName b, (c |> Option.map (fun (i, e) -> resolveIdent ctx i, resolveExpr ctx fileName e)), (d |> Option.map (resolveExpr ctx fileName)), r) |> Some
-                | Fable.ObjectExpr(members, t, baseCall) ->
-                    let members = members |> List.map (fun m ->
-                        { m with Args = List.map (fun a -> { a with Ident = resolveIdent ctx a.Ident }) m.Args
-                                 Body = resolveExpr ctx fileName m.Body })
-                    Fable.ObjectExpr(members, resolveGenArg ctx t, baseCall |> Option.map (resolveExpr ctx fileName)) |> Some
-
-                // Resolve imports. TODO: add test
-                | Fable.Import(info, t, r) as e ->
-                    if Path.isRelativePath info.Path then
-                        // If it happens we're importing a member in the current file
-                        // use IdentExpr instead of Import
-                        let isImportToSameFile =
-                            fileName = com.CurrentFile && (
-                                let dirName, fileName = Path.GetDirectoryAndFileNames(info.Path)
-                                dirName = "." && fileName = Path.GetFileName(com.CurrentFile)
-                            )
-                        if isImportToSameFile then
-                            Fable.IdentExpr { makeTypedIdent t info.Selector with Range = r }
-                        else
-                            let path = fixImportedRelativePath com info.Path fileName
-                            Fable.Import({ info with Path = path }, t, r)
-                    else e
-                    |> Some
-
-                // Resolve type info
-                | Fable.Value(Fable.TypeInfo(t, d), r) ->
-                    let t = resolveGenArg ctx t
-                    Fable.Value(Fable.TypeInfo(t, d), r) |> Some
-
-                // Resolve the unresolved
-                | Fable.Unresolved(e, t, r) ->
-                    match e with
-                    | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs) ->
-                        let t = resolveGenArg ctx t
-                        let argTypes = argTypes |> List.map (resolveGenArg ctx)
-                        let argExprs = argExprs |> List.map (resolveExpr ctx fileName)
-
-                        match tryFindWitness ctx argTypes isInstance traitName with
-                        | None ->
-                           let sourceTypes = sourceTypes |> List.map (resolveGenArg ctx)
-                           transformTraitCall this ctx r t sourceTypes traitName isInstance argTypes argExprs |> Some
-                        | Some w ->
-                            let callee = resolveExpr ctx w.FileName w.Expr
-                            let callInfo = makeCallInfo None argExprs argTypes
-                            makeCall r t callInfo callee |> Some
-
-                    | Fable.UnresolvedInlineCall(membUniqueName, genArgs, witnesses, callee, info) ->
-                        let t = resolveGenArg ctx t
-                        let callee = callee |> Option.map (resolveExpr ctx fileName)
-                        let info = { info with ThisArg = info.ThisArg |> Option.map (resolveExpr ctx fileName)
-                                               Args = info.Args |> List.map (resolveExpr ctx fileName) }
-                        let genArgs = genArgs |> List.map (resolveGenArg ctx)
-                        let ctx = { ctx with Witnesses = witnesses @ ctx.Witnesses }
-                        inlineExpr this ctx r t genArgs callee info membUniqueName |> Some
-
-                    | Fable.UnresolvedReplaceCall(thisArg, args, info, attachedCall) ->
-                        let resolveArg arg =
-                            let arg = resolveExpr ctx fileName arg
-                            let t = arg.Type
-                            let t' = resolveGenArg ctx t
-                            if t <> t' then Fable.TypeCast(arg, t') else arg
-
-                        let typ = resolveGenArg ctx t
-                        let thisArg = thisArg |> Option.map resolveArg
-                        let args = args |> List.map resolveArg
-                        let info = { info with GenericArgs = info.GenericArgs |> List.map (resolveGenArg ctx) }
-                        match this.TryReplace(ctx, r, typ, info, thisArg, args) with
-                        | Some e -> Some e
-                        | None when info.IsInterface ->
-                            match attachedCall with
-                            | Some e -> resolveExpr ctx fileName e |> Some
-                            | None ->
-                                "Unexpected, missing attached call in unresolved replace call"
-                                |> addErrorAndReturnNull com ctx.InlinePath r
-                                |> Some
-                        | None -> failReplace this ctx r info |> Some
-
-                | _ -> None)
-
         let ctx = { ctx with ScopeInlineArgs = ctx.ScopeInlineArgs @ bindings }
-        bindings, resolveExpr ctx inExpr.FileName inExpr.Body
+        bindings, resolveInlinedExpr this ctx info inExpr.Body
 
     interface IFableCompiler with
         member _.WarnOnlyOnce(msg, ?range) =
