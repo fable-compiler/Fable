@@ -9,9 +9,13 @@ open Fable.Core
 
 [<RequireQualifiedAccess; Erase>]
 type Native =
-    /// Converts resize array without creating a new copy
+    /// Converts resize array to fixed without creating a new copy
     [<Emit("$0")>]
-    static member convertResize(array: ResizeArray<'T>): 'T[] = jsNative
+    static member asFixed(array: ResizeArray<'T>): 'T[] = jsNative
+
+    /// Converts fixed to resize array without creating a new copy
+    [<Emit("$0")>]
+    static member asResize(array: 'T[]): ResizeArray<'T> = jsNative
 
     [<Emit("List.generate($0, $1, growable: false)")>]
     static member generate (len: int) (f: int -> 'T): 'T[] = jsNative
@@ -101,14 +105,24 @@ let private indexNotFound() =
 let private differentLengths() =
     failwith "Arrays had different lengths"
 
-let reverseInPlace (array: 'T[]): unit =
-    let len = array.Length
-    let half = len / 2
-    for i = 0 to half - 1 do
-        let j = len - i - 1
-        let tmp = array[i]
-        array[i] <- array[j]
-        array[j] <- tmp
+// https://stackoverflow.com/a/9113136
+let reverseInPlace (xs: 'T[]): unit =
+//    let len = xs.Length
+//    let half = len / 2
+//    for i = 0 to half - 1 do
+//        let j = len - i - 1
+//        let tmp = xs[i]
+//        xs[i] <- xs[j]
+//        xs[j] <- tmp        
+    let mutable left = 0
+    let mutable right = 0
+    let length = xs.Length
+    while left < length / 2 do
+        right <- length - 1 - left;
+        let temporary = xs[left]
+        xs[left] <- xs[right]
+        xs[right] <- temporary
+        left <- left + 1
 
 let append (array1: 'T[]) (array2: 'T[]): 'T[] =
     let len1 = array1.Length
@@ -341,7 +355,7 @@ let partition (f: 'T -> bool) (source: 'T[]) =
             res1.Add(x)
         else
             res2.Add(x)
-    Native.convertResize res1, Native.convertResize res2            
+    Native.asFixed res1, Native.asFixed res2            
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
     Native.firstWhere(array, predicate)
@@ -420,7 +434,7 @@ let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
         match chooser array[i] with
         | None -> ()
         | Some y -> res.Add(y)
-    Native.convertResize res
+    Native.asFixed res
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
     let mutable state = state    
@@ -515,7 +529,7 @@ let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State)
             res.Add(x)
             loop s
     loop state
-    Native.convertResize res
+    Native.asFixed res
 
 let unzip (array: ('a * 'b)[]): 'a[] * 'b[] =
     let res1 = ResizeArray()
@@ -523,7 +537,7 @@ let unzip (array: ('a * 'b)[]): 'a[] * 'b[] =
     for (item1, item2) in array do
         res1.Add(item1)
         res2.Add(item2)
-    Native.convertResize res1, Native.convertResize res2
+    Native.asFixed res1, Native.asFixed res2
 
 let unzip3 (array: ('a * 'b * 'c)[]): 'a[] * 'b[] * 'c[] =
     let res1 = ResizeArray()
@@ -533,7 +547,7 @@ let unzip3 (array: ('a * 'b * 'c)[]): 'a[] * 'b[] * 'c[] =
         res1.Add(item1)
         res2.Add(item2)
         res3.Add(item3)
-    Native.convertResize res1, Native.convertResize res2, Native.convertResize res3
+    Native.asFixed res1, Native.asFixed res2, Native.asFixed res3
 
 let zip (array1: 'T[]) (array2: 'U[]): ('T * 'U)[] =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
@@ -555,7 +569,7 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
             let start = x * chunkSize
             let slice = Native.sublist(array, start, chunkSize)
             result.Add(slice)
-        Native.convertResize result
+        Native.asFixed result
 
 let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
     if index < 0 || index > array.Length then
@@ -745,7 +759,7 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
             let start = i * minChunkSize + (Operators.min chunksWithExtraItem i)
             let slice = Native.sublist(array, start, chunkSize)
             result.Add(slice)
-        Native.convertResize result
+        Native.asFixed result
 
 let transpose (arrays: 'T[] seq): 'T[][] =
     let arrays =

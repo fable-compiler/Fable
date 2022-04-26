@@ -258,7 +258,7 @@ module PrinterExtensions =
         member printer.IsComplex(expr: Expression) =
             match expr with
             | CommentedExpression(_, e) -> printer.IsComplex(e)
-            
+
             | ThisExpression _
             | SuperExpression _
             | InterpolationString _
@@ -282,7 +282,7 @@ module PrinterExtensions =
             | AnonymousFunction _
             | AssignmentExpression _
             | EmitExpression _ -> true
-        
+
         member printer.PrintWithParensIfComplex(expr: Expression) =
             if printer.IsComplex(expr) then
                 printer.PrintWithParens(expr)
@@ -389,7 +389,7 @@ module PrinterExtensions =
                 printer.Print("// " + comment)
                 printer.PrintNewLine()
                 printer.Print(statement)
-                
+
             | IfStatement(test, consequent, alternate) ->
                 printer.PrintIfStatment(test, consequent, alternate)
 
@@ -470,7 +470,13 @@ module PrinterExtensions =
                 printer.Print(e)
 
             | LocalVariableDeclaration(ident, kind, value) ->
-                printer.PrintVariableDeclaration(ident, kind, ?value=value)
+                match kind, value with
+                | Final, Some(AnonymousFunction(args, body, genParams, returnType)) ->
+                    let args = args |> List.map FunctionArg
+                    let genParams = genParams |> List.map (fun g -> { Name = g; Extends = None })
+                    printer.PrintFunctionDeclaration(returnType, ident.Name, genParams, args, body)
+                | _ ->
+                    printer.PrintVariableDeclaration(ident, kind, ?value=value)
 
             | SwitchStatement(discriminant, cases, defaultCase) ->
                 printer.Print("switch (")
@@ -503,7 +509,7 @@ module PrinterExtensions =
                             | Some(ContinueStatement _)
                             | Some(BreakStatement _)
                             | Some(ReturnStatement _) -> false
-                            | Some(IfStatement(_, consequent, alternate)) -> needsBreak consequent || needsBreak alternate 
+                            | Some(IfStatement(_, consequent, alternate)) -> needsBreak consequent || needsBreak alternate
                             | _ -> true
 
                         if needsBreak c.Body then
@@ -528,7 +534,7 @@ module PrinterExtensions =
             | CommentedExpression(comment, expr) ->
                 printer.Print("/* " + comment + " */ ")
                 printer.Print(expr)
-            
+
             | EmitExpression(value, args, _) ->
                 printer.PrintEmitExpression(value, args)
 
@@ -795,7 +801,7 @@ module PrinterExtensions =
                 if arg.IsConsThisArg then
                     printer.Print("this." + arg.Ident.Name)
                 else
-                    printer.PrintIdent(arg.Ident, printType=true)    
+                    printer.PrintIdent(arg.Ident, printType=true)
 
                 match pos with
                 | IsSingle | IsLast ->
@@ -809,7 +815,7 @@ module PrinterExtensions =
 
                 prevArg <- Some arg
             )
-                    
+
         member printer.PrintFunctionDeclaration(returnType: Type, name: string, genParams: GenericParam list, args: FunctionArg list, ?body: Statement list, ?isModuleOrClassMember) =
             printer.PrintType(returnType)
             printer.Print(" ")
