@@ -223,3 +223,27 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'f) = Case6 x
     static member op_ErasedCast(x:'g) = Case7 x
     static member op_ErasedCast(x:'h) = Case8 x
+
+/// Erased union type to represent one of nine or more possible values.
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    | Case5 of 'e
+    | Case6 of 'f
+    | Case7 of 'g
+    | Case8 of 'h
+    | Case9 of 'i
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
+    static member op_ErasedCast(x:'e) = Case5 x
+    static member op_ErasedCast(x:'f) = Case6 x
+    static member op_ErasedCast(x:'g) = Case7 x
+    static member op_ErasedCast(x:'h) = Case8 x
+    static member op_ErasedCast(x:'i) = Case9 x
+    static member inline op_ErasedCast(x:'t) : U9<_, _, _, _, _, _, _, _, ^U> =
+        Case9 (^U: (static member op_ErasedCast: 't -> ^U) x)
