@@ -11,11 +11,14 @@ open Fable.Core
 type Native =
     /// Converts resize array without creating a new copy
     [<Emit("$0")>]
-    static member convertResizeArray(array: ResizeArray<'T>): 'T[] = jsNative
+    static member convertResize(array: ResizeArray<'T>): 'T[] = jsNative
 
     [<Emit("List.generate($0, $1, growable: false)")>]
     static member generate (len: int) (f: int -> 'T): 'T[] = jsNative
 
+    [<Emit("List.generate($0, $1)")>]
+    static member generateResize (len: int) (f: int -> 'T): ResizeArray<'T> = jsNative
+    
     [<Emit("$1.where($0).toList(growable: false)")>]
     static member where (f: 'T -> bool) (xs: 'T[]): 'T[] = jsNative
 
@@ -126,7 +129,8 @@ let getSubArray (array: 'T[]) (start: int) (count: int): 'T[] =
     Native.sublist(array, start, start + count)
 
 let last (array: 'T[]) =
-    if Array.isEmpty array then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if Array.isEmpty array then
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     array[array.Length-1]
 
 let tryLast (array: 'T[]) =
@@ -310,8 +314,8 @@ let addRangeInPlace (range: seq<'T>) (array: 'T[]): unit =
 let insertRangeInPlace (index: int) (range: seq<'T>) (array: 'T[]): unit =
     Native.insertAll array index range
 
-let removeInPlace (item: 'T) (array: 'T[]): bool =
-    Native.remove array item
+//let removeInPlace (item: 'T) (array: 'T[]): bool =
+//    Native.remove array item
 
 let removeAllInPlace (predicate: 'T -> bool) (array: 'T[]): int =
     let len = array.Length
@@ -337,7 +341,7 @@ let partition (f: 'T -> bool) (source: 'T[]) =
             res1.Add(x)
         else
             res2.Add(x)
-    Native.convertResizeArray res1, Native.convertResizeArray res2            
+    Native.convertResize res1, Native.convertResize res2            
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
     Native.firstWhere(array, predicate)
@@ -416,7 +420,7 @@ let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
         match chooser array[i] with
         | None -> ()
         | Some y -> res.Add(y)
-    Native.convertResizeArray res
+    Native.convertResize res
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
     let mutable state = state    
@@ -511,7 +515,7 @@ let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State)
             res.Add(x)
             loop s
     loop state
-    Native.convertResizeArray res
+    Native.convertResize res
 
 let unzip (array: ('a * 'b)[]): 'a[] * 'b[] =
     let res1 = ResizeArray()
@@ -519,7 +523,7 @@ let unzip (array: ('a * 'b)[]): 'a[] * 'b[] =
     for (item1, item2) in array do
         res1.Add(item1)
         res2.Add(item2)
-    Native.convertResizeArray res1, Native.convertResizeArray res2
+    Native.convertResize res1, Native.convertResize res2
 
 let unzip3 (array: ('a * 'b * 'c)[]): 'a[] * 'b[] * 'c[] =
     let res1 = ResizeArray()
@@ -529,7 +533,7 @@ let unzip3 (array: ('a * 'b * 'c)[]): 'a[] * 'b[] * 'c[] =
         res1.Add(item1)
         res2.Add(item2)
         res3.Add(item3)
-    Native.convertResizeArray res1, Native.convertResizeArray res2, Native.convertResizeArray res3
+    Native.convertResize res1, Native.convertResize res2, Native.convertResize res3
 
 let zip (array1: 'T[]) (array2: 'U[]): ('T * 'U)[] =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
@@ -551,7 +555,7 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
             let start = x * chunkSize
             let slice = Native.sublist(array, start, chunkSize)
             result.Add(slice)
-        Native.convertResizeArray result
+        Native.convertResize result
 
 let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
     if index < 0 || index > array.Length then
@@ -662,7 +666,6 @@ let reduceBack (reduction: 'T -> 'T -> 'T) (array: 'T[]): 'T =
 let forAll2 (predicate: 'a -> 'b -> bool) (array1: 'a[]) (array2: 'b[]): bool =
     fold2 (fun acc x y -> acc && predicate x y) true array1 array2
 
-(*
 let rec existsOffset predicate (array: 'T[]) index =
     if index = array.Length then false
     else predicate array[index] || existsOffset predicate array (index+1)
@@ -723,10 +726,9 @@ let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGener
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
-    for i = windowSize to source.Length do
-        res[i - windowSize] <- source[i-windowSize..i-1]
-    res
+    let len = Operators.max 0 (source.Length - windowSize + 1)
+    Native.generate len (fun i ->
+        source[i..i+windowSize-1])
 
 let splitInto (chunks: int) (array: 'T[]): 'T[][] =
     if chunks < 1 then
@@ -734,62 +736,57 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
     if Array.isEmpty array then
         [| [||] |]
     else
-        let result: 'T[][] = [||]
-        let chunks = FSharp.Core.Operators.min chunks array.Length
+        let result = ResizeArray()
+        let chunks = Operators.min chunks array.Length
         let minChunkSize = array.Length / chunks
         let chunksWithExtraItem = array.Length % chunks
         for i = 0 to chunks - 1 do
             let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
-            let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
+            let start = i * minChunkSize + (Operators.min chunksWithExtraItem i)
             let slice = Native.sublist(array, start, chunkSize)
-            pushImpl result slice |> ignore
-        result
+            result.Add(slice)
+        Native.convertResize result
 
 let transpose (arrays: 'T[] seq): 'T[][] =
     let arrays =
-        if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
-        else arrayFrom arrays
+        match arrays with
+        | :? ('T[][]) as arrays -> arrays // avoid extra copy
+        | _ -> Array.ofSeq arrays
     let len = arrays.Length
-    match len with
-    | 0 -> allocateArray 0
-    | _ ->
+    if len = 0
+    then Array.empty
+    else
         let firstArray = arrays[0]
         let lenInner = firstArray.Length
         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
             differentLengths()
-        let result: 'T[][] = allocateArray lenInner
-        for i in 0..lenInner-1 do
-            result[i] <- allocateArrayFromCons cons len
-            for j in 0..len-1 do
-                result[i][j] <- arrays[j][i]
-        result
+        Native.generate lenInner (fun i ->
+            Native.generate len (fun j ->
+                arrays[j][i]))
 
 let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
     let len = xs.Length
     if index < 0 || index > len then
         invalidArg "index" SR.indexOutOfBounds
-    let target = allocateArrayFrom xs (len + 1)
-    for i = 0 to (index - 1) do
-        target[i] <- xs[i]
-    target[index] <- y
-    for i = index to (len - 1) do
-        target[i + 1] <- xs[i]
-    target
+    Native.generate (len + 1) (fun i ->
+        if i < index then xs[i]
+        elif i = index then y
+        else xs[i-1])
 
 let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
     let len = xs.Length
     if index < 0 || index > len then
         invalidArg "index" SR.indexOutOfBounds
-    let ys = arrayFrom ys
+    let ys =
+        match ys with
+        | :? ('T[]) as ys -> ys // avoid extra copy
+        | _ -> Array.ofSeq ys    
     let len2 = ys.Length
-    let target = allocateArrayFrom xs (len + len2)
-    for i = 0 to (index - 1) do
-        target[i] <- xs[i]
-    for i = 0 to (len2 - 1) do
-        target[index + i] <- ys[i]
-    for i = index to (len - 1) do
-        target[i + len2] <- xs[i]
-    target
+    let index2 = index + len2
+    Native.generate (len + len2) (fun i ->
+        if i < index then xs[i]
+        elif i < index2 then ys[i - index]
+        else xs[i - index2])
 
 let removeAt (index: int) (xs: 'T[]): 'T[] =
     if index < 0 || index >= xs.Length then
@@ -829,8 +826,5 @@ let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
     let len = xs.Length
     if index < 0 || index >= len then
         invalidArg "index" SR.indexOutOfBounds
-    let target = allocateArrayFrom xs len
-    for i = 0 to (len - 1) do
-        target[i] <- if i = index then y else xs[i]
-    target
-*)
+    Native.generate len (fun i ->
+        if i = index then y else xs[i])

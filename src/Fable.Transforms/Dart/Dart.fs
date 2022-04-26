@@ -224,10 +224,12 @@ type Statement =
     static member switchStatement(discriminant, cases, ?defaultCase) =
         SwitchStatement(discriminant, cases, defaultCase)
 
-type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool) =
+type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool, ?isConsThisArg: bool) =
     member _.Ident = ident
     member _.IsOptional = defaultArg isOptional false
     member _.IsNamed = defaultArg isNamed false
+    member _.IsConsThisArg = defaultArg isConsThisArg false
+    member _.AsConsThisArg(name) = FunctionArg({ ident with Name = name }, ?isOptional=isOptional, ?isNamed=isNamed, isConsThisArg=true)
 
 type FunctionDecl =
     {
@@ -238,12 +240,8 @@ type FunctionDecl =
         ReturnType: Type
     }
 
-type ConsArg =
-    | ConsArg of Ident
-    | ConsThisArg of name: string
-
 type Constructor(?args, ?body, ?superArgs, ?isConst, ?isFactory) =
-    member _.Args: ConsArg list = defaultArg args []
+    member _.Args: FunctionArg list = defaultArg args []
     member _.Body: Statement list = defaultArg body []
     member _.SuperArgs: CallArg list = defaultArg superArgs []
     member _.IsConst = defaultArg isConst false

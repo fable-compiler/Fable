@@ -281,7 +281,7 @@ module private Transforms =
                 let body = replaceValues replacements body
                 bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
         match e with
-        // TODO: Other binary operations and numeric types, also recursive?
+        // TODO: Other binary operations and numeric types
         | Operation(Binary(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
         | Call(Delegate(args, body, _), info, _, _) when List.sameLength args info.Args ->
@@ -308,12 +308,14 @@ module private Transforms =
             let canEraseBinding =
                 match value with
                 | Import(i,_,_) -> i.IsCompilerGenerated
-                | NestedLambda(_, lambdaBody, _) ->
-                    match lambdaBody with
-                    | Import(i,_,_) -> i.IsCompilerGenerated
-                    // Check the lambda doesn't reference itself recursively
-                    | _ -> countReferences 0 ident.Name lambdaBody = 0
-                           && canInlineArg ident.Name value letBody
+                | NestedLambda _ ->
+                    // Don't move local functions declared by user
+                    ident.IsCompilerGenerated && canInlineArg ident.Name value letBody
+//                    match lambdaBody with
+//                    | Import(i,_,_) -> i.IsCompilerGenerated
+//                    // Check the lambda doesn't reference itself recursively
+//                    | _ -> countReferences 0 ident.Name lambdaBody = 0
+//                           && canInlineArg ident.Name value letBody
                 | _ -> canInlineArg ident.Name value letBody
             if canEraseBinding then
                 let value =

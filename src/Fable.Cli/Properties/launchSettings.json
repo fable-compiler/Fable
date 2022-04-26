@@ -2,8 +2,8 @@
   "profiles": {
     "Fable.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "watch src/Quicktest --noCache --exclude Fable.Core",
-      "workingDirectory": "C:\\Users\\alfon\\repos\\Fable"
+      "commandLineArgs": "src/quicktest-dart --lang dart --noCache --exclude Fable.Core",
+      "workingDirectory": "../../../../.."
     }
   }
 }

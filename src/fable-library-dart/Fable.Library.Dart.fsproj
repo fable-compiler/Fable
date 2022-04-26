@@ -8,10 +8,12 @@
 
     <ItemGroup>
         <Compile Include="Global.fs" />
+        <Compile Include="FSharp.Core.fs" />
         <Compile Include="Seq.fs" />
         <Compile Include="Array.fs" />
+        <Compile Include="List.fs" />
         <Content Include="Date.dart" />
-        <Content Include="List.dart" />
+        <Content Include="_List.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="Types.dart" />
         <Content Include="Util.dart" />

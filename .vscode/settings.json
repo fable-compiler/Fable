@@ -14,5 +14,13 @@
     },
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
-    "gitlens.codeLens.enabled": false
+    "gitlens.codeLens.enabled": false,
+    "FSharp.excludeProjectDirectories": [
+        ".git",
+        "paket-files",
+        "fable_modules",
+        "packages",
+        "node_modules",
+        "src/fcs-fable"
+    ]
 }

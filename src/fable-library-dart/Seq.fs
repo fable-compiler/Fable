@@ -8,15 +8,6 @@ module SeqModule
 open System.Collections.Generic
 open Fable.Core
 
-module SR =
-    let enumerationAlreadyFinished = "Enumeration already finished."
-    let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
-    let inputSequenceEmpty = "The input sequence was empty."
-    let inputSequenceTooLong = "The input sequence contains more than one element."
-    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let notEnoughElements = "The input sequence has an insufficient number of elements."
-    let resetNotSupported = "Reset is not supported on this enumerator."
-
 module Enumerator =
 
     let noReset() = raise (System.NotSupportedException(SR.resetNotSupported))
@@ -173,25 +164,24 @@ let mkSeq (f: unit -> IEnumerator<'T>): seq<'T> =
 let ofSeq (xs: seq<'T>): IEnumerator<'T> =
     xs.GetEnumerator()
 
-let delay (generator: unit -> seq<'T>) =
+let delay (generator: unit -> seq<'T>): seq<'T> =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<#seq<'T>>) =
+let concat<'Collection, 'T when 'Collection :> seq<'T>> (sources: seq<'Collection>): seq<'T> =
     mkSeq (fun () -> Enumerator.concat sources)
 
-let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
+let unfold (generator: 'State -> ('T * 'State) option) (state: 'State): seq<'T> =
     mkSeq (fun () -> Enumerator.unfold generator state)
 
-let empty () =
+let empty (): seq<'T> =
     delay (fun () -> Array.empty :> seq<'T>)
 
-let singleton x =
+let singleton (x: 'T): seq<'T> =
     delay (fun () -> (Array.singleton x) :> seq<'T>)
 
-let ofArray (arr: 'T[]) =
+let ofArray (arr: 'T[]): seq<'T> =
     arr :> seq<'T>
 
-(*
 let toArray (xs: seq<'T>): 'T[] =
     match xs with
     // | :? array<'T> as a -> Array.ofSeq a
@@ -283,7 +273,9 @@ let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) =
 
 let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>) =
     finallyEnumerable(
-        (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
+        // Null checks not necessary because Dart provides null safety
+//        (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
+        (fun () -> resource.Dispose()),
         (fun () -> source resource :> seq<_>))
 
 let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
@@ -375,17 +367,17 @@ let findIndexBack predicate (xs: seq<'T>) =
     | Some x -> x
     | None -> indexNotFound()
 
-let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     use e = ofSeq xs
     let mutable acc = state
     while e.MoveNext() do
         acc <- folder acc e.Current
     acc
 
-let foldBack folder (xs: seq<'T>) state =
+let foldBack<'T, 'State> folder (xs: seq<'T>) state =
     Array.foldBack folder (toArray xs) state
 
-let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>) (ys: seq<'T2>) =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>) (ys: seq<'T2>) =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable acc = state
@@ -592,11 +584,11 @@ let cache (source: seq<'T>) =
             // NOTE: we could change to a reader/writer lock here
             lock prefix <| fun () ->
                 if i < prefix.Count then
-                    Some (prefix.[i],i+1)
+                    Some (prefix[i],i+1)
                 else
                     oneStepTo i
                     if i < prefix.Count then
-                        Some (prefix.[i],i+1)
+                        Some (prefix[i],i+1)
                     else
                         None) 0
     let cleanup() =
@@ -609,12 +601,13 @@ let cache (source: seq<'T>) =
 
     (new CachedSeq<_>(cleanup, result) :> seq<_>)
 
-let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
-    let ysCache = cache ys
-    delay (fun () ->
-        let mapping x = ysCache |> map (fun y -> (x, y))
-        concat (map mapping xs)
-    )
+// TODO
+//let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
+//    let ysCache = cache ys
+//    delay (fun () ->
+//        let mapping x = ysCache |> map (fun y -> (x, y))
+//        concat (map mapping xs)
+//    )
 
 let mapFold (mapping: 'State -> 'T -> 'Result * 'State) state (xs: seq<'T>) =
     let arr, state = Array.mapFold mapping state (toArray xs)
@@ -648,9 +641,9 @@ let reduce folder (xs: seq<'T>) =
 
 let reduceBack folder (xs: seq<'T>) =
     let arr = toArray xs
-    if arr.Length > 0
-    then Array.reduceBack folder arr
-    else invalidOp SR.inputSequenceEmpty
+    if Array.isEmpty arr then
+        invalidOp SR.inputSequenceEmpty
+    Array.reduceBack folder arr
 
 let replicate n x =
     initialize n (fun _ -> x)
@@ -663,7 +656,7 @@ let reverse (xs: seq<'T>) =
         |> ofArray
     )
 
-let scan folder (state: 'State) (xs: seq<'T>) =
+let scan<'T, 'State> folder (state: 'State) (xs: seq<'T>) =
     delay (fun () ->
         let first = singleton state
         let mutable acc = state
@@ -671,7 +664,7 @@ let scan folder (state: 'State) (xs: seq<'T>) =
         [| first; rest |] |> concat
     )
 
-let scanBack folder (xs: seq<'T>) (state: 'State) =
+let scanBack<'T, 'State> folder (xs: seq<'T>) (state: 'State) =
     delay (fun () ->
         let arr = toArray xs
         Array.scanBack folder arr state
@@ -740,7 +733,7 @@ let zip (xs: seq<'T1>) (ys: seq<'T2>) =
 let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
     map3 (fun x y z -> (x, y, z)) xs ys zs
 
-let collect (mapping: 'T -> 'U seq) (xs: seq<'T>) =
+let collect<'T, 'Collection, 'U when 'Collection :> 'U seq> (mapping: 'T -> 'Collection) (xs: seq<'T>) =
     delay (fun () ->
         xs
         |> map mapping
@@ -758,21 +751,19 @@ let pairwise (xs: seq<'T>) =
         |> ofArray
     )
 
-let splitInto (chunks: int) (xs: seq<'T>): 'T seq seq =
+let splitInto (chunks: int) (xs: seq<'T>): 'T[] seq =
     delay (fun () ->
         xs
         |> toArray
         |> Array.splitInto chunks
-        |> Array.map ofArray
         |> ofArray
     )
 
-let windowed windowSize (xs: seq<'T>): 'T seq seq =
+let windowed windowSize (xs: seq<'T>): 'T[] seq =
     delay (fun () ->
         xs
         |> toArray
         |> Array.windowed windowSize
-        |> Array.map ofArray
         |> ofArray
     )
 
@@ -847,12 +838,11 @@ let permute f (xs: seq<'T>) =
         |> ofArray
     )
 
-let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<seq<'T>> =
+let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<'T[]> =
     delay (fun () ->
         xs
         |> toArray
         |> Array.chunkBySize chunkSize
-        |> Array.map ofArray
         |> ofArray
     )
 
@@ -954,4 +944,3 @@ let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
                     invalidArg "index" SR.indexOutOfBounds
                 None)
         (fun e -> e.Dispose())
-*)

@@ -78,6 +78,7 @@ let objValue (k, v): MemberDecl =
         Info = FSharp2Fable.MemberInfo(isValue=true)
         ExportDefault = false
         DeclaringEntity = None
+        XmlDoc = None
     }
 
 let typedObjExpr t kvs =

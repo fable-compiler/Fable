@@ -269,6 +269,27 @@ module AST =
         | LambdaType(arg, returnType) -> nestedLambda [arg] returnType
         | _ -> None
 
+    /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.
+    /// This makes it harder to uncurry lambdas, so we try to move the bindings to the inner lambda.
+    let flattenLambdaBodyWithTupleArgs (arg: Ident) (body: Expr) =
+        let rec flattenBindings accBindings (tupleArg: Ident) (body: Expr) =
+            match body with
+            | Lambda(arg, body, info) ->
+                let body =
+                    (body, accBindings) ||> List.fold (fun body (id, value) ->
+                        Let(id, value, body))
+                Lambda(arg, body, info) |> Some
+            | Let(id, (Get(IdentExpr tupleIdent, TupleIndex _, _, _) as value), body)
+                when tupleIdent.Name = tupleArg.Name ->
+                    flattenBindings ((id, value)::accBindings) tupleArg body
+            | _ -> None
+        
+        match arg.Type with
+        | Tuple _ ->
+            flattenBindings [] arg body
+            |> Option.defaultValue body
+        | _ -> body
+    
     /// Only matches lambda immediately nested within each other
     let rec nestedLambda checkArity expr =
         let rec inner accArgs body info =
@@ -378,9 +399,10 @@ module AST =
             | NewUnion(exprs,_,_,_) -> List.exists canHaveSideEffects exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
-                | ImmutableArray, ArrayAlloc expr
                 | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
                 | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
+                | _, ArrayAlloc _
+                | _, ArrayValues [] -> false
                 | _ -> true
             | NewRecord _ | NewAnonymousRecord _ -> true
         | IdentExpr id -> id.IsMutable
@@ -601,6 +623,9 @@ module AST =
     let setExpr r left memb (value: Expr) =
         Set(left, ExprSet memb, value.Type, value, r)
 
+    let getImmutableAttachedMemberWith r t callee membName =
+        Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=false)), t, r)
+    
     let getAttachedMemberWith r t callee membName =
         Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=true)), t, r)
 

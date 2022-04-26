@@ -2,14 +2,14 @@
 
 import 'Util.dart' as util;
 
-class Unit {
-  Unit._() {}
-}
+// class Unit {
+//   Unit._() {}
+// }
+//
+// final unit = new Unit._();
 
-final unit = new Unit._();
-
-Unit ignore([dynamic _arg]) {
-  return unit;
+void ignore([dynamic _arg]) {
+  // return unit;
 }
 
 abstract class IDisposable {
@@ -43,10 +43,43 @@ abstract class IGenericAdder<T> {
   T Add(T a, T b);
 }
 
+class GenericAdder<T> implements IGenericAdder<T> {
+  final T Function() _getZero;
+  final T Function(T, T) _add;
+  GenericAdder(this._getZero, this._add);
+  @override
+  T GetZero() {
+    return _getZero();
+  }
+  @override
+  T Add(T x, T y) {
+    return _add(x, y);
+  }
+}
+
 abstract class IGenericAverager<T> {
   T GetZero();
   T Add(T a, T b);
   T DivideByInt(T a, int b);
+}
+
+class GenericAverager<T> implements IGenericAverager<T> {
+  final T Function() _getZero;
+  final T Function(T, T) _add;
+  final T Function(T, int) _divideByInt;
+  GenericAverager(this._getZero, this._add, this._divideByInt);
+  @override
+  T GetZero() {
+    return _getZero();
+  }
+  @override
+  T Add(T x, T y) {
+    return _add(x, y);
+  }
+  @override
+  T DivideByInt(T x, int y) {
+    return _divideByInt(x, y);
+  }
 }
 
 abstract class Union {
@@ -127,34 +160,3 @@ abstract class Record {
 //     return r;
 //   }
 // }
-
-class EmptyIterator<T> implements Iterator<T> {
-  @override
-  T get current => throw Exception("Empty iterator");
-
-  @override
-  bool moveNext() {
-    return false;
-  }
-}
-
-class CustomIterator<T> implements Iterator<T> {
-  T? _current;
-  final T? Function() _moveNext;
-
-  @override
-  T get current => _current ?? (throw Exception("Iterator has not started"));
-
-  @override
-  bool moveNext() {
-    final next = _moveNext();
-    if (next != null) {
-      _current = next;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  CustomIterator(this._moveNext);
-}
