@@ -75,10 +75,22 @@ type R = {
 
 #if FABLE_COMPILER
 open Fable.Core
+open Fable.Core.JsInterop
 
 [<Erase>]
 #endif
 type DU = Int of int | Str of string
+
+type T1 = T1
+type T2 = T2
+type T3 = T3
+type T4 = T4
+type T5 = T5
+type T6 = T6
+type T7 = T7
+type T8 = T8
+type T9 = T9
+type 'a more = More of 'a
 
 let tests =
   testList "Unions" [
@@ -218,4 +230,29 @@ let tests =
             | Str s -> "s: " + s
         Str "foo" |> strify |> equal "s: foo"
         Int 42 |> strify |> equal "i: 42"
+
+    #if FABLE_COMPILER
+    testCase "U9 works when not nested" <| fun () ->
+        let x : U9<T1,T2,T3,T4,T5,T6,T7,T8,T9> = !^T9
+        x |> equal (U9.Case9 T9)
+
+    testCase "U9 works when nested" <| fun () ->
+        let x : U9<T1,T2,T3,T4,T5,T6,T7,T8,U2<T9, int>> = !^42
+        x |> equal (U9.Case9 (U2.Case2 42))
+
+    testCase "U9 works when nested 2 times" <| fun () ->
+        let x : U9<T1,T2,T3,T4,T5,T6,T7,T8,
+                   U9<T1 more, T2 more, T3 more, T4 more, T5 more, T6 more, T7 more, T8 more, U2<T9 more, int>>> = !^42
+        x |> equal (U9.Case9 (U9.Case9 (U2.Case2 42)))
+
+    testCase "Non-nested U9 inside nested U9 works" <| fun () ->
+        let x : U9<T1,T2,T3,T4,T5,T6,T7,T8,
+                   U9<T1 more, T2 more, T3 more, T4 more, T5 more, T6 more, T7 more, T8 more, T9>> = !^T9
+        x |> equal (U9.Case9 (U9.Case9 T9))
+
+    testCase "Compiler does not complain if the same type appears twice in nested U9" <| fun () ->
+        let x : U9<T1,T2,T3,int,T5,T6,T7,T8,
+                   U9<T1 more, T2 more, T3 more, int, T5 more, T6 more, T7 more, T8 more, T9 more>> = !^42
+        x |> equal (U9.Case4 42)
+    #endif
   ]
