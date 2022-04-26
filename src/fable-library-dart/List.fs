@@ -4,10 +4,22 @@ open System
 open Fable.Core
 
 [<CompiledName("FSharpListEnumerator")>]
-type ResizeListEnumerator<'T>(xs: ResizeList<'T>) =
-    let mutable curIdx: int = xs.HiddenCount
-    let mutable curValues: ResizeArray<'T> = xs.HiddenValues
-    let mutable curTail: ResizeList<'T> option = xs.HiddenTail
+type ResizeListEnumerator<'T>(xs: ResizeList<'T>, ?fromIndex: int) =
+    let rec getActualIndex (xs: ResizeList<'T>) (index: int) =
+        let actualIndex = xs.HiddenCount - 1 - index
+        if actualIndex >= 0 then
+            xs, actualIndex
+        else
+            match xs.HiddenTail with
+            | None -> invalidArg "index" SR.indexOutOfBounds
+            | Some t -> getActualIndex t (index - xs.HiddenCount)
+    let resetValues, resetIdx =
+        match fromIndex with
+        | None -> xs, xs.HiddenCount - 1
+        | Some idx -> getActualIndex xs idx
+    let mutable curIdx: int = resetIdx + 1
+    let mutable curValues: ResizeArray<'T> = resetValues.HiddenValues
+    let mutable curTail: ResizeList<'T> option = resetValues.HiddenTail
     interface System.Collections.Generic.IEnumerator<'T> with
         member _.Current: 'T = curValues[curIdx]
         member _.Current: obj = box curValues[curIdx]
@@ -23,9 +35,9 @@ type ResizeListEnumerator<'T>(xs: ResizeList<'T>) =
                 | None -> false
             else true
         member _.Reset() =
-            curIdx <- xs.HiddenCount
-            curValues <- xs.HiddenValues
-            curTail <- xs.HiddenTail
+            curIdx <- resetIdx + 1
+            curValues <- resetValues.HiddenValues
+            curTail <- resetValues.HiddenTail
         member _.Dispose() = ()
 
 // [<Struct>]
@@ -39,11 +51,14 @@ and [<CompiledName("FSharpList")>] ResizeList<'T>(count: int, values: ResizeArra
     member inline internal _.HiddenTail = tail
     member inline _.IsEmpty = count <= 0
 
-    member _.Length =
-        match tail with
-        | Some tail -> count + tail.Length
-        | None -> count
-    
+    member xs.Length =
+        let rec len acc (xs: ResizeList<'T>) =
+            let acc = acc + xs.HiddenCount
+            match xs.HiddenTail with
+            | None -> acc
+            | Some tail -> len acc tail
+        len 0 xs
+
     member internal xs.Add(x: 'T) =
         if count = values.Count then
             values.Add(x)
@@ -66,37 +81,28 @@ and [<CompiledName("FSharpList")>] ResizeList<'T>(count: int, values: ResizeArra
         match count, tail with
         | 0, _ -> ys
         | _, None -> ResizeList<'T>(count, values, ys)
-        | _, Some _ ->
-            let allValues = ResizeArray()
-            let _len = xs.GetLenAndFillValues(allValues)
-            let rec appendValues idx tail =
-                if idx = allValues.Count then tail
-                else
-                    let values = allValues[idx]
-                    ResizeList<'T>(values.Count, values, tail)
-                    |> appendValues (idx + 1)
-            appendValues 0 ys
+        | _, Some tail ->
+            // Using a continuation to allow tail-call optimization, is this more performant than recursion?
+            let rec appendTail (xs: 'T ResizeList) (cont: ResizeList<'T> -> ResizeList<'T>): ResizeList<'T> =
+//                ResizeList<'T>(xs.HiddenCount, xs.HiddenValues, match xs.HiddenTail with None -> cont ys | Some tail -> appendTail tail)
+                match xs.HiddenTail with
+                | None -> ResizeList<'T>(xs.HiddenCount, xs.HiddenValues, ys) |> cont
+                | Some tail -> appendTail tail (fun tail -> ResizeList<'T>(xs.HiddenCount, xs.HiddenValues, tail) |> cont)
+
+            appendTail tail (fun tail -> ResizeList<'T>(xs.HiddenCount, xs.HiddenValues, tail))
 
     member internal xs.MapIndexed(f: int -> 'T -> 'U): ResizeList<'U> =
-        match tail with
-        | None ->
-            let values = ArrayModule.Native.generateResize count (fun i -> f i values[i])
+        if Option.isNone tail then
+            let values = ArrayModule.Native.generateResize count (fun i ->
+                f i values[count - i - 1])
             ResizeList(count, values)
-        | Some _ ->
-            let allValues = ResizeArray()
-            let len = xs.GetLenAndFillValues(allValues)
-            let mutable i = allValues.Count - 1
-            let mutable j = allValues[i].Count
-            let values =
-                ArrayModule.Native.generateResize len (fun idx ->
-                    if j < 0 then
-                        i <- i - 1
-                        j <- allValues[i].Count - 1
-                    else
-                        j <- j - 1
-                    f idx (allValues[i][j]))
-            ResizeList(count, values)
-    
+        else
+            let len = xs.Length
+            let e = new ResizeListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
+            ResizeList(len, ArrayModule.Native.generateResize len (fun i ->
+                e.MoveNext() |> ignore
+                f i e.Current))
+
     member internal _.Iterate f =
         for i = count - 1 downto 0 do
             f values[i]
@@ -122,43 +128,24 @@ and [<CompiledName("FSharpList")>] ResizeList<'T>(count: int, values: ResizeArra
                 else loop idx xs
         loop (count - 1) xs
 
-    member private xs.GetLenAndFillValues(allValues: ResizeArray<ResizeArray<'T>>, ?accLen: int) =
-        let accLen = defaultArg accLen 0
-        let accLen = accLen + xs.HiddenCount
-        allValues.Insert
-            (0, if xs.HiddenCount = xs.HiddenValues.Count
-                then xs.HiddenValues else xs.HiddenValues.GetRange(0, xs.HiddenCount))
-        match xs.HiddenTail with
-        | None -> accLen
-        | Some t -> t.GetLenAndFillValues(allValues, accLen)
-        
     member internal xs.Reverse() =
-        let allValues = ResizeArray()
-        let len = xs.GetLenAndFillValues(allValues)
-        let mutable i = 0
-        let mutable j = -1
-        ArrayModule.Native.generateResize len (fun _ ->
-            if j = allValues[i].Count then
-                i <- i + 1
-                j <- 0
-            else
-                j <- j + 1
-            allValues[i][j])
-        |> ResizeList<'T>.NewList len
+        if Option.isNone tail then
+            ArrayModule.Native.generateResize count (fun i ->
+                values[count - i - 1])
+            |> ResizeList<'T>.NewList count
+        else
+            let ar = xs.ToArray()
+            ArrayModule.reverseInPlace ar
+            ArrayModule.Native.asResize ar
+            |> ResizeList<'T>.NewList ar.Length
 
-    member inline xs.ToArray(): 'T[] =
-        let allValues = ResizeArray()
-        let len = xs.GetLenAndFillValues(allValues)
-        let mutable i = allValues.Count - 1
-        let mutable j = allValues[i].Count
+    member xs.ToArray(): 'T[] =
+        let len = xs.Length
+        let e = new ResizeListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
         ArrayModule.Native.generate len (fun _ ->
-            if j < 0 then
-                i <- i - 1
-                j <- allValues[i].Count - 1
-            else
-                j <- j - 1
-            allValues[i][j])
-    
+            e.MoveNext() |> ignore
+            e.Current)
+
     static member inline Singleton(x: 'T) =
         ResizeList<'T>.NewList 1 (ResizeArray [|x|])
 
@@ -237,36 +224,21 @@ and [<CompiledName("FSharpList")>] ResizeList<'T>(count: int, values: ResizeArra
 
     interface System.IComparable<ResizeList<'T>> with
         member this.CompareTo(other: ResizeList<'T>) =
-            let values1 = ResizeArray()
-            let values2 = ResizeArray()
-            let len1 = this.GetLenAndFillValues(values1)
-            let len2 = other.GetLenAndFillValues(values2)
+            let len1 = this.Length
+            let len2 = other.Length
             if len1 < len2 then -1
             elif len1 > len2 then 1
             else
                 let mutable res = 0
-                let mutable i1 = values1.Count - 1
-                let mutable j1 = values1[i1].Count
-                let mutable i2 = values2.Count - 1
-                let mutable j2 = values2[i2].Count
-                while res = 0 && (i1 > 0 || j1 > 0) && (i2 > 0 || j2 > 0) do
-                    if j1 < 0 then
-                        i1 <- i1 - 1
-                        j1 <- values1[i1].Count - 1
-                    else
-                        j1 <- j1 - 1
-                    if j2 < 0 then
-                        i2 <- i2 - 1
-                        j2 <- values2[i2].Count - 1
-                    else
-                        j2 <- j2 - 1                        
-                    let v1 = values1[i1][j1]
-                    let v2 = values2[i2][j2]
-                    match box v1 with
+                let e1 = new ResizeListEnumerator<'T>(this) :> System.Collections.Generic.IEnumerator<'T>
+                let e2 = new ResizeListEnumerator<'T>(other) :> System.Collections.Generic.IEnumerator<'T>
+                while res = 0 && e1.MoveNext() do
+                    e2.MoveNext() |> ignore
+                    match box e1.Current with
                     | :? IComparable<'T> as v1 ->
-                        res <- v1.CompareTo(v2)
+                        res <- v1.CompareTo(e2.Current)
                     | _ -> ()
-                res                
+                res
 
     interface System.Collections.Generic.IEnumerable<'T> with
         member xs.GetEnumerator() = new ResizeListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
@@ -336,19 +308,9 @@ let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc): 'acc =
 let reverse (xs: 'a list) =
     xs.Reverse()
 
-// One of the attempts to optimize but I'm not sure if it's much faster than native reverse
-// If it is, we should use this as replacement of ResizeArray.Reverse
-// https://stackoverflow.com/a/9113136
-let private reverseInPlace (xs: ResizeArray<'a>) =
-    let mutable left = 0
-    let mutable right = 0
-    let length = xs.Count
-    while left < length / 2 do
-        right <- length - 1 - left;
-        let temporary = xs[left]
-        xs[left] <- xs[right]
-        xs[right] <- temporary
-        left <- left + 1
+let inline private reverseInPlace (xs: ResizeArray<'a>) =
+    ArrayModule.Native.asFixed xs
+    |> ArrayModule.reverseInPlace
 
 let ofResizeArrayInPlace (xs: ResizeArray<'a>): ResizeList<'a> =
     reverseInPlace xs
@@ -440,7 +402,7 @@ let iterateIndexed2 f xs ys =
 
 let toArray (xs: 'a list): 'a[] =
     xs.ToArray()
-    
+
 let ofArray (xs: 'T[]) =
     let values = ResizeArray(xs)
     reverseInPlace values
@@ -676,9 +638,10 @@ let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
         let startIndex = if startIndex < 0 then 0 else startIndex
         let endIndex = if endIndex >= xs.Length then xs.Length - 1 else endIndex
         // take (endIndex - startIndex + 1) (skip startIndex xs)
-        // TODO: Optimize this better so we don't to index the list every time
-        ArrayModule.Native.generateResize (endIndex - startIndex + 1) (fun i ->
-            xs[startIndex + i])
+        let e = new ResizeListEnumerator<'T>(xs, startIndex) :> System.Collections.Generic.IEnumerator<'T>
+        ArrayModule.Native.generateResize (endIndex - startIndex + 1) (fun _ ->
+            e.MoveNext() |> ignore
+            e.Current)
         |> newList
 
 let splitAt index (xs: 'T list) =

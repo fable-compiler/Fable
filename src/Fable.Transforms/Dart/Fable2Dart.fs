@@ -191,90 +191,6 @@ module Util =
         | None -> failwithf $"Cannot find DecisionTree target %i{targetIndex}"
         | Some(idents, target) -> idents, target
 
-    let isConditionalStament ctx guard thenExpr elseExpr =
-        isStatement ctx guard
-        || isStatement ctx thenExpr
-        || isStatement ctx elseExpr
-
-    let isStatement ctx (e: Fable.Expr) =
-        match e with
-        | Fable.Unresolved _
-        | Fable.Import _  | Fable.IdentExpr _ -> false
-
-        | Fable.Test(e,_,_) | Fable.TypeCast(e,_) -> isStatement ctx e
-        | Fable.Get(e, kind, _, _) ->
-            match kind with
-            | Fable.ListHead | Fable.ListTail | Fable.OptionValue | Fable.TupleIndex _ | Fable.UnionTag
-            | Fable.UnionField _ | Fable.FieldGet _ -> isStatement ctx e
-            | Fable.ExprGet e2 -> isStatement ctx e || isStatement ctx e2
-
-        // Closures cannot be statements because they create their own scope
-        | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _ -> false
-
-        | Fable.Value(v,_) ->
-            match v with
-            | Fable.UnitConstant _ -> true
-            | Fable.ThisValue _ | Fable.BaseValue _
-            | Fable.TypeInfo _ | Fable.Null _
-            | Fable.BoolConstant _ | Fable.CharConstant _ | Fable.StringConstant _
-            | Fable.NumberConstant _ | Fable.RegexConstant _ -> false
-
-            | Fable.NewRecord(e,_,_)
-            | Fable.NewAnonymousRecord(e,_,_)
-            | Fable.NewUnion(e,_,_,_)
-            | Fable.StringTemplate(_,_,e)
-            | Fable.NewTuple(e,_) -> List.exists (isStatement ctx) e
-            | Fable.NewArray(kind,_,_) ->
-                match kind with
-                | Fable.ArrayValues e -> List.exists (isStatement ctx) e
-                | Fable.ArrayAlloc e
-                | Fable.ArrayFrom e -> isStatement ctx e
-            | Fable.NewOption(Some e,_,_) -> isStatement ctx e
-            | Fable.NewOption(None,_,_) -> false
-            | Fable.NewList(Some(e1,e2),_) -> isStatement ctx e1 || isStatement ctx e2
-            | Fable.NewList(None,_) -> false
-
-        | Fable.CurriedApply(callee, args, _, _) -> callee::(discardSingleUnitArg args) |> List.exists (isStatement ctx)
-        | Fable.Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ (discardSingleUnitArg info.Args) |> List.exists (isStatement ctx)
-        | Fable.Operation(kind, _, _) ->
-            match kind with
-            | Fable.Unary(_, operand) -> isStatement ctx operand
-            | Fable.Binary(_, left, right) -> isStatement ctx left || isStatement ctx right
-            | Fable.Logical(_, left, right) -> isStatement ctx left || isStatement ctx right
-
-        | Fable.Emit(i,_,_) ->
-            i.IsStatement
-            || (Option.toList i.CallInfo.ThisArg) @ (discardSingleUnitArg i.CallInfo.Args) |> List.exists (isStatement ctx)
-
-        | Fable.Set _
-        | Fable.Let _
-        | Fable.LetRec _
-        | Fable.Sequential _
-        | Fable.TryCatch _
-        | Fable.ForLoop _
-        | Fable.WhileLoop _ -> true
-
-        | Fable.Extended(kind, _) ->
-            match kind with
-            | Fable.RegionStart _ -> true
-            | Fable.Throw(Some e, _) -> isStatement ctx e
-            | Fable.Throw(None, _)
-            | Fable.Debugger _
-            | Fable.Curry _ -> false
-
-        | Fable.DecisionTree(e, targets) ->
-            // We should also check if one target is duplicated
-            List.length targets > 2
-            || isStatement { ctx with DecisionTargets = targets } e
-            || List.exists (snd >> (isStatement ctx)) targets
-
-        | Fable.DecisionTreeSuccess(targetIndex,_, _) ->
-            getDecisionTarget ctx targetIndex
-            |> snd |> isStatement ctx
-
-        | Fable.IfThenElse(guard,thenExpr,elseExpr,_) ->
-            elseExpr.Type = Fable.Unit || isConditionalStament ctx guard thenExpr elseExpr
-
     let isInt64OrLess = function
         | Fable.Number(DartInt, _) -> true
         | _ -> false
@@ -441,7 +357,7 @@ module Util =
                     statements, expr
                 else
                     let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent expr.Type
-                    let varDecl = localVarDecl ident Final expr
+                    let varDecl = Statement.variableDeclaration(ident, Final, expr)
                     statements @ [varDecl], ident.Expr
             | _ -> statements, ignoreExpr com ctx None
 
@@ -464,7 +380,7 @@ module Util =
             calleeStatements @ argStatements, callee
         else
             let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent callee.Type
-            let varDecl = localVarDecl ident Final callee
+            let varDecl = Statement.variableDeclaration(ident, Final, callee)
             calleeStatements @ [varDecl] @ argStatements, ident.Expr
 
     let transformExprsAndResolve com ctx returnStrategy exprs transformExprs =
@@ -484,13 +400,6 @@ module Util =
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
             let statements2, capturedExpr = transformExprs exprs[0] exprs[1] |> resolveExpr returnStrategy
-            statements @ statements2, capturedExpr
-
-    let transformExprsAndResolve3 com ctx returnStrategy expr0 expr1 expr2 transformExprs =
-        List.map (transform com ctx Capture) [expr0; expr1; expr2]
-        |> combineCapturedExprs com ctx
-        |> fun (statements, exprs) ->
-            let statements2, capturedExpr = transformExprs exprs[0] exprs[1] exprs[2] |> resolveExpr returnStrategy
             statements @ statements2, capturedExpr
 
     let ignoreExpr com ctx = function
@@ -839,7 +748,7 @@ module Util =
         | Fable.DeclaredType(baseEnt, _), _
             when typeImplementsOrExtends com baseEnt expr.Type ->
                 com.Transform(ctx, returnStrategy, expr)
-        
+
         | Fable.Any, _ -> com.Transform(ctx, returnStrategy, expr)
         | Fable.Unit, _ -> com.Transform(ctx, ReturnVoid, expr)
 
@@ -851,8 +760,8 @@ module Util =
 
     // TODO: Try to identify type testing in the catch clause and use Dart's `on ...` exception checking
     let transformTryCatch com ctx _r returnStrategy (body: Fable.Expr, catch, finalizer) =
-        let returnStrategy, prevStmnt, captureExpr =
-            convertCaptureStrategyIntoAssign com ctx body.Type returnStrategy
+        let prevStmnt, returnStrategy, captureExpr =
+            convertCaptureStrategyIntoAssign com ctx body.Type [] returnStrategy
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
         let handlers =
@@ -869,37 +778,45 @@ module Util =
 
     /// Branching expressions like conditionals, decision trees or try catch cannot capture
     /// the resulting expression at once so declare a variable and assign the potential results to it
-    let convertCaptureStrategyIntoAssign com ctx t returnStrategy =
+    let convertCaptureStrategyIntoAssign com ctx t prevStatements returnStrategy =
         match returnStrategy with
         | Capture ->
             let t = transformType com ctx t
             let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent t
             let varDecl = Statement.variableDeclaration(ident, Var)
-            Assign ident.Expr, [varDecl], Some ident.Expr
-        | _ -> returnStrategy, [], None
+            varDecl::prevStatements, Assign ident.Expr, Some ident.Expr
+        | _ -> prevStatements, returnStrategy, None
 
     let transformConditional (com: IDartCompiler) ctx _r returnStrategy guardExpr thenExpr elseExpr =
-        let asStatement =
+        let prevStmnt, guardExpr = transformAndCaptureExpr com ctx guardExpr
+
+        match guardExpr with
+        | Literal(BooleanLiteral(value=value)) ->
+            let bodyStmnt, captureExpr = com.Transform(ctx, returnStrategy, if value then thenExpr else elseExpr)
+            prevStmnt @ bodyStmnt, captureExpr
+
+        | guardExpr ->
+            let transformAsStatement prevStmnt returnStrategy captureExpr =
+                let thenStmnt, capturedThen = com.Transform(ctx, returnStrategy, thenExpr)
+                let elseStmnt, capturedElse = com.Transform(ctx, returnStrategy, elseExpr)
+                prevStmnt @ [Statement.ifStatement(guardExpr, thenStmnt, elseStmnt)], captureExpr
+
+            // If strategy is Capture, try to transform as conditional expression.
+            // Note we need to transform again thenExpr/elseExpr with Assign strategy if we cannot
+            // use conditional expression, but I cannot think of a more efficient way at the moment
             match returnStrategy with
-            | ReturnVoid -> true
-            | Target _ -> true // Compile as statement so values can be bound
-            | Capture | Assign _ -> isConditionalStament ctx guardExpr thenExpr elseExpr
-            | Return -> Option.isSome ctx.TailCallOpportunity || isConditionalStament ctx guardExpr thenExpr elseExpr
-        if not asStatement then
-            transformExprsAndResolve3 com ctx returnStrategy guardExpr thenExpr elseExpr
-                (fun guardExpr thenExpr elseExpr -> Expression.conditionalExpression(guardExpr, thenExpr, elseExpr))
-        else
-            let prevStmnt, guardExpr = transformAndCaptureExpr com ctx guardExpr
-            match guardExpr with
-            | Literal(BooleanLiteral(value=value)) ->
-                let bodyStmnt, captureExpr = com.Transform(ctx, returnStrategy, if value then thenExpr else elseExpr)
-                prevStmnt @ bodyStmnt, captureExpr
-            | guardExpr ->
-                let returnStrategy, prevStmnt2, captureExpr =
-                    convertCaptureStrategyIntoAssign com ctx thenExpr.Type returnStrategy
-                let thenStmnt, _ = com.Transform(ctx, returnStrategy, thenExpr)
-                let elseStmnt, _ = com.Transform(ctx, returnStrategy, elseExpr)
-                prevStmnt @ prevStmnt2 @ [Statement.ifStatement(guardExpr, thenStmnt, elseStmnt)], captureExpr
+            | Capture ->
+                match com.Transform(ctx, Capture, thenExpr) with
+                | [], Some capturedThenExpr ->
+                    match com.Transform(ctx, Capture, elseExpr) with
+                    | [], Some capturedElseExpr ->
+                        prevStmnt, Expression.conditionalExpression(guardExpr, capturedThenExpr, capturedElseExpr) |> Some
+                    | _ ->
+                        convertCaptureStrategyIntoAssign com ctx thenExpr.Type prevStmnt returnStrategy |||> transformAsStatement
+                | _ ->
+                    convertCaptureStrategyIntoAssign com ctx thenExpr.Type prevStmnt returnStrategy |||> transformAsStatement
+            | _ ->
+                transformAsStatement prevStmnt returnStrategy None
 
     let transformGet (com: IDartCompiler) ctx _range t returnStrategy kind fableExpr =
 
@@ -1016,24 +933,23 @@ module Util =
             let stmnts2, _ = transform com ctx (Assign toBeSet) value
             stmnts1 @ stmnts2
 
-    let localVarDecl (ident: Ident) kind value =
-        match kind, value with
-        | Final, AnonymousFunction(args, body, genParams, returnType) ->
-            let args = args |> List.map FunctionArg
-            let genParams = genParams |> List.map (fun g -> { Name = g; Extends = None })
-            Statement.functionDeclaration(ident.Name, args, body, returnType, genParams=genParams)
-        | _ ->
-            Statement.variableDeclaration(ident, Var, value)
-    
     let transformBinding (com: IDartCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         let ident = transformIdent com ctx var
-        let valueStmnts, value = transformAndCaptureExpr com ctx value
+        let valueStmnts, value =
+            match value with
+            | Function(args, body) ->
+                let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
+                // Pass the name of the bound ident to enable tail-call optimizations
+                let args, body, returnType = transformFunction com ctx (Some var.Name) args body
+                [], Expression.anonymousFunction(args, body, returnType, genParams)
+            | _ -> transformAndCaptureExpr com ctx value
         let kind, value = getVarKind ctx var.IsMutable value
         let ctx =
             match kind with
             | Const -> { ctx with ConstIdents = Set.add ident.Name ctx.ConstIdents }
             | Var | Final -> ctx
-        ctx, valueStmnts @ [localVarDecl ident kind value]
+        // If value is an anonymous function this will be converted into function declaration in printing step
+        ctx, valueStmnts @ [Statement.variableDeclaration(ident, kind, value)]
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
         let cases =
@@ -1216,7 +1132,7 @@ module Util =
     let transformDecisionTree (com: IDartCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr) =
         let t = treeExpr.Type
-        let returnStrategy, prevStmnt, captureExpr = convertCaptureStrategyIntoAssign com ctx t returnStrategy
+        let prevStmnt, returnStrategy, captureExpr = convertCaptureStrategyIntoAssign com ctx t [] returnStrategy
         let resolve stmnts = prevStmnt @ stmnts, captureExpr
 
         // If some targets are referenced multiple times, hoist bound idents,
@@ -1571,7 +1487,7 @@ module Util =
                 ident, InstanceVariable(ident, kind=kind))
             |> List.unzip
 
-        let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true)) 
+        let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true))
         let constructor = Constructor(args=consArgs, isConst=not hasMutableFields)
 
         // TODO: implement toString
@@ -1657,7 +1573,7 @@ module Util =
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
-        let entAndMembGenParams = 
+        let entAndMembGenParams =
             match memb.DeclaringEntity with
             | Some e ->
                 let e = com.GetEntity(e)
