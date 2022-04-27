@@ -34,6 +34,7 @@ type TypegenContext = {
 type ScopedVarAttrs = {
     IsArm: bool
     IsRef: bool
+    IsBox: bool
     HasMultipleUses: bool
 }
 
@@ -115,6 +116,9 @@ module UsageTracking =
 
     let isRefScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
+
+    let isBoxScoped ctx name =
+        ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsBox) |> Option.defaultValue false
 
     let hasMultipleUses (name: string) =
         Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue false
@@ -875,8 +879,10 @@ module Util =
         elif ident.IsMutable then
             expr |> mutableGet
         else
-            if isRefScoped ctx ident.Name && (ctx.Typegen.TakingOwnership)
-            then makeClone expr // mkDerefExpr expr |> mkParenExpr
+            if isBoxScoped ctx ident.Name
+            then expr |> makeRcValue
+            elif isRefScoped ctx ident.Name && ctx.Typegen.TakingOwnership
+            then expr |> makeClone // |> mkDerefExpr |> mkParenExpr
             else expr
 
     let transformIdentSet com ctx r (ident: Fable.Ident) (value: Rust.Expr) =
@@ -1537,6 +1543,7 @@ module Util =
             |> Option.defaultValue {
                 IsArm = false
                 IsRef = false
+                IsBox = false
                 HasMultipleUses = true }
         let isOnlyReference =
             if varAttrs.IsRef then false
@@ -1749,7 +1756,7 @@ module Util =
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
-        com.TransformAsExpr(ctx, calleeExpr)
+        transformExprMaybeIdentExpr com ctx calleeExpr
 
     let isModuleMember (com: IRustCompiler) (callInfo: Fable.CallInfo) =
         match callInfo.CallMemberInfo with
@@ -2051,6 +2058,7 @@ module Util =
         let scopedVarAttrs = {
             IsArm = false
             IsRef = false
+            IsBox = false
             HasMultipleUses = hasMultipleUses ident.Name usages
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
@@ -2061,13 +2069,12 @@ module Util =
         let ctx, letStmtsRev =
             ((ctx, []), bindings)
             ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, expr) ->
-                let (stmt, ctxNext) =
+                let stmt, ctxNext =
                     match expr with
                     | Function (args, body, _name) ->
-                        let name = Some(ident.Name)
-                        let isCapturing = hasCapturedNames com ctx name args body
+                        let isCapturing = hasCapturedNames com ctx ident.Name args body
                         if isCapturing then makeLetStmt com ctx usages ident expr
-                        else transformInnerFunction com ctx name args body
+                        else transformInnerFunction com ctx ident.Name args body
                     | _ ->
                         makeLetStmt com ctx usages ident expr
                 (ctxNext, stmt::lst) )
@@ -2261,21 +2268,18 @@ module Util =
             let body =
                 //com.TransformAsExpr(ctx, bodyExpr)
                 let usages = calcIdentUsages bodyExpr
-
+                let getScope name =
+                    name, { IsArm = true
+                            IsRef = true
+                            IsBox = false
+                            HasMultipleUses = hasMultipleUses name usages }
                 let symbolsAndNames =
                     let fromIdents =
                         idents
-                        |> List.map (fun id ->
-                            id.Name, {  IsArm = true
-                                        IsRef = true
-                                        HasMultipleUses = hasMultipleUses id.Name usages })
-
+                        |> List.map (fun id -> getScope id.Name)
                     let fromExtra =
                         extraVals
-                        |> List.map (fun (name, friendlyName, t) ->
-                            friendlyName, { IsArm = true
-                                            IsRef = true
-                                            HasMultipleUses = hasMultipleUses friendlyName usages })
+                        |> List.map (fun (_name, friendlyName, _t) -> getScope friendlyName)
                     fromIdents @ fromExtra
                 let scopedSymbolsNext =
                     Helpers.Map.merge ctx.ScopedSymbols (symbolsAndNames |> Map.ofList)
@@ -2401,7 +2405,8 @@ module Util =
     let transformDecisionTreeSuccessAsExpr (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
         let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
         match bindings with
-        | [] -> com.TransformAsExpr(ctx, target)
+        | [] ->
+            transformExprMaybeUnwrapRef com ctx target
         | bindings ->
             let target = List.rev bindings |> List.fold (fun e (i,v) -> Fable.Let(i,v,e)) target
             com.TransformAsExpr(ctx, target)
@@ -2772,8 +2777,8 @@ module Util =
         let allNames = name |> Option.fold (fun xs x -> x :: xs) (argNames @ fixedNames)
         allNames |> Set.ofList
 
-    let hasCapturedNames com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ignoredNames = HashSet(getIgnoredNames name args)
+    let hasCapturedNames com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
+        let ignoredNames = HashSet(getIgnoredNames (Some name) args)
         let isClosedOver expr =
             isClosedOverIdent com ctx ignoredNames expr |> Option.isSome
         FableTransforms.deepExists isClosedOver body
@@ -2798,6 +2803,7 @@ module Util =
                 let scopedVarAttrs = {
                     IsArm = false
                     IsRef = true
+                    IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
@@ -2948,9 +2954,9 @@ module Util =
             | _ -> None)
         |> mkGenerics
 
-    let transformInnerFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformInnerFunction com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let fnDecl, fnBody, fnGenParams =
-            transformFunction com ctx name args body
+            transformFunction com ctx (Some name) args body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -2959,9 +2965,15 @@ module Util =
         let generics = makeGenerics fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = []
-        let name = name |> Option.defaultValue "__"
         let fnItem = mkFnItem attrs name kind |> mkNonPublicItem
-        mkItemStmt fnItem, ctx
+        let scopedVarAttrs = {
+            IsArm = false
+            IsRef = false
+            IsBox = true
+            HasMultipleUses = true
+        }
+        let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs }
+        mkItemStmt fnItem, ctxNext
 
     let transformModuleFunction (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
