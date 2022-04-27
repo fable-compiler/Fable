@@ -436,7 +436,7 @@ let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
         | Some y -> res.Add(y)
     Native.asFixed res
 
-let fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
     let mutable state = state    
     for x in array do
         state <- folder state x

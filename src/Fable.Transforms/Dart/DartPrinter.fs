@@ -469,7 +469,9 @@ module PrinterExtensions =
             | ExpressionStatement e ->
                 printer.Print(e)
 
-            | LocalVariableDeclaration(ident, kind, value) ->
+            | LocalVariableDeclaration(ident, kind, value, isLate) ->
+                if isLate then
+                    printer.Print("late ")
                 match kind, value with
                 | Final, Some(AnonymousFunction(args, body, genParams, returnType)) ->
                     let args = args |> List.map FunctionArg

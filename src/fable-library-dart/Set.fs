@@ -427,7 +427,7 @@ module SetTree =
 
     // Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
-    type SetIterator<'T> when 'T: comparison  =
+    type SetIterator<'T when 'T: comparison> =
         { mutable stack: SetTree<'T> list; // invariant: always collapseLHS result
           mutable started: bool           // true when MoveNext has been called
         }
@@ -466,7 +466,7 @@ module SetTree =
         if i.started then
             match i.stack with
             | [] -> false
-            | None :: rest ->
+            | None :: _rest ->
                 failwith "Please report error: Set iterator, unexpected stack for moveNext"
             | Some t :: rest ->
                 match t with
@@ -512,8 +512,8 @@ module SetTree =
         | [], _  -> -1
         | _, [] ->  1
         | (None :: t1), (None :: t2) -> compareStacks comparer t1 t2
-        | (None :: t1), (Some x2 :: t2) -> cont()
-        | (Some x1 :: t1), (None :: t2) -> cont()
+        | (None :: _t1), (Some _ :: _t2) -> cont()
+        | (Some _ :: _t1), (None :: _t2) -> cont()
         | (Some x1 :: t1), (Some x2 :: t2) ->
                 match x1 with
                 | :? SetTreeNode<'T> as x1n ->
@@ -562,7 +562,7 @@ module SetTree =
 
     let copyToArray s (arr: _[]) i =
         let mutable j = i
-        iter (fun x -> arr.[j] <- x; j <- j + 1) s
+        iter (fun x -> arr[j] <- x; j <- j + 1) s
 
     let toArray s =
         let n = count s
@@ -576,10 +576,10 @@ module SetTree =
             mkFromEnumerator comparer (add comparer e.Current acc) e
         else acc
 
-    let ofArray comparer l =
+    let ofArray (comparer: IComparer<'a>) (l: 'a[]): SetTree<'a> =
         Array.fold (fun acc k -> add comparer k acc) empty l
 
-    let ofList comparer l =
+    let ofList (comparer: IComparer<'a>) (l: 'a list): SetTree<'a> =
         List.fold (fun acc k -> add comparer k acc) empty l
 
     let ofSeq comparer (c: seq<'T>) =

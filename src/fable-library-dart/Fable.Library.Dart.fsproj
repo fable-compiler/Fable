@@ -15,10 +15,12 @@
         <Compile Include="Set.fs" />
         <Compile Include="Map.fs" />
         <Content Include="Date.dart" />
-        <Content Include="_List.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="Types.dart" />
         <Content Include="Util.dart" />
+        <Content Include="analysis_options.yaml" />
+        <Content Include="pubspec.lock" />
+        <Content Include="pubspec.yaml" />
     </ItemGroup>
 
     <ItemGroup>

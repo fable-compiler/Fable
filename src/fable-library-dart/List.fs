@@ -66,6 +66,8 @@ and [<CompiledName("FSharpList")>] ResizeList<'T>(count: int, values: ResizeArra
         elif count = 0 then
             ResizeList<'T>(1, ResizeArray [|x|])
         else
+            // TODO: if difference between count and values.Count is bigger than a threshold (say 4) make a new copy
+            // of `values` to prevent inaccessible items being kept in memory (see also AddRange, Append)
             ResizeList<'T>(1, ResizeArray [|x|], xs)
 
     member internal xs.AddRange(ys: 'T ResizeArray) =
@@ -295,12 +297,12 @@ let last (xs: 'T list) =
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
     Seq.compareWith comparer xs ys
 
-let fold (folder: 'acc -> 'T -> 'acc) (state: 'acc) (xs: 'T list): 'acc =
+let fold<'T, 'acc> (folder: 'acc -> 'T -> 'acc) (state: 'acc) (xs: 'T list): 'acc =
     let mutable acc = state
     xs.Iterate(fun v -> acc <- folder acc v)
     acc
 
-let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc): 'acc =
+let foldBack<'T, 'acc> (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc): 'acc =
     let mutable acc = state
     xs.IterateBack(fun v -> acc <- folder v acc)
     acc
@@ -331,23 +333,23 @@ let concat (lists: seq<'a list>): ResizeList<'a> =
     ||> Seq.fold (fold (fun acc x -> acc.Add(x); acc))
     |> ofResizeArrayInPlace
 
-let fold2 (f: 'acc -> 'a -> 'b -> 'acc) (state: 'acc) (xs: 'a list) (ys: 'b list): 'acc =
+let fold2<'a, 'b, 'acc> (f: 'acc -> 'a -> 'b -> 'acc) (state: 'acc) (xs: 'a list) (ys: 'b list): 'acc =
     Seq.fold2 f state xs ys
 
-let foldBack2 (f: 'a -> 'b -> 'acc -> 'acc) (xs: 'a list) (ys: 'b list) (state: 'acc): 'acc =
+let foldBack2<'a, 'b, 'acc> (f: 'a -> 'b -> 'acc -> 'acc) (xs: 'a list) (ys: 'b list) (state: 'acc): 'acc =
     Seq.foldBack2 f xs ys state
 
-let unfold (gen: 'acc -> ('T * 'acc) option) (state: 'acc): ResizeList<'T> =
+let unfold<'T, 'acc> (gen: 'acc -> ('T * 'acc) option) (state: 'acc): ResizeList<'T> =
     let rec loop st acc =
         match gen st with
         | None -> ofResizeArrayInPlace acc
         | Some (x, st) -> acc.Add(x); loop st acc
     loop state (ResizeArray())
 
-let scan (f: 'acc -> 'a -> 'acc) (state: 'acc) (xs: 'a list): 'acc list =
+let scan<'a, 'acc> (f: 'acc -> 'a -> 'acc) (state: 'acc) (xs: 'a list): 'acc list =
     Seq.scan f state xs |> ofSeq
 
-let scanBack (f: 'a -> 'acc -> 'acc) (xs: 'a list) (state: 'acc): 'acc list =
+let scanBack<'a, 'acc> (f: 'a -> 'acc -> 'acc) (xs: 'a list) (state: 'acc): 'acc list =
     Seq.scanBack f xs state |> ofSeq
 
 let append (xs: 'a list) (ys: 'a list): ResizeList<'a> =

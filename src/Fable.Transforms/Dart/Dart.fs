@@ -188,7 +188,7 @@ type Statement =
     | BreakStatement of label: string option
     | ContinueStatement of label: string option
     | ExpressionStatement of Expression
-    | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option
+    | LocalVariableDeclaration of ident: Ident * kind: VariableDeclarationKind * value: Expression option * isLate: bool
     | LocalFunctionDeclaration of FunctionDecl
     | LabeledStatement of label: string * body: Statement
     static member commented comment statement =
@@ -211,8 +211,8 @@ type Statement =
         ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =
         TryStatement(body, defaultArg handlers [], defaultArg finalizer [])
-    static member variableDeclaration(ident, kind, ?value) =
-        LocalVariableDeclaration(ident, kind, value)
+    static member variableDeclaration(ident, kind, ?value, ?isLate) =
+        LocalVariableDeclaration(ident, kind, value, defaultArg isLate false)
     static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list) =
         LocalFunctionDeclaration {
             Name = name
