@@ -211,8 +211,12 @@ type Statement =
         ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =
         TryStatement(body, defaultArg handlers [], defaultArg finalizer [])
-    static member variableDeclaration(ident, kind, ?value, ?isLate) =
+    static member variableDeclaration(ident: Ident, kind, addToScope, ?value, ?isLate) =
+        addToScope ident.Name
         LocalVariableDeclaration(ident, kind, value, defaultArg isLate false)
+    /// Variables that won't be added to scope
+    static member tempVariableDeclaration(ident: Ident, ?value) =
+        LocalVariableDeclaration(ident, Final, value, Option.isNone value)
     static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list) =
         LocalFunctionDeclaration {
             Name = name
