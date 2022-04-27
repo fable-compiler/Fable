@@ -33,9 +33,23 @@ class Comparer<T> implements IComparer<T> {
   }
 }
 
-
 abstract class IEqualityComparer<T> {
   bool Equals(T a, T b);
+  int GetHashCode(T a);
+}
+
+class EqualityComparer<T> implements IEqualityComparer<T> {
+  final bool Function(T, T) _equals;
+  final int Function(T) _getHashCode;
+  EqualityComparer(this._equals, this._getHashCode);
+  @override
+  bool Equals(T a, T b) {
+    return _equals(a, b);
+  }
+  @override
+  int GetHashCode(T a) {
+    return _getHashCode(a);
+  }
 }
 
 abstract class IGenericAdder<T> {

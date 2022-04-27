@@ -263,7 +263,7 @@ module Util =
             tempVars |> Seq.mapToList (fun (KeyValue(argId, tempVar)) ->
                 let tempVar = transformIdent com ctx tempVar
                 let argId = makeImmutableIdent tempVar.Type argId |> Expression.identExpression
-                Statement.variableDeclaration(tempVar, value=argId))
+                Statement.variableDeclaration(tempVar, Final, value=argId))
 
         // Then assign argument expressions to the original argument identifiers
         // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
@@ -902,7 +902,7 @@ module Util =
                 List.zip args args'
                 |> List.map (fun (id, tcArg) ->
                     let ident = transformIdent com ctx id
-                    Statement.variableDeclaration(ident, value=Expression.identExpression(tcArg)))
+                    Statement.variableDeclaration(ident, Final, value=Expression.identExpression(tcArg)))
 
             let body =
                 match ret with
@@ -1111,7 +1111,7 @@ module Util =
                 yield! targets |> List.collect (fun (idents,_) ->
                     idents |> List.map (transformIdent com ctx))
             ]
-            |> List.map Statement.variableDeclaration
+            |> List.map (fun i -> Statement.variableDeclaration(i, Var))
         // Transform targets as switch
         let switch2 =
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
@@ -1236,19 +1236,25 @@ module Util =
             addError com [] r "Unexpected unresolved expression"
             [], None
 
-        | Fable.ObjectExpr _ ->
+        | Fable.ObjectExpr(_,t,_) ->
             match returnStrategy with
             // Constructors usually have a useless object expression on top
             // (apparently it represents the call to the base Object type)
             | ReturnVoid -> [], None
             | _ ->
-                $"TODO: Object expression is not supported yet %A{expr}"
+                let fullName =
+                    match t with
+                    | Fable.DeclaredType(e,_) -> e.FullName
+                    | _ -> "unknown"
+                $"TODO: Object expression is not supported yet: %s{fullName}"
                 |> addWarning com [] expr.Range
                 [], None
 
-        | Fable.Extended(kind, _r) ->
+        | Fable.Extended(kind, r) ->
             match kind with
-            | Fable.Curry(e, arity) -> failwith "todo: transformCurry (statement)"
+            | Fable.Curry(e, arity) ->
+                $"Ignored currying (arity %i{arity})" |> addWarning com [] r
+                transform com ctx returnStrategy e
             | Fable.RegionStart _ -> [], None
             | Fable.Throw(None, t) ->
                 [Expression.rethrowExpression(transformType com ctx t) |> Statement.ExpressionStatement], None

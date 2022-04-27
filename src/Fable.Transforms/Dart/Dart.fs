@@ -211,8 +211,8 @@ type Statement =
         ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =
         TryStatement(body, defaultArg handlers [], defaultArg finalizer [])
-    static member variableDeclaration(ident, ?kind, ?value) =
-        LocalVariableDeclaration(ident, defaultArg kind Final, value)
+    static member variableDeclaration(ident, kind, ?value) =
+        LocalVariableDeclaration(ident, kind, value)
     static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list) =
         LocalFunctionDeclaration {
             Name = name
