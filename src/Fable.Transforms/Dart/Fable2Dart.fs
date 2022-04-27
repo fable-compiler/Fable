@@ -12,7 +12,7 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Ident
     | Ignore
-    | Capture of ident: Ident option
+    | Capture of binding: Ident option
 
 type CapturedExpr = Expression option
 
@@ -385,7 +385,7 @@ module Util =
             calleeStatements @ [varDecl] @ argStatements, ident.Expr
 
     let transformExprsAndResolve com ctx returnStrategy exprs transformExprs =
-        List.map (transform com ctx (Capture(ident=None))) exprs
+        List.map (transform com ctx (Capture(binding=None))) exprs
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
             let statements2, capturedExpr = transformExprs exprs |> resolveExpr returnStrategy
@@ -397,7 +397,7 @@ module Util =
         statements @ statements2, capturedExpr
 
     let transformExprsAndResolve2 com ctx returnStrategy expr0 expr1 transformExprs =
-        List.map (transform com ctx (Capture(ident=None))) [expr0; expr1]
+        List.map (transform com ctx (Capture(binding=None))) [expr0; expr1]
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
             let statements2, capturedExpr = transformExprs exprs[0] exprs[1] |> resolveExpr returnStrategy
@@ -762,8 +762,8 @@ module Util =
 
     // TODO: Try to identify type testing in the catch clause and use Dart's `on ...` exception checking
     let transformTryCatch com ctx _r returnStrategy (body: Fable.Expr, catch, finalizer) =
-        let prevStmnt, returnStrategy, captureExpr =
-            convertCaptureStrategyIntoAssign com ctx body.Type [] returnStrategy
+        let prevStmnt, captureExpr, returnStrategy =
+            convertCaptureStrategyIntoAssign com ctx body.Type returnStrategy
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
         let handlers =
@@ -780,19 +780,19 @@ module Util =
 
     /// Branching expressions like conditionals, decision trees or try catch cannot capture
     /// the resulting expression at once so declare a variable and assign the potential results to it
-    let convertCaptureStrategyIntoAssign com ctx t prevStatements returnStrategy =
+    let convertCaptureStrategyIntoAssign com ctx t returnStrategy =
         match returnStrategy with
-        | Capture(ident) ->
-            let ident, prevStatements =
-                match ident with
-                | Some ident -> ident, prevStatements
+        | Capture(binding) ->
+            let varDecl, ident =
+                match binding with
+                | Some ident -> [], ident
                 | None ->
                     let t = transformType com ctx t
                     let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent t
                     let varDecl = Statement.variableDeclaration(ident, Final, isLate=true)
-                    ident, varDecl::prevStatements
-            prevStatements, Assign ident.Expr, Some ident.Expr
-        | _ -> prevStatements, returnStrategy, None
+                    [varDecl], ident
+            varDecl, Some ident.Expr, Assign ident.Expr
+        | _ -> [], None, returnStrategy
 
     let transformConditional (com: IDartCompiler) ctx _r returnStrategy guardExpr thenExpr elseExpr =
         let prevStmnt, guardExpr = transformAndCaptureExpr com ctx guardExpr
@@ -803,27 +803,21 @@ module Util =
             prevStmnt @ bodyStmnt, captureExpr
 
         | guardExpr ->
-            let transformAsStatement prevStmnt returnStrategy captureExpr =
-                let thenStmnt, _ = com.Transform(ctx, returnStrategy, thenExpr)
-                let elseStmnt, _ = com.Transform(ctx, returnStrategy, elseExpr)
-                prevStmnt @ [Statement.ifStatement(guardExpr, thenStmnt, elseStmnt)], captureExpr
+            let captureStmnts, captureExpr, returnStrategy =
+                convertCaptureStrategyIntoAssign com ctx thenExpr.Type returnStrategy
 
-            // If strategy is Capture, try to transform as conditional expression.
-            // Note we need to transform again thenExpr/elseExpr with Assign strategy if we cannot
-            // use conditional expression, but I cannot think of a more efficient way at the moment
-            match returnStrategy with
-            | Capture _ ->
-                match com.Transform(ctx, returnStrategy, thenExpr) with
-                | [], Some capturedThenExpr ->
-                    match com.Transform(ctx, returnStrategy, elseExpr) with
-                    | [], Some capturedElseExpr ->
-                        prevStmnt, Expression.conditionalExpression(guardExpr, capturedThenExpr, capturedElseExpr) |> Some
-                    | _ ->
-                        convertCaptureStrategyIntoAssign com ctx thenExpr.Type prevStmnt returnStrategy |||> transformAsStatement
-                | _ ->
-                    convertCaptureStrategyIntoAssign com ctx thenExpr.Type prevStmnt returnStrategy |||> transformAsStatement
+            let thenStmnt, _ = com.Transform(ctx, returnStrategy, thenExpr)
+            let elseStmnt, _ = com.Transform(ctx, returnStrategy, elseExpr)
+
+            match captureExpr, thenStmnt, elseStmnt with
+            | Some(IdentExpression ident1),
+                [ExpressionStatement(AssignmentExpression(IdentExpression ident2, AssignEqual, thenValue))],
+                [ExpressionStatement(AssignmentExpression(IdentExpression ident3, AssignEqual, elseValue))]
+                when ident1.Name = ident2.Name && ident1.Name = ident3.Name ->
+                prevStmnt, Expression.conditionalExpression(guardExpr, thenValue, elseValue) |> Some
+
             | _ ->
-                transformAsStatement prevStmnt returnStrategy None
+                prevStmnt @ captureStmnts @ [Statement.ifStatement(guardExpr, thenStmnt, elseStmnt)], captureExpr
 
     let transformGet (com: IDartCompiler) ctx _range t returnStrategy kind fableExpr =
 
@@ -946,13 +940,15 @@ module Util =
                 let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
                 // Pass the name of the bound ident to enable tail-call optimizations
                 let args, body, returnType = transformFunction com ctx (Some var.Name) args body
-                [], Expression.anonymousFunction(args, body, returnType, genParams)
-            | _ -> transformAndCaptureExpr com ctx value
+                [], Expression.anonymousFunction(args, body, returnType, genParams) |> Some
+            | value ->
+                com.Transform(ctx, Capture(binding=Some ident), value)
 
         match value with
-        | IdentExpression ident2 when ident.Name = ident2.Name ->
+        | Some(IdentExpression ident2) when ident.Name = ident2.Name ->
             ctx, Statement.variableDeclaration(ident, if var.IsMutable then Var else Final)::valueStmnts
         | _ ->
+            let value = value |> Option.defaultValue (Expression.nullLiteral ident.Type)
             let kind, value = getVarKind ctx var.IsMutable value
             let ctx =
                 match kind with
@@ -1143,7 +1139,7 @@ module Util =
     let transformDecisionTree (com: IDartCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr) =
         let t = treeExpr.Type
-        let prevStmnt, returnStrategy, captureExpr = convertCaptureStrategyIntoAssign com ctx t [] returnStrategy
+        let prevStmnt, captureExpr, returnStrategy = convertCaptureStrategyIntoAssign com ctx t returnStrategy
         let resolve stmnts = prevStmnt @ stmnts, captureExpr
 
         // If some targets are referenced multiple times, hoist bound idents,
@@ -1237,7 +1233,7 @@ module Util =
             []
 
     let transformAndCaptureExpr (com: IDartCompiler) (ctx: Context) (expr: Fable.Expr): Statement list * Expression =
-        match com.Transform(ctx, Capture(ident=None), expr) with
+        match com.Transform(ctx, Capture(binding=None), expr) with
         | statements, Some expr -> statements, expr
         | statements, None -> statements, Expression.nullLiteral Void
 
