@@ -884,7 +884,7 @@ let run (writer: Writer) (file: File): Async<unit> =
         let printer = printerImpl :> Printer
 
         // If we manage to master null assertions maybe we can remove unnecessary_non_null_assertion
-        printer.Print("// ignore_for_file: camel_case_types, constant_identifier_names, non_constant_identifier_names, unnecessary_non_null_assertion, unnecessary_this")
+        printer.Print("// ignore_for_file: camel_case_types, constant_identifier_names, non_constant_identifier_names, unnecessary_this")
         printer.PrintNewLine()
 
         file.Imports

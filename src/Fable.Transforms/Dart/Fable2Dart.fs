@@ -37,7 +37,11 @@ type Context =
     TailCallOpportunity: ITailCallOpportunity option
     EntityAndMemberGenericParams: Fable.GenericParam list
     OptimizeTailCall: unit -> unit
+    /// Vars declared in current function scope
+    VarsInScope: HashSet<string>
     ConstIdents: Set<string> }
+  member this.AddToScope(name) =
+      this.VarsInScope.Add(name) |> ignore
 
 type MemberKind =
     | ClassConstructor
@@ -263,7 +267,7 @@ module Util =
             tempVars |> Seq.mapToList (fun (KeyValue(argId, tempVar)) ->
                 let tempVar = transformIdent com ctx tempVar
                 let argId = makeImmutableIdent tempVar.Type argId |> Expression.identExpression
-                Statement.variableDeclaration(tempVar, Final, value=argId))
+                Statement.tempVariableDeclaration(tempVar, value=argId))
 
         // Then assign argument expressions to the original argument identifiers
         // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
@@ -358,7 +362,7 @@ module Util =
                     statements, expr
                 else
                     let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent expr.Type
-                    let varDecl = Statement.variableDeclaration(ident, Final, expr)
+                    let varDecl = Statement.tempVariableDeclaration(ident, value=expr)
                     statements @ [varDecl], ident.Expr
             | _ -> statements, Expression.nullLiteral Void
 
@@ -381,7 +385,7 @@ module Util =
             calleeStatements @ argStatements, callee
         else
             let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent callee.Type
-            let varDecl = Statement.variableDeclaration(ident, Final, callee)
+            let varDecl = Statement.tempVariableDeclaration(ident, value=callee)
             calleeStatements @ [varDecl] @ argStatements, ident.Expr
 
     let transformExprsAndResolve com ctx returnStrategy exprs transformExprs =
@@ -789,7 +793,7 @@ module Util =
                 | None ->
                     let t = transformType com ctx t
                     let ident = getUniqueNameInDeclarationScope ctx "tmp" |> makeImmutableIdent t
-                    let varDecl = Statement.variableDeclaration(ident, Final, isLate=true)
+                    let varDecl = Statement.tempVariableDeclaration(ident)
                     [varDecl], ident
             varDecl, Some ident.Expr, Assign ident.Expr
         | _ -> [], None, returnStrategy
@@ -856,11 +860,11 @@ module Util =
                     let t = transformType com ctx t
                     Expression.propertyAccess(expr, $"item%i{index + 1}", t))
 
-        // A bit confused about this, sometimes Dart complains the ! operator is not necessary
-        // but if I remove it in other cases compilation will fail even if there's a null check
-        // Note: it seems Dart doesn't check in LOCAL FUNCTIONS whether a value has been asserted non null
         | Fable.OptionValue ->
-            transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
+            match fableExpr with
+            // Dart can detect if a value has already been null-checked for variables in current function scope
+            | Fable.IdentExpr i when ctx.VarsInScope.Contains(i.Name) -> transform com ctx returnStrategy fableExpr
+            | _ -> transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
 
         | Fable.UnionTag ->
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag
@@ -879,8 +883,10 @@ module Util =
 
         let args = discardUnitArg args
         let mutable isTailCallOptimized = false
+        let varsInScope = args |> List.map (fun a -> a.Name) |> HashSet
         let ctx =
             { ctx with TailCallOpportunity = tailcallChance
+                       VarsInScope = varsInScope
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
 
         let returnType = transformType com ctx body.Type
@@ -900,7 +906,7 @@ module Util =
                 List.zip args args'
                 |> List.map (fun (id, tcArg) ->
                     let ident = transformIdent com ctx id
-                    Statement.variableDeclaration(ident, Final, value=Expression.identExpression(tcArg)))
+                    Statement.tempVariableDeclaration(ident, Expression.identExpression(tcArg)))
 
             let body =
                 match returnStrategy with
@@ -946,7 +952,9 @@ module Util =
 
         match value with
         | Some(IdentExpression ident2) when ident.Name = ident2.Name ->
-            ctx, Statement.variableDeclaration(ident, if var.IsMutable then Var else Final)::valueStmnts
+            let kind = if var.IsMutable then Var else Final
+            let varDecl = Statement.variableDeclaration(ident, kind, isLate=true, addToScope=ctx.AddToScope)
+            ctx, varDecl::valueStmnts
         | _ ->
             let value = value |> Option.defaultValue (Expression.nullLiteral ident.Type)
             let kind, value = getVarKind ctx var.IsMutable value
@@ -955,7 +963,7 @@ module Util =
                 | Const -> { ctx with ConstIdents = Set.add ident.Name ctx.ConstIdents }
                 | Var | Final -> ctx
             // If value is an anonymous function this will be converted into function declaration in printing step
-            ctx, valueStmnts @ [Statement.variableDeclaration(ident, kind, value)]
+            ctx, valueStmnts @ [Statement.variableDeclaration(ident, kind, value=value, addToScope=ctx.AddToScope)]
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
         let cases =
@@ -1118,7 +1126,7 @@ module Util =
                     idents |> List.map (transformIdent com ctx))
             ]
             // Declare vars as late so Dart compiler doesn't complain they may not be assigned
-            |> List.map (fun i -> Statement.variableDeclaration(i, Final, isLate=true))
+            |> List.map (fun i -> Statement.variableDeclaration(i, Final, isLate=true, addToScope=ctx.AddToScope))
         // Transform targets as switch
         let switch2 =
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
@@ -1579,7 +1587,7 @@ module Util =
                     |> makeFieldsComp fields
 
             let body = [
-                Statement.variableDeclaration(r, kind=Var)
+                Statement.variableDeclaration(r, kind=Var, addToScope=ignore)
                 yield!
                     match List.rev fields with
                     | [] -> []
@@ -1880,6 +1888,7 @@ module Compiler =
             EntityAndMemberGenericParams = []
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
+            VarsInScope = HashSet()
             ConstIdents = Set.empty }
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let imports = com.GetAllImports()
