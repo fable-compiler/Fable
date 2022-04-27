@@ -388,10 +388,6 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
 //        | _ -> "structuralHash"
 //    Helper.LibCall(com, "Util", methodName, Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
 
-let tupleToList = function
-    | Value(NewTuple(vals, _), r) -> makeArrayWithRange r Any vals
-    | e -> Helper.InstanceCall(e, "toList", Any, [])
-
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
         if equal then expr
@@ -404,12 +400,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         if equal then BinaryEqual else BinaryUnequal
         |> makeEqOp r left right
 
-/// Compare function that will call Util.compare or instance `CompareTo` as appropriate
+// Mirrors Fable2Dart.Util.compare
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let returnType = Number(Int32, NumberInfo.Empty)
     match left.Type with
-    | Tuple _ -> Helper.LibCall(com, "Util", "compareList", returnType, [tupleToList left; tupleToList right], ?loc=r)
     | Array _ -> Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
+    | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
     | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
@@ -1011,7 +1007,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.GlobalCall("dart:math", t, args, argTypes, memb=meth, ?loc=r)
+        Helper.ImportedCall("dart:math", meth, t, args, argTypes, ?loc=r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), _ ->
@@ -1108,16 +1104,15 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "log"
         let divisor = math None t [arg2] (List.skip 1 i.SignatureArgTypes) "log"
         makeBinOp r t dividend divisor BinaryDivide |> Some
-    | "Abs", _ ->
-        match args with
-        | ExprType(Number (Int64|BigInt|Decimal as kind,_))::_ ->
+    | "Abs", [arg] ->
+        match arg with
+        | ExprType(Number (BigInt|Decimal as kind,_)) ->
             let modName =
                 match kind with
-                | Decimal -> "Decimal"
                 | BigInt -> "BigInt"
-                | _ -> "Long"
+                | _ -> "Decimal"
             Helper.LibCall(com, modName, "abs", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
+        | _ -> Helper.InstanceCall(arg, "abs", t, [], ?loc=r) |> Some
     | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
     | "Cos", _ | "Cosh", _ | "Exp", _ | "Log", _ | "Log10", _
     | "Sin", _ | "Sinh", _ | "Sqrt", _ | "Tan", _ | "Tanh", _ ->
@@ -2047,11 +2042,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
-    | "GetType", Some arg, _ ->
-        if arg.Type = Any then
-            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.InlinePath r
-        makeTypeInfo r arg.Type |> Some
+    | "GetType", Some arg, _ -> getImmutableAttachedMemberWith r t arg "runtimeType" |> Some
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2069,7 +2060,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     | "Equals", [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
-    | "Compare", [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
+    | "Compare", [arg1; arg2] -> Helper.LibCall(com, "Util", "compareDynamic", t, [arg1; arg2], ?loc=r) |> Some
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

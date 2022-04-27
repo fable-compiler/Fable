@@ -25,15 +25,27 @@ int compareList(List<dynamic> xs, List<dynamic> ys) {
     return xs.length < ys.length ? -1 : 1;
   }
   for (var i = 0; i < xs.length; i++) {
-    final x = xs[i];
-    if (x is Comparable) {
-      final j = x.compareTo(ys[i]);
-      if (j != 0) {
-        return j;
-      }
+    final res = compareDynamic(xs[i], ys[i]);
+    if (res != 0) {
+      return res;
     }
   }
   return 0;
+}
+
+int compareBool(bool a, bool b) {
+  return a ? (b ? 0 : 1) : -1;
+}
+
+int compareDynamic(dynamic a, dynamic b) {
+  if (a is Comparable) {
+    return a.compareTo(b);
+  } else if (a is List) {
+    compareList(a, b);
+  } else if (a is bool) {
+    return compareBool(a, b);
+  }
+  return a == b ? 0 : -1;
 }
 
 String int32ToString(int i, [int radix = 10]) {

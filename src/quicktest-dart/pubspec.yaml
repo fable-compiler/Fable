@@ -6,11 +6,5 @@ version: 1.0.0
 environment:
   sdk: '>=2.12.0 <3.0.0'
 
-# dependencies:
-#   path: ^1.8.0
-
 dev_dependencies:
   flutter_lints: ^1.0.0
-
-dependencies:
-  tuple: ^2.0.0
