@@ -12,6 +12,8 @@
         <Compile Include="Seq.fs" />
         <Compile Include="Array.fs" />
         <Compile Include="List.fs" />
+        <Compile Include="Set.fs" />
+        <Compile Include="Map.fs" />
         <Content Include="Date.dart" />
         <Content Include="_List.dart" />
         <Content Include="RegExp.dart" />
