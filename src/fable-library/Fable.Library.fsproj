@@ -32,6 +32,41 @@
     <Compile Include="Random.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <TypeScriptCompile Include="Async.ts" />
+    <TypeScriptCompile Include="AsyncBuilder.ts" />
+    <TypeScriptCompile Include="BitConverter.ts" />
+    <TypeScriptCompile Include="Boolean.ts" />
+    <TypeScriptCompile Include="Char.ts" />
+    <TypeScriptCompile Include="Choice.d.ts" />
+    <TypeScriptCompile Include="Date.ts" />
+    <TypeScriptCompile Include="DateOffset.ts" />
+    <TypeScriptCompile Include="DateOnly.ts" />
+    <TypeScriptCompile Include="Decimal.ts" />
+    <TypeScriptCompile Include="Double.ts" />
+    <TypeScriptCompile Include="Encoding.ts" />
+    <TypeScriptCompile Include="Event.ts" />
+    <TypeScriptCompile Include="Guid.ts" />
+    <TypeScriptCompile Include="Int32.ts" />
+    <TypeScriptCompile Include="Long.ts" />
+    <TypeScriptCompile Include="MailboxProcessor.ts" />
+    <TypeScriptCompile Include="MapUtil.ts" />
+    <TypeScriptCompile Include="Numeric.ts" />
+    <TypeScriptCompile Include="Observable.ts" />
+    <TypeScriptCompile Include="Option.ts" />
+    <Content Include="package.json" />
+    <TypeScriptCompile Include="Reflection.ts" />
+    <TypeScriptCompile Include="RegExp.ts" />
+    <TypeScriptCompile Include="String.ts" />
+    <TypeScriptCompile Include="SystemException.ts" />
+    <TypeScriptCompile Include="TimeOnly.ts" />
+    <TypeScriptCompile Include="Timer.ts" />
+    <TypeScriptCompile Include="TimeSpan.ts" />
+    <Content Include="tsconfig.json" />
+    <Content Include="tslint.json" />
+    <TypeScriptCompile Include="Types.ts" />
+    <TypeScriptCompile Include="Unicode.13.0.0.ts" />
+    <TypeScriptCompile Include="Uri.ts" />
+    <TypeScriptCompile Include="Util.ts" />
   </ItemGroup>
 
   <ItemGroup>

@@ -438,8 +438,10 @@ and makeEqualityFunction (com: ICompiler) ctx typArg =
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
-    objExpr ["Equals",  Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
-             "GetHashCode", Delegate([x], structuralHash com None (IdentExpr x), FuncInfo.Empty)]
+    Helper.LibCall(com, "Types", "EqualityComparer", Any, [
+        Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
+        Delegate([x], structuralHash com None (IdentExpr x), FuncInfo.Empty)
+    ])
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -650,7 +652,8 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | "System.InvalidOperationException"
     | "System.Collections.Generic.KeyNotFoundException"
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
-    | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some    
+    | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
+    | Types.keyValuePair -> makeIdentExpr "MapEntry" |> Some
     | _ -> None
 
 let tryEntityRef com ent =
@@ -1337,8 +1340,8 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         let args = args |> List.replaceLast (fun e -> stringToCharArray e)
         let name = Naming.lowerFirst i.CompiledName
         emitExpr r t [Helper.LibCall(com, "Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
-    | "Concat", [arg] ->
-        Helper.InstanceCall(arg, "join", t, args, ?loc=r) |> Some
+    | "Concat", [separator; arg] ->
+        Helper.InstanceCall(arg, "join", t, [separator], ?loc=r) |> Some
     // Rest of StringModule methods
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
@@ -1951,9 +1954,9 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> makeTuple r args |> Some
-    | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
-    | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
+    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "MapEntry", t, args, ?loc=r) |> Some
+    | "get_Key", Some c -> getImmutableAttachedMemberWith r t c "key" |> Some
+    | "get_Value", Some c -> getImmutableAttachedMemberWith r t c "value" |> Some
     | _ -> None
 
 let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
