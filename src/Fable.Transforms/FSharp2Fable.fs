@@ -1368,13 +1368,17 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     usedNames
                 else
-                    match getEntityDeclarationName com entRef with
-                    | "" -> usedNames
-                    | entName ->
-                        addUsedRootName com entName usedNames
-                        // Fable will inject an extra declaration for reflection,
-                        // so add also the name with the reflection suffix
-                        |> addUsedRootName com (entName + Naming.reflectionSuffix)
+                    // Interfaces won't be output in JS code so prevent potential name conflicts, see #2864
+                    if com.Options.Language = JavaScript && ent.IsInterface then
+                        usedNames
+                    else
+                        match getEntityDeclarationName com entRef with
+                        | "" -> usedNames
+                        | entName ->
+                            addUsedRootName com entName usedNames
+                            // Fable will inject an extra declaration for reflection,
+                            // so add also the name with the reflection suffix
+                            |> addUsedRootName com (entName + Naming.reflectionSuffix)
             | sub ->
                 getUsedRootNames com usedNames sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
