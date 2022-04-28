@@ -213,15 +213,16 @@ let fastIntFloor expr =
     makeUnOp None (Number(Int32, NumberInfo.Empty)) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
-    let kind =
-        match targetType with
-        | Number(kind,_) -> kind
-        | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
-    let style = int System.Globalization.NumberStyles.Any
-    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
-    let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
-    Helper.LibCall(com, numberModule, "parse", targetType,
-        [args.Head] @ parseArgs @ args.Tail, ?loc=r)
+    Helper.GlobalCall("int", targetType, args, memb="parse", ?loc=r)
+//    let kind =
+//        match targetType with
+//        | Number(kind,_) -> kind
+//        | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
+//    let style = int System.Globalization.NumberStyles.Any
+//    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
+//    let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
+//    Helper.LibCall(com, numberModule, "parse", targetType,
+//        [args.Head] @ parseArgs @ args.Tail, ?loc=r)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
@@ -454,28 +455,6 @@ let makeMap (com: ICompiler) ctx r t methName args genArg =
     let args = args @ [makeComparer com ctx genArg]
     Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, ?loc=r)
 
-let makeDictionaryWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isConstructor=true, ?loc=r)
-
-let makeDictionary (com: ICompiler) ctx r t sourceSeq =
-    match t with
-    | DeclaredType(_,[key;_]) when not(isCompatibleWithNativeComparison key) ->
-        // makeComparer com ctx key
-        makeEqualityComparer com ctx key
-        |> makeDictionaryWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isConstructor=true, ?loc=r)
-
-let makeHashSetWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "MutableSet", "HashSet", t, [sourceSeq; comparer], isConstructor=true, ?loc=r)
-
-let makeHashSet (com: ICompiler) ctx r t sourceSeq =
-    match t with
-    | DeclaredType(_,[key]) when not(isCompatibleWithNativeComparison key) ->
-        // makeComparer com ctx key
-        makeEqualityComparer com ctx key
-        |> makeHashSetWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
-
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
@@ -622,9 +601,9 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
         makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
-    // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
-    // | BuiltinDefinition BclDictionary _ -> fail "MutableMap" // TODO:
-    // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
+    | BuiltinDefinition(BclHashSet _) -> makeIdentExpr "Set" |> Some
+    | BuiltinDefinition(BclDictionary _) -> makeIdentExpr "Map" |> Some
+    | BuiltinDefinition(BclKeyValuePair _) -> makeIdentExpr "MapEntry" |> Some
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
 //    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
@@ -649,7 +628,6 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | "System.Collections.Generic.KeyNotFoundException"
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
-    | Types.keyValuePair -> makeIdentExpr "MapEntry" |> Some
     | _ -> None
 
 let tryEntityRef com ent =
@@ -1029,7 +1007,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> TypeCast(xs, t) |> Some
-    | "CreateDictionary", [arg] -> makeDictionary com ctx r t arg |> Some
+    | "CreateDictionary", [arg] ->
+        Helper.LibCall(com, "Types", "mapFromTuples", t, [arg], genArgs=i.GenericArgs, ?loc=r)
+        |> asOptimizable "const-map" |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
@@ -1041,12 +1021,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let modul, meth, args =
             match genArg with
             | Char -> "Range", "rangeChar", args
-            | Number(Int64,_) -> "Range", "rangeInt64", addStep args
-            | Number(UInt64,_) -> "Range", "rangeUInt64", addStep args
             | Number(Decimal,_) -> "Range", "rangeDecimal", addStep args
             | Number(BigInt,_) -> "Range", "rangeBigInt", addStep args
+            | Number(DartInt,_) -> "Range", "rangeInt", addStep args
             | _ -> "Range", "rangeDouble", addStep args
-        Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
     | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
@@ -1955,41 +1934,35 @@ let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args
     | _ -> None
 
 let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg with
-    | ".ctor", _ ->
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ ->
         match i.SignatureArgTypes, args with
         | ([]|[Number _]), _ ->
-            makeDictionary com ctx r t (makeArray Any []) |> Some
+            Helper.GlobalCall("Map", t, [], genArgs=i.GenericArgs, ?loc=r) |> Some
         | [IDictionary], [arg] ->
-            makeDictionary com ctx r t arg |> Some
+            Helper.GlobalCall("Map", t, [arg], memb="of", ?loc=r) |> Some
         | [IDictionary; IEqualityComparer], [arg; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeDictionaryWithComparer com r t arg |> Some
+            Helper.LibCall(com, "Types", "mapWith", t, [eqComp; arg], ?loc=r) |> Some
         | [IEqualityComparer], [eqComp]
         | [Number _; IEqualityComparer], [_; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeDictionaryWithComparer com r t (makeArray Any []) |> Some
+            Helper.LibCall(com, "Types", "mapWith", t, [eqComp], ?loc=r) |> Some
         | _ -> None
-    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ -> getAttachedMemberWith r t thisArg.Value "size" |> Some
-    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
-    | "ContainsValue", _ ->
-        match thisArg, args with
-        | Some c, [arg] -> Helper.LibCall(com, "MapUtil", "containsValue", t, [arg; c], ?loc=r) |> Some
-        | _ -> None
-    | "TryGetValue", _ ->
-        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    | "Add", _ ->
-        Helper.LibCall(com, "MapUtil", "addToDict", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Item", _ ->
-        Helper.LibCall(com, "MapUtil", "getItemFromDict", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    | ReplaceName ["set_Item",     "set"
-                   "get_Keys",     "keys"
-                   "get_Values",   "values"
-                   "ContainsKey",  "has"
-                   "Clear",        "clear"
-                   "Remove",       "delete" ] methName, Some c ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    // Const are read-only but I'm not sure how to detect this in runtime
+//    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
+    | "get_Count", Some thisArg, _ -> getAttachedMemberWith r t thisArg "length" |> Some
+    | "GetEnumerator", Some callee, _ -> getEnumerator com r t callee |> Some
+//    | "TryGetValue", _, _ ->
+//        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    | "get_Item", Some c, [key] -> getExpr r t c key |> Some
+    | "set_Item", Some c, [key; value] -> setExpr r c key value |> Some
+    | "Add", Some c, _ ->
+        Helper.LibCall(com, "Types", "addToMap", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    | "get_Keys"| "get_Values" as prop, Some c, _ ->
+        let prop = Naming.removeGetSetPrefix prop |> Naming.lowerFirst
+        getAttachedMemberWith r t c prop |> Some
+    | "ContainsKey" | "ContainsValue" | "Clear" | "Remove" as meth, Some c, _ ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1997,30 +1970,26 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ".ctor", _, _ ->
         match i.SignatureArgTypes, args with
         | [], _ ->
-            makeHashSet com ctx r t (makeArray Any []) |> Some
+            Helper.GlobalCall("Set", t, [], genArgs=i.GenericArgs, ?loc=r) |> Some
         | [IEnumerable], [arg] ->
-            makeHashSet com ctx r t arg |> Some
+            Helper.GlobalCall("Set", t, [arg], memb="of", ?loc=r) |> Some
         | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeHashSetWithComparer com r t arg |> Some
+            Helper.LibCall(com, "Types", "setWith", t, [eqComp; arg], ?loc=r) |> Some
         | [IEqualityComparer], [eqComp] ->
-            makeComparerFromEqualityComparer eqComp
-            |> makeHashSetWithComparer com r t (makeArray Any []) |> Some
+            Helper.LibCall(com, "Types", "setWith", t, [eqComp], ?loc=r) |> Some
         | _ -> None
-    | "get_Count", _, _ -> getAttachedMemberWith r t thisArg.Value "size" |> Some
-    | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
-    | ReplaceName ["Clear",    "clear"
-                   "Contains", "has"
-                   "Remove",   "delete" ] methName, Some c, args ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    // Const are read-only but I'm not sure how to detect this in runtime
+//    | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
+    | "get_Count", Some c, _ -> getAttachedMemberWith r t c "length" |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
-    | "Add", Some c, [arg] ->
-        Helper.LibCall(com, "MapUtil", "addToSet", t, [arg; c], ?loc=r) |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
-        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Set" meth i.GenericArgs args
-        Helper.LibCall(com, "Set", meth, t, c::args, ?loc=r) |> Some
+    | "Add" | "Contains" | "Clear" | "Remove" as meth, Some c, _ ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+//    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
+//        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
+//        let meth = Naming.lowerFirst meth
+//        let args = injectArg com ctx r "Set" meth i.GenericArgs args
+//        Helper.LibCall(com, "Set", meth, t, c::args, ?loc=r) |> Some
     // | "CopyTo" // TODO!!!
     // | "SetEquals"
     // | "Overlaps"

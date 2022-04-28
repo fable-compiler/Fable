@@ -434,9 +434,9 @@ let partition f (xs: 'T list) =
     node2.SetConsTail List.Empty
     root1.Tail, root2.Tail
 
-let choose f (xs: 'T list) =
+let choose<'T, 'U> (f: 'T -> 'U option) (xs: 'T list) =
     let root = List.Empty
-    let folder (acc: 'T list) x =
+    let folder (acc: 'U list) x =
         match f x with
         | Some y -> acc.AppendConsNoTail y
         | None -> acc

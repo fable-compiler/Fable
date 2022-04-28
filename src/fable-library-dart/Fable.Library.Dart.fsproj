@@ -10,10 +10,12 @@
         <Compile Include="Global.fs" />
         <Compile Include="FSharp.Core.fs" />
         <Compile Include="Seq.fs" />
+        <Compile Include="Seq2.fs" />
         <Compile Include="Array.fs" />
         <Compile Include="List.fs" />
         <Compile Include="Set.fs" />
         <Compile Include="Map.fs" />
+        <Compile Include="Range.fs" />
         <Content Include="Date.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="Types.dart" />

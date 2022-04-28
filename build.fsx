@@ -533,15 +533,16 @@ let testDart(isWatch) =
         buildLibraryDart(true)
 
     let runDir = "tests/Dart"
-    let projectDir = runDir + "/src"
+//    let projectDir = runDir + "/src"
 
-    runFableWithArgs projectDir [
+    runFableWithArgsInDir runDir [
+        "src"
         "--exclude Fable.Core"
         "--lang Dart"
+        "--noCache"
         if isWatch then
             "--watch"
-        else
-            "--noCache"
+            "--runWatch dart test main.dart"
     ]
     runInDir runDir "dart test main.dart"
 

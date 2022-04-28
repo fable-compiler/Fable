@@ -1,13 +1,44 @@
 // ignore_for_file: file_names, non_constant_identifier_names
 
+import 'dart:collection';
+
 import 'Util.dart' as util;
+
+Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {
+  return Map.fromEntries(tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
+}
+
+Map<K,V> mapWith<K,V>(IEqualityComparer<K> comparer, [Map<K,V>? initialValues]) {
+  final map = LinkedHashMap<K,V>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+  if (initialValues != null) {
+    map.addAll(initialValues);
+  }
+  return map;
+}
+
+void addToMap<K,V>(Map<K,V> map, K key, V value) {
+  if (map.containsKey(key)) {
+    throw Exception("Duplicate key: $key");
+  }
+  map[key] = value;
+}
+
+Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
+  final set = LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+  if (initialValues != null) {
+    set.addAll(initialValues);
+  }
+  return set;
+}
 
 abstract class IDisposable {
   void Dispose();
 }
 
 void dispose(dynamic d) {
-  (d as IDisposable).Dispose();
+  if (d is IDisposable) {
+    d.Dispose();
+  }
 }
 
 abstract class IComparer<T> {

@@ -191,7 +191,7 @@ let toArray (xs: seq<'T>): 'T[] =
 let ofList (xs: list<'T>) =
     (xs :> seq<'T>)
 
-let toList (xs: seq<'T>): seq<'T> =
+let toList (xs: seq<'T>): 'T list =
     match xs with
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
