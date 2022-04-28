@@ -238,9 +238,14 @@ module Util =
         AssignmentExpression(left, AssignEqual, right)
 
     /// Immediately Invoked Function Expression
-    let iife (_com: IDartCompiler) _ctx t (body: Statement list) =
-        let fn = Expression.anonymousFunction([], body, t)
-        Expression.invocationExpression(fn, t)
+    let iife (statements: Statement list) (expr: Expression) =
+        match statements with
+        | [] -> expr
+        | statements ->
+            let t = expr.Type
+            let body = statements @ [ReturnStatement expr]
+            let fn = Expression.anonymousFunction([], body, t)
+            Expression.invocationExpression(fn, t)
 
     let optimizeTailCall (com: IDartCompiler) (ctx: Context) _range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs = function
@@ -1369,12 +1374,14 @@ module Util =
             transformDecisionTreeSuccess com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(guard, body, label, _range) ->
-            let statements1, guard = transformAndCaptureExpr com ctx guard
+            // The guard expression is re-evaluated at each iteration,
+            // so we must use an IIFE if there are statements
+            let guard = transformAndCaptureExpr com ctx guard ||> iife
             let body, _ = transform com ctx Ignore body
             let whileLoop = Statement.whileStatement(guard, body)
             match label with
-            | Some label -> statements1 @ [Statement.labeledStatement(label, whileLoop)], None
-            | None -> statements1 @ [whileLoop], None
+            | Some label -> [Statement.labeledStatement(label, whileLoop)], None
+            | None -> [whileLoop], None
 
         | Fable.ForLoop (var, start, limit, body, isUp, _range) ->
             let statements, startAndLimit = combineStatementsAndExprs com ctx [
@@ -1764,13 +1771,7 @@ module Util =
             withCurrentScope ctx memb.UsedNames <| fun ctx ->
                 if memb.Info.IsValue then
                     let ident = transformIdentWith com ctx memb.Info.IsMutable memb.Body.Type memb.Name
-                    let statements, expr = transformAndCaptureExpr com ctx memb.Body
-                    let value =
-                        match statements with
-                        | [] -> expr
-                        | statements ->
-                            // We may need to distinguish between void and unit for these cases
-                            statements @ [ReturnStatement(expr)] |> iife com ctx Void
+                    let value = transformAndCaptureExpr com ctx memb.Body ||> iife
                     let kind, value = getVarKind ctx memb.Info.IsMutable value
                     [Declaration.variableDeclaration(ident, kind, value)]
                 else
