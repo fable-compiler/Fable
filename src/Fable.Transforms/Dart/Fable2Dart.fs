@@ -1374,11 +1374,16 @@ module Util =
             transformDecisionTreeSuccess com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(guard, body, _range) ->
-            // The guard expression is re-evaluated at each iteration,
-            // so we must use an IIFE if there are statements
-            let guard = transformAndCaptureExpr com ctx guard ||> iife
+            let guardStatements, guard = transformAndCaptureExpr com ctx guard
             let body, _ = transform com ctx Ignore body
-            [Statement.whileStatement(guard, body)], None
+            match guardStatements with
+            | [] -> [Statement.whileStatement(guard, body)], None
+            // guard statements must be inside the loop so they're re-evaluated on each iteration
+            | guardStatements ->
+                [Statement.whileStatement(Expression.booleanLiteral(true), [
+                    yield! guardStatements
+                    yield Statement.ifStatement(guard, body, [Statement.breakStatement()])
+                ])], None
 
         | Fable.ForLoop (var, start, limit, body, isUp, _range) ->
             let statements, startAndLimit = combineStatementsAndExprs com ctx [
