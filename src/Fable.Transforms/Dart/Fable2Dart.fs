@@ -609,8 +609,8 @@ module Util =
 
             | exprs, None ->
                 transformExprsAndResolve com ctx returnStrategy exprs (fun exprs ->
-                    [List.rev exprs |> makeMutableListExpr com ctx typ]
-                    |> libCall com ctx (Fable.List typ) "List" "newList")
+                    [makeImmutableListExpr com ctx typ exprs]
+                    |> libCall com ctx (Fable.List typ) "List" "ofArray")
 
             | [head], Some tail ->
                 transformExprsAndResolve com ctx returnStrategy [head; tail] (fun exprs ->
@@ -619,9 +619,8 @@ module Util =
             | exprs, Some tail ->
                 transformExprsAndResolve com ctx returnStrategy (exprs @ [tail]) (fun exprs ->
                     let exprs, tail = List.splitLast exprs
-                    let exprs = List.rev exprs |> makeMutableListExpr com ctx typ
-                    [exprs; tail]
-                    |> libCall com ctx (Fable.List typ) "List" "newListWithTail")
+                    [makeImmutableListExpr com ctx typ exprs; tail]
+                    |> libCall com ctx (Fable.List typ) "List" "ofArrayWithTail")
 
     let transformOperation com ctx (_: SourceLocation option) t returnStrategy opKind: Statement list * CapturedExpr =
         match opKind with
@@ -751,6 +750,7 @@ module Util =
                 com.Transform(ctx, returnStrategy, expr)
 
         | Fable.Any, _ -> com.Transform(ctx, returnStrategy, expr)
+
         | Fable.Unit, _ ->
             let returnStrategy =
                 match returnStrategy with
@@ -760,9 +760,18 @@ module Util =
 
         | _ ->
             transformExprAndResolve com ctx returnStrategy expr (fun expr ->
-                let t = transformType com ctx t
-                if t <> expr.Type then Expression.asExpression(expr, t)
-                else expr)
+                let source = expr.Type
+                let target = transformType com ctx t
+                match target with
+                | Nullable genTarget ->
+                    if source = genTarget || source = target then expr
+                    else
+                        printfn $"SOURCE: %A{source}"
+                        printfn $"TARGET: %A{target}"
+                        Expression.asExpression(expr, target)
+                | target ->
+                    if source = target then expr
+                    else Expression.asExpression(expr, target))
 
     // TODO: Try to identify type testing in the catch clause and use Dart's `on ...` exception checking
     let transformTryCatch com ctx _r returnStrategy (body: Fable.Expr, catch, finalizer) =
@@ -844,11 +853,11 @@ module Util =
 
         | Fable.ListHead ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                libCall com ctx t "List" "head_" [expr])
+                libCall com ctx t "List" "head" [expr])
 
         | Fable.ListTail ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                libCall com ctx t "List" "tail_" [expr])
+                libCall com ctx t "List" "tail" [expr])
 
         | Fable.TupleIndex index ->
             match fableExpr with
@@ -1793,7 +1802,7 @@ module Util =
                     elif ent.IsFSharpRecord then transformRecordDeclaration com ctx decl ent
                     else transformClass com ctx ent decl instanceMethods None
 
-    let getIdentForImport (ctx: Context) (path: string) =
+    let getIdentNameForImport (ctx: Context) (path: string) =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
         |> fun name -> Naming.applyCaseRule Core.CaseRules.SnakeCase name + "_mod"
         |> getUniqueNameInRootScope ctx
@@ -1829,11 +1838,11 @@ module Compiler =
                         match i.LocalIdent with
                         | Some localId -> localId
                         | None ->
-                            let localId = getIdentForImport ctx path
+                            let localId = getIdentNameForImport ctx path
                             imports[path] <- { Path = path; LocalIdent = Some localId }
                             localId
                     | false, _ ->
-                        let localId = getIdentForImport ctx path
+                        let localId = getIdentNameForImport ctx path
                         imports.Add(path, { Path = path; LocalIdent = Some localId })
                         localId
                 let t = transformType com ctx t
