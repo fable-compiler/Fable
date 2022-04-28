@@ -11,6 +11,12 @@ open Fable.Core.Experimental
 
 importSideEffects "./js/polyfill.js"
 
+// Make sure interface names don't conflict with values in JS, see #2864
+type DoesNotConflict =
+    interface end
+
+let DoesNotConflict = 5
+
 let logs = ResizeArray()
 
 type LogAttribute(msg1: string, code: int) =
