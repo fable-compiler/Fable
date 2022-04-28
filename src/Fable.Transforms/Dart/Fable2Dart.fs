@@ -43,6 +43,10 @@ type Context =
   member this.AddToScope(name) =
       this.VarsInScope.Add(name) |> ignore
 
+  member this.AppendLocalGenParams(genParams: string list) =
+      let genParams = genParams |> List.map (fun g -> { Name = g; Constraints = [] }: Fable.GenericParam)
+      { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
+
 type MemberKind =
     | ClassConstructor
     | NonAttached of funcName: string
@@ -958,6 +962,7 @@ module Util =
             match value with
             | Function(args, body) ->
                 let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
+                let ctx = ctx.AppendLocalGenParams(genParams)
                 // Pass the name of the bound ident to enable tail-call optimizations
                 let args, body, returnType = transformFunction com ctx (Some var.Name) args body
                 [], Expression.anonymousFunction(args, body, returnType, genParams) |> Some
@@ -1314,12 +1319,14 @@ module Util =
 
         | Fable.Lambda(arg, body, info) ->
             let genParams = getLocalFunctionGenericParams com ctx [arg.Type]
+            let ctx = ctx.AppendLocalGenParams(genParams)
             let args, body, t = transformFunction com ctx info.Name [arg] body
             Expression.anonymousFunction(args, body, t, genParams)
             |> resolveExpr returnStrategy
 
         | Fable.Delegate(args, body, info) ->
             let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
+            let ctx = ctx.AppendLocalGenParams(genParams)
             let args, body, t = transformFunction com ctx info.Name args body
             Expression.anonymousFunction(args, body, t, genParams)
             |> resolveExpr returnStrategy

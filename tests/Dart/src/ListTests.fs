@@ -4,25 +4,25 @@ open Util
 
 //type List(x: int) =
 //    member val Value = x
-//
-//type ExceptFoo = { Bar:string }
-//
-//let testListChoose xss =
-//    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
-//    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
-//
-//let rec sumFirstList (zs: float list) (n: int): float =
-//    match n with
-//    | 0 -> 0.
-//    | 1 -> zs.Head
-//    | _ -> zs.Head + sumFirstList zs.Tail (n-1)
-//
-//type Point =
-//    { x: int; y: int }
-//    static member Zero = { x=0; y=0 }
-//    static member Neg(p: Point) = { x = -p.x; y = -p.y }
-//    static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
-//
+
+type ExceptFoo = { Bar:string }
+
+let testListChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+
+let rec sumFirstList (zs: float list) (n: int): float =
+    match n with
+    | 0 -> 0.
+    | 1 -> zs.Head
+    | _ -> zs.Head + sumFirstList zs.Tail (n-1)
+
+type Point =
+    { x: int; y: int }
+    static member Zero = { x=0; y=0 }
+    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
+
 //type MyNumber =
 //    | MyNumber of int
 //    static member Zero = MyNumber 0
@@ -53,13 +53,12 @@ let tests() =
         xs = ys |> equal true
         xs = zs |> equal false
 
-    // TODO
-//    testCase "List comparison works" <| fun () ->
-//        let xs = [1;2;3]
-//        let ys = [1;2;3]
-//        let zs = [1;4;3]
-//        xs < ys |> equal false
-//        xs < zs |> equal true
+    testCase "List comparison works" <| fun () ->
+        let xs = [1;2;3]
+        let ys = [1;2;3]
+        let zs = [1;4;3]
+        xs < ys |> equal false
+        xs < zs |> equal true
 
     testCase "Pattern matching with lists works" <| fun () ->
         match [] with [] -> true | _ -> false
@@ -142,7 +141,7 @@ let tests() =
             li4.[9] |> equal 3
             List.length li4 |> equal 12
             List.sum li4 |> equal 84
-(*
+
     testCase "List.append works with empty list" <| fun () ->
             let li = [{ Bar = "2" }; { Bar = "4" };]
             let li = li @ []
@@ -261,11 +260,9 @@ let tests() =
     testCase "List.iter2 works" <| fun () ->
             let xs = [1; 2; 3; 4]
             let ys = [2; 4; 6; 8]
-            let total = ref 0
-            List.iter2 (fun x y ->
-            total := !total + (y - x)
-            ) xs ys
-            equal 10 !total
+            let mutable total = 0
+            List.iter2 (fun x y -> total <- total + (y - x)) xs ys
+            equal 10 total
 
     testCase "List.iteri works" <| fun () ->
             let mutable total = 0
@@ -439,12 +436,13 @@ let tests() =
       let p2 = {x=2; y=20}
       [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
 
-    testCase "List.sum with non numeric types works II" <| fun () ->
-        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.sum |> equal (MyNumber 6)
-
-    testCase "List.sumBy with non numeric types works II" <| fun () ->
-        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-        |> List.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
+// TODO
+//    testCase "List.sum with non numeric types works II" <| fun () ->
+//        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.sum |> equal (MyNumber 6)
+//
+//    testCase "List.sumBy with non numeric types works II" <| fun () ->
+//        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+//        |> List.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
     testCase "List.skip works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.; 5.]
@@ -608,12 +606,13 @@ let tests() =
             |> List.averageBy (fun x -> x * 2.)
             |> equal 5.
 
-    testCase "List.average works with custom types" <| fun () ->
-        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
-
-    testCase "List.averageBy works with custom types" <| fun () ->
-        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-        |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+// TODO
+//    testCase "List.average works with custom types" <| fun () ->
+//        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
+//
+//    testCase "List.averageBy works with custom types" <| fun () ->
+//        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+//        |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
     testCase "List.distinct works" <| fun () ->
         let xs = [1; 1; 1; 2; 2; 3; 3]
@@ -716,15 +715,16 @@ let tests() =
             equal 2 ys.[0]
             equal 5 zs.[2]
 
-    testCase "List.pairwise works" <| fun () ->
-        List.pairwise<int> [] |> equal []
-        List.pairwise [1] |> equal []
-        let xs = [1; 2; 3; 4]
-        let xs2 = xs |> List.pairwise
-        equal [(1, 2); (2, 3); (3, 4)] xs2
-        xs2 |> List.map (fun (x, y) -> $"%i{x}%i{y}")
-        |> String.concat ""
-        |> equal "122334"
+    // TODO
+//    testCase "List.pairwise works" <| fun () ->
+//        List.pairwise<int> [] |> equal []
+//        List.pairwise [1] |> equal []
+//        let xs = [1; 2; 3; 4]
+//        let xs2 = xs |> List.pairwise
+//        equal [(1, 2); (2, 3); (3, 4)] xs2
+//        xs2 |> List.map (fun (x, y) -> $"%i{x}%i{y}")
+//        |> String.concat ""
+//        |> equal "122334"
 
     testCase "List.permute works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
@@ -732,9 +732,10 @@ let tests() =
             equal 4 ys.[2]
             equal 6 ys.[4]
 
-    testCase "List.chunkBySize works" <| fun () ->
-        [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
-        [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
+    // TODO
+//    testCase "List.chunkBySize works" <| fun () ->
+//        [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
+//        [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
 
     testCase "List.range works" <| fun () ->
         [1..5]
@@ -802,11 +803,12 @@ let tests() =
             | _ -> 0.0
         sum |> equal 6.0
 
-    testCase "List.splitAt works" <| fun () ->
-        let li = [1;2;3;4]
-        List.splitAt 0 li |> equal ([], [1;2;3;4])
-        List.splitAt 3 li |> equal ([1;2;3], [4])
-        List.splitAt 4 li |> equal ([1;2;3;4], [])
+    // TODO
+//    testCase "List.splitAt works" <| fun () ->
+//        let li = [1;2;3;4]
+//        List.splitAt 0 li |> equal ([], [1;2;3;4])
+//        List.splitAt 3 li |> equal ([1;2;3], [4])
+//        List.splitAt 4 li |> equal ([1;2;3;4], [])
 
     testCase "List.windowed works" <| fun () -> // See #1716
         let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
@@ -815,9 +817,10 @@ let tests() =
         List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
         List.windowed 7 nums |> List.isEmpty |> equal true
 
-    testCase "Types with same name as imports work" <| fun () ->
-            let li = [List 5]
-            equal 5 li.Head.Value
+// TODO
+//    testCase "Types with same name as imports work" <| fun () ->
+//            let li = [List 5]
+//            equal 5 li.Head.Value
 
     testCase "List.Item throws exception when index is out of range" <| fun () ->
         let xs = [0]
@@ -839,9 +842,10 @@ let tests() =
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-    testCase "List comprehensions returning None work" <| fun () ->
-        let spam : string option list = [for _ in 0..5 -> None]
-        List.length spam |> equal 6
+    // TODO
+//    testCase "List comprehensions returning None work" <| fun () ->
+//        let spam : string option list = [for _ in 0..5 -> None]
+//        List.length spam |> equal 6
 
     testCase "Int list tail doesn't get wrapped with `| 0`" <| fun () -> // See #1447
         let revert xs =
@@ -878,12 +882,13 @@ let tests() =
         makeList false |> List.sum |> equal 3
     // #endif
 
-    testCase "List.splitInto works" <| fun () ->
-        [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
-        [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
-        [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
-        [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
-        [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
+    // TODO
+//    testCase "List.splitInto works" <| fun () ->
+//        [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+//        [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+//        [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+//        [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+//        [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
 
     testCase "List.transpose works" <| fun () ->
         // integer list
@@ -990,4 +995,3 @@ let tests() =
         throwsAnyError (fun () -> List.removeManyAt 0 2 [] |> ignore)
         throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
         throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)
-*)
