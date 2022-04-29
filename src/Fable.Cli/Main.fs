@@ -182,7 +182,7 @@ module private Util =
 
             let outPath = getOutPath cliArgs pathResolver com.CurrentFile
 
-            if not isSilent then
+            if not(isSilent || babel.IsEmpty) then
                 // ensure directory exists
                 let dir = IO.Path.GetDirectoryName outPath
                 if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
