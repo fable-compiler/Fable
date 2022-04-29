@@ -1641,7 +1641,9 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
                let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx)
                transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
             | Some w ->
-                let callee = resolveInlineExpr com ctx { info with FileName = w.FileName } w.Expr
+                // As witnesses come from the context, idents may be duplicated, see #2855
+                let info = { info with ResolvedIdents = Dictionary(); FileName = w.FileName }
+                let callee = resolveInlineExpr com ctx info w.Expr
                 let callInfo = makeCallInfo None argExprs argTypes
                 makeCall r t callInfo callee
 
