@@ -1641,6 +1641,20 @@ module MultipleInlines =
         static member details_ : Lens<AccountDto, AccountDetailsDto> =
             (fun p -> p.Details), (fun x p -> {p with Details = x})
 
+    type Functor = Functor with
+      static member inline map (Functor, f: 'a -> 'b, x: array<'a>) = Array.map f x
+      static member inline map (Functor, f: 'a -> 'b, x: List<'a>) = List.map f x
+
+    let inline map (f: ^a -> ^b) (x: ^x) =
+      ((^x or ^Functor): (static member map: ^Functor * (^a -> ^b) * ^x -> ^r) (Functor, f, x))
+
+    type NonEmptyList<'T> = NonEmptyList of 'T * List<'T> with
+      static member inline map (Functor, f: 'a -> 'b, NonEmptyList(h, t): NonEmptyList<'a>) =
+        NonEmptyList (f h, map f t)
+
+    let private mapMyList (xs: NonEmptyList<string>) : NonEmptyList<string> =
+      map (fun s -> s + "_") xs
+
     let tests = [
         testCase "Trait call works with multiple inlined functions I" <| fun () -> // See #2809
             let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
@@ -1659,6 +1673,9 @@ module MultipleInlines =
 
             getP InsurancePolicyDetailsDto.discount_
             |> equal None
+
+        testCase "Identifiers from witnesses don't get duplicated when resolving inline expressions" <| fun () -> // See #2855
+            NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
     ]
 
 let tests =
