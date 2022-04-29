@@ -25,7 +25,7 @@ type AttachMembersAttribute() =
     inherit Attribute()
 
 /// Used for erased union types and to ignore modules in JS compilation.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type EraseAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = EraseAttribute()
@@ -44,7 +44,7 @@ type CompiledValueAttribute private () =
     new (value: Enum) = CompiledValueAttribute()
 
 /// The module, type, function... is globally accessible in JS.
-/// More info: http://fable.io/docs/interacting.html#Import-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
 type GlobalAttribute() =
     inherit Attribute()
     new (name: string) = GlobalAttribute()
@@ -52,7 +52,7 @@ type GlobalAttribute() =
 /// References to the module, type, function... will be replaced by import statements.
 /// Use `[<Import("default", "my-package")>] to import the default member.
 /// Use `[<Import("*", "my-package")>] to import the whole package.
-/// More info: http://fable.io/docs/interacting.html#Import-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
@@ -69,7 +69,7 @@ type ImportAllAttribute(from: string) =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
-/// More info: http://fable.io/docs/interacting.html#emit-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#emit-when-f-is-not-enough
 type EmitAttribute(macro: string, isStatement: bool) =
     inherit Attribute()
     new (macro: string) = EmitAttribute(macro, isStatement=false)
@@ -91,7 +91,7 @@ type EmitPropertyAttribute(propertyName: string) =
     inherit Attribute()
 
 /// Compile union types as string literals.
-/// More info: http://fable.io/docs/interacting.html#StringEnum-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#stringenum-attribute
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute(caseRules: CaseRules) =
     inherit Attribute()
@@ -127,7 +127,7 @@ type ITypeResolver<'T> =
     abstract ResolveType: unit -> Type
 
 /// Erased union type to represent one of two possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U2<'a, 'b> =
     | Case1 of 'a
     | Case2 of 'b
@@ -135,7 +135,7 @@ type [<Erase>] U2<'a, 'b> =
     static member op_ErasedCast(x:'b) = Case2 x
 
 /// Erased union type to represent one of three possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U3<'a, 'b, 'c> =
     | Case1 of 'a
     | Case2 of 'b
@@ -145,7 +145,7 @@ type [<Erase>] U3<'a, 'b, 'c> =
     static member op_ErasedCast(x:'c) = Case3 x
 
 /// Erased union type to represent one of four possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U4<'a, 'b, 'c, 'd> =
     | Case1 of 'a
     | Case2 of 'b
@@ -157,7 +157,7 @@ type [<Erase>] U4<'a, 'b, 'c, 'd> =
     static member op_ErasedCast(x:'d) = Case4 x
 
 /// Erased union type to represent one of five possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> =
     | Case1 of 'a
     | Case2 of 'b
@@ -171,7 +171,7 @@ type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> =
     static member op_ErasedCast(x:'e) = Case5 x
 
 /// Erased union type to represent one of six possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
     | Case1 of 'a
     | Case2 of 'b
@@ -187,7 +187,7 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
     static member op_ErasedCast(x:'f) = Case6 x
 
 /// Erased union type to represent one of seven possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     | Case1 of 'a
     | Case2 of 'b
@@ -205,7 +205,7 @@ type [<Erase>] U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     static member op_ErasedCast(x:'g) = Case7 x
 
 /// Erased union type to represent one of eight possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     | Case1 of 'a
     | Case2 of 'b
