@@ -1,3 +1,7 @@
+### 3.7.11
+
+* Fix generic param user/compiler generated name conflicts
+
 ### 3.7.10
 
 * Fix #2864: Interface names don't conflict in JS

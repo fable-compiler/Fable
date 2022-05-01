@@ -4,12 +4,9 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.10</Version>
-    <PackageVersion>3.7.10</PackageVersion>
-    <PackageReleaseNotes>* Fix #2864: Interface names don't conflict in JS
-* Fix #2855: duplicate idents from witness in inline expr
-* Fix #2868: don't write empty files
-* Add warning when duplicated generic params are detected</PackageReleaseNotes>
+    <Version>3.7.11</Version>
+    <PackageVersion>3.7.11</PackageVersion>
+    <PackageReleaseNotes>* Fix generic param user/compiler generated name conflicts</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
