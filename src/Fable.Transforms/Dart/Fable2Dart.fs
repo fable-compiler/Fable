@@ -1373,15 +1373,12 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccess com ctx returnStrategy idx boundValues
 
-        | Fable.WhileLoop(guard, body, label, _range) ->
+        | Fable.WhileLoop(guard, body, _range) ->
             // The guard expression is re-evaluated at each iteration,
             // so we must use an IIFE if there are statements
             let guard = transformAndCaptureExpr com ctx guard ||> iife
             let body, _ = transform com ctx Ignore body
-            let whileLoop = Statement.whileStatement(guard, body)
-            match label with
-            | Some label -> [Statement.labeledStatement(label, whileLoop)], None
-            | None -> [whileLoop], None
+            [Statement.whileStatement(guard, body)], None
 
         | Fable.ForLoop (var, start, limit, body, isUp, _range) ->
             let statements, startAndLimit = combineStatementsAndExprs com ctx [

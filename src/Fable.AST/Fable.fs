@@ -509,7 +509,7 @@ type Expr =
 
     // Control flow
     | Sequential of exprs: Expr list
-    | WhileLoop of guard: Expr * body: Expr * label: string option * range: SourceLocation option
+    | WhileLoop of guard: Expr * body: Expr * range: SourceLocation option
     | ForLoop of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
@@ -571,7 +571,7 @@ type Expr =
         | Get (_, _, _, r)
         | Set (_, _, _, _, r)
         | ForLoop (_,_,_,_,_,r)
-        | WhileLoop (_,_,_,r) -> r
+        | WhileLoop (_,_,r) -> r
 
 // module PrettyPrint =
 //     let rec printType (t: Type) = "T" // TODO

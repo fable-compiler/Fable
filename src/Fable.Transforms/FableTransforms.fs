@@ -60,7 +60,7 @@ let getSubExpressions = function
         match kind with
         | ExprSet e2 -> [e; e2; v]
         | FieldSet _ | ValueSet -> [e; v]
-    | WhileLoop(e1, e2, _, _) -> [e1; e2]
+    | WhileLoop(e1, e2, _) -> [e1; e2]
     | ForLoop(_, e1, e2, e3, _, _) -> [e1; e2; e3]
     | TryCatch(body, catch, finalizer, _) ->
         match catch with

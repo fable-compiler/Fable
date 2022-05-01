@@ -283,13 +283,13 @@ module AST =
                 when tupleIdent.Name = tupleArg.Name ->
                     flattenBindings ((id, value)::accBindings) tupleArg body
             | _ -> None
-        
+
         match arg.Type with
         | Tuple _ ->
             flattenBindings [] arg body
             |> Option.defaultValue body
         | _ -> body
-    
+
     /// Only matches lambda immediately nested within each other
     let rec nestedLambda checkArity expr =
         let rec inner accArgs body info =
@@ -445,7 +445,7 @@ module AST =
         makeTypedIdent typ name |> IdentExpr
 
     let makeWhileLoop range guardExpr bodyExpr =
-        WhileLoop (guardExpr, bodyExpr, None, range)
+        WhileLoop (guardExpr, bodyExpr, range)
 
     let makeForLoop range isUp ident start limit body =
         ForLoop (ident, start, limit, body, isUp, range)
@@ -494,7 +494,7 @@ module AST =
 
     let makeResizeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, ResizeArray) |> makeValue None
-    
+
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
 
@@ -625,7 +625,7 @@ module AST =
 
     let getImmutableAttachedMemberWith r t callee membName =
         Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=false)), t, r)
-    
+
     let getAttachedMemberWith r t callee membName =
         Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=true)), t, r)
 
@@ -867,7 +867,7 @@ module AST =
             match kind with
             | ExprSet e2 -> Set(f e, ExprSet(f e2), t, f v, r)
             | FieldSet _ | ValueSet -> Set(f e, kind, t, f v, r)
-        | WhileLoop(e1, e2, label, r) -> WhileLoop(f e1, f e2, label, r)
+        | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
         | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
         | TryCatch(body, catch, finalizer, r) ->
             TryCatch(f body,

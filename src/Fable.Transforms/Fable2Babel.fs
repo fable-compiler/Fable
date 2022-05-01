@@ -729,7 +729,7 @@ module Util =
             let cons = getArrayCons com typ kind
             let expr = com.TransformAsExpr(ctx, fableExpr)
             Expression.callExpression(get None cons "from", [|expr|])
-    
+
     let makeStringArray strings =
         strings
         |> List.mapToArray (fun x -> Expression.stringLiteral(x))
@@ -1837,11 +1837,8 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
-        | Fable.WhileLoop(TransformExpr com ctx guard, body, label, range) ->
-            let whileLoop = Statement.whileStatement(guard, transformBlock com ctx None body, ?loc=range)
-            match label with
-            | Some label -> [|Statement.labeledStatement(Identifier.identifier(label), whileLoop)|]
-            | None -> [|whileLoop|]
+        | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
+            [|Statement.whileStatement(guard, transformBlock com ctx None body, ?loc=range)|]
 
         | Fable.ForLoop (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =

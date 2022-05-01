@@ -3267,7 +3267,7 @@ module Util =
 
         | Fable.DecisionTreeSuccess (idx, boundValues, _) -> transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
-        | Fable.WhileLoop (TransformExpr com ctx (guard, stmts), body, label, range) ->
+        | Fable.WhileLoop (TransformExpr com ctx (guard, stmts), body, range) ->
             stmts
             @ [ Statement.while' (guard, transformBlock com ctx None body, ?loc = range) ]
 

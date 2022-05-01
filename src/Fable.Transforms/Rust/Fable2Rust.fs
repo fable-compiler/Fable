@@ -2111,8 +2111,7 @@ module Util =
             let elseExpr = transformLeaveContextByValue com ctx elseBody
             mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
 
-    let transformWhileLoop (com: IRustCompiler) ctx range label guard body =
-        // TODO: loop label
+    let transformWhileLoop (com: IRustCompiler) ctx range guard body =
         let guardExpr = transformExprMaybeUnwrapRef com ctx guard
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkWhileExpr None guardExpr bodyExpr //?loc=range)
@@ -2550,8 +2549,8 @@ module Util =
         | Fable.Emit(info, _t, range) ->
             transformEmit com ctx range info
 
-        | Fable.WhileLoop(guard, body, label, range) ->
-            transformWhileLoop com ctx range label guard body
+        | Fable.WhileLoop(guard, body, range) ->
+            transformWhileLoop com ctx range guard body
 
         | Fable.ForLoop (var, start, limit, body, isUp, range) ->
             transformForLoop com ctx range isUp var start limit body

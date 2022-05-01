@@ -1611,7 +1611,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveInlineIdent ctx info i, resolveInlineExpr com ctx info s, resolveInlineExpr com ctx info l, resolveInlineExpr com ctx info b, u, r)
 
-    | Fable.WhileLoop(e1, e2, label, r) -> Fable.WhileLoop(resolveInlineExpr com ctx info e1, resolveInlineExpr com ctx info e2, label, r)
+    | Fable.WhileLoop(e1, e2, r) -> Fable.WhileLoop(resolveInlineExpr com ctx info e1, resolveInlineExpr com ctx info e2, r)
 
     | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveInlineExpr com ctx info b, (c |> Option.map (fun (i, e) -> resolveInlineIdent ctx info i, resolveInlineExpr com ctx info e)), (d |> Option.map (resolveInlineExpr com ctx info)), r)
 

@@ -1006,7 +1006,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         match kind with
         | Fable.ArrayValues values -> PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
         | _ -> PhpNewArray([]) // TODO
-    
+
     | Fable.NewOption(opt,_,_) ->
         match opt with
         | Some expr -> convertExpr com expr
@@ -1221,8 +1221,8 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     | None -> []
             )]
 
-    | Fable.WhileLoop(guard, body, label,_) ->
-        com.EnterBreakable label
+    | Fable.WhileLoop(guard, body,_) ->
+        com.EnterBreakable None
         let phpGuard = convertExpr com guard
         let phpBody = convertExprToStatement com body Do
         com.LeaveBreakable()
