@@ -1,3 +1,8 @@
+### 3.7.0
+
+* Fix #2863: Add a nestable union type U9 @cannorin
+* Fix links in doc comments
+
 ### 3.6.2
 
 * Fix #2805: Improve jsNative error messages

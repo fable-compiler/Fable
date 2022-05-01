@@ -1,4 +1,4 @@
-import { Exception } from './Types.js';
+import { Exception, ensureErrorOrException } from './Types.js';
 import { IDisposable } from "./Util.js";
 
 export type Continuation<T> = (x: T) => void;
@@ -88,14 +88,14 @@ export function protectedCont<T>(f: IAsync<T>) {
         try {
           f(ctx);
         } catch (err) {
-          ctx.onError(err);
+          ctx.onError(ensureErrorOrException(err));
         }
       });
     } else {
       try {
         f(ctx);
       } catch (err) {
-        ctx.onError(err);
+        ctx.onError(ensureErrorOrException(err));
       }
     }
   };
@@ -107,8 +107,8 @@ export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IA
       onSuccess: (x: T) => {
         try {
           binder(x)(ctx);
-        } catch (ex) {
-          ctx.onError(ex);
+        } catch (err) {
+          ctx.onError(ensureErrorOrException(err));
         }
       },
       onError: ctx.onError,
@@ -185,8 +185,8 @@ export class AsyncBuilder {
         onError: (ex: any) => {
           try {
             catchHandler(ex)(ctx);
-          } catch (ex2) {
-            ctx.onError(ex2);
+          } catch (err) {
+            ctx.onError(ensureErrorOrException(err));
           }
         },
       });

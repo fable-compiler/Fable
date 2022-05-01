@@ -51,7 +51,7 @@ module Js =
             |> FableTransforms.transformFile com
             |> Fable2Babel.Compiler.transformFile com
 
-        if not isSilent then
+        if not(isSilent || babel.IsEmpty) then
             let! sourceMap = async {
                 use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
                 do! BabelPrinter.run writer babel
@@ -128,6 +128,7 @@ module Python =
         let outPath = getTargetPath cliArgs outPath
 
         if not cliArgs.UseRegion then
+            // TODO: Check if compilation is silent or file is empty (see JS)
             let writer = new PythonFileWriter(outPath)
             do! PythonPrinter.run writer python
 
@@ -201,6 +202,7 @@ module Dart =
             |> FableTransforms.transformFile com
             |> Fable2Dart.Compiler.transformFile com
 
+        // TODO: Check if compilation is silent or file is empty (see JS)
         use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
         do! DartPrinter.run writer file
     }
@@ -231,6 +233,7 @@ module Rust =
             |> FableTransforms.transformFile com
             |> Fable2Rust.Compiler.transformFile com
 
+        // TODO: Check if compilation is silent or file is empty (see JS)
         use writer = new RustWriter(com, cliArgs, pathResolver, outPath)
         do! RustPrinter.run writer crate
     }

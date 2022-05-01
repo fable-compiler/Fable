@@ -136,7 +136,7 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 }
 
 function parallel2<T, U>(a: IAsync<T>, b: IAsync<U>): IAsync<[T, U]> {
-  return delay(() => awaitPromise(Promise.all<T, U>([ startAsPromise(a), startAsPromise(b) ])));
+  return delay(() => awaitPromise(Promise.all([ startAsPromise(a), startAsPromise(b) ])));
 }
 
 export function sequential<T>(computations: Iterable<IAsync<T>>) {

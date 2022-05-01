@@ -121,6 +121,18 @@ let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 let inline create2<'T> (args: obj[]) =
     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
 
+type R =
+  | A of int
+  | B of string
+
+type Service<'a> = {
+    GetRecord: int -> int64 -> Async<'a>
+}
+with
+    static member inline RouteBuilder _ m =
+        let name = typeof<'a>.Name
+        sprintf "/api/%s/%s" name m
+
 let typeNameTests = [
   testCase "Type Namespace" <| fun () ->
     let x = typeof<TestType>.Namespace
@@ -137,6 +149,10 @@ let typeNameTests = [
   testCase "Type Name" <| fun () ->
     let x = typeof<TestType>.Name
     equal "TestType" x
+
+  // See https://github.com/fable-compiler/repl/issues/152
+  testCase "Type Name of generic argument in inlined function" <| fun () ->
+    Service<R>.RouteBuilder "" "Add" |> equal "/api/R/Add"
 
   testCase "Get fullname of generic types with inline function" <| fun () ->
     fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
@@ -591,7 +607,7 @@ let reflectionTests = [
 
   testCase "GetType and typeof return the same Type instance for primitive types" <| fun () ->
     let inline getTypeGeneric (x: 'T) =
-      x.GetType() 
+      x.GetType()
 
     obj.ReferenceEquals(getTypeGeneric 2, typeof<int>) |> equal true
     obj.ReferenceEquals(getTypeGeneric 2, typeof<uint32>) |> equal false

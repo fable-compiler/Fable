@@ -353,7 +353,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                     let name = genParamName fi.FieldType.GenericParameter
                     let index =
                         tdef.GenericParameters
-                        |> Seq.findIndex (fun arg -> arg.Name = name)
+                        |> Seq.findIndex (fun arg -> genParamName arg = name)
                     genArgs[index]
                 else fi.FieldType
             let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
@@ -1402,6 +1402,9 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                 let ent = com.GetEntity(entRef)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     usedNames
+                // Interfaces won't be output in JS code so prevent potential name conflicts, see #2864
+                elif com.Options.Language = JavaScript && ent.IsInterface then
+                    usedNames
                 else
                     match getEntityDeclarationName com entRef with
                     | "" -> usedNames
@@ -1690,6 +1693,8 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
                let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx)
                transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
             | Some w ->
+                // As witnesses come from the context, idents may be duplicated, see #2855
+                let info = { info with ResolvedIdents = Dictionary(); FileName = w.FileName }
                 let callee = resolveInlineExpr com ctx { info with FileName = w.FileName } w.Expr
                 let callInfo = makeCallInfo None argExprs argTypes
                 makeCall r t callInfo callee
@@ -1755,7 +1760,7 @@ type FableCompiler(com: Compiler) =
     member this.TryReplace(ctx, r, t, info, thisArg, args) =
         Replacements.Api.tryCall this ctx r t info thisArg args
 
-    member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =        
+    member this.ResolveInlineExpr(ctx: Context, inExpr: InlineExpr, args: Fable.Expr list) =
         let rec foldArgs acc = function
             | argIdent::restArgIdents, argExpr::restArgExprs ->
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
@@ -1768,7 +1773,6 @@ type FableCompiler(com: Compiler) =
             ScopeIdents = inExpr.ScopeIdents
             ResolvedIdents = Dictionary()
         }
-        
         let ctx, bindings =
             ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
                 let argId = resolveInlineIdent ctx info argId
@@ -1851,7 +1855,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                                 ctx, ident::idents)
 
                         // It looks as we don't need memb.DeclaringEntity.GenericParameters here
-                        let genArgs = Seq.mapToList genParamName memb.GenericParameters
+                        let genArgs = memb.GenericParameters |> Seq.mapToList (genParamName)
 
                         { Args = List.rev idents
                           Body = com.Transform(ctx, body)

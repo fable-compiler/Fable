@@ -1,3 +1,14 @@
+### 3.7.11
+
+* Fix generic param user/compiler generated name conflicts
+
+### 3.7.10
+
+* Fix #2864: Interface names don't conflict in JS
+* Fix #2855: duplicate idents from witness in inline expr
+* Fix #2868: don't write empty files
+* Add warning when duplicated generic params are detected
+
 ### 3.7.9
 
 * Fix #2851: References captured by >> eagerly eval

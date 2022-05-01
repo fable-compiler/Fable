@@ -210,6 +210,9 @@ type DirectiveLiteral =
 /// Otherwise, sourceType must be "script".
 type Program =
     | Program of body: ModuleDeclaration array
+    member this.IsEmpty =
+        match this with
+        | Program body -> Array.isEmpty body
 
 //    let sourceType = "module" // Don't use "script"
 //    member _.Directives: Directive array = directives

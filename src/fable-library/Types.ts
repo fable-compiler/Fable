@@ -195,6 +195,10 @@ export function isException(x: any) {
   return x instanceof Exception || x instanceof Error;
 }
 
+export function ensureErrorOrException(e: any) {
+  return isException(e) ? e : new Error(String(e));
+}
+
 export abstract class FSharpException extends Exception
   implements IEquatable<FSharpException>, IComparable<FSharpException> {
   toJSON() { return recordToJSON(this); }
