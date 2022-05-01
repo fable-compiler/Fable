@@ -349,7 +349,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                     let name = genParamName fi.FieldType.GenericParameter
                     let index =
                         tdef.GenericParameters
-                        |> Seq.findIndex (fun arg -> arg.Name = name)
+                        |> Seq.findIndex (fun arg -> genParamName arg = name)
                     genArgs.[index]
                 else fi.FieldType
             let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
@@ -1793,16 +1793,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                                 ctx, ident::idents)
 
                         // It looks as we don't need memb.DeclaringEntity.GenericParameters here
-                        let genArgsSet = HashSet()
-                        let genArgs = memb.GenericParameters |> Seq.mapToList (fun g ->
-                            let name = genParamName g
-                            if not(genArgsSet.Add(name)) then // See https://github.com/fable-compiler/repl/issues/152
-                                let r = makeRange memb.DeclarationLocation |> Some
-                                $"Two generic arguments with same name: %s{name}, have been detected for method %s{memb.FullName}. "
-                                + "This may happen when type inference conflicts with generic arguments for the class. "
-                                + "Please type explicitly the arguments of the method."
-                                |> addWarning com [] r
-                            name)
+                        let genArgs = memb.GenericParameters |> Seq.mapToList (genParamName)
 
                         { Args = List.rev idents
                           Body = com.Transform(ctx, body)

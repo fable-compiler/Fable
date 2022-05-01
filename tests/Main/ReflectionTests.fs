@@ -129,7 +129,7 @@ type Service<'a> = {
     GetRecord: int -> int64 -> Async<'a>
 }
 with
-    static member inline RouteBuilder (_: 'b) m =
+    static member inline RouteBuilder _ m =
         let name = typeof<'a>.Name
         sprintf "/api/%s/%s" name m
 

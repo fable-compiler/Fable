@@ -802,11 +802,8 @@ module TypeHelpers =
     open Patterns
 
     let genParamName (genParam: FSharpGenericParameter) =
-        // Sometimes the names of user-declared and compiler-generated clash, see #1900
-        //if genParam.IsCompilerGenerated then genParam.Name.Replace("?", "$") + "$" else genParam.Name
-
-        // Conflicting generic param names seem to have been solved in FCS
-        genParam.Name
+        // Sometimes the names of user-declared and compiler-generated clash, see #1900 and https://github.com/dotnet/fsharp/issues/13062
+        if genParam.IsCompilerGenerated then genParam.Name.Replace("?", "$") + "$" else genParam.Name
 
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
         let name = genParamName genParam
