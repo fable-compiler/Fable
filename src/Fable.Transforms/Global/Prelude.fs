@@ -21,6 +21,13 @@ module Option =
         x
 
 [<RequireQualifiedAccess>]
+module Map =
+    let matchesKeyValue k v map =
+        match Map.tryFind k map with
+        | None -> false
+        | Some v2 -> v = v2
+
+[<RequireQualifiedAccess>]
 module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev

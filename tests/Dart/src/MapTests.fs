@@ -173,11 +173,10 @@ let tests() =
         xs |> Map.findKey (fun _ v -> v = 9.)
         |> equal 3
 
-    // TODO
-//    testCase "Map.tryFindKey works" <| fun () ->
-//        let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-//        xs |> Map.tryFindKey (fun _ v -> v > 10.) |> equal (Some 4)
-//        xs |> Map.tryFindKey (fun _ v -> v > 20.) |> equal None
+    testCase "Map.tryFindKey works" <| fun () ->
+        let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+        xs |> Map.tryFindKey (fun _ v -> v > 10.) |> equal (Some 4)
+        xs |> Map.tryFindKey (fun _ v -> v > 20.) |> equal None
 
     testCase "Map.pick works" <| fun () ->
         let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
@@ -228,16 +227,15 @@ let tests() =
         (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
         |> equal true
 
-    // TODO
-//    testCase "Map.toSeq generates sequences that can be iterated multiple times" <| fun () -> // See #2242
-//        let pr (sequence: seq<int * string>) =
-//            sequence
-//            |> Seq.map (fun (i, v) -> v)
-//            |> String.concat ", "
-//
-//        let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
-//        pr someSeq |> equal "a, b"
-//        pr someSeq |> equal "a, b"
+    testCase "Map.toSeq generates sequences that can be iterated multiple times" <| fun () -> // See #2242
+        let pr (sequence: seq<int * string>) =
+            sequence
+            |> Seq.map (fun (i, v) -> v)
+            |> String.concat ", "
+
+        let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
+        pr someSeq |> equal "a, b"
+        pr someSeq |> equal "a, b"
 
     testCase "Map.keys works" <| fun () ->
         let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
@@ -267,12 +265,11 @@ let tests() =
 //        r2.kv.Key |> equal "bar"
 //        r2.kv.Value |> equal 25
 
-    // TODO
-//    testCase "Map.change works" <| fun () ->
-//        let m = Map["a",1; "b",2]
-//        let m2 = Map["a",1; "b",3]
-//        m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
-//        m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
+    testCase "Map.change works" <| fun () ->
+        let m = Map["a",1; "b",2]
+        let m2 = Map["a",1; "b",3]
+        m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
+        m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
 
     testCase "Map works with keys with custom comparison" <| fun () ->
         Map.empty

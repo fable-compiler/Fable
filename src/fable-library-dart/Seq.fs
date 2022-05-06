@@ -58,13 +58,11 @@ module Enumerator =
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable started = false
         let mutable finished = false
-        let mutable curr = None
+        let mutable curr: 'T = Unchecked.defaultof<'T>
         let current() =
             if not started then notStarted()
             elif finished then alreadyFinished()
-            match curr with
-            | None -> alreadyFinished()
-            | Some x -> x
+            else curr
         let finish() =
             finished <- true
             match innerOpt with
@@ -92,7 +90,7 @@ module Enumerator =
                         res <- Some false
                 | Some _, Some inner ->
                     if inner.MoveNext() then
-                        curr <- Some (inner.Current)
+                        curr <- inner.Current
                         res <- Some true
                     else
                         try inner.Dispose()

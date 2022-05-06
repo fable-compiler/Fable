@@ -90,6 +90,7 @@ type MemberFunctionOrValue =
     abstract CurriedParameterGroups: Parameter list list
     abstract ReturnParameter: Parameter
     abstract ApparentEnclosingEntity: EntityRef
+    abstract IsDispatchSlot: bool
 
 type Entity =
     abstract Ref: EntityRef
@@ -103,6 +104,7 @@ type Entity =
     abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
+    abstract IsAbstractClass: bool
     abstract IsPublic: bool
     abstract IsFSharpModule: bool
     abstract IsFSharpUnion: bool
