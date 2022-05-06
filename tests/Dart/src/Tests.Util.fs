@@ -13,5 +13,5 @@ type Test =
     static member throwsException: Assertion = nativeOnly
 
 let testCase (msg: string) (f: unit -> unit) = Test.test(msg, f)
-let equal (expected: obj) (actual: obj) = Test.expect(actual, Test.equals(expected))
+let equal (expected: 'T) (actual: 'T) = Test.expect(actual, Test.equals(expected))
 let throwsAnyError (f: unit -> 'a): unit = Test.expect(f, Test.throwsException)

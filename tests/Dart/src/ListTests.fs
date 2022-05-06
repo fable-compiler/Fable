@@ -76,7 +76,7 @@ let tests() =
 
     testCase "List.IsEmpty works" <| fun () ->
             let xs = [1; 2; 3; 4]
-            let ys = []
+            let ys: int list = []
             equal false xs.IsEmpty
             equal false [1; 2; 3; 4].IsEmpty
             equal true ys.IsEmpty
@@ -164,7 +164,7 @@ let tests() =
             let xs2 = [1.;2.]
             (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
 
-            let xs3 = []
+            let xs3: int list = []
             (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
 
     testCase "List.tryExactlyOne works" <| fun () ->
@@ -503,7 +503,7 @@ let tests() =
     testCase "List.tryFindIndex works" <| fun () ->
             let xs = [1; 2]
             let ys = xs |> List.tryFindIndex ((=) 2)
-            ys.Value |> equal 1
+            ys |> equal (Some 1)
             xs |> List.tryFindIndex ((=) 5) |> equal None
 
     testCase "List.unzip works" <| fun () ->
@@ -798,12 +798,11 @@ let tests() =
             | _ -> 0.0
         sum |> equal 6.0
 
-    // TODO
-//    testCase "List.splitAt works" <| fun () ->
-//        let li = [1;2;3;4]
-//        List.splitAt 0 li |> equal ([], [1;2;3;4])
-//        List.splitAt 3 li |> equal ([1;2;3], [4])
-//        List.splitAt 4 li |> equal ([1;2;3;4], [])
+    testCase "List.splitAt works" <| fun () ->
+        let li = [1;2;3;4]
+        List.splitAt 0 li |> equal ([], [1;2;3;4])
+        List.splitAt 3 li |> equal ([1;2;3], [4])
+        List.splitAt 4 li |> equal ([1;2;3;4], [])
 
     testCase "List.windowed works" <| fun () -> // See #1716
         let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]

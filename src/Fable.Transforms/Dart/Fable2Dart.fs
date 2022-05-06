@@ -96,6 +96,11 @@ module Util =
         let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
         Expression.invocationExpression(fn.Expr, args, transformType com ctx t)
 
+    let libGenCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) genArgs =
+        let genArgs = List.map (transformType com ctx) genArgs
+        let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
+        Expression.invocationExpression(fn.Expr, args, transformType com ctx t, genArgs=genArgs)
+
     let extLibCall (com: IDartCompiler) ctx t modulePath memberName (args: Expression list) =
         let fn = com.GetImportIdent(ctx, memberName, modulePath, Fable.Any)
         Expression.invocationExpression(fn.Expr, args, transformType com ctx t)
@@ -617,7 +622,7 @@ module Util =
 
             match getItems [] headAndTail with
             | [], None ->
-                libCall com ctx (Fable.List typ) "List" "empty" []
+                libGenCall com ctx (Fable.List typ) "List" "empty" [] [typ]
                 |> resolveExpr returnStrategy
 
             | [expr], None ->

@@ -136,34 +136,34 @@ let tests () =
         let xs = [|3; 4; 1; 2|]
         let ys = xs |> Array.sortBy (fun x -> -x)
         ys[0] + ys[1]
-        |> equal 7.
+        |> equal 7
 
     testCase "Array.sortByDescending works" <| fun () ->
         let xs = [|3; 4; 1; 2|]
         let ys = xs |> Array.sortByDescending (fun x -> -x)
         ys[0] + ys[1]
-        |> equal 3.
+        |> equal 3
 
     testCase "Array.sortWith works" <| fun () ->
         let xs = [|3; 4; 1; 2|]
         let ys = xs |> Array.sortWith (fun x y -> int(x - y))
         ys[0] + ys[1]
-        |> equal 3.
+        |> equal 3
 
     testCase "Array.sortInPlace works" <| fun () ->
         let xs = [|3; 4; 1; 2; 10|]
         Array.sortInPlace xs
         xs[0] + xs[1]
-        |> equal 3.
+        |> equal 3
 
     testCase "Array.sortInPlaceBy works" <| fun () ->
         let xs = [|3; 4; 1; 2; 10|]
         Array.sortInPlaceBy (fun x -> -x) xs
         xs[0] + xs[1]
-        |> equal 14.
+        |> equal 14
 
     testCase "Array.sortInPlaceWith works" <| fun () ->
         let xs = [|3; 4; 1; 2; 10|]
         Array.sortInPlaceWith (fun x y -> int(x - y)) xs
         xs[0] + xs[1]
-        |> equal 3.
+        |> equal 3
