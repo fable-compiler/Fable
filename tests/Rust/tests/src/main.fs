@@ -15,6 +15,7 @@ let tests: unit[] = [|
     importAll "EnumTests.rs"
     importAll "HashSetTests.rs"
     importAll "InterfaceTests.rs"
+    importAll "InteropTests.rs"
     importAll "ListTests.rs"
     importAll "MapTests.rs"
     importAll "MiscTests.rs"

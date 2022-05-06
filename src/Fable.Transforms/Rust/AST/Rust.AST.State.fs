@@ -1427,6 +1427,76 @@ type State with
             m.span()
         )
 
+    member self.print_emit_expr(value, args: Vec<Types.Expr>) =
+        let args = args.ToArray()
+        // printer.AddLocation(loc)
+
+        let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
+            System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+
+        let printSegment (printer: Pretty.Printer) (value: string) segmentStart segmentEnd =
+            let segmentLength = segmentEnd - segmentStart
+            if segmentLength > 0 then
+                let segment = value.Substring(segmentStart, segmentLength)
+                self.s.word(segment)
+
+        // Macro transformations
+        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+        let value =
+            value
+            |> replace @"\$(\d+)\.\.\." (fun m ->
+                let rep = ResizeArray()
+                let i = int m.Groups.[1].Value
+                for j = i to args.Length - 1 do
+                    rep.Add("$" + string j)
+                String.concat ", " rep)
+
+            // |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+            //     let i = int m.Groups.[1].Value
+            //     match args.[i] with
+            //     | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
+            //     | _ -> m.Groups.[3].Value)
+
+            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                let i = int m.Groups.[2].Value
+                match Array.tryItem i args with
+                | Some _ -> m.Groups.[1].Value
+                | None -> "")
+
+            // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
+            // |> replace @"\$(\d+)!" (fun m ->
+            //     let i = int m.Groups.[1].Value
+            //     match Array.tryItem i args with
+            //     | Some(Literal(Literal.StringLiteral(StringLiteral(value, _)))) -> value
+            //     | _ -> "")
+
+        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+        if matches.Count > 0 then
+            for i = 0 to matches.Count - 1 do
+                let m = matches.[i]
+                let isSurroundedWithParens =
+                    m.Index > 0
+                    && m.Index + m.Length < value.Length
+                    && value.[m.Index - 1] = '('
+                    && value.[m.Index + m.Length] = ')'
+
+                let segmentStart =
+                    if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                    else 0
+
+                printSegment self.s value segmentStart m.Index
+
+                let argIndex = int m.Value.[1..]
+                match Array.tryItem argIndex args with
+                | Some e when isSurroundedWithParens -> self.print_expr(e)
+                | Some e -> self.print_expr(e)
+                | None -> self.s.word("undefined")
+
+            let lastMatch = matches.[matches.Count - 1]
+            printSegment self.s value (lastMatch.Index + lastMatch.Length) value.Length
+        else
+            printSegment self.s value 0 value.Length
+
     member self.print_call_post(args: Vec<P<ast.Expr>>) =
         self.s.popen()
         self.commasep_exprs(pp.Breaks.Inconsistent, args)
@@ -1947,6 +2017,8 @@ type State with
 
                 self.s.pclose()
             | ast.ExprKind.MacCall(m) -> self.print_mac(m)
+            | ast.ExprKind.EmitExpression(e, args) ->
+                self.print_emit_expr(e, args)
             | ast.ExprKind.Paren(e) ->
                 self.s.popen()
                 self.print_inner_attributes_inline(attrs)
