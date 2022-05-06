@@ -824,18 +824,16 @@ let tests() =
         List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
         List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
         List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
-        // TODO
-//        List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
+        List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
 
     testCase "List iterators from range do rewind" <| fun () ->
         let xs = [1..5] |> List.toSeq
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-    // TODO
-//    testCase "List comprehensions returning None work" <| fun () ->
-//        let spam : string option list = [for _ in 0..5 -> None]
-//        List.length spam |> equal 6
+    testCase "List comprehensions returning None work" <| fun () ->
+        let spam : string option list = [for _ in 0..5 -> None]
+        List.length spam |> equal 6
 
     testCase "Int list tail doesn't get wrapped with `| 0`" <| fun () -> // See #1447
         let revert xs =

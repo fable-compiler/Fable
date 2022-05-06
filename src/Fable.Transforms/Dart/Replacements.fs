@@ -994,13 +994,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), _ ->
         // We could add ?? as operator (or a custom string operator)
-        // so this can be a BinaryOp  
+        // so this can be a BinaryOp
         emit r t args false "$0 ?? $1" |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
+    | "KeyValuePattern", [arg] ->
+        Helper.LibCall(com, "Types", "mapEntryToTuple", t, [arg], ?loc=r) |> Some
     // Erased operators.
-    // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
+    | ("Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> TypeCast(args.Head, Unit) |> Some
     // Number and String conversions
@@ -1859,9 +1860,9 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Erased operators
-    | "CheckThis", _, [arg]
+    | "CheckThis", _, [arg] -> Some arg
     | "UnboxFast", _, [arg]
-    | "UnboxGeneric", _, [arg] -> Some arg
+    | "UnboxGeneric", _, [arg] -> TypeCast(arg, t) |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some

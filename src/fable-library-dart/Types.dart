@@ -8,6 +8,10 @@ Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {
   return Map.fromEntries(tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
 }
 
+Tuple2<K,V> mapEntryToTuple<K,V>(MapEntry<K,V> kv) {
+  return Tuple2(kv.key, kv.value);
+}
+
 Map<K,V> mapWith<K,V>(IEqualityComparer<K> comparer, [Map<K,V>? initialValues]) {
   final map = LinkedHashMap<K,V>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
   if (initialValues != null) {

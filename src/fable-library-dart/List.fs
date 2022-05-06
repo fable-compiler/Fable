@@ -3,24 +3,40 @@
 open System.Collections.Generic
 open Fable.Core
 
-[<CompiledName("FSharpList")>]
-type LinkedList<'T> private (head: 'T option, tail_: LinkedList<'T> option) =
-    let mutable tail = tail_
+type EmptyList<'T>() =
+    inherit LinkedList<'T>(None)
 
-    static member Empty: 'T list = LinkedList<'T>(None, None)
-    static member Cons (x: 'T, xs: 'T list) = LinkedList<'T>(Some x, Some xs)
+and ConsList<'T>(head: 'T, tail: LinkedList<'T>) =
+    inherit LinkedList<'T>(Some tail)
+    member _.GetHead() = head
+
+and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T> (tail_: 'T list option) =
+    let mutable tail = tail_
+    static member Empty: 'T list = EmptyList<'T>()
+    static member Cons (x: 'T, xs: 'T list): 'T list = ConsList<'T>(x, xs)
 
     member internal xs.SetConsTail (t: 'T list) = tail <- Some t
-    member internal xs.AppendConsNoTail (x: 'T) =
-        let t = LinkedList<'T>(Some x, None)
+
+    member internal xs.AppendConsNoTail (x: 'T): 'T list =
+        let t = ConsList<'T>(x, EmptyList())
         xs.SetConsTail t
         t
 
-    member _.IsEmpty: bool = Option.isNone tail
-    member _.Head: 'T = Option.get head
-    member _.TryHead: 'T option = head
-    member _.Tail: LinkedList<'T> = Option.get tail
-    member _.TryTail: LinkedList<'T> option = tail
+    member this.IsEmpty: bool = this :? EmptyList<'T>
+
+    member this.Head: 'T =
+        match this with
+        | :? ConsList<'T> as this -> this.GetHead()
+        | _ -> failwith "Empty list"
+
+    member this.TryHead: 'T option =
+        match this with
+        | :? ConsList<'T> as this -> this.GetHead() |> Some
+        | _ -> None
+
+    member this.Tail: LinkedList<'T> = Option.get tail
+
+    member this.TryTail: LinkedList<'T> option = tail
 
     member xs.Length =
         let rec loop i (xs: 'T list) =

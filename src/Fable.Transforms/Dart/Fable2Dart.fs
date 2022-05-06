@@ -33,6 +33,7 @@ type UsedNames =
 type Context =
   { File: Fable.File
     UsedNames: UsedNames
+    AssertedTypes: Map<string, Type>
     DecisionTargets: (Fable.Ident list * Fable.Expr) list
     TailCallOpportunity: ITailCallOpportunity option
     EntityAndMemberGenericParams: Fable.GenericParam list
@@ -751,8 +752,8 @@ module Util =
                 | _ -> false)
         | _ -> false
 
-    let transformCast (com: IDartCompiler) (ctx: Context) t returnStrategy expr =
-        match t, expr with
+    let transformCast (com: IDartCompiler) (ctx: Context) targetType returnStrategy expr =
+        match targetType, expr with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
@@ -777,15 +778,13 @@ module Util =
         | _ ->
             transformExprAndResolve com ctx returnStrategy expr (fun expr ->
                 let source = expr.Type
-                let target = transformType com ctx t
-                match target with
-                | Nullable genTarget ->
+                let target = transformType com ctx targetType
+                match expr, target with
+                | IdentExpression id, target when Map.matchesKeyValue id.Name target ctx.AssertedTypes -> expr
+                | _, Nullable genTarget ->
                     if source = genTarget || source = target then expr
-                    else
-                        printfn $"SOURCE: %A{source}"
-                        printfn $"TARGET: %A{target}"
-                        Expression.asExpression(expr, target)
-                | target ->
+                    else Expression.asExpression(expr, target)
+                | _, target ->
                     if source = target then expr
                     else Expression.asExpression(expr, target))
 
@@ -835,7 +834,14 @@ module Util =
             let captureStmnts, captureExpr, returnStrategy =
                 convertCaptureStrategyIntoAssign com ctx thenExpr.Type returnStrategy
 
-            let thenStmnt, _ = com.Transform(ctx, returnStrategy, thenExpr)
+            let thenCtx =
+                match guardExpr with
+                | IsExpression(IdentExpression id, assertedType, false) ->
+                    // Propagate type assertions also through bindings?
+                    { ctx with AssertedTypes = Map.add id.Name assertedType ctx.AssertedTypes }
+                | _ -> ctx
+
+            let thenStmnt, _ = com.Transform(thenCtx, returnStrategy, thenExpr)
             let elseStmnt, _ = com.Transform(ctx, returnStrategy, elseExpr)
 
             match captureExpr, thenStmnt, elseStmnt with
@@ -981,7 +987,7 @@ module Util =
         match value with
         | Some(IdentExpression ident2) when ident.Name = ident2.Name ->
             let kind = if var.IsMutable then Var else Final
-            let varDecl = Statement.variableDeclaration(ident, kind, isLate=true, addToScope=ctx.AddToScope)
+            let varDecl = Statement.variableDeclaration(ident, kind, addToScope=ctx.AddToScope)
             ctx, varDecl::valueStmnts
         | _ ->
             let value = value |> Option.defaultValue (Expression.nullLiteral ident.Type)
@@ -1153,8 +1159,7 @@ module Util =
                 yield! targets |> List.collect (fun (idents,_) ->
                     idents |> List.map (transformIdent com ctx))
             ]
-            // Declare vars as late so Dart compiler doesn't complain they may not be assigned
-            |> List.map (fun i -> Statement.variableDeclaration(i, Final, isLate=true, addToScope=ctx.AddToScope))
+            |> List.map (fun i -> Statement.variableDeclaration(i, Final, addToScope=ctx.AddToScope))
         // Transform targets as switch
         let switch2 =
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
@@ -1472,34 +1477,35 @@ module Util =
             let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
             Declaration.functionDeclaration(memb.Name, args, body, returnType, genParams=genParams)
 
+    let transformAbstractMember (com: IDartCompiler) ctx (m: Fable.MemberFunctionOrValue) =
+        // TODO: Indexed properties
+        if m.IsGetter then Some IsGetter
+        elif m.IsSetter then Some IsSetter
+        elif m.IsProperty then None
+        else Some IsMethod
+        |> Option.map (fun kind ->
+            let name = m.DisplayName
+            let args =
+                m.CurriedParameterGroups
+                |> List.concat
+                |> List.mapi (fun i p ->
+                    let name =
+                        match p.Name with
+                        | Some name -> name
+                        | None -> $"$arg{i}"
+                    let t = transformType com ctx p.Type
+                    FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
+                )
+            let genParams = m.GenericParameters |> List.map (transformGenericParam com ctx)
+            InstanceMethod(name, kind=kind, args=args, genParams=genParams, returnType=transformType com ctx m.ReturnParameter.Type)
+        )
+
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
         let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
-            |> Seq.choose (fun m ->
-                // TODO: Indexed properties
-                if m.IsGetter then Some IsGetter
-                elif m.IsSetter then Some IsSetter
-                elif m.IsProperty then None
-                else Some IsMethod
-                |> Option.map (fun kind ->
-                    let name = m.DisplayName
-                    let args =
-                        m.CurriedParameterGroups
-                        |> List.concat
-                        |> List.mapi (fun i p ->
-                            let name =
-                                match p.Name with
-                                | Some name -> name
-                                | None -> $"$arg{i}"
-                            let t = transformType com ctx p.Type
-                            FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
-                        )
-                    // TODO: genArgs
-                    InstanceMethod(name, kind=kind, args=args, returnType=transformType com ctx m.ReturnParameter.Type)
-                )
-            )
+            |> Seq.choose (transformAbstractMember com ctx)
             |> Seq.toList
         [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 
@@ -1799,14 +1805,23 @@ module Util =
                 |> Some
             | None, None -> None
 
+        let abstractMembers =
+            classEnt.MembersFunctionsAndValues
+            |> Seq.choose (fun m ->
+                if m.IsDispatchSlot then
+                    transformAbstractMember com ctx m
+                else None)
+            |> Seq.toList
+
         let classDecl =
             Declaration.classDeclaration(
                 classDecl.Name,
+                isAbstract = classEnt.IsAbstractClass,
                 genParams = genParams,
                 ?extends = extends,
                 implements = implements,
                 ?constructor = constructor,
-                methods = classMethods,
+                methods = classMethods @ abstractMembers,
                 variables = variables)
 
         classDecl::otherDecls
@@ -1957,6 +1972,7 @@ module Compiler =
                           CurrentDeclarationScope = Unchecked.defaultof<_> }
             DecisionTargets = []
             EntityAndMemberGenericParams = []
+            AssertedTypes = Map.empty
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
             VarsInScope = HashSet()

@@ -469,9 +469,7 @@ module PrinterExtensions =
             | ExpressionStatement e ->
                 printer.Print(e)
 
-            | LocalVariableDeclaration(ident, kind, value, isLate) ->
-                if isLate then
-                    printer.Print("late ")
+            | LocalVariableDeclaration(ident, kind, value) ->
                 match kind, value with
                 | Final, Some(AnonymousFunction(args, body, genParams, returnType)) ->
                     let args = args |> List.map FunctionArg
@@ -724,9 +722,7 @@ module PrinterExtensions =
                     if v.IsOverride then
                         p.Print("@override")
                         p.PrintNewLine()
-                    if v.IsLate then
-                        p.Print("late ")
-                    p.PrintVariableDeclaration(v.Ident, v.Kind, ?value=v.Value)
+                    p.PrintVariableDeclaration(v.Ident, v.Kind, ?value=v.Value, isLate=v.IsLate)
                     p.Print(";")
 
                 // Constructor
@@ -826,10 +822,16 @@ module PrinterExtensions =
             printer.PrintFunctionArgs(args)
             printer.PrintFunctionBody(?body=body, ?isModuleOrClassMember=isModuleOrClassMember)
 
-        member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression) =
+        member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression, ?isLate) =
             match value with
             // Dart recommends not to explicitly initialize variables to null
             | None | Some(Literal(NullLiteral _)) ->
+                match isLate, ident.Type with
+                | Some false, _
+                | None, Nullable _ -> ()
+                | Some true, _
+                // Declare as late so Dart compiler doesn't complain var is not assigned
+                | None, _ -> printer.Print("late ")
                 match kind with
                 | Final -> printer.Print("final ")
                 | _ -> ()

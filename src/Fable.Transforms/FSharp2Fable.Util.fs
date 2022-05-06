@@ -166,6 +166,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         // NOTE: Using memb.IsValue doesn't work for function values
         // See isModuleValueForDeclarations below
         member _.IsValue = m.IsValue
+        member _.IsDispatchSlot = m.IsDispatchSlot
         member _.IsInstance = m.IsInstanceMember
         member _.IsMutable = m.IsMutable
         member _.IsGetter = m.IsPropertyGetterMethod
@@ -279,6 +280,7 @@ type FsEnt(ent: FSharpEntity) =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
         member _.IsPublic = FsEnt.IsPublic ent
+        member _.IsAbstractClass = ent.IsAbstractClass
         member _.IsFSharpModule = ent.IsFSharpModule
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
