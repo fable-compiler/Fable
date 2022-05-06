@@ -1,7 +1,7 @@
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
-use core::ops::{Deref, Index};
+use core::ops::{Deref, DerefMut, Index};
 use core::hash::{Hash, Hasher};
 
 #[repr(transparent)]
@@ -129,6 +129,13 @@ impl<T> Deref for MutCell<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
+        self.get_mut()
+    }
+}
+
+impl<T> DerefMut for MutCell<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
         self.get_mut()
     }
 }
