@@ -657,11 +657,11 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 //        | Some v -> value <- v; true
 //        | None -> false
 
-//    member _.Keys: ICollection<'Key> =
-//        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
-//
-//    member _.Values: ICollection<'Value> =
-//        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
+    member _.Keys: ICollection<'Key> =
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
+
+    member _.Values: ICollection<'Value> =
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
 
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS
@@ -871,13 +871,13 @@ let toList (table: Map<_, _>) =
 
 // [<CompiledName("ToArray")>]
 let toArray (table: Map<_, _>) =
-    table.ToArray()
+    table.ToArray() |> Array.map (fun kv -> kv.Key, kv.Value)
 
-//let keys (table: Map<'K, 'V>): ICollection<'K> =
-//    table.Keys
-//
-//let values (table: Map<'K, 'V>): ICollection<'V> =
-//    table.Values
+let keys (table: Map<'K, 'V>): ICollection<'K> =
+    table.Keys
+
+let values (table: Map<'K, 'V>): ICollection<'V> =
+    table.Values
 
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) : Map<'Key, 'Value> =

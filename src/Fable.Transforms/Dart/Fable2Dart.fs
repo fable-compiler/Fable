@@ -170,6 +170,13 @@ module Util =
     let getUnionExprFields expr =
         get (List Dynamic) expr "fields"
 
+    /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
+    /// Should this be done in FSharp2Fable step?
+    let sanitizeMember (name: string) =
+        Naming.sanitizeIdentForbiddenCharsWith (function
+            | '@' -> "$"
+            | _ -> "_") name
+
     let getUniqueNameInRootScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             ctx.UsedNames.RootScope.Contains(name)
@@ -850,6 +857,7 @@ module Util =
                 Expression.indexExpression(expr, prop, t))
 
         | Fable.FieldGet(fieldName, info) ->
+            let fieldName = sanitizeMember fieldName
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -951,6 +959,7 @@ module Util =
             let stmnts3, _ = transform com ctx (Assign toBeSet) value
             stmnts1 @ stmnts2 @ stmnts3
         | Fable.FieldSet(fieldName) ->
+            let fieldName = sanitizeMember fieldName
             let toBeSet = get Dynamic toBeSet fieldName
             let stmnts2, _ = transform com ctx (Assign toBeSet) value
             stmnts1 @ stmnts2
@@ -1494,31 +1503,6 @@ module Util =
             |> Seq.toList
         [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 
-    let transformUnionDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
-        let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
-        let extends = libTypeRef com ctx "Types" "Union" []
-        let implements = makeTypeRefFromName "Comparable" [selfTypeRef]
-        let constructor =
-            let tag = makeImmutableIdent Integer "tag"
-            let fields = makeImmutableIdent (Type.List Object) "fields"
-            Constructor(args=[FunctionArg tag; FunctionArg fields], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
-        let compareTo =
-            let other = makeImmutableIdent selfTypeRef "other"
-            let args = [Expression.identExpression other]
-            let body =
-                Expression.invocationExpression(SuperExpression extends, "compareTagAndFields", args, Integer)
-                |> makeReturnBlock
-            InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
-        [Declaration.classDeclaration(
-            decl.Name,
-            genParams=(ent.GenericParameters
-                |> List.map (transformGenericParam com ctx)),
-            constructor=constructor,
-            extends=extends,
-            implements=[implements],
-            methods=[compareTo])]
-
     // Mirrors Dart.Replacements.compare
     let compare com ctx (left: Expression) (right: Expression) =
         match left.Type with
@@ -1526,12 +1510,72 @@ module Util =
         | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [left; right]
         | _ -> Expression.invocationExpression(left, "compareTo", [right], Integer)
 
-    let transformRecordDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
+    let getEqualityAndComparisonConstraints (ent: Fable.Entity) =
+        let mutable noEquality = false
+        let mutable noComparison = false
+        let mutable customEquality = false
+        let mutable customComparison = false
+        for att in ent.Attributes do
+            match att.Entity.FullName with
+            | Atts.noEquality -> noEquality <- true
+            | Atts.noComparison -> noComparison <- true
+            | Atts.customEquality -> customEquality <- true
+            | Atts.customComparison -> customComparison <- true
+            | _ -> ()
+        {|
+            noEquality = noEquality
+            noComparison = noComparison
+            customEquality = customEquality
+            customComparison = customComparison
+        |}
+
+    let transformUnionDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
+        let constraints = getEqualityAndComparisonConstraints ent
+        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
+        let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
+
+        let extends = libTypeRef com ctx "Types" "Union" []
+        let implements = [
+            if not constraints.noComparison then
+                makeTypeRefFromName "Comparable" [selfTypeRef]
+        ]
+
+        let constructor =
+            let tag = makeImmutableIdent Integer "tag"
+            let fields = makeImmutableIdent (Type.List Object) "fields"
+            Constructor(args=[FunctionArg tag; FunctionArg fields], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
+
+        let compareTo() =
+            let other = makeImmutableIdent selfTypeRef "other"
+            let args = [Expression.identExpression other]
+            let body =
+                Expression.invocationExpression(SuperExpression extends, "compareTagAndFields", args, Integer)
+                |> makeReturnBlock
+            InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
+
+        let methods = [
+            if not(constraints.noComparison || constraints.customComparison) then
+                compareTo()
+            yield! classMethods
+        ]
+
+        [Declaration.classDeclaration(
+            decl.Name,
+            genParams=(ent.GenericParameters
+                |> List.map (transformGenericParam com ctx)),
+            constructor=constructor,
+            extends=extends,
+            implements=implements,
+            methods=methods)]
+
+    let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
+        let constraints = getEqualityAndComparisonConstraints ent
         let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
         let implements = [
             libTypeRef com ctx "Types" "Record" []
-            makeTypeRefFromName "Comparable" [selfTypeRef]
+            if not constraints.noComparison then
+                makeTypeRefFromName "Comparable" [selfTypeRef]
         ]
         let mutable hasMutableFields = false
         let fields, varDecls =
@@ -1543,17 +1587,14 @@ module Util =
                         Var
                     else
                         Final
-                let ident = transformIdentWith com ctx f.IsMutable f.FieldType f.Name
+                let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable f.FieldType
                 ident, InstanceVariable(ident, kind=kind))
             |> List.unzip
 
         let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true))
         let constructor = Constructor(args=consArgs, isConst=not hasMutableFields)
 
-        // TODO: implement toString
-        // TODO: check if there are already custom Equals, GetHashCode and/or CompareTo implementations
-        // TODO: check if type is NoEquality/NoComparison (also for unions)
-        let equals =
+        let equals() =
             let other = makeImmutableIdent Object "other"
 
             let makeFieldEq (field: Ident) =
@@ -1581,7 +1622,7 @@ module Util =
 
             InstanceMethod("==", [FunctionArg other], Boolean, body=body, kind=MethodKind.IsOperator, isOverride=true)
 
-        let hashCode =
+        let hashCode() =
             let intType = Fable.Number(Int32, Fable.NumberInfo.Empty)
             let body =
                 fields
@@ -1592,7 +1633,7 @@ module Util =
                 |> makeReturnBlock
             InstanceMethod("hashCode", [], Integer, kind=IsGetter, body=body, isOverride=true)
 
-        let compareTo =
+        let compareTo() =
             let r = makeImmutableIdent Integer "$r"
             let other = makeImmutableIdent selfTypeRef "other"
 
@@ -1624,13 +1665,23 @@ module Util =
 
             InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
 
+        // TODO: toString
+        let methods = [
+            if not(constraints.noEquality || constraints.customEquality) then
+                equals()
+                hashCode()
+            if not(constraints.noComparison || constraints.customComparison) then
+                compareTo()
+            yield! classMethods
+        ]
+
         [Declaration.classDeclaration(
             decl.Name,
             genParams=genParams,
             constructor=constructor,
             implements=implements,
             variables=varDecls,
-            methods=[equals; hashCode; compareTo])]
+            methods=methods)]
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
@@ -1657,7 +1708,7 @@ module Util =
                     if memb.Info.IsGetter then MethodKind.IsGetter
                     else if memb.Info.IsSetter then MethodKind.IsSetter
                     else MethodKind.IsMethod
-                kind, Naming.sanitizeIdentForbiddenCharsWith (fun _ -> "_") name
+                kind, sanitizeMember name
 
         let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
         InstanceMethod(name, args, returnType,
@@ -1700,10 +1751,11 @@ module Util =
                 let variables =
                     let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
                     classEnt.FSharpFields |> List.map (fun f ->
+                        let fieldName = sanitizeMember f.Name
                         let t = transformType com ctx f.FieldType
-                        let ident = makeImmutableIdent t f.Name
+                        let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final
-                        let isLate = thisArgsSet.Contains(f.Name) |> not
+                        let isLate = thisArgsSet.Contains(fieldName) |> not
                         InstanceVariable(ident, kind=kind, isLate=isLate))
 
                 let constructor = Constructor(
@@ -1808,8 +1860,8 @@ module Util =
                     withCurrentScope ctx cons.UsedNames <| fun ctx ->
                         transformClass com ctx ent decl instanceMethods (Some cons)
                 | None ->
-                    if ent.IsFSharpUnion then transformUnionDeclaration com ctx decl ent
-                    elif ent.IsFSharpRecord then transformRecordDeclaration com ctx decl ent
+                    if ent.IsFSharpUnion then transformUnionDeclaration com ctx ent decl instanceMethods
+                    elif ent.IsFSharpRecord then transformRecordDeclaration com ctx ent decl instanceMethods
                     else transformClass com ctx ent decl instanceMethods None
 
     let getIdentNameForImport (ctx: Context) (path: string) =

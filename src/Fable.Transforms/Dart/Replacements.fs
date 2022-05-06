@@ -451,9 +451,10 @@ let makeSet (com: ICompiler) ctx r t methName args genArg =
     Helper.LibCall(com, "Set", Naming.lowerFirst methName, t, args, ?loc=r)
 
 /// Adds comparer as last argument for map creator methods
-let makeMap (com: ICompiler) ctx r t methName args genArg =
-    let args = args @ [makeComparer com ctx genArg]
-    Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, ?loc=r)
+let makeMap (com: ICompiler) ctx r t genArgs methName args =
+    let keyType = List.tryHead genArgs |> Option.defaultValue Any
+    let args = args @ [makeComparer com ctx keyType]
+    Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, genArgs=genArgs, ?loc=r)
 
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -601,13 +602,16 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
         makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
-    | BuiltinDefinition(BclHashSet _) -> makeIdentExpr "Set" |> Some
-    | BuiltinDefinition(BclDictionary _) -> makeIdentExpr "Map" |> Some
+    | BuiltinDefinition(BclHashSet _)
+    | Types.iset -> makeIdentExpr "Set" |> Some
+    | BuiltinDefinition(BclDictionary _)
+    | Types.idictionary -> makeIdentExpr "Map" |> Some
     | BuiltinDefinition(BclKeyValuePair _) -> makeIdentExpr "MapEntry" |> Some
-    // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
-    // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
+    | BuiltinDefinition(FSharpSet _) -> makeImportLib com MetaType "FSharpSet" "Set" |> Some
+    | BuiltinDefinition(FSharpMap _) -> makeImportLib com MetaType "FSharpMap" "Map" |> Some
 //    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
-    | Types.ienumerable | Types.ienumerableGeneric -> makeIdentExpr "Iterable" |> Some
+    | Types.ienumerable | Types.ienumerableGeneric
+    | Types.icollection | Types.icollectionGeneric -> makeIdentExpr "Iterable" |> Some
     | Types.ienumerator | Types.ienumeratorGeneric -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
     | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparer ->
@@ -1395,7 +1399,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too.
     | "get_Count", Some ar, _ ->
-        getImmutableAttachedMemberWith r t ar "length" |> Some
+        getAttachedMemberWith r t ar "length" |> Some
     | "ConvertAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
     | ("Exists"|"Contains"), Some ar, [arg] ->
@@ -1567,7 +1571,7 @@ let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t "OfSeq" args |> Some
+    | ".ctor" -> makeMap com ctx r t i.GenericArgs "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
