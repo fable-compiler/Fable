@@ -319,14 +319,14 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = args |> List.map (fun a -> a.Type)
     match argTypes with
-    | Number(Int64|UInt64|BigInt|Decimal as kind,_)::_ ->
+    | Number(BigInt|Decimal as kind,_)::_ ->
         let modName, opName =
             match kind, opName with
             | UInt64, Operators.rightShift -> "Long", "op_RightShiftUnsigned" // See #1482
             | Decimal, Operators.divideByInt -> "Decimal", Operators.division
             | Decimal, _ -> "Decimal", opName
-            | BigInt, _ -> "BigInt", opName
-            | _ -> "Long", opName
+//            | BigInt, _ -> "BigInt", opName
+            | _ -> "BigInt", opName
         Helper.LibCall(com, modName, opName, t, args, argTypes, ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly as bt)::_ ->
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc=r)
@@ -462,7 +462,6 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Char | String -> makeStrConst "" // TODO: Use null for string?
     | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Number (Decimal,_) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
-    | Number ((Int64|UInt64),_) as t -> Helper.LibCall(com, "Long", "fromInt", t, [makeIntConst 0])
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
     | Builtin (BclTimeSpan|BclTimeOnly) -> makeIntConst 0 // TODO: Type cast
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
@@ -477,7 +476,6 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number ((Int64|UInt64),_) as t -> Helper.LibCall(com, "Long", "fromInt", t, [makeIntConst 1])
     | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 1])
     | Number (Decimal,_) as t -> makeIntConst 1 |> makeDecimalFromExpr com None t
     | Number (kind, uom) -> NumberConstant (getBoxedOne kind, kind, uom) |> makeValue None
