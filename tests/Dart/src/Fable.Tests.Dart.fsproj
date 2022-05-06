@@ -14,6 +14,7 @@
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <Compile Include="RegexTests.fs" />
+    <Compile Include="SeqTests.fs" />
     <Compile Include="UnionTests.fs" />
     <Content Include="..\main.dart" />
   </ItemGroup>

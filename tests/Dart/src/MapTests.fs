@@ -192,7 +192,7 @@ let tests() =
            match k with
            | 3 -> Some 11
            | _ -> None)
-        equal 11 y.Value
+        equal (Some 11) y
 
     testCase "Map.ofList works" <| fun () ->
         let xs = Map.ofList [1,1.; 2,4.; 3,9.; 4,16.]

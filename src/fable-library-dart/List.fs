@@ -105,20 +105,19 @@ and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T> (tail_: 'T list
 
 and ListEnumerator<'T>(xs: 'T list) =
     let mutable it = xs
-    let mutable current_ = None
+    let mutable current_ = Unchecked.defaultof<'T>
     interface IEnumerator<'T> with
-        member _.Current: 'T = Option.get current_
-        member _.Current: obj = Option.get current_ |> box
+        member _.Current: 'T = current_
+        member _.Current: obj = current_ |> box
         member _.MoveNext() =
             match it.TryTail with
             | None -> false
             | Some t ->
-                current_ <- it.TryHead
+                current_ <- it.Head
                 it <- t
                 true
         member _.Reset() =
             it <- xs
-            current_ <- None
         member _.Dispose() = ()
 
 and 'T list = LinkedList<'T>

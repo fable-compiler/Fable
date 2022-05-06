@@ -1746,8 +1746,14 @@ module Util =
                 let consBody =
                     let consArgsSet = consArgs |> List.map (fun a -> a.Ident.Name) |> HashSet
                     consBody |> List.filter (function
-                        | ExpressionStatement(AssignmentExpression(PropertyAccess(ThisExpression _, field,_,_), AssignEqual, IdentExpression ident))
-                            when consArgsSet.Contains(ident.Name) -> thisArgsDic.Add(ident.Name, field); false
+                        | ExpressionStatement(AssignmentExpression(PropertyAccess(ThisExpression _, field,_,_), AssignEqual, value)) ->
+                            match value with
+                            | IdentExpression ident when consArgsSet.Contains(ident.Name) ->
+                                thisArgsDic.Add(ident.Name, field); false
+                            // Remove null initializations as they're not necessary and maybe
+                            // they represent initializing to Unchecked.defaultof<'T>
+                            | Literal(NullLiteral _) -> false
+                            | _ -> true
                         | _ -> true)
 
                 let consArgs =
