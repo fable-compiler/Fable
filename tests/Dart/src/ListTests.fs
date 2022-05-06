@@ -2,9 +2,6 @@
 
 open Util
 
-//type List(x: int) =
-//    member val Value = x
-
 type ExceptFoo = { Bar:string }
 
 let testListChoose xss =
@@ -23,16 +20,16 @@ type Point =
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
-//type MyNumber =
-//    | MyNumber of int
-//    static member Zero = MyNumber 0
-//    static member (+) (MyNumber x, MyNumber y) =
-//        MyNumber(x + y)
-//    static member DivideByInt (MyNumber x, i: int) =
-//        MyNumber(x / i)
-//
-//type MyNumberWrapper =
-//    { MyNumber: MyNumber }
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
+
+type MyNumberWrapper =
+    { myNumber: MyNumber }
 
 module List =
     let filteri f (xs: 'T list) =
@@ -436,13 +433,12 @@ let tests() =
       let p2 = {x=2; y=20}
       [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
 
-// TODO
-//    testCase "List.sum with non numeric types works II" <| fun () ->
-//        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.sum |> equal (MyNumber 6)
-//
-//    testCase "List.sumBy with non numeric types works II" <| fun () ->
-//        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-//        |> List.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
+    testCase "List.sum with non numeric types works II" <| fun () ->
+        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.sum |> equal (MyNumber 6)
+
+    testCase "List.sumBy with non numeric types works II" <| fun () ->
+        [{ myNumber = MyNumber 5 }; { myNumber = MyNumber 4 }; { myNumber = MyNumber 3 }]
+        |> List.sumBy (fun x -> x.myNumber) |> equal (MyNumber 12)
 
     testCase "List.skip works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.; 5.]
@@ -606,13 +602,12 @@ let tests() =
             |> List.averageBy (fun x -> x * 2.)
             |> equal 5.
 
-// TODO
-//    testCase "List.average works with custom types" <| fun () ->
-//        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
-//
-//    testCase "List.averageBy works with custom types" <| fun () ->
-//        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-//        |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+    testCase "List.average works with custom types" <| fun () ->
+        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
+
+    testCase "List.averageBy works with custom types" <| fun () ->
+        [{ myNumber = MyNumber 5 }; { myNumber = MyNumber 4 }; { myNumber = MyNumber 3 }]
+        |> List.averageBy (fun x -> x.myNumber) |> equal (MyNumber 4)
 
     testCase "List.distinct works" <| fun () ->
         let xs = [1; 1; 1; 2; 2; 3; 3]
@@ -817,11 +812,6 @@ let tests() =
         List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
         List.windowed 7 nums |> List.isEmpty |> equal true
 
-// TODO
-//    testCase "Types with same name as imports work" <| fun () ->
-//            let li = [List 5]
-//            equal 5 li.Head.Value
-
     testCase "List.Item throws exception when index is out of range" <| fun () ->
         let xs = [0]
         (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
@@ -868,8 +858,6 @@ let tests() =
              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
              (4, 'd'); (4, 'e'); (4, 'f')]
 
-    // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-    // #if FABLE_COMPILER
     testCase "Implicit yields work" <| fun () ->
         let makeList condition =
             [
@@ -880,7 +868,6 @@ let tests() =
             ]
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
-    // #endif
 
     // TODO
 //    testCase "List.splitInto works" <| fun () ->
