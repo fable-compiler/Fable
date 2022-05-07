@@ -19,13 +19,13 @@ let (|DartDouble|_|) = function
 
 let curryExprAtRuntime com r arity (expr: Expr) =
     // Let's use emit for simplicity
-    let args = List.init arity (fun i -> $"arg${i}")
+    let args = List.init arity (fun i -> $"arg{i}$")
     let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
     $"""%s{args1} $0(%s{String.concat ", " args})"""
     |> emit r expr.Type [expr] false
 
 let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
-    let args = List.init arity (fun i -> $"arg${i}")
+    let args = List.init arity (fun i -> $"arg{i}$")
     let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
     let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
     $"""%s{args1} $0(%s{appliedArgs}, %s{String.concat ", " args})"""
@@ -400,14 +400,20 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
 //        | _ -> "structuralHash"
 //    Helper.LibCall(com, "Util", methodName, Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
 
+let implementsStructuralEquality = function
+    | Array _ -> false
+    | _ -> true
+
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    // Dart's tuple has structural equality by default
-//    | Tuple _ -> Helper.LibCall(com, "Util", "equalList", Boolean, [tupleToList left; tupleToList right], ?loc=r) |> is equal
-    | Array _ -> Helper.LibCall(com, "Util", "equalList", Boolean, [left; right], ?loc=r) |> is equal
+    | Array(t,_) ->
+        let args =
+            if implementsStructuralEquality t then [left; right]
+            else [left; right; makeEqualityFunction com ctx t]
+        Helper.LibCall(com, "Util", "equalList", Boolean, args, ?loc=r) |> is equal
     | _ ->
         if equal then BinaryEqual else BinaryUnequal
         |> makeEqOp r left right

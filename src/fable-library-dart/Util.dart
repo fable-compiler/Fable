@@ -4,13 +4,14 @@
 int combineHashCodes(Iterable<int> hashes) =>
     hashes.isEmpty ? 0 : hashes.reduce((h1, h2) => ((h1 << 5) + h1) ^ h2);
 
-bool equalList<T>(List<T> xs, List<T> ys) {
+bool equalList<T>(List<T> xs, List<T> ys, [bool Function(T x, T y)? eq]) {
   if (xs.length != ys.length) {
     return false;
   } else {
     if (xs != ys) {
+      eq ??= (x, y) => x == y;
       for (var i = 0; i < xs.length; i++) {
-        if (xs[i] != ys[i]) {
+        if (!eq(xs[i], ys[i])) {
           return false;
         }
       }
