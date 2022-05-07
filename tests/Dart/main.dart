@@ -6,6 +6,7 @@ import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
 import './src/RegexTests.fs.dart' as regex;
 import './src/SeqTests.fs.dart' as seq;
+import './src/SetTests.fs.dart' as set$;
 import './src/SudokuTest.fs.dart' as sudoku;
 import './src/TailCallTests.fs.dart' as tailcall;
 import './src/UnionTests.fs.dart' as union;
@@ -19,6 +20,7 @@ void main() {
   map.tests();
   regex.tests();
   seq.tests();
+  set$.tests();
   sudoku.tests();
   tailcall.tests();
   union.tests();

@@ -692,7 +692,6 @@ let tests() =
         fst result |> List.sum |> equal -20.
         snd result |> equal -10.
 
-    // TODO: Runtime uncurry to arity 2
     testCase "List.mapFold works II" <| fun () -> // See #842
         let f x y = x,y
         let xs,_ = List.mapFold f "a" ["b"]
@@ -710,7 +709,7 @@ let tests() =
             equal 2 ys.[0]
             equal 5 zs.[2]
 
-    // TODO
+    // FIXME
 //    testCase "List.pairwise works" <| fun () ->
 //        List.pairwise<int> [] |> equal []
 //        List.pairwise [1] |> equal []
@@ -727,7 +726,7 @@ let tests() =
             equal 4 ys.[2]
             equal 6 ys.[4]
 
-    // TODO
+    // FIXME
 //    testCase "List.chunkBySize works" <| fun () ->
 //        [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
 //        [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
@@ -866,7 +865,7 @@ let tests() =
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
 
-    // TODO
+    // FIXME
 //    testCase "List.splitInto works" <| fun () ->
 //        [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
 //        [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
