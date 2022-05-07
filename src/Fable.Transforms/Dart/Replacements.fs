@@ -628,7 +628,8 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
 //    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
     | Types.ienumerable | Types.ienumerableGeneric
     | Types.icollection | Types.icollectionGeneric -> makeIdentExpr "Iterable" |> Some
-    | Types.ienumerator | Types.ienumeratorGeneric -> makeIdentExpr "Iterator" |> Some
+    | Types.ienumerator | Types.ienumeratorGeneric
+    | "System.Collections.Generic.HashSet`1.Enumerator" -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
     | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparer ->
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
@@ -2006,8 +2007,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Add" | "Contains" | "Clear" | "Remove" as meth, Some c, _ ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-//    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
-//        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
+//    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
 //        let meth = Naming.lowerFirst meth
 //        let args = injectArg com ctx r "Set" meth i.GenericArgs args
 //        Helper.LibCall(com, "Set", meth, t, c::args, ?loc=r) |> Some
@@ -2015,6 +2015,19 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     // | "SetEquals"
     // | "Overlaps"
     // | "SymmetricExceptWith"
+    | meth, Some c, args ->
+        match meth with
+        | "Add" -> Some "add"
+        | "Contains" -> Some "contains"
+        | "Clear" -> Some "clear"
+        | "Remove" -> Some "remove"
+        // These are not mutation methods in Dart
+//        | "UnionWith" -> Some "union"
+//        | "IntersectWith" -> Some "intersection"
+//        | "ExceptWith" -> Some "difference"
+        | _ -> None
+        |> Option.map (fun meth ->
+            Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r))
     | _ -> None
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2502,7 +2515,7 @@ let comparables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | Some callee, "get_Current" -> getAttachedMemberWith r t callee "current" |> Some
-    | Some callee, "MoveNext" -> Helper.InstanceCall(callee, "moveNext", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    | Some callee, "MoveNext" -> Helper.InstanceCall(callee, "moveNext", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
