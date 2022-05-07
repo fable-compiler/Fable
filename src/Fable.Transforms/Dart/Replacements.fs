@@ -9,16 +9,27 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
-module Util =
-    let (|DartInt|_|) = function
-        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
-        | _ -> None
+let (|DartInt|_|) = function
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
+    | _ -> None
 
-    let (|DartDouble|_|) = function
-        | Float32 | Float64 -> Some DartDouble
-        | _ -> None
+let (|DartDouble|_|) = function
+    | Float32 | Float64 -> Some DartDouble
+    | _ -> None
 
-open Util
+let curryExprAtRuntime com r arity (expr: Expr) =
+    // Let's use emit for simplicity
+    let args = List.init arity (fun i -> $"arg${i}")
+    let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
+    $"""%s{args1} $0(%s{String.concat ", " args})"""
+    |> emit r expr.Type [expr] false
+
+let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
+    let args = List.init arity (fun i -> $"arg${i}")
+    let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
+    let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
+    $"""%s{args1} $0(%s{appliedArgs}, %s{String.concat ", " args})"""
+    |> emit None t (fn::argExprs) false
 
 let error msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [msg])

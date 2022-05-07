@@ -5,7 +5,6 @@ open Fable
 open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.AST
-open Fable.Transforms.Dart.Replacements.Util
 
 type ReturnStrategy =
     | Return of isVoid: bool
@@ -213,7 +212,7 @@ module Util =
         | Some(idents, target) -> idents, target
 
     let isInt64OrLess = function
-        | Fable.Number(DartInt, _) -> true
+        | Fable.Number(Dart.Replacements.DartInt, _) -> true
         | _ -> false
 
     let isImmutableIdent = function
@@ -604,7 +603,10 @@ module Util =
                 let ent = com.GetEntity(ref)
                 let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName
                 let tag = Expression.integerLiteral(tag) |> Expression.commented caseName
-                let args = [tag; makeImmutableListExpr com ctx Fable.Any fields]
+                let args =
+                    match fields with
+                    | [] -> [tag]
+                    | fields -> [tag; makeImmutableListExpr com ctx Fable.Any fields]
                 let genArgs = genArgs |> List.map (transformType com ctx)
                 let consRef = getEntityIdent com ctx ent
                 let typeRef = TypeReference(consRef, genArgs)
@@ -981,7 +983,7 @@ module Util =
         let valueStmnts, value =
             match value with
             | Function(args, body) ->
-                let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
+                let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx value.Range
                 let ctx = ctx.AppendLocalGenParams(genParams)
                 // Pass the name of the bound ident to enable tail-call optimizations
                 let args, body, returnType = transformFunction com ctx (Some var.Name) args body
@@ -1306,11 +1308,7 @@ module Util =
         | Fable.Extended(kind, r) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                // Let's use emit for simplicity
-                let args = List.init arity (fun i -> getUniqueNameInDeclarationScope ctx $"a{i}")
-                let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-                $"""%s{args1} $0(%s{String.concat ", " args})"""
-                |> emit r e.Type [e] false
+                Dart.Replacements.curryExprAtRuntime com r arity e
                 |> transform com ctx returnStrategy
             | Fable.RegionStart _ -> [], None
             | Fable.Throw(None, t) ->
@@ -1337,14 +1335,14 @@ module Util =
             transformTest com ctx range returnStrategy kind expr
 
         | Fable.Lambda(arg, body, info) ->
-            let genParams = getLocalFunctionGenericParams com ctx [arg.Type]
+            let genParams = getLocalFunctionGenericParams com ctx expr.Range [arg.Type]
             let ctx = ctx.AppendLocalGenParams(genParams)
             let args, body, t = transformFunction com ctx info.Name [arg] body
             Expression.anonymousFunction(args, body, t, genParams)
             |> resolveExpr returnStrategy
 
         | Fable.Delegate(args, body, info) ->
-            let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx
+            let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx expr.Range
             let ctx = ctx.AppendLocalGenParams(genParams)
             let args, body, t = transformFunction com ctx info.Name args body
             Expression.anonymousFunction(args, body, t, genParams)
@@ -1428,7 +1426,7 @@ module Util =
                 Expression.updateExpression(op2, paramExpr)
             )], None
 
-    let getLocalFunctionGenericParams (_com: IDartCompiler) (ctx: Context) argTypes =
+    let getLocalFunctionGenericParams (com: IDartCompiler) (ctx: Context) r argTypes =
         let rec getGenParams = function
             | Fable.GenericParam(name, _constraints) -> [name]
             | t -> t.Generics |> List.collect getGenParams
@@ -1438,11 +1436,19 @@ module Util =
                 (genArgs, getGenParams t) ||> List.fold (fun genArgs n -> Set.add n genArgs))
             |> List.ofSeq
 
-        match genParams, ctx.EntityAndMemberGenericParams with
-        | [], _ | _, [] -> genParams
-        | localGenParams, memberGenParams ->
-            let memberGenParams = memberGenParams |> List.map (fun p -> p.Name) |> set
-            localGenParams |> List.filter (memberGenParams.Contains >> not)
+        let genParams =
+            match genParams, ctx.EntityAndMemberGenericParams with
+            | [], _ | _, [] -> genParams
+            | localGenParams, memberGenParams ->
+                let memberGenParams = memberGenParams |> List.map (fun p -> p.Name) |> set
+                localGenParams |> List.filter (memberGenParams.Contains >> not)
+
+        if not(List.isEmpty genParams) then
+            let msg = """Generic nested functions may cause issues with Dart compiler.
+Add type annotations or move the function to module scope."""
+            com.WarnOnlyOnce(msg, ?range=r)
+
+        genParams
 
     let getMemberArgsAndBody (com: IDartCompiler) ctx kind (genParams: Fable.GenericParam list) (argDecls: Fable.ArgDecl list) (body: Fable.Expr) =
         let funcName, argDecls, body =
@@ -1553,8 +1559,8 @@ module Util =
 
         let constructor =
             let tag = makeImmutableIdent Integer "tag"
-            let fields = makeImmutableIdent (Type.List Object) "fields"
-            Constructor(args=[FunctionArg tag; FunctionArg fields], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
+            let fields = makeImmutableIdent (Nullable(List Dynamic)) "fields"
+            Constructor(args=[FunctionArg tag; FunctionArg(fields, isOptional=true)], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
 
         let compareTo() =
             let other = makeImmutableIdent selfTypeRef "other"
