@@ -47,11 +47,6 @@ let makeDecimal com r t (x: decimal) =
 let makeDecimalFromExpr com r t (e: Expr) =
     Helper.LibCall(com, "Decimal", "default", t, [e], isConstructor=true, ?loc=r)
 
-let createAtom com (value: Expr) =
-    // let typ = value.Type
-    // Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
-    value
-
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     // let getter =
     //     Delegate([], value, FuncInfo.Empty)

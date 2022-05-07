@@ -616,12 +616,16 @@ module Helpers =
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
         memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
 
-    let isModuleValueForCalls (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+    let isModuleValueAtom (com: Compiler) isMutable isPublic =
+        match com.Options.Language with
+        | Python | JavaScript | TypeScript -> isMutable && isPublic
+        | Rust | Php | Dart -> false
+
+    let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
         && isModuleValueForDeclarations memb
-        && memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
         // Mutable public values must be called as functions (see #986)
-        && (not memb.IsMutable || not (isPublicMember memb))
+        && not(isModuleValueAtom com memb.IsMutable (isPublicMember memb))
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
         seq {
@@ -1925,7 +1929,7 @@ module Util =
               { SignatureArgTypes = callInfo.SignatureArgTypes
                 DeclaringEntityFullName = ent.FullName
                 HasSpread = callInfo.HasSpread
-                IsModuleValue = isModuleValueForCalls ent memb
+                IsModuleValue = isModuleValueForCalls com ent memb
                 IsInterface = ent.IsInterface
                 CompiledName = memb.CompiledName
                 OverloadSuffix =
@@ -1993,7 +1997,7 @@ module Util =
         // Import called as function
         | Some importExpr, Some callInfo, Some e ->
             let isValueOrGetter =
-                isModuleValueForCalls e memb
+                isModuleValueForCalls com e memb
                 || (memb.IsPropertyGetterMethod && (countNonCurriedParams memb) = 0)
 
             if isValueOrGetter then Some importExpr
@@ -2020,7 +2024,7 @@ module Util =
                 Fable.Call(classExpr, { callInfo with IsConstructor = true }, typ, r) |> Some
 
             | Some moduleOrClassExpr, None ->
-                if isModuleValueForCalls e memb then
+                if isModuleValueForCalls com e memb then
                     // Set the field as maybe calculated so it's not displaced by beta reduction
                     let info = Fable.FieldInfo.Create(
                         maybeCalculated = true,
@@ -2121,7 +2125,7 @@ module Util =
         | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
         | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
-            if isModuleValueForCalls entity memb then funcExpr
+            if isModuleValueForCalls com entity memb then funcExpr
             else makeCall r typ callInfo funcExpr
 
         | _, Some entity when entity.IsDelegate ->
@@ -2166,7 +2170,7 @@ module Util =
 
             callAttachedMember com r typ callInfo entity memb
 
-        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls entity memb ->
+        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
             memberRef com r typ memb
 

@@ -6,6 +6,7 @@ import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
 import './src/RegexTests.fs.dart' as regex;
 import './src/SeqTests.fs.dart' as seq;
+import './src/TailCallTests.fs.dart' as tailcall;
 import './src/UnionTests.fs.dart' as union;
 
 void main() {
@@ -17,5 +18,6 @@ void main() {
   map.tests();
   regex.tests();
   seq.tests();
+  tailcall.tests();
   union.tests();
 }

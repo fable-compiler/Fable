@@ -879,7 +879,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let valToSet = makeValueFrom com ctx r valToSet
             let callExpr = makeCall r valToSet.Type callInfo valToSet
             return Fable.Set(callExpr, Fable.ValueSet, valueExpr.Type, valueExpr, r)
-        | Some ent when ent.IsFSharpModule && isPublicMember valToSet ->
+        | Some ent when ent.IsFSharpModule && isModuleValueAtom com true (isPublicMember valToSet) ->
             // Mutable and public module values are compiled as functions, because
             // values imported from ES2015 modules cannot be modified (see #986)
             let valToSet = makeValueFrom com ctx r valToSet
@@ -1150,7 +1150,6 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
 
         // Mutable public values must be compiled as functions (see #986)
         // because values imported from ES2015 modules cannot be modified
-        // (Note: Moved here from Fable2Babel)
         let fableValue =
             if memb.IsMutable && isPublic
             then Replacements.Api.createAtom com fableValue

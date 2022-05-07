@@ -16,9 +16,12 @@ let curryExprAtRuntime com arity (expr: Expr) =
 let uncurryExprAtRuntime com arity (expr: Expr) =
     Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
 
-let partialApplyAtRuntime com t arity (fn: Expr) (args: Expr list) =
-    let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
-    Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
+let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
+    match com.Options.Language with
+    | Dart -> Dart.Replacements.partialApplyAtRuntime com t arity fn args
+    | _ ->
+        let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
+        Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
 
 let checkArity com t arity expr =
     Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
@@ -63,13 +66,12 @@ let defaultof (com: ICompiler) ctx typ =
     | Python -> PY.Replacements.defaultof com ctx typ
     | _ -> JS.Replacements.defaultof com ctx typ
 
-// TODO: This is only needed for mutable public values because of how imports/exports work in JS.
-// Other languages may not need it
+/// Needed for mutable public values because of how imports/exports work in JS.
 let createAtom (com: ICompiler) value =
     match com.Options.Language with
-    | Rust -> Rust.Replacements.createAtom com value
     | Python -> PY.Replacements.createAtom com value
-    | _ -> JS.Replacements.createAtom com value
+    | JavaScript | TypeScript -> JS.Replacements.createAtom com value
+    | Rust | Php | Dart -> value
 
 let getReference (com: ICompiler) r typ var =
     match com.Options.Language with

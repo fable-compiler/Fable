@@ -139,7 +139,7 @@ class GenericAverager<T> implements IGenericAverager<T> {
 
 abstract class Union {
   final int tag;
-  final List<Object> fields;
+  final List<dynamic> fields;
 
   int compareTagAndFields(Union other) {
     if (other.tag == tag) {
@@ -156,7 +156,8 @@ abstract class Union {
     }
   }
 
-  const Union(this.tag, this.fields);
+  const Union(this.tag, [List<dynamic>? fields]):
+        fields = fields ?? const [];
 
   // TODO: implement toString
 

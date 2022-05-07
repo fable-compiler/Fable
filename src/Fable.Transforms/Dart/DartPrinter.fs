@@ -683,7 +683,9 @@ module PrinterExtensions =
                 if isConst then
                     printer.Print("const ")
                 printer.PrintWithParensIfNotIdent(caller)
-                printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty=true)
+                // Cannot use generic args for const invocations
+                if not isConst then
+                    printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty=true)
                 printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator)
 
             | AnonymousFunction(args, body, genArgs, _returnType) ->

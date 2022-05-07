@@ -55,11 +55,14 @@ module Util =
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
-    let runFableWithArgsInDir projectDir args =
+    let runFableWithArgsInDirAs release projectDir args =
         let cliDir = resolveDir "src/Fable.Cli"
         let cliArgs = args |> String.concat " "
-        let cliCmd = $"dotnet run -c Release --project {cliDir} -- {cliArgs}"
+        let cliCmd = $"""dotnet run {if release then "-c Release" else ""} --project {cliDir} -- {cliArgs}"""
         runInDir (resolveDir projectDir) cliCmd
+
+    let runFableWithArgsInDir projectDir args =
+        runFableWithArgsInDirAs true projectDir args
 
     let runFableWithArgsAsync projectDir args =
         runAsync ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
@@ -528,14 +531,14 @@ let testRust() =
     copyFile (projectDir </> "Cargo.toml") buildDir
     runInDir buildDir "cargo test"
 
-let testDart(isWatch) =
+let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
         buildLibraryDart(true)
 
     let runDir = "tests/Dart"
 //    let projectDir = runDir + "/src"
 
-    runFableWithArgsInDir runDir [
+    runFableWithArgsInDirAs (not isWatch) runDir [
         "src"
         "--exclude Fable.Core"
         "--lang Dart"
