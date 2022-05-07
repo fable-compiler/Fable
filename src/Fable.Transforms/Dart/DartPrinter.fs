@@ -679,6 +679,8 @@ module PrinterExtensions =
                     printer.Print(" is ")
                 printer.PrintType(typ)
 
+            // TODO: Detect if we're calling Map/Set and use collection literal if possible
+            // https://dart-lang.github.io/linter/lints/prefer_collection_literals.html
             | InvocationExpression(caller, genArgs, args, _typ, isConst) ->
                 if isConst then
                     printer.Print("const ")
