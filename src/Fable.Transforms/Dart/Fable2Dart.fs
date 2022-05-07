@@ -1426,7 +1426,7 @@ module Util =
                 Expression.updateExpression(op2, paramExpr)
             )], None
 
-    let getLocalFunctionGenericParams (com: IDartCompiler) (ctx: Context) r argTypes =
+    let getLocalFunctionGenericParams (com: IDartCompiler) (ctx: Context) range argTypes =
         let rec getGenParams = function
             | Fable.GenericParam(name, _constraints) -> [name]
             | t -> t.Generics |> List.collect getGenParams
@@ -1443,10 +1443,11 @@ module Util =
                 let memberGenParams = memberGenParams |> List.map (fun p -> p.Name) |> set
                 localGenParams |> List.filter (memberGenParams.Contains >> not)
 
-        if not(List.isEmpty genParams) then
-            let msg = """Generic nested functions may cause issues with Dart compiler.
-Add type annotations or move the function to module scope."""
-            com.WarnOnlyOnce(msg, ?range=r)
+// Sometimes nested generic functions cause issues in Dart, but I'm not sure of
+// the exact conditions so don't display the warning for now
+//        match range, genParams with
+//        | None, _ | Some _, [] -> ()
+//        | Some range, _ -> com.WarnOnlyOnce("Generic nested functions may cause issues with Dart compiler. Add type annotations or move the function to module scope.", range=range)
 
         genParams
 

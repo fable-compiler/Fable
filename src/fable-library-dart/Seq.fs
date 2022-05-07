@@ -600,7 +600,8 @@ let cache (source: seq<'T>) =
 let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
     let ysCache = cache ys
     delay (fun () ->
-        let mapping x = ysCache |> map (fun y -> (x, y))
+        let mapping (x: 'T1): seq<'T1 * 'T2> =
+            ysCache |> map (fun y -> (x, y))
         concat (map mapping xs)
     )
 

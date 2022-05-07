@@ -876,8 +876,14 @@ let run (writer: Writer) (file: File): Async<unit> =
             printer.PrintNewLine()
 
         | VariableDeclaration(ident, kind, value) ->
-            printer.PrintVariableDeclaration(ident, kind, value)
-            printer.Print(";")
+            match kind, value with
+            | Final, AnonymousFunction(args, body, genParams, returnType) ->
+                let args = args |> List.map FunctionArg
+                let genParams = genParams |> List.map (fun g -> { Name = g; Extends = None })
+                printer.PrintFunctionDeclaration(returnType, ident.Name, genParams, args, body, isModuleOrClassMember=true)
+            | _ ->
+                printer.PrintVariableDeclaration(ident, kind, value)
+                printer.Print(";")
             printer.PrintNewLine()
 
         if extraLine then
