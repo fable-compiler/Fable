@@ -463,12 +463,13 @@ let inline makeComparerFromEqualityComparer e =
     // Helper.LibCall(com, "Util", "comparerFromEqualityComparer", Any, [e])
 
 /// Adds comparer as last argument for set creator methods
-let makeSet (com: ICompiler) ctx r t methName args genArg =
-    let args = args @ [makeComparer com ctx genArg]
-    Helper.LibCall(com, "Set", Naming.lowerFirst methName, t, args, ?loc=r)
+let makeSet (com: ICompiler) ctx r t methName args genArgs =
+    let elType = List.tryHead genArgs |> Option.defaultValue Any
+    let args = args @ [makeComparer com ctx elType]
+    Helper.LibCall(com, "Set", Naming.lowerFirst methName, t, args, genArgs=genArgs, ?loc=r)
 
 /// Adds comparer as last argument for map creator methods
-let makeMap (com: ICompiler) ctx r t genArgs methName args =
+let makeMap (com: ICompiler) ctx r t methName args genArgs =
     let keyType = List.tryHead genArgs |> Option.defaultValue Any
     let args = args @ [makeComparer com ctx keyType]
     Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, genArgs=genArgs, ?loc=r)
@@ -484,7 +485,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
-    | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
+    | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] [genArg]
     | Builtin (BclKeyValuePair(k,v)) ->
         makeTuple None [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
@@ -1030,7 +1031,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateDictionary", [arg] ->
         Helper.LibCall(com, "Types", "mapFromTuples", t, [arg], genArgs=i.GenericArgs, ?loc=r)
         |> asOptimizable "const-map" |> Some
-    | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
+    | "CreateSet", _ -> makeSet com ctx r t "OfSeq" args i.GenericArgs |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let genArg = genArg com ctx r 0 i.GenericArgs
@@ -1573,7 +1574,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
 
 let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
+    | ".ctor" -> makeSet com ctx r t "OfSeq" args i.GenericArgs |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
@@ -1587,7 +1588,7 @@ let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> makeMap com ctx r t i.GenericArgs "OfSeq" args |> Some
+    | ".ctor" -> makeMap com ctx r t "OfSeq" args i.GenericArgs |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""

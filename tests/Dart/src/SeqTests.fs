@@ -148,7 +148,7 @@ let tests() =
         )
         |> equal 6
 
-// TODO
+// FIXME
 //        seq {
 //            for xs in xss do
 //                for x in xs do
@@ -157,7 +157,7 @@ let tests() =
 //        |> Seq.length
 //        |> equal 4
 
-    // TODO
+    // FIXME
 //    testCase "Seq.chunkBySize works" <| fun () ->
 //        seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
 //        seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
@@ -513,7 +513,8 @@ let tests() =
         |> Seq.reduce (+)
         |> equal 20UL
 
-(* TODO
+// FIXME
+(*
     testCase "Seq.range works with chars" <| fun () ->
         seq{'a' .. 'f'}
         |> Seq.toArray
@@ -680,7 +681,7 @@ let tests() =
          count
          |> equal 11
 
-    // TODO: Guid
+    // FIXME: Guid
 //    testCase "Seq.cache works for infinite sequences" <| fun () ->
 //        let guids =
 //            Seq.initInfinite (fun _ -> System.Guid.NewGuid())
@@ -693,7 +694,7 @@ let tests() =
 //
 //        xs |> equal ys
 
-    // TODO: Result type
+    // FIXME: Result type
     // See https://github.com/demystifyfp/FsToolkit.ErrorHandling/pull/146
 //    testCase "Seq.cache works when enumerating partially" <| fun () ->
 //        let xs = seq {
@@ -813,7 +814,7 @@ let tests() =
         Seq.tryLast xs |> equal (Some 4.)
         Seq.tryLast [] |> equal None
 
-    // TODO
+    // FIXME
 //    testCase "Seq.pairwise works" <| fun () ->
 //        let xs = [1; 2; 3; 4]
 //        xs |> Seq.pairwise
@@ -821,7 +822,7 @@ let tests() =
 //        |> String.concat ""
 //        |> equal "122334"
 
-    // TODO
+    // FIXME
 //    testCase "Seq.pairwise works with empty input" <| fun () -> // See #1941
 //        ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
 //        [1] |> Seq.pairwise |> Seq.toList |> equal []
@@ -904,7 +905,7 @@ let tests() =
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-        // TODO
+        // FIXME: Char range
 //        let xs = seq {'A'..'F'}
 //        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
 //        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
@@ -926,7 +927,7 @@ let tests() =
         let mutable accX = 0
         let mutable accY = 0
         let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
-        // TODO
+        // FIXME
 //        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
         let ys = seq { accY <- accY + 1; 'a'; 'b'; 'c'; 'd'; 'e'; 'f' }
         let res = Seq.allPairs xs ys
@@ -942,7 +943,7 @@ let tests() =
         equal expected res1
         equal expected res2
 
-    // TODO: range
+    // FIXME: range
 //    testCase "Seq.splitInto works" <| fun () ->
 //        seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
 //        seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
