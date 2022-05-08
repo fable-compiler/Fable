@@ -20,11 +20,35 @@ Map<K,V> mapWith<K,V>(IEqualityComparer<K> comparer, [Map<K,V>? initialValues]) 
   return map;
 }
 
-void addToMap<K,V>(Map<K,V> map, K key, V value) {
+void assertKey<K,V>(Map<K,V> map, K key) {
+  if (!map.containsKey(key)) {
+    throw Exception("The given key '$key' was not present in the dictionary.");
+  }
+}
+
+V getValue<K,V>(Map<K,V> map, K key) {
+  assertKey(map, key);
+  return map[key]!;
+}
+
+V? getValueNullable<K,V>(Map<K,V?> map, K key) {
+  assertKey(map, key);
+  return map[key];
+}
+
+void addKeyValue<K,V>(Map<K,V> map, K key, V value) {
   if (map.containsKey(key)) {
-    throw Exception("Duplicate key: $key");
+    throw Exception("An item with the same key has already been added. Key: $key");
   }
   map[key] = value;
+}
+
+bool removeKey<K,V>(Map<K,V> map, K key) {
+  if (map.containsKey(key)) {
+    map.remove(key);
+    return true;
+  }
+  return false;
 }
 
 Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {

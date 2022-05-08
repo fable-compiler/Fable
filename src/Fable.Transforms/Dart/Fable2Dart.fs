@@ -738,7 +738,6 @@ module Util =
 
     let typeImplementsOrExtends (com: IDartCompiler) (baseEnt: Fable.EntityRef) (t: Fable.Type) =
         match baseEnt.FullName, t with
-        | Types.ienumerableGeneric, (Fable.Array _ | Fable.List _) -> true
         | baseFullName, Fable.DeclaredType(e, _) ->
             let baseEnt = com.GetEntity(baseEnt)
             let e = com.GetEntity(e)
@@ -759,16 +758,8 @@ module Util =
                 | _ -> false)
         | _ -> false
 
-    let transformCast (com: IDartCompiler) (ctx: Context) targetType returnStrategy expr =
+    let transformCast (com: IDartCompiler) (ctx: Context) targetType returnStrategy (expr: Fable.Expr) =
         match targetType, expr with
-        // Optimization for (numeric) array or list literals casted to seq
-        // Done at the very end of the compile pipeline to get more opportunities
-        // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(EntFullName(Types.ienumerableGeneric | Types.ienumerable), [_]),
-          Replacements.Util.ArrayOrListLiteral(exprs, typ) ->
-            transformExprsAndResolve com ctx returnStrategy exprs
-                (makeImmutableListExpr com ctx typ)
-
         | Fable.DeclaredType(baseEnt, _), _
             when typeImplementsOrExtends com baseEnt expr.Type ->
                 com.Transform(ctx, returnStrategy, expr)
@@ -1319,8 +1310,27 @@ module Util =
             | Fable.Debugger ->
                 [extLibCall com ctx Fable.Unit "dart:developer" "debugger" [] |> Statement.ExpressionStatement], None
 
-        | Fable.TypeCast(e, t) ->
-            transformCast com ctx t returnStrategy e
+        | Fable.TypeCast(expr, t) ->
+            match t with
+            | Fable.DeclaredType(EntFullName(Types.ienumerableGeneric | Types.ienumerable), [_]) ->
+                match expr with
+                // Optimization for (numeric) array or list literals casted to seq
+                // Done at the very end of the compile pipeline to get more opportunities
+                // of matching cast and literal expressions after resolving pipes, inlining...
+                | Replacements.Util.ArrayOrListLiteral(exprs, typ) ->
+                    transformExprsAndResolve com ctx returnStrategy exprs
+                        (makeImmutableListExpr com ctx typ)
+
+                | ExprType(Fable.Array _ | Fable.List _) ->
+                    transform com ctx returnStrategy expr
+
+                | ExprType(Fable.DeclaredType(EntFullName(Types.dictionary | Types.idictionary), _)) ->
+                    transformExprAndResolve com ctx returnStrategy expr (fun expr ->
+                        let t = transformType com ctx t
+                        get t expr "entries")
+
+                | _ -> transformCast com ctx t returnStrategy expr
+            | _ -> transformCast com ctx t returnStrategy expr
 
         | Fable.Value(kind, r) ->
             transformValue com ctx r returnStrategy kind

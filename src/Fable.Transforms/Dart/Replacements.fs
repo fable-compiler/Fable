@@ -627,9 +627,16 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition(FSharpMap _) -> makeImportLib com MetaType "FSharpMap" "Map" |> Some
 //    | "System.DateTimeKind" -> makeImportLib com MetaType "DateTimeKind" "Date" |> Some
     | Types.ienumerable | Types.ienumerableGeneric
-    | Types.icollection | Types.icollectionGeneric -> makeIdentExpr "Iterable" |> Some
+    | Types.icollection | Types.icollectionGeneric
+    | Naming.EndsWith "Collection" _
+        -> makeIdentExpr "Iterable" |> Some
     | Types.ienumerator | Types.ienumeratorGeneric
-    | "System.Collections.Generic.HashSet`1.Enumerator" -> makeIdentExpr "Iterator" |> Some
+//    | "System.Collections.Generic.HashSet`1.Enumerator"
+//    | "System.Collections.Generic.Dictionary`2.Enumerator"
+//    | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
+//    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
+    | Naming.EndsWith "Enumerator" _
+        -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
     | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparer ->
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
@@ -638,16 +645,15 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
             | -1 -> entFullName
             | i -> entFullName[0..i-1]
         makeImportLib com MetaType entFullName "Types" |> Some
-//    | Types.matchFail -> makeImportLib com MetaType "MatchFailureException" "Types" |> Some
-//    | Types.systemException -> makeImportLib com MetaType "SystemException" "SystemException" |> Some
-//    | Types.timeoutException -> makeImportLib com MetaType "TimeoutException" "SystemException" |> Some
-    | Types.matchFail
-    | Types.systemException
-    | Types.timeoutException
-    | "System.NotSupportedException"
-    | "System.InvalidOperationException"
-    | "System.Collections.Generic.KeyNotFoundException"
-    | Types.exception_ -> makeIdentExpr "Exception" |> Some
+//    | Types.matchFail
+//    | Types.systemException
+//    | Types.timeoutException
+//    | "System.NotSupportedException"
+//    | "System.InvalidOperationException"
+//    | "System.Collections.Generic.KeyNotFoundException"
+//    | Types.exception_
+     | Naming.EndsWith "Exception" _
+        -> makeIdentExpr "Exception" |> Some
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 
@@ -1967,22 +1973,32 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             Helper.LibCall(com, "Types", "mapWith", t, [eqComp; arg], ?loc=r) |> Some
         | [IEqualityComparer], [eqComp]
         | [Number _; IEqualityComparer], [_; eqComp] ->
-            Helper.LibCall(com, "Types", "mapWith", t, [eqComp], ?loc=r) |> Some
+            Helper.LibCall(com, "Types", "mapWith", t, [eqComp], genArgs=i.GenericArgs, ?loc=r) |> Some
         | _ -> None
     // Const are read-only but I'm not sure how to detect this in runtime
 //    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
     | "get_Count", Some thisArg, _ -> getAttachedMemberWith r t thisArg "length" |> Some
-    | "GetEnumerator", Some callee, _ -> getEnumerator com r t callee |> Some
+    | "GetEnumerator", Some thisArg, _ ->
+        getAttachedMember thisArg "entries" |> getEnumerator com r t |> Some
 //    | "TryGetValue", _, _ ->
 //        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Item", Some c, [key] -> getExpr r t c key |> Some
-    | "set_Item", Some c, [key; value] -> setExpr r c key value |> Some
     | "Add", Some c, _ ->
-        Helper.LibCall(com, "Types", "addToMap", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "Types", "addKeyValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "Remove", Some c, _ ->
+        Helper.LibCall(com, "Types", "removeKey", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    // Setting the key directly adds or replaces it if already exists
+    | "set_Item", Some c, [key; value] -> setExpr r c key value |> Some
+    | "get_Item", Some c, [key] ->
+        let meth =
+            match i.GenericArgs with
+            // Check also nullable values?
+            | [_key; Option _] -> "getValueNullable"
+            | _ -> "getValue"
+        Helper.LibCall(com, "Types", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Keys"| "get_Values" as prop, Some c, _ ->
         let prop = Naming.removeGetSetPrefix prop |> Naming.lowerFirst
         getAttachedMemberWith r t c prop |> Some
-    | "ContainsKey" | "ContainsValue" | "Clear" | "Remove" as meth, Some c, _ ->
+    | "ContainsKey" | "ContainsValue" | "Clear" as meth, Some c, _ ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None

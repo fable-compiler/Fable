@@ -259,7 +259,7 @@ let buildLibraryDart(clean: bool) =
         "--lang Dart"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
-        "--noCache"
+        if clean then "--noCache"
     ]
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends

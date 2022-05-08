@@ -2,6 +2,7 @@ import './src/ArithmeticTests.fs.dart' as arithmetic;
 import './src/ArrayTests.fs.dart' as array;
 import './src/ComparisonTests.fs.dart' as comparison;
 import './src/DateTimeTests.fs.dart' as date;
+import './src/DictionaryTests.fs.dart' as dictionary;
 import './src/HashSetTests.fs.dart' as hashSet;
 import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
@@ -17,6 +18,7 @@ void main() {
   array.tests();
   comparison.tests();
   date.tests();
+  dictionary.tests();
   hashSet.tests();
   list.tests();
   map.tests();
