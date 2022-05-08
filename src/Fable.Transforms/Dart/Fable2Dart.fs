@@ -443,6 +443,13 @@ module Util =
     let getTupleTypeIdent (com: IDartCompiler) ctx args =
         libValue com ctx Fable.MetaType "Types" $"Tuple{List.length args}"
 
+    let getUnitTypeIdent (com: IDartCompiler) ctx =
+        libValue com ctx Fable.MetaType "Types" "Unit"
+
+    let getUnitValueIdent (com: IDartCompiler) ctx =
+        let t = TypeReference(getUnitTypeIdent com ctx, [])
+        { libValue com ctx Fable.Any "Types" "unit" with Type = t }
+
     let transformType (com: IDartCompiler) (ctx: Context) (t: Fable.Type) =
         match t with
         | Fable.Measure _
@@ -460,6 +467,8 @@ module Util =
         | Fable.Option(genArg, _isStruct) ->
             match genArg with
             | Fable.Option _ -> com.ErrorOnlyOnce("Nested options are not supported"); Dynamic
+            // Allow `unit option` as this is used by "empty" active patterns
+            | Fable.Unit -> Nullable(TypeReference(getUnitTypeIdent com ctx, []))
             | TransformType com ctx genArg -> Nullable genArg
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
@@ -573,7 +582,16 @@ module Util =
             Expression.invocationExpression(regexIdent.Expr, args, makeTypeRef regexIdent [])
             |> resolveExpr returnStrategy
 
-        | Fable.NewOption(Some expr, _, _) -> transform com ctx returnStrategy expr
+        | Fable.NewOption(Some expr, _, _) ->
+            match expr with
+            // Allow `unit option` as this is used by "empty" active patterns
+            | Fable.Value(Fable.UnitConstant, _) ->
+                getUnitValueIdent com ctx
+                |> IdentExpression
+                |> resolveExpr returnStrategy
+            | _ ->
+                transform com ctx returnStrategy expr
+
         | Fable.NewOption(None, typ, _) ->
             transformType com ctx typ
             |> Nullable

@@ -1,8 +1,13 @@
 // ignore_for_file: file_names, non_constant_identifier_names
 
 import 'dart:collection';
-
 import 'Util.dart' as util;
+
+class Unit {
+  const Unit._();
+}
+
+const unit = Unit._();
 
 Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {
   return Map.fromEntries(tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
