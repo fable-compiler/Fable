@@ -33,9 +33,8 @@ let (|Small|Medium|Large|) i =
     elif i >= 3 && i < 6 then Medium "foo"
     else Large
 
-// TODO: Unit active patterns
-//let (|FSharp|_|) (document : string) =
-//    if document = "fsharp" then Some FSharp else None
+let (|FSharp|_|) (document : string) =
+    if document = "fsharp" then Some FSharp else None
 
 let (|A|) n = n
 
@@ -161,15 +160,14 @@ let tests() =
         measure 10 |> equal "bar"
         measure 5 |> equal "foo"
 
-    // FIXME: Unit active patterns
-//    testCase "Partial active patterns which don't return values work" <| fun () -> // See #478
-//        let isFunctional = function
-//            | FSharp -> "yes"
-//            | "scala" -> "fifty-fifty"
-//            | _ -> "dunno"
-//        isFunctional "scala" |> equal "fifty-fifty"
-//        isFunctional "smalltalk" |> equal "dunno"
-//        isFunctional "fsharp" |> equal "yes"
+    testCase "Partial active patterns which don't return values work" <| fun () -> // See #478
+        let isFunctional = function
+            | FSharp -> "yes"
+            | "scala" -> "fifty-fifty"
+            | _ -> "dunno"
+        isFunctional "scala" |> equal "fifty-fifty"
+        isFunctional "smalltalk" |> equal "dunno"
+        isFunctional "fsharp" |> equal "yes"
 
     testCase "Active patterns can be combined with union case matching" <| fun () -> // See #306
         let test = function
