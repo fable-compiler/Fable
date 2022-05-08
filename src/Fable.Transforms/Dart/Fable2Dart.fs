@@ -455,7 +455,8 @@ module Util =
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
             TypeReference(getFSharpListTypeIdent com ctx, [genArg])
-        | Fable.Tuple(genArgs, _isStruct) ->
+        | Fable.DeclaredType(EntFullName("System.Tuple`1"), genArgs)
+        | Fable.Tuple(genArgs, _) ->
             let tup = getTupleTypeIdent com ctx genArgs
             let genArgs = genArgs |> List.map (transformType com ctx)
             TypeReference(tup, genArgs)

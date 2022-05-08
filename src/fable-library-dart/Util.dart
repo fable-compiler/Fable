@@ -20,8 +20,7 @@ bool equalList<T>(List<T> xs, List<T> ys, [bool Function(T x, T y)? eq]) {
   }
 }
 
-// We use dynamic because this is also used for tuples
-int compareList(List<dynamic> xs, List<dynamic> ys) {
+int compareList<T>(List<T> xs, List<T> ys) {
   if (xs.length != ys.length) {
     return xs.length < ys.length ? -1 : 1;
   }

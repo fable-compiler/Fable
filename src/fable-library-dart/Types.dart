@@ -208,11 +208,35 @@ abstract class Union {
 
 abstract class Record {}
 
+class Tuple1<T1> implements Comparable<Tuple1<T1>> {
+  final T1 item1;
+
+  const Tuple1(this.item1);
+
+  @override
+  String toString() => '($item1)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is Tuple1<T1> &&
+          other.runtimeType == runtimeType &&
+          other.item1 == item1;
+
+  @override
+  int get hashCode => item1.hashCode;
+
+  @override
+  int compareTo(Tuple1<T1> other) => util.compareDynamic(item1, other.item1);
+}
+
 class Tuple2<T1, T2> implements Comparable<Tuple2<T1, T2>> {
   final T1 item1;
   final T2 item2;
 
   const Tuple2(this.item1, this.item2);
+
+  @override
+  String toString() => '($item1, $item2)';
 
   @override
   bool operator ==(Object other) =>
@@ -240,6 +264,9 @@ class Tuple3<T1, T2, T3> implements Comparable<Tuple3<T1, T2, T3>> {
   final T3 item3;
 
   const Tuple3(this.item1, this.item2, this.item3);
+
+  @override
+  String toString() => '($item1, $item2, $item3)';
 
   @override
   bool operator ==(Object other) =>
@@ -272,6 +299,9 @@ class Tuple4<T1, T2, T3, T4> implements Comparable<Tuple4<T1, T2, T3, T4>> {
   final T4 item4;
 
   const Tuple4(this.item1, this.item2, this.item3, this.item4);
+
+  @override
+  String toString() => '($item1, $item2, $item3, $item4)';
 
   @override
   bool operator ==(Object other) =>
@@ -309,6 +339,10 @@ class Tuple5<T1, T2, T3, T4, T5>
   final T5 item5;
 
   const Tuple5(this.item1, this.item2, this.item3, this.item4, this.item5);
+
+  @override
+  String toString() =>
+      '($item1, $item2, $item3, $item4, $item5)';
 
   @override
   bool operator ==(Object other) =>
@@ -356,6 +390,10 @@ class Tuple6<T1, T2, T3, T4, T5, T6>
 
   const Tuple6(
       this.item1, this.item2, this.item3, this.item4, this.item5, this.item6);
+
+  @override
+  String toString() =>
+      '($item1, $item2, $item3, $item4, $item5, $item6)';
 
   @override
   bool operator ==(Object other) =>
@@ -408,6 +446,10 @@ class Tuple7<T1, T2, T3, T4, T5, T6, T7>
 
   const Tuple7(this.item1, this.item2, this.item3, this.item4, this.item5, this.item6,
       this.item7);
+
+  @override
+  String toString() =>
+      '($item1, $item2, $item3, $item4, $item5, $item6, $item7)';
 
   @override
   bool operator ==(Object other) =>
