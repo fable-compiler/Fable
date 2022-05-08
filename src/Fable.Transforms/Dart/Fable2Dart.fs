@@ -594,7 +594,6 @@ module Util =
 
         | Fable.NewOption(None, typ, _) ->
             transformType com ctx typ
-            |> Nullable
             |> Expression.nullLiteral
             |> resolveExpr returnStrategy
 
@@ -1091,7 +1090,10 @@ module Util =
             targetAssignment::assignments, None
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
-            let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v |> snd)
+            let ctx, bindings =
+                ((ctx, []), bindings) ||> List.fold (fun (ctx, bindings) (i, v) ->
+                    let ctx, newBindings = transformBinding com ctx i v
+                    ctx, bindings @ newBindings)
             let statements, capturedExpr = com.Transform(ctx, ret, target)
             bindings @ statements, capturedExpr
 
@@ -1209,18 +1211,32 @@ module Util =
             let decisionTree, _ = com.Transform(ctx, targetAssign, treeExpr)
             varDecls @ decisionTree @ switch2
 
+    let simplifyDecisionTree (treeExpr: Fable.Expr) =
+        treeExpr |> visitFromInsideOut (function
+            | Fable.IfThenElse(
+                guardExpr1,
+                Fable.IfThenElse(
+                    guardExpr2,
+                    thenExpr,
+                    Fable.DecisionTreeSuccess(index2,[],_),_),
+                Fable.DecisionTreeSuccess(index1,[],t),r)
+                when index1 = index2 ->
+                Fable.IfThenElse(
+                    makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
+                    thenExpr,
+                    Fable.DecisionTreeSuccess(index2,[],t),r)
+            | e -> e)
+
     let transformDecisionTree (com: IDartCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr) =
         let t = treeExpr.Type
         let prevStmnt, captureExpr, returnStrategy = convertCaptureStrategyIntoAssign com ctx t returnStrategy
         let resolve stmnts = prevStmnt @ stmnts, captureExpr
+        let treeExpr = simplifyDecisionTree treeExpr
 
         // If some targets are referenced multiple times, hoist bound idents,
         // resolve the decision index and compile the targets as a switch
-        let targetsWithMultiRefs =
-            if com.Options.Language = TypeScript then [] // no hoisting when compiled with types
-            else getTargetsWithMultipleReferences treeExpr
-        match targetsWithMultiRefs with
+        match getTargetsWithMultipleReferences treeExpr with
         | [] ->
             let ctx = { ctx with DecisionTargets = targets }
             match canTransformDecisionTreeAsSwitch treeExpr with

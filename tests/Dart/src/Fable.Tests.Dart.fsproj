@@ -15,7 +15,9 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
+    <Compile Include="OptionTests.fs" />
     <Compile Include="RegexTests.fs" />
+    <Compile Include="ResultTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="SetTests.fs" />
     <Compile Include="SudokuTests.fs" />

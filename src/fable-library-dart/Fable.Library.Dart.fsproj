@@ -17,11 +17,11 @@
         <Compile Include="Set.fs" />
         <Compile Include="Map.fs" />
         <Compile Include="Range.fs" />
+        <Compile Include="Option.fs" />
         <Content Include="Date.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="Types.dart" />
         <Content Include="Util.dart" />
-        <Content Include="Option.dart" />
         <Content Include="analysis_options.yaml" />
         <Content Include="pubspec.lock" />
         <Content Include="pubspec.yaml" />

@@ -1515,6 +1515,12 @@ module Identifiers =
         let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
         { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
 
+    let tryGetValueFromScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        ctx.Scope |> List.tryPick (fun (fsRef', _ident, value) ->
+            fsRef'
+            |> Option.filter fsRef.Equals
+            |> Option.bind (fun _ -> value))
+
     let tryGetIdentFromScopeIf (ctx: Context) r predicate =
         ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
             fsRef
@@ -1523,7 +1529,7 @@ module Identifiers =
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetIdentFromScopeIf ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
+        tryGetIdentFromScopeIf ctx r fsRef.Equals
 
 module Util =
     open Helpers
