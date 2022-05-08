@@ -116,16 +116,15 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char -> head // TODO: Chars are represented as integers in dart
         | String -> head
-        | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
-            Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
-        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
-        | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
-        | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
-        | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
+//        | Builtin BclGuid when tail.IsEmpty -> head
+//        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
+//            Helper.LibCall(com, coreModFor bt, "toString", String, args)
+//        | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
+//        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
+//        | Number((Int64|UInt64),_) -> Helper.LibCall(com, "Long", "toString", String, args)
+//        | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
+//        | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         | _ -> Helper.InstanceCall(head, "toString", String, tail)
 
 let getParseParams (kind: NumberKind) =
@@ -424,6 +423,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Array _ -> Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
     | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
+    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
     | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
@@ -1256,16 +1256,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         let left = Helper.LibCall(com, "String", "compare", Number(Int32, NumberInfo.Empty), [x; y; kind])
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> stringToCharArray c |> getEnumerator com r t |> Some
-    | "Contains", Some c, arg::_ ->
-        if (List.length args) > 1 then
-            addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, NumberInfo.Empty), [arg])
-        makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | "StartsWith", Some c, [_str] ->
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, NumberInfo.Empty), args)
-        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
-    | "StartsWith", Some c, [_str; _comp] ->
-        Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, thisArg=c, ?loc=r) |> Some
+    | ("Contains"|"StartsWith" as meth), Some c, arg::_ ->
+        if List.isMultiple args then
+            addWarning com ctx.InlinePath r $"String.{meth}: second argument is ignored"
+        Helper.InstanceCall(c, Naming.lowerFirst meth, t, [arg], ?loc=r) |> Some
     | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
                     "ToUpperInvariant", "toUpperCase"
                     "ToLower",          "toLocaleLowerCase"
@@ -2049,8 +2043,8 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
-    | "get_Message", Some e -> getAttachedMemberWith r t e "message" |> Some
-    | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
+    | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc=r) |> Some
+//    | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
     | _ -> None
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -1,4 +1,4 @@
-﻿module Fable.Tests.Dart.TupleType
+﻿module Fable.Tests.Dart.Tuple
 
 open Util
 open System

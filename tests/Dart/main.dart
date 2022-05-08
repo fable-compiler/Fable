@@ -11,7 +11,7 @@ import './src/SeqTests.fs.dart' as seq;
 import './src/SetTests.fs.dart' as set$;
 import './src/SudokuTests.fs.dart' as sudoku;
 import './src/TailCallTests.fs.dart' as tailcall;
-import './src/TupleTypeTests.fs.dart' as tuples;
+import './src/TupleTests.fs.dart' as tuple;
 import './src/UnionTests.fs.dart' as union;
 
 void main() {
@@ -28,6 +28,6 @@ void main() {
   set$.tests();
   sudoku.tests();
   tailcall.tests();
-  tuples.tests();
+  tuple.tests();
   union.tests();
 }

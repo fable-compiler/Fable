@@ -36,14 +36,14 @@ module Functions =
 
     let One(k,v) = Node(k,v,Empty,Empty,1)
 
-//    let rec tryFind (k: 'a) (m: Tree<'a,'b>): 'b option =
-//        match m with
-//        | Empty -> None
-//        | Node(k2,v2,l,r,_) ->
-//            let c = compare k k2
-//            if c < 0 then tryFind k l
-//            elif c = 0 then Some v2
-//            else tryFind k r
+    let rec tryFind (k: 'a) (m: Tree<'a,'b>): 'b option =
+        match m with
+        | Empty -> None
+        | Node(k2,v2,l,r,_) ->
+            let c = compare k k2
+            if c < 0 then tryFind k l
+            elif c = 0 then Some v2
+            else tryFind k r
 
     let rec functionArguments x f =
         let f2 = f >> ((+) 3)
@@ -188,14 +188,13 @@ let tests() =
     testCase "IIFEs prevent tailcall optimization" <| fun () -> // See #674
         iife [5; 4; 3] |> equal 24
 
-    // FIXME
-//    testCase "Tailcall optimization doesn't cause endless loops" <| fun () -> // See #675
-//        One("a", 42)
-//        |> tryFind "a"
-//        |> equal (Some 42)
-//        Tree.Empty
-//        |> tryFind "a"
-//        |> equal None
+    testCase "Tailcall optimization doesn't cause endless loops" <| fun () -> // See #675
+        One("a", 42)
+        |> tryFind "a"
+        |> equal (Some 42)
+        Tree<string, int>.Empty
+        |> tryFind "a"
+        |> equal None
 
     testCase "Recursive functions containing finally work" <| fun () ->
         recWithFinally () |> equal "abcdeEDCBA"
