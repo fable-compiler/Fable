@@ -20,7 +20,7 @@
     <Compile Include="SetTests.fs" />
     <Compile Include="SudokuTests.fs" />
     <Compile Include="TailCallTests.fs" />
-    <Compile Include="TupleTypeTests.fs" />
+    <Compile Include="TupleTests.fs" />
     <Compile Include="UnionTests.fs" />
     <Content Include="..\main.dart" />
   </ItemGroup>

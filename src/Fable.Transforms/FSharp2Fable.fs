@@ -847,8 +847,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let caseIndex = unionCaseTag com tdef unionCase
             let fieldIndex = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
             let kind = Fable.UnionField(caseIndex, fieldIndex)
-            let typ = makeType Map.empty field.FieldType
-            // let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
+            let typ = makeType ctx.GenericArgs fsExpr.Type
             return Fable.Get(unionExpr, kind, typ, r)
 
     | FSharpExprPatterns.FSharpFieldSet(callee, calleeType, field, value) ->

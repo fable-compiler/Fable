@@ -132,7 +132,8 @@ module Util =
     let makeImmutableListExpr com ctx typ values: Expression =
         let typ = transformType com ctx typ
         let isConst, values =
-            if List.forall (isConstExpr ctx) values then true, List.map removeConst values
+            if areConstTypes [typ] && areConstExprs ctx values then
+                true, List.map removeConst values
             else false, values
         Expression.listLiteral(values, typ, isConst)
 
@@ -235,6 +236,14 @@ module Util =
             | StringLiteral _
             | NullLiteral _ -> true
         | _ -> false
+
+    let areConstExprs ctx exprs =
+        List.forall (isConstExpr ctx) exprs
+
+    let areConstTypes types =
+        types |> List.forall (function
+            | Generic _ -> false
+            | _ -> true)
 
     // Dart linter complaints if we have too many "const"
     let removeConst = function
@@ -524,7 +533,8 @@ module Util =
         let genArgs = args |> List.map (fun a -> a.Type)
         let t = TypeReference(tup, genArgs)
         let isConst, args =
-            if List.forall (isConstExpr ctx) args then true, List.map removeConst args
+            if areConstTypes genArgs && areConstExprs ctx args then
+                true, List.map removeConst args
             else false, args
         // Generic arguments can be omitted from invocation expression
         Expression.invocationExpression(tup.Expr, args, t, isConst=isConst)
@@ -588,10 +598,11 @@ module Util =
                 let genArgs = genArgs |> List.map (transformType com ctx)
                 let consRef = getEntityIdent com ctx ent
                 let typeRef = TypeReference(consRef, genArgs)
-                let isConst, args =
-                    let isConst = List.forall (isConstExpr ctx) args && (ent.FSharpFields |> List.forall (fun f -> not f.IsMutable))
-                    if isConst then true, List.map removeConst args
-                    else false, args
+                let isConst =
+                    areConstTypes genArgs
+                    && List.forall (isConstExpr ctx) args
+                    && (ent.FSharpFields |> List.forall (fun f -> not f.IsMutable))
+                let args = if isConst then List.map removeConst args else args
                 Expression.invocationExpression(consRef.Expr, args, typeRef, genArgs=genArgs, isConst=isConst)
             )
         | Fable.NewAnonymousRecord _ ->
@@ -612,7 +623,8 @@ module Util =
                 let consRef = getEntityIdent com ctx ent
                 let typeRef = TypeReference(consRef, genArgs)
                 let isConst, args =
-                    if List.forall (isConstExpr ctx) args then true, List.map removeConst args
+                    if areConstTypes genArgs && areConstExprs ctx args then
+                        true, List.map removeConst args
                     else false, args
                 Expression.invocationExpression(consRef.Expr, args, typeRef, genArgs=genArgs, isConst=isConst)
             )
@@ -703,7 +715,10 @@ module Util =
                 let argStatements, args = transformCallArgs com ctx range (CallInfo callInfo)
                 let statements, callee = combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
                 let isConst =
-                    callInfo.IsConstructor && List.forall (snd >> isConstExpr ctx) args && (
+                    callInfo.IsConstructor
+                    && areConstTypes genArgs
+                    && List.forall (snd >> isConstExpr ctx) args
+                    && (
                         callInfo.CallMemberInfo
                         |> Option.bind (fun i -> i.DeclaringEntity)
                         |> Option.map (fun e ->
@@ -1329,6 +1344,11 @@ module Util =
                     transformExprAndResolve com ctx returnStrategy expr (fun expr ->
                         let t = transformType com ctx t
                         get t expr "entries")
+
+                | ExprType(Fable.String) ->
+                    transformExprAndResolve com ctx returnStrategy expr (fun expr ->
+                        let t = transformType com ctx t
+                        get t expr "runes")
 
                 | _ -> transformCast com ctx t returnStrategy expr
             | _ -> transformCast com ctx t returnStrategy expr
