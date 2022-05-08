@@ -825,9 +825,15 @@ module PrinterExtensions =
             printer.PrintFunctionBody(?body=body, ?isModuleOrClassMember=isModuleOrClassMember)
 
         member printer.PrintVariableDeclaration(ident: Ident, kind: VariableDeclarationKind, ?value: Expression, ?isLate) =
+            let value =
+                match value with
+                | None -> None
+                // Dart recommends not to explicitly initialize mutable variables to null
+                | Some(Literal(NullLiteral _)) when kind = Var -> None
+                | Some v -> Some v
+
             match value with
-            // Dart recommends not to explicitly initialize variables to null
-            | None | Some(Literal(NullLiteral _)) ->
+            | None ->
                 match isLate, ident.Type with
                 | Some false, _
                 | None, Nullable _ -> ()
@@ -842,12 +848,9 @@ module PrinterExtensions =
 
             | Some value ->
                 let printType =
-                    // Nullable types must be typed explicitly
+                    // Nullable types usually need to be typed explicitly
                     match ident.Type with
-                    | Nullable _ ->
-                        match value.Type with
-                        | Nullable _ -> false
-                        | _ -> true
+                    | Nullable _ -> true
                     | _ -> false
 
                 match kind, printType with

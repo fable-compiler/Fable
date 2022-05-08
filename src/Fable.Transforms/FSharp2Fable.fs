@@ -582,8 +582,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Replacements.Api.defaultof com ctx typ
 
     | FSharpExprPatterns.Let((var, value), body) ->
-        match value, body with
-        | (CreateEvent(value, event) as createEvent), _ ->
+        match value with
+        | CreateEvent(value, event) as createEvent ->
             let! value = transformExpr com ctx value
             let typ = makeType ctx.GenericArgs createEvent.Type
             let value = makeCallFrom com ctx (makeRangeFrom createEvent) typ [] (Some value) [] event
@@ -591,23 +591,53 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! body = transformExpr com ctx body
             return Fable.Let(ident, value, body)
 
-        | value, body ->
-            if isInline var then
-                let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
-                return! transformExpr com ctx body
-            else
-                let! value = transformExpr com ctx value
-                let ctx, ident = putIdentInScope com ctx var (Some value)
-                let! body = transformExpr com ctx body
-                match value with
-                | Fable.Import(info, t, r) when not info.IsCompilerGenerated ->
-                    return Fable.Let(ident, Fable.Import(resolveImportMemberBinding ident info, t, r), body)
-                // Unwrap lambdas for user-generated imports, as in: `let add (x:int) (y:int): int = importMember "./util.js"`
-                | AST.NestedLambda(args, Fable.Import(info,_,r), _) when not info.IsCompilerGenerated ->
-                    let t = value.Type
-                    let info = resolveImportMemberBinding ident info
-                    return Fable.Let(ident, Fable.Extended(Fable.Curry(Fable.Import(info,t,r), List.length args), r), body)
-                | _ -> return Fable.Let(ident, value, body)
+        // F# compiler generates a tuple when matching against multiple values,
+        // we replace with immutable bindings instead which generates better code
+        // and increases the chances of the tuple being removed in beta reduction
+        | FSharpExprPatterns.NewTuple(tupleType, tupleValues) as tupleExpr
+            when var.IsCompilerGenerated && var.CompiledName = "matchValue" ->
+
+            let! tupleValues = transformExprList com ctx tupleValues
+
+            let bindings, tupleValues =
+                (([], []), tupleValues) ||> List.fold (fun (bindings, tupleValues) value ->
+                    match value with
+                    | Fable.IdentExpr id ->
+                        if not id.IsMutable then
+                            bindings, value::tupleValues
+                        else
+                            let i = getIdentUniqueName ctx id.Name |> makeTypedIdent id.Type
+                            (i, value)::bindings, (Fable.IdentExpr i)::tupleValues
+                    | value ->
+                        let i = getIdentUniqueName ctx "matchValue" |> makeTypedIdent value.Type
+                        (i, value)::bindings, (Fable.IdentExpr i)::tupleValues)
+
+            let value =
+                Fable.NewTuple(List.rev tupleValues, tupleType.IsStructTupleType)
+                |> makeValue (makeRangeFrom tupleExpr)
+
+            let ctx, ident = putIdentInScope com ctx var (Some value)
+            let! body = transformExpr com ctx body
+            let expr = Fable.Let(ident, value, body)
+            return (expr, bindings) ||> List.fold (fun e (i, v) -> Fable.Let(i, v, e))
+
+        | _ when isInline var ->
+            let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
+            return! transformExpr com ctx body
+
+        | _ ->
+            let! value = transformExpr com ctx value
+            let ctx, ident = putIdentInScope com ctx var (Some value)
+            let! body = transformExpr com ctx body
+            match value with
+            | Fable.Import(info, t, r) when not info.IsCompilerGenerated ->
+                return Fable.Let(ident, Fable.Import(resolveImportMemberBinding ident info, t, r), body)
+            // Unwrap lambdas for user-generated imports, as in: `let add (x:int) (y:int): int = importMember "./util.js"`
+            | AST.NestedLambda(args, Fable.Import(info,_,r), _) when not info.IsCompilerGenerated ->
+                let t = value.Type
+                let info = resolveImportMemberBinding ident info
+                return Fable.Let(ident, Fable.Extended(Fable.Curry(Fable.Import(info,t,r), List.length args), r), body)
+            | _ -> return Fable.Let(ident, value, body)
 
     | FSharpExprPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values
@@ -799,20 +829,34 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
-        // let typ = makeType ctx.GenericArgs fsExpr.Type
+//        let typ = makeType ctx.GenericArgs fsExpr.Type
+        // We need to use the type info from the field without generics for the uncurrying
+        // Maybe we should put it in FieldInfo instead?
         let typ = makeType Map.empty field.FieldType
         return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, Fable.FieldInfo.Create(isMutable=field.IsMutable)), typ, r)
 
-    | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
-        let! tupleExpr = transformExpr com ctx tupleExpr
-        let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't always work (could be Fable.Any)
-        let typ2 = makeType ctx.GenericArgs tupleType
-        let typ =
-            // if type is Fable.Any, get the actual type from the tuple element
-            match typ, typ2 with
-            | Fable.Any, Fable.Tuple(genArgs,_) -> List.item tupleElemIndex genArgs
-            | _ -> typ
-        return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
+    | FSharpExprPatterns.TupleGet(_tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
+        // F# compiler generates a tuple when matching against multiple values,
+        // if the TupleGet accesses an immutable ident in scope we use the ident directly
+        // to increase the chances of the tuple being removed in beta reduction
+        let tupleElemValue =
+            match tupleExpr with
+            | FSharpExprPatterns.Value tupleIdent
+                    when tupleIdent.IsCompilerGenerated
+                    && tupleIdent.CompiledName = "matchValue" ->
+                tryGetValueFromScope ctx tupleIdent
+                |> Option.bind (function
+                    | Fable.Value(Fable.NewTuple(values,_),_) ->
+                        List.tryItem tupleElemIndex values
+                    | _ -> None)
+            | _ -> None
+
+        match tupleElemValue with
+        | Some(Fable.IdentExpr id as e) when not id.IsMutable -> return e
+        | _ ->
+            let! tupleExpr = transformExpr com ctx tupleExpr
+            let typ = makeType ctx.GenericArgs fsExpr.Type
+            return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
     | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr

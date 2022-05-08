@@ -408,14 +408,13 @@ module AST =
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
-            // OptionValue has a runtime check
-            // TODO: Discard side effect for languages without the runtime check?
+            | OptionValue
             | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects e
             | FieldGet(_, info) ->
                 if info.CanHaveSideEffects then true
                 else canHaveSideEffects e
-            | _ -> true
+            | ExprGet _ -> true
         | _ -> true
 
     /// For unit, unresolved generics or nested options or unknown types,

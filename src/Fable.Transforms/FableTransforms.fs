@@ -308,9 +308,9 @@ module private Transforms =
             let canEraseBinding =
                 match value with
                 | Import(i,_,_) -> i.IsCompilerGenerated
-                | NestedLambda _ ->
-                    // Don't move local functions declared by user
-                    ident.IsCompilerGenerated && canInlineArg ident.Name value letBody
+                // Don't move local functions declared by user
+                | Lambda _ -> ident.IsCompilerGenerated && canInlineArg ident.Name value letBody
+//                | NestedLambda lambdaBody ->
 //                    match lambdaBody with
 //                    | Import(i,_,_) -> i.IsCompilerGenerated
 //                    // Check the lambda doesn't reference itself recursively

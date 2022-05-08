@@ -1009,16 +1009,19 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | _ -> None
 
+// We could add ?? as operator (or a custom string operator)
+// so this can be a BinaryOp
+let ifNullOp r t nullable defValue =
+    emit r t [nullable; defValue] false "$0 ?? $1"
+
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
         Helper.ImportedCall("dart:math", meth, t, args, argTypes, ?loc=r)
 
     match i.CompiledName, args with
-    | ("DefaultArg" | "DefaultValueArg"), _ ->
-        // We could add ?? as operator (or a custom string operator)
-        // so this can be a BinaryOp
-        emit r t args false "$0 ?? $1" |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [nullable; defValue] ->
+        ifNullOp r t nullable defValue |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     | "KeyValuePattern", [arg] ->
@@ -1631,35 +1634,18 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | _ -> None
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let toArray r t arg =
-        Helper.LibCall(com, "Option", "toArray", Array(t, MutableArray), [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
     | "GetValue", [c] -> getOptionValue r t c |> Some
-    | ("OfObj" | "OfNullable"), _ ->
-        Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
-    | ("ToObj" | "ToNullable"), _ ->
-        Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    | ("DefaultValue" | "OrElse"), [defValue; nullable] ->
+        ifNullOp r t nullable defValue |> Some
+    | ("ToArray" | "ToList" | "Count" | "Contains" | "ForAll" | "Iterate"
+           | "DefaultWith" | "OrElseWith" | "Exists" | "Fold" | "FoldBack"
+           | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | "ToArray", [arg] ->
-        toArray r t arg |> Some
-    | "ToList", [arg] ->
-        let args = args |> List.replaceLast (toArray None t)
-        Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
-    | "FoldBack", [folder; opt; state] ->
-        Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | ("DefaultValue" | "OrElse"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
-    | ("DefaultWith" | "OrElseWith"), _ ->
-        Helper.LibCall(com, "Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
-        let meth = Naming.lowerFirst meth
-        let args = args |> List.replaceLast (toArray None t)
-        let args = injectArg com ctx r "Seq" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+//    | ("OfObj" | "OfNullable" | "ToObj" | "ToNullable"), _ ->
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
