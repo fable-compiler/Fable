@@ -8,6 +8,7 @@ import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
 import './src/OptionTests.fs.dart' as option;
 import './src/RegexTests.fs.dart' as regex;
+import './src/ResizeArrayTests.fs.dart' as resize_array;
 import './src/ResultTests.fs.dart' as result;
 import './src/SeqTests.fs.dart' as seq;
 import './src/SetTests.fs.dart' as set$;
@@ -27,6 +28,7 @@ void main() {
   map.tests();
   option.tests();
   regex.tests();
+  resize_array.tests();
   result.tests();
   seq.tests();
   set$.tests();
