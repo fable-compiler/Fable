@@ -12,6 +12,7 @@ import './src/RegexTests.fs.dart' as regex;
 import './src/ResizeArrayTests.fs.dart' as resize_array;
 import './src/ResultTests.fs.dart' as result;
 import './src/SeqTests.fs.dart' as seq;
+import './src/SeqExpressionTests.fs.dart' as seq_expression;
 import './src/SetTests.fs.dart' as set$;
 import './src/SudokuTests.fs.dart' as sudoku;
 import './src/TailCallTests.fs.dart' as tailcall;
@@ -33,6 +34,7 @@ void main() {
   resize_array.tests();
   result.tests();
   seq.tests();
+  seq_expression.tests();
   set$.tests();
   sudoku.tests();
   tailcall.tests();
