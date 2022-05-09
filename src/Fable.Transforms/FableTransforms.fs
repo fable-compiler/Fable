@@ -246,8 +246,8 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
-let canInlineArg identName value body =
-    (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
+let canInlineArg com identName value body =
+    (canHaveSideEffects com value |> not && countReferences 1 identName body <= 1)
      || (noSideEffectBeforeIdent identName body
          && isIdentCaptured identName body |> not
          // Make sure is at least referenced once so the expression is not erased
@@ -267,12 +267,12 @@ module private Transforms =
             Some(arg, body)
         | _ -> None
 
-    let lambdaBetaReduction (_com: Compiler) e =
+    let lambdaBetaReduction (com: Compiler) e =
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if canInlineArg ident.Name expr body
+                    if canInlineArg com ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -309,14 +309,14 @@ module private Transforms =
                 match value with
                 | Import(i,_,_) -> i.IsCompilerGenerated
                 // Don't move local functions declared by user
-                | Lambda _ -> ident.IsCompilerGenerated && canInlineArg ident.Name value letBody
+                | Lambda _ -> ident.IsCompilerGenerated && canInlineArg com ident.Name value letBody
 //                | NestedLambda lambdaBody ->
 //                    match lambdaBody with
 //                    | Import(i,_,_) -> i.IsCompilerGenerated
 //                    // Check the lambda doesn't reference itself recursively
 //                    | _ -> countReferences 0 ident.Name lambdaBody = 0
-//                           && canInlineArg ident.Name value letBody
-                | _ -> canInlineArg ident.Name value letBody
+//                           && canInlineArg com ident.Name value letBody
+                | _ -> canInlineArg com ident.Name value letBody
             if canEraseBinding then
                 let value =
                     match value with
