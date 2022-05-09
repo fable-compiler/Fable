@@ -16,6 +16,7 @@
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <Compile Include="OptionTests.fs" />
+    <Compile Include="RecordTests.fs" />
     <Compile Include="RegexTests.fs" />
     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" />

@@ -7,6 +7,7 @@ import './src/HashSetTests.fs.dart' as hash_set;
 import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
 import './src/OptionTests.fs.dart' as option;
+import './src/RecordTests.fs.dart' as record;
 import './src/RegexTests.fs.dart' as regex;
 import './src/ResizeArrayTests.fs.dart' as resize_array;
 import './src/ResultTests.fs.dart' as result;
@@ -27,6 +28,7 @@ void main() {
   list.tests();
   map.tests();
   option.tests();
+  record.tests();
   regex.tests();
   resize_array.tests();
   result.tests();
