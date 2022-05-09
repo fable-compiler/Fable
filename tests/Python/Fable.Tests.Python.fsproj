@@ -5,6 +5,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <LangVersion>preview</LangVersion>
+    <RootNamespace>Fable.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="6.0.1" />
