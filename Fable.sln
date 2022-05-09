@@ -48,7 +48,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Compiler", "tes
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Rust", "tests\Rust\Fable.Tests.Rust.fsproj", "{70D726EE-D492-4561-9C86-9C1CAAAC2ABD}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests", "tests\Python\Fable.Tests.fsproj", "{2C27ECA6-6502-4A47-8D19-6102840B911B}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Python", "tests\Python\Fable.Tests.Python.fsproj", "{2C27ECA6-6502-4A47-8D19-6102840B911B}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Library.Dart", "src\fable-library-dart\Fable.Library.Dart.fsproj", "{505AEE8D-2BB6-48D1-ACD2-FB262DB365C4}"
 EndProject
