@@ -830,7 +830,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
 //        let typ = makeType ctx.GenericArgs fsExpr.Type
-        // We need to use the type info from the field without generics for the uncurrying
+        // We need the type info from field without generics for uncurrying
         // Maybe we should put it in FieldInfo instead?
         let typ = makeType Map.empty field.FieldType
         return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, Fable.FieldInfo.Create(isMutable=field.IsMutable)), typ, r)
@@ -891,7 +891,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let caseIndex = unionCaseTag com tdef unionCase
             let fieldIndex = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
             let kind = Fable.UnionField(caseIndex, fieldIndex)
-            let typ = makeType ctx.GenericArgs fsExpr.Type
+//            let typ = makeType ctx.GenericArgs fsExpr.Type
+            // We need the type info from field without generics for uncurrying
+            // Maybe we should extract it from the union case instead?
+            let typ = makeType Map.empty field.FieldType
             return Fable.Get(unionExpr, kind, typ, r)
 
     | FSharpExprPatterns.FSharpFieldSet(callee, calleeType, field, value) ->

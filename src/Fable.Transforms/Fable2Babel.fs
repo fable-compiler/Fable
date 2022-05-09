@@ -1070,7 +1070,7 @@ module Util =
             Option.isSome baseCall || members |> List.exists (fun m ->
                 // Optimization: Object literals with getters and setters are very slow in V8
                 // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
-                m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects m.Body))
+                m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects com m.Body))
 
         let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
@@ -1451,7 +1451,7 @@ module Util =
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects expr then
+                    if canHaveSideEffects com expr then
                         (ident, expr)::bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements)

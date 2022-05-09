@@ -382,25 +382,25 @@ module AST =
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
-    let rec canHaveSideEffects = function
+    let rec canHaveSideEffects (com: Compiler) = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
-        | TypeCast(e,_) -> canHaveSideEffects e
+        | TypeCast(e,_) -> canHaveSideEffects com e
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
-            | NewOption(Some e,_,_) -> canHaveSideEffects e
-            | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
+            | NewOption(Some e,_,_) -> canHaveSideEffects com e
+            | NewList(Some(h,t),_) -> canHaveSideEffects com h || canHaveSideEffects com t
             | StringTemplate(_,_,exprs)
             | NewTuple(exprs,_)
-            | NewUnion(exprs,_,_,_) -> List.exists canHaveSideEffects exprs
+            | NewUnion(exprs,_,_,_) -> List.exists (canHaveSideEffects com) exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
-                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
-                | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
+                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects com expr
+                | ImmutableArray, ArrayValues exprs -> List.exists (canHaveSideEffects com) exprs
                 | _, ArrayAlloc _
                 | _, ArrayValues [] -> false
                 | _ -> true
@@ -408,12 +408,16 @@ module AST =
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
-            | OptionValue
+            | OptionValue ->
+                match com.Options.Language with
+                | Dart -> canHaveSideEffects com e
+                // Other languages include a runtime check for options
+                | _ -> true
             | ListHead | ListTail | TupleIndex _
-            | UnionTag | UnionField _ -> canHaveSideEffects e
+            | UnionTag | UnionField _ -> canHaveSideEffects com e
             | FieldGet(_, info) ->
                 if info.CanHaveSideEffects then true
-                else canHaveSideEffects e
+                else canHaveSideEffects com e
             | ExprGet _ -> true
         | _ -> true
 
