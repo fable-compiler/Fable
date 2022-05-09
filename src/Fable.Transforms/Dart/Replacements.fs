@@ -1226,7 +1226,6 @@ let implementedStringFunctions =
            "PadLeft"
            "PadRight"
            "Remove"
-           "Replace"
            "Substring"
         |]
 
@@ -1322,6 +1321,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.InstanceCall(arg, "join", t, [makeStrConst ""], ?loc=r) |> Some
     | "CompareOrdinal", None, _ ->
         Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc=r) |> Some
+    | "Replace", Some thisArg, args ->
+        Helper.InstanceCall(thisArg, "replaceAll", t, args, ?loc=r) |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs,
                         hasSpread=i.HasSpread, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2072,20 +2073,20 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         makeBinOp r (Number(Int32, NumberInfo.Empty)) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
-    | None, Patterns.DicContains (dict ["Parse", "parseEnum"
-                                        "TryParse", "tryParseEnum"
-                                        "IsDefined", "isEnumDefined"
-                                        "GetName", "getEnumName"
-                                        "GetNames", "getEnumNames"
-                                        "GetValues", "getEnumValues"
-                                        "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
-        let args =
-            match meth, args with
-            // TODO: Parse at compile time if we know the type
-            | "parseEnum", [value] -> [makeTypeInfo None t; value]
-            | "tryParseEnum", [value; refValue] -> [genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue]
-            | _ -> args
-        Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
+//    | None, Patterns.DicContains (dict ["Parse", "parseEnum"
+//                                        "TryParse", "tryParseEnum"
+//                                        "IsDefined", "isEnumDefined"
+//                                        "GetName", "getEnumName"
+//                                        "GetNames", "getEnumNames"
+//                                        "GetValues", "getEnumValues"
+//                                        "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
+//        let args =
+//            match meth, args with
+//            // TODO: Parse at compile time if we know the type
+//            | "parseEnum", [value] -> [makeTypeInfo None t; value]
+//            | "tryParseEnum", [value; refValue] -> [genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue]
+//            | _ -> args
+//        Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
 
 let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

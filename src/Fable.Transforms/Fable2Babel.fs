@@ -1575,7 +1575,7 @@ module Util =
     let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy
                     (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare target and bound idents
-        let targetId = getUniqueNameInDeclarationScope ctx "pattern_matching_result" |> makeIdent
+        let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeIdent
         let multiVarDecl =
             let boundIdents = targets |> List.collect (fun (idents,_) ->
                 idents |> List.map (fun id -> typedIdent com ctx id, None))
