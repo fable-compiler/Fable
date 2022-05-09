@@ -464,6 +464,7 @@ module Util =
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
             | Float32 | Float64 -> Double
             | Decimal | BigInt | NativeInt | UNativeInt -> Dynamic // TODO
+        | Fable.DeclaredType(EntFullName "System.Enum", []) -> Integer
         | Fable.Option(genArg, _isStruct) ->
             match genArg with
             | Fable.Option _ -> com.ErrorOnlyOnce("Nested options are not supported"); Dynamic
@@ -473,6 +474,9 @@ module Util =
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
             TypeReference(getFSharpListTypeIdent com ctx, [genArg])
+        | Fable.DeclaredType(EntFullName Types.array, []) ->
+            // List withouth generics is same as List<dynamic>
+            TypeReference(getFSharpListTypeIdent com ctx, [])
         | Fable.DeclaredType(EntFullName("System.Tuple`1"), genArgs)
         | Fable.Tuple(genArgs, _) ->
             let tup = getTupleTypeIdent com ctx genArgs
@@ -1185,7 +1189,7 @@ module Util =
                     (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare target and bound idents
         let targetId =
-            getUniqueNameInDeclarationScope ctx "pattern_matching_result"
+            getUniqueNameInDeclarationScope ctx "matchResult"
             |> makeTypedIdent (numType Int32)
         let varDecls =
             [
