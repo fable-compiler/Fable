@@ -1412,9 +1412,9 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "removeAllInPlace", t, [arg; ar], genArgs=i.GenericArgs, ?loc=r) |> Some
     | "FindIndex", Some ar, [arg] ->
-        Helper.InstanceCall(ar, "findIndex", t, [arg], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "indexWhere", t, [arg], ?loc=r) |> Some
     | "FindLastIndex", Some ar, [arg] ->
-        Helper.LibCall(com, "Array", "findLastIndex", t, [arg; ar], genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.InstanceCall(ar, "lastIndexWhere", t, [arg], ?loc=r) |> Some
     | "ForEach", Some ar, [arg] ->
         Helper.InstanceCall(ar, "forEach", t, [arg], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
@@ -1423,15 +1423,17 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         getAttachedMemberWith r t ar "length" |> Some
     | "ConvertAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
-    | ("Exists"|"Contains"), Some ar, [arg] ->
+    | "Exists", Some ar, [arg] ->
+        Helper.InstanceCall(ar, "any", t, [arg], ?loc=r) |> Some
+    | "Contains", Some ar, [arg] ->
         Helper.InstanceCall(ar, "contains", t, [arg], ?loc=r) |> Some
-    // We can use firstWhere/lastWhere here, but we need to provide a default value
-    | "Find", Some ar, [arg] ->
-        let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
-        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
-    | "FindLast", Some ar, [arg] ->
-        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
-        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+// Find/FindLast don't work because we cannot provide a default value for ref types with null safety in Dart
+//    | "Find", Some ar, [arg] ->
+//        let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+//    | "FindLast", Some ar, [arg] ->
+//        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "filter", t, [arg; ar], genArgs=i.GenericArgs, ?loc=r) |> Some
     | "AddRange", Some ar, [arg] ->
@@ -1443,13 +1445,14 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Insert", Some ar, [idx; arg] ->
         Helper.InstanceCall(ar, "insert", t, [idx; arg], ?loc=r) |> Some
     | "InsertRange", Some ar, [idx; arg] ->
-        Helper.InstanceCall(ar, "insertRange", t, [idx; arg], ?loc=r) |> Some
-    | "RemoveRange", Some ar, args ->
-        Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
+        Helper.InstanceCall(ar, "insertAll", t, [idx; arg], ?loc=r) |> Some
+    | "RemoveRange", Some ar, [startIdx; count] ->
+        let endIdx = makeBinOp r (Number(Int32, NumberInfo.Empty)) startIdx count BinaryPlus
+        Helper.InstanceCall(ar, "removeRange", t, [startIdx; endIdx], ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 1], ?loc=r) |> Some
+        Helper.InstanceCall(ar, "removeAt", t, [idx], ?loc=r) |> Some
     | "Reverse", Some ar, [] ->
-        Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", "reverseInPlace", t, [ar], ?loc=r) |> Some
     | "Sort", Some ar, [] ->
         let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
         Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
@@ -1458,7 +1461,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Sort", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "sortInPlace", t, [ar; arg], genArgs=i.GenericArgs, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
-        Helper.InstanceCall(ar, "sublist", t, args, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.InstanceCall(ar, "sublist", t, [makeIntConst 0], ?loc=r) |> Some
     | _ -> None
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1488,7 +1491,7 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some arg, _ -> getImmutableAttachedMemberWith r t arg "length" |> Some
+    | "get_Length", Some arg, _ -> getAttachedMemberWith r t arg "length" |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
