@@ -304,7 +304,7 @@ let makeStringTemplateFrom simpleFormats values = function
 let rec namesof com ctx acc e =
     match acc, e with
     | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop::acc) e
-    | acc, Get(e, FieldGet(fieldName, _), _, _) -> namesof com ctx (fieldName::acc) e
+    | acc, Get(e, FieldGet i, _, _) -> namesof com ctx (i.Name::acc) e
     | [], IdentExpr ident -> ident.DisplayName::acc |> Some
     | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), c) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->

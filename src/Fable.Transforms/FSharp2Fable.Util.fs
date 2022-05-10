@@ -1900,13 +1900,14 @@ module Util =
                 if indexedProp then memb.CompiledName, false, false
                 else getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
-            let t = memb.ReturnParameter.Type |> makeType Map.empty
             // Set the field as maybe calculated so it's not displaced by beta reduction
-            let info = Fable.FieldInfo.Create(
+            let kind = Fable.FieldInfo.Create(
+                name,
+                fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
                 maybeCalculated = true,
                 isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
             )
-            Fable.Get(callee, Fable.FieldGet(name, info), t, r)
+            Fable.Get(callee, kind, typ, r)
         elif isSetter then
             let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
@@ -2032,11 +2033,12 @@ module Util =
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls com e memb then
                     // Set the field as maybe calculated so it's not displaced by beta reduction
-                    let info = Fable.FieldInfo.Create(
+                    let kind = Fable.FieldInfo.Create(
+                        getMemberDisplayName memb,
                         maybeCalculated = true,
                         isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
                     )
-                    Fable.Get(moduleOrClassExpr, Fable.FieldGet(getMemberDisplayName memb, info), typ, r) |> Some
+                    Fable.Get(moduleOrClassExpr, kind, typ, r) |> Some
                 else
                     let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
                     callAttachedMember com r typ callInfo e memb |> Some

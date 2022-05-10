@@ -568,8 +568,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // static function call
         match callee with
         | Fable.Import({Selector = "op_UnaryNegation_Int32"},_,_) -> PhpUnaryOp("-", convertExpr com args.[0])
-        | Fable.Get(this, Fable.FieldGet(field, _),_,_) ->
-            PhpField(convertExpr com this, StrField (fixName field), None)
+        | Fable.Get(this, Fable.FieldGet i,_,_) ->
+            PhpField(convertExpr com this, StrField (fixName i.Name), None)
         | Fable.Get((Fable.Get(_,_,ty,_) as this), Fable.ExprGet(Fable.Value(Fable.StringConstant m, None)),_,_)
                 when match ty with Fable.Array _ -> true | _ -> false
                 ->
@@ -645,22 +645,19 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         let phpExpr = convertExpr com expr
 
         match kind with
-        | Fable.UnionField(caseIndex, fieldIndex) ->
+        | Fable.UnionField i ->
             // had to add the field info (and not only the index)
             // because we implement Cases as classes (contrary to JS where cases are arrays)
-            match expr.Type with
-            | Fable.DeclaredType(entRef, _) -> Some entRef
-            | _ -> None
-            |> Option.bind (fun entRef ->
-                let ent = com.GetEntity(entRef)
-                List.tryItem caseIndex ent.UnionCases)
-            |> Option.bind (fun unionCase -> unionCase.UnionCaseFields |> List.tryItem fieldIndex)
+            let ent = com.GetEntity(i.Entity)
+            List.tryItem i.CaseIndex ent.UnionCases
+            |> Option.bind (fun unionCase -> unionCase.UnionCaseFields |> List.tryItem i.FieldIndex)
             |> Option.map (fun field -> PhpField(phpExpr, StrField field.Name, None))
             |> Option.defaultWith (fun _ -> failwith "Cannot find union field name")
         | Fable.OptionValue ->
             // option is simply erased
             phpExpr
-        | Fable.FieldGet(name, _) ->
+        | Fable.FieldGet i ->
+            let name = i.Name
             match getExprType phpExpr with
             | Some phpType ->
                 match tryFindField name phpType with

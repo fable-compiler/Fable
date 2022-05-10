@@ -415,7 +415,7 @@ module AST =
                 | _ -> true
             | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects com e
-            | FieldGet(_, info) ->
+            | FieldGet info ->
                 if info.CanHaveSideEffects then true
                 else canHaveSideEffects com e
             | ExprGet _ -> true
@@ -627,10 +627,10 @@ module AST =
         Set(left, ExprSet memb, value.Type, value, r)
 
     let getImmutableAttachedMemberWith r t callee membName =
-        Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=false)), t, r)
+        Get(callee, FieldInfo.Create(membName), t, r)
 
     let getAttachedMemberWith r t callee membName =
-        Get(callee, FieldGet(membName, FieldInfo.Create(isMutable=true)), t, r)
+        Get(callee, FieldInfo.Create(membName, maybeCalculated=true), t, r)
 
     let getAttachedMember (e: Expr) membName =
         getAttachedMemberWith e.Range Any e membName

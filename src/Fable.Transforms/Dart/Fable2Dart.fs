@@ -897,8 +897,8 @@ module Util =
                 let t = transformType com ctx t
                 Expression.indexExpression(expr, prop, t))
 
-        | Fable.FieldGet(fieldName, info) ->
-            let fieldName = sanitizeMember fieldName
+        | Fable.FieldGet info ->
+            let fieldName = sanitizeMember info.Name
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -936,10 +936,10 @@ module Util =
         | Fable.UnionTag ->
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag
 
-        | Fable.UnionField(_caseIndex, fieldIndex) ->
+        | Fable.UnionField info ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                 let fields = getUnionExprFields expr
-                let index = Expression.indexExpression(fields, Expression.integerLiteral fieldIndex, Dynamic)
+                let index = Expression.indexExpression(fields, Expression.integerLiteral info.FieldIndex, Dynamic)
                 match transformType com ctx t with
                 | Dynamic -> index
                 | t -> Expression.asExpression(index, t))
@@ -1117,8 +1117,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet(fieldName1, _),_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet(fieldName2, _),_,_) ->
-                i1.Name = i2.Name && fieldName1 = fieldName2
+            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1,_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2,_,_) ->
+                i1.Name = i2.Name && fieldInfo1.Name = fieldInfo2.Name
             | _ -> false
         let rec checkInner cases evalExpr = function
             | Fable.IfThenElse(Equals(evalExpr2, caseExpr),

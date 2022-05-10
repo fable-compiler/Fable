@@ -181,7 +181,7 @@ let noSideEffectBeforeIdent identName expr =
                 true
             else false
         // If the field is mutable we cannot inline, see #2683
-        | Get(e, FieldGet(_, info), _, _) ->
+        | Get(e, FieldGet info, _, _) ->
             if info.CanHaveSideEffects then
                 sideEffect <- true
                 true
@@ -449,6 +449,18 @@ module private Transforms =
             let args = List.zip m.Args args |> List.map (fun (d, i) -> { d with Ident = i })
             { m with Args = args; Body = body }
 
+    let (|GetField|_|) (com: Compiler) = function
+        | Get(callee, kind, _, r) ->
+            match kind with
+            | FieldGet { FieldType = Some fieldType } -> Some(callee, fieldType, r)
+            | UnionField info ->
+                let e = com.GetEntity(info.Entity)
+                List.tryItem info.CaseIndex e.UnionCases
+                |> Option.bind (fun c -> List.tryItem info.FieldIndex c.UnionCaseFields)
+                |> Option.map (fun f -> callee, f.FieldType, r)
+            | _ -> None
+        | _ -> None
+
     let curryReceivedArgs (com: Compiler) e =
         match e with
         // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
@@ -457,12 +469,12 @@ module private Transforms =
             let args, body = curryArgIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(callee, (FieldGet _ | UnionField _), t, r) ->
-            match getLambdaTypeArity t, callee.Type with
+        | GetField com (callee, fieldType, r) ->
+            match getLambdaTypeArity fieldType, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, _, GenericParam _), AnonymousRecordType _ when arity > 0 ->
-                let e = Replacements.Api.checkArity com t arity e
+                let e = Replacements.Api.checkArity com fieldType arity e
                 if arity > 1 then Extended(Curry(e, arity), r)
                 else e
             | (arity, _, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
