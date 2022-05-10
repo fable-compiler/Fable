@@ -1322,7 +1322,7 @@ module Util =
             let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range expr prop
 
-        | Fable.FieldGet(fieldName,_) ->
+        | Fable.FieldGet info ->
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -1330,7 +1330,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            get range expr fieldName
+            get range expr info.Name
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1356,9 +1356,9 @@ module Util =
         | Fable.UnionTag ->
             getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(_, fieldIndex) ->
+        | Fable.UnionField info ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt fieldIndex)
+            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt info.FieldIndex)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1499,8 +1499,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet(fieldName1, _),_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet(fieldName2, _),_,_) ->
-                i1.Name = i2.Name && fieldName1 = fieldName2
+            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1,_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2,_,_) ->
+                i1.Name = i2.Name && fieldInfo1.Name = fieldInfo2.Name
             | _ -> false
         let rec checkInner cases evalExpr = function
             | Fable.IfThenElse(Equals(evalExpr2, caseExpr),

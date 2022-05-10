@@ -398,6 +398,8 @@ type OperationKind =
 
 type FieldInfo =
     {
+        Name: string
+        FieldType: Type option
         IsMutable: bool
         /// Indicates the field shouldn't be moved in beta reduction
         MaybeCalculated: bool
@@ -406,18 +408,29 @@ type FieldInfo =
     }
     member this.CanHaveSideEffects =
         this.IsMutable || this.MaybeCalculated
-    static member Create(?isMutable: bool, ?maybeCalculated: bool, ?isConst: bool) =
-        { IsMutable = defaultArg isMutable false
+    static member Create(name, ?fieldType: Type, ?isMutable: bool, ?maybeCalculated: bool, ?isConst: bool) =
+        { Name = name
+          FieldType = fieldType
+          IsMutable = defaultArg isMutable false
           MaybeCalculated = defaultArg maybeCalculated false
           IsConst = defaultArg isConst false }
-    static member Empty =
-        FieldInfo.Create()
+        |> FieldGet
+
+type UnionFieldInfo =
+    { Entity: EntityRef
+      CaseIndex: int
+      FieldIndex: int }
+    static member Create(entity, caseIndex, fieldIndex) =
+        { Entity = entity
+          CaseIndex = caseIndex
+          FieldIndex = fieldIndex }
+        |> UnionField
 
 type GetKind =
     | TupleIndex of index: int
     | ExprGet of expr: Expr
-    | FieldGet of fieldName: string * info: FieldInfo
-    | UnionField of caseIndex: int * fieldIndex: int
+    | FieldGet of info: FieldInfo
+    | UnionField of info: UnionFieldInfo
     | UnionTag
     | ListHead
     | ListTail

@@ -78,7 +78,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
-        Delegate([], Get(callee, FieldGet(key, FieldInfo.Create(isMutable=true)), t, r), FuncInfo.Empty)
+        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
@@ -836,7 +836,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                             | NestedRevLets(bindings, IdentExpr i) ->
                                 bindings |> List.tryPick (fun (i2, v) ->
                                     match v with
-                                    | Get(_, UnionField(_,fieldIdx),_,_) when i.Name = i2.Name -> Some fieldIdx
+                                    | Get(_, UnionField unionInfo,_,_) when i.Name = i2.Name -> Some unionInfo.FieldIndex
                                     | _ -> None)
                                 |> Option.map (fun fieldIdx -> caseName, fieldIdx)
                             | _ -> None

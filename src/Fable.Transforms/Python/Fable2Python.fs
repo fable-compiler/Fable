@@ -2154,10 +2154,10 @@ module Util =
         let args, kw, stmts' = transformCallArgs com ctx range (CallInfo callInfo)
 
         match callee, callInfo.ThisArg with
-        | Fable.Get (expr, Fable.FieldGet(fieldName = "Dispose"), _, _), _ ->
+        | Fable.Get (expr, Fable.FieldGet { Name = "Dispose" }, _, _), _ ->
             let expr, stmts'' = com.TransformAsExpr(ctx, expr)
             libCall com ctx range "util" "dispose" [ expr ], stmts @ stmts' @ stmts''
-        | Fable.Get (expr, Fable.FieldGet(fieldName = "set"), _, _), _ ->
+        | Fable.Get (expr, Fable.FieldGet { Name = "set" }, _, _), _ ->
             // printfn "Type: %A" expr.Type
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
 
@@ -2169,7 +2169,7 @@ module Util =
             Statement.assign ([ Expression.subscript (value, right) ], arg)
             :: stmts
             @ stmts' @ stmts''
-        | Fable.Get (_, Fable.FieldGet(fieldName = "sort"), _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
+        | Fable.Get (_, Fable.FieldGet{ Name = "sort" }, _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
 
         | _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
         | _, None when callInfo.IsConstructor -> Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
@@ -2320,15 +2320,15 @@ module Util =
 
         match kind with
         | Fable.ExprGet (Fable.Value(kind = Fable.StringConstant ("length")))
-        | Fable.FieldGet(fieldName = "length") ->
+        | Fable.FieldGet { Name = "length" } ->
             let func = Expression.name ("len")
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.call (func, [ left ]), stmts
-        | Fable.FieldGet(fieldName = "message") ->
+        | Fable.FieldGet { Name = "message" } ->
             let func = Expression.name ("str")
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.call (func, [ left ]), stmts
-        | Fable.FieldGet(fieldName = "push") ->
+        | Fable.FieldGet { Name = "push" } ->
             let attr = Identifier("append")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
@@ -2337,9 +2337,9 @@ module Util =
             let expr, stmts'' = getExpr com ctx range expr prop
             expr, stmts @ stmts' @ stmts''
 
-        | Fable.FieldGet (fieldName, _) ->
+        | Fable.FieldGet i ->
             //printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
-            let fieldName = fieldName |> Naming.toSnakeCase // |> Helpers.clean
+            let fieldName = i.Name |> Naming.toSnakeCase // |> Helpers.clean
 
             let fableExpr =
                 match fableExpr with
@@ -2389,12 +2389,12 @@ module Util =
             let expr, stmts = getUnionExprTag com ctx range fableExpr
             expr, stmts
 
-        | Fable.UnionField (_, fieldIndex) ->
+        | Fable.UnionField i ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
             let expr, stmts' = getExpr com ctx None expr (Expression.constant ("fields"))
 
-            let expr, stmts'' = getExpr com ctx range expr (ofInt fieldIndex)
+            let expr, stmts'' = getExpr com ctx range expr (ofInt i.FieldIndex)
 
             expr, stmts @ stmts' @ stmts''
 
@@ -2950,12 +2950,12 @@ module Util =
             // printfn "members: %A" (members, typ)
             transformObjectExpr com ctx members typ baseCall
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet(fieldName = "has"), _, _), info, _, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "has" }, _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, info.Args.Head)
             let value, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [ ComparisonOperator.In ], [ value ]), stmts @ stmts'
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet(fieldName = "slice"), _, _), info, _, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
 
             let args, stmts' =
@@ -2974,17 +2974,17 @@ module Util =
 
             Expression.subscript (left, slice), stmts @ stmts'
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet (fieldName = name), _, _), _info, _, _range) when name.ToLower() = "tostring" ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = name }, _, _), _info, _, _range) when name.ToLower() = "tostring" ->
             let func = Expression.name ("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet(fieldName = "Equals"), _, _), { Args = [ arg ] }, _, _range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "Equals" }, _, _), { Args = [ arg ] }, _, _range) ->
             let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [ Eq ], [ right ]), stmts @ stmts'
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet(fieldName = "split"), _, _),
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "split" }, _, _),
                       { Args = [ Fable.Value(kind = Fable.StringConstant ("")) ] },
                       _,
                       _range) ->
@@ -2992,7 +2992,7 @@ module Util =
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ value ]), stmts
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet(fieldName = "charCodeAt"), _, _), _info, _, _range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "charCodeAt" }, _, _), _info, _, _range) ->
             let func = Expression.name ("ord")
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ value ]), stmts
@@ -3171,7 +3171,7 @@ module Util =
                               None,
                               Some (Fable.IfThenElse (_,
                                                       Fable.Call (Fable.Get (Fable.TypeCast (Fable.IdentExpr ({ Name = disposeName }), _),
-                                                                             Fable.FieldGet ("Dispose", _),
+                                                                             Fable.FieldGet { Name = "Dispose" },
                                                                              t,
                                                                              _),
                                                                   _,

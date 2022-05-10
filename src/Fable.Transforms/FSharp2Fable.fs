@@ -159,7 +159,8 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     let fieldName = Naming.removeGetSetPrefix traitName
                     entity.FSharpFields |> Seq.tryPick (fun fi ->
                         if fi.Name = fieldName then
-                            Fable.Get(thisArg.Value, Fable.FieldGet(fi.Name, Fable.FieldInfo.Create(isMutable=fi.IsMutable)), typ, r) |> Some
+                            let kind = Fable.FieldInfo.Create(fi.Name, fieldType=fi.FieldType, isMutable=fi.IsMutable)
+                            Fable.Get(thisArg.Value, kind, typ, r) |> Some
                         else None)
                     |> Option.orElseWith (fun () ->
                         resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args)
@@ -168,9 +169,9 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     when isInstance && List.isEmpty args && Option.isSome thisArg ->
                 let fieldName = Naming.removeGetSetPrefix traitName
                 Seq.zip sortedFieldNames entGenArgs
-                |> Seq.tryPick (fun (fi, _fiType) ->
+                |> Seq.tryPick (fun (fi, fiType) ->
                     if fi = fieldName then
-                        Fable.Get(thisArg.Value, Fable.FieldGet(fi, Fable.FieldInfo.Empty), typ, r) |> Some
+                        Fable.Get(thisArg.Value, Fable.FieldInfo.Create(fi, fieldType=fiType), typ, r) |> Some
                     else None)
             | _ -> None
     ) |> Option.defaultWith (fun () ->
@@ -371,7 +372,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 | Some (CompiledValue.Float f) -> makeFloatConst f
                 | Some (CompiledValue.Boolean b) -> makeBoolConst b
             return makeEqOp r
-                (Fable.Get(unionExpr, Fable.FieldGet(tagName, Fable.FieldInfo.Empty), value.Type, r))
+                (Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r))
                 value
                 BinaryEqual
         | _ ->
@@ -824,18 +825,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        return Fable.Get(callee, Fable.FieldGet(fieldName, Fable.FieldInfo.Empty), typ, r)
+        // Don't use generics from the inlined context for the field type as this is used for uncurrying
+        let fieldType = makeType Map.empty fsExpr.Type
+        return Fable.Get(callee, Fable.FieldInfo.Create(fieldName, fieldType=fieldType), typ, r)
 
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
-//        let typ = makeType ctx.GenericArgs fsExpr.Type
-        // We need the type info from field without generics for uncurrying
-        // Maybe we should put it in FieldInfo instead?
-        let typ = makeType Map.empty field.FieldType
-        return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, Fable.FieldInfo.Create(isMutable=field.IsMutable)), typ, r)
+//      let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
+        let typ = resolveFieldType ctx calleeType field.FieldType
+        let kind = Fable.FieldInfo.Create(
+            FsField.FSharpFieldName field,
+            fieldType=makeType Map.empty field.FieldType,
+            isMutable=field.IsMutable)
+        return Fable.Get(callee, kind, typ, r)
 
-    | FSharpExprPatterns.TupleGet(_tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
+    | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
         // F# compiler generates a tuple when matching against multiple values,
         // if the TupleGet accesses an immutable ident in scope we use the ident directly
         // to increase the chances of the tuple being removed in beta reduction
@@ -855,7 +860,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some(Fable.IdentExpr id as e) when not id.IsMutable -> return e
         | _ ->
             let! tupleExpr = transformExpr com ctx tupleExpr
-            let typ = makeType ctx.GenericArgs fsExpr.Type
+//            let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
+            let typ = Seq.item tupleElemIndex tupleType.GenericArguments |> makeType ctx.GenericArgs
             return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
     | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
@@ -890,11 +896,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | DiscriminatedUnion(tdef, _) ->
             let caseIndex = unionCaseTag com tdef unionCase
             let fieldIndex = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
-            let kind = Fable.UnionField(caseIndex, fieldIndex)
-//            let typ = makeType ctx.GenericArgs fsExpr.Type
-            // We need the type info from field without generics for uncurrying
-            // Maybe we should extract it from the union case instead?
-            let typ = makeType Map.empty field.FieldType
+            let kind = Fable.UnionFieldInfo.Create(
+                entity=FsEnt.Ref tdef,
+                caseIndex=caseIndex,
+                fieldIndex=fieldIndex
+            )
+//            let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
+            let typ = resolveFieldType ctx fsType field.FieldType
             return Fable.Get(unionExpr, kind, typ, r)
 
     | FSharpExprPatterns.FSharpFieldSet(callee, calleeType, field, value) ->
@@ -1545,6 +1553,18 @@ let resolveInlineType (ctx: Context) = function
         | Some v -> v
         | None -> v
     | t -> t.MapGenerics(resolveInlineType ctx)
+
+let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpType) =
+    let entityGenArgs =
+        match tryDefinition entityType with
+        | Some(def, _) when def.GenericParameters.Count = entityType.GenericArguments.Count->
+            Seq.zip def.GenericParameters entityType.GenericArguments
+            |> Seq.map (fun (p, a) -> p.Name, makeType Map.empty a)
+            |> Map
+        | _ -> Map.empty
+    let fieldType = makeType entityGenArgs fieldType
+    if Map.isEmpty ctx.GenericArgs then fieldType
+    else resolveInlineType ctx fieldType
 
 type InlineExprInfo = {
     FileName: string

@@ -1778,9 +1778,9 @@ module Util =
             let expr = transformIdent com ctx range id
             mutableGet (mkCallExpr expr [])
 
-        | Fable.Get(callee, Fable.FieldGet(membName, _isMutable), _t, _r) ->
+        | Fable.Get(callee, Fable.FieldGet info, _t, _r) ->
             // this is an instance call
-            let namesp, name = splitNameSpace membName
+            let namesp, name = splitNameSpace info.Name
             let callee = com.TransformAsExpr(ctx, callee)
             mkMethodCallExpr name None callee args
 
@@ -1871,7 +1871,8 @@ module Util =
             | _ ->
                 getExpr range expr prop
 
-        | Fable.FieldGet(fieldName, info) ->
+        | Fable.FieldGet info ->
+            let fieldName = info.Name
             match fableExpr.Type with
             | Fable.AnonymousRecordType (fields, args) ->
                 // temporary - redirect anon to tuple calls
@@ -1916,54 +1917,50 @@ module Util =
             // TODO: range
             expr
 
-        | Fable.UnionField(caseIndex, fieldIndex) ->
+        | Fable.UnionField info ->
             match fableExpr with
             | Fable.IdentExpr id when isArmScoped ctx id.Name ->
                 // if arm scoped, just output the ident value
-                let name = $"{id.Name}_{caseIndex}_{fieldIndex}"
+                let name = $"{id.Name}_{info.CaseIndex}_{info.FieldIndex}"
                 mkGenericPathExpr [name] None
             | _ ->
                 // compile as: "if let MyUnion::Case(x, _) = opt { x } else { unreachable!() }"
-                match fableExpr.Type with
-                | Fable.DeclaredType(entRef, genArgs) ->
-                    let ent = com.GetEntity(entRef)
-                    assert(ent.IsFSharpUnion)
-                    // let genArgs = transformGenArgs com ctx genArgs // TODO:
-                    let unionCase = ent.UnionCases |> List.item caseIndex
-                    let fieldName = "x"
-                    let fields =
-                        unionCase.UnionCaseFields
-                        |> Seq.mapi (fun i field ->
-                            if i = fieldIndex then
-                                mkIdentPat fieldName false false
-                            else WILD_PAT)
-                    let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
-                    let path = makeFullNamePath unionCaseName None
-                    let pat = mkTupleStructPat path fields
-                    let expr =
-                        fableExpr
-                        |> prepareRefForPatternMatch com ctx fableExpr.Type ""
-                    let thenExpr =
-                        mkGenericPathExpr [fieldName] None
+                let ent = com.GetEntity(info.Entity)
+                assert(ent.IsFSharpUnion)
+                // let genArgs = transformGenArgs com ctx genArgs // TODO:
+                let unionCase = ent.UnionCases |> List.item info.CaseIndex
+                let fieldName = "x"
+                let fields =
+                    unionCase.UnionCaseFields
+                    |> Seq.mapi (fun i field ->
+                        if i = info.FieldIndex then
+                            mkIdentPat fieldName false false
+                        else WILD_PAT)
+                let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
+                let path = makeFullNamePath unionCaseName None
+                let pat = mkTupleStructPat path fields
+                let expr =
+                    fableExpr
+                    |> prepareRefForPatternMatch com ctx fableExpr.Type ""
+                let thenExpr =
+                    mkGenericPathExpr [fieldName] None
 
-                    let arms = [
-                        mkArm [] pat None thenExpr
-                    ]
-                    let arms =
-                        if (List.length ent.UnionCases) > 1 then
-                            // only add a default arm if needed
-                            let defaultArm = mkArm [] WILD_PAT None (mkMacroExpr "unreachable" [])
-                            arms @ [defaultArm]
-                        else arms
+                let arms = [
+                    mkArm [] pat None thenExpr
+                ]
+                let arms =
+                    if (List.length ent.UnionCases) > 1 then
+                        // only add a default arm if needed
+                        let defaultArm = mkArm [] WILD_PAT None (mkMacroExpr "unreachable" [])
+                        arms @ [defaultArm]
+                    else arms
 
-                    mkMatchExpr expr arms
-                    // TODO : Cannot use if let because it moves references out of their Rc's, which breaks borrow checker. We cannot bind
-                    // let ifExpr = mkLetExpr pat expr
-                    // let thenExpr = mkGenericPathExpr [fieldName] None
-                    // let elseExpr = mkMacroExpr "unreachable" []
-                    // mkIfThenElseExpr ifExpr thenExpr elseExpr
-                | _ ->
-                    failwith "Should not happen"
+                mkMatchExpr expr arms
+                // TODO : Cannot use if let because it moves references out of their Rc's, which breaks borrow checker. We cannot bind
+                // let ifExpr = mkLetExpr pat expr
+                // let thenExpr = mkGenericPathExpr [fieldName] None
+                // let elseExpr = mkMacroExpr "unreachable" []
+                // mkIfThenElseExpr ifExpr thenExpr elseExpr
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformExprMaybeIdentExpr com ctx fableExpr
@@ -2364,9 +2361,9 @@ module Util =
                     | Fable.Get (Fable.IdentExpr id, Fable.OptionValue, _, _)
                         when Some id.Name = evalName && id.Type = evalType ->
                         makeUnionCasePat evalType evalName 0
-                    | Fable.Get (Fable.IdentExpr id, Fable.UnionField(caseIndex, _), _, _)
+                    | Fable.Get (Fable.IdentExpr id, Fable.UnionField info, _, _)
                         when Some id.Name = evalName && id.Type = evalType ->
-                        makeUnionCasePat evalType evalName caseIndex
+                        makeUnionCasePat evalType evalName info.CaseIndex
                     | _ ->
                         //need to recurse or this only works for trivial expressions
                         let subExprs = FableTransforms.getSubExpressions expr
@@ -2441,8 +2438,8 @@ module Util =
             | Fable.IdentExpr i1, Fable.IdentExpr i2
             | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
                 i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet(fieldName1, _),_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet(fieldName2, _),_,_) ->
-                i1.Name = i2.Name && fieldName1 = fieldName2
+            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1,_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2,_,_) ->
+                i1.Name = i2.Name && fieldInfo1.Name = fieldInfo2.Name
             | _ -> false
         let rec checkInner cases evalExpr treeExpr =
             match treeExpr with
@@ -3255,8 +3252,8 @@ module Util =
                         | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet(fieldName), t, value, r) ->
                             let identExpr = identMap |> Map.find fieldName |> Fable.IdentExpr
                             Fable.Set(identExpr, Fable.ValueSet, t, value, r)
-                        | Fable.Get(Fable.Value(Fable.ThisValue _, _), Fable.GetKind.FieldGet(fieldName, _), t, r) ->
-                            let identExpr = identMap |> Map.find fieldName |> Fable.IdentExpr
+                        | Fable.Get(Fable.Value(Fable.ThisValue _, _), Fable.GetKind.FieldGet info, t, r) ->
+                            let identExpr = identMap |> Map.find info.Name |> Fable.IdentExpr
                             identExpr
                         | e -> e)
                 // add field declarations before body
