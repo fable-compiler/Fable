@@ -15,6 +15,7 @@ import './src/ResultTests.fs.dart' as result;
 import './src/SeqTests.fs.dart' as seq;
 import './src/SeqExpressionTests.fs.dart' as seq_expression;
 import './src/SetTests.fs.dart' as set_;
+import './src/StringTests.fs.dart' as string;
 import './src/SudokuTests.fs.dart' as sudoku;
 import './src/TailCallTests.fs.dart' as tailcall;
 import './src/TupleTests.fs.dart' as tuple;
@@ -38,6 +39,7 @@ void main() {
   seq.tests();
   seq_expression.tests();
   set_.tests();
+  string.tests();
   sudoku.tests();
   tailcall.tests();
   tuple.tests();

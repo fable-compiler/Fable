@@ -61,10 +61,10 @@ module Functions =
         let mutable log = ""
         let rec test n =
           try
-            log <- log + string "abcde".[n]
+            log <- log + "abcde".Substring(n, 1)
             if n < 4 then test (n+1)
           finally
-            log <- log + string "ABCDE".[n]
+            log <- log + "ABCDE".Substring(n, 1)
         test 0
         log
 
@@ -76,10 +76,10 @@ module Functions =
     let recWithUse () =
         let mutable log = ""
         let disp(n) = Disposable.Make(fun () ->
-            log <- log + string "ABCDE".[n])
+            log <- log + "ABCDE".Substring(n, 1))
         let rec test n =
           use _disp = disp(n)
-          log <- log + string "abcde".[n]
+          log <- log + "abcde".Substring(n, 1)
           if n < 4 then test (n+1) else 0
         test 0 |> ignore
         log

@@ -527,6 +527,7 @@ module Util =
 
     let transformNumberLiteral com r kind (x: obj) =
         match kind, x with
+        | Dart.Replacements.DartInt, (:? char as x) -> Expression.integerLiteral(int64 x)
         | Int8, (:? int8 as x) -> Expression.integerLiteral(int64 x)
         | UInt8, (:? uint8 as x) -> Expression.integerLiteral(int64 x)
         | Int16, (:? int16 as x) -> Expression.integerLiteral(int64 x)
