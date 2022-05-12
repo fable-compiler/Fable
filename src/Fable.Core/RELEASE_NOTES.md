@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-001
+
+* Snake Island alpha release
+
 ### 3.7.0
 
 * Fix #2863: Add a nestable union type U9 @cannorin

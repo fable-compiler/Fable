@@ -4,9 +4,9 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.11</Version>
-    <PackageVersion>3.7.11</PackageVersion>
-    <PackageReleaseNotes>* Fix generic param user/compiler generated name conflicts</PackageReleaseNotes>
+    <Version>4.0.0</Version>
+    <PackageVersion>4.0.0-snake-island-alpha-001</PackageVersion>
+    <PackageReleaseNotes>* Snake Island alpha release</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -17,6 +17,9 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
     <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
+    <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
+    <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />

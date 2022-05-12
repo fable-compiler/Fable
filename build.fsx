@@ -244,7 +244,7 @@ let buildLibraryRust() =
 let buildLibraryDart(clean: bool) =
     let sourceDir = resolveDir "src/fable-library-dart"
     let buildDir = resolveDir "build/fable-library-dart"
-    
+
     if clean then
         cleanDirs [buildDir]
         makeDirRecursive buildDir
@@ -666,7 +666,10 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibraryJs())
+        buildLibraryJs()
+        buildLibraryPy()
+        buildLibraryRust()
+        buildLibraryDart true)
      "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
