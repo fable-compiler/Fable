@@ -35,14 +35,18 @@ let tests() =
             'A' + 'B' |> int |> equal 131
             'A' + char 7 |> int |> equal 72
 
+      // TODO: Char module
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
-      testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
-            "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+      // testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
+      //       "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 
       testCase "String literal addition is optimized" <| fun () ->
             "bar" + aLiteral |> equal "barfoo"
             "bar" + notALiteral |> equal "barfoo"
+            obj.ReferenceEquals("bar" + aLiteral, "barfoo") |> equal true
+            obj.ReferenceEquals("bar" + notALiteral, "barfoo") |> equal false
 
+(*
       testCase "String chunkBySize works" <| fun () -> // See #1296
             "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
             |> equal ["fff"; "ff"]
@@ -103,21 +107,22 @@ let tests() =
       testCase "string interpolation works" <| fun () ->
           let name = "Phillip"
           let age = 29
-          sprintf $"Name: {name}, Age: %i{age}"
+          $"Name: {name}, Age: %i{age}"
           |> equal "Name: Phillip, Age: 29"
 
       testCase "string interpolation works with inline expressions" <| fun () ->
           $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
           |> equal "I think 3.14 is close to 3.14159265!"
 
-      testCase "string interpolation works with anonymous records" <| fun () ->
-          let person =
-              {| Name = "John"
-                 Surname = "Doe"
-                 Age = 32
-                 Country = "The United Kingdom" |}
-          $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
-          |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+      // TODO: Anonymous records
+      // testCase "string interpolation works with anonymous records" <| fun () ->
+      //     let person =
+      //         {| Name = "John"
+      //            Surname = "Doe"
+      //            Age = 32
+      //            Country = "The United Kingdom" |}
+      //     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+      //     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
       testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
@@ -905,6 +910,7 @@ let tests() =
       testCase "String.Insert work" <| fun () ->
             "foobar".Insert(3, " is ")
             |> equal "foo is bar"
+*)
 
       testCase "Enumerating string works" <| fun () ->
             let mutable res = ""
@@ -1013,17 +1019,18 @@ let tests() =
       testCase "interpolated string with double % should be unescaped" <| fun () ->
           $"{100}%%" |> equal "100%"
 
-      testCase "interpolated string with format and double % should be unescaped" <| fun () ->
-          $"%.2f{100.4566666}%%" |> equal "100.46%"
-
       testCase "interpolated string with double % should not interfere with holes afterwards " <| fun () ->
           $"%%{99. - 1.5}".Replace(",", ".") |> equal "%97.5"
 
       testCase "interpolated string with double braces should be unescaped" <| fun () ->
           $"{{ {100} }}" |> equal "{ 100 }"
 
-      testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
-          $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
+      // TODO: interpolation with formatting
+      // testCase "interpolated string with format and double % should be unescaped" <| fun () ->
+      //     $"%.2f{100.4566666}%%" |> equal "100.46%"
+
+      // testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
+      //     $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
       testCase "interpolated string with consecutive holes work" <| fun () ->
             $"""{"foo"}{5}""" |> equal "foo5"
