@@ -387,7 +387,7 @@ module AST =
         | Lambda _ | Delegate _ -> false
         | TypeCast(e,_) ->
             match com.Options.Language with
-            | Dart | Rust -> true
+            | Dart -> true
             | _ -> canHaveSideEffects com e
         | Value(value,_) ->
             match value with
