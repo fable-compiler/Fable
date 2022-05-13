@@ -385,7 +385,10 @@ module AST =
     let rec canHaveSideEffects (com: Compiler) = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
-        | TypeCast(e,_) -> canHaveSideEffects com e
+        | TypeCast(e,_) ->
+            match com.Options.Language with
+            | Dart | Rust -> true
+            | _ -> canHaveSideEffects com e
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true

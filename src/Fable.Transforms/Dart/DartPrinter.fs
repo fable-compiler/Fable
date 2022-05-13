@@ -259,10 +259,15 @@ module PrinterExtensions =
             match expr with
             | CommentedExpression(_, e) -> printer.IsComplex(e)
 
+            | Literal(value) ->
+                match value with
+                | IntegerLiteral v -> v < 0
+                | DoubleLiteral v -> v < 0.
+                | _ -> false
+
             | ThisExpression _
             | SuperExpression _
             | InterpolationString _
-            | Literal _
             | TypeLiteral _
             | IdentExpression _
             | PropertyAccess _

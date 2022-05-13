@@ -20,6 +20,7 @@
         <Compile Include="Option.fs" />
         <Content Include="Date.dart" />
         <Content Include="RegExp.dart" />
+        <Content Include="String.dart" />
         <Content Include="Types.dart" />
         <Content Include="Util.dart" />
         <Content Include="analysis_options.yaml" />
