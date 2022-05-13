@@ -22,5 +22,6 @@
         "packages",
         "node_modules",
         "src/fcs-fable"
-    ]
+    ],
+    "editor.inlayHints.enabled": "offUnlessPressed"
 }

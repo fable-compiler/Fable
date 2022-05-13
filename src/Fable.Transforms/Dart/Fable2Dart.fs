@@ -1385,9 +1385,7 @@ module Util =
                         get t expr "entries")
 
                 | ExprType(Fable.String) ->
-                    transformExprAndResolve com ctx returnStrategy expr (fun expr ->
-                        let t = transformType com ctx t
-                        get t expr "runes")
+                    Dart.Replacements.stringToCharSeq expr |> transform com ctx returnStrategy
 
                 | _ -> transformCast com ctx t returnStrategy expr
             | _ -> transformCast com ctx t returnStrategy expr

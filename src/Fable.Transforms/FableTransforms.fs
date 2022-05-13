@@ -282,8 +282,14 @@ module private Transforms =
                 bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
         match e with
         // TODO: Other binary operations and numeric types
-        | Operation(Binary(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
-            Value(StringConstant(str1 + str2), addRanges [r1; r2])
+        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _) ->
+            match v1, v2 with
+            | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
+                Value(StringConstant(v1 + v2), addRanges [r1; r2])
+            // Assume NumberKind and NumberInfo are the same
+            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1), Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
+                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
+            | _ -> e
         | Call(Delegate(args, body, _), info, _, _) when List.sameLength args info.Args ->
             applyArgs args info.Args body
         | CurriedApply(applied, argExprs, t, r) ->

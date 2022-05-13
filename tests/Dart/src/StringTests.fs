@@ -40,16 +40,34 @@ let tests() =
       // testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
       //       "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 
+      testCase "Strings can be indexed" <| fun () ->
+        let s = "bar"
+        let s2 = s.ToCharArray()
+        let s3 = [|'b'; 'a'; 'r'|]
+        let c = s[0]
+        let c2 = s2[1]
+        let c3 = s3[2]
+        equal c 'b'
+        equal c2 'a'
+        equal c3 'r'
+        "おはよう" |> Seq.item 2 |> equal 'よ'
+
+      testCase "String slicing works" <| fun () ->
+           let s = "cat and dog"
+           s.[2..8] |> equal "t and d"
+           s.[2..] |> equal "t and dog"
+           s.[..8] |> equal "cat and d"
+
       testCase "String literal addition is optimized" <| fun () ->
             "bar" + aLiteral |> equal "barfoo"
             "bar" + notALiteral |> equal "barfoo"
             obj.ReferenceEquals("bar" + aLiteral, "barfoo") |> equal true
             obj.ReferenceEquals("bar" + notALiteral, "barfoo") |> equal false
 
-(*
-      testCase "String chunkBySize works" <| fun () -> // See #1296
-            "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
-            |> equal ["fff"; "ff"]
+      // FIXME
+      // testCase "String chunkBySize works" <| fun () -> // See #1296
+      //       "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
+      //       |> equal ["fff"; "ff"]
 
     // TODO: StringBuilder
 //      testCase "StringBuilder works" <| fun () ->
@@ -92,12 +110,13 @@ let tests() =
 //                              .Append(34)
 //            equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
 
-      testCase "Unions with string operator" <| fun () ->
-            Bar(1,5) |> string |> equal "Bar (1, 5)"
-            Foo1 4.5 |> string |> equal "Foo1 4.5"
-            Foo4 Foo3 |> string |> equal "Foo4 Foo3"
-            Foo4(Foo1 4.5) |> string |> equal "Foo4 (Foo1 4.5)"
-            Foo3 |> string |> equal "Foo3"
+      // TODO: Union string formatting
+      // testCase "Unions with string operator" <| fun () ->
+      //       Bar(1,5) |> string |> equal "Bar (1, 5)"
+      //       Foo1 4.5 |> string |> equal "Foo1 4.5"
+      //       Foo4 Foo3 |> string |> equal "Foo4 Foo3"
+      //       Foo4(Foo1 4.5) |> string |> equal "Foo4 (Foo1 4.5)"
+      //       Foo3 |> string |> equal "Foo3"
 
       testCase "F# nameof works" <| fun () ->
           M.f 12 |> equal "x"
@@ -111,7 +130,7 @@ let tests() =
           |> equal "Name: Phillip, Age: 29"
 
       testCase "string interpolation works with inline expressions" <| fun () ->
-          $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
+          $"I think {3.0 + 0.14} is close to {Math.PI.ToString().Substring(0, 10)}!".Replace(",", ".")
           |> equal "I think 3.14 is close to 3.14159265!"
 
       // TODO: Anonymous records
@@ -144,9 +163,9 @@ let tests() =
         equal 13 s1.Length
 
       testCase "Can use backslash is interpolated strings" <| fun () ->
-        $"\n{1+1}\n" |> equal """
+        $"(\n{1+1}\n)" |> equal """(
 2
-"""
+)"""
 
       testCase "Backslash is escaped in interpolated strings" <| fun () -> // See #2649
             $"\\" |> equal @"\"
@@ -404,12 +423,6 @@ let tests() =
 //          let y = sprintf "B%sr" "a"
 //          x + y |> equal "FooBar"
 //
-//      testCase "String slicing works" <| fun () ->
-//            let s = "cat and dog"
-//            sprintf "%s" s.[2..8] |> equal "t and d"
-//            sprintf "%s" s.[2..] |> equal "t and dog"
-//            sprintf "%s" s.[..8] |> equal "cat and d"
-//
 //      testCase "String.Format works" <| fun () ->
 //            let arg1, arg2, arg3 = "F#", "Fable", "Babel"
 //            String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
@@ -513,12 +526,12 @@ let tests() =
             equal 5.25 (float "5.25")
             (string 5.25).StartsWith("5.25") |> equal true
 
-      testCase "Conversion string to decimal works" <| fun () ->
-            equal 5.m (decimal "5.0")
-            equal -5.m (decimal "-5.0")
-            (string 5.m).StartsWith("5") |> equal true
-            equal 5.25m (decimal "5.25")
-            (string 5.25m).StartsWith("5.25") |> equal true
+      // testCase "Conversion string to decimal works" <| fun () ->
+      //       equal 5.m (decimal "5.0")
+      //       equal -5.m (decimal "-5.0")
+      //       (string 5.m).StartsWith("5") |> equal true
+      //       equal 5.25m (decimal "5.25")
+      //       (string 5.25m).StartsWith("5.25") |> equal true
 
       // System.String - constructors
 
@@ -548,23 +561,28 @@ let tests() =
             "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
             "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
 
+      // TODO: Dart seems to compare lower/uppercase strings differently as how .NET does
       testCase "String.Compare works" <| fun () ->
-            "ABC".CompareTo("abc") > 0 |> equal true
-            System.String.Compare("abc", "abc") |> equal 0
-            System.String.Compare("ABC", "abc") |> equal 1
-            System.String.Compare("abc", "abd") |> equal -1
-            System.String.Compare("bbc", "abd") |> equal 1
-            System.String.Compare("ABC", "abc", false) |> equal 1
+            // "ABC".CompareTo("abc") > 0 |> equal true
+            // System.String.Compare("abc", "abc") |> equal 0
+            // System.String.Compare("ABC", "abc") |> equal 1
+            // System.String.Compare("abc", "abd") |> equal -1
+            // System.String.Compare("bbc", "abd") |> equal 1
+            // System.String.Compare("ABC", "abc", false) |> equal 1
             System.String.Compare("ABC", "abc", true) |> equal 0
             System.String.Compare("ABC", "abd", true) |> equal -1
             System.String.Compare("BBC", "abd", true) |> equal 1
-            System.String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
-            System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+            // System.String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
+            // System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+            System.String.Compare("ABC", "abc", StringComparison.CurrentCultureIgnoreCase) |> equal 0
+            System.String.Compare("ABC", "abc", StringComparison.InvariantCultureIgnoreCase) |> equal 0
             System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
-            System.String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
-            System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
-            System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
-            System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+            // System.String.Compare("abc", 0, "b", 0, 3) |> equal -1
+            // System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
+            // System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
+            // System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+            System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCultureIgnoreCase) |> equal 0
+            System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.InvariantCultureIgnoreCase) |> equal 0
             System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
 
       testCase "String.IsNullOrEmpty works" <| fun () ->
@@ -720,12 +738,12 @@ let tests() =
                   "abcd".StartsWith(fst arg)
                   |> equal (snd arg)
 
-      testCase "String.StartsWith with StringComparison works" <| fun () ->
-            let args = [("ab", true); ("cd", false); ("abcdx", false)]
-            for arg in args do
-                  "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-                  |> equal (snd arg)
-
+      // TODO: StartsWith with StringComparison
+      // testCase "String.StartsWith with StringComparison works" <| fun () ->
+      //       let args = [("ab", true); ("cd", false); ("abcdx", false)]
+      //       for arg in args do
+      //             "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+      //             |> equal (snd arg)
 
       testCase "String.EndsWith works" <| fun () ->
             let args = [("ab", false); ("cd", true); ("abcdx", false)]
@@ -811,14 +829,15 @@ let tests() =
             arr |> Array.map (fun _ -> 1) |> Array.sum
             |> equal arr.Length
 
-      testCase "String enumeration handles surrogates pairs" <| fun () -> // See #1279
-          let unicodeString = ".\U0001f404."
-          unicodeString |> List.ofSeq |> Seq.length |> equal 4
-          String.length unicodeString |> equal 4
-          let mutable len = 0
-          for i in unicodeString do
-              len <- len + 1
-          equal 4 len
+      // TODO: surrogate pairs
+      // testCase "String enumeration handles surrogates pairs" <| fun () -> // See #1279
+      //     let unicodeString = ".\U0001f404."
+      //     unicodeString |> List.ofSeq |> Seq.length |> equal 4
+      //     String.length unicodeString |> equal 4
+      //     let mutable len = 0
+      //     for i in unicodeString do
+      //         len <- len + 1
+      //     equal 4 len
 
       testCase "String.Join works" <| fun () ->
             String.Join("--", "a", "b", "c")
@@ -833,8 +852,10 @@ let tests() =
             |> equal "b*c*d"
 
       testCase "String.Join works with chars" <| fun () -> // See #1524
-            String.Join("--", 'a', 'b', 'c')
-            |> equal "a--b--c"
+            // TODO: It's difficult to make this work because the type
+            // of ParamArray is obj[] so we need to check each arg one by one.
+            // String.Join("--", 'a', 'b', 'c') |> equal "a--b--c"
+
             String.Join("--", seq { yield 'a'; yield 'b'; yield 'c' })
             |> equal "a--b--c"
             [0..10]
@@ -842,11 +863,12 @@ let tests() =
             |> fun chars -> String.Join("", chars)
             |> equal "***********"
 
-      testCase "String.Join with big integers works" <| fun () ->
-            String.Join("--", [|3I; 5I|])
-            |> equal "3--5"
-            String.Join("--", 3I, 5I)
-            |> equal "3--5"
+      // TODO: BigInts
+      // testCase "String.Join with big integers works" <| fun () ->
+      //       String.Join("--", [|3I; 5I|])
+      //       |> equal "3--5"
+      //       String.Join("--", 3I, 5I)
+      //       |> equal "3--5"
 
       testCase "String.Join with single argument works" <| fun () -> // See #1182
             String.Join(",", "abc") |> equal "abc"
@@ -910,7 +932,6 @@ let tests() =
       testCase "String.Insert work" <| fun () ->
             "foobar".Insert(3, " is ")
             |> equal "foo is bar"
-*)
 
       testCase "Enumerating string works" <| fun () ->
             let mutable res = ""
