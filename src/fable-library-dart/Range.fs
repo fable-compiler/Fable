@@ -21,7 +21,7 @@ let rangeInt start step stop = integralRangeStep start step stop 0 (+) compare
 //let rangeBigInt start step stop = integralRangeStep start step stop 0I (+) compare
 //let rangeDecimal start step stop = integralRangeStep start step stop 0m (+) compare
 
-//let rangeChar (start: char) (stop: char) =
-//    let intStop = int stop
-//    let stepFn c = if c <= intStop then Some (char c, c + 1) else None
-//    Seq.delay(fun () -> Seq.unfold stepFn (int start))
+let rangeChar (start: char) (stop: char) =
+    let intStop = int stop
+    let stepFn c = if c <= intStop then Some (char c, c + 1) else None
+    Seq.delay(fun () -> Seq.unfold stepFn (int start))
