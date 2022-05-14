@@ -32,45 +32,44 @@ type Id = Id of string
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
-//let makeAnonRec() =
-//    {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
+let makeAnonRec() =
+    {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
 
 type Time =
     static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
     static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
 
 let tests() =
-// TODO
-//    testCase "Anonymous records work" <| fun () ->
-//        let r = makeAnonRec()
-//        $"Tell me %s{r.Y} %i{r.F r.X 3} times"
-//        |> equal "Tell me Foo 8 times"
-//        let x = {| Foo = "baz"; Bar = 23 |}
-//        let y = {| Foo = "baz" |}
-//        x = {| y with Bar = 23 |} |> equal true
-//        // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
-//        x = {| y with Bar = 14 |} |> equal false
-//
-//    testCase "SRTP works with anonymous records" <| fun () ->
-//        let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
-//        replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
-//        replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
-//
-//    testCase "Overloads with anonymous record arguments don't have same mangled name" <| fun () ->
-//        Time.duration {| from = 1 |} |> equal 9
-//        Time.duration {| from = 1; until = 5 |} |> equal 4
-//
-//    testCase "Anonymous record execution order" <| fun () ->
-//        let mutable x = 2
-//        let record =
-//            {|
-//                C = (x <- x * 3; x)
-//                B = (x <- x + 5; x)
-//                A = (x <- x / 2; x)
-//            |}
-//        record.A |> equal 5
-//        record.B |> equal 11
-//        record.C |> equal 6
+    testCase "Anonymous records work" <| fun () ->
+        let r = makeAnonRec()
+        $"Tell me %s{r.Y} %i{r.F r.X 3} times"
+        |> equal "Tell me Foo 8 times"
+        let x = {| Foo = "baz"; Bar = 23 |}
+        let y = {| Foo = "baz" |}
+        x = {| y with Bar = 23 |} |> equal true
+        // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
+        x = {| y with Bar = 14 |} |> equal false
+
+    testCase "SRTP works with anonymous records" <| fun () ->
+        let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
+        replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+        replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+    testCase "Overloads with anonymous record arguments don't have same mangled name" <| fun () ->
+        Time.duration {| from = 1 |} |> equal 9
+        Time.duration {| from = 1; until = 5 |} |> equal 4
+
+    testCase "Anonymous record execution order" <| fun () ->
+        let mutable x = 2
+        let record =
+            {|
+                C = (x <- x * 3; x)
+                B = (x <- x + 5; x)
+                A = (x <- x / 2; x)
+            |}
+        record.A |> equal 5
+        record.B |> equal 11
+        record.C |> equal 6
 
     testCase "Recursive record does not cause issues" <| fun () ->
         let r = { things = [ { things = [] } ] }

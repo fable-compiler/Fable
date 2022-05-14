@@ -317,3 +317,5 @@ type Import =
 type File =
     { Imports: Import list
       Declarations: Declaration list }
+    member this.IsEmpty =
+        List.isEmpty this.Declarations
