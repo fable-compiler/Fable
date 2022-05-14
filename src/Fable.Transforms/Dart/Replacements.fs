@@ -1024,9 +1024,9 @@ let ifNullOp r t nullable defValue =
     emit r t [nullable; defValue] false "$0 ?? $1"
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let math r t (args: Expr list) argTypes methName =
+    let math r t (args: Expr list) argTypes genArgs methName =
         let meth = Naming.lowerFirst methName
-        Helper.ImportedCall("dart:math", meth, t, args, argTypes, ?loc=r)
+        Helper.ImportedCall("dart:math", meth, t, args, argTypes, genArgs=genArgs, ?loc=r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [nullable; defValue] ->
@@ -1090,7 +1090,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     |  "FailurePattern"  // (|Failure|_|)
     |  "LazyPattern"     // (|Lazy|_|)
     |  "Lock"            // lock
-    |  "NullArg"         // nullArg
+//    |  "NullArg"         // nullArg
     |  "Using"           // using
        ), _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
@@ -1109,7 +1109,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Number(Decimal,_)::_ ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
         | CustomOp com ctx r t "Pow" args e -> Some e
-        | _ -> math r t args i.SignatureArgTypes "pow" |> Some
+        | _ -> math r t args i.SignatureArgTypes i.GenericArgs "pow" |> Some
     | ("Ceiling" | "Floor" as meth), [arg] ->
         let meth = Naming.lowerFirst meth
         match args with
@@ -1120,8 +1120,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.InstanceCall(arg, meth, t, [], ?loc=r) |> Some
     | "Log", [arg1; arg2] ->
         // "Math.log($0) / Math.log($1)"
-        let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "log"
-        let divisor = math None t [arg2] (List.skip 1 i.SignatureArgTypes) "log"
+        let dividend = math None t [arg1] [] (List.take 1 i.SignatureArgTypes) "log"
+        let divisor = math None t [arg2] [] (List.skip 1 i.SignatureArgTypes) "log"
         makeBinOp r t dividend divisor BinaryDivide |> Some
     | "Abs", [arg] ->
         match arg with
@@ -1135,7 +1135,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
     | "Cos", _ | "Cosh", _ | "Exp", _ | "Log", _ | "Log10", _
     | "Sin", _ | "Sinh", _ | "Sqrt", _ | "Tan", _ | "Tanh", _ ->
-        math r t args i.SignatureArgTypes i.CompiledName |> Some
+        math r t args i.SignatureArgTypes [] i.CompiledName |> Some
     | "Round", _ ->
         match args with
         | ExprType(Number(Decimal,_))::_ ->

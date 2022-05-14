@@ -48,6 +48,27 @@ int compareDynamic(dynamic a, dynamic b) {
   return a == b ? 0 : -1;
 }
 
+T min<T>(int Function(T, T) comparer, T x, T y) {
+  return comparer(x, y) < 0 ? x : y;
+}
+
+T max<T>(int Function(T, T) comparer, T x, T y) {
+  return comparer(x, y) > 0 ? x : y;
+}
+
+T clamp<T>(int Function(T, T) comparer, T value, T min, T max) {
+  return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
+}
+
+String int16ToString(int i, [int radix = 10]) {
+  if (radix == 10) {
+    return i.toString();
+  } else {
+    i = i < 0 ? 0xFFFF + i + 1 : i;
+    return i.toRadixString(radix);
+  }
+}
+
 String int32ToString(int i, [int radix = 10]) {
   if (radix == 10) {
     return i.toString();

@@ -185,16 +185,14 @@ module TypeInfo =
             && (ent.IsFSharpRecord
             || (ent.IsFSharpUnion)
             || (ent.IsValueType)
-            || (ent |> hasInterface Types.iStructuralEquatable)
-            || (ent |> hasInterface Types.iStructuralEquatableGeneric))
+            || (ent |> hasInterface Types.iStructuralEquatable))
 
     let hasStructuralComparison (ent: Fable.Entity) =
         not (ent |> hasAttribute Atts.noComparison)
             && (ent.IsFSharpRecord
             || (ent.IsFSharpUnion)
             || (ent.IsValueType)
-            || (ent |> hasInterface Types.iStructuralComparable)
-            || (ent |> hasInterface Types.iStructuralComparableGeneric))
+            || (ent |> hasInterface Types.iStructuralComparable))
 
     let hasReferenceEquality (com: IRustCompiler) typ =
         match typ with
@@ -3187,14 +3185,11 @@ module Util =
             Types.ienumerableGeneric
             Types.ienumerator
             Types.ienumeratorGeneric
-            Types.iequatable
             Types.iequatableGeneric
             Types.icomparable
             Types.icomparableGeneric
             Types.iStructuralEquatable
-            Types.iStructuralEquatableGeneric
             Types.iStructuralComparable
-            Types.iStructuralComparableGeneric
             Types.idisposable
         ]
 
