@@ -513,8 +513,6 @@ let tests() =
         |> Seq.reduce (+)
         |> equal 20UL
 
-// FIXME
-(*
     testCase "Seq.range works with chars" <| fun () ->
         seq{'a' .. 'f'}
         |> Seq.toArray
@@ -525,6 +523,8 @@ let tests() =
         |> Seq.length
         |> equal 0
 
+// TODO range decimal/bigint
+(*
     testCase "Seq.range works with decimal" <| fun () ->
         seq{1M .. 50M}
         |> Seq.reduce (+)
@@ -905,10 +905,9 @@ let tests() =
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-        // FIXME: Char range
-//        let xs = seq {'A'..'F'}
-//        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
-//        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+        let xs = seq {'A'..'F'}
+        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+        xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
 
     testCase "Seq.filter doesn't blow the stack with long sequences" <| fun () -> // See #459
       let max = 1000000

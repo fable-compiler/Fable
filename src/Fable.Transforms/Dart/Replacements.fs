@@ -243,6 +243,7 @@ let stringToInt (_com: ICompiler) (_ctx: Context) r targetType (args: Expr list)
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
     let sourceType = args.Head.Type
+    // TODO: Review this and include Int64
     let emitCast typeTo arg =
         match typeTo with
         | Int8 -> emitExpr None (Number(Int8, NumberInfo.Empty)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
@@ -253,7 +254,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | UInt32 -> emitExpr None (Number(UInt32, NumberInfo.Empty)) [arg] "$0 >>> 0"
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
     match sourceType, targetType with
-    | Char, Number(typeTo,_) -> args.Head |> emitCast typeTo
+    | Char, _ -> TypeCast(args.Head, targetType)
     | String, _ -> stringToInt com ctx r targetType args
     | Number(BigInt,_), _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | Number(typeFrom,_), Number(typeTo,_) ->
