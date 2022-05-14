@@ -486,6 +486,12 @@ module Util =
             TypeReference(getFSharpListTypeIdent com ctx, [genArg])
         | Fable.Tuple(genArgs, _) ->
             transformTupleType com ctx genArgs
+        | Fable.AnonymousRecordType(_, genArgs) ->
+            // Function types in anonymous record fileds are uncurried
+            genArgs |> List.map (function
+                | NestedLambdaType(args, ret) -> Fable.DelegateType(args, ret)
+                | t -> t)
+            |> transformTupleType com ctx
         | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([argType], returnType)
         | Fable.DelegateType(argTypes, TransformType com ctx returnType) ->
@@ -494,7 +500,6 @@ module Util =
         | Fable.GenericParam(name, _constraints) -> Generic name
         | Fable.DeclaredType(ref, genArgs) -> transformDeclaredType com ctx ref genArgs
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
-        | Fable.AnonymousRecordType _ -> Dynamic // TODO
 
     let transformIdentWith (com: IDartCompiler) ctx (isMutable: bool) (typ: Fable.Type) name: Ident =
         let typ = transformType com ctx typ
@@ -631,10 +636,8 @@ module Util =
                 let args = if isConst then List.map removeConst args else args
                 Expression.invocationExpression(consRef.Expr, args, typeRef, genArgs=genArgs, isConst=isConst)
             )
-        | Fable.NewAnonymousRecord _ ->
-            "TODO: Anonymous record is not supported yet"
-            |> addErrorAndReturnNull com r
-            |> resolveExpr returnStrategy
+        | Fable.NewAnonymousRecord(exprs, _fieldNames, _genArgs) ->
+            transformExprsAndResolve com ctx returnStrategy exprs (transformTuple com ctx)
 
         | Fable.NewUnion(values, tag, ref, genArgs) ->
             transformExprsAndResolve com ctx returnStrategy values (fun fields ->
@@ -903,16 +906,23 @@ module Util =
                 Expression.indexExpression(expr, prop, t))
 
         | Fable.FieldGet info ->
-            let fieldName = sanitizeMember info.Name
-            let fableExpr =
-                match fableExpr with
-                // If we're accessing a virtual member with default implementation (see #701)
-                // from base class, we can use `super` so we don't need the bound this arg
-                | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
-                | _ -> fableExpr
-            transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                let t = transformType com ctx t
-                Expression.propertyAccess(expr, fieldName, t, isConst=info.IsConst))
+            match fableExpr.Type with
+            | Fable.AnonymousRecordType(fieldNames, _genArgs) ->
+                let index = fieldNames |> Array.tryFindIndex ((=) info.Name) |> Option.defaultValue 0
+                transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
+                    let t = transformType com ctx t
+                    Expression.propertyAccess(expr, $"item%i{index + 1}", t))
+            | _ ->
+                let fieldName = sanitizeMember info.Name
+                let fableExpr =
+                    match fableExpr with
+                    // If we're accessing a virtual member with default implementation (see #701)
+                    // from base class, we can use `super` so we don't need the bound this arg
+                    | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
+                    | _ -> fableExpr
+                transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
+                    let t = transformType com ctx t
+                    Expression.propertyAccess(expr, fieldName, t, isConst=info.IsConst))
 
         | Fable.ListHead ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
