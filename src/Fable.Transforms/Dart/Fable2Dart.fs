@@ -155,11 +155,22 @@ module Util =
             addError com [] None $"Cannot find reference for {ent.FullName}"
             makeImmutableIdent MetaType ent.DisplayName
 
-    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
-        let ent = com.GetEntity(entRef)
-        // TODO: Discard measure types
+    let transformTupleType com ctx genArgs =
+        let tup = List.length genArgs |> getTupleTypeIdent com ctx
         let genArgs = genArgs |> List.map (transformType com ctx)
-        TypeReference(getEntityIdent com ctx ent, genArgs)
+        TypeReference(tup, genArgs)
+
+    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
+        match entRef.FullName with
+        | "System.Enum" -> Integer
+        // List withouth generics is same as List<dynamic>
+        | Types.array -> TypeReference(getFSharpListTypeIdent com ctx, [])
+        | "System.Tuple`1" -> transformTupleType com ctx genArgs
+        | _ ->
+            let ent = com.GetEntity(entRef)
+            // TODO: Discard measure types
+            let genArgs = genArgs |> List.map (transformType com ctx)
+            TypeReference(getEntityIdent com ctx ent, genArgs)
 
     let get t left memberName =
         PropertyAccess(left, memberName, t, isConst=false)
@@ -440,8 +451,8 @@ module Util =
     let getFSharpListTypeIdent com ctx =
         libValue com ctx Fable.MetaType "List" "FSharpList"
 
-    let getTupleTypeIdent (com: IDartCompiler) ctx args =
-        libValue com ctx Fable.MetaType "Types" $"Tuple{List.length args}"
+    let getTupleTypeIdent (com: IDartCompiler) ctx itemsLength =
+        libValue com ctx Fable.MetaType "Types" $"Tuple%i{itemsLength}"
 
     let getUnitTypeIdent (com: IDartCompiler) ctx =
         libValue com ctx Fable.MetaType "Types" "Unit"
@@ -464,7 +475,6 @@ module Util =
             | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
             | Float32 | Float64 -> Double
             | Decimal | BigInt | NativeInt | UNativeInt -> Dynamic // TODO
-        | Fable.DeclaredType(EntFullName "System.Enum", []) -> Integer
         | Fable.Option(genArg, _isStruct) ->
             match genArg with
             | Fable.Option _ -> com.ErrorOnlyOnce("Nested options are not supported"); Dynamic
@@ -474,14 +484,8 @@ module Util =
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
             TypeReference(getFSharpListTypeIdent com ctx, [genArg])
-        | Fable.DeclaredType(EntFullName Types.array, []) ->
-            // List withouth generics is same as List<dynamic>
-            TypeReference(getFSharpListTypeIdent com ctx, [])
-        | Fable.DeclaredType(EntFullName("System.Tuple`1"), genArgs)
         | Fable.Tuple(genArgs, _) ->
-            let tup = getTupleTypeIdent com ctx genArgs
-            let genArgs = genArgs |> List.map (transformType com ctx)
-            TypeReference(tup, genArgs)
+            transformTupleType com ctx genArgs
         | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([argType], returnType)
         | Fable.DelegateType(argTypes, TransformType com ctx returnType) ->
@@ -543,7 +547,7 @@ module Util =
             |> addErrorAndReturnNull com r
 
     let transformTuple (com: IDartCompiler) ctx (args: Expression list) =
-        let tup = getTupleTypeIdent com ctx args
+        let tup = List.length args |> getTupleTypeIdent com ctx
         let genArgs = args |> List.map (fun a -> a.Type)
         let t = TypeReference(tup, genArgs)
         let isConst, args =
@@ -1346,7 +1350,7 @@ module Util =
                 let fullName =
                     match t with
                     | Fable.DeclaredType(e,_) -> e.FullName
-                    | _ -> "unknown"
+                    | t -> $"%A{t}"
                 $"TODO: Object expression is not supported yet: %s{fullName}"
                 |> addWarning com [] expr.Range
                 [], None
@@ -1580,6 +1584,55 @@ module Util =
             InstanceMethod(name, kind=kind, args=args, genParams=genParams, returnType=transformType com ctx m.ReturnParameter.Type)
         )
 
+    let transformImplementedInterfaces com ctx (classEnt: Fable.Entity) =
+        let mutable implementsEnumerable = None
+        let mutable implementsDisposable = false
+        let mutable implementsEnumerator = false
+        let implementedInterfaces =
+            classEnt.DeclaredInterfaces
+            |> Seq.toList
+            |> List.choose (fun ifc ->
+                match ifc.Entity.FullName with
+                | Types.ienumerable
+                | Types.icomparable
+                | Types.iequatableGeneric
+                | Types.iStructuralComparable
+                | Types.iStructuralEquatable -> None
+                | Types.idisposable ->
+                    implementsDisposable <- true
+                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
+                | Types.ienumeratorGeneric ->
+                    implementsEnumerator <- true
+                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
+                | Types.ienumerableGeneric ->
+                    implementsEnumerable <- transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
+                    None
+                | _ ->
+                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some)
+
+        if Option.isSome implementsEnumerable && classEnt.IsFSharpUnion then
+            $"Unions cannot implement IEnumerable: {classEnt.FullName}"
+            |> addError com [] None
+
+        if implementsEnumerator && not implementsDisposable then
+            let disp = TypeReference(libValue com ctx Fable.MetaType "Types" "IDisposable", [])
+            implementsEnumerable, disp::implementedInterfaces
+        else
+            implementsEnumerable, implementedInterfaces
+
+    let transformInheritedClass com ctx (classEnt: Fable.Entity) implementsIterable (baseType: Fable.DeclaredType option) =
+        match implementsIterable, baseType with
+        | Some iterable, Some _ ->
+            $"Types implementing IEnumerable cannot inherit from another class: {classEnt.FullName}"
+            |> addError com [] None
+            Some iterable
+        | Some iterable, None -> Some iterable
+        | None, Some e ->
+            Fable.DeclaredType(e.Entity, e.GenericArgs)
+            |> transformType com ctx
+            |> Some
+        | None, None -> None
+
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
         let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
@@ -1620,10 +1673,12 @@ module Util =
         let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
+        let _, interfaces = transformImplementedInterfaces com ctx ent
         let extends = libTypeRef com ctx "Types" "Union" []
         let implements = [
-            if not constraints.noComparison then
-                makeTypeRefFromName "Comparable" [selfTypeRef]
+            yield! interfaces
+            // if not constraints.noComparison then
+            //     makeTypeRefFromName "Comparable" [selfTypeRef]
         ]
 
         let constructor =
@@ -1658,11 +1713,17 @@ module Util =
         let constraints = getEqualityAndComparisonConstraints ent
         let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
+
+        let implementsIterable, interfaces = transformImplementedInterfaces com ctx ent
+        let extends = transformInheritedClass com ctx ent implementsIterable None
+
         let implements = [
             libTypeRef com ctx "Types" "Record" []
-            if not constraints.noComparison then
-                makeTypeRefFromName "Comparable" [selfTypeRef]
+            yield! interfaces
+            // if not constraints.noComparison then
+            //     makeTypeRefFromName "Comparable" [selfTypeRef]
         ]
+
         let mutable hasMutableFields = false
         let fields, varDecls =
             ent.FSharpFields
@@ -1766,6 +1827,7 @@ module Util =
             genParams=genParams,
             constructor=constructor,
             implements=implements,
+            ?extends=extends,
             variables=varDecls,
             methods=methods)]
 
@@ -1866,30 +1928,8 @@ module Util =
 
                 Some constructor, variables, [] // [exposedCons]
 
-        let mutable implementsIterable = None
-        let implements =
-            classEnt.DeclaredInterfaces
-            |> Seq.toList
-            |> List.collect (fun ifc ->
-                let t = transformDeclaredType com ctx ifc.Entity ifc.GenericArgs
-                match ifc.Entity.FullName with
-                | Types.ienumerableGeneric -> implementsIterable <- Some t; []
-                | Types.ienumerable -> []
-                | Types.ienumeratorGeneric -> [t; TypeReference(libValue com ctx Fable.MetaType "Types" "IDisposable", [])]
-                | _ -> [t])
-
-        let extends =
-            match implementsIterable, classEnt.BaseType with
-            | Some iterable, Some _ ->
-                $"Types implementing IEnumerable cannot inherit from another class: {classEnt.FullName}"
-                |> addError com [] None
-                Some iterable
-            | Some iterable, None -> Some iterable
-            | None, Some e ->
-                Fable.DeclaredType(e.Entity, e.GenericArgs)
-                |> transformType com ctx
-                |> Some
-            | None, None -> None
+        let implementsIterable, implements = transformImplementedInterfaces com ctx classEnt
+        let extends = transformInheritedClass com ctx classEnt implementsIterable classEnt.BaseType
 
         let abstractMembers =
             classEnt.MembersFunctionsAndValues

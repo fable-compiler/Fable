@@ -4,6 +4,7 @@ import './src/ComparisonTests.fs.dart' as comparison;
 import './src/DateTimeTests.fs.dart' as date;
 import './src/DictionaryTests.fs.dart' as dictionary;
 import './src/EnumTests.fs.dart' as enum_;
+import './src/EnumerableTests.fs.dart' as enumerable;
 import './src/HashSetTests.fs.dart' as hash_set;
 import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
@@ -28,6 +29,7 @@ void main() {
   date.tests();
   dictionary.tests();
   enum_.tests();
+  enumerable.tests();
   hash_set.tests();
   list.tests();
   map.tests();
