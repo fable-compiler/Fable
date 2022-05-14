@@ -1,7 +1,6 @@
 ﻿module Fable.Cli.Pipeline
 
 open System
-open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.Transforms
@@ -102,7 +101,7 @@ module Python =
             member _.Dispose() = stream.Dispose()
             member _.EscapeStringLiteral(str) = Naming.encodeString charRequiresEncoding str
             member _.MakeImportPath(path) = path
-            member _.AddSourceMapping(_) = ()
+            member _.AddSourceMapping _ = ()
             member _.AddLog(msg, severity, ?range) = () // TODO
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.
@@ -119,7 +118,7 @@ module Python =
         })
     initFileWriter.Start()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) _pathResolver (outPath: string) = async {
         let python =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
@@ -191,20 +190,20 @@ module Dart =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping(_) = ()
+            member _.AddSourceMapping _ = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let file =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Dart.Compiler.transformFile com
 
-        // TODO: Check if compilation is silent or file is empty (see JS)
-        use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
-        do! DartPrinter.run writer file
+        if not(isSilent || file.IsEmpty) then
+            use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
+            do! DartPrinter.run writer file
     }
 
 module Rust =
@@ -222,7 +221,7 @@ module Rust =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
+            member _.AddSourceMapping _ = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
@@ -243,5 +242,5 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver isSilent outPath
     | Python -> Python.compileFile com cliArgs pathResolver outPath
     | Php -> Php.compileFile com outPath
-    | Dart -> Dart.compileFile com cliArgs pathResolver outPath
+    | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver outPath
