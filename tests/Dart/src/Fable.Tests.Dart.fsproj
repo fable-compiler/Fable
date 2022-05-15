@@ -10,6 +10,7 @@
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="ComparisonTests.fs" />
+    <Compile Include="CustomOperatorTests.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="EnumerableTests.fs" />

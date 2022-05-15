@@ -1,6 +1,7 @@
 import './src/ArithmeticTests.fs.dart' as arithmetic;
 import './src/ArrayTests.fs.dart' as array;
 import './src/ComparisonTests.fs.dart' as comparison;
+import './src/CustomOperatorTests.fs.dart' as custom_operator;
 import './src/DateTimeTests.fs.dart' as date;
 import './src/DictionaryTests.fs.dart' as dictionary;
 import './src/EnumTests.fs.dart' as enum_;
@@ -26,6 +27,7 @@ void main() {
   arithmetic.tests();
   array.tests();
   comparison.tests();
+  custom_operator.tests();
   date.tests();
   dictionary.tests();
   enum_.tests();
