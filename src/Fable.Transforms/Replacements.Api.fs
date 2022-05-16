@@ -30,6 +30,7 @@ let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     match com.Options.Language with
     | Rust -> Rust.Replacements.tryField com returnTyp ownerTyp fieldName
     | Python -> PY.Replacements.tryField com returnTyp ownerTyp fieldName
+    | Dart -> Dart.Replacements.tryField com returnTyp ownerTyp fieldName
     | _ -> JS.Replacements.tryField com returnTyp ownerTyp fieldName
 
 let tryBaseConstructor (com: ICompiler) ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
@@ -45,6 +46,7 @@ let tryType (com: ICompiler) (t: Type) =
     match com.Options.Language with
     | Rust -> Rust.Replacements.tryType t
     | Python -> PY.Replacements.tryType t
+    | Dart -> Dart.Replacements.tryType t
     | _ -> JS.Replacements.tryType t
 
 let tryCall (com: ICompiler) ctx r t info thisArg args =
@@ -58,12 +60,14 @@ let error (com: ICompiler) msg =
     match com.Options.Language with
     | Python -> PY.Replacements.error msg
     | Rust -> Rust.Replacements.error msg
+    | Dart -> Dart.Replacements.error msg
     | _ -> JS.Replacements.error msg
 
 let defaultof (com: ICompiler) ctx typ =
     match com.Options.Language with
     | Rust -> Rust.Replacements.getZero com ctx typ
     | Python -> PY.Replacements.defaultof com ctx typ
+    | Dart -> Dart.Replacements.defaultof com ctx typ
     | _ -> JS.Replacements.defaultof com ctx typ
 
 /// Needed for mutable public values because of how imports/exports work in JS.

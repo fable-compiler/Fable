@@ -226,11 +226,11 @@ int compare(DateTime dt1, DateTime dt2) {
   return dt1.compareTo(dt2);
 }
 
-DateTime addDays(DateTime d, double v) => add(d, timespan.create(v, 0, 0, 0));
-DateTime addHours(DateTime d, double v) => add(d, timespan.create(0, v, 0, 0));
-DateTime addMinutes(DateTime d, double v) => add(d, timespan.create(0, 0, v, 0));
-DateTime addSeconds(DateTime d, double v) => add(d, timespan.create(0, 0, 0, v));
-DateTime addMilliseconds(DateTime d, double v) => add(d, timespan.create(0, 0, 0, 0, v));
+DateTime addDays(DateTime d, double v) => add(d, timespan.fromDays(v));
+DateTime addHours(DateTime d, double v) => add(d, timespan.fromHours(v));
+DateTime addMinutes(DateTime d, double v) => add(d, timespan.fromMinutes(v));
+DateTime addSeconds(DateTime d, double v) => add(d, timespan.fromSeconds(v));
+DateTime addMilliseconds(DateTime d, double v) => add(d, timespan.fromMilliseconds(v));
 DateTime addTicks(DateTime d, int v) => add(d, Duration(microseconds: v ~/ 10));
 
 DateTime now() {

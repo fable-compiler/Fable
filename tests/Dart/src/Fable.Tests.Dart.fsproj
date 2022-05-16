@@ -29,6 +29,7 @@
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTests.fs" />
     <Compile Include="TailCallTests.fs" />
+    <Compile Include="TimeSpanTests.fs" />
     <Compile Include="TupleTests.fs" />
     <Compile Include="UnionTests.fs" />
     <Content Include="..\main.dart" />

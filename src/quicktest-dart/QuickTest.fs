@@ -20,6 +20,9 @@ let testCase (msg: string) f: unit =
     f ()
     print ""
 
+let testList (msg: string) (xs: unit list): unit =
+    ()
+
 let throwsAnyError (f: unit -> 'a): unit =
     let success =
         try
