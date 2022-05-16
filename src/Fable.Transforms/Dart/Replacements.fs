@@ -246,31 +246,32 @@ let stringToInt (_com: ICompiler) (_ctx: Context) r targetType (args: Expr list)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
-    let sourceType = args.Head.Type
+    let arg = args.Head
     // TODO: Review this and include Int64
     let emitCast typeTo arg =
-        match typeTo with
-        | Int8 -> emitExpr None Int8.Number [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | Int16 -> emitExpr None Int16.Number [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
-        | Int32 -> fastIntFloor arg
-        | UInt8 -> emitExpr None UInt8.Number [arg] "$0 & 0xFF"
-        | UInt16 -> emitExpr None UInt16.Number [arg] "$0 & 0xFFFF"
-        | UInt32 -> emitExpr None UInt32.Number [arg] "$0 >>> 0"
-        | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
-    match sourceType, targetType with
-    | Char, _ -> TypeCast(args.Head, targetType)
+        arg
+//        match typeTo with
+//        | Int8 -> emitExpr None Int8.Number [arg] "($0 + 0x80 & 0xFF) - 0x80"
+//        | Int16 -> emitExpr None Int16.Number [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+//        | Int32 -> fastIntFloor arg
+//        | UInt8 -> emitExpr None UInt8.Number [arg] "$0 & 0xFF"
+//        | UInt16 -> emitExpr None UInt16.Number [arg] "$0 & 0xFFFF"
+//        | UInt32 -> emitExpr None UInt32.Number [arg] "$0 >>> 0"
+//        | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
+    match arg.Type, targetType with
+    | Char, Number(typeTo,_) -> emitCast typeTo arg
     | String, _ -> stringToInt com ctx r targetType args
     | Number(BigInt,_), _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | Number(typeFrom,_), Number(typeTo,_) ->
         if needToCast typeFrom typeTo then
             match typeFrom with
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args) |> emitCast typeTo
-            | DartInt -> args.Head |> emitCast typeTo
-            | _ -> Helper.InstanceCall(args.Head, "toInt", targetType, [])
-        else TypeCast(args.Head, targetType)
+            | DartInt -> arg |> emitCast typeTo
+            | _ -> Helper.InstanceCall(arg, "toInt", targetType, [])
+        else TypeCast(arg, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+        TypeCast(arg, targetType)
 
 let round com (args: Expr list) =
     match args.Head.Type with
@@ -2454,89 +2455,74 @@ let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
+let (|RegexFlags|_|) e =
+    let rec getFlags = function
+        | NumberConst(:? int as value, _) ->
+            match value with
+            | 1 -> Some [RegexFlag.RegexIgnoreCase]
+            | 2 -> Some [RegexFlag.RegexMultiline]
+            // TODO: We're missing RegexFlag.Singleline in the AST
+            // | 16 -> Some [RegexFlag.Singleline]
+            | _ -> None
+        | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+            match getFlags flags1, getFlags flags2 with
+            | Some flags1, Some flags2 -> Some(flags1 @ flags2)
+            | _ -> None
+        | _ -> None
+    getFlags e
+
+let regexMatchToSeq com t e =
+    Helper.LibCall(com, "RegExp", "GroupIterable", t, [e])
+
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let propInt p callee = getExpr r t callee (makeIntConst p)
-    let isGroup =
-        match thisArg with
-        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+    let isGroup = function
+        | ExprType (EntFullName "System.Text.RegularExpressions.Group") -> true
         | _ -> false
 
     let createRegex r t args =
-//        let makeRegexConst r (pattern: string) flags =
-//            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
-//            RegexConstant(pattern, flags) |> makeValue r
-
-        let (|RegexFlags|_|) e =
-            let rec getFlags = function
-                | NumberConst(:? int as value, _) ->
-                    match value with
-                    | 1 -> Some [RegexFlag.RegexIgnoreCase]
-                    | 2 -> Some [RegexFlag.RegexMultiline]
-                    // TODO: We're missing RegexFlag.Singleline in the AST
-                    // | 16 -> Some [RegexFlag.Singleline]
-                    | _ -> None
-                | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
-                    match getFlags flags1, getFlags flags2 with
-                    | Some flags1, Some flags2 -> Some(flags1 @ flags2)
-                    | _ -> None
-                | _ -> None
-            getFlags e
         match args with
-//        | [StringConst pattern] -> makeRegexConst r pattern []
-//        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags
         | _ -> Helper.LibCall(com, "RegExp", "create", t, args, ?loc=r)
 
-    match i.CompiledName with
-    | ".ctor" -> createRegex r t args |> Some
-    | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> createRegex r t args |> Some
+    | "get_Options", Some thisArg ->
+        Helper.LibCall(com, "RegExp", "options", t, [thisArg], ?loc=r) |> Some
     // Capture
-    | "get_Index" ->
-        if not isGroup
-        then getAttachedMemberWith r t thisArg.Value "index" |> Some
-        else "Accessing index of Regex groups is not supported"
-             |> addErrorAndReturnNull com ctx.InlinePath r |> Some
-    | "get_Value" ->
-        if isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), t, r) |> Some
-        else propInt 0 thisArg.Value |> Some
-    | "get_Length" ->
-        if isGroup
-        then getLength thisArg.Value |> Some
-        else propInt 0 thisArg.Value |> getLength |> Some
-    // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
+    | "get_Index", Some thisArg ->
+        if isGroup thisArg then
+            "Accessing index of Regex groups is not supported"
+            |> addErrorAndReturnNull com ctx.InlinePath r |> Some
+        else getAttachedMemberWith r t thisArg "start" |> Some
+    | ("get_Value" | "get_Length" | "get_Success" as meth), Some thisArg ->
+        let meth = (if isGroup thisArg then "group" else "match") + Naming.removeGetSetPrefix meth
+        Helper.LibCall(com, "RegExp", meth, t, [thisArg], ?loc=r) |> Some
     // Match
-    | "get_Groups" -> thisArg.Value |> Some
+    | "get_Groups", Some thisArg -> thisArg |> Some
     // MatchCollection & GroupCollection
-    | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
-        // can be group index or group name
-        //        `m.Groups.[0]` `m.Groups.["name"]`
-        match (args |> List.head).Type with
-        | String ->
-            // name
-            (* `groups` might not exist -> check first:
-                (`m`: `thisArg.Value`; `name`: `args.Head`)
-                  ```ts
-                  m.groups?.[name]
-                  ```
-                or here
-                  ```ts
-                  m.groups && m.groups[name]
-                  ```
-            *)
-            let groups = getAttachedMemberWith None Any thisArg.Value "groups"
-            let getItem = getExpr r t groups args.Head
-
-            Operation(Logical(LogicalAnd, groups, getItem), t, None)
-            |> Some
+    | "get_Item", Some thisArg ->
+        match i.DeclaringEntityFullName with
+        | "System.Text.RegularExpressions.GroupCollection" ->
+            // can be group index or group name: `m.Groups.[0]` `m.Groups.["name"]`
+            let meth =
+                match args with
+                | (ExprType String as index)::_ -> "matchNamedGroup"
+                | _ -> "matchGroup"
+            Helper.LibCall(com, "RegExp", meth, t, thisArg::args, ?loc=r) |> Some
         | _ ->
-            // index
-            getExpr r t thisArg.Value args.Head |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "get_Count" -> getLength thisArg.Value |> Some
-    | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
-    | "IsMatch" | "Match" | "Matches" as meth ->
+            Helper.InstanceCall(thisArg, "elementAt", t, args, ?loc=r) |> Some
+    | "get_Count", Some thisArg ->
+        match i.DeclaringEntityFullName with
+        | "System.Text.RegularExpressions.GroupCollection" ->
+            // In Dart group count doesn't include group 0 so we need to add 1
+            let groupCount = getAttachedMemberWith r t thisArg "groupCount"
+            makeBinOp None t groupCount (makeIntConst 1) BinaryPlus |> Some
+        | _ -> getLength thisArg |> Some
+    | "GetEnumerator", Some thisArg ->
+        match i.DeclaringEntityFullName with
+        | "System.Text.RegularExpressions.GroupCollection" ->
+            Helper.LibCall(com, "RegExp", "GroupIterator", t, [thisArg], ?loc=r) |> Some
+        | _ -> getEnumerator com r t thisArg |> Some
+    | "IsMatch" | "Match" | "Matches" as meth, thisArg ->
         match thisArg, args with
         | Some thisArg, args ->
             if args.Length > 2 then
@@ -2548,10 +2534,31 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             [reg; input] |> Some
         | _ -> None
         |> Option.map (fun args ->
-            Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r))
-    | meth ->
+            match meth, args with
+            | "Matches", reg::args -> Helper.InstanceCall(reg, "allMatches", t, args, ?loc=r)
+            | _ -> Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, ?loc=r))
+    | "Escape", _ ->
+        Helper.GlobalCall("RegExp", t, args, memb="escape", ?loc=r) |> Some
+    | "Replace", _ ->
+        let args =
+            match thisArg, args with
+            | Some thisArg, args -> thisArg::args
+            | None, input::pattern::rest -> pattern::input::rest
+            | None, ars -> args
+        let meth =
+            match args with
+            | _pattern::_input::(ExprType String)::_ -> "replace"
+            | _ -> "replaceWith"
+        Helper.LibCall(com, "RegExp", meth, t, args, ?loc=r) |> Some
+    | "Split", _ ->
+        let args, meth =
+            match thisArg, args with
+            | Some thisArg, args -> thisArg::args, "split"
+            | None, ars -> args, "splitWithPattern"
+        Helper.LibCall(com, "RegExp", meth, t, args, ?loc=r) |> Some
+    | meth, thisArg ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-        Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "RegExp", meth, t, args, ?thisArg=thisArg, ?loc=r) |> Some
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args.Length with

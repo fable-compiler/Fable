@@ -94,9 +94,7 @@ List<String> splitWithChars(String str,
       count, options);
 }
 
-List<String> split(String str,
-    [List<String>? splitters, int? count, int? options]) {
-  options ??= 0;
+List<String> splitWithRegExp(String str, RegExp reg, [int? count, int? options]) {
   if (count != null && count < 0) {
     throw Exception('Count cannot be less than zero');
   }
@@ -104,18 +102,11 @@ List<String> split(String str,
     return [];
   }
 
+  options ??= 0;
   final removeEmpty = (options & 1) == 1;
   final trim = (options & 2) == 2;
 
-  splitters ??= [];
-  splitters = splitters
-      .where((x) => x.isNotEmpty)
-      .map((x) => RegExp.escape(x))
-      .toList();
-  splitters = splitters.isNotEmpty ? splitters : ['\\s'];
-
   final List<String> splits = [];
-  final reg = RegExp(splitters.join('|'));
 
   var lastIndex = 0;
   for (var match in reg.allMatches(str).toList()) {
@@ -146,6 +137,19 @@ List<String> split(String str,
   }
 
   return splits;
+}
+
+List<String> split(String str,
+    [List<String>? splitters, int? count, int? options]) {
+  splitters ??= [];
+  splitters = splitters
+      .where((x) => x.isNotEmpty)
+      .map((x) => RegExp.escape(x))
+      .toList();
+  splitters = splitters.isNotEmpty ? splitters : ['\\s'];
+
+  final reg = RegExp(splitters.join('|'));
+  return splitWithRegExp(str, reg, count, options);
 }
 
 String patternFromChars(List<int> chars) =>

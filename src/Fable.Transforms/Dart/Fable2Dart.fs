@@ -166,6 +166,9 @@ module Util =
         // List withouth generics is same as List<dynamic>
         | Types.array -> TypeReference(getFSharpListTypeIdent com ctx, [])
         | "System.Tuple`1" -> transformTupleType com ctx genArgs
+        | "System.Text.RegularExpressions.Group" -> Nullable String
+        | "System.Text.RegularExpressions.Match" ->
+            makeTypeRefFromName "Match" []
         | _ ->
             let ent = com.GetEntity(entRef)
             // TODO: Discard measure types
@@ -1400,6 +1403,9 @@ module Util =
 
                 | ExprType(Fable.String) ->
                     Dart.Replacements.stringToCharSeq expr |> transform com ctx returnStrategy
+
+                | ExprType(Fable.DeclaredType(EntFullName "System.Text.RegularExpressions.Match", _)) ->
+                    Dart.Replacements.regexMatchToSeq com t expr |> transform com ctx returnStrategy
 
                 | _ -> transformCast com ctx t returnStrategy expr
             | _ -> transformCast com ctx t returnStrategy expr
