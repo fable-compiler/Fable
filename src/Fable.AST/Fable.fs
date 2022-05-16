@@ -336,6 +336,7 @@ type CallInfo =
       Args: Expr list
       /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
+      /// This is used for the uncurrying mechanism
       SignatureArgTypes: Type list
       GenericArgs: Type list
       CallMemberInfo: CallMemberInfo option

@@ -59,10 +59,9 @@ let tests() =
         Regex.Escape(@"\*+?|{[()^$") |> equal @"\\\*\+\?\|\{\[\(\)\^\$"
         Regex.Escape(@"C:\Temp") |> equal @"C:\\Temp"
 
-    // TODO
-//    testCase "Regex.Unescape works" <| fun _ ->
-//        Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
-//        Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
+    testCase "Regex.Unescape works" <| fun _ ->
+        Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
+        Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
 
     testCase "Regex instance IsMatch works" <| fun _ ->
         let str = "For more information, see Chapter 3.4.5.1"

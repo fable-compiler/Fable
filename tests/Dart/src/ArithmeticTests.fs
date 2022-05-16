@@ -40,3 +40,6 @@ let tests () =
 
     testCase "Infix modulo can be generated" <| fun () ->
         4 % 3 |> equal 1
+        5 % 3 |> equal 2
+        -4 % 3 |> equal -1
+        -5 % 3 |> equal -2
