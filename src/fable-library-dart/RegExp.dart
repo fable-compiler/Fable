@@ -70,6 +70,23 @@ RegExp create(String pattern, [int options = 0]) {
       dotAll: options & 16 > 0);
 }
 
+// From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+
+String escape(String str) {
+  return RegExp.escape(str);
+  // return str.replaceAllMapped(
+  //   RegExp(r'[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]'),
+  //   (m) => '\\${m.group(0)}',
+  // );
+}
+
+String unescape(String str) {
+  return str.replaceAllMapped(
+    RegExp(r'\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])'),
+    (m) => m.group(1)!,
+  );
+}
+
 bool isMatch(RegExp reg, String input, [int startAt = 0]) {
   return startAt > 0
       ? reg.allMatches(input, startAt).isNotEmpty

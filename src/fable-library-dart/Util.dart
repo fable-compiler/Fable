@@ -77,3 +77,22 @@ String int32ToString(int i, [int radix = 10]) {
     return i.toRadixString(radix);
   }
 }
+
+String padWithZeros(int i, int length) {
+  var str = i.toRadixString(10);
+  while (str.length < length) {
+    str = "0" + str;
+  }
+  return str;
+}
+
+String padLeftAndRightWithZeros(int i, int lengthLeft, int lengthRight) {
+  var str = i.toRadixString(10);
+  while (str.length < lengthLeft) {
+    str = "0" + str;
+  }
+  while (str.length < lengthRight) {
+    str = str + "0";
+  }
+  return str;
+}

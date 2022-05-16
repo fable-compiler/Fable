@@ -296,6 +296,10 @@ let stringToCharSeq e =
     // Setting as immutable so values can be inlined, review
     getImmutableAttachedMemberWith None Any e "runes"
 
+let getSubtractToDateMethodName = function
+    | [_; ExprType(Builtin BclDateTime)] -> "subtractDate"
+    | _ -> "subtract"
+
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), t, r)
@@ -320,7 +324,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
             binOp BinaryDivide left right
-        | Operators.modulus, [left; right] -> binOp BinaryModulus left right
+        // In dart % operator and .remainder give different values for negative numbers
+        | Operators.modulus, [left; right] ->
+            Helper.InstanceCall(left, "remainder", t, [right], ?loc=r)
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [left; right] ->
             match argTypes with
@@ -354,7 +360,14 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | _ -> "BigInt", opName
         Helper.LibCall(com, modName, opName, t, args, argTypes, ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly as bt)::_ ->
-        Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc=r)
+        let meth =
+            match opName with
+            | "op_Addition" -> "add"
+            | "op_Subtraction" -> getSubtractToDateMethodName args
+            | "op_Multiply" -> "multiply"
+            | "op_Division" -> "divide"
+            | _ -> opName
+        Helper.LibCall(com, coreModFor bt, meth, t, args, argTypes, ?loc=r)
     | Builtin (FSharpSet _)::_ ->
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
         Helper.LibCall(com, "Set", mangledName, t, args, argTypes, ?loc=r)
@@ -496,7 +509,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Number (Decimal,_) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
-    | Builtin (BclTimeSpan|BclTimeOnly) -> makeIntConst 0 // TODO: Type cast
+    | Builtin (BclTimeSpan|BclTimeOnly) -> Helper.GlobalCall("Duration", t, [], memb="zero")
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
@@ -624,7 +637,8 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     match entFullName with
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
-    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
+    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some
+    | BuiltinDefinition BclTimeSpan -> makeIdentExpr "Duration" |> Some
     | BuiltinDefinition BclTimer -> makeImportLib com MetaType "default" "Timer" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com MetaType "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com MetaType "FSharpResult$2" "Choice" |> Some
@@ -632,7 +646,6 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
         let membName = $"FSharpChoice${List.length genArgs}"
         makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
-    // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     | BuiltinDefinition(BclHashSet _)
     | Types.iset -> makeIdentExpr "Set" |> Some
     | BuiltinDefinition(BclDictionary _)
@@ -2228,8 +2241,6 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | _ -> None
 
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let getTime (e: Expr) =
-        Helper.InstanceCall(e, "getTime", t, [])
     let moduleName =
         if i.DeclaringEntityFullName = Types.datetime
         then "Date" else "DateOffset"
@@ -2238,9 +2249,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         match args with
         | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc=r) |> Some
         | ExprType(Number (Int64,_))::_ ->
-            Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+            Helper.LibCall(com, moduleName, "fromTicks", t, args, ?loc=r) |> Some
         | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
-            Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+            Helper.LibCall(com, "DateOffset", "fromDate", t, args, ?loc=r) |> Some
         | _ ->
             let last = List.last args
             match args.Length, last.Type with
@@ -2249,23 +2260,28 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc=r) |> Some
             | _ ->
-                Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+                Helper.LibCall(com, moduleName, "create", t, args, ?loc=r) |> Some
     | "ToString" ->
-        Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        let args =
+            // Ignore IFormatProvider
+            match args with
+            | ExprType(String) as arg::_ -> [arg]
+            | _ -> []
+        Helper.LibCall(com, "Date", "toString", t, args, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Year" | "get_Month" | "get_Day" | "get_Hour" | "get_Minute" | "get_Second" | "get_Millisecond" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
     | "get_Kind" ->
-        Helper.LibCall(com, moduleName, "kind", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, moduleName, "kind", t, args, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
-        Helper.LibCall(com, "DateOffset", "toLocalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "toLocalTime", t, [thisArg.Value], ?loc=r) |> Some
     | "get_UtcDateTime" ->
-        Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [thisArg.Value], ?loc=r) |> Some
     | "get_DateTime" ->
         let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
-        Helper.LibCall(com, "Date", "fromDateTimeOffset", t, [thisArg.Value; kind], [thisArg.Value.Type; kind.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "Date", "fromDateTimeOffset", t, [thisArg.Value; kind], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
         let value = Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
@@ -2274,28 +2290,25 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
         Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Int32.Number], ?loc=r) |> Some
-    | "ToUnixTimeSeconds"
-    | "ToUnixTimeMilliseconds" ->
-        let ms = getTime thisArg.Value
-        let args =
-            if i.CompiledName = "ToUnixTimeSeconds"
-            then [makeBinOp r t ms (makeIntConst 1000) BinaryDivide]
-            else [ms]
-        Helper.LibCall(com, "Long", "fromNumber", t, args, ?loc=r) |> Some
     | "get_Ticks" ->
-        Helper.LibCall(com, "Date", "getTicks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.LibCall(com, "Date", "getTicks", t, [thisArg.Value], ?loc=r) |> Some
     | "get_UtcTicks" ->
-        Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "AddTicks" ->
-        match thisArg, args with
-        | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Int32.Number])
-            let ms = Helper.LibCall(com, "Long", "toNumber", Float64.Number, [ms], [ms.Type])
-            Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
-        | _ -> None
+        Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [thisArg.Value], ?loc=r) |> Some
+    | "Subtract" ->
+        let args = Option.toList thisArg @ args
+        let meth = getSubtractToDateMethodName args
+        Helper.LibCall(com, "Date", meth, t, args, ?loc=r) |> Some
+    | "ToLocalTime" | "ToUniversalTime" | "CompareTo" as meth ->
+        let meth = match meth with "ToLocalTime" -> "toLocal" | "ToUniversalTime" -> "toUtc" | meth -> Naming.lowerFirst meth
+        Helper.InstanceCall(thisArg.Value, meth, t, args, ?loc=r) |> Some
     | meth ->
+        let args =
+            match meth, args with
+            // Ignore IFormatProvider
+            | "Parse", arg::_ -> [arg]
+            | _ -> args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, moduleName, meth, t, args, ?thisArg=thisArg, ?loc=r) |> Some
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2336,21 +2349,21 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     match i.CompiledName with
     | ".ctor" ->
         let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
-        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
-    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
-    | "ToString" when (args.Length = 1) ->
-        "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
-        |> addError com ctx.InlinePath r
-        None
-    | "ToString" when (args.Length = 2) ->
-        match args.Head with
-        | StringConst "c"
-        | StringConst "g"
-        | StringConst "G" ->
-            Helper.LibCall(com, "TimeSpan", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "TimeSpan", meth, t, args, ?loc=r) |> Some
+    | "ToString" ->
+        match args with
+        | format::_cultureInfo::_ ->
+            match format with
+            | StringConst "c"
+            | StringConst "g"
+            | StringConst "G" ->
+                Helper.LibCall(com, "TimeSpan", "toString", t, [format], ?thisArg=thisArg, ?loc=r) |> Some
+            | _ ->
+                "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
+                |> addError com ctx.InlinePath r
+                None
         | _ ->
-            "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
+            "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
             |> addError com ctx.InlinePath r
             None
     | meth ->
@@ -2537,8 +2550,6 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             match meth, args with
             | "Matches", reg::args -> Helper.InstanceCall(reg, "allMatches", t, args, ?loc=r)
             | _ -> Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, ?loc=r))
-    | "Escape", _ ->
-        Helper.GlobalCall("RegExp", t, args, memb="escape", ?loc=r) |> Some
     | "Replace", _ ->
         let args =
             match thisArg, args with
