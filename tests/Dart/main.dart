@@ -20,6 +20,7 @@ import './src/SetTests.fs.dart' as set_;
 import './src/StringTests.fs.dart' as string;
 import './src/SudokuTests.fs.dart' as sudoku;
 import './src/TailCallTests.fs.dart' as tailcall;
+import './src/TimeSpanTests.fs.dart' as timespan;
 import './src/TupleTests.fs.dart' as tuple;
 import './src/UnionTests.fs.dart' as union;
 
@@ -46,6 +47,7 @@ void main() {
   string.tests();
   sudoku.tests();
   tailcall.tests();
+  timespan.tests();
   tuple.tests();
   union.tests();
 }

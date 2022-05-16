@@ -359,7 +359,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
 //            | BigInt, _ -> "BigInt", opName
             | _ -> "BigInt", opName
         Helper.LibCall(com, modName, opName, t, args, argTypes, ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly as bt)::_ ->
+    | Builtin (BclDateTime|BclTimeSpan|BclDateTimeOffset|BclDateOnly as bt)::_ ->
         let meth =
             match opName with
             | "op_Addition" -> "add"
@@ -374,8 +374,6 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
-    | Builtin BclTimeSpan::_ ->
-        nativeOp opName argTypes args
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
@@ -502,6 +500,9 @@ let makeMap (com: ICompiler) ctx r t methName args genArgs =
     let args = args @ [makeComparer com ctx keyType]
     Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, genArgs=genArgs, ?loc=r)
 
+let getZeroTimeSpan t =
+    Helper.GlobalIdent("Duration", "zero", t)
+
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
@@ -509,7 +510,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Number (Decimal,_) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
-    | Builtin (BclTimeSpan|BclTimeOnly) -> Helper.GlobalCall("Duration", t, [], memb="zero")
+    | Builtin (BclTimeSpan|BclTimeOnly) -> getZeroTimeSpan t
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
@@ -2348,7 +2349,11 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
-        let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
+        let meth, args =
+            match args with
+            | [_ticks] -> "fromTicks", args
+            | [_hour; _minutes; _seconds] -> "create", (makeIntConst 0)::args
+            | _ -> "create", args
         Helper.LibCall(com, "TimeSpan", meth, t, args, ?loc=r) |> Some
     | "ToString" ->
         match args with
@@ -2366,6 +2371,8 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
             |> addError com ctx.InlinePath r
             None
+    | "CompareTo" ->
+        Helper.InstanceCall(thisArg.Value, "compareTo", t, args, ?loc=r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2854,7 +2861,7 @@ let tryField com returnTyp ownerTyp fieldName =
         Helper.LibValue(com, "Decimal", "get_" + fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> emptyGuid() |> Some
-    | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
+    | Builtin BclTimeSpan, "Zero" -> getZeroTimeSpan returnTyp |> Some
     | Builtin (BclDateTime|BclDateTimeOffset|BclTimeOnly|BclDateOnly as t), ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor t, Naming.lowerFirst fieldName, returnTyp, []) |> Some
     | DeclaredType(ent, genArgs), fieldName ->
