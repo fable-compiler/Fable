@@ -1,6 +1,7 @@
 module QuickTest
 
 open System
+open System.Text.RegularExpressions
 open System.Collections.Generic
 open Fable.Core
 
