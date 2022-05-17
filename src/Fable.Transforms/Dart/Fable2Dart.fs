@@ -469,6 +469,11 @@ module Util =
         let t = TypeReference(getUnitTypeIdent com ctx, [])
         { libValue com ctx Fable.Any "Types" "unit" with Type = t }
 
+    let uncurryType (typ: Fable.Type) =
+        match FableTransforms.tryUncurryType typ with
+        | Some(_arity, uncurryType) -> uncurryType
+        | None -> typ
+
     /// Discards Measure generic arguments
     let transformGenArgs com ctx genArgs =
         genArgs |> List.choose (function
@@ -502,10 +507,8 @@ module Util =
         | Fable.Tuple(genArgs, _) ->
             transformTupleType com ctx genArgs
         | Fable.AnonymousRecordType(_, genArgs) ->
-            // Function types in anonymous record fileds are uncurried
-            genArgs |> List.map (function
-                | NestedLambdaType(args, ret) -> Fable.DelegateType(args, ret)
-                | t -> t)
+            genArgs
+            |> List.map uncurryType
             |> transformTupleType com ctx
         | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([argType], returnType)
@@ -915,7 +918,6 @@ module Util =
                 prevStmnt @ captureStmnts @ [Statement.ifStatement(guardExpr, thenStmnt, elseStmnt)], captureExpr
 
     let transformGet (com: IDartCompiler) ctx _range t returnStrategy kind fableExpr =
-
         match kind with
         | Fable.ExprGet prop ->
             transformExprsAndResolve2 com ctx returnStrategy fableExpr prop (fun expr prop ->
@@ -972,7 +974,7 @@ module Util =
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                 let fields = getUnionExprFields expr
                 let index = Expression.indexExpression(fields, Expression.integerLiteral info.FieldIndex, Dynamic)
-                match transformType com ctx t with
+                match uncurryType t |> transformType com ctx with
                 | Dynamic -> index
                 | t -> Expression.asExpression(index, t))
 
@@ -1765,7 +1767,8 @@ module Util =
                         Var
                     else
                         Final
-                let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable f.FieldType
+                let typ = uncurryType f.FieldType
+                let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable typ
                 ident, InstanceVariable(ident, kind=kind))
             |> List.unzip
 
@@ -1937,7 +1940,7 @@ module Util =
                     let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
                     classEnt.FSharpFields |> List.map (fun f ->
                         let fieldName = sanitizeMember f.Name
-                        let t = transformType com ctx f.FieldType
+                        let t = uncurryType f.FieldType |> transformType com ctx
                         let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final
                         let isLate = thisArgsSet.Contains(fieldName) |> not

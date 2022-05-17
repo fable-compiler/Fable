@@ -22,6 +22,16 @@ type Vector3D<[<Measure>] 'u> =
     static member (+) (v1: Vector3D<'u>, v2: Vector3D<'u>) =
         { x = v1.x + v2.x; y = v1.y + v2.y; z = v1.z + v2.z }
 
+type UncurryUnion =
+    | UncurryUnion of add: (int -> int -> int)
+
+let applyUncurryUnion x y = function
+    | UncurryUnion f -> f x y
+
+type ElmishWidget<'Model, 'View, 'Msg>(view: 'Model -> ('Msg -> unit) -> 'View) =
+    let _view = view
+    member _.Render(model, dispatch) = _view model dispatch
+
 let tests() =
     testCase "ref works" <| fun () ->
         let x = ref 5
@@ -47,3 +57,14 @@ let tests() =
         let x = 5.<Measure1>
         let c = MeasureTest()
         c.Method(5.<Measure2>) |> equal x
+
+    testCase "Can get uncurried functions from unions" <| fun () ->
+        UncurryUnion (-) |> applyUncurryUnion 5 2 |> equal 3
+
+    testCase "Class fields are uncurried" <| fun () ->
+        let mutable count = 1.2
+        let w = ElmishWidget<int, string, float>(fun model dispatch ->
+            dispatch 0.5
+            (model + 5).ToString())
+        w.Render(7, fun f -> count <- count + f) |> equal "12"
+        equal 1.7 count
