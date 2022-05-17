@@ -253,6 +253,29 @@ let canInlineArg com identName value body =
          // Make sure is at least referenced once so the expression is not erased
          && countReferences 1 identName body = 1)
 
+/// Returns arity of lambda (or lambda option) types
+let getLambdaTypeArity t =
+    let rec getLambdaTypeArity accArity accArgs = function
+        | LambdaType(arg, returnType) ->
+            getLambdaTypeArity (accArity + 1) (arg::accArgs) returnType
+        | t -> accArity, List.rev accArgs, t
+    match t with
+    | LambdaType(arg, returnType)
+    | Option(LambdaType(arg, returnType),_) ->
+        getLambdaTypeArity 1 [arg] returnType
+    | _ -> 0, [], t
+
+let tryUncurryType (typ: Type) =
+    let arity, argTypes, returnType = getLambdaTypeArity typ
+    if arity > 1 then
+        let uncurriedType =
+            // getLambdaTypeArity also accepts optional lambdas
+            match typ with
+            | Option(_, isStruct) -> Option(DelegateType(argTypes, returnType), isStruct)
+            | _ -> DelegateType(argTypes, returnType)
+        Some(arity, uncurriedType)
+    else None
+
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
         | Lambda(arg, body, info) -> Some([arg], body, info)
@@ -334,18 +357,6 @@ module private Transforms =
             else e
         | e -> e
 
-    /// Returns arity of lambda (or lambda option) types
-    let getLambdaTypeArity t =
-        let rec getLambdaTypeArity accArity accArgs = function
-            | LambdaType(arg, returnType) ->
-                getLambdaTypeArity (accArity + 1) (arg::accArgs) returnType
-            | t -> accArity, List.rev accArgs, t
-        match t with
-        | LambdaType(arg, returnType)
-        | Option(LambdaType(arg, returnType),_) ->
-            getLambdaTypeArity 1 [arg] returnType
-        | _ -> 0, [], t
-
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
             | IdentExpr id as e ->
@@ -357,15 +368,11 @@ module private Transforms =
     let curryArgIdentsAndReplaceInBody (args: Ident list) body =
         let replacements, args =
             ((Map.empty, []), args) ||> List.fold (fun (replacements, uncurriedArgs) arg ->
-                let arity, argTypes, returnType = getLambdaTypeArity arg.Type
-                if arity > 1 then
-                    let uncurriedType =
-                        // getLambdaTypeArity also accepts optional lambdas
-                        match arg.Type with
-                        | Option(_, isStruct) -> Option(DelegateType(argTypes, returnType), isStruct)
-                        | _ -> DelegateType(argTypes, returnType)
+                match tryUncurryType arg.Type with
+                | Some(arity, uncurriedType) ->
                     Map.add arg.Name arity replacements, { arg with Type = uncurriedType}::uncurriedArgs
-                else replacements, arg::uncurriedArgs)
+                | None ->
+                    replacements, arg::uncurriedArgs)
         if Map.isEmpty replacements
         then List.rev args, body
         else List.rev args, curryIdentsInBody replacements body
