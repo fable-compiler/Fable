@@ -327,11 +327,11 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
         | _ -> expr
 
     match makeType ctx.GenericArgs delegateType with
-    | Fable.DelegateType(argTypes, _) ->
+    | Fable.DelegateType(argTypes, _) as t ->
         let arity = List.length argTypes |> max 1
         match expr with
         | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-        | _ when arity > 1 -> return Replacements.Api.uncurryExprAtRuntime com arity expr
+        | _ when arity > 1 -> return Replacements.Api.uncurryExprAtRuntime com t arity expr
         | _ -> return expr
     | _ -> return expr
   }

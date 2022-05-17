@@ -1387,7 +1387,7 @@ module Util =
         | Fable.Extended(kind, r) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                Dart.Replacements.curryExprAtRuntime com r arity e
+                Dart.Replacements.curryExprAtRuntime com arity e
                 |> transform com ctx returnStrategy
             | Fable.RegionStart _ -> [], None
             | Fable.Throw(None, t) ->

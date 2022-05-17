@@ -10,11 +10,17 @@ open Replacements.Util
 
 type ICompiler = FSharp2Fable.IFableCompiler
 
-let curryExprAtRuntime com arity (expr: Expr) =
-    Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
+let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
+    match com.Options.Language with
+    | Dart -> Dart.Replacements.curryExprAtRuntime com arity expr
+    | _ ->
+        Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
 
-let uncurryExprAtRuntime com arity (expr: Expr) =
-    Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+    match com.Options.Language with
+    | Dart -> Dart.Replacements.uncurryExprAtRuntime com t arity expr
+    | _ ->
+        Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
 
 let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
     match com.Options.Language with
