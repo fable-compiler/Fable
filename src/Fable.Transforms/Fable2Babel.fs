@@ -142,7 +142,7 @@ module Reflection =
         match t with
         | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj"
-        | Fable.GenericParam(name,_) ->
+        | Fable.GenericParam(name=name) ->
             match genMap with
             | None -> [| Expression.stringLiteral(name) |] |> libReflectionCall com ctx None "generic"
             | Some genMap ->
@@ -408,7 +408,7 @@ module Annotation =
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
-        | Fable.GenericParam(name,_) -> makeSimpleTypeAnnotation com ctx name
+        | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -792,7 +792,7 @@ module Util =
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
-            | Fable.GenericParam(name,_) -> [name]
+            | Fable.GenericParam(name=name) -> [name]
             | t -> t.Generics |> List.collect getGenParams
         types
         |> List.collect getGenParams

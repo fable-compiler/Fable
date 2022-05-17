@@ -107,6 +107,7 @@ type FsGenParam =
 
     static member Create(gen: FSharpGenericParameter): Fable.GenericParam =
         { Name = TypeHelpers.genParamName gen
+          IsMeasure = gen.IsMeasure
           Constraints = FsGenParam.Constraints gen }
 
 type FsParam =
@@ -911,7 +912,7 @@ module TypeHelpers =
         match Map.tryFind name ctxTypeArgs with
         | None ->
             let constraints = FsGenParam.Constraints genParam |> Seq.toList
-            Fable.GenericParam(name, constraints)
+            Fable.GenericParam(name, genParam.IsMeasure, constraints)
         | Some typ -> typ
 
     // TODO: We need to filter the measure generic arguments
@@ -1773,8 +1774,8 @@ module Util =
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
     let getEntityType (ent: Fable.Entity): Fable.Type =
-        let genArgs = ent.GenericParameters |> List.map (fun x ->
-            Fable.Type.GenericParam(x.Name, Seq.toList x.Constraints))
+        let genArgs = ent.GenericParameters |> List.map (fun g ->
+            Fable.Type.GenericParam(g.Name, g.IsMeasure, Seq.toList g.Constraints))
         Fable.Type.DeclaredType(ent.Ref, genArgs)
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration

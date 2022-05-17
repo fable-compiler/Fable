@@ -3742,7 +3742,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         match thisArg with
         | Some (Value (TypeInfo(exprType, _), exprRange) as thisArg) ->
             match exprType with
-            | GenericParam (name, _) ->
+            | GenericParam (name=name) ->
                 genericTypeInfoError name
                 |> addError com ctx.InlinePath exprRange
             | _ -> ()
@@ -3774,7 +3774,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                             let genArgs =
                                 ifc.GenericArgs
                                 |> List.map (function
-                                    | GenericParam (name, _) as gen -> Map.tryFind name genMap |> Option.defaultValue gen
+                                    | GenericParam (name=name) as gen -> Map.tryFind name genMap |> Option.defaultValue gen
                                     | gen -> gen)
 
                             Some(ifc.Entity, genArgs)

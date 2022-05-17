@@ -44,7 +44,7 @@ type Context =
       this.VarsInScope.Add(name) |> ignore
 
   member this.AppendLocalGenParams(genParams: string list) =
-      let genParams = genParams |> List.map (fun g -> { Name = g; Constraints = [] }: Fable.GenericParam)
+      let genParams = genParams |> List.map (fun g -> { Name = g; IsMeasure = false; Constraints = [] }: Fable.GenericParam)
       { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
 
 type MemberKind =
@@ -96,7 +96,7 @@ module Util =
         Expression.invocationExpression(fn.Expr, args, transformType com ctx t)
 
     let libGenCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) genArgs =
-        let genArgs = List.map (transformType com ctx) genArgs
+        let genArgs = transformGenArgs com ctx genArgs
         let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
         Expression.invocationExpression(fn.Expr, args, transformType com ctx t, genArgs=genArgs)
 
@@ -157,23 +157,28 @@ module Util =
 
     let transformTupleType com ctx genArgs =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
-        let genArgs = genArgs |> List.map (transformType com ctx)
-        TypeReference(tup, genArgs)
+        TypeReference(tup, transformGenArgs com ctx genArgs)
 
-    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
+    let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         match entRef.FullName with
-        | "System.Enum" -> Integer
+        | "System.Enum" -> Integer |> Some
         // List withouth generics is same as List<dynamic>
-        | Types.array -> TypeReference(getFSharpListTypeIdent com ctx, [])
-        | "System.Tuple`1" -> transformTupleType com ctx genArgs
-        | "System.Text.RegularExpressions.Group" -> Nullable String
+        | Types.array -> TypeReference(getFSharpListTypeIdent com ctx, []) |> Some
+        | "System.Tuple`1" -> transformTupleType com ctx genArgs |> Some
+        | "System.Text.RegularExpressions.Group" -> Nullable String |> Some
         | "System.Text.RegularExpressions.Match" ->
-            makeTypeRefFromName "Match" []
+            makeTypeRefFromName "Match" [] |> Some
+        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" when ignoreMeasure -> None
         | _ ->
             let ent = com.GetEntity(entRef)
-            // TODO: Discard measure types
-            let genArgs = genArgs |> List.map (transformType com ctx)
-            TypeReference(getEntityIdent com ctx ent, genArgs)
+            if ignoreMeasure && ent.IsMeasure then
+                None
+            else
+                let genArgs = transformGenArgs com ctx genArgs
+                TypeReference(getEntityIdent com ctx ent, genArgs) |> Some
+
+    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
+        transformDeclaredTypeIgnoreMeasure false com ctx entRef genArgs |> Option.get
 
     let get t left memberName =
         PropertyAccess(left, memberName, t, isConst=false)
@@ -464,6 +469,13 @@ module Util =
         let t = TypeReference(getUnitTypeIdent com ctx, [])
         { libValue com ctx Fable.Any "Types" "unit" with Type = t }
 
+    /// Discards Measure generic arguments
+    let transformGenArgs com ctx genArgs =
+        genArgs |> List.choose (function
+            | Fable.GenericParam(isMeasure=true) -> None
+            | Fable.DeclaredType(entRef, genArgs) -> transformDeclaredTypeIgnoreMeasure true com ctx entRef genArgs
+            | t -> transformType com ctx t |> Some)
+
     let transformType (com: IDartCompiler) (ctx: Context) (t: Fable.Type) =
         match t with
         | Fable.Measure _
@@ -500,7 +512,7 @@ module Util =
         | Fable.DelegateType(argTypes, TransformType com ctx returnType) ->
             let argTypes = argTypes |> List.map (transformType com ctx)
             Function(argTypes, returnType)
-        | Fable.GenericParam(name, _constraints) -> Generic name
+        | Fable.GenericParam(name, _isMeasure, _constraints) -> Generic name
         | Fable.DeclaredType(ref, genArgs) -> transformDeclaredType com ctx ref genArgs
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
 
@@ -514,15 +526,17 @@ module Util =
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdent com ctx id |> Expression.identExpression
 
-    let transformGenericParam (com: IDartCompiler) ctx (g: Fable.GenericParam): GenericParam =
-        let extends =
-            g.Constraints
-            |> List.tryPick (function
-                | Fable.Constraint.CoercesTo t ->
-                    transformType com ctx t |> Some
-                | _ -> None)
+    let transformGenericParam (com: IDartCompiler) ctx (g: Fable.GenericParam): GenericParam option =
+        if g.IsMeasure then None
+        else
+            let extends =
+                g.Constraints
+                |> List.tryPick (function
+                    | Fable.Constraint.CoercesTo t ->
+                        transformType com ctx t |> Some
+                    | _ -> None)
 
-        { Name = g.Name; Extends = extends }
+            Some { Name = g.Name; Extends = extends }
 
     let transformImport (com: IDartCompiler) ctx r t (selector: string) (path: string) =
         let rec getParts t (parts: string list) (expr: Expression) =
@@ -629,7 +643,7 @@ module Util =
         | Fable.NewRecord(values, ref, genArgs) ->
             transformExprsAndResolve com ctx returnStrategy values (fun args ->
                 let ent = com.GetEntity(ref)
-                let genArgs = genArgs |> List.map (transformType com ctx)
+                let genArgs = transformGenArgs com ctx genArgs
                 let consRef = getEntityIdent com ctx ent
                 let typeRef = TypeReference(consRef, genArgs)
                 let isConst =
@@ -651,7 +665,7 @@ module Util =
                     match fields with
                     | [] -> [tag]
                     | fields -> [tag; makeImmutableListExpr com ctx Fable.Any fields]
-                let genArgs = genArgs |> List.map (transformType com ctx)
+                let genArgs = transformGenArgs com ctx genArgs
                 let consRef = getEntityIdent com ctx ent
                 let typeRef = TypeReference(consRef, genArgs)
                 let isConst, args =
@@ -742,7 +756,7 @@ module Util =
             | Some e -> transform com ctx returnStrategy e
             | None ->
                 let t = transformType com ctx t
-                let genArgs = callInfo.GenericArgs |> List.map (transformType com ctx)
+                let genArgs = transformGenArgs com ctx callInfo.GenericArgs
                 let calleeStatements, callee = transformAndCaptureExpr com ctx callee
                 let argStatements, args = transformCallArgs com ctx range (CallInfo callInfo)
                 let statements, callee = combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
@@ -800,7 +814,7 @@ module Util =
                         else com.GetEntity(baseType.Entity) |> extends baseFullName
                     | None -> false
                 extends baseFullName e
-        | baseFullName, Fable.GenericParam(_, constraints) ->
+        | baseFullName, Fable.GenericParam(_, _, constraints) ->
             constraints |> List.exists (function
                 | Fable.Constraint.CoercesTo(Fable.DeclaredType(e, _)) -> e.FullName = baseFullName
                 | _ -> false)
@@ -1516,7 +1530,8 @@ module Util =
 
     let getLocalFunctionGenericParams (com: IDartCompiler) (ctx: Context) range argTypes =
         let rec getGenParams = function
-            | Fable.GenericParam(name, _constraints) -> [name]
+            // TODO: Discard measure generic params here?
+            | Fable.GenericParam(name, _isMeasure, _constraints) -> [name]
             | t -> t.Generics |> List.collect getGenParams
 
         let genParams =
@@ -1574,7 +1589,7 @@ module Util =
         if isEntryPoint then
             Declaration.functionDeclaration("main", args, body, Void)
         else
-            let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
+            let genParams = memb.GenericParams |> List.choose (transformGenericParam com ctx)
             Declaration.functionDeclaration(memb.Name, args, body, returnType, genParams=genParams)
 
     let transformAbstractMember (com: IDartCompiler) ctx (m: Fable.MemberFunctionOrValue) =
@@ -1596,7 +1611,7 @@ module Util =
                     let t = transformType com ctx p.Type
                     FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
                 )
-            let genParams = m.GenericParameters |> List.map (transformGenericParam com ctx)
+            let genParams = m.GenericParameters |> List.choose (transformGenericParam com ctx)
             InstanceMethod(name, kind=kind, args=args, genParams=genParams, returnType=transformType com ctx m.ReturnParameter.Type)
         )
 
@@ -1651,7 +1666,7 @@ module Util =
 
     // TODO: Inheriting interfaces
     let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
             |> Seq.choose (transformAbstractMember com ctx)
@@ -1686,7 +1701,7 @@ module Util =
 
     let transformUnionDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
         let constraints = getEqualityAndComparisonConstraints ent
-        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
         let _, interfaces = transformImplementedInterfaces com ctx ent
@@ -1719,7 +1734,7 @@ module Util =
         [Declaration.classDeclaration(
             decl.Name,
             genParams=(ent.GenericParameters
-                |> List.map (transformGenericParam com ctx)),
+                |> List.choose (transformGenericParam com ctx)),
             constructor=constructor,
             extends=extends,
             implements=implements,
@@ -1727,7 +1742,7 @@ module Util =
 
     let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
         let constraints = getEqualityAndComparisonConstraints ent
-        let genParams = ent.GenericParameters |> List.map (transformGenericParam com ctx)
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
         let implementsIterable, interfaces = transformImplementedInterfaces com ctx ent
@@ -1874,7 +1889,7 @@ module Util =
                     else MethodKind.IsMethod
                 kind, sanitizeMember name
 
-        let genParams = memb.GenericParams |> List.map (transformGenericParam com ctx)
+        let genParams = memb.GenericParams |> List.choose (transformGenericParam com ctx)
         InstanceMethod(name, args, returnType,
                        body=body,
                        kind=kind,
@@ -1883,7 +1898,7 @@ module Util =
                        isOverride=memb.Info.IsOverrideOrExplicitInterfaceImplementation)
 
     let transformClass (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl option) =
-        let genParams = classEnt.GenericParameters |> List.map (transformGenericParam com ctx)
+        let genParams = classEnt.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         let constructor, variables, otherDecls =
             match cons with

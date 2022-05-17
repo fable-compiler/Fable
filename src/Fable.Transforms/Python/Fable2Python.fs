@@ -229,7 +229,7 @@ module Reflection =
         match t with
         | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj", []
-        | Fable.GenericParam (name, _) ->
+        | Fable.GenericParam (name=name) ->
             match Map.tryFind name genMap with
             | Some t -> t, []
             | None ->
@@ -892,7 +892,7 @@ module Annotation =
         match t with
         | Fable.Measure _
         | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
-        | Fable.GenericParam (name, _) ->
+        | Fable.GenericParam (name=name) ->
             match repeatedGenerics with
             | Some names when names.Contains name ->
                 com.GetImportExpr(ctx, "typing", "TypeVar")
@@ -1477,7 +1477,7 @@ module Util =
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams =
             function
-            | Fable.GenericParam (name, _) -> [ name ]
+            | Fable.GenericParam (name=name) -> [ name ]
             | t -> t.Generics |> List.collect getGenParams
 
         types |> List.collect getGenParams |> Set.ofList
@@ -1486,7 +1486,7 @@ module Util =
     let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
         let rec getGenParams =
             function
-            | Fable.GenericParam (name, _) -> [ name ]
+            | Fable.GenericParam (name=name) -> [ name ]
             | t -> t.Generics |> List.collect getGenParams
 
         types
@@ -2353,7 +2353,7 @@ module Util =
             let subscript =
                 match fableExpr.Type with
                 | Fable.AnonymousRecordType _ -> true
-                | Fable.GenericParam (_, [ Fable.Constraint.HasMember (_, false) ]) -> true
+                | Fable.GenericParam (_, _, [ Fable.Constraint.HasMember (_, false) ]) -> true
                 | _ -> false
             // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
             get com ctx range expr fieldName subscript, stmts

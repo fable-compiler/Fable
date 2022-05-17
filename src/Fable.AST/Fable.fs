@@ -59,6 +59,7 @@ type Constraint =
 
 type GenericParam =
     { Name: string
+      IsMeasure: bool
       Constraints: Constraint list }
 
 type Parameter =
@@ -139,7 +140,7 @@ type Type =
     | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
-    | GenericParam of name: string * constraints: Constraint list
+    | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
 
