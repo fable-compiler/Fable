@@ -310,7 +310,7 @@ module TypeInfo =
         | Fable.LambdaType _
         | Fable.DelegateType _
             -> false
-        // | Fable.GenericParam(_, constraints) ->
+        // | Fable.GenericParam(_, _, constraints) ->
         //     constraints |> List.contains Fable.Constraint.HasEquality
         | _ ->
             isTypeOfType com isEquatableType isEquatableEntity entNames typ
@@ -331,7 +331,7 @@ module TypeInfo =
         | Fable.DelegateType _
         | Fable.Regex
             -> false
-        // | Fable.GenericParam(_, constraints) ->
+        // | Fable.GenericParam(_, _, constraints) ->
         //     constraints |> List.contains Fable.Constraint.HasComparison
         | _ ->
             isTypeOfType com isComparableType isComparableEntity entNames typ
@@ -621,7 +621,7 @@ module TypeInfo =
             ent.IsInterface
         | _ -> false
 
-    let inferredType = Fable.GenericParam(rawIdent "_", [])
+    let inferredType = Fable.GenericParam(rawIdent "_", false, [])
 
     let inferIfAny t = match t with | Fable.Any -> inferredType | _ -> t
 
@@ -649,7 +649,7 @@ module TypeInfo =
                 if ctx.Typegen.IsParamType
                 then mkInferTy ()
                 else mkUnitTy () // primitiveType "obj"
-            | Fable.GenericParam(name, _) ->
+            | Fable.GenericParam(name=name) ->
                 mkGenericPathTy [name] None
                 // match Map.tryFind name genMap with
                 // | Some t -> t
@@ -1030,7 +1030,7 @@ module Util =
         types
         |> List.collect getGenParams
         |> List.filter (function
-            | Fable.GenericParam(name, _) ->
+            | Fable.GenericParam(name=name) ->
                 if Set.contains name dedupSet then false
                 else dedupSet <- Set.add name dedupSet; true
             | _ -> false)
@@ -1165,7 +1165,7 @@ module Util =
             makeLibCall com ctx None "Seq" "ofArray" [ar]
 
         // casts to generic param
-        | _, Fable.GenericParam(name, _constraints) ->
+        | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
             makeCall [name; "from"] None [expr] // e.g. T::from(value)
         // casts to interface
         | _, t when isInterface com t ->
@@ -2875,7 +2875,7 @@ module Util =
     // // TODO: come up with a proper way of attaching bounds to gen args.
     // let rec getGenParamNames isMut (typ: Fable.Type) =
     //     match typ with
-    //     | Fable.GenericParam(name, _) -> [name, isMut]
+    //     | Fable.GenericParam(name=name) -> [name, isMut]
     //     | Fable.Array genArg ->
     //         [genArg] |> List.collect (getGenParamNames true)
     //     | t ->
@@ -2941,7 +2941,7 @@ module Util =
         ]
         genParams
         |> List.choose (function
-            | Fable.GenericParam(name, constraints) ->
+            | Fable.GenericParam(name, _isMeasure, constraints) ->
                 let bounds = makeTypeBounds name constraints
                 let p = mkGenericParamFromName [] name (bounds @ defaultBounds)
                 Some p
@@ -3076,7 +3076,7 @@ module Util =
 *)
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters
-        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, Seq.toList p.Constraints))
+        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
     let getInterfaceMemberNamesSet (com: IRustCompiler) (ent: Fable.Entity) =
         assert(ent.IsInterface)

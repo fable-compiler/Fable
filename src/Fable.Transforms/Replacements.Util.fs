@@ -245,7 +245,7 @@ let getTypeNameFromFullName (fullname: string) =
 
 let rec getTypeName com (ctx: Context) r t =
     match t with
-    | GenericParam(name,_) ->
+    | GenericParam(name=name) ->
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
         name

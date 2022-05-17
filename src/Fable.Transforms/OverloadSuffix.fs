@@ -43,7 +43,7 @@ let private getConstraintHash genParams = function
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type) =
     match t with
     | Fable.Measure fullname -> fullname
-    | Fable.GenericParam(name, constraints) ->
+    | Fable.GenericParam(name, _, constraints) ->
         match genParams.TryGetValue(name) with
         | true, i -> i
         | false, _ -> constraints |> List.map (getConstraintHash genParams) |> String.concat ","

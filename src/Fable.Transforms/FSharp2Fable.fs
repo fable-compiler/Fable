@@ -107,7 +107,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
 
     let rec matchGenericType (genArgs: Map<string, Fable.Type>) (signatureType: Fable.Type, concreteType: Fable.Type) =
         match signatureType with
-        | Fable.GenericParam(name,_) when not(genArgs.ContainsKey(name)) -> Map.add name concreteType genArgs
+        | Fable.GenericParam(name=name) when not(genArgs.ContainsKey(name)) -> Map.add name concreteType genArgs
         | signatureType ->
             let signatureTypeGenerics = signatureType.Generics
             if List.isEmpty signatureTypeGenerics then
@@ -140,7 +140,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                 let name = genParamName p
                 match Map.tryFind name genArgsMap with
                 | Some t -> t
-                | None -> Fable.GenericParam(name, p.Constraints |> Seq.chooseToList FsGenParam.Constraint))
+                | None -> Fable.GenericParam(name, p.IsMeasure, p.Constraints |> Seq.chooseToList FsGenParam.Constraint))
 
             makeCallFrom com ctx r typ (entGenArgs @ genArgs) thisArg args memb)
 
@@ -1548,7 +1548,7 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
     getRootModuleInner None declarations
 
 let resolveInlineType (ctx: Context) = function
-    | Fable.GenericParam(name,_) as v ->
+    | Fable.GenericParam(name=name) as v ->
         match Map.tryFind name ctx.GenericArgs with
         | Some v -> v
         | None -> v
