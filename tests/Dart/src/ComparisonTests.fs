@@ -412,17 +412,17 @@ let tests() =
         | _ -> () // ignore
         equal true disposed
 
-    testCase "isNull with primitives works" <| fun () ->
-        isNull null |> equal true
-        isNull "" |> equal false
-        isNull "0" |> equal false
-        isNull "hello" |> equal false
+    // testCase "isNull with primitives works" <| fun () ->
+    //     isNull null |> equal true
+    //     isNull "" |> equal false
+    //     isNull "0" |> equal false
+    //     isNull "hello" |> equal false
 
-    testCase "isNull with objects works" <| fun () ->
-        let s1: String = null
-        isNull s1 |> equal true
-        let s2: String = "hello"
-        isNull s2 |> equal false
+    // testCase "isNull with objects works" <| fun () ->
+    //     let s1: String = null
+    //     isNull s1 |> equal true
+    //     let s2: String = "hello"
+    //     isNull s2 |> equal false
 
     testCase "Classes must use identity hashing by default" <| fun () -> // See #2291
         let x = MyClass(5)

@@ -9,6 +9,7 @@ import './src/EnumerableTests.fs.dart' as enumerable;
 import './src/HashSetTests.fs.dart' as hash_set;
 import './src/ListTests.fs.dart' as list;
 import './src/MapTests.fs.dart' as map;
+import './src/MiscTests.fs.dart' as misc;
 import './src/OptionTests.fs.dart' as option;
 import './src/RecordTests.fs.dart' as record;
 import './src/RegexTests.fs.dart' as regex;
@@ -36,6 +37,7 @@ void main() {
   hash_set.tests();
   list.tests();
   map.tests();
+  misc.tests();
   option.tests();
   record.tests();
   regex.tests();

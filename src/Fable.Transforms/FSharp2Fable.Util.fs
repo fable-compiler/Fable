@@ -1046,7 +1046,7 @@ module TypeHelpers =
             | Types.type_ -> Fable.MetaType
             | Types.valueOption -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, true)
             | Types.option -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, false)
-            | Types.resizeArray -> Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.ResizeArray) 
+            | Types.resizeArray -> Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.ResizeArray)
             | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, Fable.NumberInfo.Empty)
             | DicContains numbersWithMeasure kind ->
@@ -1126,7 +1126,7 @@ module TypeHelpers =
     let tryGetXmlDoc = function
         | FSharpXmlDoc.FromXmlText(xmlDoc) -> xmlDoc.GetXmlText() |> Some
         | _ -> None
-    
+
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
         then nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType |> Some
@@ -1561,7 +1561,7 @@ module Util =
             | Some params_ when List.sameLength args params_ ->
                 params_ |> List.map Some |> List.zip args
             | _ -> args |> List.map (fun a -> a, None)
-        
+
         let ctx, thisArg, args =
             match args with
             | firstArg::restArgs when firstArg.IsMemberThisValue ->
@@ -1917,7 +1917,7 @@ module Util =
             let callInfo =
                 if callInfo.GenericArgs.Length < entityGenParamsCount then callInfo
                 else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
-            getAttachedMember callee name |> makeCall r typ callInfo
+            getField callee name |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) =
         let msg =

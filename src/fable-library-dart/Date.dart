@@ -1,6 +1,7 @@
 // ignore_for_file: file_names, constant_identifier_names
 import 'dart:math' as math;
 import 'TimeSpan.dart' as timespan;
+import 'Types.dart' as types;
 import 'Util.dart' as util;
 
 // We define Unspecified for .NET compatibility but it's not used in Dart DateTime
@@ -124,6 +125,15 @@ DateTime parse(String input) {
   }
   // .NET always parses as local, even if input is UTC
   return parsedDate.isUtc ? parsedDate.toLocal() : parsedDate;
+}
+
+bool tryParse(String input, types.FSharpRef<DateTime> defaultValue) {
+  try {
+    defaultValue.contents = parse(input);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 DateTime create(int year, int month, int day,

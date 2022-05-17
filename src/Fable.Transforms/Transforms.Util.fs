@@ -626,14 +626,17 @@ module AST =
     let setExpr r left memb (value: Expr) =
         Set(left, ExprSet memb, value.Type, value, r)
 
-    let getImmutableAttachedMemberWith r t callee membName =
+    let getImmutableFieldWith r t callee membName =
         Get(callee, FieldInfo.Create(membName), t, r)
 
-    let getAttachedMemberWith r t callee membName =
+    let getFieldWith r t callee membName =
         Get(callee, FieldInfo.Create(membName, maybeCalculated=true), t, r)
 
-    let getAttachedMember (e: Expr) membName =
-        getAttachedMemberWith e.Range Any e membName
+    let getField (e: Expr) membName =
+        getFieldWith e.Range Any e membName
+
+    let setField r callee membName (value: Expr) =
+        Set(callee, FieldSet membName, value.Type, value, r)
 
     let getNumberKindName kind =
         match kind with

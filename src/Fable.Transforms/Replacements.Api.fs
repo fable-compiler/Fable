@@ -81,34 +81,40 @@ let getReference (com: ICompiler) r typ var =
     match com.Options.Language with
     | Python -> PY.Replacements.getReference r typ var
     | Rust -> Rust.Replacements.getReference r typ var
+    | Dart -> Dart.Replacements.getReference r typ var
     | _ -> JS.Replacements.getReference r typ var
 
 let setReference (com: ICompiler) r expr value =
     match com.Options.Language with
     | Python -> PY.Replacements.setReference r expr value
     | Rust -> Rust.Replacements.setReference r expr value
+    | Dart -> Dart.Replacements.setReference r expr value
     | _ -> JS.Replacements.setReference r expr value
 
 let newReference (com: ICompiler) r typ value =
     match com.Options.Language with
     | Python -> PY.Replacements.newReference com r typ value
     | Rust -> Rust.Replacements.newReference com r typ value
+    | Dart -> Dart.Replacements.newReference com r typ value
     | _ -> JS.Replacements.newReference com r typ value
 
 let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with
     | Python -> PY.Replacements.makeRefFromMutableFunc com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableFunc com ctx r t value
+    | Dart -> Dart.Replacements.makeRefFromMutableFunc com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableFunc com ctx r t value
 
 let makeRefFromMutableValue (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with
     | Python -> PY.Replacements.makeRefFromMutableValue com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableValue com ctx r t value
+    | Dart -> Dart.Replacements.makeRefFromMutableValue com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableValue com ctx r t value
 
 let makeRefFromMutableField (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with
     | Python -> PY.Replacements.makeRefFromMutableField com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableField com ctx r t value
+    | Dart -> Dart.Replacements.makeRefFromMutableField com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableField com ctx r t value
