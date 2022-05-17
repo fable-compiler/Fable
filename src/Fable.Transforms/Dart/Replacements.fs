@@ -70,45 +70,6 @@ let makeDecimal com r t (x: decimal) =
 let makeDecimalFromExpr com r t (e: Expr) =
     Helper.LibCall(com, "Decimal", "default", t, [e], isConstructor=true, ?loc=r)
 
-let createAtom com (value: Expr) =
-    let typ = value.Type
-    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
-
-let makeRefFromMutableValue com ctx r t (value: Expr) =
-    let getter =
-        Delegate([], value, FuncInfo.Empty)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), FuncInfo.Empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
-
-let makeRefFromMutableField com ctx r t callee key =
-    let getter =
-        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
-
-// Mutable and public module values are compiled as functions, because
-// values imported from ES2015 modules cannot be modified (see #986)
-let makeRefFromMutableFunc com ctx r t (value: Expr) =
-    let getter =
-        let info = makeCallInfo None [] []
-        let value = makeCall r t info value
-        Delegate([], value, FuncInfo.Empty)
-    let setter =
-        let v = makeUniqueIdent ctx t "v"
-        let args = [IdentExpr v; makeBoolConst true]
-        let info = makeCallInfo None args [t; Boolean]
-        let value = makeCall r Unit info value
-        Delegate([v], value, FuncInfo.Empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
-
-// let turnLastArgIntoRef com ctx args =
-//     let args, defValue = List.splitLast args
-//     args @ [makeRefFromMutableValue com ctx defValue]
-
 let toChar (arg: Expr) =
     match arg.Type with
     // TODO: Check length
@@ -290,11 +251,11 @@ let toList com returnType expr =
 let stringToCharArray e =
     let t = Array(Char, ImmutableArray)
     // Setting as immutable so values can be inlined, review
-    getImmutableAttachedMemberWith None t e "codeUnits"
+    getImmutableFieldWith None t e "codeUnits"
 
 let stringToCharSeq e =
     // Setting as immutable so values can be inlined, review
-    getImmutableAttachedMemberWith None Any e "runes"
+    getImmutableFieldWith None Any e "runes"
 
 let getSubtractToDateMethodName = function
     | [_; ExprType(Builtin BclDateTime)] -> "subtractDate"
@@ -388,7 +349,7 @@ let isCompatibleWithNativeComparison = function
 
 let identityHash com r (arg: Expr) =
     let t = Int32.Number
-    getImmutableAttachedMemberWith r t arg "hashCode"
+    getImmutableFieldWith r t arg "hashCode"
 //    let methodName =
 //        match arg.Type with
 //        // These are the same for identity/structural hashing
@@ -406,7 +367,7 @@ let identityHash com r (arg: Expr) =
 
 let structuralHash (com: ICompiler) r (arg: Expr) =
     let t = Int32.Number
-    getImmutableAttachedMemberWith r t arg "hashCode"
+    getImmutableFieldWith r t arg "hashCode"
 //    let methodName =
 //        match arg.Type with
 //        | Char | String | Builtin BclGuid -> "stringHash"
@@ -506,7 +467,8 @@ let getZeroTimeSpan t =
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
-    | Char | String -> makeStrConst "" // TODO: Use null for string?
+    | Char -> TypeCast(makeIntConst 0, t)
+    | String -> makeStrConst "" // Using empty string instead of null so Dart doesn't complain
     | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Number (Decimal,_) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
@@ -713,6 +675,8 @@ let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
     // Non-struct tuples default to null
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
     | Boolean
+    | Char
+    | String
     | Number _
     | Builtin BclTimeSpan
     | Builtin BclDateTime
@@ -815,7 +779,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
-    | _, "FormattableString.GetStrings" -> getAttachedMemberWith r t thisArg.Value "strs" |> Some
+    | _, "FormattableString.GetStrings" -> getFieldWith r t thisArg.Value "strs" |> Some
 
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
@@ -941,9 +905,41 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | _ -> None
 
-let getReference r t expr = getAttachedMemberWith r t expr "contents"
-let setReference r expr value = setExpr r expr (makeStrConst "contents") value
-let newReference com r t value = Helper.LibCall(com, "Types", "FSharpRef", t, [value], isConstructor=true, ?loc=r)
+let getReference r t expr = getFieldWith r t expr "contents"
+let setReference r expr value = setField r expr "contents" value
+let newReference com r t value =
+    let fsharpRef = Helper.LibValue(com, "Types", "FSharpRef", MetaType)
+    Helper.InstanceCall(fsharpRef, "ofValue", t, [value], ?loc=r)
+
+let makeRefFromMutableValue com ctx r t (value: Expr) =
+    let getter =
+        Delegate([], value, FuncInfo.Empty)
+    let setter =
+        let v = makeUniqueIdent ctx t "v"
+        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), FuncInfo.Empty)
+    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+
+let makeRefFromMutableField com ctx r t callee key =
+    let getter =
+        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
+    let setter =
+        let v = makeUniqueIdent ctx t "v"
+        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
+    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+
+// Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
+let makeRefFromMutableFunc com ctx r t (value: Expr) =
+    let getter =
+        let info = makeCallInfo None [] []
+        let value = makeCall r t info value
+        Delegate([], value, FuncInfo.Empty)
+    let setter =
+        let v = makeUniqueIdent ctx t "v"
+        let args = [IdentExpr v; makeBoolConst true]
+        let info = makeCallInfo None args [t; Boolean]
+        let value = makeCall r Unit info value
+        Delegate([v], value, FuncInfo.Empty)
+    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1002,7 +998,7 @@ let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[])
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
-        getAttachedMemberWith None t callee "input" |> Some
+        getFieldWith None t callee "input" |> Some
     | "PrintFormatToStringThen", _, _ ->
         match args with
         | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
@@ -1223,7 +1219,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
         match args, argTypes with
         | thisArg::args, _::argTypes ->
             let info = makeCallInfo None args argTypes
-            getAttachedMember thisArg memb |> makeCall r t info |> Some
+            getField thisArg memb |> makeCall r t info |> Some
         | _ -> None
     match i.CompiledName with
     | "ToUpper"
@@ -1256,10 +1252,10 @@ let implementedStringFunctions =
 
 let getLength e =
     let t = Int32.Number
-    getAttachedMemberWith None t e "length"
+    getFieldWith None t e "length"
 
 let getEnumerator (_com: ICompiler) r t expr =
-    getAttachedMemberWith r t expr "iterator"
+    getFieldWith r t expr "iterator"
 
 let toStartEndIndices startIndex count =
     let endIndex = makeBinOp None Int32.Number startIndex count BinaryPlus
@@ -1441,9 +1437,9 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
             printJsTaggedTemplate str holes (fun i -> "$" + string(i + offset))
         emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
-    | "get_ArgumentCount", Some x, _ -> getAttachedMember x "args" |> getLength |> Some
-    | "GetArgument", Some x, [idx] -> getExpr r t (getAttachedMember x "args") idx |> Some
-    | "GetArguments", Some x, [] -> getAttachedMemberWith r t x "args" |> Some
+    | "get_ArgumentCount", Some x, _ -> getField x "args" |> getLength |> Some
+    | "GetArgument", Some x, [idx] -> getExpr r t (getField x "args") idx |> Some
+    | "GetArguments", Some x, [] -> getFieldWith r t x "args" |> Some
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1595,7 +1591,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = genArg com ctx r 0 i.GenericArgs
         makeArrayWithRange r t [] |> Some
     | "IsEmpty", [ar] ->
-        getAttachedMemberWith r t ar "isEmpty" |> Some
+        getFieldWith r t ar "isEmpty" |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
@@ -2016,8 +2012,8 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "MapEntry", t, args, ?loc=r) |> Some
-    | "get_Key", Some c -> getImmutableAttachedMemberWith r t c "key" |> Some
-    | "get_Value", Some c -> getImmutableAttachedMemberWith r t c "value" |> Some
+    | "get_Key", Some c -> getImmutableFieldWith r t c "key" |> Some
+    | "get_Value", Some c -> getImmutableFieldWith r t c "value" |> Some
     | _ -> None
 
 let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2038,9 +2034,9 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 //    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
     | "get_Count", Some thisArg, _ -> getLength thisArg |> Some
     | "GetEnumerator", Some thisArg, _ ->
-        getAttachedMember thisArg "entries" |> getEnumerator com r t |> Some
-//    | "TryGetValue", _, _ ->
-//        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+        getField thisArg "entries" |> getEnumerator com r t |> Some
+    | "TryGetValue", _, _ ->
+       Helper.LibCall(com, "Types", "tryGetValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
     | "Add", Some c, _ ->
         Helper.LibCall(com, "Types", "addKeyValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Remove", Some c, _ ->
@@ -2056,7 +2052,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.LibCall(com, "Types", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Keys"| "get_Values" as prop, Some c, _ ->
         let prop = Naming.removeGetSetPrefix prop |> Naming.lowerFirst
-        getAttachedMemberWith r t c prop |> Some
+        getFieldWith r t c prop |> Some
     | "ContainsKey" | "ContainsValue" | "Clear" as meth, Some c, _ ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2109,7 +2105,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc=r) |> Some
-//    | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
+//    | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2120,7 +2116,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
-    | "GetType", Some arg, _ -> getImmutableAttachedMemberWith r t arg "runtimeType" |> Some
+    | "GetType", Some arg, _ -> getImmutableFieldWith r t arg "runtimeType" |> Some
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2270,11 +2266,11 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | _ -> []
         Helper.LibCall(com, "Date", "toString", t, args, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Year" | "get_Month" | "get_Day" | "get_Hour" | "get_Minute" | "get_Second" | "get_Millisecond" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     | "get_Kind" ->
         Helper.LibCall(com, moduleName, "kind", t, args, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
         Helper.LibCall(com, "DateOffset", "toLocalTime", t, [thisArg.Value], ?loc=r) |> Some
@@ -2307,6 +2303,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             match meth, args with
             // Ignore IFormatProvider
             | "Parse", arg::_ -> [arg]
+            | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
             | _ -> args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, moduleName, meth, t, args, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2418,7 +2415,7 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> Helper.LibCall(com, "Timer", "default", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, isConstructor=true, ?loc=r) |> Some
-    | Naming.StartsWith "get_" meth, Some x, _ -> getAttachedMemberWith r t x meth |> Some
+    | Naming.StartsWith "get_" meth, Some x, _ -> getFieldWith r t x meth |> Some
     | Naming.StartsWith "set_" meth, Some x, [value] -> setExpr r x (makeStrConst meth) value |> Some
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | _ -> None
@@ -2512,7 +2509,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         if isGroup thisArg then
             "Accessing index of Regex groups is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r |> Some
-        else getAttachedMemberWith r t thisArg "start" |> Some
+        else getFieldWith r t thisArg "start" |> Some
     | ("get_Value" | "get_Length" | "get_Success" as meth), Some thisArg ->
         let meth = (if isGroup thisArg then "group" else "match") + Naming.removeGetSetPrefix meth
         Helper.LibCall(com, "RegExp", meth, t, [thisArg], ?loc=r) |> Some
@@ -2534,7 +2531,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         match i.DeclaringEntityFullName with
         | "System.Text.RegularExpressions.GroupCollection" ->
             // In Dart group count doesn't include group 0 so we need to add 1
-            let groupCount = getAttachedMemberWith r t thisArg "groupCount"
+            let groupCount = getFieldWith r t thisArg "groupCount"
             makeBinOp None t groupCount (makeIntConst 1) BinaryPlus |> Some
         | _ -> getLength thisArg |> Some
     | "GetEnumerator", Some thisArg ->
@@ -2597,7 +2594,7 @@ let comparables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
-    | Some callee, "get_Current" -> getAttachedMemberWith r t callee "current" |> Some
+    | Some callee, "get_Current" -> getFieldWith r t callee "current" |> Some
     | Some callee, "MoveNext" -> Helper.InstanceCall(callee, "moveNext", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
@@ -2611,7 +2608,7 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, isConstructor=true, ?loc=r) |> Some
-    | "get_Publish", Some x -> getAttachedMemberWith r t x "Publish" |> Some
+    | "get_Publish", Some x -> getFieldWith r t x "Publish" |> Some
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
 
@@ -2712,16 +2709,16 @@ let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallIn
     | "get_Query"
     | "get_Fragment"
     | "get_OriginalString" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getAttachedMemberWith r t thisArg.Value |> Some
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     | _ -> None
 
 let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | (".ctor"|"Create"),_,_ -> Helper.LibCall(com, "Util", "Lazy", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, isConstructor=true, ?loc=r) |> Some
     | "CreateFromValue",_,_ -> Helper.LibCall(com, "Util", "lazyFromValue", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | "Force", Some callee, _ -> getAttachedMemberWith r t callee "Value" |> Some
+    | "Force", Some callee, _ -> getFieldWith r t callee "Value" |> Some
     | ("get_Value"|"get_IsValueCreated"), Some callee, _ ->
-        Naming.removeGetSetPrefix i.CompiledName |> getAttachedMemberWith r t callee |> Some
+        Naming.removeGetSetPrefix i.CompiledName |> getFieldWith r t callee |> Some
     | _ -> None
 
 let controlExtensions (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

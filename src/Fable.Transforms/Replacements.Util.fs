@@ -20,7 +20,7 @@ type Helper =
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?genArgs, ?loc: SourceLocation) =
-        let callee = getAttachedMember callee memb
+        let callee = getField callee memb
         let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, info, returnType, loc)
 
@@ -34,7 +34,7 @@ type Helper =
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
-                
+
         let callee = makeImportLib com Any coreMember coreModule
         let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, { info with HasSpread = defaultArg hasSpread false
@@ -51,13 +51,13 @@ type Helper =
                              ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee =
             match memb with
-            | Some memb -> getAttachedMember (makeIdentExpr ident) memb
+            | Some memb -> getField (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
         let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, { info with IsConstructor = defaultArg isConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
-        getAttachedMemberWith loc typ (makeIdentExpr ident) memb
+        getFieldWith loc typ (makeIdentExpr ident) memb
 
 let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name

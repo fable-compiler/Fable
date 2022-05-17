@@ -48,6 +48,15 @@ void addKeyValue<K,V>(Map<K,V> map, K key, V value) {
   map[key] = value;
 }
 
+bool tryGetValue<K, V>(Map<K,V> map, K key, FSharpRef<V> defaultValue) {
+  if (map.containsKey(key)) {
+    defaultValue.contents = map[key]!;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 bool removeKey<K,V>(Map<K,V> map, K key) {
   if (map.containsKey(key)) {
     map.remove(key);
@@ -212,6 +221,20 @@ abstract class Union {
 // }
 
 abstract class Record {}
+
+class FSharpRef<T> {
+  final T Function() _getter;
+  final Function(T) _setter;
+
+  T get contents => _getter();
+  set contents(T value) => _setter(value);
+
+  FSharpRef(this._getter, this._setter);
+
+  static FSharpRef<T> ofValue<T>(T value) {
+    return FSharpRef(() => value, (T newValue) { value = newValue; });
+  }
+}
 
 class Tuple1<T1> implements Comparable<Tuple1<T1>> {
   final T1 item1;

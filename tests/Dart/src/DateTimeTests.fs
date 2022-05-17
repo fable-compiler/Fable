@@ -225,20 +225,19 @@ let tests() =
        let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
        d.Hour + d.Minute + d.Second |> equal 52
 
-    // TODO: refs
-//    testCase "DateTime.TryParse works" <| fun () ->
-//        let f (d: string) =
-//            match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
-//            | true, _ -> true
-//            | false, _ -> false
-//        f "foo" |> equal false
-//        f "9/10/2014 1:50:34 PM" |> equal true
-//        f "1:50:34" |> equal true
-//
-//    testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
-//        let invalidAmericanDate = "13/1/2020"
-//        let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
-//        r |> equal false
+    testCase "DateTime.TryParse works" <| fun () ->
+        let f (d: string) =
+            match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
+            | true, _ -> true
+            | false, _ -> false
+        f "foo" |> equal false
+        f "9/10/2014 1:50:34 PM" |> equal true
+        f "1:50:34" |> equal true
+
+    testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
+        let invalidAmericanDate = "13/1/2020"
+        let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
+        r |> equal false
 
     testCase "DateTime.Today works" <| fun () ->
        let d = DateTime.Today
