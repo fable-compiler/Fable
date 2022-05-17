@@ -361,6 +361,11 @@ module AST =
             | e -> e
         inner e
 
+    let (|MaybeOption|) e =
+        match e with
+        | Option(e, _) -> e
+        | e -> e
+
     /// Try to uncurry lambdas at compile time in dynamic assignments
     let (|MaybeLambdaUncurriedAtCompileTime|) = function
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda

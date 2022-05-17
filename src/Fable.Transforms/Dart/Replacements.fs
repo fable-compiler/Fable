@@ -21,18 +21,25 @@ let (|DartDouble|_|) = function
     | Float32 | Float64 -> Some DartDouble
     | _ -> None
 
-let curryExprAtRuntime com r arity (expr: Expr) =
+let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
     // Let's use emit for simplicity
-    let args = List.init arity (fun i -> $"arg{i}$")
-    let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-    $"""%s{args1} $0(%s{String.concat ", " args})"""
-    |> emit r expr.Type [expr] false
+    let argIdents = List.init arity (fun i -> $"arg{i}$")
+    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
+    $"""%s{args} $0(%s{String.concat ", " argIdents})"""
+    |> emit None expr.Type [expr] false
 
-let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
-    let args = List.init arity (fun i -> $"arg{i}$")
-    let args1 = args |> List.map (fun a -> $"({a}) =>") |> String.concat " "
+let uncurryExprAtRuntime (_com: Compiler) t arity (expr: Expr) =
+    let argIdents = List.init arity (fun i -> $"arg{i}$")
+    let args = argIdents |> String.concat ", "
+    let appliedArgs = argIdents |> String.concat ")("
+    $"""(%s{args}) => $0(%s{appliedArgs})"""
+    |> emit None t [expr] false
+
+let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
+    let argIdents = List.init arity (fun i -> $"arg{i}$")
+    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
     let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
-    $"""%s{args1} $0(%s{appliedArgs}, %s{String.concat ", " args})"""
+    $"""%s{args} $0(%s{appliedArgs}, %s{String.concat ", " argIdents})"""
     |> emit None t (fn::argExprs) false
 
 let error msg =
