@@ -1734,9 +1734,10 @@ module Util =
         let info = info.CallInfo
         let isNative = info.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
-        let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
+
         if macro.EndsWith("!") then
             let macro = macro |> Fable.Naming.replaceSuffix "!" ""
+            let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
             let args =
                 // for certain macros, use unwrapped format string as first argument
                 match macro, info.Args with
@@ -1748,9 +1749,12 @@ module Util =
             then expr |> makeString com ctx
             else expr
         else
-            // emit regular function call
-            let pathNames = splitFullName macro
-            makeCall pathNames None args
+            let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
+            let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
+            let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
+            let args = args |> List.append thisArg
+            mkStringMacroExpr macro args
+
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
