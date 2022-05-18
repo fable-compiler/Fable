@@ -847,10 +847,17 @@ module Exprs =
         ExprKind.MacCall mac
         |> mkExpr
 
+    let mkExtMacroCallExpr emit args: Expr =
+        ExprKind.EmitExpression (emit, mkVec args)
+        |> mkExpr
+
     let mkMacroExpr (name: string) exprs: Expr =
         let tokens = exprs |> Seq.map mkExprToken
         mkParensCommaDelimitedMacCall name tokens
         |> mkMacCallExpr
+
+    let mkStringMacroExpr (macro: string) exprs: Expr =
+        mkExtMacroCallExpr macro exprs
 
     let mkMatchExpr expr (arms: Arm seq): Expr =
         ExprKind.Match(expr, mkVec arms)

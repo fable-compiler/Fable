@@ -964,6 +964,9 @@ type ExprKind =
     /// Placeholder for an expression that wasn't syntactically well formed in some way.
     | Err
 
+    /// Escape hatch to allow adding custom macros - This is not in the core rust AST - Use with caution!!!
+    | EmitExpression of value: string * args: Vec<Expr>
+
 /// The explicit `Self` type in a "qualified path". The actual
 /// path, including the trait and the associated item, is stored
 /// separately. `position` represents the index of the associated
