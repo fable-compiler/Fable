@@ -1560,13 +1560,12 @@ module Util =
         let funcName, argDecls, body =
             match kind, argDecls with
             | Attached(isStatic=false), (thisArg::argDecls) ->
-                let body =
-                    // TODO: If ident is not captured maybe we can just replace it with "this"
-                    let thisArg = thisArg.Ident
-                    if FableTransforms.isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
-                        Fable.Let(thisArg, thisKeyword, body)
-                    else body
+                // AFAIK, there cannot be `this` conflicts in Dart (no class expressions)
+                // so we can just replace the thisArg.Ident
+                let thisArg = thisArg.Ident
+                let thisExpr = Fable.ThisValue thisArg.Type |> makeValue None
+                let replacements = Map [thisArg.Name, thisExpr]
+                let body = FableTransforms.replaceValues replacements body
                 None, argDecls, body
             | Attached(isStatic=true), _
             | ClassConstructor, _ -> None, argDecls, body
