@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-002
+
+* Snake Island alpha release 2
+
 ### 4.0.0-snake-island-alpha-001
 
 * Snake Island alpha release
