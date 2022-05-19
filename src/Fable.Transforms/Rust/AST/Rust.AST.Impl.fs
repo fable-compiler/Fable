@@ -356,6 +356,7 @@ type Expr with
             | ExprKind.Try(_) -> ExprPrecedence.Try
             | ExprKind.Yield(_) -> ExprPrecedence.Yield
             | ExprKind.Err -> ExprPrecedence.Err
+            | ExprKind.EmitExpression(_) -> ExprPrecedence.Err
 
 type MacCall with
     member self.span(): Span =

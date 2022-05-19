@@ -615,9 +615,9 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number (kind, uom) -> NumberConstant (getBoxedOne kind, kind, uom) |> makeValue None
     | Number (BigInt,_) -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 1])
     | Number (Decimal,_) -> makeIntConst 1 |> makeDecimalFromExpr com None t
+    | Number (kind, uom) -> NumberConstant (getBoxedOne kind, kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
