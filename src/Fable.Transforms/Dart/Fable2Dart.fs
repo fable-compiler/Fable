@@ -1942,7 +1942,10 @@ module Util =
                         let t = uncurryType f.FieldType |> transformType com ctx
                         let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final
-                        let isLate = thisArgsSet.Contains(fieldName) |> not
+                        let isLate =
+                            match t, kind with
+                            | Nullable _, Var -> false
+                            | _ -> thisArgsSet.Contains(fieldName) |> not
                         InstanceVariable(ident, kind=kind, isLate=isLate))
 
                 let constructor = Constructor(
