@@ -328,6 +328,7 @@ type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list
       IsInstance: bool
       IsGetter: bool
+      IsJsx: bool
       FullName: string
       CompiledName: string
       DeclaringEntity: EntityRef option }
@@ -439,7 +440,7 @@ type GetKind =
     | OptionValue
 
 type SetKind =
-    | ExprSet of Expr
+    | ExprSet of expr: Expr
     | FieldSet of fieldName: string
     | ValueSet
 
@@ -521,8 +522,8 @@ type Expr =
     // Getters, setters and bindings
     | Let of ident: Ident * value: Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * kind: GetKind * typ: Type * range: SourceLocation option
-    | Set of Expr * kind: SetKind * typ: Type * value: Expr * range: SourceLocation option
+    | Get of expr: Expr * kind: GetKind * typ: Type * range: SourceLocation option
+    | Set of expr: Expr * kind: SetKind * typ: Type * value: Expr * range: SourceLocation option
 
     // Control flow
     | Sequential of exprs: Expr list

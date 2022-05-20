@@ -424,7 +424,7 @@ let (|NewAnonymousRecord|_|) = function
 
 let (|ListSingleton|) x = [x]
 
-let findInScope (ctx: Context) identName =
+let tryFindInScope (ctx: Context) identName =
     let rec findInScopeInner scope identName =
         match scope with
         | [] -> None
@@ -438,17 +438,20 @@ let findInScope (ctx: Context) identName =
     let scope2 = ctx.ScopeInlineArgs |> List.map (fun (i,e) -> i, Some e)
     findInScopeInner (scope1 @ scope2) identName
 
-let (|RequireStringConst|_|) com (ctx: Context) r e =
-    (match e with
-     | StringConst s -> Some s
-     | MaybeCasted(IdentExpr ident) ->
-        match findInScope ctx ident.Name with
-        | Some(StringConst s) -> Some s
-        | _ -> None
-     | _ -> None)
-    |> Option.orElseWith(fun () ->
+let (|MaybeInScope|) (ctx: Context) e =
+    match e with
+    | IdentExpr ident ->
+        match tryFindInScope ctx ident.Name with
+        | Some e -> e
+        | None -> e
+    | e -> e
+
+let (|RequireStringConst|) com (ctx: Context) r e =
+    match e with
+    | MaybeInScope ctx (StringConst s) -> s
+    | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
-        Some "")
+        ""
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
    let argTypes = argExprs |> List.map (fun a -> a.Type)

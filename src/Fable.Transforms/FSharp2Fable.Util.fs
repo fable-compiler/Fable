@@ -134,10 +134,15 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             | Some(_, (:?int as index)) -> index
             | _ -> 0)
 
-    static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+    static member CallMemberInfo(com: Compiler, m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
         let namedParamsIndex =
             FsMemberFunctionOrValue.TryNamedParamsIndex(m)
             |> Option.defaultValue -1
+
+        let isJsx =
+            match com.Options.Language with
+            | JavaScript | TypeScript -> Helpers.hasAttribute Atts.jsxComponent m.Attributes
+            | _ -> false
 
         { CurriedParameterGroups =
             m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
@@ -145,6 +150,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
                 { Name = p.Name; Type = TypeHelpers.makeType Map.empty p.Type; IsNamed = isNamed }))
           IsInstance = m.IsInstanceMember
           IsGetter = m.IsPropertyGetterMethod
+          IsJsx = isJsx
           FullName = m.FullName
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
@@ -2194,6 +2200,8 @@ module Util =
                 memberRef com r Fable.Any memb
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
+            // TODO: If we make it possible to retrieve the member info for the call
+            // we can apply the plugin at the end of FableTransform
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
@@ -2206,7 +2214,7 @@ module Util =
             sigArgTypes = getArgTypes com memb,
             hasSpread = hasParamArray memb,
             isCons = memb.IsConstructor,
-            memberInfo = FsMemberFunctionOrValue.CallMemberInfo(memb))
+            memberInfo = FsMemberFunctionOrValue.CallMemberInfo(com, memb))
         |> makeCallWithArgInfo com ctx r typ callee memb
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =

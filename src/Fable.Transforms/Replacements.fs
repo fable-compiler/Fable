@@ -802,11 +802,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                makeStrConst Naming.unknown |> Some
     | _, ("nameofLambda"|"namesofLambda" as meth) ->
         match args with
-        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
-        | [MaybeCasted(IdentExpr ident)] ->
-            match findInScope ctx ident.Name with
-            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
-            | _ -> None
+        | [MaybeInScope ctx (Lambda(_, (Namesof com ctx names), _))] -> Some names
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
@@ -841,8 +837,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> None
 
         match args with
-        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx ident.Name |> Option.bind inferCasename
-        | [e] -> inferCasename e
+        | [MaybeInScope ctx e] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
             "Cannot infer case name of expression"
@@ -878,12 +873,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
         | _ -> None
-    | "Fable.Core.JsInterop", _ ->
-        match i.CompiledName, args with
+    | "Fable.Core.JsInterop", meth ->
+        match meth, args with
         | "importDynamic", [path] ->
             let path = fixDynamicImportPath path
             Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
-        | "importValueDynamic", [arg] ->
+        | "importValueDynamic", [MaybeInScope ctx arg] ->
             let dynamicImport selector path =
                 let path = fixDynamicImportPath path
                 let import = Helper.GlobalCall("import", t, [path], ?loc=r)
@@ -894,12 +889,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                         let m = makeIdent "m"
                         Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), FuncInfo.Empty)
                     Helper.InstanceCall(import, "then", t, [selector])
-            let arg =
-                match arg with
-                | IdentExpr ident ->
-                    findInScope ctx ident.Name
-                    |> Option.defaultValue arg
-                | arg -> arg
             match arg with
             // TODO: Check this is not a fable-library import?
             | Import(info,_,_) ->
@@ -950,7 +939,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emit r t args isStatement macro |> Some
-            | _ -> None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r [name; value] |> Some
         | "createObj", _ ->
@@ -978,6 +966,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
         | ("inflate"|"deflate"), _ -> List.tryHead args
         | _ -> None
+    | "Fable.Core.JSX", "create" ->
+        Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> asOptimizable "jsx" |> Some
     | _ -> None
 
 let getReference r t expr = getFieldWith r t expr "contents"

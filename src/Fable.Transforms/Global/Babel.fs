@@ -56,6 +56,7 @@ type Node =
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
+    | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
     | Literal of Literal
     | Identifier of Identifier
     | ClassExpression of
@@ -99,13 +100,24 @@ type Expression =
         loc: SourceLocation option
 
 type Pattern =
-    | RestElement of name: string * argument: Pattern * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
+    | RestElement of argument: Pattern
     | Identifier of name: Identifier
 
     member this.Name =
         match this with
-        | RestElement(name=name) -> name
+        | RestElement(argument) -> argument.Name
         | Identifier(Identifier.Identifier(name=name)) -> name
+
+    member this.IsNamed =
+        match this with
+        | Identifier(Identifier.Identifier(named=named)) -> named
+        | RestElement _ -> false
+
+    member this.AsNamed =
+        match this with
+        | Identifier(Identifier.Identifier(name, optional, _named, typeAnnotation, loc)) ->
+            Identifier(Identifier.Identifier(name, optional, true, typeAnnotation, loc))
+        | RestElement argument -> argument.AsNamed // Named arguments cannot be spread
 
 type Literal =
     | StringLiteral of StringLiteral
@@ -190,7 +202,7 @@ type ModuleDeclaration =
 
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
-    | Identifier of name: string * optional: bool option * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
+    | Identifier of name: string * optional: bool * named: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
 
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option
@@ -500,6 +512,7 @@ type InterfaceExtends =
 [<AutoOpen>]
 module Helpers =
     type Expression with
+        static member jsxElement(componentOrTag, props, children) = JsxElement(componentOrTag, props, children)
         static member super(?loc) = Super loc
         static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
         static member nullLiteral(?loc) = NullLiteral loc |> Literal
@@ -507,8 +520,8 @@ module Helpers =
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
         static member arrayExpression(elements, ?loc) = ArrayExpression(elements, ?loc=loc)
-        static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
-            Identifier.identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+        static member identifier(name, ?typeAnnotation, ?loc) =
+            Identifier.identifier(name, ?typeAnnotation = typeAnnotation, ?loc = loc)
             |> Expression.Identifier
         static member regExpLiteral(pattern, flags_, ?loc) =
             Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
@@ -608,8 +621,8 @@ module Helpers =
         member this.Name =
             let (Identifier(name=name)) = this
             name
-        static member identifier(name, ?optional, ?typeAnnotation, ?loc) : Identifier =
-            Identifier(name, optional, typeAnnotation, loc)
+        static member identifier(name, ?typeAnnotation, ?loc) : Identifier =
+            Identifier(name, optional=false, named=false, typeAnnotation=typeAnnotation, loc=loc)
 
     type Statement with
         static member blockStatement(body) = BlockStatement body |> Statement.BlockStatement
@@ -652,11 +665,11 @@ module Helpers =
             SwitchCase(test, defaultArg consequent Array.empty, loc)
 
     type Pattern with
-        static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
-            Identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+        static member identifier(name, ?optional, ?named, ?typeAnnotation, ?loc) =
+            Identifier(name, optional = defaultArg optional false, named = defaultArg named false, ?typeAnnotation = typeAnnotation, ?loc = loc)
             |> Pattern.Identifier
-        static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
-            RestElement(argument.Name, argument, typeAnnotation, loc)
+        static member restElement(argument: Pattern) =
+            RestElement(argument)
 
     type ClassImplements with
         static member classImplements(id, ?typeParameters) =
@@ -695,6 +708,7 @@ module Helpers =
 
         static member variableDeclaration(var, ?init, ?kind, ?loc) =
             VariableDeclaration.variableDeclaration(defaultArg kind Let, [| VariableDeclarator(var, init) |], ?loc = loc)
+
     type VariableDeclarator with
         static member variableDeclarator(id, ?init) = VariableDeclarator(id, init)
 

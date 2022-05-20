@@ -887,7 +887,8 @@ let startCompilation state = async {
                             // Discard changes that may have happened before we restarted the watcher
                             | Some w when w.StartedAt < timestamp ->
                                 // TODO: Get all messages until QueueLength is 0 before starting the compilation cycle?
-                                Log.verbose(lazy $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}""")
+                                if changes.Count > 0 then
+                                    Log.verbose(lazy $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}""")
                                 let! state, _logs, _exitCode = compilationCycle state changes
                                 Log.always $"Watching {File.relPathToCurDir w.Watcher.BasePath}"
                                 return! loop state

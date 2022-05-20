@@ -3,6 +3,20 @@ namespace Fable.Core
 open System
 open System.Text.RegularExpressions
 
+[<RequireQualifiedAccess>]
+module JSX =
+    type ComponentAttribute() =
+        inherit Attribute()
+
+    type Prop = string * obj
+    type Style = string * string
+
+    [<AllowNullLiteral>]
+    type Element =
+        class end
+
+    let create (componentOrTag: obj) (props: Prop list): Element = nativeOnly
+
 module JS =
     type [<AllowNullLiteral>] Function =
         abstract name: string
