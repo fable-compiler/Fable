@@ -618,9 +618,10 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
         |> ActionDeclaration
 
     | MemberDeclaration m ->
-        com.ApplyMemberDeclarationPlugin(file, m)
+        m
         |> uncurryMemberArgs
         |> transformMemberBody com
+        |> fun m -> com.ApplyMemberDeclarationPlugin(file, m)
         |> MemberDeclaration
 
     | ClassDeclaration decl ->

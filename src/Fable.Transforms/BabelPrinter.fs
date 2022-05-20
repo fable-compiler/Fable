@@ -8,6 +8,40 @@ open Fable.AST.Babel
 open Fable.Transforms.Printer
 
 module PrinterExtensions =
+    let rec hasSideEffects(e: Expression) =
+        match e with
+        | Undefined(_)
+        | Literal(NullLiteral(_))
+        | Literal(Literal.StringLiteral(_))
+        | Literal(BooleanLiteral(_))
+        | Literal(NumericLiteral(_)) -> false
+        // Constructors of classes deriving from System.Object add an empty object at the end
+        | ObjectExpression(properties, _loc) -> properties.Length > 0
+        | UnaryExpression(argument, operator, _loc) when operator = "void" -> hasSideEffects(argument)
+        // Some identifiers may be stranded as the result of imports
+        // intended only for side effects, see #2228
+        | Expression.Identifier(_) -> false
+        // Sometimes empty IIFE remain in the AST
+        | CallExpression(ArrowFunctionExpression(_,(BlockStatement body),_,_,_),_,_) ->
+            body |> Array.exists isProductiveStatement
+        | _ -> true
+
+    and isProductiveStatement(s: Statement) =
+        match s with
+        | ExpressionStatement(expr) -> hasSideEffects(expr)
+        | _ -> true
+
+    let (|NullOrUndefined|_|) = function
+        | Literal(NullLiteral _)
+        | Undefined _ -> Some ()
+        | UnaryExpression(argument, operator, _loc)
+            when operator = "void" && not(hasSideEffects(argument)) -> Some()
+        | _-> None
+
+    let (|StringConstant|_|) = function
+        | Literal(Literal.StringLiteral(StringLiteral(value=value))) -> Some value
+        | _ -> None
+
     type Printer with
         member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
@@ -27,31 +61,8 @@ module PrinterExtensions =
                 printer.Print(";")
                 printer.PrintNewLine()
 
-        member this.HasSideEffects(e: Expression) =
-            match e with
-            | Undefined(_)
-            | Literal(NullLiteral(_))
-            | Literal(Literal.StringLiteral(_))
-            | Literal(BooleanLiteral(_))
-            | Literal(NumericLiteral(_)) -> false
-            // Constructors of classes deriving from System.Object add an empty object at the end
-            | ObjectExpression(properties, _loc) -> properties.Length > 0
-            | UnaryExpression(argument, operator, _loc) when operator = "void" -> this.HasSideEffects(argument)
-            // Some identifiers may be stranded as the result of imports
-            // intended only for side effects, see #2228
-            | Expression.Identifier(_) -> false
-            // Sometimes empty IIFE remain in the AST
-            | CallExpression(ArrowFunctionExpression(_,(BlockStatement body),_,_,_),_,_) ->
-                body |> Array.exists this.IsProductiveStatement
-            | _ -> true
-
-        member this.IsProductiveStatement(s: Statement) =
-            match s with
-            | ExpressionStatement(expr) -> this.HasSideEffects(expr)
-            | _ -> true
-
         member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
-            if printer.IsProductiveStatement(s) then
+            if isProductiveStatement(s) then
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
@@ -108,8 +119,23 @@ module PrinterExtensions =
 
         member printer.PrintCommaSeparatedArray(nodes: Node array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+            let len = nodes.Length
+            let mutable i = 0
+            let mutable foundNamed = false
+
+            let printPattern (p: Printer) (x: Pattern) =
+                if x.IsNamed && not foundNamed then
+                    p.Print("{ ")
+                    foundNamed <- true
+                p.Print(x)
+                i <- i + 1
+                if i = len && foundNamed then
+                    p.Print(" }")
+
+            printer.PrintArray(nodes, printPattern, fun p -> p.Print(", "))
+
         member printer.PrintCommaSeparatedArray(nodes: ImportSpecifier array) =
             printer.PrintArray(nodes, (fun p x ->
                 match x with
@@ -117,12 +143,16 @@ module PrinterExtensions =
                 | ImportDefaultSpecifier(local) -> printer.Print(local)
                 | ImportNamespaceSpecifier(local) -> printer.PrintImportNamespaceSpecifier(local)
             ), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedArray(nodes: FunctionTypeParam array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedArray(nodes: TypeAnnotationInfo array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedArray(nodes: TypeParameter array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
@@ -225,7 +255,8 @@ module PrinterExtensions =
             | Super(_)
             | SpreadElement(_)
             | ArrayExpression(_)
-            | ObjectExpression(_) -> printer.Print(expr)
+            | ObjectExpression(_)
+            | JsxElement(_) -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, loc) =
@@ -261,8 +292,57 @@ module PrinterExtensions =
             | Node.ObjectTypeCallProperty(_)
             | Node.ObjectTypeInternalSlot(_) -> failwith "Not implemented"
 
+        member printer.PrintJsx(componentOrTag: Expression, props: (string * Expression) list, children: Expression list) =
+            let printTag = function
+                | StringConstant tag -> printer.Print(tag)
+                | componentRef -> printer.Print(componentRef)
+
+            printer.Print("<")
+            printTag componentOrTag
+
+            if not(List.isEmpty props) then
+                printer.PushIndentation()
+                props |> List.iter (function
+                    | _, NullOrUndefined -> ()
+                    | key, StringConstant value ->
+                        printer.PrintNewLine()
+                        printer.Print($"{key}=\"{value}\"")
+                    | key, value ->
+                        printer.PrintNewLine()
+                        printer.Print(key + "={")
+                        printer.Print(value)
+                        printer.Print("}")
+                )
+                printer.PopIndentation()
+
+            printer.Print(">")
+
+            if not(List.isEmpty children) then
+                printer.PrintNewLine()
+                printer.PushIndentation()
+                children |> List.iter (function
+                    | NullOrUndefined -> ()
+                    | StringConstant text ->
+                        printer.Print(text)
+                        printer.PrintNewLine()
+                    | JsxElement(componentOrTag, props, children) ->
+                        printer.PrintJsx(componentOrTag, props, children)
+                        printer.PrintNewLine()
+                    | child ->
+                        printer.Print("{")
+                        printer.Print(child)
+                        printer.Print("}")
+                        printer.PrintNewLine()
+                )
+                printer.PopIndentation()
+
+            printer.Print("</")
+            printTag componentOrTag
+            printer.Print(">")
+
         member printer.Print(expr: Expression) =
             match expr with
+            | JsxElement(componentOrTag, props, children) -> printer.PrintJsx(componentOrTag, props, children)
             | Super(loc) ->  printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.Print(n)
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
@@ -298,7 +378,7 @@ module PrinterExtensions =
                     let e = expressions.[i]
                     if i = last then
                         printer.Print(e)
-                    elif printer.HasSideEffects(e) then
+                    elif hasSideEffects(e) then
                         printer.Print(e)
                         printer.Print(", ")
                 printer.Print(")")
@@ -312,10 +392,9 @@ module PrinterExtensions =
         member printer.Print(pattern: Pattern) =
             match pattern with
             | Pattern.Identifier(p) -> printer.Print(p)
-            | RestElement(name, argument, typeAnnotation, loc) ->
-                printer.Print("...", ?loc=loc)
+            | RestElement(argument) ->
+                printer.Print("...")
                 printer.Print(argument)
-                printer.PrintOptional(typeAnnotation)
         member printer.Print(literal: Literal) =
             match literal with
             | RegExp(pattern, flags, loc) -> printer.PrintRegExp(pattern, flags, loc)
@@ -391,7 +470,7 @@ module PrinterExtensions =
                 printer.Print("export * from ", ?loc=loc)
                 printer.Print(source)
             | PrivateModuleDeclaration(statement) ->
-                if printer.IsProductiveStatement(statement) then
+                if isProductiveStatement(statement) then
                     printer.Print(statement)
             | ExportDefaultDeclaration(declaration) ->
                 printer.Print("export default ")
@@ -449,7 +528,7 @@ module PrinterExtensions =
                 |> replace @"\$(\d+)!" (fun m ->
                     let i = int m.Groups.[1].Value
                     match Array.tryItem i args with
-                    | Some(Literal(Literal.StringLiteral(StringLiteral(value, _)))) -> value
+                    | Some(StringConstant value) -> value
                     | _ -> "")
 
             let matches = Regex.Matches(value, @"\$\d+")
@@ -480,9 +559,9 @@ module PrinterExtensions =
                 printSegment printer value 0 value.Length
 
         member printer.Print(identifier: Identifier) =
-            let (Identifier(name, optional, typeAnnotation, loc)) = identifier
+            let (Identifier(name, optional, _named, typeAnnotation, loc)) = identifier
             printer.Print(name, ?loc=loc)
-            if optional = Some true then
+            if optional then
                 printer.Print("?")
             printer.PrintOptional(typeAnnotation)
 
@@ -539,7 +618,7 @@ module PrinterExtensions =
                         | alternate -> [|alternate|]
                     // Get productive statements and skip `else` if they're empty
                     statements
-                    |> Array.filter printer.IsProductiveStatement
+                    |> Array.filter isProductiveStatement
                     |> function
                         | [||] -> ()
                         | statements ->

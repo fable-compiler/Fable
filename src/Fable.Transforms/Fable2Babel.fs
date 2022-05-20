@@ -535,8 +535,7 @@ module Annotation =
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
         if com.Options.Language = TypeScript then
             let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
-            let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
-            Identifier.identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
+            Identifier.identifier(id.Name, ?typeAnnotation=ta, ?loc=id.Range)
         else
             Identifier.identifier(id.Name, ?loc=id.Range)
 
@@ -666,27 +665,26 @@ module Util =
     let ofString s =
        Expression.stringLiteral(s)
 
-    let memberFromName (memberName: string): Expression * bool =
+    let memberFromNameComputeStrings computeStrings (memberName: string): Expression * bool =
         match memberName with
         | "ToString" -> Expression.identifier("toString"), false
         | n when n.StartsWith("Symbol.") ->
             Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n[7..]), false), true
-        | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
+        | n when Naming.hasIdentForbiddenChars n ->
+            Expression.stringLiteral(n), computeStrings
         | n -> Expression.identifier(n), false
 
-    let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
-        match memberExpr with
-        | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
-        | e -> com.TransformAsExpr(ctx, e), true
+    let memberFromName (memberName: string): Expression * bool =
+        memberFromNameComputeStrings false memberName
 
     let get r left memberName =
-        let expr, computed = memberFromName memberName
+        let expr, computed = memberFromNameComputeStrings true memberName
         Expression.memberExpression(left, expr, computed, ?loc=r)
 
     let getExpr r (object: Expression) (expr: Expression) =
         let expr, computed =
             match expr with
-            | Literal(Literal.StringLiteral(StringLiteral(value, _))) -> memberFromName value
+            | Literal(Literal.StringLiteral(StringLiteral(value, _))) -> memberFromNameComputeStrings true value
             | e -> e, true
         Expression.memberExpression(object, expr, computed, ?loc=r)
 
@@ -1238,18 +1236,71 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
+    let transformJsxProps (com: IBabelCompiler) props =
+        let mutable capturedChildren = []
+        (Some [], props) ||> List.fold (fun props prop ->
+            match props, prop with
+            | None, _ -> None
+            | Some props, Fable.Value(Fable.NewTuple([StringConst key; value],_),_) ->
+                match key, value with
+                | "children", Replacements.Util.ArrayOrListLiteral(children, _) ->
+                    capturedChildren <- children
+                    Some props
+                | "children", _ ->
+                    addError com [] value.Range "Expecting a static list or array literal (no generator) for JSX children"
+                    None
+                | "child", child ->
+                    capturedChildren <- [child]
+                    Some props
+                | key, _ -> (key, value)::props |> Some
+            | Some _, e ->
+                addError com [] e.Range "Cannot detect JSX prop key at compile time"
+                None)
+        |> Option.map (fun props -> props, capturedChildren)
+
+    let transformJsxEl (com: IBabelCompiler) ctx range componentOrTag props =
+        match transformJsxProps com props with
+        | None -> Expression.nullLiteral()
+        | Some(props, children) ->
+            let componentOrTag = transformAsExpr com ctx componentOrTag
+            let children = children |> List.map (transformAsExpr com ctx)
+            let props = props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
+            Expression.jsxElement(componentOrTag, props, children)
+
+    let transformJsxCall (com: IBabelCompiler) ctx range callee (args: Fable.Expr list) (info: Fable.CallMemberInfo) =
+        let names = info.CurriedParameterGroups |> List.concat |> List.choose (fun p -> p.Name)
+        let props =
+            List.zipSafe names args
+            |> List.map (fun (key, value) ->
+                Fable.Value(Fable.NewTuple([Fable.Value(Fable.StringConstant key, None); value], false), None))
+        transformJsxEl com ctx range callee props
+
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.OptimizableInto, callInfo.Args with
-            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
-            | Some "pojo", keyValueList::caseRule::_ -> JS.Replacements.makePojo com (Some caseRule) keyValueList
-            | Some "pojo", keyValueList::_ -> JS.Replacements.makePojo com None keyValueList
+            | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
+                Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
+                |> transformAsExpr com ctx
+                |> Some
+            | Some "pojo", keyValueList::caseRule::_ ->
+                JS.Replacements.makePojo com (Some caseRule) keyValueList
+                |> Option.map (transformAsExpr com ctx)
+            | Some "pojo", keyValueList::_ ->
+                JS.Replacements.makePojo com None keyValueList
+                |> Option.map (transformAsExpr com ctx)
+            | Some "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
+                transformJsxEl com ctx range componentOrTag props |> Some
+            | Some "jsx", _ ->
+                "Expecting a static list or array literal (no generator) for JSX props"
+                |> addErrorAndReturnNull com range |> Some
             | _ -> None
 
-        match optimized with
-        | Some e -> com.TransformAsExpr(ctx, e)
-        | None ->
+        match optimized, callInfo.CallMemberInfo with
+        | Some e, _ -> e
+        | None, Some({ IsJsx = true } as callMemberInfo) ->
+            transformJsxCall com ctx range callee callInfo.Args callMemberInfo
+        | None, _ ->
             let callee = com.TransformAsExpr(ctx, callee)
             let args = transformCallArgs com ctx range (CallInfo callInfo)
             match callInfo.ThisArg with
@@ -2018,15 +2069,25 @@ module Util =
                 |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
             [typeDeclaration; reflectionDeclaration]
 
+    let hasAttribute fullName (atts: Fable.Attribute seq) =
+        atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
+
+        // TODO: We need to use named arguments with any other function with NamedParams/ParamObject attribute too
+        // Probably we need to move this operation to getMemberArgsAndBody and pass the NamedParams index
+        let args =
+            if hasAttribute Atts.jsxComponent info.Attributes
+            then args |> Array.map (fun a -> a.AsNamed)
+            else args
+
         let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
-        info.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
-        |> function
-        | true -> declareEntryPoint com ctx expr
-        | false -> declareModuleMember info.IsPublic membName false expr
+
+        if hasAttribute Atts.entryPoint info.Attributes
+        then declareEntryPoint com ctx expr
+        else declareModuleMember info.IsPublic membName false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr

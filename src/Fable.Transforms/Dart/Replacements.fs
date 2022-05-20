@@ -736,7 +736,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Lambda(_, (Namesof com ctx names), _)] -> Some names
         | [MaybeCasted(IdentExpr ident)] ->
-            match findInScope ctx ident.Name with
+            match tryFindInScope ctx ident.Name with
             | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
             | _ -> None
         | _ -> None
@@ -773,7 +773,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> None
 
         match args with
-        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx ident.Name |> Option.bind inferCasename
+        | [MaybeCasted(IdentExpr ident)] -> tryFindInScope ctx ident.Name |> Option.bind inferCasename
         | [e] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
@@ -829,7 +829,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    findInScope ctx ident.Name
+                    tryFindInScope ctx ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with
@@ -882,7 +882,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emit r t args isStatement macro |> Some
-            | _ -> None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r [name; value] |> Some
         | "createObj", _ ->

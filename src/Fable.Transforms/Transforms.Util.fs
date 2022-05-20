@@ -31,6 +31,7 @@ module Atts =
     let [<Literal>] paramObject = "Fable.Core.ParamObjectAttribute"// typeof<Fable.Core.ParamObjectAttribute>.FullName
     let [<Literal>] jsDecorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
     let [<Literal>] jsReflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
+    let [<Literal>] jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
     let [<Literal>] pyDecorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
     let [<Literal>] pyReflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] dartIsConst = "Fable.Core.Dart.IsConstAttribute"
@@ -619,8 +620,8 @@ module AST =
         | [MaybeCasted(Value(NewTuple(args,_),_))] -> args
         | args -> args
 
-    let makeCall r t argInfo calleeExpr =
-        Call(calleeExpr, argInfo, t, r)
+    let makeCall r t callInfo calleeExpr =
+        Call(calleeExpr, callInfo, t, r)
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
