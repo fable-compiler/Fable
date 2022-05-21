@@ -5,8 +5,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-003</PackageVersion>
-    <PackageReleaseNotes>* JSX Support</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-004</PackageVersion>
+    <PackageReleaseNotes>* Don't destructure props arg in JSX components</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

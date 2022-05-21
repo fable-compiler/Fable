@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-004
+
+* Don't destructure props arg in JSX components
+
 ### 4.0.0-snake-island-alpha-003
 
 * JSX Support
