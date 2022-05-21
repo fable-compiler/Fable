@@ -302,16 +302,26 @@ module PrinterExtensions =
 
             if not(List.isEmpty props) then
                 printer.PushIndentation()
+
+                let mutable isFirst = true
+                let printProp print =
+                    if not isFirst then
+                        printer.PrintNewLine()
+                    else
+                        isFirst <- false
+                        printer.Print(" ")
+                    print()
+
                 props |> List.iter (function
                     | _, NullOrUndefined -> ()
                     | key, StringConstant value ->
-                        printer.PrintNewLine()
-                        printer.Print($"{key}=\"{value}\"")
+                        printProp(fun () ->
+                            printer.Print($"{key}=\"{value}\""))
                     | key, value ->
-                        printer.PrintNewLine()
-                        printer.Print(key + "={")
-                        printer.Print(value)
-                        printer.Print("}")
+                        printProp(fun () ->
+                            printer.Print(key + "={")
+                            printer.Print(value)
+                            printer.Print("}"))
                 )
                 printer.PopIndentation()
 
@@ -392,9 +402,11 @@ module PrinterExtensions =
         member printer.Print(pattern: Pattern) =
             match pattern with
             | Pattern.Identifier(p) -> printer.Print(p)
+            // TODO: Should we try to destructure an array literal here?
             | RestElement(argument) ->
                 printer.Print("...")
                 printer.Print(argument)
+
         member printer.Print(literal: Literal) =
             match literal with
             | RegExp(pattern, flags, loc) -> printer.PrintRegExp(pattern, flags, loc)

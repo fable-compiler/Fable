@@ -808,7 +808,7 @@ module Util =
         | NonAttached of funcName: string
         | Attached of isStatic: bool
 
-    // TODO: NamedParams
+    // TODO: Pass NamedParams index
     let getMemberArgsAndBody (com: IBabelCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
         let funcName, genTypeParams, args, body =
             match kind, args with
@@ -1258,7 +1258,7 @@ module Util =
                 None)
         |> Option.map (fun props -> props, capturedChildren)
 
-    let transformJsxEl (com: IBabelCompiler) ctx range componentOrTag props =
+    let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
         | None -> Expression.nullLiteral()
         | Some(props, children) ->
@@ -1267,13 +1267,13 @@ module Util =
             let props = props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
             Expression.jsxElement(componentOrTag, props, children)
 
-    let transformJsxCall (com: IBabelCompiler) ctx range callee (args: Fable.Expr list) (info: Fable.CallMemberInfo) =
+    let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.CallMemberInfo) =
         let names = info.CurriedParameterGroups |> List.concat |> List.choose (fun p -> p.Name)
         let props =
             List.zipSafe names args
             |> List.map (fun (key, value) ->
                 Fable.Value(Fable.NewTuple([Fable.Value(Fable.StringConstant key, None); value], false), None))
-        transformJsxEl com ctx range callee props
+        transformJsxEl com ctx callee props
 
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
@@ -1290,7 +1290,7 @@ module Util =
                 JS.Replacements.makePojo com None keyValueList
                 |> Option.map (transformAsExpr com ctx)
             | Some "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
-                transformJsxEl com ctx range componentOrTag props |> Some
+                transformJsxEl com ctx componentOrTag props |> Some
             | Some "jsx", _ ->
                 "Expecting a static list or array literal (no generator) for JSX props"
                 |> addErrorAndReturnNull com range |> Some
@@ -1299,7 +1299,7 @@ module Util =
         match optimized, callInfo.CallMemberInfo with
         | Some e, _ -> e
         | None, Some({ IsJsx = true } as callMemberInfo) ->
-            transformJsxCall com ctx range callee callInfo.Args callMemberInfo
+            transformJsxCall com ctx callee callInfo.Args callMemberInfo
         | None, _ ->
             let callee = com.TransformAsExpr(ctx, callee)
             let args = transformCallArgs com ctx range (CallInfo callInfo)
@@ -2072,16 +2072,24 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
-    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
-        let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
+    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) body =
+        let isJsx = hasAttribute Atts.jsxComponent info.Attributes
+        let args, body =
+            match args with
+            | [] -> args, body
+            | [arg] when arg.Type = Fable.Unit -> args, body
+            | _ when not isJsx -> args, body
+            | _ ->
+                // SolidJS requires values being accessed directly from the props object for reactivity to work properly
+                // https://www.solidjs.com/guides/rendering#props
+                let propsArg = makeIdent "$props"
+                let propsExpr = Fable.IdentExpr propsArg
+                let replacements = args |> List.map (fun a -> a.Name, getFieldWith None a.Type propsExpr a.Name) |> Map
+                [propsArg], FableTransforms.replaceValues replacements body
 
-        // TODO: We need to use named arguments with any other function with NamedParams/ParamObject attribute too
-        // Probably we need to move this operation to getMemberArgsAndBody and pass the NamedParams index
-        let args =
-            if hasAttribute Atts.jsxComponent info.Attributes
-            then args |> Array.map (fun a -> a.AsNamed)
-            else args
+        let hasSpread = info.HasSpread && not isJsx
+        let args, body, returnType, typeParamDecl =
+            getMemberArgsAndBody com ctx (NonAttached membName) hasSpread args body
 
         let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
