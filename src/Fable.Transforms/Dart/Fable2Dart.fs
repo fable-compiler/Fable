@@ -169,6 +169,8 @@ module Util =
         | "System.Text.RegularExpressions.Match" ->
             makeTypeRefFromName "Match" [] |> Some
         | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" when ignoreMeasure -> None
+        // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
+        | Naming.EndsWith "Exception" _ -> Dynamic |> Some
         | _ ->
             let ent = com.GetEntity(entRef)
             if ignoreMeasure && ent.IsMeasure then
@@ -468,6 +470,9 @@ module Util =
     let getUnitValueIdent (com: IDartCompiler) ctx =
         let t = TypeReference(getUnitTypeIdent com ctx, [])
         { libValue com ctx Fable.Any "Types" "unit" with Type = t }
+
+//    let getExceptionTypeIdent (com: IDartCompiler) ctx: Ident =
+//        transformIdentWith com ctx false Fable.MetaType "Exception"
 
     let uncurryType (typ: Fable.Type) =
         match FableTransforms.tryUncurryType typ with
@@ -861,6 +866,7 @@ module Util =
             catch |> Option.map (fun (param, body) ->
                 let param = transformIdent com ctx param
                 let body, _ = com.Transform(ctx, returnStrategy, body)
+//                let test = TypeReference(getExceptionTypeIdent com ctx, [])
                 CatchClause(param=param, body=body))
             |> Option.toList
         let finalizer =
@@ -1104,7 +1110,7 @@ module Util =
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects com expr then
+                    if canHaveSideEffects expr then
                         (ident, expr)::bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements)
@@ -1608,7 +1614,7 @@ module Util =
                     let name =
                         match p.Name with
                         | Some name -> name
-                        | None -> $"$arg{i}"
+                        | None -> $"arg{i}$"
                     let t = transformType com ctx p.Type
                     FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
                 )
@@ -1622,8 +1628,7 @@ module Util =
         let mutable implementsEnumerator = false
         let implementedInterfaces =
             classEnt.DeclaredInterfaces
-            |> Seq.toList
-            |> List.choose (fun ifc ->
+            |> Seq.choose (fun ifc ->
                 match ifc.Entity.FullName with
                 | Types.ienumerable
                 | Types.icomparable
@@ -1641,6 +1646,7 @@ module Util =
                     None
                 | _ ->
                     transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some)
+            |> Seq.toList
 
         if Option.isSome implementsEnumerable && classEnt.IsFSharpUnion then
             $"Unions cannot implement IEnumerable: {classEnt.FullName}"
@@ -1681,37 +1687,13 @@ module Util =
         | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [left; right]
         | _ -> Expression.invocationExpression(left, "compareTo", [right], Integer)
 
-    let getEqualityAndComparisonConstraints (ent: Fable.Entity) =
-        let mutable noEquality = false
-        let mutable noComparison = false
-        let mutable customEquality = false
-        let mutable customComparison = false
-        for att in ent.Attributes do
-            match att.Entity.FullName with
-            | Atts.noEquality -> noEquality <- true
-            | Atts.noComparison -> noComparison <- true
-            | Atts.customEquality -> customEquality <- true
-            | Atts.customComparison -> customComparison <- true
-            | _ -> ()
-        {|
-            noEquality = noEquality
-            noComparison = noComparison
-            customEquality = customEquality
-            customComparison = customComparison
-        |}
-
     let transformUnionDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
-        let constraints = getEqualityAndComparisonConstraints ent
         let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
         let _, interfaces = transformImplementedInterfaces com ctx ent
         let extends = libTypeRef com ctx "Types" "Union" []
-        let implements = [
-            yield! interfaces
-            // if not constraints.noComparison then
-            //     makeTypeRefFromName "Comparable" [selfTypeRef]
-        ]
+        let implements = interfaces
 
         let constructor =
             let tag = makeImmutableIdent Integer "tag"
@@ -1727,7 +1709,7 @@ module Util =
             InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
 
         let methods = [
-            if not(constraints.noComparison || constraints.customComparison) then
+            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralComparable) then
                 compareTo()
             yield! classMethods
         ]
@@ -1742,7 +1724,6 @@ module Util =
             methods=methods)]
 
     let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
-        let constraints = getEqualityAndComparisonConstraints ent
         let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
@@ -1752,8 +1733,6 @@ module Util =
         let implements = [
             libTypeRef com ctx "Types" "Record" []
             yield! interfaces
-            // if not constraints.noComparison then
-            //     makeTypeRefFromName "Comparable" [selfTypeRef]
         ]
 
         let mutable hasMutableFields = false
@@ -1847,10 +1826,10 @@ module Util =
 
         // TODO: toString
         let methods = [
-            if not(constraints.noEquality || constraints.customEquality) then
+            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralEquatable) then
                 equals()
                 hashCode()
-            if not(constraints.noComparison || constraints.customComparison) then
+            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralComparable) then
                 compareTo()
             yield! classMethods
         ]
