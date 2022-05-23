@@ -605,6 +605,8 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
 
 let tryReplacedEntityRef (com: Compiler) entFullName =
     match entFullName with
+    | "Fable.Core.Dart.Future`1" -> makeIdentExpr "Future" |> Some
+    | "Fable.Core.Dart.Stream`1" -> makeIdentExpr "Stream" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some

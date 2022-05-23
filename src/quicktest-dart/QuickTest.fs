@@ -4,9 +4,7 @@ open System
 open System.Text.RegularExpressions
 open System.Collections.Generic
 open Fable.Core
-
-[<Emit("print($0)")>]
-let print(x: obj): unit = ()
+open Fable.Core.Dart
 
 let equal expected actual =
    let areEqual = expected = actual
