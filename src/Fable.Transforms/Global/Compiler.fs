@@ -102,9 +102,14 @@ module CompilerExt =
         with _ -> false
 
     let private coreAssemblyNames = set Metadata.coreAssemblies
+    let mutable private _lang = JavaScript
 
     type Compiler with
         static member CoreAssemblyNames = coreAssemblyNames
+
+        static member Language = _lang
+        /// Use this only once at the start of the program
+        static member SetLanguageUnsafe lang = _lang <- lang
 
         member com.GetEntity(entityRef: Fable.EntityRef) =
             match com.TryGetEntity(entityRef) with

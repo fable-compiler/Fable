@@ -643,6 +643,9 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
             | -1 -> entFullName
             | i -> entFullName[0..i-1]
         makeImportLib com MetaType entFullName "Types" |> Some
+// Don't use `Exception` for now because it doesn't catch all errors in Dart
+// See Fable2Dart.transformDeclaredType
+
 //    | Types.matchFail
 //    | Types.systemException
 //    | Types.timeoutException
@@ -650,8 +653,8 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
 //    | "System.InvalidOperationException"
 //    | "System.Collections.Generic.KeyNotFoundException"
 //    | Types.exception_
-     | Naming.EndsWith "Exception" _
-        -> makeIdentExpr "Exception" |> Some
+//     | Naming.EndsWith "Exception" _
+//        -> makeIdentExpr "Exception" |> Some
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 

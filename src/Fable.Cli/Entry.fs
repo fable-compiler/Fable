@@ -387,6 +387,8 @@ let main argv =
 
         let! args = parseCliArgs args
         let language = argLanguage args
+        Compiler.SetLanguageUnsafe language
+
         let rootDir =
             match args.Value "--cwd" with
             | Some rootDir -> File.getExactFullPath rootDir

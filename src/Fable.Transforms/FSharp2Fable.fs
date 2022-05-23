@@ -1559,7 +1559,7 @@ let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpT
         match tryDefinition entityType with
         | Some(def, _) when def.GenericParameters.Count = entityType.GenericArguments.Count->
             Seq.zip def.GenericParameters entityType.GenericArguments
-            |> Seq.map (fun (p, a) -> p.Name, makeType Map.empty a)
+            |> Seq.map (fun (p, a) -> genParamName p, makeType Map.empty a)
             |> Map
         | _ -> Map.empty
     let fieldType = makeType entityGenArgs fieldType

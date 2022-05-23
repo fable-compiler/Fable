@@ -247,7 +247,7 @@ let noSideEffectBeforeIdent identName expr =
     findIdentOrSideEffect expr && not sideEffect
 
 let canInlineArg com identName value body =
-    (canHaveSideEffects com value |> not && countReferences 1 identName body <= 1)
+    (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
      || (noSideEffectBeforeIdent identName body
          && isIdentCaptured identName body |> not
          // Make sure is at least referenced once so the expression is not erased

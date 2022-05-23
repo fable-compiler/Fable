@@ -50,6 +50,9 @@ type UTest2 =
 [<ReferenceEquality>]
 type RTest2 = { a2: int; b2: int }
 
+// Records/unions containing functions don't implement IComparable
+type RTest3 = { a2: int; b2: int -> int }
+
 type Test(i: int) =
     member x.Value = i
     override x.GetHashCode() = i
