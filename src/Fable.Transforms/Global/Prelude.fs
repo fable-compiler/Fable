@@ -28,6 +28,20 @@ module Map =
         | Some v2 -> v = v2
 
 [<RequireQualifiedAccess>]
+module Dictionary =
+    open System.Collections.Generic
+
+    let matchesKeyValue k v (dic: Dictionary<'K,'V>) =
+        match dic.TryGetValue(k) with
+        | true, v2 -> v = v2
+        | false, _ -> false
+
+    let addOrReplace k v (dic: Dictionary<'K,'V>) =
+        if dic.ContainsKey(k)
+        then dic[k] <- v
+        else dic.Add(k, v)
+
+[<RequireQualifiedAccess>]
 module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev

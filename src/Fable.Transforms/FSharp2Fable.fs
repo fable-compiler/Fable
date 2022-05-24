@@ -893,11 +893,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 then Fable.ListHead, t
                 else Fable.ListTail, Fable.List t
             return Fable.Get(unionExpr, kind, t, r)
-        | DiscriminatedUnion(tdef, _) ->
+        | DiscriminatedUnion(tdef, genArgs) ->
             let caseIndex = unionCaseTag com tdef unionCase
             let fieldIndex = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
             let kind = Fable.UnionFieldInfo.Create(
                 entity=FsEnt.Ref tdef,
+                genArgs=makeTypeGenArgs ctx.GenericArgs genArgs,
                 caseIndex=caseIndex,
                 fieldIndex=fieldIndex
             )

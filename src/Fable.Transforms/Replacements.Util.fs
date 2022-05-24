@@ -63,8 +63,8 @@ let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
 
-let asOptimizable optimization = function
-    | Call(e, i, t, r) -> Call(e, { i with OptimizableInto = Some optimization }, t, r)
+let withTag optimization = function
+    | Call(e, i, t, r) -> Call(e, { i with Tag = Some optimization }, t, r)
     | e -> e
 
 let objValue (k, v): MemberDecl =

@@ -234,11 +234,8 @@ module PrinterExtensions =
                 printer.PrintIdent(ref)
                 printer.PrintList("<", ", ", ">", gen, printer.PrintType, skipIfEmpty=true)
             | Function(argTypes, returnType) ->
-                match returnType with
-                | Void -> ()
-                | returnType ->
-                    printer.PrintType(returnType)
-                    printer.Print(" ")
+                printer.PrintType(returnType)
+                printer.Print(" ")
                 // Probably this won't work if we have multiple args
                 let argTypes = argTypes |> List.filter (function Void -> false | _ -> true)
                 printer.PrintList("Function(", ", ", ")", argTypes, printer.PrintType)

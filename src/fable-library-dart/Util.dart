@@ -48,6 +48,14 @@ int compareDynamic(dynamic a, dynamic b) {
   return a == b ? 0 : -1;
 }
 
+int compareNullable<T>(int Function(T, T) comparer, T? x, T? y) {
+  if (x == null) {
+    return y == null ? 0 : -1;
+  } else {
+    return y == null ? 1 : comparer(x, y);
+  }
+}
+
 T min<T>(int Function(T, T) comparer, T x, T y) {
   return comparer(x, y) < 0 ? x : y;
 }

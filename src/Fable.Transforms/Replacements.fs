@@ -942,11 +942,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r [name; value] |> Some
         | "createObj", _ ->
-            Helper.LibCall(com, "Util", "createObj", Any, args) |> asOptimizable "pojo" |> Some
+            Helper.LibCall(com, "Util", "createObj", Any, args) |> withTag "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
             // makePojo com ctx caseRule keyValueList
             let args = [keyValueList; caseRule]
-            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> asOptimizable "pojo" |> Some
+            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> withTag "pojo" |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
@@ -967,7 +967,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | ("inflate"|"deflate"), _ -> List.tryHead args
         | _ -> None
     | "Fable.Core.JSX", "create" ->
-        Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> asOptimizable "jsx" |> Some
+        Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
     | _ -> None
 
 let getReference r t expr = getFieldWith r t expr "contents"
@@ -1441,7 +1441,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ArrayOrListLiteral(vals,_)] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r)
-        |> asOptimizable "array"
+        |> withTag "array"
         |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some

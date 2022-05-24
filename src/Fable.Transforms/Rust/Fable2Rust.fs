@@ -1732,7 +1732,7 @@ module Util =
         // for now only supports macro calls or function calls
         let macro = info.Macro
         let info = info.CallInfo
-        let isNative = info.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
+        let isNative = info.Tag |> Option.exists (fun s -> s.Contains("native"))
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
 
         if macro.EndsWith("!") then
@@ -1771,7 +1771,7 @@ module Util =
         | None -> false
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let isNative = callInfo.OptimizableInto |> Option.exists (fun s -> s.Contains("native"))
+        let isNative = callInfo.Tag |> Option.exists (fun s -> s.Contains("native"))
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with

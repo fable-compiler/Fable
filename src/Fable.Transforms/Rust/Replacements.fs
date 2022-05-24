@@ -323,10 +323,10 @@ let getLength r t (expr: Expr) =
     TypeCast(i, t)
 
 let nativeCall expr =
-    expr |> asOptimizable "native"
+    expr |> withTag "native"
 
 // let asMutable expr =
-//     expr |> asOptimizable "mutable,native"
+//     expr |> withTag "mutable,native"
 
 let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])

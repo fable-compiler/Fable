@@ -128,12 +128,13 @@ let tests() =
         |> equal "abc"
 
     testCase "Pattern matching with common targets works" <| fun () ->
-        let x = TestUnion.Case2("a", "b")
-        match x with
-        | TestUnion.Case0 -> failwith "unexpected"
-        | TestUnion.Case1 _
-        | TestUnion.Case2 _ -> "a"
-        | TestUnion.Case3(a, b, c) -> a + b + c
+        let handle = function
+            | TestUnion.Case0 -> failwith "unexpected"
+            | TestUnion.Case1 _
+            | TestUnion.Case2 _ -> "a"
+            | TestUnion.Case3(a, b, c) -> a + b + c
+        TestUnion.Case2("a", "b")
+        |> handle
         |> equal "a"
 
     testCase "Union cases called Tag still work (bug due to Tag field)" <| fun () ->

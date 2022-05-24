@@ -198,7 +198,7 @@ let noSideEffectBeforeIdent identName expr =
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect
         | Call(e1, info, _, _) ->
-            match info.OptimizableInto, info.Args with
+            match info.Tag, info.Args with
             // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
             | Some "pojo", IdentExpr i::_ -> i.Name = identName
             | _ ->
