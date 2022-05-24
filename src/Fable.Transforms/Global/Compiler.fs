@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "4.0.0-snake-island-alpha-005"
+    let [<Literal>] VERSION = "4.0.0-snake-island-alpha-006"
 
 type CompilerOptionsHelper =
     static member Make(?language,

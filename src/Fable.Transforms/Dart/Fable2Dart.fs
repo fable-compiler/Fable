@@ -123,6 +123,12 @@ module Util =
 
     let unnamedArgs exprs: CallArg list = List.map unnamedArg exprs
 
+    let makeIdent isMutable typ name =
+        { Name = name; Type = typ; IsMutable = isMutable; ImportModule = None }
+
+    let makeImmutableIdent typ name =
+        makeIdent false typ name
+
     let makeReturnBlock expr =
         [Statement.returnStatement expr]
 
@@ -203,9 +209,6 @@ module Util =
         Naming.sanitizeIdentForbiddenCharsWith (function
             | '@' -> "$"
             | _ -> "_") name
-
-    let getFieldName (field: Fable.Field) =
-        sanitizeMember field.Name
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
@@ -526,12 +529,6 @@ module Util =
         | Fable.GenericParam(name, _isMeasure, _constraints) -> Generic name
         | Fable.DeclaredType(ref, genArgs) -> transformDeclaredType com ctx ref genArgs
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
-
-    let makeIdent isMutable typ name =
-        { Name = name; Type = typ; IsMutable = isMutable; ImportModule = None }
-
-    let makeImmutableIdent typ name =
-        makeIdent false typ name
 
     let transformIdentWith (com: IDartCompiler) ctx (isMutable: bool) (typ: Fable.Type) name: Ident =
         let typ = transformType com ctx typ
@@ -1020,7 +1017,7 @@ module Util =
                     | _ -> [], Expression.asExpression(expr, unionCaseType)
 
             let statements3, capturedExpr =
-                getFieldName field
+                sanitizeMember field.Name
                 |> get (transformType com ctx t) expr
                 |> resolveExpr returnStrategy
             statements @ statements2 @ statements3, capturedExpr
@@ -1125,6 +1122,9 @@ module Util =
                 | _, _, guards ->
                     // Switch is only activated when guards are literals so we can ignore the statements
                     let guards = guards |> List.map (transformAndCaptureExpr com ctx >> snd)
+                    // Create new instance of asserted types dictionary as we do with conditional
+                    // branches (switch guard may be a union tag test)
+                    let ctx = { ctx with AssertedTypes = Dictionary(ctx.AssertedTypes) }
                     let caseBody, _ = com.Transform(ctx, returnStrategy, expr)
                     SwitchCase(guards, caseBody) |> Some)
 
@@ -1188,11 +1188,10 @@ module Util =
                 match expr with
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
                 | _ -> None
-            // Disable this optimization for now so we don't interfere with union case type assertions in conditional branches
-//            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-//                let evalExpr = Fable.Get(expr, Fable.UnionTag, numType Int32, None)
-//                let right = makeIntConst tag
-//                Some(evalExpr, right)
+            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, numType Int32, None)
+                let right = makeIntConst tag
+                Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
             match evalExpr1, evalExpr2 with
@@ -1849,7 +1848,7 @@ module Util =
                 if f.IsMutable then Var
                 else Final
             let typ = uncurryType f.FieldType
-            let ident = getFieldName f |> transformIdentWith com ctx f.IsMutable typ
+            let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable typ
             ident, InstanceVariable(ident, kind=kind))
         |> List.unzip
 
@@ -2042,7 +2041,7 @@ module Util =
                 let variables =
                     let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
                     classEnt.FSharpFields |> List.map (fun f ->
-                        let fieldName = getFieldName f
+                        let fieldName = sanitizeMember f.Name
                         let t = uncurryType f.FieldType |> transformType com ctx
                         let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final

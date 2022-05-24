@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-006
+
+* Dart: compile union cases as child classes
+
 ### 4.0.0-snake-island-alpha-005
 
 * Dart fixes
