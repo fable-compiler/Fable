@@ -1278,7 +1278,7 @@ module Util =
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
         let optimized =
-            match callInfo.OptimizableInto, callInfo.Args with
+            match callInfo.Tag, callInfo.Args with
             | Some "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                 Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
                 |> transformAsExpr com ctx
@@ -1298,8 +1298,8 @@ module Util =
 
         match optimized, callInfo.CallMemberInfo with
         | Some e, _ -> e
-        | None, Some({ IsJsx = true } as callMemberInfo) ->
-            transformJsxCall com ctx callee callInfo.Args callMemberInfo
+        | None, Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
+            transformJsxCall com ctx callee callInfo.Args memberInfo
         | None, _ ->
             let callee = com.TransformAsExpr(ctx, callee)
             let args = transformCallArgs com ctx range (CallInfo callInfo)

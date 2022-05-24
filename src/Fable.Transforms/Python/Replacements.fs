@@ -1112,14 +1112,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [ name; MaybeLambdaUncurriedAtCompileTime value ] -> makeTuple r [ name; value ] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "util", "createObj", Any, args)
-            |> asOptimizable "pojo"
+            |> withTag "pojo"
             |> Some
         | "keyValueList", [ caseRule; keyValueList ] ->
             // makePojo com ctx caseRule keyValueList
             let args = [ keyValueList; caseRule ]
 
             Helper.LibCall(com, "map_util", "keyValueList", Any, args)
-            |> asOptimizable "pojo"
+            |> withTag "pojo"
             |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
@@ -1875,7 +1875,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ ArrayOrListLiteral (vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("list", t, args, ?loc = r)
-        |> asOptimizable "array"
+        |> withTag "array"
         |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some

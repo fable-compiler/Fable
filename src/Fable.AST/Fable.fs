@@ -326,9 +326,9 @@ type ParamInfo =
 
 type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list
+      Attributes: Attribute list
       IsInstance: bool
       IsGetter: bool
-      IsJsx: bool
       FullName: string
       CompiledName: string
       DeclaringEntity: EntityRef option }
@@ -344,8 +344,8 @@ type CallInfo =
       CallMemberInfo: CallMemberInfo option
       HasSpread: bool
       IsConstructor: bool
-      /// Tag that indicates the call can be optimized away after the AST transformation chain
-      OptimizableInto: string option }
+      /// Tag used to apply further transformations to the call at the end of the AST transformation chain
+      Tag: string option }
     static member Make(?thisArg: Expr,
                        ?args: Expr list,
                        ?genArgs: Type list,
@@ -353,7 +353,7 @@ type CallInfo =
                        ?memberInfo: CallMemberInfo,
                        ?hasSpread: bool,
                        ?isCons: bool,
-                       ?optimizable: string) =
+                       ?tag: string) =
         { ThisArg = thisArg
           Args = defaultArg args []
           GenericArgs = defaultArg genArgs []
@@ -361,7 +361,7 @@ type CallInfo =
           CallMemberInfo = memberInfo
           HasSpread = defaultArg hasSpread false
           IsConstructor = defaultArg isCons false
-          OptimizableInto = optimizable }
+          Tag = tag }
 
 type ReplaceCallInfo =
     { CompiledName: string
@@ -421,10 +421,12 @@ type FieldInfo =
 
 type UnionFieldInfo =
     { Entity: EntityRef
+      GenericArgs: Type list
       CaseIndex: int
       FieldIndex: int }
-    static member Create(entity, caseIndex, fieldIndex) =
+    static member Create(entity, caseIndex, fieldIndex, ?genArgs) =
         { Entity = entity
+          GenericArgs = defaultArg genArgs []
           CaseIndex = caseIndex
           FieldIndex = fieldIndex }
         |> UnionField

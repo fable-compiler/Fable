@@ -418,6 +418,9 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array _ -> Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
     | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
     | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
+    | Option(t,_) ->
+        let fn = makeComparerFunction com ctx t
+        Helper.LibCall(com, "Util", "compareNullable", returnType, [fn; left; right], ?loc=r)
     | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
@@ -890,11 +893,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r [name; value] |> Some
         | "createObj", _ ->
-            Helper.LibCall(com, "Util", "createObj", Any, args) |> asOptimizable "pojo" |> Some
+            Helper.LibCall(com, "Util", "createObj", Any, args) |> withTag "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
             // makePojo com ctx caseRule keyValueList
             let args = [keyValueList; caseRule]
-            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> asOptimizable "pojo" |> Some
+            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> withTag "pojo" |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
@@ -1076,7 +1079,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateSequence", [xs] -> TypeCast(xs, t) |> Some
     | "CreateDictionary", [arg] ->
         Helper.LibCall(com, "Types", "mapFromTuples", t, [arg], genArgs=i.GenericArgs, ?loc=r)
-        |> asOptimizable "const-map" |> Some
+        |> withTag "const-map" |> Some
     | "CreateSet", _ -> makeSet com ctx r t "OfSeq" args i.GenericArgs |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
@@ -1476,7 +1479,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ArrayOrListLiteral(vals,_)] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("List", t, args, memb="of", ?loc=r)
-        |> asOptimizable "array"
+        |> withTag "array"
         |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some

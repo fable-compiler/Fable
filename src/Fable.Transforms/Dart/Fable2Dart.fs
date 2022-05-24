@@ -4,7 +4,6 @@ open System.Collections.Generic
 open Fable
 open Fable.AST
 open Fable.AST.Dart
-open Fable.Transforms.AST
 
 type ReturnStrategy =
     | Return of isVoid: bool
@@ -32,7 +31,8 @@ type UsedNames =
 type Context =
   { File: Fable.File
     UsedNames: UsedNames
-    AssertedTypes: Map<string, Type>
+    /// Types asserted in a condition branch
+    AssertedTypes: Dictionary<string, Type>
     DecisionTargets: (Fable.Ident list * Fable.Expr) list
     TailCallOpportunity: ITailCallOpportunity option
     EntityAndMemberGenericParams: Fable.GenericParam list
@@ -123,9 +123,6 @@ module Util =
 
     let unnamedArgs exprs: CallArg list = List.map unnamedArg exprs
 
-    let makeImmutableIdent typ name =
-        { Name = name; Type = typ; IsMutable = false; ImportModule = None }
-
     let makeReturnBlock expr =
         [Statement.returnStatement expr]
 
@@ -191,11 +188,14 @@ module Util =
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
 
+    let getUnionCaseDeclarationName (unionDeclName: string) (uci: Fable.UnionCase) =
+        unionDeclName + "_" + uci.Name
+
     let getUnionExprTag expr =
         get Integer expr "tag"
 
-    let getUnionExprFields expr =
-        get (List Dynamic) expr "fields"
+    let hasConstAttribute (atts: Fable.Attribute seq) =
+        atts |> Seq.exists (fun att -> att.Entity.FullName = Atts.dartIsConst)
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
     /// Should this be done in FSharp2Fable step?
@@ -203,6 +203,9 @@ module Util =
         Naming.sanitizeIdentForbiddenCharsWith (function
             | '@' -> "$"
             | _ -> "_") name
+
+    let getFieldName (field: Fable.Field) =
+        sanitizeMember field.Name
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
@@ -524,9 +527,15 @@ module Util =
         | Fable.DeclaredType(ref, genArgs) -> transformDeclaredType com ctx ref genArgs
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
 
+    let makeIdent isMutable typ name =
+        { Name = name; Type = typ; IsMutable = isMutable; ImportModule = None }
+
+    let makeImmutableIdent typ name =
+        makeIdent false typ name
+
     let transformIdentWith (com: IDartCompiler) ctx (isMutable: bool) (typ: Fable.Type) name: Ident =
         let typ = transformType com ctx typ
-        { Name = name; Type = typ; IsMutable = isMutable; ImportModule = None }
+        makeIdent isMutable typ name
 
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident): Ident =
         transformIdentWith com ctx id.IsMutable id.Type id.Name
@@ -667,19 +676,25 @@ module Util =
         | Fable.NewUnion(values, tag, ref, genArgs) ->
             transformExprsAndResolve com ctx returnStrategy values (fun fields ->
                 let ent = com.GetEntity(ref)
-                let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName
-                let tag = Expression.integerLiteral(tag) |> Expression.commented caseName
-                let args =
-                    match fields with
-                    | [] -> [tag]
-                    | fields -> [tag; makeImmutableListExpr com ctx Fable.Any fields]
                 let genArgs = transformGenArgs com ctx genArgs
                 let consRef = getEntityIdent com ctx ent
-                let typeRef = TypeReference(consRef, genArgs)
+                let uci = ent.UnionCases |> List.item tag
+
+                let consRef, args =
+                    match fields with
+                    | [] ->
+                        let caseName = getUnionCaseName uci
+                        let tag = Expression.integerLiteral(tag) |> Expression.commented caseName
+                        consRef, [tag]
+                    | fields ->
+                        { consRef with Name = getUnionCaseDeclarationName consRef.Name uci }, fields
+
                 let isConst, args =
                     if areConstTypes genArgs && areConstExprs ctx args then
                         true, List.map removeConst args
                     else false, args
+
+                let typeRef = TypeReference(consRef, genArgs)
                 Expression.invocationExpression(consRef.Expr, args, typeRef, genArgs=genArgs, isConst=isConst)
             )
 
@@ -755,7 +770,7 @@ module Util =
         | _ ->
             // Try to optimize some patterns after FableTransforms
             let optimized =
-                match callInfo.OptimizableInto, callInfo.Args with
+                match callInfo.Tag, callInfo.Args with
                 | Some "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                     Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
                 | _ -> None
@@ -769,16 +784,17 @@ module Util =
                 let argStatements, args = transformCallArgs com ctx range (CallInfo callInfo)
                 let statements, callee = combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
                 let isConst =
-                    callInfo.IsConstructor
-                    && areConstTypes genArgs
+                    areConstTypes genArgs
                     && List.forall (snd >> isConstExpr ctx) args
                     && (
-                        callInfo.CallMemberInfo
-                        |> Option.bind (fun i -> i.DeclaringEntity)
-                        |> Option.map (fun e ->
-                            com.GetEntity(e).Attributes
-                            |> Seq.exists (fun att -> att.Entity.FullName = Atts.dartIsConst))
-                        |> Option.defaultValue false
+                        match callInfo.CallMemberInfo with
+                        | Some memberInfo when callInfo.IsConstructor ->
+                            memberInfo.DeclaringEntity
+                            |> Option.map (fun e -> com.GetEntity(e).Attributes |> hasConstAttribute)
+                            |> Option.defaultValue false
+                        | Some memberInfo ->
+                            memberInfo.Attributes |> hasConstAttribute
+                        | None -> false
                     )
                 let args =
                     if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg)
@@ -848,7 +864,8 @@ module Util =
                 let source = expr.Type
                 let target = transformType com ctx targetType
                 match expr, target with
-                | IdentExpression id, target when Map.matchesKeyValue id.Name target ctx.AssertedTypes -> expr
+                | IdentExpression id, target
+                    when Dictionary.matchesKeyValue id.Name target ctx.AssertedTypes -> expr
                 | _, Nullable genTarget ->
                     if source = genTarget || source = target then expr
                     else Expression.asExpression(expr, target)
@@ -903,12 +920,11 @@ module Util =
             let captureStmnts, captureExpr, returnStrategy =
                 convertCaptureStrategyIntoAssign com ctx thenExpr.Type returnStrategy
 
-            let thenCtx =
-                match guardExpr with
-                | IsExpression(IdentExpression id, assertedType, false) ->
-                    // Propagate type assertions also through bindings?
-                    { ctx with AssertedTypes = Map.add id.Name assertedType ctx.AssertedTypes }
-                | _ -> ctx
+            let thenCtx = { ctx with AssertedTypes = Dictionary(ctx.AssertedTypes) }
+            match guardExpr with
+            | IsExpression(IdentExpression id, assertedType, false) ->
+                Dictionary.addOrReplace id.Name assertedType thenCtx.AssertedTypes
+            | _ -> ()
 
             let thenStmnt, _ = com.Transform(thenCtx, returnStrategy, thenExpr)
             let elseStmnt, _ = com.Transform(ctx, returnStrategy, elseExpr)
@@ -977,12 +993,37 @@ module Util =
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag
 
         | Fable.UnionField info ->
-            transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                let fields = getUnionExprFields expr
-                let index = Expression.indexExpression(fields, Expression.integerLiteral info.FieldIndex, Dynamic)
-                match uncurryType t |> transformType com ctx with
-                | Dynamic -> index
-                | t -> Expression.asExpression(index, t))
+            let statements, expr = transformAndCaptureExpr com ctx fableExpr
+
+            let ent = com.GetEntity(info.Entity)
+            let uci = ent.UnionCases |> List.item info.CaseIndex
+            let field = uci.UnionCaseFields |> List.item info.FieldIndex
+
+            let unionCaseType =
+                match transformDeclaredType com ctx info.Entity info.GenericArgs with
+                | TypeReference(ident, generics) ->
+                    TypeReference({ ident with Name = getUnionCaseDeclarationName ident.Name uci }, generics) |> Some
+                | _ -> None // Unexpected, error?
+
+            let statements2, expr =
+                match unionCaseType with
+                | None -> [], expr
+                | Some unionCaseType ->
+                    match expr with
+                    | IdentExpression id ->
+                        if Dictionary.matchesKeyValue id.Name unionCaseType ctx.AssertedTypes
+                        then [], expr
+                        else
+                            Dictionary.addOrReplace id.Name unionCaseType ctx.AssertedTypes
+                            ctx.AssertedTypes[id.Name] <- unionCaseType
+                            [Expression.asExpression(expr, unionCaseType) |> ExpressionStatement], expr
+                    | _ -> [], Expression.asExpression(expr, unionCaseType)
+
+            let statements3, capturedExpr =
+                getFieldName field
+                |> get (transformType com ctx t) expr
+                |> resolveExpr returnStrategy
+            statements @ statements2 @ statements3, capturedExpr
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Ident list * Statement list * Type =
         let tailcallChance = Option.map (fun name ->
@@ -1147,10 +1188,11 @@ module Util =
                 match expr with
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
                 | _ -> None
-            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, numType Int32, None)
-                let right = makeIntConst tag
-                Some(evalExpr, right)
+            // Disable this optimization for now so we don't interfere with union case type assertions in conditional branches
+//            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+//                let evalExpr = Fable.Get(expr, Fable.UnionTag, numType Int32, None)
+//                let right = makeIntConst tag
+//                Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
             match evalExpr1, evalExpr2 with
@@ -1390,7 +1432,7 @@ module Util =
                 |> addWarning com [] expr.Range
                 [], None
 
-        | Fable.Extended(kind, r) ->
+        | Fable.Extended(kind, _range) ->
             match kind with
             | Fable.Curry(e, arity) ->
                 Dart.Replacements.curryExprAtRuntime com arity e
@@ -1536,7 +1578,7 @@ module Util =
                 Expression.updateExpression(op2, paramExpr)
             )], None
 
-    let getLocalFunctionGenericParams (com: IDartCompiler) (ctx: Context) range argTypes =
+    let getLocalFunctionGenericParams (_com: IDartCompiler) (ctx: Context) (_range: SourceLocation option) (argTypes: Fable.Type list): string list =
         let rec getGenParams = function
             // TODO: Discard measure generic params here?
             | Fable.GenericParam(name, _isMeasure, _constraints) -> [name]
@@ -1626,15 +1668,22 @@ module Util =
         let mutable implementsEnumerable = None
         let mutable implementsDisposable = false
         let mutable implementsEnumerator = false
+        let mutable implementsStructuralEquatable = false
+        let mutable implementsStructuralComparable = false
+
         let implementedInterfaces =
             classEnt.DeclaredInterfaces
             |> Seq.choose (fun ifc ->
                 match ifc.Entity.FullName with
                 | Types.ienumerable
                 | Types.icomparable
-                | Types.iequatableGeneric
-                | Types.iStructuralComparable
-                | Types.iStructuralEquatable -> None
+                | Types.iequatableGeneric -> None
+                | Types.iStructuralComparable ->
+                    implementsStructuralComparable <- true
+                    None
+                | Types.iStructuralEquatable ->
+                    implementsStructuralEquatable <- true
+                    None
                 | Types.idisposable ->
                     implementsDisposable <- true
                     transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
@@ -1652,11 +1701,17 @@ module Util =
             $"Unions cannot implement IEnumerable: {classEnt.FullName}"
             |> addError com [] None
 
+        let info = {|
+            implementsEnumerable = implementsEnumerable
+            implementsStructuralEquatable = implementsStructuralEquatable
+            implementsStructuralComparable = implementsStructuralComparable
+        |}
+
         if implementsEnumerator && not implementsDisposable then
             let disp = TypeReference(libValue com ctx Fable.MetaType "Types" "IDisposable", [])
-            implementsEnumerable, disp::implementedInterfaces
+            info, disp::implementedInterfaces
         else
-            implementsEnumerable, implementedInterfaces
+            info, implementedInterfaces
 
     let transformInheritedClass com ctx (classEnt: Fable.Entity) implementsIterable (baseType: Fable.DeclaredType option) =
         match implementsIterable, baseType with
@@ -1685,133 +1740,92 @@ module Util =
         match left.Type with
         | List _ -> libCall com ctx (numType Int32) "Util" "compareList" [left; right]
         | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [left; right]
+        | Dynamic | Generic _ -> libCall com ctx (numType Int32) "Util" "compareDynamic" [left; right]
+        | Nullable t ->
+            let fn =
+                let x = makeImmutableIdent t "x"
+                let y = makeImmutableIdent t "y"
+                Expression.anonymousFunction([x; y], [
+                    compare com ctx x.Expr y.Expr |> Statement.returnStatement
+                ], Integer)
+            libCall com ctx (numType Int32) "Util" "compareNullable" [fn; left; right]
         | _ -> Expression.invocationExpression(left, "compareTo", [right], Integer)
 
-    let transformUnionDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
-        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
-        let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
+    let makeStructuralEquals (_com: IDartCompiler) (_ctx: Context) (selfTypeRef: Type) (fields: Ident list): InstanceMethod =
+        let other = makeImmutableIdent Object "other"
 
-        let _, interfaces = transformImplementedInterfaces com ctx ent
-        let extends = libTypeRef com ctx "Types" "Union" []
-        let implements = interfaces
+        let makeFieldEq (field: Ident) =
+            let otherField = Expression.propertyAccess(other.Expr, field.Name, field.Type)
+            Expression.binaryExpression(BinaryEqual, otherField, field.Expr, Boolean)
 
-        let constructor =
-            let tag = makeImmutableIdent Integer "tag"
-            let fields = makeImmutableIdent (Nullable(List Dynamic)) "fields"
-            Constructor(args=[FunctionArg tag; FunctionArg(fields, isOptional=true)], superArgs=unnamedArgs [tag.Expr; fields.Expr], isConst=true)
+        let rec makeFieldsEq fields acc =
+            match fields with
+            | [] -> acc
+            | field::fields ->
+                let eq = makeFieldEq field
+                Expression.logicalExpression(LogicalAnd, eq, acc)
+                |> makeFieldsEq fields
 
-        let compareTo() =
-            let other = makeImmutableIdent selfTypeRef "other"
-            let args = [Expression.identExpression other]
-            let body =
-                Expression.invocationExpression(SuperExpression extends, "compareTagAndFields", args, Integer)
-                |> makeReturnBlock
-            InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
+        let typeTest =
+            Expression.isExpression(other.Expr, selfTypeRef)
 
-        let methods = [
-            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralComparable) then
-                compareTo()
-            yield! classMethods
-        ]
+        let body =
+            match List.rev fields with
+            | [] -> typeTest
+            | field::fields ->
+                let eq = makeFieldEq field |> makeFieldsEq fields
+                Expression.logicalExpression(LogicalAnd, typeTest, eq)
+            |> makeReturnBlock
 
-        [Declaration.classDeclaration(
-            decl.Name,
-            genParams=(ent.GenericParameters
-                |> List.choose (transformGenericParam com ctx)),
-            constructor=constructor,
-            extends=extends,
-            implements=implements,
-            methods=methods)]
+        InstanceMethod("==", [FunctionArg other], Boolean, body=body, kind=MethodKind.IsOperator, isOverride=true)
 
-    let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
-        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
-        let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
-
-        let implementsIterable, interfaces = transformImplementedInterfaces com ctx ent
-        let extends = transformInheritedClass com ctx ent implementsIterable None
-
-        let implements = [
-            libTypeRef com ctx "Types" "Record" []
-            yield! interfaces
-        ]
-
-        let mutable hasMutableFields = false
-        let fields, varDecls =
-            ent.FSharpFields
-            |> List.map (fun f ->
-                let kind =
-                    if f.IsMutable then
-                        hasMutableFields <- true
-                        Var
-                    else
-                        Final
-                let typ = uncurryType f.FieldType
-                let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable typ
-                ident, InstanceVariable(ident, kind=kind))
-            |> List.unzip
-
-        let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true))
-        let constructor = Constructor(args=consArgs, isConst=not hasMutableFields)
-
-        let equals() =
-            let other = makeImmutableIdent Object "other"
-
-            let makeFieldEq (field: Ident) =
-                let otherField = Expression.propertyAccess(other.Expr, field.Name, field.Type)
-                Expression.binaryExpression(BinaryEqual, otherField, field.Expr, Boolean)
-
-            let rec makeFieldsEq fields acc =
-                match fields with
-                | [] -> acc
-                | field::fields ->
-                    let eq = makeFieldEq field
-                    Expression.logicalExpression(LogicalAnd, eq, acc)
-                    |> makeFieldsEq fields
-
-            let typeTest =
-                Expression.isExpression(other.Expr, selfTypeRef)
-
-            let body =
-                match List.rev fields with
-                | [] -> typeTest
-                | field::fields ->
-                    let eq = makeFieldEq field |> makeFieldsEq fields
-                    Expression.logicalExpression(LogicalAnd, typeTest, eq)
-                |> makeReturnBlock
-
-            InstanceMethod("==", [FunctionArg other], Boolean, body=body, kind=MethodKind.IsOperator, isOverride=true)
-
-        let hashCode() =
-            let intType = Fable.Number(Int32, Fable.NumberInfo.Empty)
-            let body =
+    let makeStructuralHashCode com ctx fields =
+        let intType = Fable.Number(Int32, Fable.NumberInfo.Empty)
+        let body =
+            match fields with
+            | [field] ->
+                Expression.propertyAccess(Expression.identExpression field, "hashCode", Integer)
+                |> Statement.returnStatement
+                |> List.singleton
+            | fields ->
                 fields
                 |> List.map (fun f -> Expression.propertyAccess(Expression.identExpression f, "hashCode", Integer))
                 |> makeImmutableListExpr com ctx intType
                 |> List.singleton
                 |> libCall com ctx (numType Int32) "Util" "combineHashCodes"
                 |> makeReturnBlock
-            InstanceMethod("hashCode", [], Integer, kind=IsGetter, body=body, isOverride=true)
+        InstanceMethod("hashCode", [], Integer, kind=IsGetter, body=body, isOverride=true)
 
-        let compareTo() =
-            let r = makeImmutableIdent Integer "$r"
-            let other = makeImmutableIdent selfTypeRef "other"
+    let makeFieldCompare com ctx (other: Expression) (field: Ident) =
+        let otherField = Expression.propertyAccess(other, field.Name, field.Type)
+        compare com ctx field.Expr otherField
 
-            let makeAssign (field: Ident) =
-                let otherField = Expression.propertyAccess(other.Expr, field.Name, field.Type)
-                Expression.assignmentExpression(r.Expr, compare com ctx field.Expr otherField)
+    let makeStructuralCompareTo com ctx wrapper selfTypeRef fields =
+        let r = makeImmutableIdent Integer "$r"
+        let other = makeImmutableIdent selfTypeRef "other"
 
-            let makeFieldComp (field: Ident) =
-                Expression.binaryExpression(BinaryEqual, makeAssign field, Expression.integerLiteral 0, Boolean)
+        let makeAssign (field: Ident) =
+            Expression.assignmentExpression(
+                r.Expr, makeFieldCompare com ctx other.Expr field)
 
-            let rec makeFieldsComp (fields: Ident list) (acc: Statement list) =
-                match fields with
-                | [] -> acc
-                | field::fields ->
-                    let eq = makeFieldComp field
-                    [Statement.ifStatement(eq, acc)]
-                    |> makeFieldsComp fields
+        let makeFieldCompareWithAssign (field: Ident) =
+            Expression.binaryExpression(BinaryEqual, makeAssign field, Expression.integerLiteral 0, Boolean)
 
-            let body = [
+        let rec makeFieldsComp (fields: Ident list) (acc: Statement list) =
+            match fields with
+            | [] -> acc
+            | field::fields ->
+                let eq = makeFieldCompareWithAssign field
+                [Statement.ifStatement(eq, acc)]
+                |> makeFieldsComp fields
+
+        let body =
+            match fields with
+            | [field] ->
+                makeFieldCompare com ctx other.Expr field
+                |> Statement.returnStatement
+                |> List.singleton
+            | fields -> [
                 Statement.variableDeclaration(r, kind=Var, addToScope=ignore)
                 yield!
                     match List.rev fields with
@@ -1822,15 +1836,127 @@ module Util =
                 Statement.returnStatement r.Expr
             ]
 
-            InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
+        let body =
+            match wrapper with
+            | None -> body
+            | Some wrapper -> wrapper other.Expr body
+
+        InstanceMethod("compareTo", [FunctionArg other], Integer, body=body, isOverride=true)
+
+    let transformFields (com: IDartCompiler) ctx (fields: Fable.Field list) =
+        fields |> List.map (fun f ->
+            let kind =
+                if f.IsMutable then Var
+                else Final
+            let typ = uncurryType f.FieldType
+            let ident = getFieldName f |> transformIdentWith com ctx f.IsMutable typ
+            ident, InstanceVariable(ident, kind=kind))
+        |> List.unzip
+
+    let transformUnionDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (unionDecl: Fable.ClassDecl) classMethods =
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
+        let unionTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName unionDecl.Name
+        let interfaceInfo, interfaces = transformImplementedInterfaces com ctx ent
+        let tagIdent = makeImmutableIdent Integer "tag"
+
+        let extraDecls =
+            let mutable tag = -1
+            ent.UnionCases |> List.choose (fun uci ->
+                tag <- tag + 1
+                if List.isEmpty uci.UnionCaseFields then None
+                else
+                    let caseDeclName = getUnionCaseDeclarationName unionDecl.Name uci
+                    let caseTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName caseDeclName
+                    let fields, varDecls = transformFields com ctx uci.UnionCaseFields
+
+                    let wrapCompare otherExpr body = [
+                        Statement.ifStatement(
+                            Expression.isExpression(otherExpr, caseTypeRef),
+                            body,
+                            [Statement.returnStatement(makeFieldCompare com ctx otherExpr tagIdent)]
+                        )
+                    ]
+
+                    let methods = [
+                        if interfaceInfo.implementsStructuralEquatable then
+                            makeStructuralEquals com ctx caseTypeRef fields
+                            makeStructuralHashCode com ctx (tagIdent::fields)
+                        if interfaceInfo.implementsStructuralComparable then
+                            makeStructuralCompareTo com ctx (Some wrapCompare) unionTypeRef fields
+                    ]
+
+                    let tag = Expression.integerLiteral(tag)
+                    let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true))
+                    let constructor = Constructor(args=consArgs, superArgs=unnamedArgs [tag], isConst=true)
+
+                    Declaration.classDeclaration(
+                        caseDeclName,
+                        genParams=genParams,
+                        constructor=constructor,
+                        extends=unionTypeRef,
+                        variables=varDecls,
+                        methods=methods) |> Some
+            )
+
+        let hasCasesWithoutFields = ent.UnionCases |> List.exists (fun uci -> List.isEmpty uci.UnionCaseFields)
+        let extends = transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
+
+        let implements = [
+            libTypeRef com ctx "Types" "Union" []
+            yield! interfaces
+        ]
+
+        let extraMethods =
+            if not hasCasesWithoutFields then []
+            else [
+                if interfaceInfo.implementsStructuralEquatable then
+                    makeStructuralEquals com ctx unionTypeRef [tagIdent]
+                    makeStructuralHashCode com ctx [tagIdent]
+                if interfaceInfo.implementsStructuralComparable then
+                    makeStructuralCompareTo com ctx None unionTypeRef [tagIdent]
+            ]
+
+        let constructor =
+            Constructor(args=[FunctionArg(tagIdent, isConsThisArg=true)], isConst=true)
+
+        let unionDecl =
+            Declaration.classDeclaration(
+                unionDecl.Name,
+                isAbstract=not hasCasesWithoutFields,
+                genParams=genParams,
+                constructor=constructor,
+                implements=implements,
+                ?extends=extends,
+                variables=[InstanceVariable(tagIdent, kind=Final)],
+                methods=extraMethods @ classMethods)
+
+        unionDecl::extraDecls
+
+    let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
+        let selfTypeRef = genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
+
+        let interfaceInfo, interfaces = transformImplementedInterfaces com ctx ent
+        let extends = transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
+
+        let implements = [
+            libTypeRef com ctx "Types" "Record" []
+            yield! interfaces
+        ]
+
+        let hasMutableFields = ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
+        let fields, varDecls = transformFields com ctx ent.FSharpFields
+
+        let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg=true))
+        let constructor = Constructor(args=consArgs, isConst=not hasMutableFields)
 
         // TODO: toString
         let methods = [
-            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralEquatable) then
-                equals()
-                hashCode()
-            if ent.DeclaredInterfaces |> Seq.exists (fun i -> i.Entity.FullName = Types.iStructuralComparable) then
-                compareTo()
+            if interfaceInfo.implementsStructuralEquatable then
+                makeStructuralEquals com ctx selfTypeRef fields
+                makeStructuralHashCode com ctx fields
+            if interfaceInfo.implementsStructuralComparable then
+                makeStructuralCompareTo com ctx None selfTypeRef fields
             yield! classMethods
         ]
 
@@ -1913,11 +2039,10 @@ module Util =
                             | false, _ -> consArg
                             | true, fieldName -> consArg.AsConsThisArg(fieldName))
 
-        //        let hasMutableFields = classEnt.FSharpFields |> List.exists (fun f -> f.IsMutable)
                 let variables =
                     let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
                     classEnt.FSharpFields |> List.map (fun f ->
-                        let fieldName = sanitizeMember f.Name
+                        let fieldName = getFieldName f
                         let t = uncurryType f.FieldType |> transformType com ctx
                         let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final
@@ -1930,8 +2055,8 @@ module Util =
                 let constructor = Constructor(
                     args = consArgs,
                     body = consBody,
-                    superArgs = (extractBaseArgs com ctx classDecl)
-        //            isConst = not hasMutableFields
+                    superArgs = (extractBaseArgs com ctx classDecl),
+                    isConst = hasConstAttribute classEnt.Attributes
                 )
 
                 // let classIdent = makeImmutableIdent MetaType classDecl.Name
@@ -1943,8 +2068,8 @@ module Util =
 
                 Some constructor, variables, [] // [exposedCons]
 
-        let implementsIterable, implements = transformImplementedInterfaces com ctx classEnt
-        let extends = transformInheritedClass com ctx classEnt implementsIterable classEnt.BaseType
+        let interfaceInfo, implements = transformImplementedInterfaces com ctx classEnt
+        let extends = transformInheritedClass com ctx classEnt interfaceInfo.implementsEnumerable classEnt.BaseType
 
         let abstractMembers =
             classEnt.MembersFunctionsAndValues
@@ -1969,7 +2094,8 @@ module Util =
 
     let transformDeclaration (com: IDartCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
-            let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+            let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames }
+                                 AssertedTypes = Dictionary() }
             let result = f ctx
             ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
             result
@@ -2113,7 +2239,7 @@ module Compiler =
                           CurrentDeclarationScope = Unchecked.defaultof<_> }
             DecisionTargets = []
             EntityAndMemberGenericParams = []
-            AssertedTypes = Map.empty
+            AssertedTypes = Dictionary()
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
             VarsInScope = HashSet()

@@ -175,51 +175,7 @@ class GenericAverager<T> implements IGenericAverager<T> {
   }
 }
 
-abstract class Union {
-  final int tag;
-  final List<dynamic> fields;
-
-  int compareTagAndFields(Union other) {
-    if (other.tag == tag) {
-      // Assume fields have same length
-      for (var i = 0, j = 0; i < fields.length; i++) {
-        j = util.compareDynamic(fields[i], other.fields[i]);
-        if (j != 0) {
-          return j;
-        }
-      }
-      return 0;
-    } else {
-      return tag < other.tag ? -1 : 1;
-    }
-  }
-
-  const Union(this.tag, [List<dynamic>? fields]):
-        fields = fields ?? const [];
-
-  // TODO: implement toString
-
-  @override
-  bool operator ==(Object other) =>
-      other is Union &&
-      other.runtimeType == runtimeType &&
-      other.tag == tag &&
-      util.equalList(other.fields, fields);
-
-  @override
-  int get hashCode =>
-      util.combineHashCodes([tag, ...fields.map((e) => e.hashCode)]);
-}
-
-// class MyUnion extends Union implements Comparable<MyUnion> {
-//   @override
-//   int compareTo(MyUnion other) {
-//     return super.compareTagAndFields(other);
-//   }
-
-//   const MyUnion(tag, fields): super(tag, fields);
-// }
-
+abstract class Union {}
 abstract class Record {}
 
 class FSharpRef<T> {

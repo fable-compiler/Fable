@@ -139,18 +139,13 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             FsMemberFunctionOrValue.TryNamedParamsIndex(m)
             |> Option.defaultValue -1
 
-        let isJsx =
-            match com.Options.Language with
-            | JavaScript | TypeScript -> Helpers.hasAttribute Atts.jsxComponent m.Attributes
-            | _ -> false
-
         { CurriedParameterGroups =
             m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
                 let isNamed = namedParamsIndex > -1 && i >= namedParamsIndex
                 { Name = p.Name; Type = TypeHelpers.makeType Map.empty p.Type; IsNamed = isNamed }))
+          Attributes = m.Attributes |> Seq.toList |> List.map (fun x -> FsAtt(x) :> Fable.Attribute)
           IsInstance = m.IsInstanceMember
           IsGetter = m.IsPropertyGetterMethod
-          IsJsx = isJsx
           FullName = m.FullName
           CompiledName = m.CompiledName
           DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
