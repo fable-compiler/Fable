@@ -256,6 +256,7 @@ module PrinterExtensions =
             | SpreadElement(_)
             | ArrayExpression(_)
             | ObjectExpression(_)
+            | JsxTemplate(_)
             | JsxElement(_) -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 
@@ -292,7 +293,26 @@ module PrinterExtensions =
             | Node.ObjectTypeCallProperty(_)
             | Node.ObjectTypeInternalSlot(_) -> failwith "Not implemented"
 
-        member printer.PrintJsx(componentOrTag: Expression, props: (string * Expression) list, children: Expression list) =
+        member printer.PrintJsxTemplate(parts: string[], values: Expression[]) =
+            // Do we need to escape backslashes here?
+            let escape str = str //Regex.Replace(str, @"(?<!\\)\\", @"\\")
+            if parts.Length = 1 then
+                printer.Print(escape parts[0])
+            else
+                for i = 0 to parts.Length - 2 do
+                    printer.Print(escape parts[i])
+                    match values[i] with
+                    | JsxElement(componentOrTag, props, children) ->
+                        printer.PrintJsxElement(componentOrTag, props, children)
+                    | JsxTemplate(parts, values) ->
+                        printer.PrintJsxTemplate(parts, values)
+                    | value ->
+                        printer.Print("{")
+                        printer.Print(value)
+                        printer.Print("}")
+                printer.Print(Array.last parts |> escape)
+
+        member printer.PrintJsxElement(componentOrTag: Expression, props: (string * Expression) list, children: Expression list) =
             let printTag = function
                 | StringConstant tag -> printer.Print(tag)
                 | componentRef -> printer.Print(componentRef)
@@ -336,7 +356,10 @@ module PrinterExtensions =
                         printer.Print(text)
                         printer.PrintNewLine()
                     | JsxElement(componentOrTag, props, children) ->
-                        printer.PrintJsx(componentOrTag, props, children)
+                        printer.PrintJsxElement(componentOrTag, props, children)
+                        printer.PrintNewLine()
+                    | JsxTemplate(parts, values) ->
+                        printer.PrintJsxTemplate(parts, values)
                         printer.PrintNewLine()
                     | child ->
                         printer.Print("{")
@@ -352,7 +375,8 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
-            | JsxElement(componentOrTag, props, children) -> printer.PrintJsx(componentOrTag, props, children)
+            | JsxElement(componentOrTag, props, children) -> printer.PrintJsxElement(componentOrTag, props, children)
+            | JsxTemplate(parts, values) -> printer.PrintJsxTemplate(parts, values)
             | Super(loc) ->  printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.Print(n)
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
@@ -442,7 +466,13 @@ module PrinterExtensions =
             | Statement.BlockStatement(s) -> printer.Print(s)
             | ReturnStatement(argument, loc) ->
                 printer.Print("return ", ?loc = loc)
-                printer.Print(argument)
+                // If a JSX template starts with a new line, surround it in parens to avoid
+                // having only return in single line (this causes JS to ignore the rest of the code)
+                match argument with
+                | JsxTemplate(parts,_) when Regex.IsMatch(parts[0], @"^\s*\n") ->
+                    printer.WithParens(argument)
+                | _ ->
+                    printer.Print(argument)
             | SwitchStatement(discriminant, cases, loc) -> printer.PrintSwitchStatement(discriminant, cases, loc)
             | LabeledStatement(body, label) -> printer.PrintLabeledStatement(body, label)
             | DebuggerStatement(loc) -> printer.Print("debugger", ?loc = loc)

@@ -16,6 +16,7 @@ module JSX =
         class end
 
     let create (componentOrTag: obj) (props: Prop list): Element = nativeOnly
+    let html (template: string): Element = nativeOnly
 
 module JS =
     type [<AllowNullLiteral>] Function =

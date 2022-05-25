@@ -57,6 +57,7 @@ type Node =
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
+    | JsxTemplate of parts: string[] * values: Expression[]
     | Literal of Literal
     | Identifier of Identifier
     | ClassExpression of
@@ -513,6 +514,8 @@ type InterfaceExtends =
 module Helpers =
     type Expression with
         static member jsxElement(componentOrTag, props, children) = JsxElement(componentOrTag, props, children)
+        static member jsxTemplate(parts, values) = JsxTemplate(parts, values)
+        static member jsxTemplate(part) = JsxTemplate([|part|], [||])
         static member super(?loc) = Super loc
         static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
         static member nullLiteral(?loc) = NullLiteral loc |> Literal
