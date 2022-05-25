@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-004
+
+* JSX string templates
+
 ### 4.0.0-snake-island-alpha-003
 
 * Add Dart print/Future/Stream
