@@ -968,6 +968,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | "Fable.Core.JSX", "create" ->
         Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
+    | "Fable.Core.JSX", "html" ->
+        Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
     | _ -> None
 
 let getReference r t expr = getFieldWith r t expr "contents"

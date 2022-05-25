@@ -440,7 +440,7 @@ let tryFindInScope (ctx: Context) identName =
 
 let (|MaybeInScope|) (ctx: Context) e =
     match e with
-    | IdentExpr ident ->
+    | MaybeCasted(IdentExpr ident) ->
         match tryFindInScope ctx ident.Name with
         | Some e -> e
         | None -> e

@@ -1294,6 +1294,15 @@ module Util =
             | Some "jsx", _ ->
                 "Expecting a static list or array literal (no generator) for JSX props"
                 |> addErrorAndReturnNull com range |> Some
+            | Some "jsx-template", args ->
+                match args with
+                | StringConst template ::_ -> Expression.jsxTemplate(template) |> Some
+                | MaybeCasted(Fable.Value(Fable.StringTemplate(_, parts, values), _))::_ ->
+                    let values = values |> List.mapToArray (transformAsExpr com ctx)
+                    Expression.jsxTemplate(List.toArray parts, values) |> Some
+                | _ ->
+                    $"Expecting an interpolated string literal without formatting, found %A{args}"
+                    |> addErrorAndReturnNull com range |> Some
             | _ -> None
 
         match optimized, callInfo.CallMemberInfo with
