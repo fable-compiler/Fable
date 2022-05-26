@@ -380,6 +380,13 @@ let tests =
         |> handleClass
         |> equal "Hello Narumi!!!!!!"
 
+    testCase "Can useq equals with Object.create(null)" <| fun () -> // See #2900
+        let o: obj = emitJsExpr () "Object.create(null)"
+        o = obj() |> equal false
+        o = null |> equal false
+        isNull o |> equal false
+        jsTypeof o |> equal "object"
+
     testCase "Dynamic application works" <| fun () ->
         let dynObj =
             createObj [
