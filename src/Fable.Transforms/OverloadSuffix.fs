@@ -84,9 +84,11 @@ let private getGenericParamConstrainsHash genParams (p: FSharpGenericParameter) 
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
     let t = nonAbbreviatedType t
     if t.IsGenericParameter then
-        match genParams.TryGetValue(t.GenericParameter.Name) with
-        | true, i -> i
-        | false, _ -> getGenericParamConstrainsHash genParams t.GenericParameter
+        if t.GenericParameter.IsMeasure then "measure"
+        else
+            match genParams.TryGetValue(t.GenericParameter.Name) with
+            | true, i -> i
+            | false, _ -> getGenericParamConstrainsHash genParams t.GenericParameter
     elif t.IsTupleType then
         let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
         if t.IsStructTupleType then "struct " + genArgs

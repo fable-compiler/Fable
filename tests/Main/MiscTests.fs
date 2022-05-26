@@ -107,6 +107,8 @@ type Vector3D<[<Measure>] 'u> =
     static member (+) (v1: Vector3D<'u>, v2: Vector3D<'u>) =
         { x = v1.x + v2.x; y = v1.y + v2.y; z = v1.z + v2.z }
 
+let lerp x (alpha: float<'u>) (delta: MiscTestsHelper.Vector2<'u>) = x + alpha * delta
+
 type PointWithCounter(a: int, b: int) =
     // A variable i.
     let mutable i = 0
@@ -590,6 +592,11 @@ let tests =
         let x = 5.<Measure1>
         let c = MeasureTest()
         c.Method(5.<Measure2>) |> equal x
+
+    testCase "Can resolve trait calls from another file with units of measure" <| fun () -> // See #2880
+        let expected = MiscTestsHelper.Vector2 (8.209999999999999<mi^2>, 7.72<mi^2>)
+        let x = MiscTestsHelper.Vector2(4.5<mi^2>, 4.5<mi^2>)
+        MiscTestsHelper.Vector2(5.3<mi>, 4.6<mi>) |> lerp x 0.7<mi> |> equal expected
 
     testCase "FSharp.UMX works" <| fun () ->
         let lookupById (orders : Order list) (id : string<orderId>) =
