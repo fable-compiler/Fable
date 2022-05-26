@@ -59,6 +59,33 @@ module PrinterExtensions =
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
+        member printer.PrintEmitType(value: string, genArgs: Type list) =
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+                let segmentLength = segmentEnd - segmentStart
+                if segmentLength > 0 then
+                    let segment = value.Substring(segmentStart, segmentLength)
+                    printer.Print(segment)
+
+            let matches = Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
+                for i = 0 to matches.Count - 1 do
+                    let m = matches[i]
+                    let segmentStart =
+                        if i > 0 then matches[i-1].Index + matches[i-1].Length
+                        else 0
+
+                    printSegment printer value segmentStart m.Index
+
+                    let argIndex = int m.Value[1..]
+                    match List.tryItem argIndex genArgs with
+                    | Some t -> printer.PrintType(t)
+                    | None -> ()
+
+                let lastMatch = matches[matches.Count - 1]
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+            else
+                printSegment printer value 0 value.Length
+
         // TODO: Most of this code matches BabelPrinter.PrintEmitExpression, can we refactor it?
         member printer.PrintEmitExpression(value: string, args: Expression list) =
             let inline replace pattern (f: Match -> string) input =
@@ -233,6 +260,8 @@ module PrinterExtensions =
             | TypeReference(ref, gen) ->
                 printer.PrintIdent(ref)
                 printer.PrintList("<", ", ", ">", gen, printer.PrintType, skipIfEmpty=true)
+            | EmitType(macro, gen) ->
+                printer.PrintEmitType(macro, gen)
             | Function(argTypes, returnType) ->
                 printer.PrintType(returnType)
                 printer.Print(" ")

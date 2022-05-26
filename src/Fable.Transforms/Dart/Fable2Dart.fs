@@ -162,6 +162,14 @@ module Util =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
         TypeReference(tup, transformGenArgs com ctx genArgs)
 
+    let (|EmitAttribute|_|) (ent: Fable.Entity) =
+        ent.Attributes |> Seq.tryPick (fun att ->
+            if att.Entity.FullName.StartsWith(Atts.emit) then
+                match att.ConstructorArgs with
+                | [:? string as macro] -> Some macro
+                | _ -> None
+            else None)
+
     let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         match entRef.FullName with
         | "System.Enum" -> Integer |> Some
@@ -175,10 +183,11 @@ module Util =
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _ -> Dynamic |> Some
         | _ ->
-            let ent = com.GetEntity(entRef)
-            if ignoreMeasure && ent.IsMeasure then
-                None
-            else
+            match com.GetEntity(entRef) with
+            | ent when ignoreMeasure && ent.IsMeasure -> None
+            | EmitAttribute(macro) ->
+                EmitType(macro, transformGenArgs com ctx genArgs) |> Some
+            | ent ->
                 let genArgs = transformGenArgs com ctx genArgs
                 TypeReference(getEntityIdent com ctx ent, genArgs) |> Some
 
@@ -2121,10 +2130,12 @@ module Util =
 
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
-            let ent = com.GetEntity(entRef)
-            if ent.IsInterface then
+            match com.GetEntity(entRef) with
+            // Ignore declaration for classes with Emit attribute
+            | EmitAttribute _ -> []
+            | ent when ent.IsInterface ->
                 transformInterfaceDeclaration com ctx decl ent
-            else
+            | ent ->
                 let instanceMethods =
                     decl.AttachedMembers |> List.choose (fun memb ->
                         match memb.Name with
