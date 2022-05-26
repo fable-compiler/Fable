@@ -82,7 +82,7 @@ export function disposeSafe(x: any) {
 }
 
 export function sameConstructor<T>(x: T, y: T) {
-  return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+  return Object.getPrototypeOf(x)?.constructor === Object.getPrototypeOf(y)?.constructor;
 }
 
 export interface IEnumerator<T> extends IDisposable {
@@ -334,7 +334,7 @@ export function structuralHash<T>(x: T): number {
         return arrayHash(x);
       } else if (x instanceof Date) {
         return dateHash(x);
-      } else if (Object.getPrototypeOf(x).constructor === Object) {
+      } else if (Object.getPrototypeOf(x)?.constructor === Object) {
         // TODO: check call-stack to prevent cyclic objects?
         const hashes = Object.values(x).map((v) => structuralHash(v));
         return combineHashCodes(hashes);
@@ -403,7 +403,7 @@ export function equals<T>(x: T, y: T): boolean {
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
-    return Object.getPrototypeOf(x).constructor === Object && equalObjects(x, y);
+    return Object.getPrototypeOf(x)?.constructor === Object && equalObjects(x, y);
   }
 }
 
@@ -480,7 +480,7 @@ export function compare<T>(x: T, y: T): number {
   } else if (x instanceof Date) {
     return y instanceof Date ? compareDates(x, y) : -1;
   } else {
-    return Object.getPrototypeOf(x).constructor === Object ? compareObjects(x, y) : -1;
+    return Object.getPrototypeOf(x)?.constructor === Object ? compareObjects(x, y) : -1;
   }
 }
 

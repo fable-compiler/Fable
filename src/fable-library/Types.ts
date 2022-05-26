@@ -28,11 +28,11 @@ export function toString(x: any, callStack = 0): string {
     } else if (Symbol.iterator in x) {
       return seqToString(x);
     } else { // TODO: Date?
-      const cons = Object.getPrototypeOf(x).constructor;
+      const cons = Object.getPrototypeOf(x)?.constructor;
       return cons === Object && callStack < 10
         // Same format as recordToString
         ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toString(v, callStack + 1)).join("\n  ") + " }"
-        : cons.name;
+        : cons?.name ?? "";
     }
   }
   return String(x);
