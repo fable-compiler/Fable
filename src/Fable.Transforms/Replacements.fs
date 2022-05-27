@@ -660,8 +660,11 @@ let makePojo (com: Compiler) caseRule keyValueList =
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some
             | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values,_),_)) ->
-                // Don't change the case for tuples in disguise
-                makeObjMember Core.CaseRules.None name values::acc |> Some
+                match values with
+                | [MaybeCasted(Value(NewOption(None, _, _), _))] -> Some acc
+                | values ->
+                    // Don't change the case for tuples in disguise
+                    makeObjMember Core.CaseRules.None name values::acc |> Some
             | _ -> None))
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
 
@@ -1056,8 +1059,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalCall("Math", t, args, argTypes, memb=meth, ?loc=r)
 
     match i.CompiledName, args with
-    | ("DefaultArg" | "DefaultValueArg"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [opt; defValue] ->
+        match opt with
+        | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
+            match opt with
+            | Some value -> Some value
+            | None -> Some defValue
+        | _ -> Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.

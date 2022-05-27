@@ -494,10 +494,9 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
             IO.File.Copy(fromPath, toPath, true)
 
 let getFableLibraryPath (opts: CrackerOptions) =
-    match opts.PrecompiledLib, opts.FableLib with
-    | Some _, _ -> "" // Fable Library path will be taken from the precompiled info
-    | None, Some path -> Path.normalizeFullPath path
-    | None, None ->
+    match opts.FableLib with
+    | Some path -> Path.normalizeFullPath path
+    | None ->
         let buildDir, libDir =
             match opts.FableOptions.Language with
             | Python -> "fable-library-py/fable_library", "fable_library"

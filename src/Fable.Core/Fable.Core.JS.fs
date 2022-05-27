@@ -247,6 +247,12 @@ module JS =
     and [<AllowNullLiteral>] WeakSetConstructor =
         [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'T> -> WeakSet<'T>
 
+    and [<AllowNullLiteral>] AsyncIterable =
+        interface end
+
+    and [<AllowNullLiteral>] AsyncIterable<'T> =
+        inherit AsyncIterable
+
     and [<AllowNullLiteral>] Promise<'T> =
         abstract ``then``: ?onfulfilled: ('T->'TResult) * ?onrejected: (obj->'TResult) -> Promise<'TResult>
         abstract catch: ?onrejected: (obj->'T) -> Promise<'T>

@@ -922,8 +922,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ -> "Missing argument." |> addErrorAndReturnNull com ctx.InlinePath r
 
     match i.CompiledName, args with
-    | ("DefaultArg" | "DefaultValueArg"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [opt; defValue] ->
+        match opt with
+        | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
+            match opt with
+            | Some value -> Some value
+            | None -> Some defValue
+        | _ -> Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
