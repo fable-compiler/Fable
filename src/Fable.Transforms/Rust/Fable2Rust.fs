@@ -588,11 +588,23 @@ module TypeInfo =
         let bounds = [mkTypeTraitGenericBound pathNames genArgs]
         mkDynTraitTy bounds
 
+    let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
+        ent.Attributes |> Seq.tryPick (fun att ->
+            if att.Entity.FullName.StartsWith(Atts.emit) then
+                match att.ConstructorArgs with
+                | [:? string as macro] -> Some macro
+                | _ -> None
+            else None)
+
     let transformDeclaredType (com: IRustCompiler) ctx entRef genArgs: Rust.Ty =
-        let ent = com.GetEntity(entRef)
-        if ent.IsInterface then
+        match com.GetEntity(entRef) with
+        | HasEmitAttribute tmpl ->
+            let genArgs = genArgs |> List.map (transformType com ctx)
+            mkExtMacroTy tmpl genArgs
+        | ent when ent.IsInterface = true ->
             transformInterfaceType com ctx entRef genArgs
-        else
+
+        | ent ->
             let genArgs = transformGenArgs com ctx genArgs
             makeFullNamePathTy ent.FullName genArgs
 
