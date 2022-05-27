@@ -36,6 +36,7 @@ type Type =
 
     | Generic of name: string
     | TypeReference of Ident * generics: Type list
+    | EmitType of value: string * generics: Type list
     | Function of argTypes: Type list * returnType: Type
 
 type Ident =
