@@ -1,3 +1,7 @@
+### 3.7.1
+
+* Add `AsyncIterable` to Fable.Core.JS
+
 ### 3.7.0
 
 * Fix #2863: Add a nestable union type U9 @cannorin

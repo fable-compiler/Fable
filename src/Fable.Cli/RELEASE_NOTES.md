@@ -1,3 +1,10 @@
+### 3.7.12
+
+* Resolve `defaultArg` at compile time when possible
+* Fix #2900: Equality with prototype-less JS objects
+* Fix #2895: FableLibDir in cached info is empty when using --precompiledLib
+* Fix #2880: Trait call with unit of measure
+
 ### 3.7.11
 
 * Fix generic param user/compiler generated name conflicts

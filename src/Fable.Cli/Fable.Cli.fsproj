@@ -4,9 +4,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.11</Version>
-    <PackageVersion>3.7.11</PackageVersion>
-    <PackageReleaseNotes>* Fix generic param user/compiler generated name conflicts</PackageReleaseNotes>
+    <Version>3.7.12</Version>
+    <PackageVersion>3.7.12</PackageVersion>
+    <PackageReleaseNotes>* Resolve `defaultArg` at compile time when possible
+* Fix #2900: Equality with prototype-less JS objects
+* Fix #2895: FableLibDir in cached info is empty when using --precompiledLib
+* Fix #2880: Trait call with unit of measure</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
