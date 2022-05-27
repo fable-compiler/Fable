@@ -650,7 +650,7 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
-let findInScope (ctx: Context) identName =
+let tryFindInScope (ctx: Context) identName =
     let rec findInScopeInner scope identName =
         match scope with
         | [] -> None
@@ -664,17 +664,20 @@ let findInScope (ctx: Context) identName =
     let scope2 = ctx.ScopeInlineArgs |> List.map (fun (i,e) -> i, Some e)
     findInScopeInner (scope1 @ scope2) identName
 
-let (|RequireStringConst|_|) com (ctx: Context) r e =
-    (match e with
-     | StringConst s -> Some s
-     | MaybeCasted(IdentExpr ident) ->
-        match findInScope ctx ident.Name with
-        | Some(StringConst s) -> Some s
-        | _ -> None
-     | _ -> None)
-    |> Option.orElseWith(fun () ->
+let (|MaybeInScope|) (ctx: Context) e =
+    match e with
+    | MaybeCasted(IdentExpr ident) ->
+        match tryFindInScope ctx ident.Name with
+        | Some e -> e
+        | None -> e
+    | e -> e
+
+let (|RequireStringConst|) com (ctx: Context) r e =
+    match e with
+    | MaybeInScope ctx (StringConst s) -> s
+    | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
-        Some "")
+        ""
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
    let argTypes = argExprs |> List.map (fun a -> a.Type)
@@ -1034,8 +1037,11 @@ let makePojo (com: Compiler) caseRule keyValueList =
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some
             | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values),_)) ->
-                // Don't change the case for tuples in disguise
-                makeObjMember Core.CaseRules.None name values::acc |> Some
+                match values with
+                | [MaybeCasted(Value(NewOption(None, _), _))] -> Some acc
+                | values ->
+                    // Don't change the case for tuples in disguise
+                    makeObjMember Core.CaseRules.None name values::acc |> Some
             | _ -> None))
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
 
@@ -1178,11 +1184,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                makeStrConst Naming.unknown |> Some
     | _, ("nameofLambda"|"namesofLambda" as meth) ->
         match args with
-        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
-        | [MaybeCasted(IdentExpr ident)] ->
-            match findInScope ctx ident.Name with
-            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
-            | _ -> None
+        | [MaybeInScope ctx (Lambda(_, (Namesof com ctx names), _))] -> Some names
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
@@ -1217,8 +1219,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> None
 
         match args with
-        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx ident.Name |> Option.bind inferCasename
-        | [e] -> inferCasename e
+        | [MaybeInScope ctx e] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
             "Cannot infer case name of expression"
@@ -1259,7 +1260,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "importDynamic", [path] ->
             let path = fixDynamicImportPath path
             Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
-        | "importValueDynamic", [arg] ->
+        | "importValueDynamic", [MaybeInScope ctx arg] ->
             let dynamicImport selector path =
                 let path = fixDynamicImportPath path
                 let import = Helper.GlobalCall("import", t, [path], ?loc=r)
@@ -1270,12 +1271,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                         let m = makeIdent "m"
                         Delegate([m], Get(IdentExpr m, ByKey(ExprKey selector), Any, None), None)
                     Helper.InstanceCall(import, "then", t, [selector])
-            let arg =
-                match arg with
-                | IdentExpr ident ->
-                    findInScope ctx ident.Name
-                    |> Option.defaultValue arg
-                | arg -> arg
             match arg with
             // TODO: Check this is not a fable-library import?
             | Import(info,_,_) ->
@@ -1326,7 +1321,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
-            | _ -> None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", _ ->
@@ -1514,8 +1508,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
 
     match i.CompiledName, args with
-    | ("DefaultArg" | "DefaultValueArg"), _ ->
-        Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [opt; defValue] ->
+        match opt with
+        | MaybeInScope ctx (Value(NewOption(None, _),_)) -> Some defValue
+        | _ -> Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
