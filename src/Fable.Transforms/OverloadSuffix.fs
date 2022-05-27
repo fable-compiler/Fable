@@ -43,10 +43,12 @@ let private getConstraintHash genParams = function
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type) =
     match t with
     | Fable.Measure fullname -> fullname
-    | Fable.GenericParam(name, _, constraints) ->
-        match genParams.TryGetValue(name) with
-        | true, i -> i
-        | false, _ -> constraints |> List.map (getConstraintHash genParams) |> String.concat ","
+    | Fable.GenericParam(name, isMeasure, constraints) ->
+        if isMeasure then "measure"
+        else
+            match genParams.TryGetValue(name) with
+            | true, i -> i
+            | false, _ -> constraints |> List.map (getConstraintHash genParams) |> String.concat ","
     | Fable.Tuple(genArgs, isStruct) ->
         let genArgs = genArgs |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
         if isStruct then "struct " + genArgs

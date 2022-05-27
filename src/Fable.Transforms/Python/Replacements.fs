@@ -1279,11 +1279,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalCall("math", t, args, argTypes, memb=meth, ?loc = r)
 
     match i.CompiledName, args with
-    | ("DefaultArg"
-      | "DefaultValueArg"),
-      _ ->
-        Helper.LibCall(com, "option", "defaultArg", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [opt; defValue] ->
+        match opt with
+        | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
+            match opt with
+            | Some value -> Some value
+            | None -> Some defValue
+        | _ -> Helper.LibCall(com, "option", "defaultArg", t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "async_builder"
         |> Some

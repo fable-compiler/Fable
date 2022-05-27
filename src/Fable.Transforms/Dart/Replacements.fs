@@ -1060,7 +1060,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [nullable; defValue] ->
-        ifNullOp r t nullable defValue |> Some
+        match nullable with
+        | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
+            match opt with
+            | Some value -> Some value
+            | None -> Some defValue
+        | _ -> ifNullOp r t nullable defValue |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     | "KeyValuePattern", [arg] ->
