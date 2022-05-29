@@ -602,12 +602,11 @@ module TypeInfo =
 
     let transformDeclaredType (com: IRustCompiler) ctx entRef genArgs: Rust.Ty =
         match com.GetEntity(entRef) with
-        | HasEmitAttribute tmpl ->
+        | HasEmitAttribute value ->
             let genArgs = genArgs |> List.map (transformType com ctx)
-            mkExtMacroTy tmpl genArgs
+            mkEmitTy value genArgs
         | ent when ent.IsInterface = true ->
             transformInterfaceType com ctx entRef genArgs
-
         | ent ->
             let genArgs = transformGenArgs com ctx genArgs
             makeFullNamePathTy ent.FullName genArgs
@@ -1026,18 +1025,6 @@ module Util =
         // // Use an arrow function in case we need to capture `this`
         // Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
 
-(*
-    let callFunctionWithThisContext r callee (args: Rust.Expr list) =
-        let args = thisExpr::args |> List.toArray
-        Expression.callExpression(get None funcExpr "call", args, ?loc=r)
-
-    let emitExpression range (txt: string) args =
-        mkEmitExpr txt // TODO: apply args, range
-
-    let undefined range =
-//        Undefined(?loc=range) :> Expression
-        Expression.unaryExpression(UnaryVoid, Expression.numericLiteral(0.), ?loc=range)
-*)
     let getGenericParams (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam _ as p -> [p]
@@ -1769,8 +1756,7 @@ module Util =
             let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
             let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
             let args = args |> List.append thisArg
-            mkStringMacroExpr macro args
-
+            mkEmitExpr macro args
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
@@ -3030,7 +3016,7 @@ module Util =
 
         let staticItem = mkStaticItem attrs name ty (Some value) |> mkNonPublicItem
         let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
-        let valueStmt = mkEmitStmt $"{name}.with(|value| value.clone())"
+        let valueStmt = mkEmitExprStmt $"{name}.with(|value| value.clone())"
 
         let attrs = []
         let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some

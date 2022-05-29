@@ -3,12 +3,12 @@
 module rec Fable.Transforms.Rust.AST.Pretty
 
 //! This pretty-printer is a direct reimplementation of Philip Karlton's
-//! Mesa pretty-printer, |> described in the appendix to
+//! Mesa pretty-printer, as described in the appendix to
 //! Derek C. Oppen, "Pretty Printing" (1979),
 //! Stanford Computer Science Department STAN-CS-79-770,
 //! <http://i.stanford.edu/pub/cstr/reports/cs/tr/79/770/CS-TR-79-770.pdf>.
 //!
-//! The algorithm's aim is to break a stream into |> few lines |> possible
+//! The algorithm's aim is to break a stream into as few lines as possible
 //! while respecting the indentation-consistency requirements of the enclosing
 //! block, and avoiding breaking at silly places on block boundaries, for
 //! example, between "x" and ")" in "x)".
@@ -19,7 +19,7 @@ module rec Fable.Transforms.Rust.AST.Pretty
 //! it's 32 years old. What can I say?
 //!
 //! Despite some redundancies and quirks in the way it's implemented in that
-//! paper, I've opted to keep the implementation here |> similar |> I can,
+//! paper, I've opted to keep the implementation here as similar as I can,
 //! changing only what was blatantly wrong, a typo, or sufficiently
 //! non-idiomatic rust that it really stuck out.
 //!
@@ -67,25 +67,25 @@ module rec Fable.Transforms.Rust.AST.Pretty
 //! Tokens are String, Break, and Begin/End to delimit blocks.
 //!
 //! Begin tokens can carry an offset, saying "how far to indent when you break
-//! inside here", |> well |> a flag indicating "consistent" or "inconsistent"
+//! inside here", as well as a flag indicating "consistent" or "inconsistent"
 //! breaking. Consistent breaking means that after the first break, no attempt
 //! will be made to flow subsequent breaks together onto lines. Inconsistent
 //! is the opposite. Inconsistent breaking example would be, say:
 //!
-//! ```
+//! ```ignore (illustrative)
 //! foo(hello, there, good, friends)
 //! ```
 //!
 //! breaking inconsistently to become
 //!
-//! ```
+//! ```ignore (illustrative)
 //! foo(hello, there,
 //!     good, friends)
 //! ```
 //!
 //! whereas a consistent breaking would yield:
 //!
-//! ```
+//! ```ignore (illustrative)
 //! foo(hello,
 //!     there,
 //!     good,
@@ -99,7 +99,7 @@ module rec Fable.Transforms.Rust.AST.Pretty
 //! Carrying on with high-level logic:
 //!
 //! The buffered tokens go through a ring-buffer, 'tokens'. The 'left' and
-//! 'right' indices denote the active portion of the ring buffer |> well as
+//! 'right' indices denote the active portion of the ring buffer as well as
 //! describing hypothetical points-in-the-infinite-stream at most 3N tokens
 //! apart (i.e., "not wrapped to ring-buffer boundaries"). The paper will switch
 //! between using 'left' and 'right' terms to denote the wrapped-to-ring-buffer
@@ -115,13 +115,13 @@ module rec Fable.Transforms.Rust.AST.Pretty
 //! they're so obviously over-long that "infinity" is a good enough
 //! approximation for purposes of line breaking).
 //!
-//! The "input side" of the printer is managed |> an abstract process called
+//! The "input side" of the printer is managed as an abstract process called
 //! SCAN, which uses `scan_stack`, to manage calculating `size`. SCAN is, in
 //! other words, the process of calculating 'size' entries.
 //!
 //! The "output side" of the printer is managed by an abstract process called
 //! PRINT, which uses `print_stack`, `margin` and `space` to figure out what to
-//! do with each token/size pair it consumes |> it goes. It's trying to consume
+//! do with each token/size pair it consumes as it goes. It's trying to consume
 //! the entire buffered window, but can't output anything until the size is >=
 //! 0 (sizes are set to negative while they're pending calculation).
 //!
@@ -133,7 +133,7 @@ module rec Fable.Transforms.Rust.AST.Pretty
 //! it.
 //!
 //! In this implementation (following the paper, again) the SCAN process is the
-//! methods called `Printer.scan_`, and the 'PRINT' process is the
+//! methods called `Printer.scan_*`, and the 'PRINT' process is the
 //! method called `Printer.print`.
 
 open Fable.Transforms.Rust.AST.Adapters

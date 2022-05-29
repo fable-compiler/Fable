@@ -585,65 +585,60 @@ module Exprs =
           is_shorthand = is_shorthand
           is_placeholder = is_placeholder }
 
+    let mkLitExpr literal: Expr =
+        literal
+        |> ExprKind.Lit
+        |> mkExpr
+
     let mkBoolLitExpr value: Expr =
         value
         |> mkBoolLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkCharLitExpr value: Expr =
         value
         |> mkCharLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkIntLitExpr value: Expr =
         value
         |> mkIntLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkInt8LitExpr value: Expr =
         value
         |> mkInt8Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkInt16LitExpr value: Expr =
         value
         |> mkInt16Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkInt32LitExpr value: Expr =
         value
         |> mkInt32Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkInt64LitExpr value: Expr =
         value
         |> mkInt64Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkUInt8LitExpr value: Expr =
         value
         |> mkUInt8Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkUInt16LitExpr value: Expr =
         value
         |> mkUInt16Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkUInt32LitExpr value: Expr =
         value
         |> mkUInt32Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkUInt64LitExpr value: Expr =
         value
@@ -654,32 +649,27 @@ module Exprs =
     let mkFloatLitExpr value: Expr =
         value
         |> mkFloatLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkFloat32LitExpr value: Expr =
         value
         |> mkFloat32Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkFloat64LitExpr value: Expr =
         value
         |> mkFloat64Lit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkStrLitExpr value: Expr =
         value
         |> mkStrLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkRawStrLitExpr raw value: Expr =
         value
         |> mkRawStrLit raw
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkAddrOfExpr expr: Expr =
         ExprKind.AddrOf(BorrowKind.Ref, Mutability.Not, expr)
@@ -702,8 +692,7 @@ module Exprs =
     let mkErrLitExpr value: Expr =
         value
         |> mkErrLit
-        |> ExprKind.Lit
-        |> mkExpr
+        |> mkLitExpr
 
     let mkPathExpr path: Expr =
         ExprKind.Path(None, path)
@@ -847,17 +836,14 @@ module Exprs =
         ExprKind.MacCall mac
         |> mkExpr
 
-    let mkExtMacroCallExpr emit args: Expr =
-        ExprKind.EmitExpression (emit, mkVec args)
+    let mkEmitExpr value args: Expr =
+        ExprKind.EmitExpression(value, mkVec args)
         |> mkExpr
 
     let mkMacroExpr (name: string) exprs: Expr =
         let tokens = exprs |> Seq.map mkExprToken
         mkParensCommaDelimitedMacCall name tokens
         |> mkMacCallExpr
-
-    let mkStringMacroExpr (macro: string) exprs: Expr =
-        mkExtMacroCallExpr macro exprs
 
     let mkMatchExpr expr (arms: Arm seq): Expr =
         ExprKind.Match(expr, mkVec arms)
@@ -875,12 +861,9 @@ module Exprs =
         ExprKind.Index(expr, index)
         |> mkExpr
 
-    let mkEmitExpr symbol: Expr =
-        mkErrLitExpr symbol
-
     let TODO_EXPR name: Expr =
         mkStrLit ("TODO_EXPR_" + name)
-        |> ExprKind.Lit |> mkExpr
+        |> mkLitExpr
 
 [<AutoOpen>]
 module Stmts =
@@ -897,12 +880,12 @@ module Stmts =
         StmtKind.Empty
         |> mkStmt
 
-    let mkEmitStmt symbol: Stmt =
-        mkEmitExpr symbol
+    let mkEmitExprStmt value: Stmt =
+        mkErrLitExpr value
         |> mkExprStmt
 
-    let mkEmitSemiStmt symbol: Stmt =
-        mkEmitExpr symbol
+    let mkEmitSemiStmt value: Stmt =
+        mkErrLitExpr value
         |> mkSemiStmt
 
     let mkMacCallStmt (mac: MacCall): Stmt =
@@ -1100,7 +1083,7 @@ module Types =
         mkGenericTypeArgs tys
         |> mkGenericPathTy path
 
-    let mkExtMacroTy value tys: Ty =
+    let mkEmitTy value tys: Ty =
         TyKind.EmitTypeExpression(value, mkVec tys)
         |> mkTy
 
