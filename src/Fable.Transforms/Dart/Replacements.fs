@@ -393,20 +393,22 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
 //        | _ -> "structuralHash"
 //    Helper.LibCall(com, "Util", methodName, Int32.Number, [arg], ?loc=r)
 
-let implementsStructuralEquality = function
-    | Array _ -> false
-    | _ -> true
-
+// Mirrors Fable2Dart.Util.equals
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
         if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
     | Array(t,_) ->
-        let args =
-            if implementsStructuralEquality t then [left; right]
-            else [left; right; makeEqualityFunction com ctx t]
-        Helper.LibCall(com, "Util", "equalList", Boolean, args, ?loc=r) |> is equal
+        match left, right with
+        // F# compiler introduces null checks in array pattern matching
+        // but this are not necessary because of null safety in Dart
+        | NullConst, _
+        | _, NullConst -> makeBoolConst (not equal)
+        | _ ->
+            let fn = makeEqualityFunction com ctx t
+            Helper.LibCall(com, "Util", "equalsList", Boolean, [left; right; fn], ?loc=r) |> is equal
+    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "equalsDynamic", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
         if equal then BinaryEqual else BinaryUnequal
         |> makeEqOp r left right
@@ -415,12 +417,14 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let returnType = Int32.Number
     match left.Type with
-    | Array _ -> Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
-    | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
-    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
+    | Array(t,_) ->
+        let fn = makeComparerFunction com ctx t
+        Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
     | Option(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareNullable", returnType, [fn; left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareNullable", returnType, [left; right; fn], ?loc=r)
+    | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
+    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
     | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
@@ -474,8 +478,12 @@ let makeMap (com: ICompiler) ctx r t methName args genArgs =
 let getZeroTimeSpan t =
     Helper.GlobalIdent("Duration", "zero", t)
 
+let emptyGuid () =
+    makeStrConst "00000000-0000-0000-0000-000000000000"
+
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
+    | Tuple(args, true) -> NewTuple(args |> List.map (getZero com ctx), true) |> makeValue None
     | Boolean -> makeBoolConst false
     | Char -> TypeCast(makeIntConst 0, t)
     | String -> makeStrConst "" // Using empty string instead of null so Dart doesn't complain
@@ -486,9 +494,11 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
+    | Builtin BclGuid -> emptyGuid()
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] [genArg]
     | Builtin (BclKeyValuePair(k,v)) ->
-        makeTuple None [getZero com ctx k; getZero com ctx v]
+        let args = [getZero com ctx k; getZero com ctx v]
+        Helper.ConstructorCall(makeIdentExpr "MapEntry", t, args)
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None) // null
 
@@ -681,32 +691,6 @@ let tryOp com r t op args =
 let tryCoreOp com r t coreModule coreMember args =
     let op = Helper.LibValue(com, coreModule, coreMember, Any)
     tryOp com r t op args
-
-let emptyGuid () =
-    makeStrConst "00000000-0000-0000-0000-000000000000"
-
-let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
-    match t with
-    // Non-struct tuples default to null
-    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
-    | Boolean
-    | Char
-    | String
-    | Number _
-    | Builtin BclTimeSpan
-    | Builtin BclDateTime
-    | Builtin BclDateTimeOffset
-    | Builtin BclDateOnly
-    | Builtin BclTimeOnly -> getZero com ctx t
-    | Builtin BclGuid -> emptyGuid()
-    | DeclaredType(ent,_)  ->
-        let ent = com.GetEntity(ent)
-        // TODO: For BCL types we cannot access the constructor, raise error or warning?
-        if ent.IsValueType
-        then Helper.ConstructorCall(entityRef com ent, t, [])
-        else Null t |> makeValue None
-    // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
-    | _ -> Null t |> makeValue None
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
@@ -1599,7 +1583,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
     | "ZeroCreate", [count] ->
-        let defValue = genArg com ctx r 0 i.GenericArgs |> defaultof com ctx
+        let defValue = genArg com ctx r 0 i.GenericArgs |> getZero com ctx
         Helper.GlobalCall("List", t, [count; defValue], memb="filled", ?loc=r) |> Some
     | "Create", _ ->
         Helper.GlobalCall("List", t, args, memb="filled", ?loc=r) |> Some
@@ -1618,7 +1602,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
         Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | meth, _ ->
-        // TODO: Inject comparers and such
         let meth =
             match Naming.lowerFirst meth with
             | "where" -> "filter"
@@ -2150,7 +2133,7 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
+    | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> getZero com ctx |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     | "Equals", [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "Compare", [arg1; arg2] -> Helper.LibCall(com, "Util", "compareDynamic", t, [arg1; arg2], ?loc=r) |> Some

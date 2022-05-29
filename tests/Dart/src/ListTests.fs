@@ -709,16 +709,15 @@ let tests() =
             equal 2 ys.[0]
             equal 5 zs.[2]
 
-    // FIXME
-//    testCase "List.pairwise works" <| fun () ->
-//        List.pairwise<int> [] |> equal []
-//        List.pairwise [1] |> equal []
-//        let xs = [1; 2; 3; 4]
-//        let xs2 = xs |> List.pairwise
-//        equal [(1, 2); (2, 3); (3, 4)] xs2
-//        xs2 |> List.map (fun (x, y) -> $"%i{x}%i{y}")
-//        |> String.concat ""
-//        |> equal "122334"
+    testCase "List.pairwise works" <| fun () ->
+       List.pairwise<int> [] |> equal []
+       List.pairwise [1] |> equal []
+       let xs = [1; 2; 3; 4]
+       let xs2 = xs |> List.pairwise
+       equal [(1, 2); (2, 3); (3, 4)] xs2
+       xs2 |> List.map (fun (x, y) -> $"%i{x}%i{y}")
+       |> String.concat ""
+       |> equal "122334"
 
     testCase "List.permute works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
@@ -726,10 +725,9 @@ let tests() =
             equal 4 ys.[2]
             equal 6 ys.[4]
 
-    // FIXME
-//    testCase "List.chunkBySize works" <| fun () ->
-//        [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
-//        [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
+    testCase "List.chunkBySize works" <| fun () ->
+       [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
+       [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
 
     testCase "List.range works" <| fun () ->
         [1..5]
@@ -865,13 +863,12 @@ let tests() =
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
 
-    // FIXME
-//    testCase "List.splitInto works" <| fun () ->
-//        [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
-//        [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
-//        [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
-//        [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
-//        [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
+    testCase "List.splitInto works" <| fun () ->
+       [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+       [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+       [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+       [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+       [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
 
     testCase "List.transpose works" <| fun () ->
         // integer list

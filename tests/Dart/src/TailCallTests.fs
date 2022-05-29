@@ -178,12 +178,11 @@ let tests() =
         x.Sum(0L, 100000L, 0L)
         |> equal 4999950000L
 
-    // FIXME: Char array
-//    testCase "Mutually recursive functions can be partially optimized" <| fun () ->
-//        let s = "a5b6c"
-//        s.ToCharArray() |> Seq.toList |> parseTokens []
-//        |> Seq.concat |> Seq.map string |> String.concat ""
-//        |> equal "56"
+    testCase "Mutually recursive functions can be partially optimized" <| fun () ->
+       let s = "a5b6c"
+       s.ToCharArray() |> Seq.toList |> parseTokens []
+       |> Seq.concat |> Seq.map string |> String.concat ""
+       |> equal "56"
 
     testCase "IIFEs prevent tailcall optimization" <| fun () -> // See #674
         iife [5; 4; 3] |> equal 24

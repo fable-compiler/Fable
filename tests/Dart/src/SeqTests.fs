@@ -148,19 +148,17 @@ let tests() =
         )
         |> equal 6
 
-// FIXME
-//        seq {
-//            for xs in xss do
-//                for x in xs do
-//                    x
-//        }
-//        |> Seq.length
-//        |> equal 4
+        seq {
+            for xs in xss do
+                for x in xs do
+                    x
+        }
+        |> Seq.length
+        |> equal 4
 
-    // FIXME
-//    testCase "Seq.chunkBySize works" <| fun () ->
-//        seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
-//        seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
+    testCase "Seq.chunkBySize works" <| fun () ->
+       seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
+       seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
 
     testCase "Seq.exists works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -694,27 +692,26 @@ let tests() =
 //
 //        xs |> equal ys
 
-    // FIXME: Result type
     // See https://github.com/demystifyfp/FsToolkit.ErrorHandling/pull/146
-//    testCase "Seq.cache works when enumerating partially" <| fun () ->
-//        let xs = seq {
-//          yield 1
-//          yield 1
-//          yield 99
-//        }
-//
-//        let rec loop xs ts =
-//          match Seq.tryHead xs with
-//          | Some x ->
-//            if x < 10 then
-//              loop (Seq.tail xs) (x :: ts)
-//            else
-//              Error x
-//          | None ->
-//            Ok (List.rev ts)
-//
-//        loop (Seq.cache xs) [] |> equal (Error 99)
-//        loop xs [] |> equal (Error 99)
+    testCase "Seq.cache works when enumerating partially" <| fun () ->
+       let xs = seq {
+         yield 1
+         yield 1
+         yield 99
+       }
+
+       let rec loop xs ts =
+         match Seq.tryHead xs with
+         | Some x ->
+           if x < 10 then
+             loop (Seq.tail xs) (x :: ts)
+           else
+             Error x
+         | None ->
+           Ok (List.rev ts)
+
+       loop (Seq.cache xs) [] |> equal (Error 99)
+       loop xs [] |> equal (Error 99)
 
 //    testCase "Seq.cast works" <| fun () ->
 //        let xs = [box 1; box 2; box 3]
@@ -814,19 +811,17 @@ let tests() =
         Seq.tryLast xs |> equal (Some 4.)
         Seq.tryLast [] |> equal None
 
-    // FIXME
-//    testCase "Seq.pairwise works" <| fun () ->
-//        let xs = [1; 2; 3; 4]
-//        xs |> Seq.pairwise
-//        |> Seq.map (fun (x, y) -> $"%i{x}%i{y}")
-//        |> String.concat ""
-//        |> equal "122334"
+    testCase "Seq.pairwise works" <| fun () ->
+       let xs = [1; 2; 3; 4]
+       xs |> Seq.pairwise
+       |> Seq.map (fun (x, y) -> $"%i{x}%i{y}")
+       |> String.concat ""
+       |> equal "122334"
 
-    // FIXME
-//    testCase "Seq.pairwise works with empty input" <| fun () -> // See #1941
-//        ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
-//        [1] |> Seq.pairwise |> Seq.toList |> equal []
-//        [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
+    testCase "Seq.pairwise works with empty input" <| fun () -> // See #1941
+       ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
+       [1] |> Seq.pairwise |> Seq.toList |> equal []
+       [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
 
     testCase "Seq.readonly works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -926,9 +921,7 @@ let tests() =
         let mutable accX = 0
         let mutable accY = 0
         let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
-        // FIXME
-//        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
-        let ys = seq { accY <- accY + 1; 'a'; 'b'; 'c'; 'd'; 'e'; 'f' }
+        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
         let res = Seq.allPairs xs ys
         let res1 = List.ofSeq res
         let res2 = List.ofSeq res
@@ -942,13 +935,12 @@ let tests() =
         equal expected res1
         equal expected res2
 
-    // FIXME: range
-//    testCase "Seq.splitInto works" <| fun () ->
-//        seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
-//        seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
-//        seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
-//        seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
-//        seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
+    testCase "Seq.splitInto works" <| fun () ->
+        seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
+        seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
+        seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
+        seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
+        seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
 
     testCase "Seq.transpose works" <| fun () ->
         let seqEqual (expected: seq<'T seq>) (actual: seq<'T seq>) =

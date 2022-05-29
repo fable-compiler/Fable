@@ -15,7 +15,7 @@ and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T> (tail_: 'T list
     static member Empty: 'T list = EmptyList<'T>()
     static member Cons (x: 'T, xs: 'T list): 'T list = ConsList<'T>(x, xs)
 
-    member internal xs.SetConsTail (t: 'T list) = tail <- Some t
+    member internal _.SetConsTail (t: 'T list) = tail <- Some t
 
     member internal xs.AppendConsNoTail (x: 'T): 'T list =
         let t = ConsList<'T>(x, EmptyList())
@@ -34,9 +34,9 @@ and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T> (tail_: 'T list
         | :? ConsList<'T> as this -> this.GetHead() |> Some
         | _ -> None
 
-    member this.Tail: LinkedList<'T> = Option.get tail
+    member _.Tail: LinkedList<'T> = Option.get tail
 
-    member this.TryTail: LinkedList<'T> option = tail
+    member _.TryTail: LinkedList<'T> option = tail
 
     member xs.Length =
         let rec loop i (xs: 'T list) =
