@@ -1100,6 +1100,10 @@ module Types =
         mkGenericTypeArgs tys
         |> mkGenericPathTy path
 
+    let mkExtMacroTy value tys: Ty =
+        TyKind.EmitTypeExpression(value, mkVec tys)
+        |> mkTy
+
     let TODO_TYPE name: Ty =
         mkGenericPathTy ["TODO_TYPE_" + name] None
 

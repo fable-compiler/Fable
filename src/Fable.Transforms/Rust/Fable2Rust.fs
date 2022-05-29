@@ -378,9 +378,13 @@ module TypeInfo =
             -> true
 
         // conditionally Rc-wrapped
-        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _)
-        | Fable.DeclaredType _ ->
+        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
             not (isCopyableType com Set.empty t)
+        | Fable.DeclaredType (entRef, _) ->
+            match com.GetEntity(entRef) with
+            | HasEmitAttribute _ -> false // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | _ ->
+                not (isCopyableType com Set.empty t)
 
     let isCloneableType (com: IRustCompiler) t =
         match t with
@@ -588,11 +592,23 @@ module TypeInfo =
         let bounds = [mkTypeTraitGenericBound pathNames genArgs]
         mkDynTraitTy bounds
 
+    let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
+        ent.Attributes |> Seq.tryPick (fun att ->
+            if att.Entity.FullName.StartsWith(Atts.emit) then
+                match att.ConstructorArgs with
+                | [:? string as macro] -> Some macro
+                | _ -> None
+            else None)
+
     let transformDeclaredType (com: IRustCompiler) ctx entRef genArgs: Rust.Ty =
-        let ent = com.GetEntity(entRef)
-        if ent.IsInterface then
+        match com.GetEntity(entRef) with
+        | HasEmitAttribute tmpl ->
+            let genArgs = genArgs |> List.map (transformType com ctx)
+            mkExtMacroTy tmpl genArgs
+        | ent when ent.IsInterface = true ->
             transformInterfaceType com ctx entRef genArgs
-        else
+
+        | ent ->
             let genArgs = transformGenArgs com ctx genArgs
             makeFullNamePathTy ent.FullName genArgs
 

@@ -9,7 +9,7 @@ module Subs =
     [<Emit("$0 * $1")>]
     let mul a b = jsNative
 
-    [<Emit("{ let mut v = std::vec::Vec::new(); v.append(&mut vec![$0,$1]); MutCell::from(v) }")>]
+    [<Emit("{ let mut v = std::vec::Vec::new(); v.append(&mut vec![$0,$1]); Rc::from(MutCell::from(v)) }")>]
     let fixedVec a b = jsNative
 
     //doesn't currently work, but would be preferred
@@ -19,16 +19,24 @@ module Subs =
     //     member x.Push a = jsNative
 
     module Vec =
-        [<Erase>]
-        type VecT =
+        [<Emit("Rc<MutCell<Vec<$0>>>")>]
+        type VecT<'a> =
             [<Emit("$0.get_mut().push($1)")>]
             abstract Push: 'a -> unit
-        [<Emit("MutCell::from(std::vec::Vec::new())")>]
-        let create (): VecT = jsNative
+        [<Emit("Rc::from(MutCell::from(std::vec::Vec::new()))")>]
+        let create (): VecT<'a> = jsNative
         [<Emit("$1.get_mut().push($0)")>]
-        let push item (vec: VecT) = jsNative
+        let push (item: 'a) (vec: VecT<'a>) = jsNative
         [<Emit("{ $1.get_mut().append(&mut vec![$0]); $1 }")>]
-        let append item (vec: VecT): VecT = jsNative
+        let append (item: 'a) (vec: VecT<'a>): VecT<'a> = jsNative
+
+        [<Emit("$0.len()")>]
+        let len (vec: VecT<'a>): nativeint = jsNative
+
+        module FnExps =
+            let push42 (v: VecT<_>) = 
+                v.Push 42
+                v
 
     module Float =
         [<Emit("$0.sin()")>]
@@ -82,4 +90,14 @@ let ``vec instance mutable push should work`` () =
     b.Push 2
     a |> equal b
 
+[<Fact>]
+let ``vec instance type emit should work`` () =
+    let a = Subs.Vec.create()
+    a.Push 42
+
+[<Fact>]
+let ``vec instance pass over boundary should work`` () =
+    let a = Subs.Vec.create()
+    let res = Subs.Vec.FnExps.push42 a
+    res |> Subs.Vec.len |> int |> equal 1
 #endif

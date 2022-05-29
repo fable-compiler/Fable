@@ -964,7 +964,7 @@ type ExprKind =
     /// Placeholder for an expression that wasn't syntactically well formed in some way.
     | Err
 
-    /// Escape hatch to allow adding custom macros - This is not in the core rust AST - Use with caution!!!
+    /// Escape hatch to allow adding custom macros - This is |not in the core rust AST - Use with caution!!!
     | EmitExpression of value: string * args: Vec<Expr>
 
 /// The explicit `Self` type in a "qualified path". The actual
@@ -1232,6 +1232,9 @@ type TyKind =
     | Err
     /// Placeholder for a `va_list`.
     | CVarArgs
+    /// Escape hatch to allow adding custom macros - This is not in the core rust AST - Use with caution!!!
+    | EmitTypeExpression of value: string * args: Vec<Ty>
+
 
 /// Syntax used to declare a trait object.
 [<RequireQualifiedAccess>]
