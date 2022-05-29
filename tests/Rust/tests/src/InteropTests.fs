@@ -19,7 +19,7 @@ module Subs =
     //     member x.Push a = jsNative
 
     module Vec =
-        [<Emit("MutCell<Vec<$0>>")>]
+        [<Emit("Rc<MutCell<Vec<$0>>>")>]
         type VecT<'a> =
             [<Emit("$0.get_mut().push($1)")>]
             abstract Push: 'a -> unit

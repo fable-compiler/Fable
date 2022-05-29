@@ -378,9 +378,13 @@ module TypeInfo =
             -> true
 
         // conditionally Rc-wrapped
-        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _)
-        | Fable.DeclaredType _ ->
+        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
             not (isCopyableType com Set.empty t)
+        | Fable.DeclaredType (entRef, _) ->
+            match com.GetEntity(entRef) with
+            | HasEmitAttribute _ -> false // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | _ ->
+                not (isCopyableType com Set.empty t)
 
     let isCloneableType (com: IRustCompiler) t =
         match t with
