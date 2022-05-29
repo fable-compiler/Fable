@@ -64,10 +64,9 @@ let tests() =
             obj.ReferenceEquals("bar" + aLiteral, "barfoo") |> equal true
             obj.ReferenceEquals("bar" + notALiteral, "barfoo") |> equal false
 
-      // FIXME
-      // testCase "String chunkBySize works" <| fun () -> // See #1296
-      //       "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
-      //       |> equal ["fff"; "ff"]
+      testCase "String chunkBySize works" <| fun () -> // See #1296
+            "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
+            |> equal ["fff"; "ff"]
 
     // TODO: StringBuilder
 //      testCase "StringBuilder works" <| fun () ->
@@ -619,12 +618,12 @@ let tests() =
             |> equal [|"a";"b"|]
             "a\u2003b".Split() // em space
             |> equal [|"a";"b"|]
-            "a b c  d".Split(null)
-            |> equal [|"a";"b";"c";"";"d"|]
-            "a\tb".Split(null)
-            |> equal [|"a";"b"|]
-            "a\u2003b".Split(null) // em space
-            |> equal [|"a";"b"|]
+            // "a b c  d".Split(null)
+            // |> equal [|"a";"b";"c";"";"d"|]
+            // "a\tb".Split(null)
+            // |> equal [|"a";"b"|]
+            // "a\u2003b".Split(null) // em space
+            // |> equal [|"a";"b"|]
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true

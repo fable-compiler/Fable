@@ -384,7 +384,13 @@ module AST =
         | MaybeCasted(Value(NumberConstant(value, kind, _), _)) -> Some(value, kind)
         | _ -> None
 
+    let (|NullConst|_|) = function
+        | MaybeCasted(Value(Null _, _)) -> Some()
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
+    // This is mainly used for inlining so a computation is understood as a side effect too
+    // (because we don't want to duplicate or change the order of execution)
     let rec canHaveSideEffects = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false

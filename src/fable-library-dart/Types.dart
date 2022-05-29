@@ -204,7 +204,7 @@ class Tuple1<T1> implements Comparable<Tuple1<T1>> {
   bool operator ==(Object other) =>
       other is Tuple1<T1> &&
           other.runtimeType == runtimeType &&
-          other.item1 == item1;
+          util.equalsDynamic(other.item1, item1);
 
   @override
   int get hashCode => item1.hashCode;
@@ -226,8 +226,8 @@ class Tuple2<T1, T2> implements Comparable<Tuple2<T1, T2>> {
   bool operator ==(Object other) =>
       other is Tuple2<T1, T2> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2);
 
   @override
   int get hashCode => util.combineHashCodes([item1.hashCode, item2.hashCode]);
@@ -256,9 +256,9 @@ class Tuple3<T1, T2, T3> implements Comparable<Tuple3<T1, T2, T3>> {
   bool operator ==(Object other) =>
       other is Tuple3<T1, T2, T3> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2 &&
-      other.item3 == item3;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2) &&
+      util.equalsDynamic(other.item3, item3);
 
   @override
   int get hashCode =>
@@ -291,10 +291,10 @@ class Tuple4<T1, T2, T3, T4> implements Comparable<Tuple4<T1, T2, T3, T4>> {
   bool operator ==(Object other) =>
       other is Tuple4<T1, T2, T3, T4> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2 &&
-      other.item3 == item3 &&
-      other.item4 == item4;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2) &&
+      util.equalsDynamic(other.item3, item3) &&
+      util.equalsDynamic(other.item4, item4);
 
   @override
   int get hashCode => util.combineHashCodes(
@@ -332,11 +332,11 @@ class Tuple5<T1, T2, T3, T4, T5>
   bool operator ==(Object other) =>
       other is Tuple5<T1, T2, T3, T4, T5> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2 &&
-      other.item3 == item3 &&
-      other.item4 == item4 &&
-      other.item5 == item5;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2) &&
+      util.equalsDynamic(other.item3, item3) &&
+      util.equalsDynamic(other.item4, item4) &&
+      util.equalsDynamic(other.item5, item5);
 
   @override
   int get hashCode => util.combineHashCodes([
@@ -383,12 +383,12 @@ class Tuple6<T1, T2, T3, T4, T5, T6>
   bool operator ==(Object other) =>
       other is Tuple6<T1, T2, T3, T4, T5, T6> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2 &&
-      other.item3 == item3 &&
-      other.item4 == item4 &&
-      other.item5 == item5 &&
-      other.item6 == item6;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2) &&
+      util.equalsDynamic(other.item3, item3) &&
+      util.equalsDynamic(other.item4, item4) &&
+      util.equalsDynamic(other.item5, item5) &&
+      util.equalsDynamic(other.item6, item6);
 
   @override
   int get hashCode => util.combineHashCodes([
@@ -439,13 +439,13 @@ class Tuple7<T1, T2, T3, T4, T5, T6, T7>
   bool operator ==(Object other) =>
       other is Tuple7<T1, T2, T3, T4, T5, T6, T7> &&
       other.runtimeType == runtimeType &&
-      other.item1 == item1 &&
-      other.item2 == item2 &&
-      other.item3 == item3 &&
-      other.item4 == item4 &&
-      other.item5 == item5 &&
-      other.item6 == item6 &&
-      other.item7 == item7;
+      util.equalsDynamic(other.item1, item1) &&
+      util.equalsDynamic(other.item2, item2) &&
+      util.equalsDynamic(other.item3, item3) &&
+      util.equalsDynamic(other.item4, item4) &&
+      util.equalsDynamic(other.item5, item5) &&
+      util.equalsDynamic(other.item6, item6) &&
+      util.equalsDynamic(other.item7, item7);
 
   @override
   int get hashCode => util.combineHashCodes([

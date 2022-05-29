@@ -1,5 +1,28 @@
 ﻿module OptionModule
 
+type WrapOption<'T> =
+    | WrapSome of value: 'T
+    | WrapNone
+
+type 'T woption = WrapOption<'T>
+
+module WrapOption =
+    let toOption = function
+        | WrapSome x -> Some x
+        | WrapNone -> None
+
+    let ofOption = function
+        | Some x -> WrapSome x
+        | None -> WrapNone
+
+    let isSome = function
+        | WrapSome _ -> true
+        | WrapNone -> false
+
+    let isNone = function
+        | WrapSome _ -> false
+        | WrapNone -> true
+
 let defaultWith (fn: unit -> 'T) (opt: 'T option): 'T =
     match opt with
     | None -> fn()
@@ -79,4 +102,3 @@ let bind (fn: 'T -> 'U option) (opt: 'T option): 'U option =
     match opt with
     | None -> None
     | Some opt -> fn opt
-

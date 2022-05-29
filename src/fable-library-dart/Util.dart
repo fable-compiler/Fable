@@ -4,12 +4,12 @@
 int combineHashCodes(Iterable<int> hashes) =>
     hashes.isEmpty ? 0 : hashes.reduce((h1, h2) => ((h1 << 5) + h1) ^ h2);
 
-bool equalList<T>(List<T> xs, List<T> ys, [bool Function(T x, T y)? eq]) {
+bool equalsList<T>(List<T> xs, List<T> ys, [bool Function(T x, T y)? eq]) {
   if (xs.length != ys.length) {
     return false;
   } else {
     if (xs != ys) {
-      eq ??= (x, y) => x == y;
+      eq ??= (x, y) => equalsDynamic(x, y);
       for (var i = 0; i < xs.length; i++) {
         if (!eq(xs[i], ys[i])) {
           return false;
@@ -20,12 +20,21 @@ bool equalList<T>(List<T> xs, List<T> ys, [bool Function(T x, T y)? eq]) {
   }
 }
 
-int compareList<T>(List<T> xs, List<T> ys) {
+bool equalsDynamic(dynamic x, dynamic y) {
+  if (x is List) {
+    return equalsList(x, y);
+  } else {
+    return x == y;
+  }
+}
+
+int compareList<T>(List<T> xs, List<T> ys, [int Function(T x, T y)? cmp]) {
   if (xs.length != ys.length) {
     return xs.length < ys.length ? -1 : 1;
   }
+  cmp ??= (x, y) => compareDynamic(x, y);
   for (var i = 0; i < xs.length; i++) {
-    final res = compareDynamic(xs[i], ys[i]);
+    final res = cmp(xs[i], ys[i]);
     if (res != 0) {
       return res;
     }
@@ -37,6 +46,14 @@ int compareBool(bool a, bool b) {
   return a ? (b ? 0 : 1) : -1;
 }
 
+int compareNullable<T>(T? x, T? y, int Function(T, T) comparer) {
+  if (x == null) {
+    return y == null ? 0 : -1;
+  } else {
+    return y == null ? 1 : comparer(x, y);
+  }
+}
+
 int compareDynamic(dynamic a, dynamic b) {
   if (a is Comparable) {
     return a.compareTo(b);
@@ -45,15 +62,8 @@ int compareDynamic(dynamic a, dynamic b) {
   } else if (a is bool) {
     return compareBool(a, b);
   }
+  // Use compareNullable here?
   return a == b ? 0 : -1;
-}
-
-int compareNullable<T>(int Function(T, T) comparer, T? x, T? y) {
-  if (x == null) {
-    return y == null ? 0 : -1;
-  } else {
-    return y == null ? 1 : comparer(x, y);
-  }
 }
 
 T min<T>(int Function(T, T) comparer, T x, T y) {

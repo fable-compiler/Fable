@@ -356,6 +356,27 @@ module private Transforms =
             else e
         | e -> e
 
+    let operationReduction (_com: Compiler) e =
+        match e with
+        // TODO: Other binary operations and numeric types
+        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _) ->
+            match v1, v2 with
+            | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
+                Value(StringConstant(v1 + v2), addRanges [r1; r2])
+            // Assume NumberKind and NumberInfo are the same
+            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1), Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
+                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
+            | _ -> e
+
+        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), _, _) -> if b then v2 else v1
+        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), _, _) -> if b then v2 else v1
+
+        | IfThenElse(Value(BoolConstant b, _), thenExpr, elseExpr, _) -> if b then thenExpr else elseExpr
+
+        | _ -> e
+
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
             | IdentExpr id as e ->
@@ -580,13 +601,13 @@ module private Transforms =
 open Transforms
 
 // ATTENTION: Order of transforms matters
-// TODO: Optimize binary operations with numerical or string literals
 let getTransformations (_com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
       // Make an extra binding reduction pass after applying lambdas
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
+      fun com e -> visitFromInsideOut (operationReduction com) e
       // Then apply uncurry optimizations
       // Functions passed as arguments in calls (but NOT in curried applications) are being uncurried so we have to re-curry them
       // The next steps will uncurry them again if they're immediately applied or passed again as call arguments

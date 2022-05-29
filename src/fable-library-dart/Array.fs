@@ -22,16 +22,16 @@ type Native =
 
     [<Emit("List.generate($0, $1)")>]
     static member generateResize (len: int) (f: int -> 'T): ResizeArray<'T> = jsNative
-    
+
     [<Emit("$1.where($0).toList(growable: false)")>]
     static member where (f: 'T -> bool) (xs: 'T[]): 'T[] = jsNative
 
     [<Emit("$1.every($0)")>]
     static member every (f: 'T -> bool) (xs: 'T[]): bool = jsNative
-    
+
     [<Emit("$1.reduce($0)")>]
     static member reduce (combine: 'T->'T->'T) (xs: 'T[]): 'T = jsNative
-    
+
     [<Emit("List.filled($0, $1, growable: false)")>]
     static member filled (len: int) (x: 'T): 'T[] = jsNative
 
@@ -79,7 +79,7 @@ type Native =
 
     [<Emit("$0.sort($1...)")>]
     static member sort (xs: 'T[], ?compare: 'T->'T->int): unit = nativeOnly
-    
+
     [<Emit("$0.contains($1)")>]
     static member contains (xs: 'T[]) (value: obj): bool = nativeOnly
 
@@ -113,7 +113,7 @@ let reverseInPlace (xs: 'T[]): unit =
 //        let j = len - i - 1
 //        let tmp = xs[i]
 //        xs[i] <- xs[j]
-//        xs[j] <- tmp        
+//        xs[j] <- tmp
     let mutable left = 0
     let mutable right = 0
     let length = xs.Length
@@ -244,7 +244,7 @@ let pairwise (array: 'T[]): ('T * 'T)[] =
     if array.Length < 2 then [||]
     else
         let count = array.Length - 1
-        Native.generate (count - 1) (fun i -> array[i], array[i+1])
+        Native.generate count (fun i -> array[i], array[i+1])
 
 let contains<'T when 'T : equality> (value: 'T) (array: 'T[]): bool =
     let rec loop i =
@@ -355,7 +355,7 @@ let partition (f: 'T -> bool) (source: 'T[]) =
             res1.Add(x)
         else
             res2.Add(x)
-    Native.asFixed res1, Native.asFixed res2            
+    Native.asFixed res1, Native.asFixed res2
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
     Native.firstWhere(array, predicate)
@@ -437,7 +437,7 @@ let choose (chooser: 'T->'U option) (array: 'T[]): 'U[] =
     Native.asFixed res
 
 let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
-    let mutable state = state    
+    let mutable state = state
     for x in array do
         state <- folder state x
     state
@@ -450,12 +450,12 @@ let iterateIndexed (action: int -> 'T -> unit) (array: 'T[]): unit =
     for i = 0 to array.Length - 1 do
         action i array[i]
 
-let iterate2 (action: 'T -> 'T -> unit) (array1: 'T[]) (array2: 'T[]): unit =
+let iterate2 (action: 'T1 -> 'T2 -> unit) (array1: 'T1[]) (array2: 'T2[]): unit =
     if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action array1[i] array2[i]
 
-let iterateIndexed2 (action: int -> 'T -> 'T -> unit) (array1: 'T[]) (array2: 'T[]): unit =
+let iterateIndexed2 (action: int -> 'T1 -> 'T2 -> unit) (array1: 'T1[]) (array2: 'T2[]): unit =
     if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action i array1[i] array2[i]
@@ -516,8 +516,8 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
     let len1 = xs.Length
     let len2 = ys.Length
     Native.generate (len1 * len2) (fun i ->
-        let x = xs[len1 / i]
-        let y = ys[len2 % i]
+        let x = xs[i / len2]
+        let y = ys[i % len2]
         (x, y))
 
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
@@ -554,7 +554,7 @@ let zip (array1: 'T[]) (array2: 'U[]): ('T * 'U)[] =
     if array1.Length <> array2.Length then differentLengths()
     Native.generate array1.Length (fun i -> array1[i], array2[i])
 
-let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]): ('T * 'U * 'U)[] =
+let zip3 (array1: 'T1[]) (array2: 'T2[]) (array3: 'T3[]): ('T1 * 'T2 * 'T3)[] =
     // Shorthand version: map3 (fun x y z -> x, y, z) array1 array2 array3
     if array1.Length <> array2.Length || array2.Length <> array3.Length then differentLengths()
     Native.generate array1.Length (fun i -> array1[i], array2[i], array3[i])
@@ -563,11 +563,13 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
     if chunkSize < 1 then invalidArg "size" "The input must be positive."
     if Array.isEmpty array then [| [||] |]
     else
+        let len = array.Length
         let result = ResizeArray()
         // add each chunk to the result
-        for x = 0 to int(System.Math.Ceiling(float(array.Length) / float(chunkSize))) - 1 do
+        for x = 0 to int(System.Math.Ceiling(float len / float chunkSize)) - 1 do
             let start = x * chunkSize
-            let slice = Native.sublist(array, start, chunkSize)
+            let end_ = min len (start + chunkSize)
+            let slice = Native.sublist(array, start, end_)
             result.Add(slice)
         Native.asFixed result
 
@@ -750,14 +752,16 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
     if Array.isEmpty array then
         [| [||] |]
     else
+        let len = array.Length
         let result = ResizeArray()
-        let chunks = Operators.min chunks array.Length
-        let minChunkSize = array.Length / chunks
-        let chunksWithExtraItem = array.Length % chunks
+        let chunks = Operators.min chunks len
+        let minChunkSize = len / chunks
+        let chunksWithExtraItem = len % chunks
         for i = 0 to chunks - 1 do
             let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
             let start = i * minChunkSize + (Operators.min chunksWithExtraItem i)
-            let slice = Native.sublist(array, start, chunkSize)
+            let end_ = Operators.min len (start + chunkSize)
+            let slice = Native.sublist(array, start, end_)
             result.Add(slice)
         Native.asFixed result
 
@@ -794,13 +798,13 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
     let ys =
         match ys with
         | :? ('T[]) as ys -> ys // avoid extra copy
-        | _ -> Array.ofSeq ys    
+        | _ -> Array.ofSeq ys
     let len2 = ys.Length
     let index2 = index + len2
     Native.generate (len + len2) (fun i ->
         if i < index then xs[i]
         elif i < index2 then ys[i - index]
-        else xs[i - index2])
+        else xs[i - len2])
 
 let removeAt (index: int) (xs: 'T[]): 'T[] =
     if index < 0 || index >= xs.Length then

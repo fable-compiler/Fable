@@ -230,7 +230,7 @@ module PrinterExtensions =
                 printer.Print("?")
             | Generic name ->
                 printer.Print(name)
-            | TypeReference(ref, gen) ->
+            | TypeReference(ref, gen, _info) ->
                 printer.PrintIdent(ref)
                 printer.PrintList("<", ", ", ">", gen, printer.PrintType, skipIfEmpty=true)
             | Function(argTypes, returnType) ->
@@ -361,7 +361,7 @@ module PrinterExtensions =
             | Some p -> printer.Print(p + ".")
             printer.Print(ident.Name)
 
-        member printer.PrintIfStatment(test: Expression, consequent, alternate) =
+        member printer.PrintIfStatement(test: Expression, consequent, alternate) =
             printer.Print("if (")
             printer.Print(test)
             printer.Print(") ")
@@ -372,7 +372,7 @@ module PrinterExtensions =
                 match alternate with
                 | [IfStatement(test, consequent, alternate)] ->
                     printer.Print(" else ")
-                    printer.PrintIfStatment(test, consequent, alternate)
+                    printer.PrintIfStatement(test, consequent, alternate)
                 | alternate ->
                     // Get productive statements and skip `else` if they're empty
                     alternate
@@ -393,7 +393,7 @@ module PrinterExtensions =
                 printer.Print(statement)
 
             | IfStatement(test, consequent, alternate) ->
-                printer.PrintIfStatment(test, consequent, alternate)
+                printer.PrintIfStatement(test, consequent, alternate)
 
             | ForStatement(init, test, update, body) ->
                 printer.Print("for (")
@@ -626,7 +626,10 @@ module PrinterExtensions =
                     printer.PrintWithParensIfNotIdent(expr)
                 match op with
                 | UnaryMinus -> printUnaryOp "-" expr
-                | UnaryNot -> printUnaryOp "!" expr
+                | UnaryNot ->
+                    match expr with
+                    | UnaryExpression(UnaryNot, expr) -> printer.Print(expr)
+                    | _ -> printUnaryOp "!" expr
                 | UnaryNotBitwise -> printUnaryOp "~" expr
                 // TODO: I think Dart doesn't accept + prefix, check
                 | UnaryPlus
@@ -850,9 +853,12 @@ module PrinterExtensions =
 
             | Some value ->
                 let printType =
-                    // Nullable types usually need to be typed explicitly
+                    // Nullable types and unions usually need to be typed explicitly
+                    // Print type also if ident and expression types are different?
+                    // (this usually happens when removing unnecessary casts)
                     match ident.Type with
                     | Nullable _ -> true
+                    | TypeReference(_, _, info) -> info.IsUnion
                     | _ -> false
 
                 match kind, printType with

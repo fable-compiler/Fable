@@ -19,24 +19,63 @@ type AssignmentOperator =
     | AssignXorBitwise
     | AssignAndBitwise
 
+type TypeInfo =
+    {
+        IsRecord: bool
+        IsUnion: bool
+    }
+
 type Type =
     // Built in
+    | Object
+    | Dynamic
+
+    | Void
+    | MetaType
+
     | Integer
     | Double
     | Boolean
     | String
 
-    | Object
-    | Dynamic
-    | Void
-    | MetaType
-
     | List of Type
     | Nullable of Type
 
     | Generic of name: string
-    | TypeReference of Ident * generics: Type list
+    | TypeReference of Ident * generics: Type list * info: TypeInfo
     | Function of argTypes: Type list * returnType: Type
+
+    static member reference(ident, ?generics, ?isRecord, ?isUnion) =
+        let info: TypeInfo = { IsRecord = defaultArg isRecord false; IsUnion = defaultArg isUnion false }
+        TypeReference(ident, defaultArg generics [], info)
+
+    static member needsCast (source: Type) (target: Type) =
+        match source, target with
+        | _, Object
+        | _, Dynamic -> false
+        | Void, Void
+        | MetaType, MetaType
+        | Integer, Integer
+        | Double, Double
+        | Boolean, Boolean
+        | String, String -> false
+
+        | List source, List target -> Type.needsCast source target
+        | Nullable source, Nullable target -> Type.needsCast source target
+        | source, Nullable target -> Type.needsCast source target
+        | Generic source, Generic target -> source <> target
+
+        // We should be able to detect class hierarchy here too
+        | TypeReference(sourceIdent, sourceGen, _),
+          TypeReference(targetIdent, targetGen, _) ->
+              not(
+                  sourceIdent.Name = targetIdent.Name
+                  && sourceIdent.ImportModule = targetIdent.ImportModule
+                  && sourceGen.Length = targetGen.Length
+                  && not(List.zip sourceGen targetGen |> List.exists (fun (s, t) -> Type.needsCast s t))
+              )
+
+        | _ -> true
 
 type Ident =
     { ImportModule: string option
@@ -206,7 +245,7 @@ type Statement =
     static member whileStatement(test, body) =
         WhileStatement(test, body)
     static member breakStatement(?label) =
-        BreakStatement(label)        
+        BreakStatement(label)
     static member continueStatement(?label) =
         ContinueStatement(label)
     static member tryStatement(body, ?handlers, ?finalizer) =
@@ -215,8 +254,9 @@ type Statement =
         addToScope ident.Name
         LocalVariableDeclaration(ident, kind, value)
     /// Variables that won't be added to scope
-    static member tempVariableDeclaration(ident: Ident, ?value) =
-        LocalVariableDeclaration(ident, Final, value)
+    static member tempVariableDeclaration(ident: Ident, ?isMutable, ?value) =
+        let isMutable = defaultArg isMutable false
+        LocalVariableDeclaration(ident, (if isMutable then Var else Final), value)
     static member functionDeclaration(name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list) =
         LocalFunctionDeclaration {
             Name = name

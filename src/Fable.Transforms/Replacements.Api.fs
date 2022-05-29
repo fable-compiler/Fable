@@ -73,7 +73,7 @@ let defaultof (com: ICompiler) ctx typ =
     match com.Options.Language with
     | Rust -> Rust.Replacements.getZero com ctx typ
     | Python -> PY.Replacements.defaultof com ctx typ
-    | Dart -> Dart.Replacements.defaultof com ctx typ
+    | Dart -> Dart.Replacements.getZero com ctx typ
     | _ -> JS.Replacements.defaultof com ctx typ
 
 /// Needed for mutable public values because of how imports/exports work in JS.
