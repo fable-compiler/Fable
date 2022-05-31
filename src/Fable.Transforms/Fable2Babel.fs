@@ -406,7 +406,7 @@ module Annotation =
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
-        | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
+        | Fable.LambdaType _ -> FableTransforms.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
@@ -795,13 +795,6 @@ module Util =
         types
         |> List.collect getGenParams
         |> Set.ofList
-
-    let uncurryLambdaType t =
-        let rec uncurryLambdaArgs acc = function
-            | Fable.LambdaType(paramType, returnType) ->
-                uncurryLambdaArgs (paramType::acc) returnType
-            | t -> List.rev acc, t
-        uncurryLambdaArgs [] t
 
     type MemberKind =
         | ClassConstructor

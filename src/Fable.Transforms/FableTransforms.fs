@@ -275,6 +275,18 @@ let tryUncurryType (typ: Type) =
     | arity, uncurriedType when arity > 1 -> Some(arity, uncurriedType)
     | _ -> None
 
+let uncurryType (typ: Type) =
+    match tryUncurryType typ with
+    | Some(_arity, uncurriedType) -> uncurriedType
+    | None -> typ
+
+let uncurryLambdaType (typ: Type) =
+    let rec uncurryLambdaArgs acc = function
+        | LambdaType(paramType, returnType) ->
+            uncurryLambdaArgs (paramType::acc) returnType
+        | t -> List.rev acc, t
+    uncurryLambdaArgs [] typ
+
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
         | Lambda(arg, body, info) -> Some([arg], body, info)
