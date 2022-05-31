@@ -1,22 +1,23 @@
 module Fable.Tests.InteropTests
 
 #if FABLE_COMPILER
+open Fable.Core
+
 module Subs =
-    open Fable.Core
     [<Emit("$0 + $1")>]
-    let add (a, b) = jsNative
+    let add (a, b) = nativeOnly
 
     [<Emit("$0 * $1")>]
-    let mul a b = jsNative
+    let mul a b = nativeOnly
 
     [<Emit("{ let mut v = std::vec::Vec::new(); v.append(&mut vec![$0,$1]); Rc::from(MutCell::from(v)) }")>]
-    let fixedVec a b = jsNative
+    let fixedVec a b = nativeOnly
 
     //doesn't currently work, but would be preferred
     // [<Erase, Emit("std::vec::Vec::new()")>]
     // type Vec() =
     //     [<Emit("$0.push($1)")>]
-    //     member x.Push a = jsNative
+    //     member x.Push a = nativeOnly
 
     module Vec =
         [<Emit("Rc<MutCell<Vec<$0>>>")>]
@@ -24,23 +25,45 @@ module Subs =
             [<Emit("$0.get_mut().push($1)")>]
             abstract Push: 'a -> unit
         [<Emit("Rc::from(MutCell::from(std::vec::Vec::new()))")>]
-        let create (): VecT<'a> = jsNative
+        let create (): VecT<'a> = nativeOnly
         [<Emit("$1.get_mut().push($0)")>]
-        let push (item: 'a) (vec: VecT<'a>) = jsNative
+        let push (item: 'a) (vec: VecT<'a>) = nativeOnly
         [<Emit("{ $1.get_mut().append(&mut vec![$0]); $1 }")>]
-        let append (item: 'a) (vec: VecT<'a>): VecT<'a> = jsNative
+        let append (item: 'a) (vec: VecT<'a>): VecT<'a> = nativeOnly
 
         [<Emit("$0.len()")>]
-        let len (vec: VecT<'a>): nativeint = jsNative
+        let len (vec: VecT<'a>): nativeint = nativeOnly
 
         module FnExps =
-            let push42 (v: VecT<_>) = 
+            let push42 (v: VecT<_>) =
                 v.Push 42
                 v
 
     module Float =
         [<Emit("$0.sin()")>]
-        let sin (x: float): float = jsNative
+        let sin (x: float): float = nativeOnly
+
+module Performance =
+    [<Erase; Emit("std::time::Duration")>]
+    type Duration =
+        abstract as_millis: unit -> uint64 // actually u128
+        abstract as_secs_f64: unit -> float
+
+    [<Erase; Emit("std::time::Instant")>]
+    type Instant =
+        abstract duration_since: Instant -> Duration
+        abstract elapsed: unit -> Duration
+
+    [<Emit("std::time::Instant::now()")>]
+    let now(): Instant = nativeOnly
+
+let measureTime (f: unit -> 'T): 'T * float =
+    let t0 = Performance.now()
+    let res = f ()
+    let t1 = Performance.now()
+    let duration = t1.duration_since(t0)
+    let elapsed = duration.as_secs_f64()
+    res, elapsed
 
 open Util.Testing
 
@@ -100,4 +123,11 @@ let ``vec instance pass over boundary should work`` () =
     let a = Subs.Vec.create()
     let res = Subs.Vec.FnExps.push42 a
     res |> Subs.Vec.len |> int |> equal 1
+
+[<Fact>]
+let ``Bindings with Emit on interfaces works`` () =
+    let res, elapsed = measureTime (fun () -> 2 + 2)
+    res |> equal 4
+    elapsed > 0 |> equal true
+
 #endif
