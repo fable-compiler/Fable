@@ -605,7 +605,7 @@ module TypeInfo =
         | HasEmitAttribute value ->
             let genArgs = genArgs |> List.map (transformType com ctx)
             mkEmitTy value genArgs
-        | ent when ent.IsInterface = true ->
+        | ent when ent.IsInterface ->
             transformInterfaceType com ctx entRef genArgs
         | ent ->
             let genArgs = transformGenArgs com ctx genArgs
@@ -1731,28 +1731,41 @@ module Util =
                 | LogicalOperator.LogicalAnd -> Rust.BinOpKind.And
             mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
-    let transformEmit (com: IRustCompiler) ctx range (info: Fable.EmitInfo) =
-        // for now only supports macro calls or function calls
-        let macro = info.Macro
-        let info = info.CallInfo
-        let isNative = info.Tag |> Option.exists (fun s -> s.Contains("native"))
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+    let isNativeCall (com: IRustCompiler) (callInfo: Fable.CallInfo) =
+        let isInterfaceWithEmitAttr = function
+            | HasEmitAttribute _ as ent -> ent.IsInterface
+            | _ -> false
+        let isNative1 = callInfo.Tag |> Option.exists (fun s -> s.Contains("native"))
+        let isNative2 = callInfo |> isDeclEntityKindOf com isInterfaceWithEmitAttr
+        isNative1 || isNative2
 
+    let transformMacro (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
+        let info = emitInfo.CallInfo
+        let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
+        let isNative = isNativeCall com info
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+        let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
+        let args =
+            // for certain macros, use unwrapped format string as first argument
+            match macro, info.Args with
+            | ("print"|"println"|"format"), (Fable.Value(Fable.StringConstant formatStr, _)::restArgs) ->
+                (mkStrLitExpr formatStr)::(List.tail args)
+            | _ -> args
+        let expr = mkMacroExpr macro args
+        if macro = "format"
+        then expr |> makeString com ctx
+        else expr
+
+    let transformEmit (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
+        // for now only supports macro calls or function calls
+        let info = emitInfo.CallInfo
+        let macro = emitInfo.Macro
+        // if it ends with '!', it's a Rust macro
         if macro.EndsWith("!") then
-            let macro = macro |> Fable.Naming.replaceSuffix "!" ""
-            let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
-            let args =
-                // for certain macros, use unwrapped format string as first argument
-                match macro, info.Args with
-                | ("print"|"println"|"format"), (Fable.Value(Fable.StringConstant formatStr, _)::restArgs) ->
-                    (mkStrLitExpr formatStr)::(List.tail args)
-                | _ -> args
-            let expr = mkMacroExpr macro args
-            if macro = "format"
-            then expr |> makeString com ctx
-            else expr
-        else
-            let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
+            transformMacro com ctx range emitInfo
+        else // otherwise it's an Emit
+            let isNative = true // by default not using pass-by-ref for emit params
+            let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
             let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
             let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
             let args = args |> List.append thisArg
@@ -1762,18 +1775,21 @@ module Util =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
         transformExprMaybeIdentExpr com ctx calleeExpr
 
-    let isModuleMember (com: IRustCompiler) (callInfo: Fable.CallInfo) =
+    let isDeclEntityKindOf (com: IRustCompiler) isKindOf (callInfo: Fable.CallInfo) =
         match callInfo.CallMemberInfo with
         | Some mi ->
             match mi.DeclaringEntity with
             | Some entRef ->
                 let ent = com.GetEntity(entRef)
-                ent.IsFSharpModule
+                ent |> isKindOf
             | None -> false
         | None -> false
 
+    let isModuleMember (com: IRustCompiler) (callInfo: Fable.CallInfo) =
+        isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
+
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let isNative = callInfo.Tag |> Option.exists (fun s -> s.Contains("native"))
+        let isNative = isNativeCall com callInfo
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
@@ -2875,17 +2891,6 @@ module Util =
             ]
         else closureExpr
         |> makeRcValue
-
-    // // Really crude way to determine if a generic type should be mutable,
-    // // basically just checks if the generic arg is inside a generic array.
-    // // TODO: come up with a proper way of attaching bounds to gen args.
-    // let rec getGenParamNames isMut (typ: Fable.Type) =
-    //     match typ with
-    //     | Fable.GenericParam(name=name) -> [name, isMut]
-    //     | Fable.Array genArg ->
-    //         [genArg] |> List.collect (getGenParamNames true)
-    //     | t ->
-    //         t.Generics |> List.collect (getGenParamNames isMut)
 
     let makeTypeBounds argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
