@@ -503,13 +503,6 @@ module TypeInfo =
         let ty = transformType com ctx typ
         ty |> mkRefTy
 
-    let uncurryLambdaType t =
-        let rec uncurryLambdaArgs acc = function
-            | Fable.LambdaType(paramType, returnType) ->
-                uncurryLambdaArgs (paramType::acc) returnType
-            | returnType -> List.rev acc, returnType
-        uncurryLambdaArgs [] t
-
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
     //         if returnType = Fable.Unit then VOID_RETURN_TY
@@ -642,7 +635,7 @@ module TypeInfo =
 
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     // TODO: use a genMap?
-    let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
+    let transformType (com: IRustCompiler) ctx (typ: Fable.Type): Rust.Ty =
         // let nonGenericTypeInfo fullname =
         //     [| Expression.stringLiteral(fullname) |]
         //     |> libReflectionCall com ctx None "class"
@@ -658,7 +651,7 @@ module TypeInfo =
         //             Expression.arrayExpression(generics)
         //     |]
         let ty =
-            match t with
+            match typ with
             | Fable.Measure _
             | Fable.Any ->
                 if ctx.Typegen.IsParamType
@@ -677,7 +670,7 @@ module TypeInfo =
             | Fable.String  -> primitiveType "str"
             | Fable.Number(kind, _) -> numberType kind
             | Fable.LambdaType(_, returnType) ->
-                let argTypes, returnType = uncurryLambdaType t
+                let argTypes, returnType = FableTransforms.uncurryLambdaType typ
                 transformClosureType com ctx argTypes returnType
                 // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
                 // then transformClosureType com ctx argTypes returnType
@@ -690,10 +683,10 @@ module TypeInfo =
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex ->
                 // nonGenericTypeInfo Types.regex
-                TODO_TYPE $"%A{t}" //TODO:
+                TODO_TYPE $"%A{typ}" //TODO:
             | Fable.MetaType ->
                 // nonGenericTypeInfo Types.type_
-                TODO_TYPE $"%A{t}" //TODO:
+                TODO_TYPE $"%A{typ}" //TODO:
             | Fable.AnonymousRecordType(fieldNames, genArgs) ->
                 transformTupleType com ctx genArgs //TODO: temporary - uses tuples for now!
                 // let genArgs = resolveGenerics (List.toArray genArgs)
@@ -751,7 +744,7 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
-        if shouldBeRefCountWrapped com t && not ctx.Typegen.IsRawType
+        if shouldBeRefCountWrapped com typ && not ctx.Typegen.IsRawType
         then makeRcTy com ctx ty
         else ty
 
@@ -880,10 +873,10 @@ module Util =
 
     let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
         match expr with
-        | Fable.IdentExpr id ->
+        | Fable.IdentExpr id -> //when id.IsThisArgument ->
             // avoids the extra Rc wrapping for self that transformIdentGet does
             transformIdent com ctx None id
-        | _ -> com.TransformAsExpr(ctx,expr)
+        | _ -> com.TransformAsExpr(ctx, expr)
 
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
@@ -1773,7 +1766,10 @@ module Util =
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
-        transformExprMaybeIdentExpr com ctx calleeExpr
+        let expr = transformExprMaybeIdentExpr com ctx calleeExpr
+        match calleeExpr with
+        | Fable.IdentExpr id -> expr
+        | _ -> expr |> mkParenExpr // if not an identifier, wrap it in parentheses
 
     let isDeclEntityKindOf (com: IRustCompiler) isKindOf (callInfo: Fable.CallInfo) =
         match callInfo.CallMemberInfo with
@@ -1798,11 +1794,18 @@ module Util =
             let expr = transformIdent com ctx range id
             mutableGet (mkCallExpr expr [])
 
-        | Fable.Get(callee, Fable.FieldGet info, _t, _r) ->
+        | Fable.Get(calleeExpr, (Fable.FieldGet info as kind), t, _r) ->
             // this is an instance call
-            let namesp, name = splitNameSpace info.Name
-            let callee = com.TransformAsExpr(ctx, callee)
-            mkMethodCallExpr name None callee args
+            match t with
+            | Fable.LambdaType _ | Fable.DelegateType _ ->
+                // if the field itself is a function, wrap in parentheses
+                let callee = transformGet com ctx None t calleeExpr kind
+                mkCallExpr (callee |> mkParenExpr) args
+            | _ ->
+                // normal instance call
+                let namesp, name = splitNameSpace info.Name
+                let callee = com.TransformAsExpr(ctx, calleeExpr)
+                mkMethodCallExpr name None callee args
 
         | Fable.Import(info, t, r) ->
             // imports without args need to have type added to path.
@@ -1842,7 +1845,7 @@ module Util =
             | _ ->
                 match callInfo.ThisArg, calleeExpr with
                 |  Some thisArg, Fable.IdentExpr id ->
-                    let callee = transformExprMaybeIdentExpr com ctx thisArg
+                    let callee = transformCallee com ctx thisArg
                     mkMethodCallExpr id.Name None callee args
                 // | None, Fable.IdentExpr id ->
                 //     let callee = makeFullNamePathExpr id.Name None

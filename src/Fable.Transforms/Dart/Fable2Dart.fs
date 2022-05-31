@@ -478,11 +478,6 @@ module Util =
 //    let getExceptionTypeIdent (com: IDartCompiler) ctx: Ident =
 //        transformIdentWith com ctx false Fable.MetaType "Exception"
 
-    let uncurryType (typ: Fable.Type) =
-        match FableTransforms.tryUncurryType typ with
-        | Some(_arity, uncurryType) -> uncurryType
-        | None -> typ
-
     /// Discards Measure generic arguments
     let transformGenArgs com ctx genArgs =
         genArgs |> List.choose (function
@@ -518,7 +513,7 @@ module Util =
             transformTupleType com ctx genArgs
         | Fable.AnonymousRecordType(_, genArgs) ->
             genArgs
-            |> List.map uncurryType
+            |> List.map FableTransforms.uncurryType
             |> transformTupleType com ctx
         | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([argType], returnType)
@@ -1905,7 +1900,7 @@ module Util =
             let kind =
                 if f.IsMutable then Var
                 else Final
-            let typ = uncurryType f.FieldType
+            let typ = FableTransforms.uncurryType f.FieldType
             let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable typ
             ident, InstanceVariable(ident, kind=kind))
         |> List.unzip
@@ -2100,7 +2095,7 @@ module Util =
                     let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
                     classEnt.FSharpFields |> List.map (fun f ->
                         let fieldName = sanitizeMember f.Name
-                        let t = uncurryType f.FieldType |> transformType com ctx
+                        let t = FableTransforms.uncurryType f.FieldType |> transformType com ctx
                         let ident = makeImmutableIdent t fieldName
                         let kind = if f.IsMutable then Var else Final
                         let isLate =

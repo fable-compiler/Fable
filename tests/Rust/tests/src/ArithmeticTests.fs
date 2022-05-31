@@ -10,17 +10,6 @@ let notALiteral = 5
 let checkTo3dp (expected: float) actual =
     floor (actual * 1000.) |> equal expected
 
-[<Measure>] type m
-[<Measure>] type s
-
-[<Fact>]
-let ``Units of measure work`` () =
-    let a = 4<m>
-    let b = 2<s>
-
-    let c = a / b
-    c |> equal (2<m/s>)
-
 [<Fact>]
 let ``Adding floats works`` () =
     3.141 + 2.85 |> equal 5.991

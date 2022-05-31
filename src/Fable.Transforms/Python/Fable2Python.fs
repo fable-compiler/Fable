@@ -943,7 +943,7 @@ module Annotation =
             | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
             | _ -> numberInfo kind, []
         | Fable.LambdaType (argType, returnType) ->
-            let argTypes, returnType = Util.uncurryLambdaType t
+            let argTypes, returnType = FableTransforms.uncurryLambdaType t
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
@@ -1495,14 +1495,6 @@ module Util =
         |> List.countBy id
         |> List.choose (fun (param, count) -> if count > 1 then Some param else None)
         |> Set.ofList
-
-    let uncurryLambdaType t =
-        let rec uncurryLambdaArgs acc =
-            function
-            | Fable.LambdaType (paramType, returnType) -> uncurryLambdaArgs (paramType :: acc) returnType
-            | t -> List.rev acc, t
-
-        uncurryLambdaArgs [] t
 
     type MemberKind =
         | ClassConstructor
