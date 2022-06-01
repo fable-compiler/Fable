@@ -943,7 +943,7 @@ module Annotation =
             | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
             | _ -> numberInfo kind, []
         | Fable.LambdaType (argType, returnType) ->
-            let argTypes, returnType = FableTransforms.uncurryLambdaType t
+            let argTypes, returnType = FableTransforms.getNestedLambdaArgTypes [argType] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
