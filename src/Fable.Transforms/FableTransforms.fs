@@ -280,12 +280,10 @@ let uncurryType (typ: Type) =
     | Some(_arity, uncurriedType) -> uncurriedType
     | None -> typ
 
-let uncurryLambdaType (typ: Type) =
-    let rec uncurryLambdaArgs acc = function
-        | LambdaType(paramType, returnType) ->
-            uncurryLambdaArgs (paramType::acc) returnType
-        | t -> List.rev acc, t
-    uncurryLambdaArgs [] typ
+let rec getNestedLambdaArgTypes (revArgTypes: Type list) (returnType: Type) =
+    match returnType with
+    | LambdaType(paramType, returnType) -> getNestedLambdaArgTypes (paramType::revArgTypes) returnType
+    | t -> List.rev revArgTypes, t
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
