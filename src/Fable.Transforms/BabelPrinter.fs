@@ -509,11 +509,20 @@ module PrinterExtensions =
                         rep.Add("$" + string j)
                     String.concat ", " rep)
 
-                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                |> replace @"\{\{\s*\$(\d+)\s*\?\s*(.*?)\s*\:\s*(.*?)\s*\}\}" (fun m ->
                     let i = int m.Groups.[1].Value
-                    match args.[i] with
-                    | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
-                    | _ -> m.Groups.[3].Value)
+                    match Array.tryItem i args with
+                    | Some expr ->
+                        match expr with
+                        | Literal(BooleanLiteral(value=false))
+                        // TODO: Replace this with NullOrUndefined active pattern in snake_island
+                        | Literal(NullLiteral _)
+                        | Undefined _ -> m.Groups.[3].Value
+                        | UnaryExpression(argument, operator, _loc)
+                            when operator = "void" && not(printer.HasSideEffects(argument)) -> m.Groups.[3].Value
+                        | _ -> m.Groups.[2].Value
+                    | None -> m.Groups.[3].Value
+                )
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
                     let i = int m.Groups.[2].Value
