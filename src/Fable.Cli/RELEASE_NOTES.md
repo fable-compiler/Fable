@@ -1,3 +1,11 @@
+### NEXT
+
+* Write here changes for next release
+
+### 4.0.0-snake-island-alpha-008
+
+* Rust and Dart fixes
+
 ### 4.0.0-snake-island-alpha-007
 
 * JSX string templates
