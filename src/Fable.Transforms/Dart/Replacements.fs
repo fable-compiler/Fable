@@ -28,12 +28,25 @@ let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
     $"""%s{args} $0(%s{String.concat ", " argIdents})"""
     |> emit None expr.Type [expr] false
 
-let uncurryExprAtRuntime (_com: Compiler) t arity (expr: Expr) =
-    let argIdents = List.init arity (fun i -> $"arg{i}$")
-    let args = argIdents |> String.concat ", "
-    let appliedArgs = argIdents |> String.concat ")("
-    $"""(%s{args}) => $0(%s{appliedArgs})"""
-    |> emit None t [expr] false
+let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+    let uncurry expr =
+        let argIdents = List.init arity (fun i -> $"arg{i}$")
+        let args = argIdents |> String.concat ", "
+        let appliedArgs = argIdents |> String.concat ")("
+        $"""(%s{args}) => $0(%s{appliedArgs})"""
+        |> emit None t [expr] false
+
+    match expr with
+    | Value(NewOption(value, t, isStruct), r) ->
+        match value with
+        | None -> expr
+        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
+    | ExprType(Option(t2,_)) ->
+        let fn =
+            let f = makeTypedIdent t2 "f"
+            Delegate([f], uncurry (IdentExpr f), FuncInfo.Empty)
+        Helper.LibCall(com, "Option", "map", t, [fn; expr])
+    | expr -> uncurry expr
 
 let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
     let argIdents = List.init arity (fun i -> $"arg{i}$")
@@ -419,7 +432,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Array(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareList", returnType, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareList", returnType, [left; right; fn], ?loc=r)
     | Option(t,_) ->
         let fn = makeComparerFunction com ctx t
         Helper.LibCall(com, "Util", "compareNullable", returnType, [left; right; fn], ?loc=r)
@@ -436,8 +449,8 @@ and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
         makeEqOp r comparison (makeIntConst 0) op
 
 and makeComparerFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
     Delegate([x; y], body, FuncInfo.Empty)
 
@@ -445,14 +458,14 @@ and makeComparer (com: ICompiler) ctx typArg =
     Helper.LibCall(com, "Types", "Comparer", Any, [makeComparerFunction com ctx typArg])
 
 and makeEqualityFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
     Delegate([x; y], body, FuncInfo.Empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
     Helper.LibCall(com, "Types", "EqualityComparer", Any, [
         Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
         Delegate([x], structuralHash com None (IdentExpr x), FuncInfo.Empty)
@@ -512,8 +525,8 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeUniqueIdent ctx t "x"
-    let y = makeUniqueIdent ctx t "y"
+    let x = makeTypedIdent t "x"
+    let y = makeTypedIdent t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
     Delegate([x; y], body, FuncInfo.Empty)
 
@@ -525,8 +538,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
-        let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx Int32.Number "i"
+        let x = makeTypedIdent t "x"
+        let i = makeTypedIdent Int32.Number "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
         Delegate([x; i], body, FuncInfo.Empty)
     Helper.LibCall(com, "Types", "GenericAverager", Any, [

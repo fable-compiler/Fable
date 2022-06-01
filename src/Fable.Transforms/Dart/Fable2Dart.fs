@@ -797,16 +797,9 @@ module Util =
                 let isConst =
                     areConstTypes genArgs
                     && List.forall (snd >> isConstExpr ctx) args
-                    && (
-                        match callInfo.CallMemberInfo with
-                        | Some memberInfo when callInfo.IsConstructor ->
-                            memberInfo.DeclaringEntity
-                            |> Option.map (fun e -> com.GetEntity(e).Attributes |> hasConstAttribute)
-                            |> Option.defaultValue false
-                        | Some memberInfo ->
-                            memberInfo.Attributes |> hasConstAttribute
-                        | None -> false
-                    )
+                    && (match callInfo.CallMemberInfo with
+                        | Some memberInfo -> memberInfo.Attributes |> hasConstAttribute
+                        | None -> false)
                 let args =
                     if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg)
                     else args
@@ -2108,7 +2101,7 @@ module Util =
                     args = consArgs,
                     body = consBody,
                     superArgs = (extractBaseArgs com ctx classDecl),
-                    isConst = hasConstAttribute classEnt.Attributes
+                    isConst = hasConstAttribute cons.Info.Attributes
                 )
 
                 // let classIdent = makeImmutableIdent MetaType classDecl.Name
@@ -2200,7 +2193,7 @@ module Util =
 
     let getIdentNameForImport (ctx: Context) (path: string) =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
-        |> fun name -> Naming.applyCaseRule Core.CaseRules.SnakeCase name + "_mod"
+        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> getUniqueNameInRootScope ctx
 
 module Compiler =
