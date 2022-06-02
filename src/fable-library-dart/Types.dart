@@ -9,6 +9,29 @@ class Unit {
 
 const unit = Unit._();
 
+class Some<T> implements Comparable<Some<T>> {
+  T value;
+  Some(this.value);
+
+  // Don't add "Some" for consistency with erased options
+  @override
+  String toString() => '$value';
+
+  @override
+  bool operator ==(Object other) =>
+      other is Some<T> &&
+      other.runtimeType == runtimeType &&
+      util.equalsDynamic(other.value, value);
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  int compareTo(Some<T> other) => util.compareDynamic(other.value, value);
+}
+
+T value<T>(T? option) => option is Some<T> ? option.value : option!;
+
 Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {
   return Map.fromEntries(tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
 }

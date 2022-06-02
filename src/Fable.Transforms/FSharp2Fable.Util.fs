@@ -88,7 +88,8 @@ type FsAtt(att: FSharpAttribute) =
 type FsGenParam =
     static member Constraint(c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
-            TypeHelpers.makeType Map.empty c.CoercesToTarget
+            // It seems sometimes there are circular references so skip the constraints here
+            TypeHelpers.makeTypeWithConstraints false Map.empty c.CoercesToTarget
             |> Fable.Constraint.CoercesTo |> Some
         elif c.IsMemberConstraint then
             let d = c.MemberConstraintData // TODO: Full member signature hash?
@@ -914,24 +915,29 @@ module TypeHelpers =
         | Dart -> "$" + name
         | _ -> name
 
-    let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
+    let resolveGenParam withConstraints ctxTypeArgs (genParam: FSharpGenericParameter) =
         let name = genParamName genParam
         match Map.tryFind name ctxTypeArgs with
         | None ->
-            let constraints = FsGenParam.Constraints genParam |> Seq.toList
+            let constraints =
+                if withConstraints then FsGenParam.Constraints genParam |> Seq.toList
+                else []
             Fable.GenericParam(name, genParam.IsMeasure, constraints)
         | Some typ -> typ
 
-    // TODO: We need to filter the measure generic arguments
-    // But for that we need to pass the compiler here, which needs a bigger refactoring
-    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+    // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
+    // Currently for Dart we're doing it in the Fable2Dart step
+    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
         genArgs |> Seq.map (fun genArg ->
             if genArg.IsGenericParameter
-            then resolveGenParam ctxTypeArgs genArg.GenericParameter
-            else makeType ctxTypeArgs genArg)
+            then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
+            else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
         |> Seq.toList
 
-    let makeTypeFromDelegate ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+        makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
+
+    let makeTypeFromDelegate withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         let invokeArgs() =
             let invokeMember =
                 tdef.MembersFunctionsAndValues
@@ -950,10 +956,10 @@ module TypeHelpers =
         let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
             if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
-        let returnType = returnType |> resolveType |> makeType ctxTypeArgs
+        let returnType = returnType |> resolveType |> makeTypeWithConstraints withConstraints ctxTypeArgs
         let argTypes =
             argTypes
-            |> Seq.map (resolveType >> makeType ctxTypeArgs)
+            |> Seq.map (resolveType >> makeTypeWithConstraints withConstraints ctxTypeArgs)
             |> Seq.toList
             |> function [Fable.Unit] -> [] | argTypes -> argTypes
         Fable.DelegateType(argTypes, returnType)
@@ -1024,11 +1030,11 @@ module TypeHelpers =
                   Path = Fable.CoreAssemblyName "FSharp.Core" }
             Fable.DeclaredType(r, [])
 
-    let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+    let makeTypeFromDef withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
-            Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.MutableArray)
+            Fable.Array(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, Fable.MutableArray)
         elif tdef.IsDelegate then
-            makeTypeFromDelegate ctxTypeArgs genArgs tdef
+            makeTypeFromDelegate withConstraints ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
             // F# seems to include a field with this name in the underlying type
             let numberKind =
@@ -1052,10 +1058,10 @@ module TypeHelpers =
             | Types.string -> Fable.String
             | Types.regex -> Fable.Regex
             | Types.type_ -> Fable.MetaType
-            | Types.valueOption -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, true)
-            | Types.option -> Fable.Option(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, false)
-            | Types.resizeArray -> Fable.Array(makeTypeGenArgs ctxTypeArgs genArgs |> List.head, Fable.ResizeArray)
-            | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
+            | Types.valueOption -> Fable.Option(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, true)
+            | Types.option -> Fable.Option(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, false)
+            | Types.resizeArray -> Fable.Array(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, Fable.ResizeArray)
+            | Types.list -> makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, Fable.NumberInfo.Empty)
             | DicContains numbersWithMeasure kind ->
                 let info = getMeasureFullName genArgs |> Fable.NumberInfo.IsMeasure
@@ -1074,23 +1080,23 @@ module TypeHelpers =
                 ]
                 // Rest of declared types
                 |> Option.defaultWith (fun () ->
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgs ctxTypeArgs genArgs))
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs))
 
-    let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
+    let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter then
-            resolveGenParam ctxTypeArgs t.GenericParameter
+            resolveGenParam withConstraints ctxTypeArgs t.GenericParameter
         // Tuple
         elif t.IsTupleType then
-            let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
+            let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
             Fable.Tuple(genArgs, t.IsStructTupleType)
         // Function
         elif t.IsFunctionType then
-            let argType = makeType ctxTypeArgs t.GenericArguments[0]
-            let returnType = makeType ctxTypeArgs t.GenericArguments[1]
+            let argType = makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[0]
+            let returnType = makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[1]
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
-            let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
+            let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
             let fields = t.AnonRecordTypeDetails.SortedFieldNames
             Fable.AnonymousRecordType(fields, genArgs)
         elif t.HasTypeDefinition then
@@ -1100,8 +1106,11 @@ module TypeHelpers =
             if t.TypeDefinition.IsProvidedAndErased then Fable.Any
             else
 #endif
-                makeTypeFromDef ctxTypeArgs t.GenericArguments t.TypeDefinition
+                makeTypeFromDef withConstraints ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+
+    let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
+        makeTypeWithConstraints true ctxTypeArgs t
 
     let getBaseEntity (tdef: FSharpEntity): (FSharpEntity * IList<FSharpType>) option =
         match tdef.BaseType with

@@ -670,7 +670,7 @@ module TypeInfo =
             | Fable.String  -> primitiveType "str"
             | Fable.Number(kind, _) -> numberType kind
             | Fable.LambdaType(argType, returnType) ->
-                let argTypes, returnType = FableTransforms.getNestedLambdaArgTypes [argType] returnType
+                let argTypes, returnType = FableTransforms.uncurryLambdaType [argType] returnType
                 transformClosureType com ctx argTypes returnType
                 // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
                 // then transformClosureType com ctx argTypes returnType

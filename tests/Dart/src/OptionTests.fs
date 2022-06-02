@@ -249,38 +249,46 @@ let tests() =
 //        Option.ofObj o1 |> equal (Some "foo")
 //        Option.ofObj o2 |> equal None
 
-//    testCase "Nested options work" <| fun () ->
-//        let x1 = Some(Some 5)
-//        let x2 = Some(Some ())
-//        let x3 = Some(None)
-//        Option.isSome x1 |> equal true
-//        Option.isNone x1 |> equal false
-//        x1.IsSome |> equal true
-//        x1.IsNone |> equal false
-//        match x1 with
-//        | Some(Some 5) -> 0
-//        | Some(Some _) -> 1
-//        | Some(None) -> 2
-//        | None -> 3
-//        |> equal 0
-//        Option.isSome x2 |> equal true
-//        Option.isNone x2 |> equal false
-//        x2.IsSome |> equal true
-//        x2.IsNone |> equal false
-//        match x2 with
-//        | Some(None) -> 0
-//        | Some(Some _) -> 1
-//        | None -> 2
-//        |> equal 1
-//        Option.isSome x3 |> equal true
-//        Option.isNone x3 |> equal false
-//        x3.IsSome |> equal true
-//        x3.IsNone |> equal false
-//        match x3 with
-//        | None -> 0
-//        | Some(Some _) -> 1
-//        | Some(None) -> 2
-//        |> equal 2
+    testCase "Nested options work" <| fun () ->
+        let test x1 x3 =
+            Option.isSome x1 |> equal true
+            Option.isNone x1 |> equal false
+            x1.IsSome |> equal true
+            x1.IsNone |> equal false
+            match x1 with
+            | Some(Some 5) -> 0
+            | Some(Some _) -> 1
+            | Some(None) -> 2
+            | None -> 3
+            |> equal 0
+            // Option.isSome x2 |> equal true
+            // Option.isNone x2 |> equal false
+            // x2.IsSome |> equal true
+            // x2.IsNone |> equal false
+            // match x2 with
+            // | Some(None) -> 0
+            // | Some(Some _) -> 1
+            // | None -> 2
+            // |> equal 1
+            Option.isSome x3 |> equal true
+            Option.isNone x3 |> equal false
+            x3.IsSome |> equal true
+            x3.IsNone |> equal false
+            match x3 with
+            | None -> 0
+            | Some(Some _) -> 1
+            | Some(None) -> 2
+            |> equal 2
+
+            // FIXME: Passing nested options to Option module functions
+            // x1 |> Option.map (Option.map ((+) 3)) |> equal (Some(Some 8))
+            // x3 |> Option.map (Option.map ((+) 3)) |> equal None
+
+        let x1 = Some(Some 5)
+        // FIXME: Nested unit options
+        // let x2 = Some(Some ())
+        let x3: int option option = Some(None)
+        test x1 x3
 
 //    testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
 //        Some (box null) |> Option.isSome |> equal true

@@ -5,22 +5,22 @@
 
 module SeqModule
 
+open System
 open System.Collections.Generic
 open Fable.Core
-open OptionModule
 
 module Enumerator =
 
-    let noReset() = raise (System.NotSupportedException(SR.resetNotSupported))
-    let notStarted() = raise (System.InvalidOperationException(SR.enumerationNotStarted))
-    let alreadyFinished() = raise (System.InvalidOperationException(SR.enumerationAlreadyFinished))
+    let noReset() = raise (NotSupportedException(SR.resetNotSupported))
+    let notStarted() = raise (InvalidOperationException(SR.enumerationNotStarted))
+    let alreadyFinished() = raise (InvalidOperationException(SR.enumerationAlreadyFinished))
 
     [<Sealed>]
     [<CompiledName("Seq")>]
     type Enumerable<'T>(f) =
         interface IEnumerable<'T> with
             member x.GetEnumerator(): IEnumerator<'T> = f()
-            member x.GetEnumerator(): System.Collections.IEnumerator = f() :> _
+            member x.GetEnumerator(): Collections.IEnumerator = f() :> _
         override xs.ToString() =
             let maxCount = 4
             let mutable i = 0
@@ -45,12 +45,12 @@ module Enumerator =
     let inline fromFunctions current next dispose: IEnumerator<'T> =
         new FromFunctions<_>(current, next, dispose) :> IEnumerator<'T>
 
-//    let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
+//    let cast (e: Collections.IEnumerator): IEnumerator<'T> =
 //        let current() = unbox<'T> e.Current
 //        let next() = e.MoveNext()
 //        let dispose() =
 //            match e with
-//            | :? System.IDisposable as e -> e.Dispose()
+//            | :? IDisposable as e -> e.Dispose()
 //            | _ -> ()
 //        fromFunctions current next dispose
 
@@ -110,32 +110,33 @@ module Enumerator =
         let dispose() = try e.Dispose() finally f()
         fromFunctions current next dispose
 
-    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U woption) (closef: 'T -> unit): IEnumerator<'U> =
+    // We use a tuple here to make sure the generic is wrapped in case it's an option itself
+    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> Tuple<'U> option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable started = false
-        let mutable curr = WrapNone
-        let mutable state = WrapSome (openf())
+        let mutable curr: Tuple<'U> option = None
+        let mutable state = Some (openf())
         let current() =
             if not started then notStarted()
             match curr with
-            | WrapNone -> alreadyFinished()
-            | WrapSome x -> x
+            | None -> alreadyFinished()
+            | Some x -> x.Item1
         let dispose() =
             match state with
-            | WrapNone -> ()
-            | WrapSome x ->
+            | None -> ()
+            | Some x ->
                 try closef x
-                finally state <- WrapNone
+                finally state <- None
         let finish() =
             try dispose()
-            finally curr <- WrapNone
+            finally curr <- None
         let next() =
             if not started then started <- true
             match state with
-            | WrapNone -> false
-            | WrapSome s ->
+            | None -> false
+            | Some s ->
                 match (try compute s with _ -> finish(); reraise()) with
-                | WrapNone -> finish(); false
-                | WrapSome _ as x -> curr <- x; true
+                | None -> finish(); false
+                | Some _ as x -> curr <- x; true
         fromFunctions current next dispose
 
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
@@ -154,6 +155,15 @@ module Enumerator =
                 true
         let dispose() = ()
         fromFunctions current next dispose
+
+    let generate (create: unit -> 'a) (compute: 'a -> Tuple<'b> option) (dispose: 'a -> unit): seq<'b> =
+        Enumerable (fun () -> generateWhileSome create compute dispose)
+
+    let generateIndexed (create: unit -> 'a) (compute: int -> 'a -> Tuple<'b> option) (dispose: 'a -> unit): seq<'b> =
+        Enumerable (fun () ->
+            let mutable i = -1
+            generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
+        )
 
 let indexNotFound() = raise (KeyNotFoundException(SR.keyNotFoundAlt))
 
@@ -196,22 +206,13 @@ let toList (xs: seq<'T>): 'T list =
     | :? list<'T> as a -> a
     | _ -> List.ofSeq xs
 
-let generate create compute dispose =
-    mkSeq (fun () -> Enumerator.generateWhileSome create compute dispose)
-
-let generateIndexed create compute dispose =
-    mkSeq (fun () ->
-        let mutable i = -1
-        Enumerator.generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
-    )
-
-// let inline generateUsing (openf: unit -> ('U :> System.IDisposable)) compute =
+// let inline generateUsing (openf: unit -> ('U :> IDisposable)) compute =
 //     generate openf compute (fun (s: 'U) -> s.Dispose())
 
 let append (xs: seq<'T>) (ys: seq<'T>) =
     concat [| xs; ys |]
 
-//let cast (xs: System.Collections.IEnumerable) =
+//let cast (xs: Collections.IEnumerable) =
 //    mkSeq (fun () ->
 //        checkNonNull "source" xs
 //        xs.GetEnumerator()
@@ -219,12 +220,12 @@ let append (xs: seq<'T>) (ys: seq<'T>) =
 //    )
 
 let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
-    generate
+    Enumerator.generate
         (fun () -> ofSeq xs)
         (fun e ->
-            let mutable curr = WrapNone
-            while (WrapOption.isNone curr && e.MoveNext()) do
-                curr <- chooser e.Current |> WrapOption.ofOption
+            let mutable curr = None
+            while (Option.isNone curr && e.MoveNext()) do
+                curr <- match chooser e.Current with Some v -> Some(Tuple v) | None -> None
             curr)
         (fun e -> e.Dispose())
 
@@ -251,11 +252,11 @@ let contains (value: 'T) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'
         found <- comparer.Equals(value, e.Current)
     found
 
-let enumerateFromFunctions create moveNext current =
-    generate
+let enumerateFromFunctions (create: unit -> 'a) (moveNext: 'a -> bool) (current: 'a -> 'b): seq<'b> =
+    Enumerator.generate
         create
-        (fun x -> if moveNext x then WrapSome(current x) else WrapNone)
-        (fun x -> match box(x) with :? System.IDisposable as id -> id.Dispose() | _ -> ())
+        (fun x -> if moveNext x then Some(Tuple(current x)) else None)
+        (fun x -> match box(x) with :? IDisposable as id -> id.Dispose() | _ -> ())
 
 let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq<'T>) =
     mkSeq (fun () ->
@@ -270,7 +271,7 @@ let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq
 let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit): seq<'T> =
     finallyEnumerable(compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>): seq<'U> =
+let enumerateUsing (resource: 'T :> IDisposable) (source: 'T -> #seq<'U>): seq<'U> =
     finallyEnumerable(
         // Null checks not necessary because Dart provides null safety
 //        (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
@@ -412,7 +413,7 @@ let initialize (count: int) (f: int -> 'a): seq<'a> =
     unfold (fun i -> if (i < count) then Some(f i, i + 1) else None) 0
 
 let initializeInfinite (f: int -> 'a): seq<'a> =
-    initialize (System.Int32.MaxValue) f
+    initialize (Int32.MaxValue) f
 
 let isEmpty (xs: seq<'T>): bool =
     match xs with
@@ -477,45 +478,45 @@ let length (xs: seq<'T>): int =
         count
 
 let map (mapping: 'T -> 'U) (xs: seq<'T>): seq<'U> =
-    generate
+    Enumerator.generate
         (fun () -> ofSeq xs)
-        (fun e -> if e.MoveNext() then WrapSome (mapping e.Current) else WrapNone)
+        (fun e -> if e.MoveNext() then mapping e.Current |> Tuple |> Some else None)
         (fun e -> e.Dispose())
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>): seq<'U> =
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
-        (fun i e -> if e.MoveNext() then WrapSome (mapping i e.Current) else WrapNone)
+        (fun i e -> if e.MoveNext() then mapping i e.Current |> Tuple |> Some else None)
         (fun e -> e.Dispose())
 
 let indexed (xs: seq<'T>): seq<int * 'T> =
     xs |> mapIndexed (fun i x -> (i, x))
 
 let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>): seq<'U> =
-    generate
+    Enumerator.generate
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun (e1, e2) ->
             if e1.MoveNext() && e2.MoveNext()
-            then WrapSome (mapping e1.Current e2.Current)
-            else WrapNone)
+            then mapping e1.Current e2.Current |> Tuple |> Some
+            else None)
         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
 let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>): seq<'U> =
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun i (e1, e2) ->
             if e1.MoveNext() && e2.MoveNext()
-            then WrapSome (mapping i e1.Current e2.Current)
-            else WrapNone)
+            then mapping i e1.Current e2.Current |> Tuple |> Some
+            else None)
         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
 let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>): seq<'U> =
-    generate
+    Enumerator.generate
         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
         (fun (e1, e2, e3) ->
             if e1.MoveNext() && e2.MoveNext() && e3.MoveNext()
-            then WrapSome (mapping e1.Current e2.Current e3.Current)
-            else WrapNone)
+            then mapping e1.Current e2.Current e3.Current |> Tuple |> Some
+            else None)
         (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
 
 let readOnly (xs: seq<'T>): seq<'T> =
@@ -523,18 +524,18 @@ let readOnly (xs: seq<'T>): seq<'T> =
     map id xs
 
 type CachedSeq<'T>(cleanup,res:seq<'T>) =
-    interface System.IDisposable with
+    interface IDisposable with
         member _.Dispose() = cleanup()
     interface IEnumerable<'T> with
         member _.GetEnumerator() = res.GetEnumerator()
-    interface System.Collections.IEnumerable with
-        member _.GetEnumerator() = (res :> System.Collections.IEnumerable).GetEnumerator()
+    interface Collections.IEnumerable with
+        member _.GetEnumerator() = (res :> Collections.IEnumerable).GetEnumerator()
     member _.Clear() = cleanup()
 
 // Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
 let cache (source: seq<'T>) =
 //    checkNonNull "source" source
-    // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
+    //  a seq to ensure that it is enumerated just once and only as far as is necessary.
     //
     // This code is required to be thread safe.
     // The necessary calls should be called at most once (include .MoveNext() = false).
@@ -696,32 +697,32 @@ let tail (xs: seq<'T>): seq<'T> =
     skip 1 xs
 
 let take (count: int) (xs: seq<'T>): seq<'T> =
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < count then
                 if e.MoveNext()
-                then WrapSome (e.Current)
+                then Some(Tuple e.Current)
                 else invalidArg "source" SR.notEnoughElements
-            else WrapNone)
+            else None)
         (fun e -> e.Dispose())
 
 let takeWhile (predicate: 'T -> bool) (xs: seq<'T>): seq<'T> =
-    generate
+    Enumerator.generate
         (fun () -> ofSeq xs)
         (fun e ->
             if e.MoveNext() && predicate e.Current
-            then WrapSome (e.Current)
-            else WrapNone)
+            then Some(Tuple e.Current)
+            else None)
         (fun e -> e.Dispose())
 
 let truncate (count: int) (xs: seq<'T>): seq<'T> =
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < count && e.MoveNext()
-            then WrapSome (e.Current)
-            else WrapNone)
+            then Some(Tuple e.Current)
+            else None)
         (fun e -> e.Dispose())
 
 let zip (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
@@ -847,18 +848,18 @@ let insertAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
     let mutable isDone = false
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then WrapSome e.Current
+            then Some(Tuple e.Current)
             elif i = index then
                 isDone <- true
-                WrapSome y
+                Some(Tuple y)
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                WrapNone)
+                None)
         (fun e -> e.Dispose())
 
 let insertManyAt (index: int) (ys: seq<'T>) (xs: seq<'T>): seq<'T> =
@@ -866,24 +867,24 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: seq<'T>): seq<'T> =
     let mutable status = -1
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs, ofSeq ys)
         (fun i (e1, e2) ->
             if i = index then
                 status <- 0
             let inserted =
                 if status = 0 then
-                    if e2.MoveNext() then Some e2.Current
+                    if e2.MoveNext() then Some(Tuple e2.Current)
                     else status <- 1; None
                 else None
             match inserted with
-            | Some inserted -> WrapSome inserted
+            | Some inserted -> Some inserted
             | None ->
-                if e1.MoveNext() then WrapSome e1.Current
+                if e1.MoveNext() then Some(Tuple e1.Current)
                 else
                     if status < 1 then
                         invalidArg "index" SR.indexOutOfBounds
-                    WrapNone)
+                    None)
         (fun (e1, e2) ->
             e1.Dispose()
             e2.Dispose())
@@ -892,52 +893,52 @@ let removeAt (index: int) (xs: seq<'T>): seq<'T> =
     let mutable isDone = false
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then WrapSome e.Current
+            then Some(Tuple e.Current)
             elif i = index && e.MoveNext() then
                 isDone <- true
-                if e.MoveNext() then WrapSome e.Current else WrapNone
+                if e.MoveNext() then Some(Tuple e.Current) else None
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                WrapNone)
+                None)
         (fun e -> e.Dispose())
 
 let removeManyAt (index: int) (count: int) (xs: seq<'T>): seq<'T> =
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < index then
-                if e.MoveNext() then WrapSome e.Current
+                if e.MoveNext() then Some(Tuple e.Current)
                 else invalidArg "index" SR.indexOutOfBounds
             else
                 if i = index then
                     for _ = 1 to count do
                         if not(e.MoveNext()) then
                             invalidArg "count" SR.indexOutOfBounds
-                if e.MoveNext() then WrapSome e.Current
-                else WrapNone)
+                if e.MoveNext() then Some(Tuple e.Current)
+                else None)
         (fun e -> e.Dispose())
 
 let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
     let mutable isDone = false
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
-    generateIndexed
+    Enumerator.generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then WrapSome e.Current
+            then Some(Tuple e.Current)
             elif i = index && e.MoveNext() then
                 isDone <- true
-                WrapSome y
+                Some(Tuple y)
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                WrapNone)
+                None)
         (fun e -> e.Dispose())
