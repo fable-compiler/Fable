@@ -2,6 +2,10 @@
 
 * Write here changes for next release
 
+### 4.0.0-snake-island-alpha-009
+
+* Partial support for nested options in Dart
+
 ### 4.0.0-snake-island-alpha-008
 
 * Rust and Dart fixes
