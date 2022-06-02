@@ -406,7 +406,7 @@ module Annotation =
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
-        | Fable.LambdaType(argType, returnType) -> FableTransforms.getNestedLambdaArgTypes [argType] returnType ||> makeFunctionTypeAnnotation com ctx typ
+        | Fable.LambdaType(argType, returnType) -> FableTransforms.uncurryLambdaType [argType] returnType ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
