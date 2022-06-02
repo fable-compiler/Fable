@@ -36,6 +36,7 @@ type ScopedVarAttrs = {
     IsRef: bool
     IsBox: bool
     HasMultipleUses: bool
+    CaptureDepth: int // used to determine if something is local to the closure, and thus needs to be captured if owned
 }
 
 type Context =
@@ -47,6 +48,7 @@ type Context =
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
+    CaptureDepth: int // are we in a closure, thus any variables defined outside of the capture scope will
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -501,7 +503,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        ty |> mkRefTy
+        ty
 
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -1238,13 +1240,13 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
-            if isNative || ctx.Typegen.TakingOwnership then
+            //if isNative || ctx.Typegen.TakingOwnership then
                 args |> List.map (fun arg ->
                     transformLeaveContextByValue com ctx arg)
-            else
-                args |> List.mapi (fun i arg ->
-                    let argType = argTypes |> List.tryItem i
-                    transformLeaveContextByPreferredBorrow com ctx argType arg)
+            // else
+            //     args |> List.mapi (fun i arg ->
+            //         let argType = argTypes |> List.tryItem i
+            //         transformLeaveContextByPreferredBorrow com ctx argType arg)
 
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
@@ -1540,7 +1542,8 @@ module Util =
                 IsArm = false
                 IsRef = false
                 IsBox = false
-                HasMultipleUses = true }
+                HasMultipleUses = true
+                CaptureDepth = ctx.CaptureDepth }
         let isOnlyReference =
             if varAttrs.IsRef then false
             else
@@ -1563,7 +1566,9 @@ module Util =
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
                 //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
-                    not varAttrs.HasMultipleUses
+                    if not varAttrs.IsRef && varAttrs.CaptureDepth <> ctx.CaptureDepth then
+                        false // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                    else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
     let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
@@ -2082,6 +2087,7 @@ module Util =
             IsRef = false
             IsBox = false
             HasMultipleUses = hasMultipleUses ident.Name usages
+            CaptureDepth = ctx.CaptureDepth
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
         mkLocalStmt local, ctxNext
@@ -2293,7 +2299,8 @@ module Util =
                     name, { IsArm = true
                             IsRef = true
                             IsBox = false
-                            HasMultipleUses = hasMultipleUses name usages }
+                            HasMultipleUses = hasMultipleUses name usages
+                            CaptureDepth = ctx.CaptureDepth }
                 let symbolsAndNames =
                     let fromIdents =
                         idents
@@ -2823,9 +2830,10 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = true
+                    IsRef = false //unless inref or self
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
+                    CaptureDepth = ctx.CaptureDepth
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
         let tco =
@@ -2875,7 +2883,8 @@ module Util =
         let ctx = getFunctionCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
-        let ctx = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
+        let ctx = { ctx with    CaptureDepth = ctx.CaptureDepth + 1
+                                ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
         let fnBody = transformFunctionBody com ctx args body
         let closureExpr = mkClosureExpr fnDecl fnBody
         let closureExpr =
@@ -2981,6 +2990,7 @@ module Util =
             IsRef = false
             IsBox = true
             HasMultipleUses = true
+            CaptureDepth = ctx.CaptureDepth
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs }
         mkItemStmt fnItem, ctxNext
@@ -3695,6 +3705,7 @@ module Compiler =
             OptimizeTailCall = fun () -> ()
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
+            CaptureDepth = 0
             Typegen = { IsParamType = false
                         TakingOwnership = false
                         IsRawType = false } }

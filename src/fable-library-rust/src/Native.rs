@@ -39,9 +39,8 @@ pub mod Native {
         Default::default()
     }
 
-    pub fn comparer<T>(comp: &Rc<impl Fn(&T, &T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
-        let comp = comp.clone();
-        move |x, y| match comp(x, y) {
+    pub fn comparer<T: Clone>(comp: Rc<impl Fn(T, T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
+        move |x, y| match comp(x.clone(), y.clone()) {
             i if i < 0 => Ordering::Less,
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
@@ -85,8 +84,8 @@ pub mod Native {
         array(Vec::new())
     }
 
-    pub fn arrayWithCapacity<T: Clone>(capacity: &i32) -> Array<T> {
-        array(Vec::with_capacity(*capacity as usize))
+    pub fn arrayWithCapacity<T: Clone>(capacity: i32) -> Array<T> {
+        array(Vec::with_capacity(capacity as usize))
     }
 
     pub fn arrayFrom<T: Clone>(a: &[T]) -> Array<T> {
@@ -97,7 +96,7 @@ pub mod Native {
         array(vec![value.clone(); *count as usize])
     }
 
-    pub fn arrayCopy<T: Clone>(a: &Array<T>) -> Array<T> {
+    pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {
         array(a.to_vec())
     }
 
@@ -109,7 +108,7 @@ pub mod Native {
         let en = seq.GetEnumerator();
         let next = move || {
             if en.MoveNext() {
-                Some(en.Current())
+                Some(en.Current().clone())
             } else {
                 None
             }
@@ -124,8 +123,8 @@ pub mod Native {
     {
         let iter = mkMut(iter);
         let f = mkRef(move || iter.get_mut().next());
-        let en = crate::Seq::Enumerable::fromFunction(&f);
-        crate::Seq::mkSeq(&mkRef(move || en.clone()))
+        let en = crate::Seq::Enumerable::fromFunction(f);
+        crate::Seq::mkSeq(mkRef(move || en.clone()))
     }
 
     // -----------------------------------------------------------

@@ -22,8 +22,8 @@ pub mod String_ {
         Rc::from(s)
     }
 
-    pub fn fromCharCode(code: &u32) -> char {
-        unsafe { core::char::from_u32_unchecked(*code) }
+    pub fn fromCharCode(code: u32) -> char {
+        unsafe { core::char::from_u32_unchecked(code) }
     }
 
     pub fn toLowerChar(c: &char) -> char {
