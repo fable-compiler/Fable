@@ -160,9 +160,6 @@ module Util =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
         Type.reference(tup, transformGenArgs com ctx genArgs)
 
-    let transformNestedOptionType com ctx nestedOptGen =
-        Type.reference(getNestedOptionTypeIdent com ctx, [transformType com ctx nestedOptGen |> Nullable]) |> Nullable
-
     let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         match entRef.FullName with
         | "System.Enum" -> Integer |> Some
@@ -474,9 +471,6 @@ module Util =
     let getUnitTypeIdent (com: IDartCompiler) ctx =
         libValue com ctx Fable.MetaType "Types" "Unit"
 
-    let getNestedOptionTypeIdent (com: IDartCompiler) ctx =
-        libValue com ctx Fable.MetaType "Types" "Some"
-
     let getUnitValueIdent (com: IDartCompiler) ctx =
         let t = Type.reference(getUnitTypeIdent com ctx)
         { libValue com ctx Fable.Any "Types" "unit" with Type = t }
@@ -508,7 +502,8 @@ module Util =
         | Fable.Option(genArg, _isStruct) ->
             match genArg with
             | Fable.Any -> Dynamic
-            | Fable.Option(nestedOptGen, _) -> transformNestedOptionType com ctx nestedOptGen
+            // For now we "unnest" options when compiling
+            | Fable.Option _ -> transformType com ctx genArg
             // Allow `unit option` as this is used by "empty" active patterns
             | Fable.Unit -> Nullable(Type.reference(getUnitTypeIdent com ctx))
             | TransformType com ctx genArg -> Nullable genArg
@@ -628,30 +623,30 @@ module Util =
             |> resolveExpr returnStrategy
 
         | Fable.NewOption(expr, typ, isStruct) ->
-            match expr, typ with
+            match expr with
             // Allow `unit option` as this is used by "empty" active patterns
-            | Some(Fable.Value(Fable.UnitConstant, _)), _ ->
+            | Some(Fable.Value(Fable.UnitConstant, _)) ->
                 getUnitValueIdent com ctx
                 |> IdentExpression
                 |> resolveExpr returnStrategy
 
-            // | Some expr, (Fable.GenericParam _) ->
-            //     // $"NewOption with generic expression" |> addWarning com [] r
-            //     transformExprAndResolve com ctx returnStrategy expr (fun expr ->
-            //         let typ = Fable.Option(typ, isStruct)
-            //         libCall com ctx typ "Types" "some" [expr])
-
-            | Some expr, (Fable.Option(nestedOptGen, _)) ->
+            // If we don't know the type of the expr add a runtime check to make sure
+            // we're not passing null to Some (nested options are not supported atm)
+            | Some(ExprType(Fable.GenericParam _) as expr) ->
                 transformExprAndResolve com ctx returnStrategy expr (fun expr ->
-                    let cons = getNestedOptionTypeIdent com ctx
-                    let typ = transformNestedOptionType com ctx nestedOptGen
-                    Expression.invocationExpression(cons.Expr, [expr], typ)
-                )
+                    let typ = Fable.Option(typ, isStruct)
+                    libCall com ctx typ "Types" "some" [expr])
 
-            | Some expr, _ ->
+            | Some(Fable.Value(Fable.NewOption(None, _, _), _)) ->
+                "Nested options are not supported" |> addError com [] r
+                transformType com ctx typ
+                |> Expression.nullLiteral
+                |> resolveExpr returnStrategy
+
+            | Some expr ->
                 transform com ctx returnStrategy expr
 
-            | None, typ ->
+            | None ->
                 transformType com ctx typ
                 |> Expression.nullLiteral
                 |> resolveExpr returnStrategy
@@ -1022,25 +1017,10 @@ module Util =
                     Expression.propertyAccess(expr, $"item%i{index + 1}", t))
 
         | Fable.OptionValue ->
-            // Dart can detect if a value has already been null-checked for variables declared in current function scope
-            let isDeclaredInScope =
-                match fableExpr with
-                | Fable.IdentExpr i -> ctx.VarsDeclaredInScope.Contains(i.Name)
-                | _ -> false
-
             match fableExpr with
-//            | ExprType(Fable.Option(Fable.GenericParam _, _)) ->
-//                transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-//                    libCall com ctx t "Types" "value" [expr])
-
-            | ExprType(Fable.Option((Fable.Option _ as nestedOption), _)) ->
-                transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                    let expr = if isDeclaredInScope then expr else NotNullAssert expr
-                    let nestedOption = transformNestedOptionType com ctx nestedOption
-                    Expression.propertyAccess(expr, "value", nestedOption))
-
-            | fableExpr when isDeclaredInScope -> transform com ctx returnStrategy fableExpr
-            | fableExpr -> transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
+            // Dart can detect if a value has already been null-checked for variables declared in current function scope
+            | Fable.IdentExpr i when ctx.VarsDeclaredInScope.Contains(i.Name) -> transform com ctx returnStrategy fableExpr
+            | _ -> transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
 
         | Fable.UnionTag ->
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag
@@ -1757,10 +1737,6 @@ module Util =
                     transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some)
             |> Seq.toList
 
-        if Option.isSome implementsEnumerable && classEnt.IsFSharpUnion then
-            $"Unions cannot implement IEnumerable: {classEnt.FullName}"
-            |> addError com [] None
-
         let info = {|
             implementsEnumerable = implementsEnumerable
             implementsStructuralEquatable = implementsStructuralEquatable
@@ -2185,7 +2161,7 @@ module Util =
             decl.Members |> List.collect (transformDeclaration com ctx)
 
         | Fable.ActionDeclaration d ->
-            "Standalone actions are not supported in Dart, please use an initialize function"
+            "Standalone actions are not supported in Dart, please use a function"
             |> addError com [] d.Body.Range
             []
 

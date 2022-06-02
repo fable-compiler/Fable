@@ -17,7 +17,7 @@ class DateTimeKind {
 DateTime minValue() => DateTime.utc(-271821, 04, 20);
 DateTime maxValue() => DateTime.utc(275760, 09, 13);
 
-final _epochMicrosecondsOffset = 62135596800000000;
+const _epochMicrosecondsOffset = 62135596800000000;
 
 int unixEpochMicrosecondsToTicks(int ms) {
   return (ms + _epochMicrosecondsOffset) * 10;
