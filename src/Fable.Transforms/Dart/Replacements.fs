@@ -822,8 +822,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | ".DartNullable`1" ->
             match i.CompiledName, thisArg with
             | ".ctor", None -> match args with arg::_ -> Some arg | [] -> makeNull() |> Some
-            | "get_Value", Some c -> Some c
-            | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryEqual |> Some
+            | "get_Value", Some c -> Helper.LibCall(com, "Util", "value", t, [c], ?loc=r) |> Some
+            | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryUnequal |> Some
             | _ -> None
         | _ ->
             match i.CompiledName, args with
@@ -849,7 +849,7 @@ let getReference r t expr = getFieldWith r t expr "contents"
 let setReference r expr value = setField r expr "contents" value
 let newReference com r t value =
     let fsharpRef = Helper.LibValue(com, "Types", "FSharpRef", MetaType)
-    Helper.InstanceCall(fsharpRef, "ofValue", t, [value], ?loc=r)
+    Helper.InstanceCall(fsharpRef, "ofValue", t, [value], genArgs=t.Generics, ?loc=r)
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter =
@@ -996,7 +996,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Erased operators.
     | ("Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> TypeCast(args.Head, Unit) |> Some
+    | "Ignore", _ -> Helper.LibCall(com, "Util", "ignore", t, args, ?loc=r) |> withTag "ignore" |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         toInt com ctx r t args |> Some
@@ -1628,8 +1628,8 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> match args with arg::_ -> Some arg | [] -> makeNull() |> Some
-    | "get_Value", Some c -> Some c
-    | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryEqual |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Util", "value", t, [c], ?loc=r) |> Some
+    | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryUnequal |> Some
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
@@ -1647,11 +1647,11 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
     | "DefaultValue", [defValue; option] -> defaultValue com ctx r t defValue option
-    | ("ToArray" | "ToList" | "Count" | "Contains" | "ForAll" | "Iterate"
-           | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists"
-           | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "Count" | "Contains" | "ForAll"
+            | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten"
+            | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-//    | ("OfObj" | "OfNullable" | "ToObj" | "ToNullable"), _ ->
+//    | ("OfObj" | "ToObj"), _ ->
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

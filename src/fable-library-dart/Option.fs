@@ -1,5 +1,7 @@
 ﻿module OptionModule
 
+open System
+
 let defaultValue (def: 'T) (opt: 'T option): 'T =
     match opt with
     | None -> def
@@ -70,6 +72,11 @@ let filter (fn: 'T -> bool) (opt: 'T option): 'T option =
     | None -> None
     | Some opt -> if fn opt then Some opt else None
 
+let flatten<'T> (opt: 'T option option): 'T option =
+    match opt with
+    | Some x -> x
+    | None -> None
+
 let map (fn: 'T -> 'U) (opt: 'T option): 'U option =
     match opt with
     | None -> None
@@ -89,3 +96,11 @@ let bind (fn: 'T -> 'U option) (opt: 'T option): 'U option =
     match opt with
     | None -> None
     | Some opt -> fn opt
+
+let ofNullable (x: Nullable<'T>): 'T option =
+    if x.HasValue then Some(x.Value) else None
+
+let toNullable (opt: 'T option): Nullable<'T> =
+    match opt with
+    | Some x -> Nullable x
+    | None -> Nullable()

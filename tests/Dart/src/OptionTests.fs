@@ -1,5 +1,6 @@
 ﻿module Fable.Tests.Dart.Option
 
+open System
 open Util
 
 type Tree =
@@ -28,7 +29,7 @@ let rec folding2 test acc =
 
 type OptTest = OptTest of int option
 
-let makeSome (x: 'a): 'a option =
+let inline makeSome (x: 'a): 'a option =
     Some x
 
 let tests() =
@@ -177,65 +178,63 @@ let tests() =
             | None -> 0.
         test(Some 4.) |> equal 7.
 
-    // TODO
-//    testCase "Mixing refs and options works" <| fun () -> // See #238
-//        let res = ref 0
-//        let setter, getter =
-//            let slot = ref None
-//            (fun f -> slot.Value <- Some f),
-//            // TODO!!! If we change this to `slot.Value.Value` it fails
-//            (fun v -> slot.Value.Value v)
-//        setter (fun i -> res := i + 2)
-//        getter 5
-//        equal 7 !res
+    testCase "Mixing refs and options works" <| fun () -> // See #238
+        let res = ref 0
+        let setter, getter =
+            let slot = ref None
+            (fun f -> slot.Value <- Some f),
+            (fun v -> slot.Value.Value v)
+        setter (fun i -> res.Value <- i + 2)
+        getter 5
+        equal 7 res.Value
 
-    // TODO: What to do when unit is used as a generic arg
-//    testCase "Option.map ignore generates Some ()" <| fun () -> // See #1923
-//        let mySome = Some ()
-//        let myOtherSome = mySome |> Option.map (ignore)
-//        equal mySome myOtherSome
+    // TODO: Check functions with arity 0 or arity 1 receiving unit
+    // testCase "Option.map ignore generates Some ()" <| fun () -> // See #1923
+    //    let mySome = Some ()
+    //    let myOtherSome = mySome |> Option.map (ignore)
+    //    equal mySome myOtherSome
 
     testCase "Generic options work" <| fun () ->
-//        let x1 = makeSome ()
-//        let x2 = makeSome None
-//        let x3 = makeSome null |> makeSome
+        let x1 = makeSome ()
+        let x2 = makeSome None
+        let x3 = makeSome null |> makeSome
         let x4 = makeSome 5
-//        Option.isSome x1 |> equal true
-//        Option.isNone x1 |> equal false
-//        x1.IsSome |> equal true
-//        x1.IsNone |> equal false
-//        match x1 with Some _ -> true | None -> false
-//        |> equal true
-//        Option.isSome x2 |> equal true
-//        Option.isNone x2 |> equal false
-//        x2.IsSome |> equal true
-//        x2.IsNone |> equal false
-//        match x2 with
-//        | Some(Some _) -> 0
-//        | Some(None) -> 1
-//        | None -> 2
-//        |> equal 1
-//        Option.isSome x3 |> equal true
-//        Option.isNone x3 |> equal false
-//        x3.IsSome |> equal true
-//        x3.IsNone |> equal false
-//        match x3 with
-//        | None -> 0
-//        | Some(None) -> 1
-//        | Some(Some _) -> 2
-//        |> equal 2
+        Option.isSome x1 |> equal true
+        Option.isNone x1 |> equal false
+        x1.IsSome |> equal true
+        x1.IsNone |> equal false
+        match x1 with Some _ -> true | None -> false
+        |> equal true
+        Option.isSome x2 |> equal true
+        Option.isNone x2 |> equal false
+        x2.IsSome |> equal true
+        x2.IsNone |> equal false
+        match x2 with
+        | Some(Some _) -> 0
+        | Some(None) -> 1
+        | None -> 2
+        |> equal 1
+        Option.isSome x3 |> equal true
+        Option.isNone x3 |> equal false
+        x3.IsSome |> equal true
+        x3.IsNone |> equal false
+        match x3 with
+        | None -> 0
+        | Some(None) -> 1
+        | Some(Some _) -> 2
+        |> equal 2
         match x4 with Some i -> i = 5 | None -> false
         |> equal true
         x4.Value = 5 |> equal true
         Option.get x4 = 5 |> equal true
 
-//    testCase "Option.flatten works" <| fun () ->
-//        let o1: int option option = Some (Some 1)
-//        let o2: int option option = Some None
-//        let o3: int option option = None
-//        Option.flatten o1 |> equal (Some 1)
-//        Option.flatten o2 |> equal None
-//        Option.flatten o3 |> equal None
+    testCase "Option.flatten works" <| fun () ->
+       let o1: int option option = Some (Some 1)
+       let o2: int option option = Some None
+       let o3: int option option = None
+       Option.flatten o1 |> equal (Some 1)
+       Option.flatten o2 |> equal None
+       Option.flatten o3 |> equal None
 
 //    testCase "Option.toObj works" <| fun () ->
 //        let o1: string option = Some "foo"
@@ -288,16 +287,17 @@ let tests() =
         let x3: int option option = Some(None)
         test x1 x2 x3
 
-//    testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
-//        Some (box null) |> Option.isSome |> equal true
-//        Some (null) |> Option.isSome |> equal true
+    testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
+       Some (box null) |> Option.isSome |> equal true
+       Some (null) |> Option.isSome |> equal true
 
-//    testCase "Nullable works" <| fun () ->
-//        let x = Nullable 5
-//        x.HasValue |> equal true
-//        x.Value |> equal 5
-//
-//        let y: Nullable<int> = Nullable()
-//        y.HasValue |> equal false
-//        let errorThrown = try y.Value |> ignore; false with _ -> true
-//        equal true errorThrown
+    testCase "Nullable works" <| fun () ->
+       let x = Nullable 5
+       x.HasValue |> equal true
+       x.Value |> equal 5
+
+       let mutable z = 0
+       let y: Nullable<int> = Nullable()
+       y.HasValue |> equal false
+       let errorThrown = try z <- y.Value; false with _ -> true
+       equal true errorThrown

@@ -858,15 +858,15 @@ module PrinterExtensions =
                     // Nullable types and unions usually need to be typed explicitly
                     // Print type also if ident and expression types are different?
                     // (this usually happens when removing unnecessary casts)
-                    match kind, ident.Type with
-                    | Var, _ -> true
-                    | _, Nullable _ -> true
-                    | _, TypeReference(_, _, info) -> info.IsUnion
+                    match ident.Type with
+                    | Nullable _ -> true
+                    | TypeReference(_, _, info) -> info.IsUnion
                     | _ -> false
 
                 match kind with
                 | Const -> printer.Print("const ")
                 | Final -> printer.Print("final ")
+                | Var when not printType -> printer.Print("var ")
                 | Var -> ()
 
                 if printType then
