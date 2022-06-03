@@ -411,12 +411,15 @@ module TypeInfo =
         | Fable.IdentExpr _
             -> true
         // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _) ->
+            isCloneableExpr com t e
         | _ -> false
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
         | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _) -> tryGetIdent expr
         | _ -> None
 
     let getIdentName expr =
@@ -2870,6 +2873,7 @@ module Util =
             transformLeaveContextByValue com ctx body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        if name = Some "Map.tryFind" then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
