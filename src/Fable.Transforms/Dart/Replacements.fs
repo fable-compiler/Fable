@@ -37,8 +37,7 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
         |> emit None t [expr] false
 
     match expr with
-    // Ignore default value as this is usually used for optional params
-    | Value(DefaultValue _, _) -> expr
+    | Value(Null _, _) -> expr
     | Value(NewOption(value, t, isStruct), r) ->
         match value with
         | None -> expr
@@ -840,8 +839,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                     let isStatement = rest = "Statement"
                     emit r t args isStatement macro |> Some
             | ("toNullable" | "ofNullable"), [arg] -> Some arg
-            | "toOption" | "ofOption" as meth, [arg] ->
-                Helper.LibCall(com, "Types", meth, t, [arg], ?loc=r) |> Some
+            | "toOption" | "ofOption"|"defaultValue"|"defaultWith" as meth, args ->
+                Helper.LibCall(com, "Types", meth, t, args, ?loc=r) |> Some
             | _ -> None
     | _ -> None
 

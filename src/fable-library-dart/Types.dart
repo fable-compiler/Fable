@@ -8,6 +8,9 @@ T value<T>(Some<T>? option) => option!.value;
 Some<T>? toOption<T>(T? value) => value != null ? Some(value) : null;
 T? ofOption<T>(Some<T>? value) => value?.value;
 
+T defaultValue<T>(T def, T? value) => value ?? def;
+T defaultWith<T>(T Function() fn, T? value) => value ?? fn();
+
 class Some<T> implements Comparable<Some<T>> {
   final T value;
   const Some(this.value);

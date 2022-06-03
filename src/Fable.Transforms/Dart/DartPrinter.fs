@@ -810,6 +810,12 @@ module PrinterExtensions =
                 else
                     printer.PrintIdent(arg.Ident, printType=true)
 
+                match arg.DefaultValue with
+                | None -> ()
+                | Some defValue ->
+                    printer.Print(" = ")
+                    printer.Print(defValue)
+
                 match pos with
                 | IsSingle | IsLast ->
                     if arg.IsNamed then

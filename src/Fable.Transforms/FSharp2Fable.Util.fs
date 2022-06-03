@@ -136,15 +136,6 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             | _ -> 0)
 
     static member CallMemberInfo(_com: Compiler, m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
-        let checkOptionalAttribute =
-            match Compiler.Language with
-            | Dart ->
-                Util.isEmittedOrImportedMember m || (
-                    m.DeclaringEntity
-                    |> Option.map Util.isGlobalOrImportedFSharpEntity
-                    |> Option.defaultValue false)
-            | _ -> false
-
         let namedParamsIndex =
             FsMemberFunctionOrValue.TryNamedParamsIndex(m)
             |> Option.defaultValue -1
@@ -152,10 +143,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         { CurriedParameterGroups =
             m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
                 let isNamed = namedParamsIndex > -1 && i >= namedParamsIndex
-                let isOptional =
-                    p.IsOptionalArg || (checkOptionalAttribute &&
-                        Helpers.hasAttribute "System.Runtime.InteropServices.OptionalAttribute" p.Attributes)
-
+                let isOptional = Helpers.isOptionalParam p
                 { Name = p.Name
                   Type = TypeHelpers.makeType Map.empty p.Type
                   IsNamed = isNamed
@@ -664,6 +652,13 @@ module Helpers =
             else e.DeclaredInterfaces
                  |> Seq.exists (testInterfaceHierarchy interfaceFullname)
         | _ -> false
+
+    let isOptionalParam (p: FSharpParameter) =
+        p.IsOptionalArg || (
+            // Dart resolves [<Optional>] args also on the declaration site
+            Compiler.Language = Dart
+            && hasAttribute "System.Runtime.InteropServices.OptionalAttribute" p.Attributes
+        )
 
     let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
 
@@ -1619,12 +1614,22 @@ module Util =
                     match namedParamsIndex with
                     | Some namedParamsIndex -> i >= namedParamsIndex
                     | None -> false
-                let isOptional =
+                let isOptional, defValue =
                     match param with
-                    | Some p -> p.IsOptionalArg
-                    | None -> false
+                    | None -> false, None
+                    | Some p ->
+                        let isOptional = isOptionalParam p
+                        let defValue =
+                            if isOptional then
+                                p.Attributes
+                                |> tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
+                                |> Option.bind (fun att ->
+                                    Seq.tryHead att.ConstructorArguments
+                                    |> Option.map (fun (_, v) -> makeConstFromObj v))
+                            else None
+                        isOptional, defValue
                 let ctx, argIdent = putIdentInScope com ctx arg None
-                let arg = Fable.ArgDecl.Create(argIdent, isOptional=isOptional, isNamed=isNamed)
+                let arg = Fable.ArgDecl.Create(argIdent, isOptional=isOptional, isNamed=isNamed, ?defaultValue=defValue)
                 ctx, arg::accArgs)
 
         ctx, thisArg @ (List.rev args)

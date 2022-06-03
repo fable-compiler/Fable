@@ -11,10 +11,12 @@ type DartNullable<'T>() =
     member _.Value: 'T = nativeOnly
 
 module DartNullable =
-    let toOption (x: DartNullable<'T>): 'T option = nativeOnly
-    let ofOption (x: 'T option): DartNullable<'T> = nativeOnly
-    let toNullable (x: DartNullable<'T>): Nullable<'T> = nativeOnly
-    let ofNullable (x: 'T Nullable): DartNullable<'T> = nativeOnly
+    let defaultValue (defVal: 'T) (value: DartNullable<'T>): 'T = nativeOnly
+    let defaultWith (defThunk: unit -> 'T) (value: DartNullable<'T>): 'T = nativeOnly
+    let toOption (value: DartNullable<'T>): 'T option = nativeOnly
+    let ofOption (value: 'T option): DartNullable<'T> = nativeOnly
+    let toNullable (value: DartNullable<'T>): Nullable<'T> = nativeOnly
+    let ofNullable (value: 'T Nullable): DartNullable<'T> = nativeOnly
 
 [<Global>]
 type Future<'T> =

@@ -579,9 +579,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             else
                 return makeValueFrom com ctx r var
 
+    // This is usually used to fill missing [<Optional>] arguments.
+    // Unchecked.defaultof<'T> is resolved in Replacements instead.
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
-        let value = Replacements.Api.defaultof com ctx typ
-        return Fable.DefaultValue(value, typ) |> makeValue (makeRangeFrom fsExpr)
+        match Compiler.Language with
+        // In Dart we don't want the compiler to pass default values other than null to [<Optional>] args
+        | Dart -> return Fable.Value(Fable.Null typ, makeRangeFrom fsExpr)
+        | _ -> return Replacements.Api.defaultof com ctx typ
 
     | FSharpExprPatterns.Let((var, value), body) ->
         match value with
@@ -589,6 +593,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! value = transformExpr com ctx value
             let typ = makeType ctx.GenericArgs createEvent.Type
             let value = makeCallFrom com ctx (makeRangeFrom createEvent) typ [] (Some value) [] event
+            let ctx, ident = putIdentInScope com ctx var (Some value)
+            let! body = transformExpr com ctx body
+            return Fable.Let(ident, value, body)
+
+        // Because in Dart we compile DefaultValue as null when it's passed to optional arguments,
+        // check if it's directly assigned in a binding and use the actual default value in that case
+        // (This is necessary to properly initialize the out arg in `TryParse` methods)
+        | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
+            let value = Replacements.Api.defaultof com ctx typ
             let ctx, ident = putIdentInScope com ctx var (Some value)
             let! body = transformExpr com ctx body
             return Fable.Let(ident, value, body)
@@ -1716,7 +1729,6 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         | Fable.StringConstant _
         | Fable.NumberConstant _
         | Fable.RegexConstant _ -> e
-        | Fable.DefaultValue(e, t) -> Fable.DefaultValue(resolveInlineExpr com ctx info e, t) |> makeValue r
         | Fable.StringTemplate(tag, parts, exprs) -> Fable.StringTemplate(tag, parts, List.map (resolveInlineExpr com ctx info) exprs) |> makeValue r
         | Fable.NewOption(e, t, isStruct) -> Fable.NewOption(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx t, isStruct) |> makeValue r
         | Fable.NewTuple(exprs, isStruct) -> Fable.NewTuple(List.map (resolveInlineExpr com ctx info) exprs, isStruct) |> makeValue r

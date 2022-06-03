@@ -178,9 +178,13 @@ type ArgDecl = {
     Ident: Ident
     IsOptional: bool
     IsNamed: bool
+    DefaultValue: Expr option
 } with
-    static member Create(ident: Ident, ?isOptional, ?isNamed) =
-        { Ident = ident; IsOptional = defaultArg isOptional false; IsNamed = defaultArg isNamed false }
+    static member Create(ident: Ident, ?isOptional, ?isNamed, ?defaultValue) =
+        { Ident = ident
+          IsOptional = defaultArg isOptional false
+          IsNamed = defaultArg isNamed false
+          DefaultValue = defaultValue }
 
 type MemberDecl = {
     Name: string
@@ -281,7 +285,6 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
-    | DefaultValue of value: Expr * typ: Type
     | TypeInfo of typ: Type * details: TypeInfoDetails
     | Null of typ: Type
     | UnitConstant
@@ -303,8 +306,7 @@ type ValueKind =
     member this.Type =
         match this with
         | ThisValue t
-        | BaseValue(_,t)
-        | DefaultValue(_, t) -> t
+        | BaseValue(_,t) -> t
         | TypeInfo _ -> MetaType
         | Null t -> t
         | UnitConstant -> Unit
