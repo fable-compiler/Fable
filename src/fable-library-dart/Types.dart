@@ -11,6 +11,9 @@ const unit = Unit._();
 
 T value<T>(Some<T>? option) => option!.value;
 
+Some<T>? toOption<T>(T? value) => value != null ? Some(value) : null;
+T? ofOption<T>(Some<T>? value) => value?.value;
+
 class Some<T> implements Comparable<Some<T>> {
   final T value;
   const Some(this.value);

@@ -477,6 +477,9 @@ module AST =
     let makeEqOp range left right op =
         Operation(Binary(op, left, right), Boolean, range)
 
+    let makeNullTyped t =
+        Value(Null t, None)
+
     let makeNull () =
         Value(Null Any, None)
 
