@@ -175,13 +175,8 @@ module Util =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
         Type.reference(tup, genArgs)
 
-    let transformOptionGenArg com ctx = function
-        // Allow `unit option` as this is used by "empty" active patterns
-        | Fable.Unit -> Type.reference(getUnitTypeIdent com ctx)
-        | genArg -> transformType com ctx genArg
-
     let transformOptionType com ctx genArg =
-        let genArg = transformOptionGenArg com ctx genArg
+        let genArg = transformType com ctx genArg
         Type.reference(libValue com ctx Fable.MetaType "Types" "Some", [genArg]) |> Nullable
 
     let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
@@ -194,6 +189,7 @@ module Util =
         // List without generics is same as List<dynamic>
         | Types.array, _ -> List Dynamic |> Some
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs |> Some
+        | "System.ValueType", _ -> Some Object
         | "System.Nullable`1", [genArg]
         | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg |> Some
         | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
@@ -535,13 +531,6 @@ module Util =
     let getTupleTypeIdent (com: IDartCompiler) ctx itemsLength =
         libValue com ctx Fable.MetaType "Types" $"Tuple%i{itemsLength}"
 
-    let getUnitTypeIdent (com: IDartCompiler) ctx =
-        libValue com ctx Fable.MetaType "Types" "Unit"
-
-    let getUnitValueIdent (com: IDartCompiler) ctx =
-        let t = Type.reference(getUnitTypeIdent com ctx)
-        { libValue com ctx Fable.Any "Types" "unit" with Type = t }
-
 //    let getExceptionTypeIdent (com: IDartCompiler) ctx: Ident =
 //        transformIdentWith com ctx false Fable.MetaType "Exception"
 
@@ -703,13 +692,6 @@ module Util =
                 Expression.invocationExpression(cons.Expr, args, t, isConst=isConst)
 
             match expr with
-            // Allow `unit option` as this is used by "empty" active patterns
-            | Some(Fable.Value(Fable.UnitConstant, _)) ->
-                getUnitValueIdent com ctx
-                |> IdentExpression
-                |> transformOption com ctx genArg
-                |> resolveExpr returnStrategy
-
             | Some expr ->
                 transformExprAndResolve com ctx returnStrategy expr (transformOption com ctx genArg)
 
@@ -851,6 +833,7 @@ module Util =
     let transformCall com ctx range (t: Fable.Type) returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
+
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
         | Return _, Some tc when tc.IsRecursiveRef(callee)
@@ -866,6 +849,13 @@ module Util =
                 match callInfo.Tag, callInfo.Args with
                 | Some "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                     Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
+                | Some "ignore", [arg] ->
+                    match returnStrategy with
+                    // If we're not going to return or assign the value we can skip the `ignore` call
+                    | Return(isVoid=true) | Ignore -> Some arg
+                    | _ -> None
+                // TODO
+                // | Some "const-map"
                 | _ -> None
 
             match optimized with
@@ -1085,7 +1075,7 @@ module Util =
 
         | Fable.OptionValue ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
-                let t = transformOptionGenArg com ctx t
+                let t = transformType com ctx t
                 libCallWithType com ctx t "Types" "value" [expr])
 
         | Fable.UnionTag ->
@@ -1516,7 +1506,7 @@ module Util =
     let transformAndCaptureExpr (com: IDartCompiler) (ctx: Context) (expr: Fable.Expr): Statement list * Expression =
         match com.Transform(ctx, Capture(binding=None), expr) with
         | statements, Some expr -> statements, expr
-        | statements, None -> statements, Expression.nullLiteral Void
+        | statements, None -> statements, libCall com ctx Fable.Unit "Util" "ignore" []
 
     let transform (com: IDartCompiler) ctx (returnStrategy: ReturnStrategy) (expr: Fable.Expr): Statement list * CapturedExpr =
         match expr with

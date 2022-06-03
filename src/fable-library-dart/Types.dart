@@ -3,12 +3,6 @@
 import 'dart:collection';
 import 'Util.dart' as util;
 
-class Unit {
-  const Unit._();
-}
-
-const unit = Unit._();
-
 T value<T>(Some<T>? option) => option!.value;
 
 Some<T>? toOption<T>(T? value) => value != null ? Some(value) : null;
