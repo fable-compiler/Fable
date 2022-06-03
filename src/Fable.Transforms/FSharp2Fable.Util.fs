@@ -135,7 +135,16 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             | Some(_, (:?int as index)) -> index
             | _ -> 0)
 
-    static member CallMemberInfo(com: Compiler, m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+    static member CallMemberInfo(_com: Compiler, m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+        let checkOptionalAttribute =
+            match Compiler.Language with
+            | Dart ->
+                Util.isEmittedOrImportedMember m || (
+                    m.DeclaringEntity
+                    |> Option.map Util.isGlobalOrImportedFSharpEntity
+                    |> Option.defaultValue false)
+            | _ -> false
+
         let namedParamsIndex =
             FsMemberFunctionOrValue.TryNamedParamsIndex(m)
             |> Option.defaultValue -1
@@ -143,7 +152,14 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         { CurriedParameterGroups =
             m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
                 let isNamed = namedParamsIndex > -1 && i >= namedParamsIndex
-                { Name = p.Name; Type = TypeHelpers.makeType Map.empty p.Type; IsNamed = isNamed }))
+                let isOptional =
+                    p.IsOptionalArg || (checkOptionalAttribute &&
+                        Helpers.hasAttribute "System.Runtime.InteropServices.OptionalAttribute" p.Attributes)
+
+                { Name = p.Name
+                  Type = TypeHelpers.makeType Map.empty p.Type
+                  IsNamed = isNamed
+                  IsOptional = isOptional }))
           Attributes = m.Attributes |> Seq.toList |> List.map (fun x -> FsAtt(x) :> Fable.Attribute)
           IsInstance = m.IsInstanceMember
           IsGetter = m.IsPropertyGetterMethod

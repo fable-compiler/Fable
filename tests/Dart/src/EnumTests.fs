@@ -161,20 +161,22 @@ let tests() =
         enum 4 |> equal Fruits.Coconut
 
     testCase "Pattern matching can be nested within a switch statement" <| fun () -> // See #483
+        let test fruit veggie =
+            match fruit with
+            | Fruits.Apple ->
+                match veggie with
+                | Tomato kind -> kind.Replace("to","")
+                | _ -> "foo"
+            | Fruits.Banana
+            | Fruits.Coconut ->
+                match veggie with
+                | Lettuce kind -> kind
+                | _ -> "bar"
+            | _ -> "invalid choice"
+            |> equal "kuma"
         let fruit = Fruits.Apple
         let veggie = Tomato("kumato")
-        match fruit with
-        | Fruits.Apple ->
-            match veggie with
-            | Tomato kind -> kind.Replace("to","")
-            | _ -> "foo"
-        | Fruits.Banana
-        | Fruits.Coconut ->
-            match veggie with
-            | Lettuce kind -> kind
-            | _ -> "bar"
-        | _ -> "invalid choice"
-        |> equal "kuma"
+        test fruit veggie
 
     testCase "Non-scoped (in JS) variables with same name can be used" <| fun () -> // See #700
         equal 10 myRootValue

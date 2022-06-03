@@ -927,6 +927,7 @@ module Util =
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
+        | Fable.DefaultValue(value,_) -> com.TransformAsExpr(ctx, value)
         | Fable.BaseValue(None,_) -> Super(None)
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent
         | Fable.ThisValue _ -> Expression.thisExpression()

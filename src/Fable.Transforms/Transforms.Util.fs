@@ -385,7 +385,7 @@ module AST =
         | _ -> None
 
     let (|NullConst|_|) = function
-        | MaybeCasted(Value(Null _, _)) -> Some()
+        | MaybeCasted(Value((Null _|DefaultValue(Value(Null _,_),_)), _)) -> Some()
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
@@ -401,8 +401,8 @@ module AST =
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
-            | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
-            | CharConstant _ | StringConstant _ | RegexConstant _  -> false
+            | DefaultValue _ | TypeInfo _ | Null _ | UnitConstant | NumberConstant _
+            | BoolConstant _ | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewOption(Some e,_,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
@@ -828,6 +828,7 @@ module AST =
             | TypeInfo _ | Null _ | UnitConstant
             | BoolConstant _ | CharConstant _ | StringConstant _
             | NumberConstant _ | RegexConstant _ -> e
+            | DefaultValue(value, t) -> DefaultValue(f value, t) |> makeValue r
             | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r

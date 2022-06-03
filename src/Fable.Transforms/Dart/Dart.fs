@@ -45,6 +45,12 @@ type Type =
     | TypeReference of Ident * generics: Type list * info: TypeInfo
     | Function of argTypes: Type list * returnType: Type
 
+    member this.Generics =
+        match this with
+        | TypeReference(_, gen, _) -> gen
+        | Function(gen1, gen2) -> gen1 @ [gen2]
+        | _ -> []
+
     static member reference(ident, ?generics, ?isRecord, ?isUnion) =
         let info: TypeInfo = { IsRecord = defaultArg isRecord false; IsUnion = defaultArg isUnion false }
         TypeReference(ident, defaultArg generics [], info)

@@ -9,11 +9,26 @@ class Unit {
 
 const unit = Unit._();
 
-T? some<T>(T value) {
-  if (value == null) {
-    throw Exception("Nested options are not supported");
-  }
-  return value;
+T value<T>(Some<T>? option) => option!.value;
+
+class Some<T> implements Comparable<Some<T>> {
+  final T value;
+  const Some(this.value);
+
+  @override
+  String toString() => 'Some($value)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is Some<T> &&
+      other.runtimeType == runtimeType &&
+      util.equalsDynamic(other.value, value);
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  int compareTo(Some<T> other) => util.compareDynamic(other.value, value);
 }
 
 Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {

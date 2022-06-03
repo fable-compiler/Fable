@@ -250,7 +250,7 @@ let tests() =
 //        Option.ofObj o2 |> equal None
 
     testCase "Nested options work" <| fun () ->
-        let test x1 x2 =
+        let test x1 x2 x3 =
             Option.isSome x1 |> equal true
             Option.isNone x1 |> equal false
             x1.IsSome |> equal true
@@ -270,24 +270,23 @@ let tests() =
             | Some(Some _) -> 1
             | None -> 2
             |> equal 1
-            // Option.isSome x3 |> equal true
-            // Option.isNone x3 |> equal false
-            // x3.IsSome |> equal true
-            // x3.IsNone |> equal false
-            // match x3 with
-            // | None -> 0
-            // | Some(Some _) -> 1
-            // | Some(None) -> 2
-            // |> equal 2
+            Option.isSome x3 |> equal true
+            Option.isNone x3 |> equal false
+            x3.IsSome |> equal true
+            x3.IsNone |> equal false
+            match x3 with
+            | None -> 0
+            | Some(Some _) -> 1
+            | Some(None) -> 2
+            |> equal 2
 
             x1 |> Option.map (Option.map ((+) 3)) |> equal (Some(Some 8))
-            // x3 |> Option.map (Option.map ((+) 3)) |> equal None
+            x3 |> Option.map (Option.map ((+) 3)) |> equal (Some None)
 
         let x1 = Some(Some 5)
         let x2 = Some(Some ())
-        // TODO: Nested options like Some None
-        // let x3: int option option = Some(None)
-        test x1 x2
+        let x3: int option option = Some(None)
+        test x1 x2 x3
 
 //    testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
 //        Some (box null) |> Option.isSome |> equal true

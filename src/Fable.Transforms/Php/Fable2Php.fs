@@ -1035,7 +1035,8 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpVar("this", None)
     | Fable.TypeInfo _ ->
         failwith "Not implemented"
-
+    | Fable.DefaultValue(value, _) ->
+        convertExpr com value
 
 and canBeCompiledAsSwitch evalExpr tree =
     match tree with

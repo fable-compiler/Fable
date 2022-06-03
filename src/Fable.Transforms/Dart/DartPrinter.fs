@@ -185,27 +185,27 @@ module PrinterExtensions =
                     printer.PrintType(e)
             ), skipIfEmpty=true)
 
-        member printer.PrintCallArgAndSeparator (pos: ListPos) ((name, expr): CallArg) =
+        member printer.PrintCallArgAndSeparator (hasUnnamedArgs: bool) (pos: ListPos) ((name, expr): CallArg) =
             let isNamed =
                 match name with
                 | None -> false
                 | Some name ->
                     match pos with
-                    | IsFirst | IsSingle ->
+                    | IsFirst | IsSingle when not hasUnnamedArgs ->
                         printer.PrintNewLine()
                         printer.PushIndentation()
-                    | IsMiddle | IsLast -> ()
+                    | _ -> ()
                     printer.Print(name + ": ")
                     true
             printer.Print(expr)
             match pos with
             | IsSingle | IsLast ->
-                if isNamed then
+                if isNamed && not hasUnnamedArgs then
                     printer.PrintNewLine()
                     printer.PopIndentation()
                 else ()
             | IsFirst | IsMiddle ->
-                if isNamed then
+                if isNamed && not hasUnnamedArgs then
                     printer.Print(",")
                     printer.PrintNewLine()
                 else
@@ -687,11 +687,12 @@ module PrinterExtensions =
             // TODO: Detect if we're calling Map/Set and use collection literal if possible
             // https://dart-lang.github.io/linter/lints/prefer_collection_literals.html
             | InvocationExpression(caller, genArgs, args, _typ, isConst) ->
+                let hasUnnamedArgs = args |> List.exists (function (name, _) -> Option.isNone name)
                 if isConst then
                     printer.Print("const ")
                 printer.PrintWithParensIfNotIdent(caller)
                 printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty=true)
-                printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator)
+                printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator hasUnnamedArgs)
 
             | AnonymousFunction(args, body, genArgs, _returnType) ->
                 printer.PrintList("<", genArgs, ">", skipIfEmpty=true)
@@ -743,7 +744,8 @@ module PrinterExtensions =
 
                     if callSuper then
                         p.Print(": super")
-                        printer.PrintList("(", ")", c.SuperArgs, printer.PrintCallArgAndSeparator)
+                        let hasUnnamedArgs = c.SuperArgs |> List.exists (function (name, _) -> Option.isNone name)
+                        printer.PrintList("(", ")", c.SuperArgs, printer.PrintCallArgAndSeparator hasUnnamedArgs)
                     match c.Body with
                     | [] -> p.Print(";")
                     | body ->
@@ -856,16 +858,16 @@ module PrinterExtensions =
                     // Nullable types and unions usually need to be typed explicitly
                     // Print type also if ident and expression types are different?
                     // (this usually happens when removing unnecessary casts)
-                    match ident.Type with
-                    | Nullable _ -> true
-                    | TypeReference(_, _, info) -> info.IsUnion
+                    match kind, ident.Type with
+                    | Var, _ -> true
+                    | _, Nullable _ -> true
+                    | _, TypeReference(_, _, info) -> info.IsUnion
                     | _ -> false
 
-                match kind, printType with
-                | Const, _ -> printer.Print("const ")
-                | Final, _ -> printer.Print("final ")
-                | Var, false -> printer.Print("var ")
-                | Var, true -> ()
+                match kind with
+                | Const -> printer.Print("const ")
+                | Final -> printer.Print("final ")
+                | Var -> ()
 
                 if printType then
                     printer.PrintType(ident.Type)

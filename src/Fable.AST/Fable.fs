@@ -281,6 +281,7 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
+    | DefaultValue of value: Expr * typ: Type
     | TypeInfo of typ: Type * details: TypeInfoDetails
     | Null of typ: Type
     | UnitConstant
@@ -302,7 +303,8 @@ type ValueKind =
     member this.Type =
         match this with
         | ThisValue t
-        | BaseValue(_,t) -> t
+        | BaseValue(_,t)
+        | DefaultValue(_, t) -> t
         | TypeInfo _ -> MetaType
         | Null t -> t
         | UnitConstant -> Unit
@@ -322,7 +324,8 @@ type ValueKind =
 type ParamInfo =
     { Name: string option
       Type: Type
-      IsNamed: bool }
+      IsNamed: bool
+      IsOptional: bool }
 
 type CallMemberInfo =
     { CurriedParameterGroups: ParamInfo list list
@@ -439,6 +442,7 @@ type GetKind =
     | UnionTag
     | ListHead
     | ListTail
+    // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
     | OptionValue
 
 type SetKind =

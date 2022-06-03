@@ -1045,10 +1045,13 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | _ -> None
 
-// We could add ?? as operator (or a custom string operator)
-// so this can be a BinaryOp
-let ifNullOp r t nullable defValue =
-    emit r t [nullable; defValue] false "$0 ?? $1"
+let defaultValue com ctx r t defValue option =
+    match option with
+    | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
+        match opt with
+        | Some value -> Some value
+        | None -> Some defValue
+    | _ -> Helper.LibCall(com, "Option", "defaultValue", t, [defValue; option], ?loc=r) |> Some
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes genArgs methName =
@@ -1056,13 +1059,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.ImportedCall("dart:math", meth, t, args, argTypes, genArgs=genArgs, ?loc=r)
 
     match i.CompiledName, args with
-    | ("DefaultArg" | "DefaultValueArg"), [nullable; defValue] ->
-        match nullable with
-        | MaybeInScope ctx (Value(NewOption(opt, _, _),_)) ->
-            match opt with
-            | Some value -> Some value
-            | None -> Some defValue
-        | _ -> ifNullOp r t nullable defValue |> Some
+    | ("DefaultArg" | "DefaultValueArg"), [option; defValue] -> defaultValue com ctx r t defValue option
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     | "KeyValuePattern", [arg] ->
@@ -1721,11 +1718,10 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "GetValue", [c] -> getOptionValue r t c |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("DefaultValue" | "OrElse"), [defValue; nullable] ->
-        ifNullOp r t nullable defValue |> Some
+    | "DefaultValue", [defValue; option] -> defaultValue com ctx r t defValue option
     | ("ToArray" | "ToList" | "Count" | "Contains" | "ForAll" | "Iterate"
-           | "DefaultWith" | "OrElseWith" | "Exists" | "Fold" | "FoldBack"
-           | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+           | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists"
+           | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
 //    | ("OfObj" | "OfNullable" | "ToObj" | "ToNullable"), _ ->
     | _ -> None

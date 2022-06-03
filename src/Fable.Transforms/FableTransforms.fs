@@ -20,6 +20,7 @@ let getSubExpressions = function
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
+        | DefaultValue(e,_) -> [e]
         | StringTemplate(_,_,exprs) -> exprs
         | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
@@ -212,8 +213,8 @@ let noSideEffectBeforeIdent identName expr =
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _
-            | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
-            | CharConstant _ | StringConstant _ | RegexConstant _  -> false
+            | DefaultValue _| TypeInfo _ | Null _ | UnitConstant | NumberConstant _
+            | BoolConstant _ | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
@@ -246,7 +247,7 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
-let canInlineArg com identName value body =
+let canInlineArg _com identName value body =
     (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
      || (noSideEffectBeforeIdent identName body
          && isIdentCaptured identName body |> not

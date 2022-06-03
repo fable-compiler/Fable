@@ -89,9 +89,13 @@ module Util =
         let ident = libValue com ctx Fable.MetaType moduleName memberName
         Type.reference(ident, genArgs)
 
-    let libCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) =
+    let libCallWithType (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) =
         let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
-        Expression.invocationExpression(fn.Expr, args, transformType com ctx t)
+        Expression.invocationExpression(fn.Expr, args, t)
+
+    let libCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) =
+        let t = transformType com ctx t
+        libCallWithType com ctx t moduleName memberName args
 
     let libGenCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) genArgs =
         let genArgs = transformGenArgs com ctx genArgs
@@ -158,27 +162,48 @@ module Util =
 
     let transformTupleType com ctx genArgs =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
-        Type.reference(tup, transformGenArgs com ctx genArgs)
+        Type.reference(tup, genArgs)
+
+    let transformOptionGenArg com ctx = function
+        // Allow `unit option` as this is used by "empty" active patterns
+        | Fable.Unit -> Type.reference(getUnitTypeIdent com ctx)
+        | genArg -> transformType com ctx genArg
+
+    let transformOptionType com ctx genArg =
+        let genArg = transformOptionGenArg com ctx genArg
+        Type.reference(libValue com ctx Fable.MetaType "Types" "Some", [genArg]) |> Nullable
 
     let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
-        match entRef.FullName with
-        | "System.Enum" -> Integer |> Some
+        let genArgs = transformGenArgs com ctx genArgs
+        let makeIterator genArg = Type.reference(makeImmutableIdent MetaType "Iterator", [genArg])
+        let makeMapEntry key value = Type.reference(makeImmutableIdent MetaType "MapEntry", [key; value])
+
+        match entRef.FullName, genArgs with
+        | "System.Enum", _ -> Integer |> Some
         // List without generics is same as List<dynamic>
-        | Types.array -> List Dynamic |> Some
-        | "System.Tuple`1" -> transformTupleType com ctx genArgs |> Some
-        | "System.Text.RegularExpressions.Group" -> Nullable String |> Some
-        | "System.Text.RegularExpressions.Match" ->
+        | Types.array, _ -> List Dynamic |> Some
+        | "System.Tuple`1", _ -> transformTupleType com ctx genArgs |> Some
+        | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
+        | "System.Text.RegularExpressions.Match", _ ->
             makeTypeRefFromName "Match" [] |> Some
-        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" when ignoreMeasure -> None
+        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2", _ when ignoreMeasure -> None
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
-        | Naming.EndsWith "Exception" _ -> Dynamic |> Some
+        | Naming.EndsWith "Exception" _, _ -> Dynamic |> Some
+        | "System.Collections.Generic.Dictionary`2.Enumerator", [key; value] -> makeMapEntry key value |> makeIterator |> Some
+        | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", [key; _] -> makeIterator key |> Some
+        | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", [_; value] -> makeIterator value |> Some
         | _ ->
             let ent = com.GetEntity(entRef)
             if ignoreMeasure && ent.IsMeasure then
                 None
             else
-                let genArgs = transformGenArgs com ctx genArgs
-                Type.reference(getEntityIdent com ctx ent, genArgs, isRecord=ent.IsFSharpRecord, isUnion=ent.IsFSharpUnion) |> Some
+                let ident, genArgs =
+                    match getEntityIdent com ctx ent with
+                    // If Iterator has more than one genArg assume we need to use MapEntry
+                    | { Name = "Iterator"; ImportModule = None } as ident when List.isMultiple genArgs ->
+                        ident, [Type.reference(makeImmutableIdent MetaType "MapEntry", genArgs)]
+                    | ident -> ident, genArgs
+                Type.reference(ident, genArgs, isRecord=ent.IsFSharpRecord, isUnion=ent.IsFSharpUnion) |> Some
 
     let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         transformDeclaredTypeIgnoreMeasure false com ctx entRef genArgs |> Option.get
@@ -245,10 +270,13 @@ module Util =
         | IdentExpression ident -> not ident.IsMutable
         | _ -> false
 
+    let isConstIdent (ctx: Context) (ident: Ident) =
+        Option.isSome ident.ImportModule || Set.contains ident.Name ctx.ConstIdents
+
     // Binary operations should be const if the operands are, but if necessary let's fold constants binary ops in FableTransforms
     let isConstExpr (ctx: Context) = function
         | CommentedExpression(_, expr) -> isConstExpr ctx expr
-        | IdentExpression ident -> Option.isSome ident.ImportModule || Set.contains ident.Name ctx.ConstIdents
+        | IdentExpression ident -> isConstIdent ctx ident
         | PropertyAccess(_,_,_,isConst)
         | InvocationExpression(_,_,_,_,isConst) -> isConst
         | BinaryExpression(_,left,right,_) -> isConstExpr ctx left && isConstExpr ctx right
@@ -335,40 +363,38 @@ module Util =
 
         statements1 @ statements2 @ [Statement.continueStatement(tc.Label)]
 
-    let discardSingleUnitArg = function
-        | [Fable.Value(Fable.UnitConstant,_)] -> []
-        | args -> args
-
     let transformCallArgs (com: IDartCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
-        let namedParamsInfo, thisArg, args =
+        let paramsInfo, namedParamsInfo, thisArg, args =
             match info with
-            | NoCallInfo args -> None, None, args
-            | CallInfo({ CallMemberInfo = None } as i) -> None, i.ThisArg, i.Args
+            | NoCallInfo args -> None, None, None, args
+            | CallInfo({ CallMemberInfo = None } as i) -> None, None, i.ThisArg, i.Args
             | CallInfo({ CallMemberInfo = Some mi } as info) ->
                 let addUnnamedParamsWarning() =
                     "NamedParams cannot be used with unnamed parameters"
                     |> addWarning com [] r
 
+                let paramsInfo = List.concat mi.CurriedParameterGroups
+
                 let mutable i = -1
-                (None, List.concat mi.CurriedParameterGroups) ||> List.fold (fun acc p ->
+                (None, paramsInfo) ||> List.fold (fun acc p ->
                     i <- i + 1
                     match acc with
                     | Some(namedIndex, names) ->
                         match p.Name with
-                        | Some name -> Some(namedIndex, name::names)
+                        | Some name -> Some(namedIndex, {| Name = name; IsOptional = p.IsOptional |}::names)
                         | None -> addUnnamedParamsWarning(); None
                     | None when p.IsNamed ->
                         match p.Name with
                         | Some name ->
                             let namedIndex = i
-                            Some(namedIndex, [name])
+                            Some(namedIndex, [{| Name = name; IsOptional = p.IsOptional |}])
                         | None -> addUnnamedParamsWarning(); None
                     | None -> None)
                 |> function
-                    | None -> None, info.ThisArg, info.Args
+                    | None -> Some paramsInfo, None, info.ThisArg, info.Args
                     | Some(index, names) ->
                         let namedParamsInfo = {| Index = index; Parameters = List.rev names |}
-                        Some namedParamsInfo, info.ThisArg, info.Args
+                        Some paramsInfo, Some namedParamsInfo, info.ThisArg, info.Args
 
         let unnamedArgs, namedArgs =
             match namedParamsInfo with
@@ -386,12 +412,33 @@ module Util =
                     let namedArgs =
                         List.zip namedKeys namedValues
                         |> List.choose (function
-                            | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
-                            | k, v -> Some(k, v))
+                            // Ignore default value for optional parameters
+                            | p, Fable.Value(Fable.DefaultValue _, _) when p.IsOptional -> None
+                            | p, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> p.Name, v)
+                            | p, v -> Some(p.Name, v))
                         |> List.map (fun (k, v) -> Some k, transformAndCaptureExpr com ctx v)
                     args, namedArgs
 
-        let unnamedArgs = discardSingleUnitArg unnamedArgs
+        let unnamedArgs =
+            match unnamedArgs, paramsInfo with
+            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
+            // Same as with named args, we skip DefaultValue for optional parameters
+            // Note this is mainly intended for bindings using the [<Optional>] attribute, see #2919
+            | args, Some paramsInfo ->
+                let argsLen = args.Length
+                if paramsInfo.Length >= argsLen then
+                    ([], List.zip args (List.take argsLen paramsInfo) |> List.rev)
+                    ||> List.fold (fun acc (arg, par) ->
+                        if par.IsOptional then
+                            match arg, acc with
+                            | Fable.Value(Fable.DefaultValue _, _), [] -> []
+                            | Fable.Value(Fable.DefaultValue(_, t), r), acc ->
+                                Fable.Value(Fable.Null t, r)::acc
+                            | arg, acc -> arg::acc
+                        else arg::acc)
+                else args
+            | args, _ -> args
+
         let unnamedArgs =
             (Option.toList thisArg @ unnamedArgs)
             |> List.map (fun arg -> None, transformAndCaptureExpr com ctx arg)
@@ -479,7 +526,7 @@ module Util =
 //        transformIdentWith com ctx false Fable.MetaType "Exception"
 
     /// Discards Measure generic arguments
-    let transformGenArgs com ctx genArgs =
+    let transformGenArgs com ctx (genArgs: Fable.Type list) =
         genArgs |> List.choose (function
             | Fable.GenericParam(isMeasure=true) -> None
             | Fable.DeclaredType(entRef, genArgs) -> transformDeclaredTypeIgnoreMeasure true com ctx entRef genArgs
@@ -500,21 +547,17 @@ module Util =
             | Float32 | Float64 -> Double
             | Decimal | BigInt | NativeInt | UNativeInt -> Dynamic // TODO
         | Fable.Option(genArg, _isStruct) ->
-            match genArg with
-            | Fable.Any -> Dynamic
-            // For now we "unnest" options when compiling
-            | Fable.Option _ -> transformType com ctx genArg
-            // Allow `unit option` as this is used by "empty" active patterns
-            | Fable.Unit -> Nullable(Type.reference(getUnitTypeIdent com ctx))
-            | TransformType com ctx genArg -> Nullable genArg
+            transformOptionType com ctx genArg
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) ->
             Type.reference(getFSharpListTypeIdent com ctx, [genArg])
         | Fable.Tuple(genArgs, _) ->
-            transformTupleType com ctx genArgs
+            transformGenArgs com ctx genArgs
+            |> transformTupleType com ctx
         | Fable.AnonymousRecordType(_, genArgs) ->
             genArgs
             |> List.map FableTransforms.uncurryType
+            |> transformGenArgs com ctx
             |> transformTupleType com ctx
         | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([argType], returnType)
@@ -591,6 +634,7 @@ module Util =
     let transformValue (com: IDartCompiler) (ctx: Context) (r: SourceLocation option) returnStrategy kind: Statement list * CapturedExpr =
         match kind with
         | Fable.UnitConstant -> [], None
+        | Fable.DefaultValue(value,_) -> transform com ctx returnStrategy value
         | Fable.ThisValue t -> transformType com ctx t |> ThisExpression |> resolveExpr returnStrategy
         | Fable.BaseValue(None, t) -> transformType com ctx t |> SuperExpression |> resolveExpr returnStrategy
         | Fable.BaseValue(Some boundIdent, _) -> transformIdentAsExpr com ctx boundIdent |> resolveExpr returnStrategy
@@ -622,32 +666,29 @@ module Util =
             Expression.invocationExpression(regexIdent.Expr, args, Type.reference regexIdent)
             |> resolveExpr returnStrategy
 
-        | Fable.NewOption(expr, typ, isStruct) ->
+        | Fable.NewOption(expr, genArg, _isStruct) ->
+            let transformOption (com: IDartCompiler) ctx genArg (arg: Expression) =
+                let cons = libValue com ctx Fable.MetaType "Types" "Some"
+                let t = transformOptionType com ctx genArg
+                let isConst, args =
+                    if areConstTypes t.Generics && isConstExpr ctx arg then
+                        true, [removeConst arg]
+                    else false, [arg]
+                Expression.invocationExpression(cons.Expr, args, t, isConst=isConst)
+
             match expr with
             // Allow `unit option` as this is used by "empty" active patterns
             | Some(Fable.Value(Fable.UnitConstant, _)) ->
                 getUnitValueIdent com ctx
                 |> IdentExpression
-                |> resolveExpr returnStrategy
-
-            // If we don't know the type of the expr add a runtime check to make sure
-            // we're not passing null to Some (nested options are not supported atm)
-            | Some(ExprType(Fable.GenericParam _) as expr) ->
-                transformExprAndResolve com ctx returnStrategy expr (fun expr ->
-                    let typ = Fable.Option(typ, isStruct)
-                    libCall com ctx typ "Types" "some" [expr])
-
-            | Some(Fable.Value(Fable.NewOption(None, _, _), _)) ->
-                "Nested options are not supported" |> addError com [] r
-                transformType com ctx typ
-                |> Expression.nullLiteral
+                |> transformOption com ctx genArg
                 |> resolveExpr returnStrategy
 
             | Some expr ->
-                transform com ctx returnStrategy expr
+                transformExprAndResolve com ctx returnStrategy expr (transformOption com ctx genArg)
 
             | None ->
-                transformType com ctx typ
+                transformType com ctx genArg
                 |> Expression.nullLiteral
                 |> resolveExpr returnStrategy
 
@@ -1017,10 +1058,9 @@ module Util =
                     Expression.propertyAccess(expr, $"item%i{index + 1}", t))
 
         | Fable.OptionValue ->
-            match fableExpr with
-            // Dart can detect if a value has already been null-checked for variables declared in current function scope
-            | Fable.IdentExpr i when ctx.VarsDeclaredInScope.Contains(i.Name) -> transform com ctx returnStrategy fableExpr
-            | _ -> transformExprAndResolve com ctx returnStrategy fableExpr NotNullAssert
+            transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
+                let t = transformOptionGenArg com ctx t
+                libCallWithType com ctx t "Types" "value" [expr])
 
         | Fable.UnionTag ->
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag

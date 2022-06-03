@@ -580,7 +580,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return makeValueFrom com ctx r var
 
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
-        return Replacements.Api.defaultof com ctx typ
+        let value = Replacements.Api.defaultof com ctx typ
+        return Fable.DefaultValue(value, typ) |> makeValue (makeRangeFrom fsExpr)
 
     | FSharpExprPatterns.Let((var, value), body) ->
         match value with
@@ -1715,6 +1716,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         | Fable.StringConstant _
         | Fable.NumberConstant _
         | Fable.RegexConstant _ -> e
+        | Fable.DefaultValue(e, t) -> Fable.DefaultValue(resolveInlineExpr com ctx info e, t) |> makeValue r
         | Fable.StringTemplate(tag, parts, exprs) -> Fable.StringTemplate(tag, parts, List.map (resolveInlineExpr com ctx info) exprs) |> makeValue r
         | Fable.NewOption(e, t, isStruct) -> Fable.NewOption(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx t, isStruct) |> makeValue r
         | Fable.NewTuple(exprs, isStruct) -> Fable.NewTuple(List.map (resolveInlineExpr com ctx info) exprs, isStruct) |> makeValue r
