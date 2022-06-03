@@ -274,8 +274,9 @@ type Statement =
     static member switchStatement(discriminant, cases, ?defaultCase) =
         SwitchStatement(discriminant, cases, defaultCase)
 
-type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool, ?isConsThisArg: bool) =
+type FunctionArg(ident: Ident, ?isOptional: bool, ?isNamed: bool, ?isConsThisArg: bool, ?defaultValue: Expression) =
     member _.Ident = ident
+    member _.DefaultValue = defaultValue
     member _.IsOptional = defaultArg isOptional false
     member _.IsNamed = defaultArg isNamed false
     member _.IsConsThisArg = defaultArg isConsThisArg false

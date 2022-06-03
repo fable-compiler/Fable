@@ -385,7 +385,7 @@ module AST =
         | _ -> None
 
     let (|NullConst|_|) = function
-        | MaybeCasted(Value((Null _|DefaultValue(Value(Null _,_),_)), _)) -> Some()
+        | MaybeCasted(Value(Null _, _)) -> Some()
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
@@ -401,7 +401,7 @@ module AST =
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
-            | DefaultValue _ | TypeInfo _ | Null _ | UnitConstant | NumberConstant _
+            | TypeInfo _ | Null _ | UnitConstant | NumberConstant _
             | BoolConstant _ | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | NewList(None,_) | NewOption(None,_,_) -> false
             | NewOption(Some e,_,_) -> canHaveSideEffects e
@@ -531,9 +531,28 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (x, Int32, NumberInfo.Empty) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, NumberInfo.Empty) |> makeValue None
 
+    let makeConstFromObj (value: obj) =
+        match value with
+        | :? bool as x -> BoolConstant x |> makeValue None
+        | :? string as x -> StringConstant x |> makeValue None
+        | :? char as x -> CharConstant x |> makeValue None
+        // Integer types
+        | :? int8 as x -> NumberConstant(x, Int8, NumberInfo.Empty) |> makeValue None
+        | :? uint8 as x -> NumberConstant(x, UInt8, NumberInfo.Empty) |> makeValue None
+        | :? int16 as x -> NumberConstant(x, Int16, NumberInfo.Empty) |> makeValue None
+        | :? uint16 as x -> NumberConstant(x, UInt16, NumberInfo.Empty) |> makeValue None
+        | :? int32 as x -> NumberConstant(x, Int32, NumberInfo.Empty) |> makeValue None
+        | :? uint32 as x -> NumberConstant(x, UInt32, NumberInfo.Empty) |> makeValue None
+        | :? int64 as x -> NumberConstant(x, Int64, NumberInfo.Empty) |> makeValue None
+        | :? uint64 as x -> NumberConstant(x, UInt64, NumberInfo.Empty) |> makeValue None
+        // Float types
+        | :? float32 as x -> NumberConstant(x, Float32, NumberInfo.Empty) |> makeValue None
+        | :? float as x -> NumberConstant(x, Float64, NumberInfo.Empty) |> makeValue None
+        | :? decimal as x -> NumberConstant(x, Decimal, NumberInfo.Empty) |> makeValue None
+        | _ -> FableError $"Cannot create expression for object {value} (%s{value.GetType().FullName})" |> raise
+
     let makeTypeConst r (typ: Type) (value: obj) =
         match typ, value with
-        // Decimal type
         | Boolean, (:? bool as x) -> BoolConstant x |> makeValue r
         | String, (:? string as x) -> StringConstant x |> makeValue r
         | Char, (:? char as x) -> CharConstant x |> makeValue r
@@ -831,7 +850,6 @@ module AST =
             | TypeInfo _ | Null _ | UnitConstant
             | BoolConstant _ | CharConstant _ | StringConstant _
             | NumberConstant _ | RegexConstant _ -> e
-            | DefaultValue(value, t) -> DefaultValue(f value, t) |> makeValue r
             | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
             | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
             | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r

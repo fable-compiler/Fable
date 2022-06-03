@@ -1497,8 +1497,6 @@ module Util =
             |> addWarning com [] None
             TODO_EXPR $"%A{value}"
         match value with
-        | Fable.DefaultValue(value,_) ->
-            com.TransformAsExpr(ctx, value)
         | Fable.BaseValue (None, _) ->
             // Super(None)
             unimplemented ()
