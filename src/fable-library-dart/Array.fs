@@ -4,6 +4,7 @@ module ArrayModule
 #nowarn "1204"
 #nowarn "1182"
 
+open System.Runtime.InteropServices
 open System.Collections.Generic
 open Fable.Core
 
@@ -39,10 +40,10 @@ type Native =
     static member fillRange (xs: 'T[]) (start: int) (end_: int) (fill: 'T): unit = jsNative
 
     [<Emit("$0.sublist($1...)")>]
-    static member sublist (xs: 'T[], start: int, ?end_: int): 'T[] = jsNative
+    static member sublist (xs: 'T[], start: int, [<Optional>] end_: int): 'T[] = jsNative
 
     [<Emit("List.copyRange($0...)")>]
-    static member copyRange (target: 'T[], at: int, source: 'T[], start: int, ?end_: int): unit = jsNative
+    static member copyRange (target: 'T[], at: int, source: 'T[], start: int, [<Optional>] end_: int): unit = jsNative
 
     [<Emit("$0.toList(growable: false)")>]
     static member toList (xs: 'T seq): 'T[] = nativeOnly
@@ -78,22 +79,22 @@ type Native =
     static member removeWhere (xs: 'T[]) (predicate: 'T->bool): unit = nativeOnly
 
     [<Emit("$0.sort($1...)")>]
-    static member sort (xs: 'T[], ?compare: 'T->'T->int): unit = nativeOnly
+    static member sort (xs: 'T[], [<Optional>] compare: 'T->'T->int): unit = nativeOnly
 
     [<Emit("$0.contains($1)")>]
     static member contains (xs: 'T[]) (value: obj): bool = nativeOnly
 
     [<Emit("$0.indexOf($1...)")>]
-    static member indexOf (xs: 'T[], item: 'T, ?start: int): int = jsNative
+    static member indexOf (xs: 'T[], item: 'T, [<Optional>] start: int): int = jsNative
 
     [<Emit("$0.indexWhere($1...)")>]
-    static member indexWhere (xs: 'T[], predicate: 'T->bool, ?start: int): int = jsNative
+    static member indexWhere (xs: 'T[], predicate: 'T->bool, [<Optional>] start: int): int = jsNative
 
     [<Emit("$0.lastIndexOf($1...)")>]
-    static member lastIndexOf (xs: 'T[], item: 'T, ?start: int): 'T[] = jsNative
+    static member lastIndexOf (xs: 'T[], item: 'T, [<Optional>] start: int): 'T[] = jsNative
 
     [<Emit("$0.lastIndexWhere($1...)")>]
-    static member lastIndexWhere (xs: 'T[], predicate: 'T->bool, ?start: int): 'T[] = jsNative
+    static member lastIndexWhere (xs: 'T[], predicate: 'T->bool, [<Optional>] start: int): 'T[] = jsNative
 
     // Dart's native function includes a named argument `orElse` for an alternative predicate
     [<Emit("$0.firstWhere($1...)")>]

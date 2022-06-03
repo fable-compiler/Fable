@@ -111,15 +111,15 @@ module Enumerator =
         fromFunctions current next dispose
 
     // We use a tuple here to make sure the generic is wrapped in case it's an option itself
-    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> Tuple<'U> option) (closef: 'T -> unit): IEnumerator<'U> =
+    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable started = false
-        let mutable curr: Tuple<'U> option = None
+        let mutable curr: 'U option = None
         let mutable state = Some (openf())
         let current() =
             if not started then notStarted()
             match curr with
             | None -> alreadyFinished()
-            | Some x -> x.Item1
+            | Some x -> x
         let dispose() =
             match state with
             | None -> ()
@@ -156,10 +156,10 @@ module Enumerator =
         let dispose() = ()
         fromFunctions current next dispose
 
-    let generate (create: unit -> 'a) (compute: 'a -> Tuple<'b> option) (dispose: 'a -> unit): seq<'b> =
+    let generate (create: unit -> 'a) (compute: 'a -> 'b option) (dispose: 'a -> unit): seq<'b> =
         Enumerable (fun () -> generateWhileSome create compute dispose)
 
-    let generateIndexed (create: unit -> 'a) (compute: int -> 'a -> Tuple<'b> option) (dispose: 'a -> unit): seq<'b> =
+    let generateIndexed (create: unit -> 'a) (compute: int -> 'a -> 'b option) (dispose: 'a -> unit): seq<'b> =
         Enumerable (fun () ->
             let mutable i = -1
             generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
@@ -225,7 +225,7 @@ let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
         (fun e ->
             let mutable curr = None
             while (Option.isNone curr && e.MoveNext()) do
-                curr <- match chooser e.Current with Some v -> Some(Tuple v) | None -> None
+                curr <- match chooser e.Current with Some v -> Some v | None -> None
             curr)
         (fun e -> e.Dispose())
 
@@ -255,7 +255,7 @@ let contains (value: 'T) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'
 let enumerateFromFunctions (create: unit -> 'a) (moveNext: 'a -> bool) (current: 'a -> 'b): seq<'b> =
     Enumerator.generate
         create
-        (fun x -> if moveNext x then Some(Tuple(current x)) else None)
+        (fun x -> if moveNext x then Some(current x) else None)
         (fun x -> match box(x) with :? IDisposable as id -> id.Dispose() | _ -> ())
 
 let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq<'T>) =
@@ -480,13 +480,13 @@ let length (xs: seq<'T>): int =
 let map (mapping: 'T -> 'U) (xs: seq<'T>): seq<'U> =
     Enumerator.generate
         (fun () -> ofSeq xs)
-        (fun e -> if e.MoveNext() then mapping e.Current |> Tuple |> Some else None)
+        (fun e -> if e.MoveNext() then mapping e.Current |> Some else None)
         (fun e -> e.Dispose())
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>): seq<'U> =
     Enumerator.generateIndexed
         (fun () -> ofSeq xs)
-        (fun i e -> if e.MoveNext() then mapping i e.Current |> Tuple |> Some else None)
+        (fun i e -> if e.MoveNext() then mapping i e.Current |> Some else None)
         (fun e -> e.Dispose())
 
 let indexed (xs: seq<'T>): seq<int * 'T> =
@@ -497,7 +497,7 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>): seq<'U> =
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun (e1, e2) ->
             if e1.MoveNext() && e2.MoveNext()
-            then mapping e1.Current e2.Current |> Tuple |> Some
+            then mapping e1.Current e2.Current |> Some
             else None)
         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
@@ -506,7 +506,7 @@ let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>)
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun i (e1, e2) ->
             if e1.MoveNext() && e2.MoveNext()
-            then mapping i e1.Current e2.Current |> Tuple |> Some
+            then mapping i e1.Current e2.Current |> Some
             else None)
         (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
 
@@ -515,7 +515,7 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: s
         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
         (fun (e1, e2, e3) ->
             if e1.MoveNext() && e2.MoveNext() && e3.MoveNext()
-            then mapping e1.Current e2.Current e3.Current |> Tuple |> Some
+            then mapping e1.Current e2.Current e3.Current |> Some
             else None)
         (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
 
@@ -702,7 +702,7 @@ let take (count: int) (xs: seq<'T>): seq<'T> =
         (fun i e ->
             if i < count then
                 if e.MoveNext()
-                then Some(Tuple e.Current)
+                then Some(e.Current)
                 else invalidArg "source" SR.notEnoughElements
             else None)
         (fun e -> e.Dispose())
@@ -712,7 +712,7 @@ let takeWhile (predicate: 'T -> bool) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun e ->
             if e.MoveNext() && predicate e.Current
-            then Some(Tuple e.Current)
+            then Some(e.Current)
             else None)
         (fun e -> e.Dispose())
 
@@ -721,7 +721,7 @@ let truncate (count: int) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < count && e.MoveNext()
-            then Some(Tuple e.Current)
+            then Some(e.Current)
             else None)
         (fun e -> e.Dispose())
 
@@ -852,10 +852,10 @@ let insertAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then Some(Tuple e.Current)
+            then Some(e.Current)
             elif i = index then
                 isDone <- true
-                Some(Tuple y)
+                Some y
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
@@ -874,13 +874,13 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: seq<'T>): seq<'T> =
                 status <- 0
             let inserted =
                 if status = 0 then
-                    if e2.MoveNext() then Some(Tuple e2.Current)
+                    if e2.MoveNext() then Some e2.Current
                     else status <- 1; None
                 else None
             match inserted with
             | Some inserted -> Some inserted
             | None ->
-                if e1.MoveNext() then Some(Tuple e1.Current)
+                if e1.MoveNext() then Some e1.Current
                 else
                     if status < 1 then
                         invalidArg "index" SR.indexOutOfBounds
@@ -897,10 +897,10 @@ let removeAt (index: int) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then Some(Tuple e.Current)
+            then Some(e.Current)
             elif i = index && e.MoveNext() then
                 isDone <- true
-                if e.MoveNext() then Some(Tuple e.Current) else None
+                if e.MoveNext() then Some(e.Current) else None
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
@@ -914,14 +914,14 @@ let removeManyAt (index: int) (count: int) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < index then
-                if e.MoveNext() then Some(Tuple e.Current)
+                if e.MoveNext() then Some(e.Current)
                 else invalidArg "index" SR.indexOutOfBounds
             else
                 if i = index then
                     for _ = 1 to count do
                         if not(e.MoveNext()) then
                             invalidArg "count" SR.indexOutOfBounds
-                if e.MoveNext() then Some(Tuple e.Current)
+                if e.MoveNext() then Some(e.Current)
                 else None)
         (fun e -> e.Dispose())
 
@@ -933,10 +933,10 @@ let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
         (fun () -> ofSeq xs)
         (fun i e ->
             if (isDone || i < index) && e.MoveNext()
-            then Some(Tuple e.Current)
+            then Some(e.Current)
             elif i = index && e.MoveNext() then
                 isDone <- true
-                Some(Tuple y)
+                Some y
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds

@@ -1702,6 +1702,7 @@ module Util =
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
+        | Fable.DefaultValue(value,_) -> com.TransformAsExpr(ctx, value)
         | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
         | Fable.BaseValue (Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
         | Fable.ThisValue _ -> Expression.identifier "self", []

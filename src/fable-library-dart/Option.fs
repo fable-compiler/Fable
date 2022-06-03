@@ -1,9 +1,19 @@
 ﻿module OptionModule
 
+let defaultValue (def: 'T) (opt: 'T option): 'T =
+    match opt with
+    | None -> def
+    | Some opt -> opt
+
 let defaultWith (fn: unit -> 'T) (opt: 'T option): 'T =
     match opt with
     | None -> fn()
     | Some opt -> opt
+
+let orElse (def: 'T option) (opt: 'T option): 'T option =
+    match opt with
+    | None -> def
+    | Some opt -> Some opt
 
 let orElseWith (fn: unit -> 'T option) (opt: 'T option): 'T option =
     match opt with
