@@ -37,6 +37,8 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
         |> emit None t [expr] false
 
     match expr with
+    // Ignore default value as this is usually used for optional params
+    | Value(DefaultValue _, _) -> expr
     | Value(NewOption(value, t, isStruct), r) ->
         match value with
         | None -> expr
@@ -815,105 +817,32 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
         | _ -> None
-    | "Fable.Core.JsInterop", _ ->
-        match i.CompiledName, args with
-        | "importDynamic", [path] ->
-            let path = fixDynamicImportPath path
-            Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
-        | "importValueDynamic", [arg] ->
-            let dynamicImport selector path =
-                let path = fixDynamicImportPath path
-                let import = Helper.GlobalCall("import", t, [path], ?loc=r)
-                match selector with
-                | StringConst "*" -> import
-                | selector ->
-                    let selector =
-                        let m = makeIdent "m"
-                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), FuncInfo.Empty)
-                    Helper.InstanceCall(import, "then", t, [selector])
-            let arg =
-                match arg with
-                | IdentExpr ident ->
-                    tryFindInScope ctx ident.Name
-                    |> Option.defaultValue arg
-                | arg -> arg
-            match arg with
-            // TODO: Check this is not a fable-library import?
-            | Import(info,_,_) ->
-                dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) |> Some
-            | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), { Name = None })
-                when argEquals args callInfo.Args ->
-                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) |> Some
-            | _ ->
-                "The imported value is not coming from a different file"
-                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
-        | Naming.StartsWith "import" suffix, _ ->
-            match suffix, args with
-            | "Member", [RequireStringConst com ctx r path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
-            | "Default", [RequireStringConst com ctx r path]     -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [RequireStringConst com ctx r path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
+    | Naming.StartsWith "Fable.Core.Dart" rest, _ ->
+        match rest with
+        | ".DartNullable`1" ->
+            match i.CompiledName, thisArg with
+            | ".ctor", None -> match args with arg::_ -> Some arg | [] -> makeNull() |> Some
+            | "get_Value", Some c -> Some c
+            | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryEqual |> Some
             | _ -> None
-        // Dynamic casting, erase
-        | "op_BangHat", [arg] -> Some arg
-        | "op_BangBang", [arg] ->
-            match arg, i.GenericArgs with
-            | NewAnonymousRecord(_, exprs, fieldNames, _, _),
-              [_; DeclaredType(ent, [])] ->
-                let ent = com.GetEntity(ent)
-                if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
-                    |> function
-                       | Error errors ->
-                            errors
-                            |> List.iter (fun (range, error) -> addWarning com ctx.InlinePath range error)
-                            Some arg
-                       | Ok () ->
-                            Some arg
-                else Some arg
-            | _ -> Some arg
-        | "op_Dynamic", [left; memb] ->
-            getExpr r t left memb |> Some
-        | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
-            setExpr r callee prop value |> Some
-        | ("op_Dollar"|"createNew" as m), callee::args ->
-            let args = destructureTupleArgs args
-            if m = "createNew" then "new $0($1...)" else "$0($1...)"
-            |> emitExpr r t (callee::args) |> Some
-        | Naming.StartsWith "emitJs" rest, [args; macro] ->
-            match macro with
-            | RequireStringConst com ctx r macro ->
-                let args = destructureTupleArgs [args]
-                let isStatement = rest = "Statement"
-                emit r t args isStatement macro |> Some
-        | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-            makeTuple r [name; value] |> Some
-        | "createObj", _ ->
-            Helper.LibCall(com, "Util", "createObj", Any, args) |> withTag "pojo" |> Some
-         | "keyValueList", [caseRule; keyValueList] ->
-            // makePojo com ctx caseRule keyValueList
-            let args = [keyValueList; caseRule]
-            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> withTag "pojo" |> Some
-        | "toPlainJsObj", _ ->
-            let emptyObj = ObjectExpr([], t, None)
-            Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
-        | "jsOptions", [arg] ->
-            makePojoFromLambda com arg |> Some
-        | "jsThis", _ ->
-            emitExpr r t [] "this" |> Some
-        | "jsConstructor", _ ->
-            match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> com.GetEntity(ent) |> entityRef com |> Some
-            | _ -> "Only declared types define a function constructor in JS"
-                   |> addError com ctx.InlinePath r; None
-        | "createEmpty", _ ->
-            typedObjExpr t [] |> Some
-        // Deprecated methods
-        | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
-        | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
-        | ("inflate"|"deflate"), _ -> List.tryHead args
-        | _ -> None
+        | _ ->
+            match i.CompiledName, args with
+            | Naming.StartsWith "import" suffix, _ ->
+                match suffix, args with
+                | "Member", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t Naming.placeholder path |> Some
+                | "All", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t "*" path |> Some
+                | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
+                | _ -> None
+            | Naming.StartsWith "emit" rest, [args; macro] ->
+                match macro with
+                | RequireStringConst com ctx r macro ->
+                    let args = destructureTupleArgs [args]
+                    let isStatement = rest = "Statement"
+                    emit r t args isStatement macro |> Some
+            | ("toNullable" | "ofNullable"), [arg] -> Some arg
+            | "toOption" | "ofOption" as meth, [arg] ->
+                Helper.LibCall(com, "Types", meth, t, [arg], ?loc=r) |> Some
+            | _ -> None
     | _ -> None
 
 let getReference r t expr = getFieldWith r t expr "contents"
@@ -1698,10 +1627,9 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValueOptionValue) doesn't do a null check
-    | "get_Value", Some c -> getOptionValue r t c |> Some
-    | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
+    | ".ctor", None -> match args with arg::_ -> Some arg | [] -> makeNull() |> Some
+    | "get_Value", Some c -> Some c
+    | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryEqual |> Some
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
@@ -2876,6 +2804,8 @@ let tryField com returnTyp ownerTyp fieldName =
         match ent.FullName with
         | "System.BitConverter" ->
             Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, []) |> Some
+        | "System.Reflection.Missing" ->
+            makeNullTyped returnTyp |> Some
         | _ -> None
     | _ -> None
 

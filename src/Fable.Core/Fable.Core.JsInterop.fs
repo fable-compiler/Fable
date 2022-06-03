@@ -39,7 +39,7 @@ let emitJsExpr<'T> (args: obj) (jsCode: string): 'T = nativeOnly
 
 /// Same as emitJsExpr but intended for JS code that must appear in a statement position
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements
-/// E.g. `emitJsExpr aValue "while($0 < 5) doSomething()"`
+/// E.g. `emitJsStatement aValue "while($0 < 5) doSomething()"`
 let emitJsStatement<'T> (args: obj) (jsCode: string): 'T = nativeOnly
 
 /// Create a literal JS object from a collection of key-value tuples.

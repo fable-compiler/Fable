@@ -38,6 +38,17 @@ type Context =
     TailCallOpportunity: ITailCallOpportunity option
     EntityAndMemberGenericParams: Fable.GenericParam list
     OptimizeTailCall: unit -> unit
+    /// <summary>
+    /// When passing an option to an optional argument in native Dart code
+    /// we need to make sure we use null as default value (not, say, 0 for ints)
+    /// </summary>
+    /// <code>
+    /// open Flutter.Widgets
+    ///
+    /// type MyApp(?key: Key) =
+    ///     inherit StatelessWidget(?key=key)
+    /// </code>
+    UseNullAsDefaultValue: bool
     /// Vars declared in current function scope
     VarsDeclaredInScope: HashSet<string>
     ConstIdents: Set<string> }
@@ -183,6 +194,8 @@ module Util =
         // List without generics is same as List<dynamic>
         | Types.array, _ -> List Dynamic |> Some
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs |> Some
+        | "System.Nullable`1", [genArg]
+        | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg |> Some
         | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
         | "System.Text.RegularExpressions.Match", _ ->
             makeTypeRefFromName "Match" [] |> Some
@@ -414,9 +427,11 @@ module Util =
                         |> List.choose (function
                             // Ignore default value for optional parameters
                             | p, Fable.Value(Fable.DefaultValue _, _) when p.IsOptional -> None
-                            | p, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> p.Name, v)
-                            | p, v -> Some(p.Name, v))
-                        |> List.map (fun (k, v) -> Some k, transformAndCaptureExpr com ctx v)
+                            | p, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> p, v)
+                            | p, v -> Some(p, v))
+                        |> List.map (fun (p, v) ->
+                            let ctx = { ctx with UseNullAsDefaultValue = p.IsOptional }
+                            p.Name, transformAndCaptureExpr com ctx v)
                     args, namedArgs
 
         let unnamedArgs =
@@ -433,18 +448,23 @@ module Util =
                             match arg, acc with
                             | Fable.Value(Fable.DefaultValue _, _), [] -> []
                             | Fable.Value(Fable.DefaultValue(_, t), r), acc ->
-                                Fable.Value(Fable.Null t, r)::acc
-                            | arg, acc -> arg::acc
-                        else arg::acc)
-                else args
-            | args, _ -> args
+                                ([], Expression.nullLiteral(transformType com ctx t))::acc
+                            | arg, acc ->
+                                let ctx = { ctx with UseNullAsDefaultValue = true }
+                                (transformAndCaptureExpr com ctx arg)::acc
+                        else
+                            (transformAndCaptureExpr com ctx arg)::acc)
+                else List.map (transformAndCaptureExpr com ctx) args
+            | args, _ -> List.map (transformAndCaptureExpr com ctx) args
 
         let unnamedArgs =
-            (Option.toList thisArg @ unnamedArgs)
-            |> List.map (fun arg -> None, transformAndCaptureExpr com ctx arg)
+            match thisArg with
+            | None -> unnamedArgs
+            | Some thisArg -> (transformAndCaptureExpr com ctx thisArg)::unnamedArgs
 
-        let keys, args = unnamedArgs @ namedArgs |> List.unzip
+        let args = unnamedArgs @ (List.map snd namedArgs)
         let statements, args = combineStatementsAndExprs com ctx args
+        let keys = (List.map (fun _ -> None) unnamedArgs) @ (List.map (fst >> Some) namedArgs)
         statements, List.zip keys args |> List.map (function Some k, a -> namedArg k a | None, a -> unnamedArg a)
 
     let resolveExpr strategy expr: Statement list * CapturedExpr =
@@ -634,7 +654,13 @@ module Util =
     let transformValue (com: IDartCompiler) (ctx: Context) (r: SourceLocation option) returnStrategy kind: Statement list * CapturedExpr =
         match kind with
         | Fable.UnitConstant -> [], None
-        | Fable.DefaultValue(value,_) -> transform com ctx returnStrategy value
+        | Fable.DefaultValue(value, typ) ->
+            if ctx.UseNullAsDefaultValue then
+                transformType com ctx typ
+                |> Expression.nullLiteral
+                |> resolveExpr returnStrategy
+            else
+                transform com ctx returnStrategy value
         | Fable.ThisValue t -> transformType com ctx t |> ThisExpression |> resolveExpr returnStrategy
         | Fable.BaseValue(None, t) -> transformType com ctx t |> SuperExpression |> resolveExpr returnStrategy
         | Fable.BaseValue(Some boundIdent, _) -> transformIdentAsExpr com ctx boundIdent |> resolveExpr returnStrategy
@@ -2339,6 +2365,7 @@ module Compiler =
             CastedUnions = Dictionary()
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
+            UseNullAsDefaultValue = false
             VarsDeclaredInScope = HashSet()
             ConstIdents = Set.empty }
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
