@@ -36,7 +36,6 @@ type ScopedVarAttrs = {
     IsRef: bool
     IsBox: bool
     HasMultipleUses: bool
-    CaptureDepth: int // used to determine if something is local to the closure, and thus needs to be captured if owned
 }
 
 type Context =
@@ -48,7 +47,7 @@ type Context =
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
-    CaptureDepth: int // are we in a closure, thus any variables defined outside of the capture scope will
+    IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -115,6 +114,9 @@ module UsageTracking =
 
     let isArmScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsArm) |> Option.defaultValue false
+
+    let isValueScoped ctx name =
+        ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> not s.IsRef) |> Option.defaultValue false
 
     let isRefScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
@@ -1542,8 +1544,7 @@ module Util =
                 IsArm = false
                 IsRef = false
                 IsBox = false
-                HasMultipleUses = true
-                CaptureDepth = ctx.CaptureDepth }
+                HasMultipleUses = true }
         let isOnlyReference =
             if varAttrs.IsRef then false
             else
@@ -1566,8 +1567,10 @@ module Util =
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
                 //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
-                    if not varAttrs.IsRef && varAttrs.CaptureDepth <> ctx.CaptureDepth then
-                        false // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                    if not varAttrs.IsRef && ctx.IsInPluralizedExpr then
+                        false
+                        // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                        // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
                     else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
@@ -2087,7 +2090,6 @@ module Util =
             IsRef = false
             IsBox = false
             HasMultipleUses = hasMultipleUses ident.Name usages
-            CaptureDepth = ctx.CaptureDepth
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs }
         mkLocalStmt local, ctxNext
@@ -2147,6 +2149,7 @@ module Util =
     let transformForLoop (com: IRustCompiler) ctx range isUp (var: Fable.Ident) start limit body =
         let startExpr = transformExprMaybeUnwrapRef com ctx start
         let limitExpr = transformExprMaybeUnwrapRef com ctx limit
+        let ctx = { ctx with IsInPluralizedExpr = true }
         let bodyExpr = com.TransformAsExpr(ctx, body)
         let varPat = mkIdentPat var.Name false false
         let rangeExpr =
@@ -2299,8 +2302,7 @@ module Util =
                     name, { IsArm = true
                             IsRef = true
                             IsBox = false
-                            HasMultipleUses = hasMultipleUses name usages
-                            CaptureDepth = ctx.CaptureDepth }
+                            HasMultipleUses = hasMultipleUses name usages }
                 let symbolsAndNames =
                     let fromIdents =
                         idents
@@ -2761,6 +2763,7 @@ module Util =
         | Fable.IdentExpr ident ->
             if not (ignoredNames.Contains(ident.Name))
                 && (ident.IsMutable ||
+                    (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
                     (shouldBeRefCountWrapped com ident.Type) ||
                     // Closures may capture Ref counted vars, so by cloning
@@ -2833,7 +2836,6 @@ module Util =
                     IsRef = false //unless inref or self
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
-                    CaptureDepth = ctx.CaptureDepth
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
         let tco =
@@ -2883,7 +2885,7 @@ module Util =
         let ctx = getFunctionCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
-        let ctx = { ctx with    CaptureDepth = ctx.CaptureDepth + 1
+        let ctx = { ctx with    IsInPluralizedExpr = true
                                 ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
         let fnBody = transformFunctionBody com ctx args body
         let closureExpr = mkClosureExpr fnDecl fnBody
@@ -2990,7 +2992,6 @@ module Util =
             IsRef = false
             IsBox = true
             HasMultipleUses = true
-            CaptureDepth = ctx.CaptureDepth
         }
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs }
         mkItemStmt fnItem, ctxNext
@@ -3705,7 +3706,7 @@ module Compiler =
             OptimizeTailCall = fun () -> ()
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
-            CaptureDepth = 0
+            IsInPluralizedExpr = false
             Typegen = { IsParamType = false
                         TakingOwnership = false
                         IsRawType = false } }
