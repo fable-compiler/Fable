@@ -2648,7 +2648,7 @@ module Util =
             let strBody = [
                 "let args: Vec<String> = std::env::args().collect()"
                 "let args: Vec<Rc<str>> = args[1..].iter().map(|s| String_::string(s)).collect()"
-                (String.concat "::" path) + "(&Native::arrayFrom(&args))"
+                (String.concat "::" path) + "(Native::arrayFrom(&args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
