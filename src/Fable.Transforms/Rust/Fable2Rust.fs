@@ -441,8 +441,8 @@ module TypeInfo =
         let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
 
-    let makeLibCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
-        let args = args |> List.map mkAddrOfExpr
+    let makeLibCall com ctx genArgs moduleName memberName passByRef (args: Rust.Expr list) =
+        let args = if passByRef then args |> List.map mkAddrOfExpr else args
         makeNativeCall com ctx genArgs moduleName memberName args
 
     let libCall com ctx r types moduleName memberName (args: Fable.Expr list) =
@@ -452,7 +452,7 @@ module TypeInfo =
             { Selector = selector; Path = path; Kind = Fable.LibraryImport }
         let genArgs = transformGenArgs com ctx types
         let callee = transformImport com ctx r Fable.Any info genArgs
-        Util.callFunction com ctx r callee args
+        Util.callFunctionTakingOwnership com ctx r callee args
 
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
         genArgs
@@ -1154,18 +1154,18 @@ module Util =
         | Replacements.Util.IsEntity (Types.valueCollection) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.icollectionGeneric) _, IEnumerable _
         | Fable.Array _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofArray" [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [expr]
         | Fable.List _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofList" [expr]
+            makeLibCall com ctx None "Seq" "ofList" false [expr]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashSetEntries" [expr]
-            makeLibCall com ctx None "Seq" "ofArray" [ar]
+            let ar = makeLibCall com ctx None "Native" "hashSetEntries" true [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [ar]
         | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashMapEntries" [expr]
-            makeLibCall com ctx None "Seq" "ofArray" [ar]
+            let ar = makeLibCall com ctx None "Native" "hashMapEntries" true [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [ar]
 
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
@@ -1352,11 +1352,11 @@ module Util =
             mkFloat64LitExpr 0.
 
     let makeString com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "String" "string" [value]
+        makeLibCall com ctx None "String" "string" false [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
-        makeLibCall com ctx genArgs "Native" "defaultOf" []
+        makeLibCall com ctx genArgs "Native" "defaultOf" true []
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1377,25 +1377,25 @@ module Util =
         match exprs with
         | [] ->
             let genArgs = transformGenArgs com ctx [typ]
-            makeLibCall com ctx genArgs "Native" "arrayEmpty" []
+            makeLibCall com ctx genArgs "Native" "arrayEmpty" true []
         | _ ->
             let arrayExpr =
                 exprs
                 |> List.map (transformExprMaybeUnwrapRef com ctx)
                 |> mkArrayExpr
-            makeLibCall com ctx None "Native" "arrayFrom" [arrayExpr]
+            makeLibCall com ctx None "Native" "arrayFrom" true [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
             let size = transformExprMaybeUnwrapRef com ctx sizeExpr
             let value = transformExprMaybeUnwrapRef com ctx valueExpr
-            makeLibCall com ctx None "Native" "arrayCreate" [size; value]
+            makeLibCall com ctx None "Native" "arrayCreate" true [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = transformExprMaybeUnwrapRef com ctx expr
-            makeLibCall com ctx None "Native" "arrayFrom" [sequence]
+            makeLibCall com ctx None "Native" "arrayFrom" true [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         // list contruction with cons
@@ -1495,7 +1495,7 @@ module Util =
         let fmt = makeFormat parts
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let args = transformCallArgs com ctx true false values []
-        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
+        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
         makeString com ctx expr
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
@@ -1577,6 +1577,11 @@ module Util =
                     else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
+    let typeIsByRef (com: IRustCompiler) = function
+        | Fable.AST.Fable.DeclaredType (ref, _) ->
+            com.GetEntity(ref).IsByRef
+        | _ -> false
+
     let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr =
             match e, tOpt with
@@ -1591,7 +1596,9 @@ module Util =
     let transformLeaveContextByValue (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
         let t = e.Type
+        let expectingByRef = isByRef com t
         if isCloneableExpr com t e then
+
             let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
             if shouldBeRefCountWrapped com t && not isOnlyReference then
                 makeClone expr
@@ -1599,8 +1606,13 @@ module Util =
                 makeClone expr // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
                 makeClone expr
-            else
-                expr
+
+            elif not expectingByRef && varAttrs.IsRef then
+                makeClone expr
+            elif expectingByRef && not varAttrs.IsRef then
+                expr |> mkAddrOfExpr
+            else expr
+
         else
             expr
 (*
@@ -1681,14 +1693,14 @@ module Util =
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
-            transformIdent com ctx range ident
+            transformIdent com ctx range ident |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryAddressOf -> expr // already handled above
+            | UnaryOperator.UnaryAddressOf -> expr |> mkAddrOfExpr// already handled above
 
         | Fable.Binary(op, left, right) ->
             let kind =
@@ -1979,7 +1991,7 @@ module Util =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
                 let thenExpr =
-                    mkGenericPathExpr [fieldName] None
+                    mkGenericPathExpr [fieldName] None |> makeClone
 
                 let arms = [
                     mkArm [] pat None thenExpr
@@ -2836,7 +2848,7 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = false //unless inref or self
+                    IsRef = isByRef com arg.Type
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
                 }

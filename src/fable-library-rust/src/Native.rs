@@ -135,11 +135,11 @@ pub mod Native {
         mkRefMut(HashSet::new())
     }
 
-    pub fn hashSetWithCapacity<T: Clone>(capacity: &i32) -> HashSet_1<T> {
-        mkRefMut(HashSet::with_capacity(*capacity as usize))
+    pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet_1<T> {
+        mkRefMut(HashSet::with_capacity(capacity as usize))
     }
 
-    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: &Array<T>) -> HashSet_1<T> {
+    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet_1<T> {
         mkRefMut(HashSet::from_iter(a.iter().cloned()))
     }
 
@@ -159,12 +159,12 @@ pub mod Native {
         mkRefMut(HashMap::with_capacity(*capacity as usize))
     }
 
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: &Array<(K, V)>) -> HashMap_2<K, V> {
+    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap_2<K, V> {
         mkRefMut(HashMap::from_iter(a.iter().cloned()))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
-        dict: &HashMap_2<K, V>,
+        dict: HashMap_2<K, V>,
         k: &K,
         v: &V,
     ) -> bool {
@@ -176,7 +176,7 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
         match dict.get_mut().insert(k.clone(), v.clone()) {
             Some(v) => {
                 panic!("An item with the same key has already been added.")
@@ -185,7 +185,7 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K) -> V {
+    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K) -> V {
         match dict.get_mut().get(k) {
             Some(v) => v.clone(),
             None => {
@@ -199,7 +199,7 @@ pub mod Native {
     }
 
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
-        dict: &HashMap_2<K, V>,
+        dict: HashMap_2<K, V>,
         k: &K,
         res: &RefCell<V>,
     ) -> bool {
@@ -212,15 +212,15 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapKeys<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<K> {
+    pub fn hashMapKeys<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<K> {
         array(Vec::from_iter(dict.keys().cloned()))
     }
 
-    pub fn hashMapValues<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<V> {
+    pub fn hashMapValues<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<V> {
         array(Vec::from_iter(dict.values().cloned()))
     }
 
-    pub fn hashMapEntries<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<(K, V)> {
+    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<(K, V)> {
         array(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
