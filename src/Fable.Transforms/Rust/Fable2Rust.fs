@@ -125,7 +125,7 @@ module UsageTracking =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsBox) |> Option.defaultValue false
 
     let hasMultipleUses (name: string) =
-        Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue false
+        Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue true
         //fun _ -> true
 
 module TypeInfo =
@@ -1143,7 +1143,7 @@ module Util =
             // optimization to eliminate unnecessary casts
             if nestedExpr.Type = typ then nestedExpr else fableExpr
         let fromType, toType = fableExpr.Type, typ
-        let expr = transformExprMaybeUnwrapRef com ctx fableExpr
+        let expr = transformLeaveContextByValue com ctx (Some typ) fableExpr
         let ty = transformType com ctx typ
 
         match fromType, toType with
@@ -1573,7 +1573,7 @@ module Util =
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
                 //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
-                    if not varAttrs.IsRef && ctx.IsInPluralizedExpr then
+                    if ctx.IsInPluralizedExpr then
                         false
                         // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
                         // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
@@ -1817,8 +1817,10 @@ module Util =
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
-        if callInfo.SignatureArgTypes.Length > 0 && callInfo.Args.Length > 0 && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length - 1 then
-            com.AddLog(sprintf "Mismatched args for %A of %i and %i" calleeExpr callInfo.SignatureArgTypes.Length callInfo.Args.Length , Fable.Severity.Error)
+        if callInfo.SignatureArgTypes.Length > 0 && callInfo.Args.Length > 0
+            && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length// && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length - 1
+            then
+            com.AddLog(sprintf "Mismatched args for %A of %i and %i" calleeExpr callInfo.SignatureArgTypes.Length callInfo.Args.Length , Fable.Severity.Warning)
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
