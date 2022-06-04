@@ -149,7 +149,7 @@ pub mod Native {
 
     // -----------------------------------------------------------
     // HashMaps
-    // -----------------------------------------------------------
+    // --------------------------------------hashMapEntries---------------------
 
     pub fn hashMapEmpty<K: Clone, V: Clone>() -> HashMap_2<K, V> {
         mkRefMut(HashMap::new())
@@ -220,7 +220,7 @@ pub mod Native {
         array(Vec::from_iter(dict.values().cloned()))
     }
 
-    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<(K, V)> {
+    pub fn hashMapEntries<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<(K, V)> {
         array(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))

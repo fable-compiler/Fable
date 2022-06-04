@@ -508,7 +508,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        ty
+        if isByRef com typ then mkRefTy ty else ty
 
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -627,6 +627,11 @@ module TypeInfo =
         | Fable.DeclaredType(entRef, genArgs) ->
             let ent = com.GetEntity(entRef)
             ent.IsByRef
+        | _ -> false
+
+    let isAddrOfExpr (expr: Fable.Expr) =
+        match expr with
+        | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _) -> true
         | _ -> false
 
     let isInterface (com: IRustCompiler) (t: Fable.Type) =
@@ -1246,7 +1251,8 @@ module Util =
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
             let argsWithTypes =
-                if args.Length = argTypes.Length then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
+                if argTypes.Length = args.Length
+                then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
                 else args |> List.map (fun a -> None, a)
             argsWithTypes |> List.map (fun (argType, arg) ->
                 transformLeaveContextByValue com ctx argType arg)
@@ -1590,24 +1596,24 @@ module Util =
         then expr |> mkAddrOfExpr
         else expr
 
-    let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+    let transformLeaveContextByValue (com: IRustCompiler) ctx (tRaw: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        let t = t |> Option.defaultValue e.Type
-        let expectingByRef = isByRef com t
-        if isCloneableExpr com t e then
+        let t = tRaw |> Option.defaultValue e.Type
+        let expectingByRef = tRaw |> Option.map (isByRef com)
+        if expectingByRef.IsSome && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
+                expr |> mkAddrOfExpr
+        elif isCloneableExpr com t e then
 
             let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-            if shouldBeRefCountWrapped com t && not isOnlyReference then
+            if expectingByRef = Some true && not varAttrs.IsRef then //implicit syntax
+                expr |> mkAddrOfExpr
+            elif shouldBeRefCountWrapped com t && not isOnlyReference then
                 makeClone expr
             elif isCloneableType com t && not isOnlyReference then
                 makeClone expr // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
                 makeClone expr
 
-            elif not expectingByRef && varAttrs.IsRef then
-                makeClone expr
-            elif expectingByRef && not varAttrs.IsRef then
-                expr// |> mkAddrOfExpr //this actually happens when we transform addrOf unary
             else expr
 
         else
@@ -1690,14 +1696,14 @@ module Util =
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
-            transformIdent com ctx range ident |> mkAddrOfExpr
+            transformIdent com ctx range ident// |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryAddressOf -> expr |> mkAddrOfExpr// already handled above
+            | UnaryOperator.UnaryAddressOf -> expr// |> mkAddrOfExpr// already handled above
 
         | Fable.Binary(op, left, right) ->
             let kind =
@@ -1759,6 +1765,8 @@ module Util =
         let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
         let isNative = isNativeCall com info
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+        // if info.SignatureArgTypes.Length > 0 && info.SignatureArgTypes.Length <> info.Args.Length then
+        //     com.AddLog(sprintf "Mismatched args for %A of %i and %i" info.CallMemberInfo info.SignatureArgTypes.Length info.Args.Length , Fable.Severity.Error)
         let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
@@ -1809,6 +1817,8 @@ module Util =
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+        if callInfo.SignatureArgTypes.Length > 0 && callInfo.Args.Length > 0 && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length - 1 then
+            com.AddLog(sprintf "Mismatched args for %A of %i and %i" calleeExpr callInfo.SignatureArgTypes.Length callInfo.Args.Length , Fable.Severity.Error)
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
