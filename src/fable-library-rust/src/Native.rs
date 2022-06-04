@@ -155,8 +155,8 @@ pub mod Native {
         mkRefMut(HashMap::new())
     }
 
-    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: &i32) -> HashMap_2<K, V> {
-        mkRefMut(HashMap::with_capacity(*capacity as usize))
+    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap_2<K, V> {
+        mkRefMut(HashMap::with_capacity(capacity as usize))
     }
 
     pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap_2<K, V> {
@@ -194,7 +194,7 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
         dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
     }
 
