@@ -2368,7 +2368,7 @@ module Util =
                 let expr, stmts' = getExpr com ctx range expr (ofInt index)
                 expr, stmts @ stmts'
 
-        | Fable.OptionValue ->
+        | Fable.OptionValue _isForced ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
             if mustWrapOption typ

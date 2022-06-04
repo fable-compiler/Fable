@@ -411,7 +411,7 @@ module TypeInfo =
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
-        | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
+        | Fable.Get (expr, Fable.OptionValue _, _, _) -> tryGetIdent expr
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
         | _ -> None
 
@@ -1926,7 +1926,7 @@ module Util =
             mkFieldExpr expr (index.ToString())
             |> makeClone
 
-        | Fable.OptionValue ->
+        | Fable.OptionValue _isForced ->
             match fableExpr with
             | Fable.IdentExpr id when isArmScoped ctx id.Name ->
                 // if arm scoped, just output the ident value
@@ -2381,7 +2381,7 @@ module Util =
             let patOpt =
                 let rec getUnionPat expr =
                     match expr with
-                    | Fable.Get (Fable.IdentExpr id, Fable.OptionValue, _, _)
+                    | Fable.Get (Fable.IdentExpr id, Fable.OptionValue _, _, _)
                         when Some id.Name = evalName && id.Type = evalType ->
                         makeUnionCasePat evalType evalName 0
                     | Fable.Get (Fable.IdentExpr id, Fable.UnionField info, _, _)

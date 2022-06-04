@@ -420,9 +420,9 @@ module AST =
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
-            | OptionValue ->
+            | OptionValue isForced ->
                 match Compiler.Language with
-                | Dart -> canHaveSideEffects e
+                | Dart -> isForced || canHaveSideEffects e
                 // Other languages include a runtime check for options
                 | _ -> true
             | ListHead | ListTail | TupleIndex _
@@ -654,8 +654,8 @@ module AST =
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
-    let getOptionValue r t e =
-        Get(e, OptionValue, t, r)
+    let forceOptionValue r t e =
+        Get(e, OptionValue(isForced=true), t, r)
 
     let setExpr r left memb (value: Expr) =
         Set(left, ExprSet memb, value.Type, value, r)
@@ -893,7 +893,7 @@ module AST =
                 Operation(Logical(op, f left, f right), t, r)
         | Get(e, kind, t, r) ->
             match kind with
-            | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
+            | ListHead | ListTail | OptionValue _ | TupleIndex _ | UnionTag
             | UnionField _ | FieldGet _ -> Get(f e, kind, t, r)
             | ExprGet e2 -> Get(f e, ExprGet(f e2), t, r)
         | Sequential exprs -> Sequential(List.map f exprs)

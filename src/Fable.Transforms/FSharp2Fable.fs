@@ -899,7 +899,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.InlinePath r
         | OptionUnion(t, _) ->
-            return Fable.Get(unionExpr, Fable.OptionValue, makeType ctx.GenericArgs t, r)
+            return Fable.Get(unionExpr, Fable.OptionValue(isForced=false), makeType ctx.GenericArgs t, r)
         | ListUnion t ->
             let t = makeType ctx.GenericArgs t
             let kind, t =
@@ -1648,7 +1648,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         let kind =
             match kind with
             | Fable.ExprGet e2 -> Fable.ExprGet(resolveInlineExpr com ctx info e2)
-            | Fable.ListHead | Fable.ListTail | Fable.OptionValue | Fable.TupleIndex _ | Fable.UnionTag
+            | Fable.ListHead | Fable.ListTail | Fable.OptionValue _ | Fable.TupleIndex _ | Fable.UnionTag
             | Fable.UnionField _ | Fable.FieldGet _ -> kind
         Fable.Get(resolveInlineExpr com ctx info e, kind, resolveInlineType ctx t, r)
 

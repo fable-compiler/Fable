@@ -1400,7 +1400,7 @@ module Util =
                 com.TransformAsExpr(ctx, List.item index exprs)
             | TransformExpr com ctx expr -> getExpr range expr (ofInt index)
 
-        | Fable.OptionValue ->
+        | Fable.OptionValue _isForced ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
             if mustWrapOption typ || com.Options.Language = TypeScript
             then libCall com ctx None "Option" "value" [|expr|]

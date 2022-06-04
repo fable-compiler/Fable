@@ -49,7 +49,7 @@ let getSubExpressions = function
         | Logical(_, left, right) -> [left; right]
     | Get(e, kind, _, _) ->
         match kind with
-        | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
+        | ListHead | ListTail | OptionValue _ | TupleIndex _ | UnionTag
         | UnionField _ | FieldGet _ -> [e]
         | ExprGet e2 -> [e; e2]
     | Sequential exprs -> exprs
@@ -418,8 +418,8 @@ module private Transforms =
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
         | Extended(Curry(innerExpr, arity2),_), _
             when matches arity arity2 -> innerExpr
-        | Get(Extended(Curry(innerExpr, arity2),_), OptionValue, t, r), _
-            when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
+        | Get(Extended(Curry(innerExpr, arity2),_), OptionValue isForced, t, r), _
+            when matches arity arity2 -> Get(innerExpr, OptionValue isForced, t, r)
         | Value(NewOption(Some(Extended(Curry(innerExpr, arity2),_)), t, isStruct), r), _
             when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com t arity expr
@@ -471,8 +471,8 @@ module private Transforms =
                 match value with
                 | Extended(Curry(innerExpr, arity),_) ->
                     ident, innerExpr, Some arity
-                | Get(Extended(Curry(innerExpr, arity),_), OptionValue, t, r) ->
-                    ident, Get(innerExpr, OptionValue, t, r), Some arity
+                | Get(Extended(Curry(innerExpr, arity),_), OptionValue isForced, t, r) ->
+                    ident, Get(innerExpr, OptionValue isForced, t, r), Some arity
                 | Value(NewOption(Some(Extended(Curry(innerExpr, arity),_)), t, isStruct), r) ->
                     ident, Value(NewOption(Some(innerExpr), t, isStruct), r), Some arity
                 | _ -> ident, value, None
@@ -603,8 +603,8 @@ module private Transforms =
             match applied with
             | Extended(Curry(applied, uncurriedArity),_) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Extended(Curry(applied, uncurriedArity),_), OptionValue, t2, r2) ->
-                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
+            | Get(Extended(Curry(applied, uncurriedArity),_), OptionValue isForced, t2, r2) ->
+                uncurryApply r t (Get(applied, OptionValue isForced, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 

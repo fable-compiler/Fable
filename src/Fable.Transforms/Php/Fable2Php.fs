@@ -653,7 +653,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             |> Option.bind (fun unionCase -> unionCase.UnionCaseFields |> List.tryItem i.FieldIndex)
             |> Option.map (fun field -> PhpField(phpExpr, StrField field.Name, None))
             |> Option.defaultWith (fun _ -> failwith "Cannot find union field name")
-        | Fable.OptionValue ->
+        | Fable.OptionValue _isForced ->
             // option is simply erased
             phpExpr
         | Fable.FieldGet i ->

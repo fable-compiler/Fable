@@ -1042,10 +1042,11 @@ module Util =
                     let t = transformType com ctx t
                     Expression.propertyAccess(expr, $"item%i{index + 1}", t))
 
-        | Fable.OptionValue ->
+        | Fable.OptionValue isForced ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                 let t = transformType com ctx t
-                libCallWithType com ctx t "Types" "value" [expr])
+                if isForced then libCallWithType com ctx t "Types" "value" [expr]
+                else Expression.propertyAccess(expr, "value", t))
 
         | Fable.UnionTag ->
             transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag

@@ -444,8 +444,7 @@ type GetKind =
     | UnionTag
     | ListHead
     | ListTail
-    // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
-    | OptionValue
+    | OptionValue of isForced: bool
 
 type SetKind =
     | ExprSet of expr: Expr
