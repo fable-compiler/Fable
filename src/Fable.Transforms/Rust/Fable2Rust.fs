@@ -403,8 +403,6 @@ module TypeInfo =
 
         | Fable.DeclaredType(entRef, _) ->
             true
-            // let ent = com.GetEntity(entRef)
-            // ent.IsValueType || ent.IsFSharpRecord //TODO: more types?
         | Fable.AnonymousRecordType _ -> true
         | _ -> false
 
@@ -1762,8 +1760,6 @@ module Util =
         let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
         let isNative = isNativeCall com info
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
-        // if info.SignatureArgTypes.Length > 0 && info.SignatureArgTypes.Length <> info.Args.Length then
-        //     com.AddLog(sprintf "Mismatched args for %A of %i and %i" info.CallMemberInfo info.SignatureArgTypes.Length info.Args.Length , Fable.Severity.Error)
         let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
