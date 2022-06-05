@@ -1144,7 +1144,7 @@ module Util =
             // optimization to eliminate unnecessary casts
             if nestedExpr.Type = typ then nestedExpr else fableExpr
         let fromType, toType = fableExpr.Type, typ
-        let expr = transformLeaveContextByValue com ctx (Some typ) fableExpr
+        let expr = transformLeaveContext com ctx (Some typ) fableExpr
         let ty = transformType com ctx typ
 
         match fromType, toType with
@@ -1256,7 +1256,7 @@ module Util =
                 then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
                 else args |> List.map (fun a -> None, a)
             argsWithTypes |> List.map (fun (argType, arg) ->
-                transformLeaveContextByValue com ctx argType arg)
+                transformLeaveContext com ctx argType arg)
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1436,7 +1436,7 @@ module Util =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr =
             exprs
-            |> List.map (transformLeaveContextByValue com ctx None)
+            |> List.map (transformLeaveContext com ctx None)
             |> mkTupleExpr
         // if isStruct
         // then expr
@@ -1451,7 +1451,7 @@ module Util =
                 let attrs = []
                 let expr =
                     let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
-                    let expr = transformLeaveContextByValue com ctx None value
+                    let expr = transformLeaveContext com ctx None value
                     if fi.IsMutable
                     then expr |> makeMutValue
                     else expr
@@ -1581,18 +1581,7 @@ module Util =
                     else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
-    let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
-        let expr =
-            match e, tOpt with
-            | Fable.IdentExpr ident, Some t when (isByRefType com t) && (isByRefType com e.Type) ->
-                transformIdent com ctx None ident // passing byref ident arg to byref arg slot
-            | _ -> com.TransformAsExpr (ctx, e)
-        let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-        if not varAttrs.IsRef
-        then expr |> mkAddrOfExpr
-        else expr
-
-    let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+    let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
         let expectingByRef = t |> Option.map (isByRefType com)
         if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
@@ -1722,8 +1711,8 @@ module Util =
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
 
-            let left = transformLeaveContextByValue com ctx None left |> maybeAddParens left
-            let right = transformLeaveContextByValue com ctx None right |> maybeAddParens right
+            let left = transformLeaveContext com ctx None left |> maybeAddParens left
+            let right = transformLeaveContext com ctx None right |> maybeAddParens right
 
             match typ, kind with
             | Fable.String, Rust.BinOpKind.Add ->
@@ -2014,7 +2003,7 @@ module Util =
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformExprMaybeIdentExpr com ctx fableExpr
-        let value = transformLeaveContextByValue com ctx None fableValue
+        let value = transformLeaveContext com ctx None fableValue
         match kind with
         | Fable.ValueSet ->
             match fableExpr with
@@ -2047,7 +2036,7 @@ module Util =
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr =
             // com.TransformAsExpr(ctx, e)
-            transformLeaveContextByValue com ctx None e
+            transformLeaveContext com ctx None e
         mkExprStmt expr
 
     // flatten nested Let binding expressions
@@ -2093,7 +2082,7 @@ module Util =
                 transformLambda com ctx (Some ident.Name) args body
                 |> Some
             | _ ->
-                transformLeaveContextByValue com ctx None value
+                transformLeaveContext com ctx None value
                 |> Some
         let initOpt =
             initOpt |> Option.map (fun init ->
@@ -2150,12 +2139,12 @@ module Util =
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
         let guardExpr = transformExprMaybeUnwrapRef com ctx guard
-        let thenExpr = transformLeaveContextByValue com ctx None thenBody
+        let thenExpr = transformLeaveContext com ctx None thenBody
         match elseBody with
         | Fable.Value(Fable.UnitConstant, _) ->
             mkIfThenExpr guardExpr thenExpr //?loc=range)
         | _ ->
-            let elseExpr = transformLeaveContextByValue com ctx None elseBody
+            let elseExpr = transformLeaveContext com ctx None elseBody
             mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
@@ -2331,7 +2320,7 @@ module Util =
                 let scopedSymbolsNext =
                     Helpers.Map.merge ctx.ScopedSymbols (symbolsAndNames |> Map.ofList)
                 let ctx = { ctx with ScopedSymbols = scopedSymbolsNext; Typegen = { ctx.Typegen with TakingOwnership = true } }
-                transformLeaveContextByValue com ctx None bodyExpr
+                transformLeaveContext com ctx None bodyExpr
             mkArm attrs pat guard body
 
         let makeUnionCasePat evalType evalName caseIndex =
@@ -2879,12 +2868,12 @@ module Util =
             let argMap = mutArgs |> List.map (fun arg -> arg.Name, Fable.IdentExpr arg) |> Map.ofList
             let body = FableTransforms.replaceValues argMap body
             let letStmts, ctx = makeLetStmts com ctx bindings Map.empty
-            let loopBody = transformLeaveContextByValue com ctx None body
+            let loopBody = transformLeaveContext com ctx None body
             let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
             let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt
             letStmts @ [loopStmt] |> mkStmtBlockExpr
         | _ ->
-            transformLeaveContextByValue com ctx None body
+            transformLeaveContext com ctx None body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         //if name |> Option.exists (fun n -> n.Contains("Anon record structural equality works")) then System.Diagnostics.Debugger.Break()
