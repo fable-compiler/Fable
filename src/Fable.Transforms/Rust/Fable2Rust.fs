@@ -511,7 +511,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        if isByRef com typ then mkRefTy ty else ty
+        if isByRefType com typ then mkRefTy ty else ty
 
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -625,9 +625,9 @@ module TypeInfo =
         let ty = transformType com ctx genArg
         ty |> makeMutTy com ctx
 
-    let isByRef (com: IRustCompiler) (t: Fable.Type) =
+    let isByRefType (com: IRustCompiler) (t: Fable.Type) =
         match t with
-        | Fable.DeclaredType(entRef, genArgs) ->
+        | Fable.DeclaredType(entRef, _genArgs) ->
             let ent = com.GetEntity(entRef)
             ent.IsByRef
         | _ -> false
@@ -1583,15 +1583,10 @@ module Util =
                     else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
-    let typeIsByRef (com: IRustCompiler) = function
-        | Fable.AST.Fable.DeclaredType (ref, _) ->
-            com.GetEntity(ref).IsByRef
-        | _ -> false
-
     let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr =
             match e, tOpt with
-            | Fable.IdentExpr ident, Some t when (isByRef com t) && (isByRef com e.Type) ->
+            | Fable.IdentExpr ident, Some t when (isByRefType com t) && (isByRefType com e.Type) ->
                 transformIdent com ctx None ident // passing byref ident arg to byref arg slot
             | _ -> com.TransformAsExpr (ctx, e)
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
@@ -1601,7 +1596,7 @@ module Util =
 
     let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        let expectingByRef = t |> Option.map (isByRef com)
+        let expectingByRef = t |> Option.map (isByRefType com)
         if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
                 expr |> mkAddrOfExpr
         elif isCloneableExpr com t e then
@@ -1698,14 +1693,14 @@ module Util =
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
-            transformIdent com ctx range ident// |> mkAddrOfExpr
+            transformIdent com ctx range ident // |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryAddressOf -> expr// |> mkAddrOfExpr// already handled above
+            | UnaryOperator.UnaryAddressOf -> expr // |> mkAddrOfExpr// already handled above
 
         | Fable.Binary(op, left, right) ->
             let kind =
@@ -2859,7 +2854,7 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = isByRef com arg.Type
+                    IsRef = isByRefType com arg.Type
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
                 }
