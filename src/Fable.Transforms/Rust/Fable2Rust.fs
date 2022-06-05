@@ -48,6 +48,7 @@ type Context =
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
+    IsCallingFunction: bool
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -401,8 +402,10 @@ module TypeInfo =
             -> true
 
         | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity(entRef)
-            ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
+            true
+            // let ent = com.GetEntity(entRef)
+            // ent.IsValueType || ent.IsFSharpRecord //TODO: more types?
+        | Fable.AnonymousRecordType _ -> true
         | _ -> false
 
     let rec isCloneableExpr (com: IRustCompiler) t e =
@@ -1596,20 +1599,19 @@ module Util =
         then expr |> mkAddrOfExpr
         else expr
 
-    let transformLeaveContextByValue (com: IRustCompiler) ctx (tRaw: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+    let transformLeaveContextByValue (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        let t = tRaw |> Option.defaultValue e.Type
-        let expectingByRef = tRaw |> Option.map (isByRef com)
-        if expectingByRef.IsSome && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
+        let expectingByRef = t |> Option.map (isByRef com)
+        if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
                 expr |> mkAddrOfExpr
         elif isCloneableExpr com t e then
 
             let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
             if expectingByRef = Some true && not varAttrs.IsRef then //implicit syntax
                 expr |> mkAddrOfExpr
-            elif shouldBeRefCountWrapped com t && not isOnlyReference then
+            elif shouldBeRefCountWrapped com e.Type && not isOnlyReference then
                 makeClone expr
-            elif isCloneableType com t && not isOnlyReference then
+            elif isCloneableType com e.Type && not isOnlyReference then
                 makeClone expr // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
                 makeClone expr
@@ -1816,7 +1818,7 @@ module Util =
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative }; IsCallingFunction = true }
         if callInfo.SignatureArgTypes.Length > 0 && callInfo.Args.Length > 0
             && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length// && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length - 1
             then
@@ -2894,7 +2896,7 @@ module Util =
             transformLeaveContextByValue com ctx None body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        if name = Some "Map.tryFind" then System.Diagnostics.Debugger.Break()
+        //if name |> Option.exists (fun n -> n.Contains("Anon record structural equality works")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
@@ -3732,6 +3734,7 @@ module Compiler =
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
             IsInPluralizedExpr = false
+            IsCallingFunction = true
             Typegen = { IsParamType = false
                         TakingOwnership = false
                         IsRawType = false } }
