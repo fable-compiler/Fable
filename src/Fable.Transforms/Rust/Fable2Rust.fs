@@ -1799,10 +1799,6 @@ module Util =
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative }; IsCallingFunction = true }
-        if callInfo.SignatureArgTypes.Length > 0 && callInfo.Args.Length > 0
-            && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length// && callInfo.SignatureArgTypes.Length <> callInfo.Args.Length - 1
-            then
-            com.AddLog(sprintf "Mismatched args for %A of %i and %i" calleeExpr callInfo.SignatureArgTypes.Length callInfo.Args.Length , Fable.Severity.Warning)
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
