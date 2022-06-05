@@ -47,6 +47,8 @@ type Context =
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
+    IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
+    IsCallingFunction: bool
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -114,6 +116,9 @@ module UsageTracking =
     let isArmScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsArm) |> Option.defaultValue false
 
+    let isValueScoped ctx name =
+        ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> not s.IsRef) |> Option.defaultValue false
+
     let isRefScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsRef) |> Option.defaultValue false
 
@@ -121,7 +126,7 @@ module UsageTracking =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsBox) |> Option.defaultValue false
 
     let hasMultipleUses (name: string) =
-        Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue false
+        Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue true
         //fun _ -> true
 
 module TypeInfo =
@@ -397,8 +402,8 @@ module TypeInfo =
             -> true
 
         | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity(entRef)
-            ent.IsValueType && ent.IsFSharpRecord //TODO: more types?
+            true
+        | Fable.AnonymousRecordType _ -> true
         | _ -> false
 
     let rec isCloneableExpr (com: IRustCompiler) t e =
@@ -407,12 +412,15 @@ module TypeInfo =
         | Fable.IdentExpr _
             -> true
         // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _) ->
+            isCloneableExpr com t e
         | _ -> false
 
     let rec tryGetIdent = function
         | Fable.IdentExpr i -> i.Name |> Some
         | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _) -> tryGetIdent expr
         | _ -> None
 
     let getIdentName expr =
@@ -434,8 +442,8 @@ module TypeInfo =
         let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
 
-    let makeLibCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
-        let args = args |> List.map mkAddrOfExpr
+    let makeLibCall com ctx genArgs moduleName memberName passByRef (args: Rust.Expr list) =
+        let args = if passByRef then args |> List.map mkAddrOfExpr else args
         makeNativeCall com ctx genArgs moduleName memberName args
 
     let libCall com ctx r types moduleName memberName (args: Fable.Expr list) =
@@ -445,7 +453,7 @@ module TypeInfo =
             { Selector = selector; Path = path; Kind = Fable.LibraryImport }
         let genArgs = transformGenArgs com ctx types
         let callee = transformImport com ctx r Fable.Any info genArgs
-        Util.callFunction com ctx r callee args
+        Util.callFunctionTakingOwnership com ctx r callee args
 
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
         genArgs
@@ -501,7 +509,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        ty |> mkRefTy
+        if isByRefType com typ then mkRefTy ty else ty
 
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -615,11 +623,16 @@ module TypeInfo =
         let ty = transformType com ctx genArg
         ty |> makeMutTy com ctx
 
-    let isByRef (com: IRustCompiler) (t: Fable.Type) =
+    let isByRefType (com: IRustCompiler) (t: Fable.Type) =
         match t with
-        | Fable.DeclaredType(entRef, genArgs) ->
+        | Fable.DeclaredType(entRef, _genArgs) ->
             let ent = com.GetEntity(entRef)
             ent.IsByRef
+        | _ -> false
+
+    let isAddrOfExpr (expr: Fable.Expr) =
+        match expr with
+        | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _) -> true
         | _ -> false
 
     let isInterface (com: IRustCompiler) (t: Fable.Type) =
@@ -1131,7 +1144,7 @@ module Util =
             // optimization to eliminate unnecessary casts
             if nestedExpr.Type = typ then nestedExpr else fableExpr
         let fromType, toType = fableExpr.Type, typ
-        let expr = transformExprMaybeUnwrapRef com ctx fableExpr
+        let expr = transformLeaveContext com ctx (Some typ) fableExpr
         let ty = transformType com ctx typ
 
         match fromType, toType with
@@ -1147,18 +1160,18 @@ module Util =
         | Replacements.Util.IsEntity (Types.valueCollection) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.icollectionGeneric) _, IEnumerable _
         | Fable.Array _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofArray" [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [expr]
         | Fable.List _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofList" [expr]
+            makeLibCall com ctx None "Seq" "ofList" false [expr]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashSetEntries" [expr]
-            makeLibCall com ctx None "Seq" "ofArray" [ar]
+            let ar = makeLibCall com ctx None "Native" "hashSetEntries" true [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [ar]
         | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashMapEntries" [expr]
-            makeLibCall com ctx None "Seq" "ofArray" [ar]
+            let ar = makeLibCall com ctx None "Native" "hashMapEntries" true [expr]
+            makeLibCall com ctx None "Seq" "ofArray" false [ar]
 
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
@@ -1238,14 +1251,12 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
-            if isNative || ctx.Typegen.TakingOwnership then
-                args |> List.map (fun arg ->
-                    transformLeaveContextByValue com ctx arg)
-            else
-                args |> List.mapi (fun i arg ->
-                    let argType = argTypes |> List.tryItem i
-                    transformLeaveContextByPreferredBorrow com ctx argType arg)
-
+            let argsWithTypes =
+                if argTypes.Length = args.Length
+                then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
+                else args |> List.map (fun a -> None, a)
+            argsWithTypes |> List.map (fun (argType, arg) ->
+                transformLeaveContext com ctx argType arg)
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1345,11 +1356,11 @@ module Util =
             mkFloat64LitExpr 0.
 
     let makeString com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "String" "string" [value]
+        makeLibCall com ctx None "String" "string" false [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
-        makeLibCall com ctx genArgs "Native" "defaultOf" []
+        makeLibCall com ctx genArgs "Native" "defaultOf" true []
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1370,25 +1381,25 @@ module Util =
         match exprs with
         | [] ->
             let genArgs = transformGenArgs com ctx [typ]
-            makeLibCall com ctx genArgs "Native" "arrayEmpty" []
+            makeLibCall com ctx genArgs "Native" "arrayEmpty" true []
         | _ ->
             let arrayExpr =
                 exprs
                 |> List.map (transformExprMaybeUnwrapRef com ctx)
                 |> mkArrayExpr
-            makeLibCall com ctx None "Native" "arrayFrom" [arrayExpr]
+            makeLibCall com ctx None "Native" "arrayFrom" true [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
             let size = transformExprMaybeUnwrapRef com ctx sizeExpr
             let value = transformExprMaybeUnwrapRef com ctx valueExpr
-            makeLibCall com ctx None "Native" "arrayCreate" [size; value]
+            makeLibCall com ctx None "Native" "arrayCreate" true [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = transformExprMaybeUnwrapRef com ctx expr
-            makeLibCall com ctx None "Native" "arrayFrom" [sequence]
+            makeLibCall com ctx None "Native" "arrayFrom" true [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         // list contruction with cons
@@ -1425,7 +1436,7 @@ module Util =
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr =
             exprs
-            |> List.map (transformLeaveContextByValue com ctx)
+            |> List.map (transformLeaveContext com ctx None)
             |> mkTupleExpr
         // if isStruct
         // then expr
@@ -1440,7 +1451,7 @@ module Util =
                 let attrs = []
                 let expr =
                     let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
-                    let expr = transformLeaveContextByValue com ctx value
+                    let expr = transformLeaveContext com ctx None value
                     if fi.IsMutable
                     then expr |> makeMutValue
                     else expr
@@ -1488,7 +1499,7 @@ module Util =
         let fmt = makeFormat parts
         let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let args = transformCallArgs com ctx true false values []
-        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
+        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
         makeString com ctx expr
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
@@ -1561,33 +1572,32 @@ module Util =
                     true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
                 //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
                 | _ ->
-                    not varAttrs.HasMultipleUses
+                    if ctx.IsInPluralizedExpr then
+                        false
+                        // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                        // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
+                    else not varAttrs.HasMultipleUses
         varAttrs, isOnlyReference
 
-    let transformLeaveContextByPreferredBorrow (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
-        let expr =
-            match e, tOpt with
-            | Fable.IdentExpr ident, Some t when (isByRef com t) && (isByRef com e.Type) ->
-                transformIdent com ctx None ident // passing byref ident arg to byref arg slot
-            | _ -> com.TransformAsExpr (ctx, e)
-        let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-        if not varAttrs.IsRef
-        then expr |> mkAddrOfExpr
-        else expr
-
-    let transformLeaveContextByValue (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
+    let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        let t = e.Type
-        if isCloneableExpr com t e then
+        let expectingByRef = t |> Option.map (isByRefType com)
+        if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
+                expr |> mkAddrOfExpr
+        elif isCloneableExpr com t e then
+
             let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-            if shouldBeRefCountWrapped com t && not isOnlyReference then
+            if expectingByRef = Some true && not varAttrs.IsRef then //implicit syntax
+                expr |> mkAddrOfExpr
+            elif shouldBeRefCountWrapped com e.Type && not isOnlyReference then
                 makeClone expr
-            elif isCloneableType com t && not isOnlyReference then
+            elif isCloneableType com e.Type && not isOnlyReference then
                 makeClone expr // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
                 makeClone expr
-            else
-                expr
+
+            else expr
+
         else
             expr
 (*
@@ -1668,14 +1678,14 @@ module Util =
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
-            transformIdent com ctx range ident
+            transformIdent com ctx range ident // |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryAddressOf -> expr // already handled above
+            | UnaryOperator.UnaryAddressOf -> expr // |> mkAddrOfExpr// already handled above
 
         | Fable.Binary(op, left, right) ->
             let kind =
@@ -1699,8 +1709,8 @@ module Util =
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
 
-            let left = transformLeaveContextByValue com ctx left |> maybeAddParens left
-            let right = transformLeaveContextByValue com ctx right |> maybeAddParens right
+            let left = transformLeaveContext com ctx None left |> maybeAddParens left
+            let right = transformLeaveContext com ctx None right |> maybeAddParens right
 
             match typ, kind with
             | Fable.String, Rust.BinOpKind.Add ->
@@ -1786,7 +1796,7 @@ module Util =
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
+        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative }; IsCallingFunction = true }
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
@@ -1966,7 +1976,7 @@ module Util =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
                 let thenExpr =
-                    mkGenericPathExpr [fieldName] None
+                    mkGenericPathExpr [fieldName] None |> makeClone
 
                 let arms = [
                     mkArm [] pat None thenExpr
@@ -1987,7 +1997,7 @@ module Util =
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformExprMaybeIdentExpr com ctx fableExpr
-        let value = transformLeaveContextByValue com ctx fableValue
+        let value = transformLeaveContext com ctx None fableValue
         match kind with
         | Fable.ValueSet ->
             match fableExpr with
@@ -2020,7 +2030,7 @@ module Util =
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr =
             // com.TransformAsExpr(ctx, e)
-            transformLeaveContextByValue com ctx e
+            transformLeaveContext com ctx None e
         mkExprStmt expr
 
     // flatten nested Let binding expressions
@@ -2066,7 +2076,7 @@ module Util =
                 transformLambda com ctx (Some ident.Name) args body
                 |> Some
             | _ ->
-                transformLeaveContextByValue com ctx value
+                transformLeaveContext com ctx None value
                 |> Some
         let initOpt =
             initOpt |> Option.map (fun init ->
@@ -2123,12 +2133,12 @@ module Util =
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
         let guardExpr = transformExprMaybeUnwrapRef com ctx guard
-        let thenExpr = transformLeaveContextByValue com ctx thenBody
+        let thenExpr = transformLeaveContext com ctx None thenBody
         match elseBody with
         | Fable.Value(Fable.UnitConstant, _) ->
             mkIfThenExpr guardExpr thenExpr //?loc=range)
         | _ ->
-            let elseExpr = transformLeaveContextByValue com ctx elseBody
+            let elseExpr = transformLeaveContext com ctx None elseBody
             mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
@@ -2139,6 +2149,7 @@ module Util =
     let transformForLoop (com: IRustCompiler) ctx range isUp (var: Fable.Ident) start limit body =
         let startExpr = transformExprMaybeUnwrapRef com ctx start
         let limitExpr = transformExprMaybeUnwrapRef com ctx limit
+        let ctx = { ctx with IsInPluralizedExpr = true }
         let bodyExpr = com.TransformAsExpr(ctx, body)
         let varPat = mkIdentPat var.Name false false
         let rangeExpr =
@@ -2303,7 +2314,7 @@ module Util =
                 let scopedSymbolsNext =
                     Helpers.Map.merge ctx.ScopedSymbols (symbolsAndNames |> Map.ofList)
                 let ctx = { ctx with ScopedSymbols = scopedSymbolsNext; Typegen = { ctx.Typegen with TakingOwnership = true } }
-                transformLeaveContextByValue com ctx bodyExpr
+                transformLeaveContext com ctx None bodyExpr
             mkArm attrs pat guard body
 
         let makeUnionCasePat evalType evalName caseIndex =
@@ -2615,7 +2626,7 @@ module Util =
             let strBody = [
                 "let args: Vec<String> = std::env::args().collect()"
                 "let args: Vec<Rc<str>> = args[1..].iter().map(|s| String_::string(s)).collect()"
-                (String.concat "::" path) + "(&Native::arrayFrom(&args))"
+                (String.concat "::" path) + "(Native::arrayFrom(&args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
@@ -2752,6 +2763,7 @@ module Util =
         | Fable.IdentExpr ident ->
             if not (ignoredNames.Contains(ident.Name))
                 && (ident.IsMutable ||
+                    (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
                     (shouldBeRefCountWrapped com ident.Type) ||
                     // Closures may capture Ref counted vars, so by cloning
@@ -2821,7 +2833,7 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = true
+                    IsRef = isByRefType com arg.Type
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
                 }
@@ -2850,14 +2862,15 @@ module Util =
             let argMap = mutArgs |> List.map (fun arg -> arg.Name, Fable.IdentExpr arg) |> Map.ofList
             let body = FableTransforms.replaceValues argMap body
             let letStmts, ctx = makeLetStmts com ctx bindings Map.empty
-            let loopBody = transformLeaveContextByValue com ctx body
+            let loopBody = transformLeaveContext com ctx None body
             let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
             let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt
             letStmts @ [loopStmt] |> mkStmtBlockExpr
         | _ ->
-            transformLeaveContextByValue com ctx body
+            transformLeaveContext com ctx None body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        //if name |> Option.exists (fun n -> n.Contains("Anon record structural equality works")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
@@ -2873,7 +2886,8 @@ module Util =
         let ctx = getFunctionCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
-        let ctx = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
+        let ctx = { ctx with    IsInPluralizedExpr = true
+                                ScopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames }
         let fnBody = transformFunctionBody com ctx args body
         let closureExpr = mkClosureExpr fnDecl fnBody
         let closureExpr =
@@ -3693,6 +3707,8 @@ module Compiler =
             OptimizeTailCall = fun () -> ()
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
+            IsInPluralizedExpr = false
+            IsCallingFunction = true
             Typegen = { IsParamType = false
                         TakingOwnership = false
                         IsRawType = false } }

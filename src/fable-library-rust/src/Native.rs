@@ -39,9 +39,8 @@ pub mod Native {
         Default::default()
     }
 
-    pub fn comparer<T>(comp: &Rc<impl Fn(&T, &T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
-        let comp = comp.clone();
-        move |x, y| match comp(x, y) {
+    pub fn comparer<T: Clone>(comp: Rc<impl Fn(T, T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
+        move |x, y| match comp(x.clone(), y.clone()) {
             i if i < 0 => Ordering::Less,
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
@@ -85,8 +84,8 @@ pub mod Native {
         array(Vec::new())
     }
 
-    pub fn arrayWithCapacity<T: Clone>(capacity: &i32) -> Array<T> {
-        array(Vec::with_capacity(*capacity as usize))
+    pub fn arrayWithCapacity<T: Clone>(capacity: i32) -> Array<T> {
+        array(Vec::with_capacity(capacity as usize))
     }
 
     pub fn arrayFrom<T: Clone>(a: &[T]) -> Array<T> {
@@ -97,7 +96,7 @@ pub mod Native {
         array(vec![value.clone(); *count as usize])
     }
 
-    pub fn arrayCopy<T: Clone>(a: &Array<T>) -> Array<T> {
+    pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {
         array(a.to_vec())
     }
 
@@ -109,7 +108,7 @@ pub mod Native {
         let en = seq.GetEnumerator();
         let next = move || {
             if en.MoveNext() {
-                Some(en.Current())
+                Some(en.Current().clone())
             } else {
                 None
             }
@@ -124,8 +123,8 @@ pub mod Native {
     {
         let iter = mkMut(iter);
         let f = mkRef(move || iter.get_mut().next());
-        let en = crate::Seq::Enumerable::fromFunction(&f);
-        crate::Seq::mkSeq(&mkRef(move || en.clone()))
+        let en = crate::Seq::Enumerable::fromFunction(f);
+        crate::Seq::mkSeq(mkRef(move || en.clone()))
     }
 
     // -----------------------------------------------------------
@@ -136,11 +135,11 @@ pub mod Native {
         mkRefMut(HashSet::new())
     }
 
-    pub fn hashSetWithCapacity<T: Clone>(capacity: &i32) -> HashSet_1<T> {
-        mkRefMut(HashSet::with_capacity(*capacity as usize))
+    pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet_1<T> {
+        mkRefMut(HashSet::with_capacity(capacity as usize))
     }
 
-    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: &Array<T>) -> HashSet_1<T> {
+    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet_1<T> {
         mkRefMut(HashSet::from_iter(a.iter().cloned()))
     }
 
@@ -156,16 +155,16 @@ pub mod Native {
         mkRefMut(HashMap::new())
     }
 
-    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: &i32) -> HashMap_2<K, V> {
-        mkRefMut(HashMap::with_capacity(*capacity as usize))
+    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap_2<K, V> {
+        mkRefMut(HashMap::with_capacity(capacity as usize))
     }
 
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: &Array<(K, V)>) -> HashMap_2<K, V> {
+    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap_2<K, V> {
         mkRefMut(HashMap::from_iter(a.iter().cloned()))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
-        dict: &HashMap_2<K, V>,
+        dict: HashMap_2<K, V>,
         k: &K,
         v: &V,
     ) -> bool {
@@ -177,7 +176,7 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
         match dict.get_mut().insert(k.clone(), v.clone()) {
             Some(v) => {
                 panic!("An item with the same key has already been added.")
@@ -186,7 +185,7 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K) -> V {
+    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K) -> V {
         match dict.get_mut().get(k) {
             Some(v) => v.clone(),
             None => {
@@ -195,12 +194,12 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: &HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
         dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
     }
 
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
-        dict: &HashMap_2<K, V>,
+        dict: HashMap_2<K, V>,
         k: &K,
         res: &RefCell<V>,
     ) -> bool {
@@ -213,11 +212,11 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapKeys<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<K> {
+    pub fn hashMapKeys<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<K> {
         array(Vec::from_iter(dict.keys().cloned()))
     }
 
-    pub fn hashMapValues<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<V> {
+    pub fn hashMapValues<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<V> {
         array(Vec::from_iter(dict.values().cloned()))
     }
 
