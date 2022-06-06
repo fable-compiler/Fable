@@ -27,7 +27,7 @@ type UsedNames =
 
 type TypegenContext = {
     IsParamType: bool
-    TakingOwnership: bool
+    IsParamByRefPreferred: bool
     IsRawType: bool // prevents rc-wrap
 }
 
@@ -341,6 +341,13 @@ module TypeInfo =
         | _ ->
             isTypeOfType com isComparableType isComparableEntity entNames typ
 
+    let (|IsInref|_|) = function
+        | Fable.DeclaredType(entRef, genArgs) ->
+            match genArgs with
+            | nested::Fable.DeclaredType(nRef, _)::[] when nRef.FullName = "Microsoft.FSharp.Core.ByRefKinds.In" -> Some nested
+            | _ -> None
+        | _ -> None
+
     let isComparableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
         && (hasStructuralComparison ent)
@@ -371,6 +378,7 @@ module TypeInfo =
         | Fable.Tuple _
         | Fable.AnonymousRecordType _
             -> false
+        | IsInref t -> false
 
         // always Rc-wrapped
         | Fable.String
@@ -509,7 +517,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        if isByRefType com typ then mkRefTy ty else ty
+        if isByRefType com typ || ctx.Typegen.IsParamByRefPreferred then mkRefTy ty else ty
 
     // let transformLambdaType com ctx argTypes returnType: Rust.Ty =
     //     let fnRetTy =
@@ -741,7 +749,11 @@ module TypeInfo =
                     | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx [k; v]
                     | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
                     | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
-                    | Replacements.Util.FSharpReference(genArg) -> transformRefCellType com ctx genArg
+                    | Replacements.Util.FSharpReference(genArg) ->
+                        match typ with
+                        | IsInref nested ->
+                            transformType com ctx nested
+                        | _ -> transformRefCellType com ctx genArg
                 | _ ->
                     transformDeclaredType com ctx entRef genArgs
 
@@ -900,7 +912,7 @@ module Util =
         else
             if isBoxScoped ctx ident.Name
             then expr |> makeRcValue
-            elif isRefScoped ctx ident.Name && ctx.Typegen.TakingOwnership
+            elif isRefScoped ctx ident.Name
             then expr |> makeClone // |> mkDerefExpr |> mkParenExpr
             else expr
 
@@ -1013,12 +1025,11 @@ module Util =
         ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
 *)
     let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
         let trArgs = transformCallArgs com ctx false false args []
         mkCallExpr callee trArgs //?loc=range)
 
     let callFunctionTakingOwnership com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
+        //todo this can just call callFunction now
         let trArgs = transformCallArgs com ctx false false args []
         mkCallExpr callee trArgs //?loc=range)
 
@@ -1258,12 +1269,10 @@ module Util =
             argsWithTypes |> List.map (fun (argType, arg) ->
                 transformLeaveContext com ctx argType arg)
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr = com.TransformAsExpr(ctx, fableExpr)
         expr
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
         let expr = com.TransformAsExpr(ctx, fableExpr)
         if shouldBeRefCountWrapped com typ
         then makeAsRef expr
@@ -1433,7 +1442,6 @@ module Util =
         //     |> libCall com ctx r [] "List" "ofArrayWithTail"
 
     let makeTuple (com: IRustCompiler) ctx r (exprs: (Fable.Expr) list) isStruct =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let expr =
             exprs
             |> List.map (transformLeaveContext com ctx None)
@@ -1450,7 +1458,6 @@ module Util =
             |> Seq.map (fun (fi, value) ->
                 let attrs = []
                 let expr =
-                    let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
                     let expr = transformLeaveContext com ctx None value
                     if fi.IsMutable
                     then expr |> makeMutValue
@@ -1497,7 +1504,6 @@ module Util =
 
     let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
         let fmt = makeFormat parts
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = true } }
         let args = transformCallArgs com ctx true false values []
         let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
         makeString com ctx expr
@@ -1587,8 +1593,11 @@ module Util =
         elif isCloneableExpr com t e then
 
             let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-            if expectingByRef = Some true && not varAttrs.IsRef then //implicit syntax
+            if ctx.Typegen.IsParamByRefPreferred && not varAttrs.IsRef then
                 expr |> mkAddrOfExpr
+            elif expectingByRef = Some true && not varAttrs.IsRef then //implicit syntax
+                expr |> mkAddrOfExpr
+
             elif shouldBeRefCountWrapped com e.Type && not isOnlyReference then
                 makeClone expr
             elif isCloneableType com e.Type && not isOnlyReference then
@@ -1746,7 +1755,6 @@ module Util =
         let info = emitInfo.CallInfo
         let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
         let isNative = isNativeCall com info
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
         let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
@@ -1768,14 +1776,12 @@ module Util =
             transformMacro com ctx range emitInfo
         else // otherwise it's an Emit
             let isNative = true // by default not using pass-by-ref for emit params
-            let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative } }
             let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
             let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
             let args = args |> List.append thisArg
             mkEmitExpr macro args
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = false } }
         let expr = transformExprMaybeIdentExpr com ctx calleeExpr
         match calleeExpr with
         | Fable.IdentExpr id -> expr
@@ -1796,7 +1802,12 @@ module Util =
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
         let isNative = isNativeCall com callInfo
-        let ctx = { ctx with Typegen = { ctx.Typegen with TakingOwnership = isNative }; IsCallingFunction = true }
+        let ctx =
+            let issParamByRefPreferred = callInfo.CallMemberInfo
+                                            |> Option.map(fun o -> o.Attributes |> List.exists (fun a -> a.Entity.FullName.Contains("ByRefAttr")))
+                                            |> Option.defaultValue false
+            { ctx with IsCallingFunction = true; Typegen = { ctx.Typegen with IsParamByRefPreferred = issParamByRefPreferred } }
+
         let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
@@ -2058,7 +2069,6 @@ module Util =
                 let typegen =
                     { ctx.Typegen with
                         IsParamType = false
-                        TakingOwnership = true
                         IsRawType = false }
                 let ctx = { ctx with Typegen = typegen }
                 transformType com ctx ident.Type
@@ -2313,7 +2323,7 @@ module Util =
                     fromIdents @ fromExtra
                 let scopedSymbolsNext =
                     Helpers.Map.merge ctx.ScopedSymbols (symbolsAndNames |> Map.ofList)
-                let ctx = { ctx with ScopedSymbols = scopedSymbolsNext; Typegen = { ctx.Typegen with TakingOwnership = true } }
+                let ctx = { ctx with ScopedSymbols = scopedSymbolsNext }
                 transformLeaveContext com ctx None bodyExpr
             mkArm attrs pat guard body
 
@@ -2731,7 +2741,6 @@ module Util =
         let typegen =
             { ctx.Typegen with
                 IsParamType = true
-                TakingOwnership = false
                 IsRawType = false }
         let ctx = { ctx with Typegen = typegen }
         let ty = transformParamType com ctx ident.Type
@@ -2833,7 +2842,7 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = isByRefType com arg.Type
+                    IsRef = isByRefType com arg.Type || ctx.Typegen.IsParamByRefPreferred
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
                 }
@@ -2844,6 +2853,7 @@ module Util =
             else None
         { ctx with
             ScopedSymbols = scopedSymbols
+            Typegen = {ctx.Typegen with IsParamByRefPreferred = false}
             TailCallOpportunity = tco }
 
     let isTailRecursive (name: string option) (body: Fable.Expr) =
@@ -2870,7 +2880,7 @@ module Util =
             transformLeaveContext com ctx None body
 
     let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        //if name |> Option.exists (fun n -> n.Contains("Anon record structural equality works")) then System.Diagnostics.Debugger.Break()
+        //if name |> Option.exists (fun n -> n.Contains("byrefAttrIntFn")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
@@ -3000,6 +3010,9 @@ module Util =
     let transformModuleFunction (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
         let fnDecl, fnBody, fnGenParams =
+            let ctx = { ctx with Typegen = { ctx.Typegen with
+                                                IsParamByRefPreferred = decl.Info.Attributes
+                                                                        |> Seq.exists (fun q -> q.Entity.FullName.Contains("ByRefAttr")) } }
             transformFunction com ctx (Some decl.FullDisplayName) decl.ArgIdents decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
@@ -3710,7 +3723,7 @@ module Compiler =
             IsInPluralizedExpr = false
             IsCallingFunction = true
             Typegen = { IsParamType = false
-                        TakingOwnership = false
+                        IsParamByRefPreferred = false
                         IsRawType = false } }
 
         let topAttrs = [
