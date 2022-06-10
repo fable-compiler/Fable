@@ -1020,7 +1020,7 @@ module Util =
         ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
 *)
     let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
-        let trArgs = transformCallArgs com ctx false false args []
+        let trArgs = transformCallArgs com ctx false args []
         mkCallExpr callee trArgs //?loc=range)
 
     /// Immediately Invoked Function Expression
@@ -1238,7 +1238,7 @@ module Util =
     let makeLazyValue (value: Rust.Expr) =
         makeCall ["Lazy";"new"] None [value]
 
-    let transformCallArgs (com: IRustCompiler) ctx isNative hasSpread args (argTypes: Fable.Type list) =
+    let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
@@ -1270,7 +1270,7 @@ module Util =
         else
             if isRefScoped ctx name
             then expr
-            else mkAddrOfExpr expr
+            else expr |> mkAddrOfExpr
 
     let makeNumber com ctx r t kind (x: obj) =
         match kind, x with
@@ -1495,7 +1495,7 @@ module Util =
 
     let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
         let fmt = makeFormat parts
-        let args = transformCallArgs com ctx true false values []
+        let args = transformCallArgs com ctx false values []
         let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
         makeString com ctx expr
 
@@ -1607,7 +1607,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx false info.HasSpread info.Args
+            let args = transformCallArgs com ctx info.HasSpread info.Args
             Some(baseExpr, args)
         | Some(Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1729,19 +1729,10 @@ module Util =
                 | LogicalOperator.LogicalAnd -> Rust.BinOpKind.And
             mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
-    let isNativeCall (com: IRustCompiler) (callInfo: Fable.CallInfo) =
-        let isInterfaceWithEmitAttr = function
-            | HasEmitAttribute _ as ent -> ent.IsInterface
-            | _ -> false
-        let isNative1 = callInfo.Tag |> Option.exists (fun s -> s.Contains("native"))
-        let isNative2 = callInfo |> isDeclEntityKindOf com isInterfaceWithEmitAttr
-        isNative1 || isNative2
-
     let transformMacro (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
         let info = emitInfo.CallInfo
         let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
-        let isNative = isNativeCall com info
-        let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
+        let args = transformCallArgs com ctx info.HasSpread info.Args info.SignatureArgTypes
         let args =
             // for certain macros, use unwrapped format string as first argument
             match macro, info.Args with
@@ -1761,9 +1752,8 @@ module Util =
         if macro.EndsWith("!") then
             transformMacro com ctx range emitInfo
         else // otherwise it's an Emit
-            let isNative = true // by default not using pass-by-ref for emit params
             let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-            let args = transformCallArgs com ctx isNative info.HasSpread info.Args info.SignatureArgTypes
+            let args = transformCallArgs com ctx info.HasSpread info.Args info.SignatureArgTypes
             let args = args |> List.append thisArg
             mkEmitExpr macro args
 
@@ -1787,14 +1777,13 @@ module Util =
         isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let isNative = isNativeCall com callInfo
         let ctx =
             let issParamByRefPreferred = callInfo.CallMemberInfo
                                             |> Option.map(fun o -> o.Attributes |> List.exists (fun a -> a.Entity.FullName.Contains("ByRefAttr")))
                                             |> Option.defaultValue false
             { ctx with IsCallingFunction = true; Typegen = { ctx.Typegen with IsParamByRefPreferred = issParamByRefPreferred } }
 
-        let args = transformCallArgs com ctx isNative callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
+        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         // mutable module values (transformed as function calls)
         | Fable.IdentExpr id when id.IsMutable && isModuleMember com callInfo ->
@@ -1863,7 +1852,7 @@ module Util =
 
 (*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx false false args with
+        match transformCallArgs com ctx false args with
         | [] -> callFunction range applied []
         | args -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg])
 
