@@ -189,7 +189,7 @@ let (|BuiltinDefinition|_|) = function
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.byref -> Some(FSharpReference(Any))
     | Types.byref2 -> Some(FSharpReference(Any))
-    | Types.reference -> Some(FSharpReference(Any))
+    | Types.refCell -> Some(FSharpReference(Any))
     | Naming.StartsWith Types.choiceNonGeneric genArgs ->
         List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
     | _ -> None
@@ -202,8 +202,8 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(BclDictionary _), [k;v] -> Some(BclDictionary(k,v))
     | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
     | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
-    | BuiltinDefinition(FSharpReference _), [v] -> Some(FSharpReference(v))
-    | BuiltinDefinition(FSharpReference _), [v; _] -> Some(FSharpReference(v))
+    | BuiltinDefinition(FSharpReference _), [t] -> Some(FSharpReference(t))
+    | BuiltinDefinition(FSharpReference _), [t; _] -> Some(FSharpReference(t))
     | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
     | BuiltinDefinition t, _ -> Some t
     | _ -> None
@@ -355,9 +355,26 @@ let (|OrDefault|) (def:'T) = function
     | Some v -> v
     | None -> def
 
-let (|EntFullName|_|) (typ: Type) =
-    match typ with
-    | DeclaredType(ent, _) -> Some ent.FullName
+let (|EntFullName|_|) = function
+    | DeclaredType(entRef, _) -> Some entRef.FullName
+    | _ -> None
+
+let (|IsByRefType|_|) (com: Compiler) = function
+    | Fable.DeclaredType(entRef, genArgs) ->
+        let ent = com.GetEntity(entRef)
+        match ent.IsByRef, genArgs with
+        | true, (genArg::_) -> Some genArg
+        | _ -> None
+    | _ -> None
+
+let (|IsInRefType|_|) (com: Compiler) = function
+    | Fable.DeclaredType(entRef, genArgs) ->
+        let ent = com.GetEntity(entRef)
+        match ent.IsByRef, genArgs with
+        | true, [genArg; Fable.DeclaredType(byRefKind, _)]
+            when byRefKind.FullName = Types.byrefKindIn
+            -> Some genArg
+        | _ -> None
     | _ -> None
 
 let (|ListLiteral|_|) e =

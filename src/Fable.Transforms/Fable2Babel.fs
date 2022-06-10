@@ -1007,7 +1007,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
-                if com.Options.Language = TypeScript && (ent.FullName = Types.reference)
+                if com.Options.Language = TypeScript && (ent.FullName = Types.refCell)
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)

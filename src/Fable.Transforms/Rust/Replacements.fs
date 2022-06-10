@@ -40,6 +40,9 @@ let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
 
+let nativeCall expr =
+    expr |> withTag "native"
+
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
     Helper.LibCall(com, "Decimal", "default", t, [makeStrConst str], isConstructor=true, ?loc=r)
@@ -50,39 +53,24 @@ let makeDecimalFromExpr com r t (e: Expr) =
 let makeRef (value: Expr) =
     Operation(Unary(UnaryAddressOf, value), value.Type, None)
 
+let getRefCell com r typ (expr: Expr) =
+    Helper.InstanceCall(expr, "get", typ, [])
+
+let setRefCell com r (expr: Expr) (value: Expr) =
+    Fable.Set(expr, Fable.ValueSet, value.Type, value, r)
+
+let makeRefCell com r typ (value: Expr) =
+    Helper.LibCall(com, "Native", "refCell", typ, [value], ?loc=r) |> nativeCall
+
 let makeRefFromMutableValue com ctx r t (value: Expr) =
-    // let getter =
-    //     Delegate([], value, FuncInfo.Empty)
-    // let setter =
-    //     let v = makeUniqueIdent ctx t "v"
-    //     Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), FuncInfo.Empty)
-    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
     Operation(Unary(UnaryAddressOf, value), t, r)
 
 let makeRefFromMutableField com ctx r t callee key =
-    // let getter =
-    //     Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
-    // let setter =
-    //     let v = makeUniqueIdent ctx t "v"
-    //     Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
-    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
     let value = Get(callee, FieldInfo.Create(key, isMutable=true), t, r)
     Operation(Unary(UnaryAddressOf, value), t, r)
 
-// Mutable and public module values are compiled as functions, because
-// values imported from ES2015 modules cannot be modified (see #986)
+// Mutable and public module values are compiled as functions
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
-    // let getter =
-    //     let info = makeCallInfo None [] []
-    //     let value = makeCall r t info value
-    //     Delegate([], value, FuncInfo.Empty)
-    // let setter =
-    //     let v = makeUniqueIdent ctx t "v"
-    //     let args = [IdentExpr v; makeBoolConst true]
-    //     let info = makeCallInfo None args [t; Boolean]
-    //     let value = makeCall r Unit info value
-    //     Delegate([v], value, FuncInfo.Empty)
-    // Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
     value
 
 let toNativeIndex expr =
@@ -324,9 +312,6 @@ let emitFormat (com: ICompiler) r t (args: Expr list) macro =
 let getLength r t (expr: Expr) =
     let i = Helper.InstanceCall(expr, "len", Number(UNativeInt, NumberInfo.Empty), [], ?loc=r)
     TypeCast(i, t)
-
-let nativeCall expr =
-    expr |> withTag "native"
 
 // let asMutable expr =
 //     expr |> withTag "mutable,native"
@@ -838,14 +823,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | _ -> None
 
-let getReference r t expr = Helper.InstanceCall(expr, "get", t, [])
-let setReference r expr value = Helper.InstanceCall(expr, "set", Unit, [value]) |> nativeCall
-let newReference com r t value = Helper.LibCall(com, "Native", "refCell", t, [value], ?loc=r) |> nativeCall
-
-let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Value", Some callee, _ -> getReference r t callee |> Some
-    | "set_Value", Some callee, [value] -> setReference r callee value |> Some
+    | "get_Value", Some callee, _ -> getRefCell com r t callee |> Some
+    | "set_Value", Some callee, [value] -> setRefCell com r callee value |> Some
     | _ -> None
 
 let getMangledNames (i: CallInfo) (thisArg: Expr option) =
@@ -1065,15 +1046,15 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Fst", [tup] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [tup] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
-    | "op_Dereference", [arg] -> getReference r t arg  |> Some
-    | "op_ColonEquals", [o; v] -> setReference r o v |> Some
-    | "Ref", [arg] -> newReference com r t arg |> Some
+    | "op_Dereference", [arg] -> getRefCell com r t arg  |> Some
+    | "op_ColonEquals", [o; v] -> setRefCell com r o v |> Some
+    | "Ref", [arg] -> makeRefCell com r t arg |> Some
     | "Increment", [arg] ->
-        let v = add (getReference r t arg) (getOne com ctx t)
-        setReference r arg v |> Some
+        let v = add (getRefCell com r t arg) (getOne com ctx t)
+        setRefCell com r arg v |> Some
     | "Decrement", [arg] ->
-        let v = sub (getReference r t arg) (getOne com ctx t)
-        setReference r arg v |> Some
+        let v = sub (getRefCell com r t arg) (getOne com ctx t)
+        setRefCell com r arg v |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "IsNull", [arg] -> nullCheck r true arg |> Some
@@ -2868,7 +2849,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
-    Types.reference, references
+    Types.refCell, refCells
     Types.object, objects
     Types.valueType, valueTypes
     "System.Enum", enums
@@ -3012,7 +2993,7 @@ let tryType = function
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
-        | FSharpReference genArg -> Some(Types.reference, references, [genArg])
+        | FSharpReference genArg -> Some(Types.refCell, refCells, [genArg])
         | BclDateOnly
         | BclTimeOnly -> None
     | _ -> None

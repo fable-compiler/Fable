@@ -566,18 +566,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         if isInline var then
             match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
-            | Some (_,fsExpr) ->
+            | Some (_, fsExpr) ->
                 return! transformExpr com ctx fsExpr
             | None ->
                 return "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com ctx.InlinePath r
         else
+            let v = makeValueFrom com ctx r var
             if isByRefValue var && com.Options.Language <> Rust then
                 // Getting byref value is compiled as FSharpRef op_Dereference
-                let var = makeValueFrom com ctx r var
-                return Replacements.Api.getReference com r var.Type var
+                return Replacements.Api.getRefCell com r v.Type v
             else
-                return makeValueFrom com ctx r var
+                return v
 
     // This is usually used to fill missing [<Optional>] arguments.
     // Unchecked.defaultof<'T> is resolved in Replacements instead.
@@ -1094,7 +1094,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | _ ->
                     return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
             else
-                return Replacements.Api.newReference com r value.Type value
+                if com.Options.Language = Rust
+                then return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
+                else return Replacements.Api.makeRefCell com r value.Type value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
@@ -1109,17 +1111,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.AddressSet expr ->
         let r = makeRangeFrom fsExpr
         match expr with
-        | FSharpExprPatterns.Value valToSet, valueExpr
-                when isByRefValue valToSet ->
+        | FSharpExprPatterns.Value valToSet, valueExpr when isByRefValue valToSet ->
             // Setting byref value is compiled as FSharpRef op_ColonEquals
             let! value = transformExpr com ctx valueExpr
             let valToSet = makeValueFrom com ctx r valToSet
-            return
-                match com.Options.Language with
-                | Rust ->
-                    Fable.Set(valToSet, Fable.ValueSet, value.Type, value, r)
-                | _ ->
-                    Replacements.Api.setReference com r valToSet value
+            return Replacements.Api.setRefCell com r valToSet value
         | _ ->
             return "Mutating this argument passed by reference is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r

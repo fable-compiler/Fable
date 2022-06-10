@@ -7,6 +7,7 @@ let tests: unit[] = [|
     importAll "AnonRecordTests.rs"
     importAll "ArithmeticTests.rs"
     importAll "ArrayTests.rs"
+    importAll "ByRefTests.rs"
     importAll "CharTests.rs"
     importAll "ClassTests.rs"
     importAll "ClosureTests.rs"
