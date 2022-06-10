@@ -68,6 +68,15 @@ let createAtom com (value: Expr) =
     let typ = value.Type
     Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
 
+let getRefCell com r typ (expr: Expr) =
+    getFieldWith r typ expr "contents"
+
+let setRefCell com r (expr: Expr) (value: Expr) =
+    setExpr r expr (makeStrConst "contents") value
+
+let makeRefCell com r typ (value: Expr) =
+    Helper.LibCall(com, "Types", "FSharpRef", typ, [value], isConstructor=true, ?loc=r)
+
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter =
         Delegate([], value, FuncInfo.Empty)
@@ -975,14 +984,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
     | _ -> None
 
-let getReference r t expr = getFieldWith r t expr "contents"
-let setReference r expr value = setExpr r expr (makeStrConst "contents") value
-let newReference com r t value = Helper.LibCall(com, "Types", "FSharpRef", t, [value], isConstructor=true, ?loc=r)
-
-let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Value", Some callee, _ -> getReference r t callee |> Some
-    | "set_Value", Some callee, [value] -> setReference r callee value |> Some
+    | "get_Value", Some callee, _ -> getRefCell com r t callee |> Some
+    | "set_Value", Some callee, [value] -> setRefCell com r callee value |> Some
     | _ -> None
 
 let getMangledNames (i: CallInfo) (thisArg: Expr option) =
@@ -1205,9 +1210,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Fst", [tup] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [tup] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
-    | "op_Dereference", [arg] -> getReference r t arg  |> Some
-    | "op_ColonEquals", [o; v] -> setReference r o v |> Some
-    | "Ref", [arg] -> newReference com r t arg |> Some
+    | "op_Dereference", [arg] -> getRefCell com r t arg  |> Some
+    | "op_ColonEquals", [o; v] -> setRefCell com r o v |> Some
+    | "Ref", [arg] -> makeRefCell com r t arg |> Some
     | ("Increment"|"Decrement"), _ ->
         if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
         |> emitExpr r t args |> Some
@@ -2941,7 +2946,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
-    Types.reference, references
+    Types.refCell, refCells
     Types.object, objects
     Types.valueType, valueTypes
     "System.Enum", enums
@@ -3137,5 +3142,5 @@ let tryType = function
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
-        | FSharpReference genArg -> Some(Types.reference, references, [genArg])
+        | FSharpReference genArg -> Some(Types.refCell, refCells, [genArg])
     | _ -> None
