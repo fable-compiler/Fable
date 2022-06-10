@@ -763,7 +763,7 @@ module Patterns =
         memb.FullName
 
     let (|RefType|_|) = function
-        | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
+        | TypeDefinition tdef as t when tdef.TryFullName = Some Types.refCell -> Some t
         | _ -> None
 
     /// Detects AST pattern of "raise MatchFailureException()"
@@ -775,7 +775,7 @@ module Patterns =
                 match value with
                 | NewRecord(recordType, [Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
                     match recordType.TypeDefinition.TryFullName with
-                    | Some "Microsoft.FSharp.Core.MatchFailureException" -> Some (value.ToString())
+                    | Some Types.matchFail -> Some (value.ToString())
                     | _ -> None
                 | _ -> None
             | _ -> None

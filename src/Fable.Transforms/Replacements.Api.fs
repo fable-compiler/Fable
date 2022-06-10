@@ -83,26 +83,26 @@ let createAtom (com: ICompiler) value =
     | JavaScript | TypeScript -> JS.Replacements.createAtom com value
     | Rust | Php | Dart -> value
 
-let getReference (com: ICompiler) r typ var =
+let getRefCell (com: ICompiler) r typ (expr: Expr) =
     match com.Options.Language with
-    | Python -> PY.Replacements.getReference r typ var
-    | Rust -> Rust.Replacements.getReference r typ var
-    | Dart -> Dart.Replacements.getReference r typ var
-    | _ -> JS.Replacements.getReference r typ var
+    | Python -> PY.Replacements.getRefCell com r typ expr
+    | Rust -> Rust.Replacements.getRefCell com r typ expr
+    | Dart -> Dart.Replacements.getRefCell com r typ expr
+    | _ -> JS.Replacements.getRefCell com r typ expr
 
-let setReference (com: ICompiler) r expr value =
+let setRefCell (com: ICompiler) r (expr: Expr) (value: Expr) =
     match com.Options.Language with
-    | Python -> PY.Replacements.setReference r expr value
-    | Rust -> Rust.Replacements.setReference r expr value
-    | Dart -> Dart.Replacements.setReference r expr value
-    | _ -> JS.Replacements.setReference r expr value
+    | Python -> PY.Replacements.setRefCell com r expr value
+    | Rust -> Rust.Replacements.setRefCell com r expr value
+    | Dart -> Dart.Replacements.setRefCell com r expr value
+    | _ -> JS.Replacements.setRefCell com r expr value
 
-let newReference (com: ICompiler) r typ value =
+let makeRefCell (com: ICompiler) r typ (value: Expr) =
     match com.Options.Language with
-    | Python -> PY.Replacements.newReference com r typ value
-    | Rust -> Rust.Replacements.newReference com r typ value
-    | Dart -> Dart.Replacements.newReference com r typ value
-    | _ -> JS.Replacements.newReference com r typ value
+    | Python -> PY.Replacements.makeRefCell com r typ value
+    | Rust -> Rust.Replacements.makeRefCell com r typ value
+    | Dart -> Dart.Replacements.makeRefCell com r typ value
+    | _ -> JS.Replacements.makeRefCell com r typ value
 
 let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with
