@@ -841,12 +841,12 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         PhpNewArray [
             for m in members do
                 PhpArrayString m.Name,
-                    convertFunction com m.Body m.ArgIdents
+                    convertFunction com m.Body m.Args
         ]
     | Fable.Expr.Lambda(arg,body,_) ->
         // lambda is transpiled as a function
         convertFunction com body [arg]
-    | Fable.Expr.Delegate(args, body, _) ->
+    | Fable.Expr.Delegate(args, body, _, _) ->
         // delegates are also tanspiled as functions
         convertFunction com body args
 
@@ -1258,18 +1258,19 @@ let convertMemberDecl (com: IPhpCompiler) (decl: Fable.MemberDecl) =
     let name =
         fixName decl.Name //.Substring(typ.Name.Length + 2) |> fixName
 
-    if decl.Info.IsInstance then
-        com.SetThisArgument(fixName decl.ArgIdents.[0].Name)
+    let info = com.GetMember(decl.MemberRef)
+    if info.IsInstance then
+        com.SetThisArgument(fixName decl.Args.[0].Name)
 
     let body = convertExprToStatement com decl.Body Return
     com.ClearThisArgument()
     { PhpFun.Name = fixName name;
-      PhpFun.Args = [ for arg in decl.ArgIdents.[1..] do
+      PhpFun.Args = [ for arg in decl.Args.[1..] do
                         match arg.Type with
                         | Fable.Unit -> ()
                         | _ -> fixName arg.Name ]
       PhpFun.Matchings = []
-      PhpFun.Static = not decl.Info.IsInstance
+      PhpFun.Static = not info.IsInstance
       PhpFun.Body = body}
 
 
@@ -1310,7 +1311,7 @@ let convertDecl (com: IPhpCompiler)  decl =
                             | _ -> expr
 
                         {
-                            Args =  [ for arg in ctor.ArgIdents do
+                            Args =  [ for arg in ctor.Args do
                                         fixName arg.Name ]
                             Body = convertExprToStatement com (simplifyCtor ctor.Body) Do
                         }
@@ -1348,13 +1349,14 @@ let convertDecl (com: IPhpCompiler)  decl =
           for t in extraTypes do
             PhpType t ]
     | Fable.Declaration.MemberDeclaration decl ->
-        com.AddImport(decl.Name, decl.Info.IsValue)
-        if decl.Info.IsValue then
+        let info = com.GetMember(decl.MemberRef)
+        com.AddImport(decl.Name, info.IsValue)
+        if info.IsValue then
             [ PhpDeclValue(fixName decl.Name, convertExpr com decl.Body) ]
         else
             let body = convertExprToStatement com decl.Body Return
             [{ PhpFun.Name = fixName decl.Name
-               Args = [ for arg in decl.ArgIdents do
+               Args = [ for arg in decl.Args do
                         fixName arg.Name ]
                Matchings = []
                Body = body

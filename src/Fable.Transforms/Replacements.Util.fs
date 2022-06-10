@@ -15,13 +15,13 @@ type CallInfo = ReplaceCallInfo
 
 type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?genArgs, ?loc: SourceLocation) =
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(consExpr, { info with IsConstructor = true }, returnType, loc)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, isCons=true)
+        Call(consExpr, info, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?genArgs, ?loc: SourceLocation) =
         let callee = getField callee memb
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, info, returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
@@ -36,16 +36,14 @@ type Helper =
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
 
         let callee = makeImportLib com Any coreMember coreModule
-        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?hasSpread=hasSpread, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
                                 ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportUserGenerated None Any selector path
-        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?hasSpread=hasSpread, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list, ?genArgs,
                              ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
@@ -53,8 +51,8 @@ type Helper =
             match memb with
             | Some memb -> getField (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getFieldWith loc typ (makeIdentExpr ident) memb
@@ -64,21 +62,15 @@ let makeUniqueIdent ctx t name =
     |> makeTypedIdent t
 
 let withTag tag = function
-    | Call(e, i, t, r) -> Call(e, { i with Tag = Some tag }, t, r)
+    | Call(e, i, t, r) -> Call(e, { i with Tag = Tag.add tag i.Tag }, t, r)
     | e -> e
 
-let objValue (k, v): MemberDecl =
+let objValue (k, v): ObjectExprMember =
     {
         Name = k
-        FullDisplayName = k
         Args = []
         Body = v
-        GenericParams = []
-        UsedNames = Set.empty
-        Info = FSharp2Fable.MemberInfo(isValue=true)
-        ExportDefault = false
-        DeclaringEntity = None
-        XmlDoc = None
+        MemberRef = GeneratedMember.Value()
     }
 
 let typedObjExpr t kvs =
@@ -342,7 +334,7 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
         |> curriedApply None interType (IdentExpr capturedFun1Var)
         |> List.singleton
         |> curriedApply r retType (IdentExpr capturedFun2Var)
-    Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, FuncInfo.Empty)))
+    Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, None)))
 
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
 let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
@@ -457,7 +449,7 @@ let tryFindInScope (ctx: Context) identName =
 
 let (|MaybeInScope|) (ctx: Context) e =
     match e with
-    | MaybeCasted(IdentExpr ident) when not ident.IsMutable ->
+    | MaybeCasted(IdentExpr ident) when not ident.IsMutable  ->
         match tryFindInScope ctx ident.Name with
         | Some e -> e
         | None -> e

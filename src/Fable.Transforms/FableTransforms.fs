@@ -34,7 +34,7 @@ let getSubExpressions = function
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
     | Lambda(_, body, _) -> [body]
-    | Delegate(_, body, _) -> [body]
+    | Delegate(_, body, _, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
         let members = members |> List.map (fun m -> m.Body)
         match baseCall with Some b -> b::members | None -> members
@@ -94,7 +94,7 @@ let isIdentCaptured identName expr =
             match expr with
             | IdentExpr i when i.Name = identName -> isClosure
             | Lambda(_,body,_) -> loop true [body] || loop isClosure restExprs
-            | Delegate(_,body,_) -> loop true [body] || loop isClosure restExprs
+            | Delegate(_,body,_,_) -> loop true [body] || loop isClosure restExprs
             | ObjectExpr(members, _, baseCall) ->
                 let memberExprs = members |> List.map (fun m -> m.Body)
                 loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
@@ -199,7 +199,7 @@ let noSideEffectBeforeIdent identName expr =
         | Call(e1, info, _, _) ->
             match info.Tag, info.Args with
             // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
-            | Some "pojo", IdentExpr i::_ -> i.Name = identName
+            | Tag.Contains "pojo", IdentExpr i::_ -> i.Name = identName
             | _ ->
                 e1 :: (Option.toList info.ThisArg) @ info.Args
                 |> findIdentOrSideEffectInList |> orSideEffect
@@ -286,8 +286,8 @@ let rec uncurryLambdaType (revArgTypes: Type list) (returnType: Type) =
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
-        | Lambda(arg, body, info) -> Some([arg], body, info)
-        | Delegate(args, body, info) -> Some(args, body, info)
+        | Lambda(arg, body, name) -> Some([arg], body, name)
+        | Delegate(args, body, name, Tag.empty) -> Some(args, body, name)
         | _ -> None
 
     let (|ImmediatelyApplicable|_|) = function
@@ -321,7 +321,7 @@ module private Transforms =
             | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1), Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
                 Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
             | _ -> e
-        | Call(Delegate(args, body, _), info, _, _) when List.sameLength args info.Args ->
+        | Call(Delegate(args, body, _, _), info, _, _) when List.sameLength args info.Args ->
             applyArgs args info.Args body
         | CurriedApply(applied, argExprs, t, r) ->
             let rec tryImmediateApplication r t applied argExprs =
@@ -358,8 +358,8 @@ module private Transforms =
                 let value =
                     match value with
                     // Ident becomes the name of the function (mainly used for tail call optimizations)
-                    | Lambda(arg, funBody, info) -> Lambda(arg, funBody, { info with Name = Some ident.Name })
-                    | Delegate(args, funBody, info) -> Delegate(args, funBody, { info with Name = Some ident.Name })
+                    | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
+                    | Delegate(args, funBody, _, tag) -> Delegate(args, funBody, Some ident.Name, tag)
                     | value -> value
                 replaceValues (Map [ident.Name, value]) letBody
             else e
@@ -454,13 +454,13 @@ module private Transforms =
                                                                           && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let(ident, Delegate(args, fnBody, FuncInfo.Empty), letBody)
+            Let(ident, Delegate(args, fnBody, None, Tag.empty), letBody)
         // Anonymous lambda immediately applied
-        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, { Name = Some name }), argExprs, t, r)
+        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
             let info = makeCallInfo None argExprs (args |> List.map (fun a -> a.Type))
-            Delegate(args, fnBody, FuncInfo.Create(name=name))
+            Delegate(args, fnBody, Some name, Tag.empty)
             |> makeCall r t info
         | e -> e
 
@@ -483,11 +483,8 @@ module private Transforms =
         | e -> e
 
     let uncurryMemberArgs (m: MemberDecl) =
-        if m.Info.IsValue then m
-        else
-            let args, body = curryArgIdentsAndReplaceInBody m.ArgIdents m.Body
-            let args = List.zip m.Args args |> List.map (fun (d, i) -> { d with Ident = i })
-            { m with Args = args; Body = body }
+        let args, body = curryArgIdentsAndReplaceInBody m.Args m.Body
+        { m with Args = args; Body = body }
 
     let (|GetField|_|) (com: Compiler) = function
         | Get(callee, kind, _, r) ->
@@ -505,9 +502,9 @@ module private Transforms =
         match e with
         // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
         // | Lambda(arg, body, name)
-        | Delegate(args, body, name) ->
+        | Delegate(args, body, name, tag) ->
             let args, body = curryArgIdentsAndReplaceInBody args body
-            Delegate(args, body, name)
+            Delegate(args, body, name, tag)
         // Uncurry also values received from getters
         | GetField com (callee, fieldType, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
@@ -520,7 +517,10 @@ module private Transforms =
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
-            ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
+            let members = members |> List.map (fun m ->
+                let args, body = curryArgIdentsAndReplaceInBody m.Args m.Body
+                { m with Args = args; Body = body })
+            ObjectExpr(members, t, baseCall)
         | e -> e
 
     let uncurrySendingArgs (com: Compiler) e =
@@ -553,24 +553,13 @@ module private Transforms =
             let value = uncurryArgs com false [t] [value]
             Set(e, FieldSet(fieldName), t, List.head value, r)
         | ObjectExpr(members, t, baseCall) ->
-            let membersMap =
-                match t with
-                | DeclaredType(e, _genArgs) ->
-                    com.GetEntity(e).MembersFunctionsAndValues
-                    |> Seq.choose (fun m ->
-                        if m.IsGetter || m.IsValue then
-                            Some(m.CompiledName, m.ReturnParameter.Type)
-                        else None)
-                    |> Map
-                | _ -> Map.empty
             let members =
                 members |> List.map (fun m ->
-                    let hasGenerics = m.Body.Type.Generics |> List.isEmpty |> not
-                    if m.Info.IsGetter || (m.Info.IsValue && not hasGenerics) then
-                        let membType =
-                            Map.tryFind m.Name membersMap
-                            |> Option.defaultValue m.Body.Type
-                        let value = uncurryArgs com false [membType] [m.Body]
+                    let mRef = com.GetMember(m.MemberRef)
+                    let isGetterOrValueWithoutGenerics =
+                        mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
+                    if isGetterOrValueWithoutGenerics then
+                        let value = uncurryArgs com false [mRef.ReturnParameter.Type] [m.Body]
                         { m with Body = List.head value }
                     else m)
             ObjectExpr(members, t, baseCall)
@@ -670,8 +659,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                 // we need to include it in the constructor body
                 let args, body =
                     Sequential [baseCall; cons.Body]
-                    |> curryArgIdentsAndReplaceInBody cons.ArgIdents
-                let args = List.zip cons.Args args |> List.map (fun (d, i) -> { d with Ident = i })
+                    |> curryArgIdentsAndReplaceInBody cons.Args
                 transformExpr com body
                 |> function
                     | Sequential [baseCall; body] -> Some { cons with Args = args; Body = body }, Some baseCall

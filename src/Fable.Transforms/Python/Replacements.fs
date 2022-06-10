@@ -78,20 +78,20 @@ let makeRefCell com r typ (value: Expr) =
     Helper.LibCall(com, "types", "FSharpRef", typ, [ value ], isConstructor = true, ?loc = r)
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
-    let getter = Delegate([], value, FuncInfo.Empty)
+    let getter = Delegate([], value, None, Tag.empty)
 
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), FuncInfo.Empty)
+        Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tag.empty)
 
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
 
 let makeRefFromMutableField com ctx r t callee key =
-    let getter = Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
+    let getter = Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), None, Tag.empty)
 
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
+        Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tag.empty)
 
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
 
@@ -101,14 +101,14 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
     let getter =
         let info = makeCallInfo None [] []
         let value = makeCall r t info value
-        Delegate([], value, FuncInfo.Empty)
+        Delegate([], value, None, Tag.empty)
 
     let setter =
         let v = makeUniqueIdent ctx t "v"
         let args = [ IdentExpr v; makeBoolConst true ]
         let info = makeCallInfo None args [ t; Boolean ]
         let value = makeCall r Unit info value
-        Delegate([ v ], value, FuncInfo.Empty)
+        Delegate([ v ], value, None, Tag.empty)
 
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
 
@@ -586,7 +586,7 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
-    Delegate([ x; y ], body, FuncInfo.Empty)
+    Delegate([ x; y ], body, None, Tag.empty)
 
 and makeComparer (com: ICompiler) ctx typArg =
     objExpr [ "Compare", makeComparerFunction com ctx typArg ]
@@ -595,14 +595,14 @@ and makeEqualityFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-    Delegate([ x; y ], body, FuncInfo.Empty)
+    Delegate([ x; y ], body, None, Tag.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
 
-    objExpr [ "Equals", Delegate([ x; y ], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
-              "GetHashCode", Delegate([ x ], structuralHash com None (IdentExpr x), FuncInfo.Empty) ]
+    objExpr [ "Equals", Delegate([ x; y ], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tag.empty)
+              "GetHashCode", Delegate([ x ], structuralHash com None (IdentExpr x), None, Tag.empty) ]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e = e // leave it as is, if implementation supports it
@@ -670,7 +670,7 @@ let makeAddFunction (com: ICompiler) ctx t =
     let body =
         applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
 
-    Delegate([ x; y ], body, FuncInfo.Empty)
+    Delegate([ x; y ], body, None, Tag.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
     objExpr [ "GetZero", getZero com ctx t |> makeDelegate []
@@ -684,7 +684,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let body =
             applyOp com ctx None t Operators.divideByInt [ IdentExpr x; IdentExpr i ]
 
-        Delegate([ x; i ], body, FuncInfo.Empty)
+        Delegate([ x; i ], body, None, Tag.empty)
 
     objExpr [ "GetZero", getZero com ctx t |> makeDelegate []
               "Add", makeAddFunction com ctx t
@@ -1026,7 +1026,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | selector ->
                     let selector =
                         let m = makeIdent "m"
-                        Delegate([ m ], Get(IdentExpr m, ExprGet selector, Any, None), FuncInfo.Empty)
+                        Delegate([ m ], Get(IdentExpr m, ExprGet selector, Any, None), None, Tag.empty)
 
                     Helper.InstanceCall(import, "then", t, [ selector ])
 
@@ -1042,7 +1042,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | Import (info, _, _) ->
                 dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path)
                 |> Some
-            | NestedLambda (args, Call (Import (importInfo, _, _), callInfo, _, _), { Name = None }) when argEquals args callInfo.Args ->
+            | NestedLambda (args, Call (Import (importInfo, _, _), callInfo, _, _), None) when argEquals args callInfo.Args ->
                 dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path)
                 |> Some
             | _ ->

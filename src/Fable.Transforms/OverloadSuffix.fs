@@ -101,7 +101,7 @@ let private combineHashCodes (hashes: int seq) =
 let private stringHash (s: string) =
     let mutable h = 5381
     for i = 0 to s.Length - 1 do
-        h <- (h * 33) ^^^ (int s.[i])
+        h <- (h * 33) ^^^ (int s[i])
     h
 
 let private getHashPrivate (entAtts: Fable.Attribute seq) (paramTypes: ParamTypes) genParams =
@@ -122,10 +122,9 @@ let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
     | [Fable.Unit] -> true
     | _ -> false
 
-let getHashFromCurriedParamGroups (entity: Fable.Entity) (curriedParamGroups: Fable.Parameter list list) =
-    match curriedParamGroups with
-    | [params'] ->
-        let paramTypes = params' |> List.map (fun p -> p.Type)
+let getHashFromCurriedParamTypeGroups (entity: Fable.Entity) (curriedParamTypeGroups: Fable.Type list list) =
+    match curriedParamTypeGroups with
+    | [paramTypes] ->
         if hasEmptyOverloadSuffix paramTypes then ""
         else
             // Generics can have different names in signature
@@ -141,7 +140,9 @@ let getHashFromCurriedParamGroups (entity: Fable.Entity) (curriedParamGroups: Fa
     | _ -> ""
 
 let getHash (entity: Fable.Entity) (m: Fable.MemberFunctionOrValue) =
-    getHashFromCurriedParamGroups entity m.CurriedParameterGroups
+    m.CurriedParameterGroups
+    |> List.map (List.map (fun p -> p.Type))
+    |> getHashFromCurriedParamTypeGroups entity
 
 /// Used for extension members
 let getExtensionHash (m: Fable.MemberFunctionOrValue) =
