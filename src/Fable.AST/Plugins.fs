@@ -48,6 +48,7 @@ type PluginHelper =
     abstract LogError: string * ?range: SourceLocation -> unit
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: EntityRef -> Entity
+    abstract GetMember: MemberRef -> MemberFunctionOrValue
     abstract GetOutputPath: unit -> string
 
 [<System.AttributeUsage(System.AttributeTargets.Assembly)>]

@@ -124,6 +124,15 @@ module CompilerExt =
                     | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
+        member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
+            match memberRef with
+            | Fable.MemberRef(entityRef, uniqueName) ->
+                let ent = com.GetEntity(entityRef)
+                match Map.tryFind uniqueName ent.MembersFunctionsAndValues with
+                | Some m -> m
+                | None -> failwith $"Cannot find member {uniqueName} in entity %s{entityRef.FullName}"
+            | Fable.GeneratedMemberRef gen -> upcast gen
+
         member com.ToPluginHelper() =
             { new PluginHelper with
                 member _.LibraryDir = com.LibraryDir
@@ -131,6 +140,7 @@ module CompilerExt =
                 member _.Options = com.Options
                 member _.GetRootModule(fileName) = com.GetRootModule(fileName)
                 member _.GetEntity(ref) = com.GetEntity(ref)
+                member _.GetMember(ref) = com.GetMember(ref)
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
                 member _.GetOutputPath() =
@@ -161,7 +171,7 @@ module CompilerExt =
 
         member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
-                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, file, i))
+                (com.Plugins.MemberDeclarationPlugins, com.GetMember(decl.MemberRef).Attributes, decl, fun p h i -> p.Transform(h, file, i))
 
         member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>

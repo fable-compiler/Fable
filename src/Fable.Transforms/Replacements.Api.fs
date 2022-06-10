@@ -76,8 +76,7 @@ let defaultof (com: ICompiler) ctx typ =
     | Dart -> Dart.Replacements.getZero com ctx typ
     | _ -> JS.Replacements.defaultof com ctx typ
 
-/// Needed for mutable public values because of how imports/exports work in JS.
-let createAtom (com: ICompiler) value =
+let createMutablePublicValue (com: ICompiler) value =
     match com.Options.Language with
     | Python -> PY.Replacements.createAtom com value
     | JavaScript | TypeScript -> JS.Replacements.createAtom com value

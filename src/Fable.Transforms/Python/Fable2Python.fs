@@ -1151,7 +1151,7 @@ module Util =
     let (|Function|_|) =
         function
         | Fable.Lambda (arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate (args, body, _) -> Some(args, body)
+        | Fable.Delegate (args, body, _, Fable.Tag.empty) -> Some(args, body)
         | _ -> None
 
     let discardUnitArg (args: Fable.Ident list) =
@@ -1850,7 +1850,7 @@ module Util =
             None
         | None, _ -> None
 
-    let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) typ baseCall : Expression * Statement list =
+    let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.ObjectExprMember list) typ baseCall : Expression * Statement list =
         // printfn "transformObjectExpr: %A" typ
 
         // A generic class nested in another generic class cannot use same type variables. (PEP-484)
@@ -1891,16 +1891,16 @@ module Util =
         let members =
             members
             |> List.collect (fun memb ->
-                let info = memb.Info
+                let info = com.GetMember(memb.MemberRef)
 
                 if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name ("property") ]
-                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
                     let decorators = [ Expression.name $"{memb.Name}.setter" ]
-                    [ makeMethod memb.Name false memb.ArgIdents memb.Body decorators ]
-                elif info.IsEnumerator then
-                    let method = makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body []
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                elif info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
+                    let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
 
                     let iterator =
                         let body = enumerator2iterator com ctx
@@ -1910,7 +1910,7 @@ module Util =
 
                     [ method; iterator ]
                 else
-                    [ makeMethod memb.Name info.HasSpread memb.ArgIdents memb.Body [] ])
+                    [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ])
 
         let baseExpr, classMembers =
             baseCall
@@ -1935,90 +1935,65 @@ module Util =
         Expression.call (Expression.name name), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo) : Expression list * Keyword list * Statement list =
-        let tryGetParamObjInfo (memberInfo: Fable.CallMemberInfo) =
-            let tryGetParamNames (parameters: Fable.ParamInfo list) =
-                (Some [], parameters)
-                ||> List.fold (fun acc p ->
-                    match acc, p.Name with
-                    | Some acc, Some name -> Some(name :: acc)
-                    | _ -> None)
-                |> function
-                    | Some names -> List.rev names |> Some
-                    | None ->
-                        "ParamObj cannot be used with unnamed parameters"
-                        |> addWarning com [] r
-
-                        None
-
-            match memberInfo.CurriedParameterGroups, memberInfo.DeclaringEntity with
-            // Check only members with multiple non-curried arguments
-            | [ parameters ], Some entRef when not (List.isEmpty parameters) ->
-                com.TryGetEntity(entRef)
-                |> Option.bind (fun ent ->
-                    if ent.IsFSharpModule then
-                        None
-                    else
-                        ent.MembersFunctionsAndValues
-                        |> Seq.tryFind (fun m ->
-                            m.IsInstance = memberInfo.IsInstance
-                            && m.CompiledName = memberInfo.CompiledName
-                            && match m.CurriedParameterGroups with
-                               | [ parameters2 ] when List.sameLength parameters parameters2 ->
-                                   List.zip parameters parameters2
-                                   |> List.forall (fun (p1, p2) -> typeEquals true p1.Type p2.Type)
-                               | _ -> false))
-                |> Option.bind (fun m ->
-                    m.Attributes
-                    |> Seq.tryPick (fun a ->
-                        if a.Entity.FullName = Atts.paramObject then
-                            let index =
-                                match a.ConstructorArgs with
-                                | :? int as index :: _ -> index
-                                | _ -> 0
-
-                            tryGetParamNames parameters
-                            |> Option.map (fun paramNames ->
-                                {| Index = index
-                                   Parameters = paramNames |})
-                        else
-                            None))
-            | _ -> None
-
-        let paramObjInfo, hasSpread, args =
+        let namedParamsInfo, hasSpread, args =
             match info with
             | CallInfo i ->
-                let paramObjInfo =
-                    match i.CallMemberInfo with
-                    // ParamObject is not compatible with arg spread
-                    | Some mi when not i.HasSpread -> tryGetParamObjInfo mi
-                    | _ -> None
+                let mi = com.GetMember(i.MemberRef)
+                let namedParamsInfo =
+                    // ParamObject/NamedParams attribute is not compatible with arg spread
+                    if not mi.HasSpread then
+                        let addUnnammedParamsWarning() =
+                            "NamedParams cannot be used with unnamed parameters"
+                            |> addWarning com [] r
 
-                paramObjInfo, i.HasSpread, i.Args
+                        let mutable i = -1
+                        (None, List.concat mi.CurriedParameterGroups) ||> List.fold (fun acc p ->
+                            i <- i + 1
+                            match acc with
+                            | Some(namedIndex, names) ->
+                                match p.Name with
+                                | Some name -> Some(namedIndex, name::names)
+                                | None -> addUnnammedParamsWarning(); None
+                            | None when p.IsNamed ->
+                                match p.Name with
+                                | Some name ->
+                                    let namedIndex = i
+                                    Some(namedIndex, [name])
+                                | None -> addUnnammedParamsWarning(); None
+                            | None -> None)
+                        |> Option.map (fun (index, names) ->
+                            {| Index = index; Parameters = List.rev names |})
+                    else None
+                namedParamsInfo, mi.HasSpread, i.Args
             | NoCallInfo args -> None, false, args
 
         let args, objArg, stmts =
-            match paramObjInfo with
+            match namedParamsInfo with
             | None -> args, None, []
             | Some i when i.Index > List.length args -> args, None, []
             | Some i ->
                 let args, objValues = List.splitAt i.Index args
-                let _, objKeys = List.splitAt i.Index i.Parameters
-                let objKeys = List.take (List.length objValues) objKeys
+                let objValuesLen = List.length objValues
+                if List.length i.Parameters < objValuesLen then
+                    "NamedParams detected but more arguments present than param names"
+                    |> addWarning com [] r
+                    args, None, []
+                else
+                    let objKeys = List.take objValuesLen i.Parameters
+                    let objArg, stmts =
+                        List.zip objKeys objValues
+                        |> List.choose (function
+                            | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
+                            | k, v -> Some(k, v))
+                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                                            |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                        |> List.unzip
+                        |> (fun (kv, stmts) ->
+                            kv
+                            |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)),
+                            stmts |> List.collect id)
 
-                let objArg, stmts =
-                    List.zip objKeys objValues
-                    |> List.choose (function
-                        | k, Fable.Value (Fable.NewOption (value, _, _), _) -> value |> Option.map (fun v -> k, v)
-                        | k, v -> Some(k, v))
-                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                    |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
-                    |> List.unzip
-                    |> (fun (kv, stmts) ->
-                        kv
-                        |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)),
-                        stmts |> List.collect id)
-
-                args, Some objArg, stmts
+                    args, Some objArg, stmts
 
         let args, stmts' =
             match args with
@@ -2164,7 +2139,7 @@ module Util =
         | Fable.Get (_, Fable.FieldGet{ Name = "sort" }, _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
 
         | _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
-        | _, None when callInfo.IsConstructor -> Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
+        | _, None when Fable.Tag.contains "new" callInfo.Tag -> Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
         | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
@@ -2925,15 +2900,11 @@ module Util =
 
         | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
 
-        | Fable.Lambda (arg, body, info) ->
-            let name = info.Name
-
+        | Fable.Lambda (arg, body, name) ->
             transformFunctionWithAnnotations com ctx name [ arg ] body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.Delegate (args, body, info) ->
-            let name = info.Name
-
+        | Fable.Delegate (args, body, name, _) ->
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
@@ -3109,9 +3080,7 @@ module Util =
             @ (expr
                |> resolveExpr ctx Fable.Boolean returnStrategy)
 
-        | Fable.Lambda (arg, body, info) ->
-            let name = info.Name
-
+        | Fable.Lambda (arg, body, name) ->
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name [ arg ] body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3119,9 +3088,7 @@ module Util =
             stmts
             @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
-        | Fable.Delegate (args, body, info) ->
-            let name = info.Name
-
+        | Fable.Delegate (args, body, name, _) ->
             let expr', stmts =
                 transformFunctionWithAnnotations com ctx name args body
                 |||> makeArrowFunctionExpression com ctx name
@@ -3561,7 +3528,7 @@ module Util =
         stmts
         @ [ typeDeclaration ] @ reflectionDeclaration
 
-    let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
+    let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
@@ -3600,9 +3567,9 @@ module Util =
             | _ -> failwith $"Not a valid value: {value}"
         | name -> failwith $"Not a valid name: {name}"
 
-    let transformAttachedProperty (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
-        let isStatic = not memb.Info.IsInstance
-        let isGetter = memb.Info.IsGetter
+    let transformAttachedProperty (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+        let isStatic = not info.IsInstance
+        let isGetter = info.IsGetter
 
         let decorators =
             [ if isStatic then
@@ -3613,7 +3580,7 @@ module Util =
                   Expression.name ($"{memb.Name}.setter") ]
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.ArgIdents memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
 
         let key =
             memberFromName com ctx memb.Name
@@ -3639,10 +3606,10 @@ module Util =
             Statement.functionDef (key, arguments, body = body, decoratorList = decorators, returns = returnType)
             |> List.singleton
 
-    let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
+    let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         // printfn "transformAttachedMethod: %A" memb
 
-        let isStatic = not memb.Info.IsInstance
+        let isStatic = not info.IsInstance
 
         let decorators =
             if isStatic then
@@ -3655,7 +3622,7 @@ module Util =
             Statement.functionDef (key, args, body = body, decoratorList = decorators, returns = returnType)
 
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.ArgIdents memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
 
         let self = Arg.arg ("self")
 
@@ -3666,7 +3633,7 @@ module Util =
                 { args with Args = self :: args.Args }
 
         [ yield makeMethod memb.Name arguments body decorators returnType
-          if memb.Info.IsEnumerator then
+          if info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
               yield makeMethod "__iter__" (Arguments.arguments ([ self ])) (enumerator2iterator com ctx) decorators returnType ]
 
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -3793,14 +3760,15 @@ module Util =
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
         let consArgs, consBody, _returnType =
-            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.ArgIdents cons.Body
+            let info = com.GetMember(cons.MemberRef)
+            getMemberArgsAndBody com ctx ClassConstructor info.HasSpread cons.Args cons.Body
 
-        let isOptional = Helpers.isOptional (cons.ArgIdents |> Array.ofList)
+        let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
         // Change exposed constructor's return type from None to entity type.
         let returnType =
             let availableGenerics =
-                cons.ArgIdents
+                cons.Args
                 |> List.map (fun arg -> arg.Type)
                 |> getGenericTypeParams
 
@@ -3841,6 +3809,7 @@ module Util =
 
         let members =
             classEnt.MembersFunctionsAndValues
+            |> Map.values
             |> List.ofSeq
             |> List.groupBy (fun memb -> memb.DisplayName)
             // Remove duplicate method when we have getters and setters
@@ -3933,18 +3902,19 @@ module Util =
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames
             <| fun ctx ->
+                let info = com.GetMember(decl.MemberRef)
                 let decls =
-                    if decl.Info.IsValue then
+                    if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts
-                        @ declareModuleMember ctx decl.Info.IsPublic name (Some ta) value
+                        @ declareModuleMember ctx info.IsPublic name (Some ta) value
                     else
-                        transformModuleFunction com ctx decl.Info decl.Name decl.ArgIdents decl.Body
+                        transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
-                if decl.ExportDefault then
+                if Fable.Tag.contains "export-default" decl.Tag then
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
                 else
                     decls
@@ -3958,10 +3928,11 @@ module Util =
                 |> List.collect (fun memb ->
                     withCurrentScope ctx memb.UsedNames
                     <| fun ctx ->
-                        if memb.Info.IsGetter || memb.Info.IsSetter then
-                            transformAttachedProperty com ctx memb
+                        let info = com.GetMember(memb.MemberRef)
+                        if info.IsGetter || info.IsSetter then
+                            transformAttachedProperty com ctx info memb
                         else
-                            transformAttachedMethod com ctx memb)
+                            transformAttachedMethod com ctx info memb)
 
             match ent, decl.Constructor with
             | ent, _ when ent.IsInterface -> transformInterface com ctx ent decl
