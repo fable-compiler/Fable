@@ -38,13 +38,13 @@ let ``pass obj by ref using attr on fn works`` () =
     byrefAttrRootObjDecFn b |> equal 3
     a |> equal a //prevent inlining
 
-// TODO: ByRef as Param not yet working
+// // TODO: Use ByRef attr as Param not yet working
 
 // let byrefAttrIntFn ([<Fable.Core.ByRef>] x: int) =
 //     x + 1
 
 // [<Fact>]
-// let ``pass int by ref using attr works`` () =
+// let ``pass int by ref using ByRef attr works`` () =
 //     let a = 1
 //     byrefAttrIntFn a |> equal 2
 //     a |> equal 1 // a is not modified & prevent inlining
@@ -53,19 +53,35 @@ let ``pass obj by ref using attr on fn works`` () =
 //     x.X + 1
 
 // [<Fact>]
-// let ``pass obj by ref using attr works`` () =
+// let ``pass obj by ref using ByRef attr works`` () =
 //     let a = { X = 1 }
 //     let b = { X = 2 }
 //     byrefAttrObjFn a |> equal 2
 //     byrefAttrObjFn b |> equal 3
 //     a |> equal a //prevent inlining
 
-// TODO: passing byref into inref not working yet
-// let add1 x (y: inref<int>) = x + y
-// let add2 x (y: byref<int>) = add1 x &y
 
-// TODO: byref as return body not yet working
-// let byrefIdentity (x: int byref): int = x
+// // TODO: passing byref into inref not working yet
+// let addInRef x (y: inref<int>): int = x + y
+// let addByRef x (y: byref<int>): int = addInRef x &y
 
-// TODO: byref as return type not yet working
-// let byrefReturns (x: int byref): int byref = &x
+// [<Fact>]
+// let ``passing byref into inref works`` () =
+//     let mutable y = 1
+//     addByRef y &y |> equal 2
+
+// // TODO: byref as return body not working yet
+// let idByRef (x: int byref): int = x
+
+// [<Fact>]
+// let ``return byref as body works`` () =
+//     let mutable y = 1
+//     idByRef &y |> equal 1
+
+// // TODO: byref as return type not working yet
+// let retByRef (x: int byref): int byref = &x
+
+// [<Fact>]
+// let ``byref as return type works`` () =
+//     let mutable y = 1
+//     retByRef &y |> equal 1

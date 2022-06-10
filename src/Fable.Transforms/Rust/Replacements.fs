@@ -40,9 +40,6 @@ let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
 
-let nativeCall expr =
-    expr |> withTag "native"
-
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
     Helper.LibCall(com, "Decimal", "default", t, [makeStrConst str], isConstructor=true, ?loc=r)
@@ -60,7 +57,7 @@ let setRefCell com r (expr: Expr) (value: Expr) =
     Fable.Set(expr, Fable.ValueSet, value.Type, value, r)
 
 let makeRefCell com r typ (value: Expr) =
-    Helper.LibCall(com, "Native", "refCell", typ, [value], ?loc=r) |> nativeCall
+    Helper.LibCall(com, "Native", "refCell", typ, [value], ?loc=r)
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     Operation(Unary(UnaryAddressOf, value), t, r)
@@ -318,7 +315,6 @@ let getLength r t (expr: Expr) =
 
 let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])
-    |> nativeCall
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
@@ -902,7 +898,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
         match args with
-        | thisArg::restArgs -> Helper.InstanceCall(thisArg, meth, t, restArgs, ?loc=r) |> nativeCall
+        | thisArg::restArgs -> Helper.InstanceCall(thisArg, meth, t, restArgs, ?loc=r)
         | _ -> "Missing argument." |> addErrorAndReturnNull com ctx.InlinePath r
 
     match i.CompiledName, args with
@@ -1427,7 +1423,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some(MaybeCasted(ar)), [arg] ->
-        Helper.InstanceCall(getMut ar, "push", t, [arg], ?loc=r) |> nativeCall |> Some
+        Helper.InstanceCall(getMut ar, "push", t, [arg], ?loc=r) |> Some
     | "Remove", Some(MaybeCasted(ar)), [arg] ->
         Helper.LibCall(com, "Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->
@@ -1465,13 +1461,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "IndexOf", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "indexOf", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
-        Helper.InstanceCall(getMut ar, "insert", t, [toNativeIndex idx; arg], ?loc=r) |> nativeCall |> Some
+        Helper.InstanceCall(getMut ar, "insert", t, [toNativeIndex idx; arg], ?loc=r) |> Some
     | "InsertRange", Some ar, [idx; arg] ->
         Helper.LibCall(com, "Array", "insertRangeInPlace", t, [idx; arg; ar], ?loc=r) |> Some
     | "RemoveRange", Some ar, args ->
         Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
     | "RemoveAt", Some ar, [idx] ->
-        Helper.InstanceCall(getMut ar, "remove", t, [toNativeIndex idx], ?loc=r) |> nativeCall |> Some
+        Helper.InstanceCall(getMut ar, "remove", t, [toNativeIndex idx], ?loc=r) |> Some
     | "Reverse", Some ar, [] ->
         Helper.InstanceCall(getMut ar, "reverse", t, args, ?loc=r) |> Some
     | "Sort", Some ar, [] ->
@@ -2112,7 +2108,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let ar = Helper.LibCall(com, "Native", "hashSetEntries", t, [c])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
     | "Add", Some c, [arg] ->
-        Helper.InstanceCall(getMut c, "insert", t, args, i.SignatureArgTypes, ?loc=r) |> nativeCall |> Some
+        Helper.InstanceCall(getMut c, "insert", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Remove" as meth, Some c, [arg] ->
         let args = args |> List.map makeRef
         Helper.InstanceCall(getMut c, "remove", t, args, i.SignatureArgTypes, ?loc=r) |> Some
