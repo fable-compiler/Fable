@@ -85,7 +85,12 @@ type FsAtt(att: FSharpAttribute) =
         member _.Entity = FsEnt.Ref att.AttributeType
         member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
 
-type FsGenParam =
+type FsGenParam(gen: FSharpGenericParameter) =
+    interface Fable.GenericParam with
+        member _.Name = TypeHelpers.genParamName gen
+        member _.IsMeasure = gen.IsMeasure
+        member _.Constraints = FsGenParam.Constraints gen
+
     static member Constraint(c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
             // It seems sometimes there are circular references so skip the constraints here
@@ -106,90 +111,96 @@ type FsGenParam =
     static member Constraints(gen: FSharpGenericParameter) =
         gen.Constraints |> Seq.chooseToList FsGenParam.Constraint
 
-    static member Create(gen: FSharpGenericParameter): Fable.GenericParam =
-        { Name = TypeHelpers.genParamName gen
-          IsMeasure = gen.IsMeasure
-          Constraints = FsGenParam.Constraints gen }
+type FsParam(p: FSharpParameter, ?isNamed) =
+    let isOptional = Helpers.isOptionalParam p
+    let defValue =
+        if isOptional then
+            p.Attributes
+            |> Helpers.tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
+            |> Option.bind (fun att ->
+                Seq.tryHead att.ConstructorArguments
+                |> Option.map (fun (_, v) -> makeConstFromObj v))
+        else None
 
-type FsParam =
-    static member Make(name, typ): Fable.Parameter =
-        { Name = name; Type = TypeHelpers.makeType Map.empty typ }
-    static member Make(p: FSharpParameter) = FsParam.Make(p.Name, p.Type)
-    static member Make(p: FSharpAbstractParameter) = FsParam.Make(p.Name, p.Type)
+    interface Fable.Parameter with
+        member _.Name = p.Name
+        member _.Type = TypeHelpers.makeType Map.empty p.Type
+        member _.Attributes = p.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+        member _.IsNamed = defaultArg isNamed false
+        member _.IsOptional = isOptional
+        member _.DefaultValue = defValue
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
         member _.Entity = FsEnt.Ref ent
         member _.GenericArgs = genArgs |> Seq.mapToList (TypeHelpers.makeType Map.empty)
 
+type FsAbstractSignature(s: FSharpAbstractSignature) =
+    interface Fable.AbstractSignature with
+        member _.Name = s.Name
+        member _.DeclaringType = TypeHelpers.makeType Map.empty s.DeclaringType
+
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
-    static member CurriedParameterGroups(m: FSharpMemberOrFunctionOrValue): Fable.Parameter list list =
-        m.CurriedParameterGroups
-        |> Seq.mapToList (Seq.mapToList (fun p -> FsParam.Make(p)))
+    let paramGroups =
 
-    static member TryNamedParamsIndex(m: FSharpMemberOrFunctionOrValue) =
-        m.Attributes
-        |> Helpers.tryFindAtt Atts.paramObject
-        |> Option.map (fun (att: FSharpAttribute) ->
-            match Seq.tryItem 0 att.ConstructorArguments with
-            | Some(_, (:?int as index)) -> index
-            | _ -> 0)
-
-    static member CallMemberInfo(_com: Compiler, m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+        let mutable i = -1
         let namedParamsIndex =
-            FsMemberFunctionOrValue.TryNamedParamsIndex(m)
-            |> Option.defaultValue -1
+            m.Attributes
+            |> Helpers.tryFindAtt Atts.paramObject
+            |> Option.map (fun (att: FSharpAttribute) ->
+                match Seq.tryItem 0 att.ConstructorArguments with
+                | Some(_, (:?int as index)) -> index
+                | _ -> 0)
 
-        { CurriedParameterGroups =
-            m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToListIndexed (fun i p ->
-                let isNamed = namedParamsIndex > -1 && i >= namedParamsIndex
-                let isOptional = Helpers.isOptionalParam p
-                { Name = p.Name
-                  Type = TypeHelpers.makeType Map.empty p.Type
-                  IsNamed = isNamed
-                  IsOptional = isOptional }))
-          Attributes = m.Attributes |> Seq.toList |> List.map (fun x -> FsAtt(x) :> Fable.Attribute)
-          IsInstance = m.IsInstanceMember
-          IsGetter = m.IsPropertyGetterMethod
-          FullName = m.FullName
-          CompiledName = m.CompiledName
-          DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
+        m.CurriedParameterGroups
+        |> Seq.mapToList (Seq.mapToList (fun p ->
+            i <- i + 1
+            let isNamed =
+                match namedParamsIndex with
+                | Some namedParamsIndex -> i >= namedParamsIndex
+                | None -> false
+            FsParam(p, isNamed=isNamed) :> Fable.Parameter))
 
     static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
         Naming.removeGetSetPrefix m.DisplayNameCore
+
+    // We don't consider indexer properties as getters/setters so they're always compiled as methods
+    static member IsGetter(m: FSharpMemberOrFunctionOrValue) =
+        m.IsPropertyGetterMethod && Util.countNonCurriedParams m = 0
+
+    static member IsSetter(m: FSharpMemberOrFunctionOrValue) =
+        m.IsPropertySetterMethod && Util.countNonCurriedParams m = 1
 
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
             m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
-        // These two properties are only used for member declarations,
-        // setting them to false for now
-        member _.IsMangled = false
-        member _.IsEnumerator = false
-
         member _.HasSpread = Helpers.hasParamArray m
         member _.IsInline = Helpers.isInline m
         member _.IsPublic = Helpers.isPublicMember m
-        // NOTE: Using memb.IsValue doesn't work for function values
-        // See isModuleValueForDeclarations below
-        member _.IsValue = m.IsValue
+        // Using memb.IsValue doesn't work for function values
+        // (e.g. `let ADD = adder()` when adder returns a function)
+        member _.IsValue = Helpers.isModuleValueForDeclarations m
         member _.IsDispatchSlot = m.IsDispatchSlot
         member _.IsInstance = m.IsInstanceMember
         member _.IsMutable = m.IsMutable
-        member _.IsGetter = m.IsPropertyGetterMethod
-        member _.IsSetter = m.IsPropertySetterMethod
-        member _.IsProperty = m.IsProperty
+        member _.IsGetter = FsMemberFunctionOrValue.IsGetter(m)
+        member _.IsSetter = FsMemberFunctionOrValue.IsSetter(m)
         member _.IsOverrideOrExplicitInterfaceImplementation = m.IsOverrideOrExplicitInterfaceImplementation
 
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
-        member _.GenericParameters = m.GenericParameters |> Seq.mapToList FsGenParam.Create
-        member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
-        member _.ReturnParameter = FsParam.Make(m.ReturnParameter)
-        member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
+        member _.GenericParameters = m.GenericParameters |> Seq.mapToList (fun p -> FsGenParam(p))
+        member _.CurriedParameterGroups = paramGroups
+        member _.ReturnParameter = FsParam(m.ReturnParameter) :> Fable.Parameter
+        member _.ImplementedAbstractSignatures = m.ImplementedAbstractSignatures |> Seq.map (fun s -> FsAbstractSignature(s))
+        member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity |> Some
+        member _.DeclaringEntity = m.DeclaringEntity |> Option.map FsEnt.Ref
 
 type FsEnt(ent: FSharpEntity) =
+    let mutable cachedMembers = None
+
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
@@ -261,9 +272,24 @@ type FsEnt(ent: FSharpEntity) =
         member _.Attributes =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
-        member _.MembersFunctionsAndValues =
-            ent.TryGetMembersFunctionsAndValues() |> Seq.map (fun x ->
-                FsMemberFunctionOrValue(x) :> Fable.MemberFunctionOrValue)
+        member this.MembersFunctionsAndValues =
+            lock this (fun () ->
+                match cachedMembers with
+                | Some members -> members
+                | None ->
+                    let makeKeyValue m =
+                        Helpers.getMemberUniqueName m,
+                        FsMemberFunctionOrValue(m) :> Fable.MemberFunctionOrValue
+                    let members =
+                        ent.TryGetMembersFunctionsAndValues() |> Seq.collect (fun m ->
+                            if m.IsProperty then [
+                                if m.HasGetterMethod then makeKeyValue m.GetterMethod
+                                if m.HasSetterMethod then makeKeyValue m.SetterMethod
+                            ]
+                            else [makeKeyValue m])
+                        |> Map
+                    cachedMembers <- Some members
+                    members)
 
         member _.AllInterfaces =
             ent.AllInterfaces |> Seq.choose (fun ifc ->
@@ -278,7 +304,7 @@ type FsEnt(ent: FSharpEntity) =
                 else None)
 
         member _.GenericParameters =
-            ent.GenericParameters |> Seq.mapToList FsGenParam.Create
+            ent.GenericParameters |> Seq.mapToList (fun p -> FsGenParam(p))
 
         member _.FSharpFields =
             ent.FSharpFields |> Seq.mapToList (fun x -> FsField(x) :> Fable.Field)
@@ -298,37 +324,6 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsMeasure = ent.IsMeasure
         member _.IsByRef = ent.IsByRef
         member _.IsEnum = ent.IsEnum
-
-type MemberInfo(?attributes: FSharpAttribute seq,
-                    ?hasSpread: bool,
-                    ?isInline: bool,
-                    ?isPublic: bool,
-                    ?isInstance: bool,
-                    ?isValue: bool,
-                    ?isMutable: bool,
-                    ?isGetter: bool,
-                    ?isSetter: bool,
-                    ?isProperty: bool,
-                    ?isEnumerator: bool,
-                    ?isOverride: bool,
-                    ?isMangled: bool) =
-    interface Fable.MemberInfo with
-        member _.Attributes =
-            match attributes with
-            | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
-            | None -> upcast []
-        member _.HasSpread = defaultArg hasSpread false
-        member _.IsMangled = defaultArg isMangled false
-        member _.IsInline = defaultArg isInline false
-        member _.IsPublic = defaultArg isPublic true
-        member _.IsInstance = defaultArg isInstance true
-        member _.IsValue = defaultArg isValue false
-        member _.IsMutable = defaultArg isMutable false
-        member _.IsGetter = defaultArg isGetter false
-        member _.IsSetter = defaultArg isSetter false
-        member _.IsProperty = defaultArg isProperty false
-        member _.IsEnumerator = defaultArg isEnumerator false
-        member _.IsOverrideOrExplicitInterfaceImplementation = defaultArg isOverride false
 
 type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
 
@@ -623,16 +618,16 @@ module Helpers =
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
         memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
 
-    let isModuleValueAtom (com: Compiler) isMutable isPublic =
+    // Mutable public values must be called as functions in JS (see #986)
+    let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
-        | Python | JavaScript | TypeScript -> isMutable && isPublic
+        | Python | JavaScript | TypeScript -> memb.IsMutable && isPublicMember memb
         | Rust | Php | Dart -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
         && isModuleValueForDeclarations memb
-        // Mutable public values must be called as functions (see #986)
-        && not(isModuleValueAtom com memb.IsMutable (isPublicMember memb))
+        && not(isModuleValueCompiledAsFunction com memb)
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
         seq {
@@ -718,6 +713,11 @@ module Helpers =
                         | _ -> None)
                     |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
         )
+
+    let getFieldTag (memb: FSharpMemberOrFunctionOrValue) =
+        if Compiler.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes
+        then "const"
+        else Fable.Tag.empty
 
 module Patterns =
     open FSharpExprPatterns
@@ -1573,22 +1573,9 @@ module Util =
                 newContext, arg::accArgs)
         ctx, List.rev args
 
-    let bindMemberArgs com ctx (memb: FSharpMemberOrFunctionOrValue option) (args: FSharpMemberOrFunctionOrValue list list) =
+    let bindMemberArgs com ctx (args: FSharpMemberOrFunctionOrValue list list) =
         // The F# compiler "untuples" the args in methods
         let args = List.concat args
-        let args, params_, namedParamsIndex =
-            match memb with
-            | Some m ->
-                let params_ = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
-                let namedParamsIndex = FsMemberFunctionOrValue.TryNamedParamsIndex(m)
-                args, Some params_, namedParamsIndex
-            | None -> args, None, None
-
-        let combineArgsParams args params_ =
-            match params_ with
-            | Some params_ when List.sameLength args params_ ->
-                params_ |> List.map Some |> List.zip args
-            | _ -> args |> List.map (fun a -> a, None)
 
         let ctx, thisArg, args =
             match args with
@@ -1596,40 +1583,17 @@ module Util =
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
-                let restArgs = combineArgsParams restArgs params_
-                ctx, [Fable.ArgDecl.Create thisArg], restArgs
+                ctx, [thisArg], restArgs
             | firstArg::restArgs when firstArg.IsConstructorThisValue ->
                 let ctx, thisArg = putIdentInScope com ctx firstArg None
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
-                let restArgs = combineArgsParams restArgs params_
-                ctx, [Fable.ArgDecl.Create thisArg], restArgs
-            | _ -> ctx, [], combineArgsParams args params_
+                ctx, [thisArg], restArgs
+            | _ -> ctx, [], args
 
-        let mutable i = -1
         let ctx, args =
-            ((ctx, []), args) ||> List.fold (fun (ctx, accArgs) (arg, param) ->
-                i <- i + 1
-                let isNamed =
-                    match namedParamsIndex with
-                    | Some namedParamsIndex -> i >= namedParamsIndex
-                    | None -> false
-                let isOptional, defValue =
-                    match param with
-                    | None -> false, None
-                    | Some p ->
-                        let isOptional = isOptionalParam p
-                        let defValue =
-                            if isOptional then
-                                p.Attributes
-                                |> tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
-                                |> Option.bind (fun att ->
-                                    Seq.tryHead att.ConstructorArguments
-                                    |> Option.map (fun (_, v) -> makeConstFromObj v))
-                            else None
-                        isOptional, defValue
-                let ctx, argIdent = putIdentInScope com ctx arg None
-                let arg = Fable.ArgDecl.Create(argIdent, isOptional=isOptional, isNamed=isNamed, ?defaultValue=defValue)
+            ((ctx, []), args) ||> List.fold (fun (ctx, accArgs) arg ->
+                let ctx, arg = putIdentInScope com ctx arg None
                 ctx, arg::accArgs)
 
         ctx, thisArg @ (List.rev args)
@@ -1943,7 +1907,7 @@ module Util =
                 name,
                 fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
                 maybeCalculated = true,
-                isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
+                tag = getFieldTag memb
             )
             Fable.Get(callee, kind, typ, r)
         elif isSetter then
@@ -1966,14 +1930,14 @@ module Util =
                 $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
         msg |> addErrorAndReturnNull com ctx.InlinePath r
 
-    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ (callInfo: Fable.CallInfo)
+    let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ hasSpread (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
             let info: Fable.ReplaceCallInfo =
               { SignatureArgTypes = callInfo.SignatureArgTypes
                 DeclaringEntityFullName = ent.FullName
-                HasSpread = callInfo.HasSpread
+                HasSpread = hasSpread
                 IsModuleValue = isModuleValueForCalls com ent memb
                 IsInterface = ent.IsInterface
                 CompiledName = memb.CompiledName
@@ -2014,7 +1978,7 @@ module Util =
                 let callInfo =
                     match callInfo with
                     | Some i -> i
-                    | None -> Fable.CallInfo.Make()
+                    | None -> Fable.CallInfo.Create()
                 // Allow combination of Import and Emit attributes
                 let callInfo =
                     match tryGlobalOrImportedMember com Fable.Any memb with
@@ -2066,7 +2030,7 @@ module Util =
                 callAttachedMember com r typ callInfo e memb |> Some
 
             | Some classExpr, None when memb.IsConstructor ->
-                Fable.Call(classExpr, { callInfo with IsConstructor = true }, typ, r) |> Some
+                Fable.Call(classExpr, { callInfo with Tag = Fable.Tag.add "new" callInfo.Tag }, typ, r) |> Some
 
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls com e memb then
@@ -2074,7 +2038,7 @@ module Util =
                     let kind = Fable.FieldInfo.Create(
                         getMemberDisplayName memb,
                         maybeCalculated = true,
-                        isConst = (com.Options.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes)
+                        tag = getFieldTag memb
                     )
                     Fable.Get(moduleOrClassExpr, kind, typ, r) |> Some
                 else
@@ -2120,7 +2084,7 @@ module Util =
                 | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
                 | _, args -> args
             // Don't apply args either if this is a class getter, see #2329
-            if List.isEmpty args || info.CallMemberInfo |> Option.map (fun i -> i.IsGetter) |> Option.defaultValue false then
+            if List.isEmpty args || com.GetMember(info.MemberRef).IsGetter then
                 // Set UserImport(inline=true) to prevent Fable removing args of surrounding function
                 Fable.Import({ importInfo with Kind = Fable.UserImport true }, ti, r)
             else
@@ -2163,11 +2127,11 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com (ctx: Context) r typ hasSpread callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
-        | Replaced com ctx r typ callInfo replaced -> replaced
+        | Replaced com ctx r typ hasSpread callInfo replaced -> replaced
         | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
         | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
@@ -2222,7 +2186,7 @@ module Util =
 
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
             let classExpr = FsEnt entity |> entityRef com
-            Fable.Call(classExpr, { callInfo with IsConstructor = true }, typ, r)
+            Fable.Call(classExpr, { callInfo with Tag = Fable.Tag.add "new" callInfo.Tag }, typ, r)
 
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
@@ -2231,22 +2195,26 @@ module Util =
                 memberRef com r Fable.Any memb
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
-            // TODO: If we make it possible to retrieve the member info for the call
-            // we can apply the plugin at the end of FableTransform
+            // TODO: Move plugin application to FableTransforms
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let newCtxGenArgs = matchGenericParamsFrom memb genArgs |> Seq.toList
         let ctx = { ctx with GenericArgs = (ctx.GenericArgs, newCtxGenArgs) ||> Seq.fold (fun map (k, v) -> Map.add k v map) }
-        Fable.CallInfo.Make(
+        let hasSpread = hasParamArray memb
+        let memberRef =
+            memb.DeclaringEntity
+            |> Option.map (fun e -> Fable.MemberRef(FsEnt.Ref(e), getMemberUniqueName memb))
+
+        Fable.CallInfo.Create(
             ?thisArg = callee,
             args = transformOptionalArguments com ctx r memb args,
             genArgs = genArgs,
             sigArgTypes = getArgTypes com memb,
-            hasSpread = hasParamArray memb,
+            hasSpread = hasSpread,
             isCons = memb.IsConstructor,
-            memberInfo = FsMemberFunctionOrValue.CallMemberInfo(com, memb))
-        |> makeCallWithArgInfo com ctx r typ callee memb
+            ?memberRef = memberRef)
+        |> makeCallWithArgInfo com ctx r typ hasSpread callee memb
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType ctx.GenericArgs v.FullType

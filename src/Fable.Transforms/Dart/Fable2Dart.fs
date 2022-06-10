@@ -45,7 +45,11 @@ type Context =
       this.VarsDeclaredInScope.Add(name) |> ignore
 
   member this.AppendLocalGenParams(genParams: string list) =
-      let genParams = genParams |> List.map (fun g -> { Name = g; IsMeasure = false; Constraints = [] }: Fable.GenericParam)
+      let genParams = genParams |> List.map (fun g ->
+        { new Fable.GenericParam with
+            member _.Name = g
+            member _.IsMeasure = false
+            member _.Constraints = [] })
       { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
 
 type MemberKind =
@@ -70,7 +74,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _) -> Some(args, body)
+        | Fable.Delegate(args, body, _, Fable.Tag.empty) -> Some(args, body)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -365,12 +369,12 @@ module Util =
         let paramsInfo, namedParamsInfo, thisArg, args =
             match info with
             | NoCallInfo args -> None, None, None, args
-            | CallInfo({ CallMemberInfo = None } as i) -> None, None, i.ThisArg, i.Args
-            | CallInfo({ CallMemberInfo = Some mi } as info) ->
+            | CallInfo info ->
                 let addUnnamedParamsWarning() =
                     "NamedParams cannot be used with unnamed parameters"
                     |> addWarning com [] r
 
+                let mi = com.GetMember(info.MemberRef)
                 let paramsInfo = List.concat mi.CurriedParameterGroups
 
                 let mutable i = -1
@@ -816,9 +820,9 @@ module Util =
             // Try to optimize some patterns after FableTransforms
             let optimized =
                 match callInfo.Tag, callInfo.Args with
-                | Some "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
+                | Fable.Tag.Contains "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                     Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
-                | Some "ignore", [arg] ->
+                | Fable.Tag.Contains "ignore", [arg] ->
                     match returnStrategy with
                     // If we're not going to return or assign the value we can skip the `ignore` call
                     | Return(isVoid=true) | Ignore -> Some arg
@@ -838,9 +842,7 @@ module Util =
                 let isConst =
                     areConstTypes genArgs
                     && List.forall (snd >> isConstExpr ctx) args
-                    && (match callInfo.CallMemberInfo with
-                        | Some memberInfo -> memberInfo.Attributes |> hasConstAttribute
-                        | None -> false)
+                    && com.GetMember(callInfo.MemberRef).Attributes |> hasConstAttribute
                 let args =
                     if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg)
                     else args
@@ -1022,7 +1024,7 @@ module Util =
                     | _ -> fableExpr
                 transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                     let t = transformType com ctx t
-                    Expression.propertyAccess(expr, fieldName, t, isConst=info.IsConst))
+                    Expression.propertyAccess(expr, fieldName, t, isConst=Fable.Tag.contains "const" info.Tag))
 
         | Fable.ListHead ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
@@ -1550,17 +1552,17 @@ module Util =
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range returnStrategy kind expr
 
-        | Fable.Lambda(arg, body, info) ->
+        | Fable.Lambda(arg, body, name) ->
             let genParams = getLocalFunctionGenericParams com ctx expr.Range [arg.Type]
             let ctx = ctx.AppendLocalGenParams(genParams)
-            let args, body, t = transformFunction com ctx info.Name [arg] body
+            let args, body, t = transformFunction com ctx name [arg] body
             Expression.anonymousFunction(args, body, t, genParams)
             |> resolveExpr returnStrategy
 
-        | Fable.Delegate(args, body, info) ->
+        | Fable.Delegate(args, body, name, _) ->
             let genParams = args |> List.map (fun a -> a.Type) |> getLocalFunctionGenericParams com ctx expr.Range
             let ctx = ctx.AppendLocalGenParams(genParams)
-            let args, body, t = transformFunction com ctx info.Name args body
+            let args, body, t = transformFunction com ctx name args body
             Expression.anonymousFunction(args, body, t, genParams)
             |> resolveExpr returnStrategy
 
@@ -1668,67 +1670,70 @@ module Util =
 
         genParams
 
-    let getMemberArgsAndBody (com: IDartCompiler) ctx kind (genParams: Fable.GenericParam list) (argDecls: Fable.ArgDecl list) (body: Fable.Expr) =
-        let funcName, argDecls, body =
-            match kind, argDecls with
-            | Attached(isStatic=false), (thisArg::argDecls) ->
+    let getMemberArgsAndBody (com: IDartCompiler) ctx kind (genParams: Fable.GenericParam list) (paramGroups: Fable.Parameter list list) (args: Fable.Ident list) (body: Fable.Expr) =
+        let funcName, args, body =
+            match kind, args with
+            | Attached(isStatic=false), (thisArg::args) ->
                 // AFAIK, there cannot be `this` conflicts in Dart (no class expressions)
                 // so we can just replace the thisArg.Ident
-                let thisArg = thisArg.Ident
                 let thisExpr = Fable.ThisValue thisArg.Type |> makeValue None
                 let replacements = Map [thisArg.Name, thisExpr]
                 let body = FableTransforms.replaceValues replacements body
-                None, argDecls, body
+                None, args, body
             | Attached(isStatic=true), _
-            | ClassConstructor, _ -> None, argDecls, body
-            | NonAttached funcName, _ -> Some funcName, argDecls, body
-            | _ -> None, argDecls, body
+            | ClassConstructor, _ -> None, args, body
+            | NonAttached funcName, _ -> Some funcName, args, body
+            | _ -> None, args, body
 
-        let argIdents = argDecls |> List.map (fun a -> a.Ident)
         let ctx = { ctx with EntityAndMemberGenericParams = genParams }
-        let argIdents, body, returnType = transformFunction com ctx funcName argIdents body
+        let args, body, returnType = transformFunction com ctx funcName args body
         let args =
-            if List.sameLength argIdents argDecls then
-                List.zip argIdents argDecls
-                |> List.map (fun (a, a') ->
-                    let defVal = a'.DefaultValue |> Option.map (transformAndCaptureExpr com ctx >> snd)
-                    FunctionArg(a, isOptional=a'.IsOptional, isNamed=a'.IsNamed, ?defaultValue=defVal))
-            else argIdents |> List.map FunctionArg
+            let parameters = List.concat paramGroups
+            if List.sameLength args parameters then
+                List.zip args parameters
+                |> List.map (fun (a, p) ->
+                    let defVal = p.DefaultValue |> Option.map (transformAndCaptureExpr com ctx >> snd)
+                    FunctionArg(a, isOptional=p.IsOptional, isNamed=p.IsNamed, ?defaultValue=defVal))
+            else args |> List.map FunctionArg
         args, body, returnType
 
-    let transformModuleFunction (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
-        let args, body, returnType = getMemberArgsAndBody com ctx (NonAttached memb.Name) memb.GenericParams memb.Args memb.Body
+    let getEntityAndMemberArgs (com: IDartCompiler) (info: Fable.MemberFunctionOrValue) =
+        match info.DeclaringEntity with
+        | Some e ->
+            let e = com.GetEntity(e)
+            if not e.IsFSharpModule then e.GenericParameters @ info.GenericParameters
+            else info.GenericParameters
+        | None -> info.GenericParameters
+
+    let transformModuleFunction (com: IDartCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+        let entAndMembGenParams = getEntityAndMemberArgs com info
+        let args, body, returnType = getMemberArgsAndBody com ctx (NonAttached memb.Name) entAndMembGenParams info.CurriedParameterGroups memb.Args memb.Body
         let isEntryPoint =
-            memb.Info.Attributes
+            info.Attributes
             |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
-        if isEntryPoint then
-            Declaration.functionDeclaration("main", args, body, Void)
-        else
-            let genParams = memb.GenericParams |> List.choose (transformGenericParam com ctx)
-            Declaration.functionDeclaration(memb.Name, args, body, returnType, genParams=genParams)
+        let name = if isEntryPoint then "main" else memb.Name
+        let genParams = entAndMembGenParams |> List.choose (transformGenericParam com ctx)
+        Declaration.functionDeclaration(name, args, body, returnType, genParams=genParams)
 
     let transformAbstractMember (com: IDartCompiler) ctx (m: Fable.MemberFunctionOrValue) =
-        // TODO: Indexed properties
-        if m.IsGetter then Some IsGetter
-        elif m.IsSetter then Some IsSetter
-        elif m.IsProperty then None
-        else Some IsMethod
-        |> Option.map (fun kind ->
-            let name = m.DisplayName
-            let args =
-                m.CurriedParameterGroups
-                |> List.concat
-                |> List.mapi (fun i p ->
-                    let name =
-                        match p.Name with
-                        | Some name -> name
-                        | None -> $"arg{i}$"
-                    let t = transformType com ctx p.Type
-                    FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
-                )
-            let genParams = m.GenericParameters |> List.choose (transformGenericParam com ctx)
-            InstanceMethod(name, kind=kind, args=args, genParams=genParams, returnType=transformType com ctx m.ReturnParameter.Type)
-        )
+        let kind =
+            if m.IsGetter then IsGetter
+            elif m.IsSetter then IsSetter
+            else IsMethod
+        let name = m.DisplayName
+        let args =
+            m.CurriedParameterGroups
+            |> List.concat
+            |> List.mapi (fun i p ->
+                let name =
+                    match p.Name with
+                    | Some name -> name
+                    | None -> $"arg{i}$"
+                let t = transformType com ctx p.Type
+                FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
+            )
+        let genParams = m.GenericParameters |> List.choose (transformGenericParam com ctx)
+        InstanceMethod(name, kind=kind, args=args, genParams=genParams, returnType=transformType com ctx m.ReturnParameter.Type)
 
     let transformImplementedInterfaces com ctx (classEnt: Fable.Entity) =
         let mutable implementsEnumerable = None
@@ -1793,8 +1798,8 @@ module Util =
         let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
-            |> Seq.choose (transformAbstractMember com ctx)
-            |> Seq.toList
+            |> Map.values
+            |> Seq.mapToList (transformAbstractMember com ctx)
         [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 
     // Mirrors Dart.Replacements.equals
@@ -2052,39 +2057,49 @@ module Util =
             methods=methods)]
 
     let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
-        let isStatic = not memb.Info.IsInstance
-        let entAndMembGenParams =
-            match memb.DeclaringEntity with
-            | Some e ->
-                let e = com.GetEntity(e)
-                e.GenericParameters @ memb.GenericParams
-            | None -> memb.GenericParams
-        let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) entAndMembGenParams memb.Args memb.Body
+        let info = com.GetMember(memb.MemberRef)
 
-        let kind, name =
-            match memb.Name, args with
-            | "ToString", [] -> MethodKind.IsMethod, "toString"
-            | "GetEnumerator", [] -> MethodKind.IsGetter, "iterator"
-            | "System.Collections.Generic.IEnumerator`1.get_Current", _ -> MethodKind.IsGetter, "current"
-            | "System.Collections.IEnumerator.MoveNext", _ -> MethodKind.IsMethod, "moveNext"
-            | "CompareTo", [_] -> MethodKind.IsMethod, "compareTo"
-            | "GetHashCode", [] -> MethodKind.IsGetter, "hashCode"
-            | "Equals", [_] -> MethodKind.IsOperator, "=="
-            | name, _ ->
-                let kind =
-                    if memb.Info.IsGetter then MethodKind.IsGetter
-                    else if memb.Info.IsSetter then MethodKind.IsSetter
-                    else MethodKind.IsMethod
-                kind, sanitizeMember name
+        let abstractInfo = memb.ImplementedSignatureRef |> Option.map (com.GetMember)
+        let abstractFullName = abstractInfo |> Option.map (fun i -> i.FullName)
 
-        let genParams = memb.GenericParams |> List.choose (transformGenericParam com ctx)
-        InstanceMethod(name, args, returnType,
-                       body=body,
-                       kind=kind,
-                       genParams=genParams,
-                       isStatic=isStatic,
-                       isOverride=memb.Info.IsOverrideOrExplicitInterfaceImplementation)
+        match abstractFullName with
+        | Some "System.Collections.IEnumerable.GetEnumerator"
+        | Some "System.Collections.IEnumerator.get_Current"
+        | Some "System.Collections.IEnumerator.Reset" -> None
+        | _ ->
+            let isStatic = not info.IsInstance
+            let entAndMembGenParams = getEntityAndMemberArgs com info
+            let args, body, returnType =
+                getMemberArgsAndBody com ctx (Attached isStatic) entAndMembGenParams info.CurriedParameterGroups memb.Args memb.Body
+
+            let kind, name =
+                match abstractFullName with
+                | Some "System.Collections.Generic.IEnumerable.GetEnumerator" -> MethodKind.IsGetter, "iterator"
+                | Some "System.Collections.Generic.IEnumerator.get_Current" -> MethodKind.IsGetter, "current"
+                | Some "System.Collections.IEnumerator.MoveNext" -> MethodKind.IsMethod, "moveNext"
+                | Some "System.IComparable.CompareTo" -> MethodKind.IsMethod, "compareTo"
+                | Some "System.Object.ToString" -> MethodKind.IsMethod, "toString"
+                | Some "System.Object.GetHashCode" -> MethodKind.IsGetter, "hashCode"
+                | Some "System.Object.Equals" -> MethodKind.IsOperator, "=="
+                | _ ->
+                    // If method implements an abstract signature, use that info to decide if it's a getter or setter
+                    let info = defaultArg abstractInfo info
+                    let kind =
+                        if info.IsGetter then MethodKind.IsGetter
+                        else if info.IsSetter then MethodKind.IsSetter
+                        else MethodKind.IsMethod
+                    kind, sanitizeMember memb.Name
+
+            // As the method is attached, we don't need the entity gen params here
+            let genParams = info.GenericParameters |> List.choose (transformGenericParam com ctx)
+            InstanceMethod(
+               name, args, returnType,
+               body=body,
+               kind=kind,
+               genParams=genParams,
+               isStatic=isStatic,
+               isOverride=info.IsOverrideOrExplicitInterfaceImplementation
+            ) |> Some
 
     let transformClass (com: IDartCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMethods (cons: Fable.MemberDecl option) =
         let genParams = classEnt.GenericParameters |> List.choose (transformGenericParam com ctx)
@@ -2094,8 +2109,9 @@ module Util =
             // TODO: Check if we need to generate the constructor
             | None -> None, [], []
             | Some cons ->
+                let consInfo = com.GetMember(cons.MemberRef)
                 let entGenParams = classEnt.GenericParameters
-                let consArgs, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor entGenParams cons.Args cons.Body
+                let consArgs, consBody, _ = getMemberArgsAndBody com ctx ClassConstructor entGenParams consInfo.CurriedParameterGroups cons.Args cons.Body
 
                 // Analyze the constructor body to see if we can assign fields
                 // directly and prevent declaring them as late final
@@ -2138,7 +2154,7 @@ module Util =
                     args = consArgs,
                     body = consBody,
                     superArgs = (extractBaseArgs com ctx classDecl),
-                    isConst = hasConstAttribute cons.Info.Attributes
+                    isConst = (hasConstAttribute consInfo.Attributes)
                 )
 
                 // let classIdent = makeImmutableIdent MetaType classDecl.Name
@@ -2155,9 +2171,10 @@ module Util =
 
         let abstractMembers =
             classEnt.MembersFunctionsAndValues
+            |> Map.values
             |> Seq.choose (fun m ->
                 if m.IsDispatchSlot then
-                    transformAbstractMember com ctx m
+                    transformAbstractMember com ctx m |> Some
                 else None)
             |> Seq.toList
 
@@ -2194,13 +2211,14 @@ module Util =
         // TODO: Prefix non-public values with underscore or raise warning?
         | Fable.MemberDeclaration memb ->
             withCurrentScope ctx memb.UsedNames <| fun ctx ->
-                if memb.Info.IsValue then
-                    let ident = transformIdentWith com ctx memb.Info.IsMutable memb.Body.Type memb.Name
+                let info = com.GetMember(memb.MemberRef)
+                if info.IsValue then
+                    let ident = transformIdentWith com ctx info.IsMutable memb.Body.Type memb.Name
                     let value = transformAndCaptureExpr com ctx memb.Body ||> iife
-                    let kind, value = getVarKind ctx memb.Info.IsMutable value
+                    let kind, value = getVarKind ctx info.IsMutable value
                     [Declaration.variableDeclaration(ident, kind, value)]
                 else
-                    [transformModuleFunction com ctx memb]
+                    [transformModuleFunction com ctx info memb]
 
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
@@ -2210,15 +2228,9 @@ module Util =
             else
                 let instanceMethods =
                     decl.AttachedMembers |> List.choose (fun memb ->
-                        match memb.Name with
-                        | "System.Collections.IEnumerable.GetEnumerator"
-                        | "System.Collections.IEnumerator.get_Current"
-                        | "System.Collections.IEnumerator.Reset" -> None
-                        | _ ->
-                            withCurrentScope ctx memb.UsedNames (fun ctx ->
-                                transformAttachedMember com ctx memb) |> Some)
+                        withCurrentScope ctx memb.UsedNames (fun ctx ->
+                            transformAttachedMember com ctx memb))
 
-                // TODO: Implementing interfaces
                 match decl.Constructor with
                 | Some cons ->
                     withCurrentScope ctx cons.UsedNames <| fun ctx ->
