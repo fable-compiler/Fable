@@ -38,7 +38,7 @@ let ``pass obj by ref using attr on fn works`` () =
     byrefAttrRootObjDecFn b |> equal 3
     a |> equal a //prevent inlining
 
-// TODO - ByRef as Param not yet working
+// TODO: ByRef as Param not yet working
 
 // let byrefAttrIntFn ([<Fable.Core.ByRef>] x: int) =
 //     x + 1
@@ -60,8 +60,12 @@ let ``pass obj by ref using attr on fn works`` () =
 //     byrefAttrObjFn b |> equal 3
 //     a |> equal a //prevent inlining
 
-// TODO - ByRef as return body not yet working
+// TODO: passing byref into inref not working yet
+// let add1 x (y: inref<int>) = x + y
+// let add2 x (y: byref<int>) = add1 x &y
+
+// TODO: byref as return body not yet working
 // let byrefIdentity (x: int byref): int = x
 
-// TODO - ByRef as return type not yet working
-// let byrefIdentity (x: int byref): int byref = &x
+// TODO: byref as return type not yet working
+// let byrefReturns (x: int byref): int byref = &x
