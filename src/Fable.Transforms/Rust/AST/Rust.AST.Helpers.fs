@@ -1215,7 +1215,7 @@ module Items =
         { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
-          vis = PUBLIC_VIS
+          vis = INHERITED_VIS
           ident = ident
           kind = kind
           tokens = None }
@@ -1262,13 +1262,10 @@ module Items =
         ItemKind.Use(useTree)
         |> mkItem attrs ident
 
-    let mkSimpleUseItem attrs names (alias: Ident option): Item =
-        UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
+    let mkSimpleUseItem attrs names (alias: Symbol option): Item =
+        let rename = alias |> Option.map mkIdent
+        UseTreeKind.Simple(rename, DUMMY_NODE_ID, DUMMY_NODE_ID)
         |> mkUseItem attrs names
-
-    let mkNonPublicUseItem names =
-        mkSimpleUseItem [] names None
-        |> mkNonPublicItem
 
     let mkNestedUseItem attrs names useTrees: Item =
         let useTrees = useTrees |> Seq.map (fun x -> x, DUMMY_NODE_ID)
@@ -1337,13 +1334,11 @@ module Items =
             items = mkVec items
         })
         |> mkItem attrs ident
-        |> mkNonPublicItem
 
     let mkTyAliasItem attrs name ty generics bounds: Item =
         let ident = mkIdent name
         ItemKind.TyAlias(Defaultness.Final, generics, mkVec bounds, Some(ty))
         |> mkItem attrs ident
-        |> mkNonPublicItem
 
     let TODO_ITEM (name: string): Item =
         let attrs = []

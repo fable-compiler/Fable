@@ -29,5 +29,6 @@ let fnItem =
     [stmt1; stmt2] |> mkBlock |> Some
     |> mkFnKind DEFAULT_FN_HEADER (mkFnDecl [] VOID_RETURN_TY) NO_GENERICS
     |> mkFnItem [] "main"
+    |> mkPublicItem
 
 let testCrate = mkCrate [] [fnItem]

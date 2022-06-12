@@ -19,6 +19,9 @@ module Subs =
     //     [<Emit("$0.push($1)")>]
     //     member x.Push a = nativeOnly
 
+    // this is just to make sure MutCell is imported
+    let private _import_MutCell () = let mutable _x = 0 in ()
+
     module Vec =
         [<Emit("Rc<MutCell<Vec<$0>>>")>]
         type VecT<'a> =
@@ -89,7 +92,6 @@ let ``fixed vec should work`` () =
     b |> Subs.Vec.push 3
     b |> Subs.Vec.push 4
     a |> equal b
-
 
 [<Fact>]
 let ``vec mutable push should work`` () =

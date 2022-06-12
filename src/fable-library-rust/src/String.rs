@@ -1,18 +1,7 @@
 #![allow(non_snake_case)]
 
-// re-export at crate root level
-use std::rc::Rc;
-use crate::Mutable::*;
-
-type string = Rc<str>;
-type Array<T> = Rc<MutCell<Vec<T>>>;
-
-fn array<T: Clone>(v: Vec<T>) -> Array<T> {
-    Rc::from(MutCell::from(v))
-}
-
 pub mod String_ {
-    use super::*;
+    use crate::Native::*;
 
     // -----------------------------------------------------------
     // Strings

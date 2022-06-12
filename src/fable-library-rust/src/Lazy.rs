@@ -1,7 +1,7 @@
 /// Lazy values and one-time initialization.
 
 use core::fmt;
-use crate::MutCell;
+use crate::Native::MutCell;
 
 pub struct Lazy<T, F = fn() -> T> {
     cell: MutCell<Option<T>>,
