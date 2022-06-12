@@ -1,30 +1,30 @@
 #![allow(non_snake_case)]
 
-// import at crate root level
-pub(crate) mod Lazy;
-pub(crate) mod Mutable;
-
-// re-export at crate root level
-pub use crate::Choice::*;
-pub use std::collections::{HashMap, HashSet};
-pub use std::rc::Rc;
-pub use Lazy::*;
-pub use Mutable::*;
-
-pub type List_1<T> = Option<Rc<crate::List_::Node_1<T>>>;
-pub type Set_1<T> = Option<Rc<crate::Set_::SetTree_1<T>>>;
-pub type Map_2<K, V> = Option<Rc<crate::Map_::MapTree_2<K, V>>>;
-
-// TODO: make public eventually
-type string = Rc<str>;
-type seq<T> = Rc<dyn crate::Interfaces::IEnumerable_1<T>>;
-type RefCell<T> = Rc<MutCell<T>>;
-type Array<T> = Rc<MutCell<Vec<T>>>;
-type HashSet_1<T> = Rc<MutCell<HashSet<T>>>;
-type HashMap_2<K, V> = Rc<MutCell<HashMap<K, V>>>;
+// import at root level
+mod Mutable;
+mod Lazy;
 
 pub mod Native {
-    use super::*;
+
+    // re-export at module level
+    pub use crate::Choice::*;
+    pub use std::collections::{HashMap, HashSet};
+    pub use std::rc::Rc;
+    pub use super::Mutable::*;
+    pub use super::Lazy::*;
+
+    pub type List_1<T> = Option<Rc<crate::List_::Node_1<T>>>;
+    pub type Set_1<T> = Option<Rc<crate::Set_::SetTree_1<T>>>;
+    pub type Map_2<K, V> = Option<Rc<crate::Map_::MapTree_2<K, V>>>;
+
+    // TODO: use these types in generated code
+    pub type string = Rc<str>;
+    pub type seq<T> = Rc<dyn crate::Interfaces::IEnumerable_1<T>>;
+    pub type RefCell<T> = Rc<MutCell<T>>;
+    pub type Array<T> = Rc<MutCell<Vec<T>>>;
+    pub type HashSet_1<T> = Rc<MutCell<HashSet<T>>>;
+    pub type HashMap_2<K, V> = Rc<MutCell<HashMap<K, V>>>;
+
     use core::cmp::Ordering;
     use core::fmt::Debug;
     use core::hash::Hash;

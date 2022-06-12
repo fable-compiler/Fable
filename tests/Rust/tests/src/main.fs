@@ -36,5 +36,4 @@ let tests: unit[] = [|
 #endif
 
 [<EntryPoint>]
-let main _args =
-    0
+let main _args = 0

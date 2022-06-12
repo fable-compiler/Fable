@@ -28,7 +28,7 @@ type 'T set = Set<'T>
 
 let empty: Set<'T> = None
 
-let inline isEmpty (s: Set<'T>) = s.IsNone
+let isEmpty (s: Set<'T>) = s.IsNone
 
 let mkSetTreeLeaf (key: 'T): Set<'T> =
     Some { Key = key; Left = empty; Right = empty; Height = 1 }

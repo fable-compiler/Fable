@@ -593,8 +593,7 @@ module AST =
             // Python modules should be all lower case without any dots (PEP8)
             let moduleName' = moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase |> (fun str -> str.Replace(".", "_"))
             com.LibraryDir + "/" + moduleName' + ".py"
-        | Rust ->
-            com.LibraryDir + "/" + moduleName + ".rs"
+        | Rust -> com.LibraryDir + "/" + moduleName + ".rs"
         | Dart -> com.LibraryDir + "/" + moduleName + ".dart"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 

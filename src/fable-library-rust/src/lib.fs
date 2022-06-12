@@ -20,3 +20,6 @@ let imports: unit[] = [|
     importAll "./Map.rs"
 |]
 #endif
+
+[<EntryPoint>]
+let main _args = 0

@@ -12,7 +12,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type Import =
   { Selector: string
     LocalIdent: string
-    ModName: string
+    FullPath: string
     Path: string }
 
 type ITailCallOpportunity =
@@ -55,7 +55,8 @@ type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> Import list
-    abstract TryAddImport: modName: string * importPath: string -> bool
+    abstract GetAllModules: unit -> (string * string) list
+    abstract TryAddModule: fullPath: string * modName: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
@@ -159,24 +160,26 @@ module TypeInfo =
     let primitiveType (name: string): Rust.Ty =
         mkGenericPathTy [name] None
 
+    let getLibraryImportName (com: IRustCompiler) ctx moduleName typeName =
+        let selector = moduleName + "::" + typeName
+        let libPath = getLibPath com moduleName
+        com.GetImportName(ctx, selector, libPath, None)
+
     let makeImportType com ctx moduleName typeName tys: Rust.Ty =
-        let importName = getImportName com ctx moduleName typeName
+        let importName = getLibraryImportName com ctx moduleName typeName
         tys |> mkGenericTy (splitFullName importName)
 
     // TODO: emit Rc or Arc depending on threading.
     // Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
     let makeRcTy com ctx (ty: Rust.Ty): Rust.Ty =
-        // [ty] |> mkGenericTy ["Rc"]
         [ty] |> makeImportType com ctx "Native" "Rc"
 
     // TODO: emit Lazy or SyncLazy depending on threading.
     let makeLazyTy com ctx (ty: Rust.Ty): Rust.Ty =
-        // [ty] |> mkGenericTy ["Lazy"]
         [ty] |> makeImportType com ctx "Native" "Lazy"
 
     // TODO: emit MutCell or AtomicCell depending on threading.
     let makeMutTy com ctx (ty: Rust.Ty): Rust.Ty =
-        // [ty] |> mkGenericTy ["MutCell"]
         [ty] |> makeImportType com ctx "Native" "MutCell"
 
     let hasAttribute fullName (ent: Fable.Entity) =
@@ -265,7 +268,7 @@ module TypeInfo =
 
     let isDefaultableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
-        && not (ent.IsFSharpUnion) // deriving `Default` on enums is experimental
+        && not (ent.IsFSharpUnion) // deriving 'Default' on enums is experimental
         && (isEntityOfType com isDefaultableType entNames ent)
 
     let isHashableType (com: IRustCompiler) entNames typ =
@@ -428,10 +431,6 @@ module TypeInfo =
     let getIdentName expr =
         tryGetIdent expr |> Option.defaultValue ""
 
-    let getImportName (com: IRustCompiler) ctx moduleName selector =
-        let libPath = getLibPath com moduleName
-        com.GetImportName(ctx, selector, libPath, None)
-
     let transformImport (com: IRustCompiler) ctx r t (info: Fable.ImportInfo) genArgs =
         let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
         if info.Selector = "*"
@@ -439,8 +438,7 @@ module TypeInfo =
         else makeFullNamePathExpr importName genArgs
 
     let makeNativeCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
-        let selector = moduleName + "::" + memberName
-        let importName = getImportName com ctx moduleName selector
+        let importName = getLibraryImportName com ctx moduleName memberName
         let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
 
@@ -468,8 +466,8 @@ module TypeInfo =
         |> mkGenericTy (splitFullName typeName)
 
     let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
-        let importName = getImportName com ctx moduleName typeName
-        importName |> transformGenericType com ctx genArgs
+        let importName = getLibraryImportName com ctx moduleName typeName
+        transformGenericType com ctx genArgs importName
 
     let transformArrayType com ctx genArg: Rust.Ty =
         let ty = transformType com ctx genArg
@@ -488,16 +486,12 @@ module TypeInfo =
         transformImportType com ctx genArgs "Native" "Map`2"
 
     let transformHashSetType com ctx genArg: Rust.Ty =
-        let ty = transformType com ctx genArg
-        [ty]
-        |> mkGenericTy [rawIdent "HashSet"]
+        transformImportType com ctx [genArg] "Native" "HashSet"
         |> makeMutTy com ctx
         // transformImportType com ctx [genArg] "Native" "HashSet`1"
 
     let transformHashMapType com ctx genArgs: Rust.Ty =
-        genArgs
-        |> List.map (transformType com ctx)
-        |> mkGenericTy [rawIdent "HashMap"]
+        transformImportType com ctx genArgs "Native" "HashMap"
         |> makeMutTy com ctx
         // transformImportType com ctx genArgs "Native" "HashMap`2"
 
@@ -564,37 +558,38 @@ module TypeInfo =
         | Decimal -> makeFullNamePathTy Types.decimal None
         | BigInt -> makeFullNamePathTy Types.bigint None
 
-    let getInterfaceEntityPath (entRef: Fable.EntityRef) =
+    let getInterfaceEntityName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         match entRef.FullName with
         | Types.icollection
         | Types.icollectionGeneric
-            -> ["Interfaces"; "ICollection`1"]
+            -> getLibraryImportName com ctx "Interfaces" "ICollection`1"
         | Types.ienumerable
         | Types.ienumerableGeneric
-            -> ["Interfaces"; "IEnumerable`1"]
+            -> getLibraryImportName com ctx "Interfaces" "IEnumerable`1"
         | Types.ienumerator
         | Types.ienumeratorGeneric
-            -> ["Interfaces"; "IEnumerator`1"]
+            -> getLibraryImportName com ctx "Interfaces" "IEnumerator`1"
         | Types.idictionary
         | Types.ireadonlydictionary
-            -> ["Interfaces"; "IDictionary`2"]
+            -> getLibraryImportName com ctx "Interfaces" "IDictionary`2"
         | _ ->
-            splitFullName entRef.FullName
+            match entRef.SourcePath with
+            | Some path when path <> com.CurrentFile ->
+                // interface is imported from another file
+                let importPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
+                importName
+            | _ ->
+                entRef.FullName
 
     let tryFindInterface (com: IRustCompiler) fullName (entRef: Fable.EntityRef): Fable.DeclaredType option =
         let ent = com.GetEntity(entRef)
         ent.AllInterfaces |> Seq.tryFind (fun ifc -> ifc.Entity.FullName = fullName)
 
     let transformInterfaceType (com: IRustCompiler) ctx (entRef: Fable.EntityRef) genArgs: Rust.Ty =
-        match entRef.SourcePath with
-        | Some path when path <> com.CurrentFile ->
-            // this is just to import the interface
-            let importPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false path
-            com.GetImportName(ctx, entRef.FullName, importPath, None) |> ignore
-        | _ -> ()
-        let pathNames = getInterfaceEntityPath entRef
+        let nameParts = getInterfaceEntityName com ctx entRef |> splitFullName
         let genArgs = transformGenArgs com ctx genArgs
-        let bounds = [mkTypeTraitGenericBound pathNames genArgs]
+        let bounds = [mkTypeTraitGenericBound nameParts genArgs]
         mkDynTraitTy bounds
 
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
@@ -859,13 +854,13 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
-        let name = (name, Fable.Naming.NoMemberPart) ||> Fable.Naming.sanitizeIdent (fun name ->
+        let name = name |> Fable.Naming.preventConflicts (fun name ->
             ctx.UsedNames.RootScope.Contains(name) || ctx.UsedNames.DeclarationScopes.Contains(name))
         ctx.UsedNames.RootScope.Add(name) |> ignore
         name
 
     let getUniqueNameInDeclarationScope (ctx: Context) name =
-        let name = (name, Fable.Naming.NoMemberPart) ||> Fable.Naming.sanitizeIdent (fun name ->
+        let name = name |> Fable.Naming.preventConflicts (fun name ->
             ctx.UsedNames.RootScope.Contains(name) || ctx.UsedNames.CurrentDeclarationScope.Contains(name))
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
@@ -1029,7 +1024,7 @@ module Util =
         let range = None // TODO:
         callFunction com ctx range fnExpr []
         // let _, body = com.TransformFunction(ctx, None, [], expr)
-        // // Use an arrow function in case we need to capture `this`
+        // // Use an arrow function in case we need to capture 'this'
         // Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
 
     let getGenericParams (ctx: Context) (types: Fable.Type list) =
@@ -1096,7 +1091,7 @@ module Util =
         // getExpr range expr (Expression.stringLiteral("tag"))
         expr
 
-    /// Wrap int expressions with `| 0` to help optimization of JS VMs
+    /// Wrap int expressions with '| 0' to help optimization of JS VMs
     let wrapIntExpression typ (e: Rust.Expr) =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
@@ -2606,15 +2601,34 @@ module Util =
         | Fable.ActionDeclaration decl -> None
         | Fable.ClassDeclaration decl -> None
 
-    let getEntryPointDecls com ctx decls =
-        let entryPoint =
-            decls |> List.tryPick tryFindEntryPoint
+    let getModuleItems (com: IRustCompiler) =
+        // top-level module items // TODO: get module list from project file
+        let importModules = com.GetAllModules()
+        let makeModItems (fullPath, modName) =
+            let importPath = Fable.Path.getRelativePath com.CurrentFile fullPath
+            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
+            let modItem = mkUnloadedModItem attrs modName
+            let useItem = mkGlobUseItem [] [modName]
+            if isFableLibrary com
+            then [modItem; useItem |> mkPublicItem] // export modules at top level
+            else [modItem]
+        let modItems = importModules |> List.collect makeModItems
+        modItems
+
+    let getEntryPointItems (com: IRustCompiler) ctx decls =
+        let entryPoint = decls |> List.tryPick tryFindEntryPoint
         match entryPoint with
         | Some path ->
+            // add some imports for main
+            let asStr = getLibraryImportName com ctx "String" "string"
+            let asArr = getLibraryImportName com ctx "Native" "arrayFrom"
+
+            // main entrypoint
+            let mainName = String.concat "::" path
             let strBody = [
-                "let args: Vec<String> = std::env::args().collect()"
-                "let args: Vec<Rc<str>> = args[1..].iter().map(|s| String_::string(s)).collect()"
-                (String.concat "::" path) + "(Native::arrayFrom(&args))"
+                $"let args: Vec<String> = std::env::args().collect()"
+                $"let args: Vec<Rc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"{mainName}({asArr}(&args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
@@ -2622,7 +2636,7 @@ module Util =
             let fnDecl = mkFnDecl [] VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let fnItem = mkFnItem attrs "main" fnKind
-            [fnItem]
+            [fnItem |> mkPublicItem]
         | None -> []
 
 (*
@@ -2975,7 +2989,7 @@ module Util =
         let generics = makeGenerics fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = []
-        let fnItem = mkFnItem attrs name kind |> mkNonPublicItem
+        let fnItem = mkFnItem attrs name kind
         let scopedVarAttrs = {
             IsArm = false
             IsRef = false
@@ -3007,9 +3021,10 @@ module Util =
             |> Seq.map (fun _ -> mkAttr "test" [])
         let fnItem = mkFnItem attrs name kind
         // let fnItem =
-        //     if decl.Info.IsPublic then fnItem
-        //     else mkNonPublicItem fnItem
-        [fnItem]
+        //     if decl.Info.IsPublic
+        //     then fnItem |> mkPublicItem
+        //     else fnItem
+        [fnItem |> mkPublicItem]
 
     let transformModuleMember com ctx (decl: Fable.MemberDecl) =
         // uses thread_local for static initialization
@@ -3027,7 +3042,7 @@ module Util =
             then ty |> makeMutTy com ctx |> makeRcTy com ctx
             else ty
 
-        let staticItem = mkStaticItem attrs name ty (Some value) |> mkNonPublicItem
+        let staticItem = mkStaticItem attrs name ty (Some value)
         let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
         let valueStmt = mkEmitExprStmt $"{name}.with(|value| value.clone())"
 
@@ -3037,9 +3052,10 @@ module Util =
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnItem attrs name fnKind
         // let fnItem =
-        //     if decl.Info.IsPublic then fnItem
-        //     else mkNonPublicItem fnItem
-        [fnItem]
+        //     if decl.Info.IsPublic
+        //     then fnItem |> mkPublicItem
+        //     else fnItem
+        [fnItem |> mkPublicItem]
 
     let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let name = splitLast membName
@@ -3097,7 +3113,8 @@ module Util =
         ent.GenericParameters
         |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
-    let getInterfaceMemberNamesSet (com: IRustCompiler) (ent: Fable.Entity) =
+    let getInterfaceMemberNamesSet (com: IRustCompiler) (entRef: Fable.EntityRef) =
+        let ent = com.GetEntity(entRef)
         assert(ent.IsInterface)
         ent.AllInterfaces
         |> Seq.collect (fun i ->
@@ -3134,8 +3151,7 @@ module Util =
         let ty =
             let genArgs = genArgs |> transformGenArgs com ctx
             let bounds = mkTypeTraitGenericBound [entName] genArgs
-            mkTraitTy [bounds]
-            // |> makeRcTy com ctx
+            mkTraitTy [bounds] // |> makeRcTy com ctx
         let path =
             let genArgTys = genArgs |> List.map (transformType com ctx)
             mkGenericPath (splitFullName ent.FullName) (mkGenericTypeArgs genArgTys)
@@ -3159,7 +3175,7 @@ module Util =
             )
         let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
-        [enumItem] // TODO: add traits for attached members
+        [enumItem |> mkPublicItem] // TODO: add traits for attached members
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entNamesp, entName = splitNameSpace ent.FullName
@@ -3176,7 +3192,7 @@ module Util =
             )
         let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
         let structItem = mkStructItem attrs entName fields generics
-        [structItem] // TODO: add traits for attached members
+        [structItem |> mkPublicItem] // TODO: add traits for attached members
 
     let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (declName: string) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
@@ -3239,11 +3255,10 @@ module Util =
         let generics = getEntityGenArgs ent |> makeGenerics
         let entNamesp, entName = splitNameSpace ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
-        [traitItem]
+        [traitItem |> mkPublicItem]
 
     let makeUniqueName name (usedNames: Set<string>) =
-        (name, Fable.Naming.NoMemberPart)
-        ||> Fable.Naming.sanitizeIdent (usedNames.Contains)
+        name |> Fable.Naming.preventConflicts (usedNames.Contains)
 
     let transformImplicitConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
         let body =
@@ -3260,7 +3275,7 @@ module Util =
                 let returnValue = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
                 // add return value after the body
                 let body = Fable.Sequential (exprs @ [returnValue])
-                // replace `this.field` with just `field` in body
+                // replace 'this.field' with just 'field' in body
                 let body =
                     body |> visitFromInsideOut (function
                         | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet(fieldName), t, value, r) ->
@@ -3282,13 +3297,14 @@ module Util =
         let ctx = { ctx with ScopedTypeParams = ent.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
         transformAssocMemberFunction com ctx ctor.Info ctor.Name ctor.ArgIdents ctor.Body
 
-    let transformClassMembers (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
+    let transformClassMembers (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
             ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
             result
 
+        let ent = com.GetEntity(decl.Entity)
         let entNamesp, entName = splitNameSpace ent.FullName
         let ctorImpls =
             if ent.IsFSharpUnion || ent.IsFSharpRecord then
@@ -3313,10 +3329,10 @@ module Util =
         let interfaces =
             ent.AllInterfaces
             |> Seq.map (fun i ->
-                let ifaceEnt = com.GetEntity(i.Entity)
-                let members = ifaceEnt |> getInterfaceMemberNamesSet com
-                ifaceEnt.FullName, members, ifaceEnt)
-            |> Seq.filter (fun (dn, m, p) -> not (interfacesToIgnore |> Set.contains dn)) //temporary, throw out anything not defined such as IComparable etc
+                let members = i.Entity |> getInterfaceMemberNamesSet com
+                false, members, i.Entity)
+            // temporary, throw out anything not defined such as IComparable etc
+            |> Seq.filter (fun (_, _, entRef) -> not (interfacesToIgnore |> Set.contains entRef.FullName))
             |> Seq.toList
 
         let allInterfaceMembersSet =
@@ -3348,17 +3364,18 @@ module Util =
                 ]
                 let generics = getEntityGenArgs ent |> makeGenerics
                 let traitItem = mkTraitItem [] (entName + "Methods") assocItems [] generics
-                [traitItem]
+                [traitItem |> mkPublicItem]
 
         let traitsToRender =
             let complTraits =
                 if Set.isEmpty nonInterfaceMembersSet then []
-                else [entName + "Methods", nonInterfaceMembersSet, ent]
+                else [true, nonInterfaceMembersSet, decl.Entity]
             interfaces @ complTraits
 
         let memberTraitImpls =
             traitsToRender
-            |> List.collect (fun (tFullName, tmethods, tEnt) ->
+            |> List.collect (fun (isNonInterface, tMethods, tEntRef) ->
+                let tEnt = com.GetEntity(tEntRef)
                 let ctx = { ctx with ScopedTypeParams = tEnt.GenericParameters |> List.map (fun g -> g.Name) |> Set.ofList }
                 let decls =
                     let makeDecl (decl: Fable.MemberDecl) =
@@ -3366,7 +3383,7 @@ module Util =
                             let name = if decl.Info.IsInstance then decl.Name else decl.FullDisplayName
                             transformAssocMemberFunction com ctx decl.Info name decl.ArgIdents decl.Body
                     decl.AttachedMembers
-                    |> List.filter (fun m -> tmethods |> Set.contains m.Name)
+                    |> List.filter (fun m -> tMethods |> Set.contains m.Name)
                     |> List.map makeDecl
                 if List.isEmpty decls then
                     []
@@ -3374,12 +3391,15 @@ module Util =
                     let ty =
                         let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgs
-                        mkTraitTy [bounds]
-                        // |> makeRcTy com ctx
+                        mkTraitTy [bounds] // |> makeRcTy com ctx
                     let genArgs = getEntityGenArgs tEnt
+                    let nameParts =
+                        if isNonInterface then tEntRef.FullName + "Methods"
+                        else getInterfaceEntityName com ctx tEntRef
+                        |> splitFullName
                     let path =
                         let genArgTys = genArgs |> List.map (transformType com ctx)
-                        mkGenericPath (splitFullName tFullName) (mkGenericTypeArgs genArgTys)
+                        mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
                     let generics = genArgs |> makeGenerics
                     let ofTrait = mkTraitRef path |> Some
                     let implItem = mkImplItem [] "" ty generics decls ofTrait
@@ -3397,7 +3417,7 @@ module Util =
             then []
             else transformInterface com ctx ent
         else
-            let memberDecls = transformClassMembers com ctx ent decl
+            let memberDecls = transformClassMembers com ctx decl
             let entityDecls =
                 if ent.IsFSharpUnion
                 then transformUnion com ctx ent
@@ -3511,12 +3531,13 @@ module Util =
         match decl with
         | Fable.ModuleDeclaration decl ->
             // TODO: perhaps collect other use decls from usage in body
-            let useDecls = [mkNonPublicUseItem ["super"; "*"]]
+            let useItem = mkGlobUseItem [] ["super"]
+            let useDecls = [useItem]
             let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
             let attrs =  []
             let modDecls = useDecls @ memberDecls
             let modItem = modDecls |> mkModItem attrs decl.Name
-            [modItem]
+            [modItem |> mkPublicItem]
 
         | Fable.ActionDeclaration decl ->
             // TODO: use ItemKind.Static with IIFE closure?
@@ -3551,35 +3572,42 @@ module Util =
     let isFableLibraryImport (com: IRustCompiler) (path: string) =
         not (isFableLibrary com) && path.StartsWith(com.LibraryDir)
 
+    // F# hash function is unstable and gives different results in different runs
+    // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+    let private stableStringHash (s: string) =
+        let mutable h = 5381
+        for i = 0 to s.Length - 1 do
+            h <- (h * 33) ^^^ (int s.[i])
+        h
+
     let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
         imports
-        |> List.groupBy (fun import -> import.Path, import.ModName)
-        |> List.collect (fun ((importPath, modName), moduleImports) ->
-            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
-            let modItems = [
-                mkUnloadedModItem attrs modName |> mkPublicCrateItem
-                mkGlobUseItem [] [modName]
-                ]
+        |> List.groupBy (fun import -> (import.FullPath, import.Path))
+        |> List.collect (fun ((fullPath, importPath), moduleImports) ->
+            let isLibraryImport =
+                importPath |> isFableLibraryImport com
+            let modName =
+                System.String.Format("module_{0:x}", stableStringHash fullPath)
+            if not isLibraryImport then
+                com.TryAddModule(fullPath, modName) |> ignore
+            let modPath =
+                if isLibraryImport then ["fable_library_rust"]
+                else ["crate"; modName]
             let useItems =
-                // if com |> isFableLibrary then
-                    [mkGlobUseItem [] ["crate"; modName] |> mkNonPublicItem]
-                // else
-                //     moduleImports
-                //     |> List.map (fun import ->
-                //         match import.Selector with
-                //         | "" | "*" | "default" ->
-                //             mkGlobUseItem [] ["crate"; modName]
-                //         | _ ->
-                //             let parts = splitFullName import.Selector
-                //             mkSimpleUseItem [] ("crate"::modName::parts) None
-                //         |> mkNonPublicItem)
-
-            if importPath |> isFableLibraryImport com then
-                [] // fable_library_rust::* is already imported in prelude
-            else
-                if com.TryAddImport(modName, importPath)
-                then modItems
-                else useItems // modItems already added somewhere else
+                moduleImports
+                |> List.map (fun import ->
+                    match import.Selector with
+                    | "" | "*" | "default" ->
+                        mkGlobUseItem [] modPath
+                    | _ ->
+                        let parts = splitFullName import.Selector
+                        let alias =
+                            if List.last parts <> import.LocalIdent
+                            then Some(import.LocalIdent)
+                            else None
+                        mkSimpleUseItem [] (modPath @ parts) alias
+                )
+            useItems
         )
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
@@ -3588,13 +3616,6 @@ module Util =
         | _ -> splitFullName selector |> List.last
         |> getUniqueNameInRootScope ctx
 
-// F# hash function is unstable and gives different results in different runs
-// Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
-let private stringHash (s: string) =
-    let mutable h = 5381
-    for i = 0 to s.Length - 1 do
-        h <- (h * 33) ^^^ (int s.[i])
-    h
 
 module Compiler =
     open System.Collections.Generic
@@ -3614,8 +3635,8 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.TryAddImport(modName, importPath) =
-                importModules.TryAdd(modName, importPath)
+            member _.TryAddModule(fullPath, modName) =
+                importModules.TryAdd(fullPath, modName)
 
             member this.GetImportName(ctx, selector, path, r) =
                 if selector = Fable.Naming.placeholder then
@@ -3623,8 +3644,7 @@ module Compiler =
                     |> addError com [] r
                 let path = path |> Fable.Naming.replaceSuffix ".fs" ".rs"
                 if path.Contains("::") then
-                    // direct Rust import
-                    path + "::" + selector
+                    path + "::" + selector // direct Rust import
                 else
                     let cacheKey = path + "::" + selector
                     let import =
@@ -3632,27 +3652,24 @@ module Compiler =
                         | true, import -> import
                         | false, _ ->
                             let fullPath = getImportFullPath this path
-                            let modName = System.String.Format("import_{0:x}", stringHash fullPath)
                             let localIdent = getIdentForImport ctx path selector
                             let import = {
                                 Selector = selector
                                 LocalIdent = localIdent
-                                ModName = modName
+                                FullPath = fullPath
                                 Path = path
                             }
                             imports.Add(cacheKey, import)
                             import
+                    $"{import.LocalIdent}"
 
-                    // if this |> isFableLibrary
-                    // then $"{import.Selector}"
-                    // else $"{import.LocalIdent}"
-                    $"{import.Selector}"
+            member _.GetAllImports() = imports.Values |> Seq.toList
+            member _.GetAllModules() = importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
 
-            member _.GetAllImports() = imports.Values |> List.ofSeq
             member this.TransformAsExpr(ctx, e) = transformAsExpr this ctx e
-        //     member this.TransformAsStatements(ctx, ret, e) = transformAsStatements this ctx ret e
-        //     member this.TransformFunction(ctx, name, args, body) = transformFunction this ctx name args body
-        //     member this.TransformImport(ctx, selector, path) = transformImport this ctx None selector path
+            // member this.TransformAsStatements(ctx, ret, e) = transformAsStatements this ctx ret e
+            // member this.TransformFunction(ctx, name, args, body) = transformFunction this ctx name args body
+            // member this.TransformImport(ctx, selector, path) = transformImport this ctx None selector path
 
             member _.GetEntity(fullName) =
                 match com.TryGetEntity(fullName) with
@@ -3721,17 +3738,18 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let preludeDecls = [
-            // mkNonPublicUseItem ["std"; "rc"; "Rc"]
-            // mkNonPublicUseItem ["crate"; "MutCell"]
-            if not (com |> isFableLibrary) then
-                mkNonPublicUseItem ["fable_library_rust"; "*"]
-        ]
+        let declItems = List.collect (transformDecl com ctx) file.Declarations
+        let entryPointItems = getEntryPointItems com ctx file.Declarations
+        let importItems = com.GetAllImports() |> transformImports com ctx
+        let items =
+            match entryPointItems with
+            | [] -> importItems @ declItems
+            | _ -> importItems @ declItems @ (getModuleItems com) @ entryPointItems
 
-        let entryPointDecls = getEntryPointDecls com ctx file.Declarations
-        let rootDecls = List.collect (transformDecl com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> transformImports com ctx
-        let items = importDecls @ preludeDecls @ rootDecls @ entryPointDecls
+        // // TODO: add extra glob module import for each file
+        // if com.OutputType = Fable.OutputType.Library then
+        //     let relPath = Fable.Path.getRelativeFileOrDirPath false com.ProjectFile false com.CurrentFile
+        //     com.GetImportName(ctx, "*", relPath, None) |> ignore
 
         let crate = mkCrate topAttrs items
         crate

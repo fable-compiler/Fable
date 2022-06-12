@@ -28,7 +28,7 @@ and Map<'K, 'V> = Option<MapTree<'K, 'V>>
 
 let empty: Map<'K, 'V> = None
 
-let inline isEmpty (m: Map<'K, 'V>) = m.IsNone
+let isEmpty (m: Map<'K, 'V>) = m.IsNone
 
 let mkMapTreeLeaf (k: 'K, v: 'V) =
     Some { Key = k; Value = v; Left = empty; Right = empty; Height = 1 }
