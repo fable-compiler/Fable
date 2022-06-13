@@ -1571,6 +1571,7 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.OutputDir = com.OutputDir
         member this.OutputType = com.OutputType
         member this.ProjectFile = com.ProjectFile
+        member this.SourceFiles = com.SourceFiles
         member this.Options = com.Options
         member this.Plugins = com.Plugins
         member this.GetRootModule(fileName) = com.GetRootModule(fileName)

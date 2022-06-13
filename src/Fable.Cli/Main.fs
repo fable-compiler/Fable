@@ -522,6 +522,7 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
         let fableProj =
             Project.From(
                 projCracked.ProjectFile,
+                projCracked.ProjectOptions.SourceFiles,
                 [],
                 assemblies,
                 ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
