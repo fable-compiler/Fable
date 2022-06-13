@@ -509,7 +509,7 @@ module PrinterExtensions =
                         rep.Add("$" + string j)
                     String.concat ", " rep)
 
-                |> replace @"\{\{\s*\$(\d+)\s*\?\s*(.*?)\s*\:\s*(.*?)\s*\}\}" (fun m ->
+                |> replace @"\{\{\s*\$(\d+)\s*\?\s*(.*?)\s*:\s*(.*?)\s*\}\}" (fun m ->
                     let i = int m.Groups.[1].Value
                     match Array.tryItem i args with
                     | Some expr ->

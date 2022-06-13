@@ -9,7 +9,8 @@ export function create(pattern: string, options = 0) {
   if ((options & ~(1 ^ 2 ^ 16 ^ 256)) !== 0) {
     throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Singleline and ECMAScript");
   }
-  let flags = "g";
+  // Set always global and unicode flags for compatibility with dotnet, see #2925
+  let flags = "gu";
   flags += options & 1 ? "i" : ""; // 0x0001 RegexOptions.IgnoreCase
   flags += options & 2 ? "m" : "";
   flags += options & 16 ? "s" : "";

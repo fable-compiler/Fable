@@ -318,6 +318,10 @@ let tests =
 
         actual |> equal "Number 12345!"
 
+    testCase "Unicode patterns work" <| fun () -> // See #2925
+        let regex = Regex(@"^[\p{L} ,.'-]+$", RegexOptions.ECMAScript)
+        let res = regex.Match("John Smith")
+        res.Value |> equal "John Smith"
 
     testList "named capture group" [
         testList "Match" [
