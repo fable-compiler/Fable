@@ -27,7 +27,7 @@ let ``HashSet ctor works`` () =
 
 [<Fact>]
 let ``HashSet ctor with capacity works`` () =
-    let xs = HashSet<_>(10)
+    let xs = HashSet<int>(10)
     xs.Count |> equal 0
 
 [<Fact>]

@@ -141,6 +141,7 @@ let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpChec
         else checkResults.AssemblyContents.ImplementationFiles
     Project.From(
         projectOptions.ProjectFileName,
+        projectOptions.SourceFiles,
         implFiles,
         checkResults.ProjectContext.GetReferencedAssemblies())
 

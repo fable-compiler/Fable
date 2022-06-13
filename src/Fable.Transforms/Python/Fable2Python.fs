@@ -4138,6 +4138,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.SourceFiles = com.SourceFiles
 
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
 

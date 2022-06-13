@@ -12,6 +12,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type Import =
   { Selector: string
     LocalIdent: string
+    ModuleName: string
     FullPath: string
     Path: string }
 
@@ -56,7 +57,6 @@ type IRustCompiler =
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> Import list
     abstract GetAllModules: unit -> (string * string) list
-    abstract TryAddModule: fullPath: string * modName: string -> bool
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
     // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
@@ -664,11 +664,8 @@ module TypeInfo =
         //     |]
         let ty =
             match typ with
-            | Fable.Measure _
-            | Fable.Any ->
-                if ctx.Typegen.IsParamType
-                then mkInferTy ()
-                else mkUnitTy () // primitiveType "obj"
+            | Fable.Measure _ -> mkInferTy ()
+            | Fable.Any -> mkInferTy ()
             | Fable.GenericParam(name=name) ->
                 mkGenericPathTy [name] None
                 // match Map.tryFind name genMap with
@@ -2601,19 +2598,27 @@ module Util =
         | Fable.ActionDeclaration decl -> None
         | Fable.ClassDeclaration decl -> None
 
-    let getModuleItems (com: IRustCompiler) =
-        // top-level module items // TODO: get module list from project file
-        let importModules = com.GetAllModules()
-        let makeModItems (fullPath, modName) =
-            let importPath = Fable.Path.getRelativePath com.CurrentFile fullPath
-            let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
-            let modItem = mkUnloadedModItem attrs modName
-            let useItem = mkGlobUseItem [] [modName]
-            if isFableLibrary com
-            then [modItem; useItem |> mkPublicItem] // export modules at top level
-            else [modItem]
-        let modItems = importModules |> List.collect makeModItems
-        modItems
+    let getModuleItems (com: IRustCompiler) ctx =
+        let isLastFileInProject =
+            (Array.last com.SourceFiles) = com.CurrentFile
+        if isLastFileInProject then
+            // add all other project files as module imports
+            com.SourceFiles |> Array.iter (fun filePath ->
+                if filePath <> com.CurrentFile then
+                    let relPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false filePath
+                    com.GetImportName(ctx, "*", relPath, None) |> ignore
+            )
+            let makeModItems (fullPath, moduleName) =
+                let importPath = Fable.Path.getRelativePath com.CurrentFile fullPath
+                let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
+                let modItem = mkUnloadedModItem attrs moduleName
+                let useItem = mkGlobUseItem [] [moduleName]
+                if isFableLibrary com
+                then [modItem; useItem |> mkPublicItem] // export modules at top level
+                else [modItem]
+            let modItems = com.GetAllModules() |> List.sortBy fst |> List.collect makeModItems
+            modItems
+        else []
 
     let getEntryPointItems (com: IRustCompiler) ctx decls =
         let entryPoint = decls |> List.tryPick tryFindEntryPoint
@@ -2637,6 +2642,7 @@ module Util =
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let fnItem = mkFnItem attrs "main" fnKind
             [fnItem |> mkPublicItem]
+
         | None -> []
 
 (*
@@ -3572,42 +3578,27 @@ module Util =
     let isFableLibraryImport (com: IRustCompiler) (path: string) =
         not (isFableLibrary com) && path.StartsWith(com.LibraryDir)
 
-    // F# hash function is unstable and gives different results in different runs
-    // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
-    let private stableStringHash (s: string) =
-        let mutable h = 5381
-        for i = 0 to s.Length - 1 do
-            h <- (h * 33) ^^^ (int s.[i])
-        h
-
     let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
         imports
-        |> List.groupBy (fun import -> (import.FullPath, import.Path))
-        |> List.collect (fun ((fullPath, importPath), moduleImports) ->
-            let isLibraryImport =
-                importPath |> isFableLibraryImport com
-            let modName =
-                System.String.Format("module_{0:x}", stableStringHash fullPath)
-            if not isLibraryImport then
-                com.TryAddModule(fullPath, modName) |> ignore
-            let modPath =
-                if isLibraryImport then ["fable_library_rust"]
-                else ["crate"; modName]
-            let useItems =
-                moduleImports
-                |> List.map (fun import ->
-                    match import.Selector with
-                    | "" | "*" | "default" ->
-                        mkGlobUseItem [] modPath
-                    | _ ->
-                        let parts = splitFullName import.Selector
-                        let alias =
-                            if List.last parts <> import.LocalIdent
-                            then Some(import.LocalIdent)
-                            else None
-                        mkSimpleUseItem [] (modPath @ parts) alias
-                )
-            useItems
+        |> List.groupBy (fun import -> import.FullPath)
+        |> List.collect (fun (_fullPath, moduleImports) ->
+            moduleImports
+            |> List.map (fun import ->
+                let modPath =
+                    if isFableLibraryImport com import.Path
+                    then ["fable_library_rust"]
+                    else ["crate"; import.ModuleName]
+                match import.Selector with
+                | "" | "*" | "default" ->
+                    mkGlobUseItem [] modPath
+                | _ ->
+                    let parts = splitFullName import.Selector
+                    let alias =
+                        if List.last parts <> import.LocalIdent
+                        then Some(import.LocalIdent)
+                        else None
+                    mkSimpleUseItem [] (modPath @ parts) alias
+            )
         )
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
@@ -3615,6 +3606,17 @@ module Util =
         | "" | "*" | "default" -> Fable.Path.GetFileNameWithoutExtension(path)
         | _ -> splitFullName selector |> List.last
         |> getUniqueNameInRootScope ctx
+
+    // F# hash function is unstable and gives different results in different runs
+    // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+    let stableStringHash (s: string) =
+        let mutable h = 5381
+        for i = 0 to s.Length - 1 do
+            h <- (h * 33) ^^^ (int s.[i])
+        h
+
+    let getModuleName fullPath =
+        System.String.Format("module_{0:x}", stableStringHash fullPath)
 
 
 module Compiler =
@@ -3635,9 +3637,6 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.TryAddModule(fullPath, modName) =
-                importModules.TryAdd(fullPath, modName)
-
             member this.GetImportName(ctx, selector, path, r) =
                 if selector = Fable.Naming.placeholder then
                     "`importMember` must be assigned to a variable"
@@ -3653,12 +3652,16 @@ module Compiler =
                         | false, _ ->
                             let fullPath = getImportFullPath this path
                             let localIdent = getIdentForImport ctx path selector
+                            let moduleName = getModuleName fullPath
                             let import = {
                                 Selector = selector
                                 LocalIdent = localIdent
+                                ModuleName = moduleName
                                 FullPath = fullPath
                                 Path = path
                             }
+                            if not (isFableLibraryImport this path) then
+                                importModules.TryAdd(fullPath, moduleName) |> ignore
                             imports.Add(cacheKey, import)
                             import
                     $"{import.LocalIdent}"
@@ -3684,6 +3687,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.SourceFiles = com.SourceFiles
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
@@ -3741,15 +3745,8 @@ module Compiler =
         let declItems = List.collect (transformDecl com ctx) file.Declarations
         let entryPointItems = getEntryPointItems com ctx file.Declarations
         let importItems = com.GetAllImports() |> transformImports com ctx
-        let items =
-            match entryPointItems with
-            | [] -> importItems @ declItems
-            | _ -> importItems @ declItems @ (getModuleItems com) @ entryPointItems
+        let moduleItems = getModuleItems com ctx // adds imports for project files
+        let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
 
-        // // TODO: add extra glob module import for each file
-        // if com.OutputType = Fable.OutputType.Library then
-        //     let relPath = Fable.Path.getRelativeFileOrDirPath false com.ProjectFile false com.CurrentFile
-        //     com.GetImportName(ctx, "*", relPath, None) |> ignore
-
-        let crate = mkCrate topAttrs items
+        let crate = mkCrate topAttrs crateItems
         crate

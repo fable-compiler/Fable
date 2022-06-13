@@ -8,12 +8,9 @@ module Testing =
     open Fable.Core
 
     [<Emit("assert_eq!")>]
-    let inline AssertEqual<'T when 'T: equality>(expected: 'T, actual: 'T): unit = nativeOnly
+    let inline equal expected actual: unit = nativeOnly
     [<Emit("assert_ne!")>]
-    let inline AssertNotEqual<'T when 'T: equality>(expected: 'T, actual: 'T): unit = nativeOnly
-
-    let inline equal expected actual: unit = AssertEqual(expected, actual)
-    let inline notEqual expected actual: unit = AssertNotEqual(expected, actual)
+    let inline notEqual expected actual: unit = nativeOnly
 
     type FactAttribute() = inherit System.Attribute()
 #else

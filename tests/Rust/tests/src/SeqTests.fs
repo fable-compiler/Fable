@@ -705,7 +705,7 @@ let ``Seq.scan works with empty input`` () =
 
 [<Fact>]
 let ``Seq.sort works`` () =
-    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    let xs = [3; 4; 1; -3; 2; 10] |> List.toSeq
     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
     xs |> Seq.sort |> Seq.toArray |> equal [|-3; 1; 2; 3; 4; 10|]
     ys |> Seq.sort |> Seq.toArray |> equal [|"B"; "a"; "c"; "d"|]
@@ -1170,12 +1170,12 @@ let ``Seq.splitInto works`` () =
 //     Seq.transpose (seq [seq ["a";"b";"c"]; seq ["d";"e";"f"]])
 //     |> seqEqual [seq ["a";"d"]; seq ["b";"e"]; seq ["c";"f"]]
 //     // empty seq
-//     Seq.transpose Seq.empty
+//     Seq.transpose<int> Seq.empty
 //     |> seqEqual Seq.empty
 //     // seq of empty seqs - m x 0 seq transposes to 0 x m (i.e. empty)
-//     Seq.transpose (seq [Seq.empty])
+//     Seq.transpose<int> (seq [Seq.empty])
 //     |> seqEqual Seq.empty
-//     Seq.transpose (seq [Seq.empty; Seq.empty])
+//     Seq.transpose<int> (seq [Seq.empty; Seq.empty])
 //     |> seqEqual Seq.empty
 //     // sequences of lists
 //     Seq.transpose [["a";"b"]; ["c";"d"]]

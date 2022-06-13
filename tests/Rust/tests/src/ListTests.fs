@@ -1067,10 +1067,10 @@ let ``List.transpose works`` () =
     List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
     |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
     // empty list
-    List.transpose [] |> equal []
+    List.transpose<int> [] |> equal []
     // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
-    List.transpose [[]] |> equal []
-    List.transpose [[]; []] |> equal []
+    List.transpose<int> [[]] |> equal []
+    List.transpose<int> [[]; []] |> equal []
     // jagged lists throw on transpose
     // TODO:
     // throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])

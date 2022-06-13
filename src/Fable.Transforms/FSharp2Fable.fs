@@ -1883,6 +1883,7 @@ type FableCompiler(com: Compiler) =
         member _.OutputDir = com.OutputDir
         member _.OutputType = com.OutputType
         member _.ProjectFile = com.ProjectFile
+        member _.SourceFiles = com.SourceFiles
         member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
         member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)

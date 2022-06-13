@@ -101,6 +101,7 @@ type PrecompiledInfo =
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
 type Project(projFile: string,
+             sourceFiles: string[],
              implFiles: Map<string, ImplFile>,
              assemblies: Assemblies,
              ?precompiledInfo: PrecompiledInfo) =
@@ -119,6 +120,7 @@ type Project(projFile: string,
             member _.TryGetInlineExpr(_) = None })
 
     static member From(projFile: string,
+                       sourceFiles: string[],
                        fsharpFiles: FSharpImplementationFileContents list,
                        fsharpAssemblies: FSharpAssembly list,
                        ?getPlugin: PluginRef -> System.Type,
@@ -135,14 +137,14 @@ type Project(projFile: string,
                 key, ImplFile.From(file))
             |> Map
 
-        Project(projFile, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
+        Project(projFile, sourceFiles, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
 
     member this.Update(file: FSharpImplementationFileContents) =
         let implFiles =
             let key = Path.normalizePathAndEnsureFsExtension file.FileName
             let file = ImplFile.From(file)
             Map.add key file this.ImplementationFiles
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
+        Project(this.ProjectFile, this.SourceFiles, implFiles, this.Assemblies, this.PrecompiledInfo)
 
     member this.Update(files: FSharpImplementationFileContents list) =
         let implFiles =
@@ -150,7 +152,7 @@ type Project(projFile: string,
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 let file = ImplFile.From(file)
                 Map.add key file implFiles)
-        Project(this.ProjectFile, implFiles, this.Assemblies, this.PrecompiledInfo)
+        Project(this.ProjectFile, this.SourceFiles, implFiles, this.Assemblies, this.PrecompiledInfo)
 
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
         inlineExprsDic.TryValue(memberUniqueName)
@@ -165,6 +167,7 @@ type Project(projFile: string,
                 uniqueName, expr.Calculate(com))
 
     member _.ProjectFile = projFile
+    member _.SourceFiles = sourceFiles
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
     member _.PrecompiledInfo = precompiledInfo
@@ -214,6 +217,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.OutputDir = outDir
         member _.OutputType = outputType
         member _.ProjectFile = project.ProjectFile
+        member _.SourceFiles =  project.SourceFiles
 
         member _.IsPrecompilingInlineFunction =
             defaultArg isPrecompilingInlineFunction false
