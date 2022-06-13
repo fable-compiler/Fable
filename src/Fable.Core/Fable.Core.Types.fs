@@ -249,3 +249,10 @@ type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
 // Rust - Allow stuff to be passed by reference
 type ByRefAttribute() =
     inherit Attribute()
+
+type PtrType =
+    | Rc = 0
+    | Arc = 1
+// Rust - Defines the pointer type that is to be used to wrap the object (Rc/Arc)
+type PointerTypeAttribute(pointerType: PtrType) =
+    inherit Attribute()

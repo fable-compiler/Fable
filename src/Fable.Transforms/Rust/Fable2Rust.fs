@@ -173,6 +173,8 @@ module TypeInfo =
     // Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
     let makeRcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Rc"
+    let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
+        [ty] |> makeImportType com ctx "Native" "Arc"
 
     // TODO: emit Lazy or SyncLazy depending on threading.
     let makeLazyTy com ctx (ty: Rust.Ty): Rust.Ty =
@@ -375,7 +377,7 @@ module TypeInfo =
         | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
         | Fable.Tuple _
         | Fable.AnonymousRecordType _
-            -> false
+            -> None
 
         // always Rc-wrapped
         | Fable.String
@@ -385,16 +387,21 @@ module TypeInfo =
         | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEnumerator _
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
-            -> true
+            -> Some Rc
 
         // conditionally Rc-wrapped
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
-            not (isCopyableType com Set.empty typ)
+            if not (isCopyableType com Set.empty typ) then Some Rc else None
         | Fable.DeclaredType (entRef, _) ->
             match com.GetEntity(entRef) with
-            | HasEmitAttribute _ -> false // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | HasEmitAttribute _ -> None
+                // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | HasPointerTypeAttribute ptrType ->
+                if not (isCopyableType com Set.empty typ) then
+                    Some ptrType
+                else None
             | _ ->
-                not (isCopyableType com Set.empty typ)
+                if not (isCopyableType com Set.empty typ) then Some Rc else None
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -599,6 +606,20 @@ module TypeInfo =
                 | [:? string as macro] -> Some macro
                 | _ -> None
             else None)
+    type PointerType =
+        | Rc
+        | Arc
+    let (|HasPointerTypeAttribute|_|) (ent: Fable.Entity) =
+        ent.Attributes |> Seq.tryPick (fun att ->
+            if att.Entity.FullName.StartsWith(Atts.ptrType) then
+                match att.ConstructorArgs with
+                | [:? int as ptrType] ->
+                    match ptrType with
+                    | 0 -> Some Rc
+                    | 1 -> Some Arc
+                    | _ -> None
+                | _ -> None
+            else None)
 
     let transformDeclaredType (com: IRustCompiler) ctx entRef genArgs: Rust.Ty =
         match com.GetEntity(entRef) with
@@ -759,9 +780,12 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
-        if shouldBeRefCountWrapped com typ && not ctx.Typegen.IsRawType
-        then makeRcTy com ctx ty
-        else ty
+        match shouldBeRefCountWrapped com typ, not ctx.Typegen.IsRawType with
+        | Some Rc, true ->
+            makeRcTy com ctx ty
+        | Some Arc, true ->
+            makeArcTy com ctx ty
+        | _ -> ty
 
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -1226,6 +1250,15 @@ module Util =
 
     let makeRcValue (value: Rust.Expr) =
         makeCall ["Rc";"from"] None [value]
+    let makeArcValue (value: Rust.Expr) =
+        makeCall ["Arc";"from"] None [value]
+    let maybeWrapSmartPtr ent expr =
+        match ent with
+        | HasPointerTypeAttribute a ->
+            match a with
+            | Rc -> expr |> makeRcValue
+            | Arc -> expr |> makeArcValue
+        | _ -> expr |> makeRcValue
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"from"] None [value]
@@ -1260,7 +1293,7 @@ module Util =
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
         let expr = com.TransformAsExpr(ctx, fableExpr)
-        if shouldBeRefCountWrapped com typ
+        if shouldBeRefCountWrapped com typ |> Option.isSome
         then makeAsRef expr
         else
             if isRefScoped ctx name
@@ -1454,7 +1487,8 @@ module Util =
         let expr = mkStructExpr path fields // TODO: range
         if isCopyableEntity com Set.empty ent
         then expr
-        else expr |> makeRcValue
+        else
+            maybeWrapSmartPtr ent expr
 
     let mapKnownUnionCaseNames fullName =
         match fullName with
@@ -1475,7 +1509,7 @@ module Util =
         let expr = callFunction com ctx None callee values
         if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
         then expr
-        else expr |> makeRcValue
+        else expr |> maybeWrapSmartPtr ent
 
     let makeThis (com: IRustCompiler) ctx r typ =
         let expr = mkGenericPathExpr [rawIdent "self"] None
@@ -1582,7 +1616,7 @@ module Util =
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
                 expr |> mkAddrOfExpr
-            elif shouldBeRefCountWrapped com e.Type && not isOnlyReference then
+            elif shouldBeRefCountWrapped com e.Type |> Option.isSome && not isOnlyReference then
                 expr |> makeClone
             elif isCloneableType com e.Type && not isOnlyReference then
                 expr |> makeClone // TODO: can this clone be removed somehow?
@@ -2766,7 +2800,7 @@ module Util =
                 && (ident.IsMutable ||
                     (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
-                    (shouldBeRefCountWrapped com ident.Type) ||
+                    (shouldBeRefCountWrapped com ident.Type |> Option.isSome) ||
                     // Closures may capture Ref counted vars, so by cloning
                     // the actual closure, all attached ref counted var are cloned too
                     (match ident.Type with
