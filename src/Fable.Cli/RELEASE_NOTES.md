@@ -1,3 +1,9 @@
+### 3.7.14
+
+* Fix #2924: Invalidate cache if source maps option changes
+* Fix #2925: Always set unicode flag for Regex
+* Enable non-booleans in Emit optional syntax
+
 ### 3.7.12
 
 * Resolve `defaultArg` at compile time when possible
