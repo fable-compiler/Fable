@@ -19,14 +19,14 @@ let foo (a: Foo): bool =
 
 [<Fact>]
 let ``Pattern matching works`` () =
-    let ok = Ok "foo"
+    let ok: Result<string, int> = Ok "foo"
     match ok with
     | Ok x -> Some x
     | Error _ -> None
     |> equal (Some "foo")
 
-    let error = Error 10
-    match Error 10 with
+    let error: Result<string, int> = Error 10
+    match error with
     | Ok _ -> None
     | Error y -> Some y
     |> equal (Some 10)
@@ -34,16 +34,19 @@ let ``Pattern matching works`` () =
 [<Fact>]
 let ``Map function can be generated`` () =
     let f = (+) 1
-    Ok 9 |> Result.map f |> equal (Ok 10)
+    let ok: Result<int, float> = Ok 9
+    ok |> Result.map f |> equal (Ok 10)
 
 [<Fact>]
 let ``MapError function can be generated`` () =
     let f = (+) 1
-    Error 9 |> Result.mapError f |> equal (Error 10)
+    let error: Result<float, int> = Error 9
+    error |> Result.mapError f |> equal (Error 10)
 
 [<Fact>]
 let ``Bind function can be generated`` () =
-    Ok 10 |> Result.bind Error |> equal (Error 10)
+    let res: Result<int, int> = Ok 10 |> Result.bind Error
+    res |> equal (Error 10)
 
 [<Fact>]
 let ``Nesting Result in pattern matching works`` () =
@@ -52,7 +55,7 @@ let ``Nesting Result in pattern matching works`` () =
 
 [<Fact>]
 let ``Choice matching works`` () =
-    let ok = Choice1Of2 "foo"
+    let ok: Choice<string, int> = Choice1Of2 "foo"
     match ok with
     | Choice1Of2 x -> Some x
     | Choice2Of2 _ -> None

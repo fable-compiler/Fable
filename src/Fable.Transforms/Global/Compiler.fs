@@ -58,6 +58,7 @@ type Compiler =
     abstract OutputDir: string option
     abstract OutputType: OutputType
     abstract ProjectFile: string
+    abstract SourceFiles: string[]
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
     abstract IsPrecompilingInlineFunction: bool

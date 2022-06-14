@@ -170,7 +170,7 @@ let ``Tailcall optimization doesn't cause endless loops`` () = // See #675
     One("a", 42)
     |> tryFind "a"
     |> equal (Some 42)
-    Tree.Empty
+    Tree<string, int>.Empty
     |> tryFind "a"
     |> equal None
 

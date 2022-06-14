@@ -136,9 +136,9 @@ let ``Enum operator gte works`` () =
 
 [<Fact>]
 let ``EnumOfValue works`` () =
-    LanguagePrimitives.EnumOfValue 1 |> equal Fruits.Apple
-    LanguagePrimitives.EnumOfValue 2 |> equal Fruits.Banana
-    LanguagePrimitives.EnumOfValue 4 |> equal Fruits.Coconut
+    LanguagePrimitives.EnumOfValue 1 = Fruits.Apple |> equal true
+    LanguagePrimitives.EnumOfValue 2 = Fruits.Banana |> equal true
+    LanguagePrimitives.EnumOfValue 4 = Fruits.Coconut |> equal true
 
 [<Fact>]
 let ``EnumOfValue works in inlined functions`` () = // #1536
@@ -164,9 +164,9 @@ let ``EnumToValue works`` () =
 
 [<Fact>]
 let ``Enum operator enum works`` () =
-    enum 1 |> equal Fruits.Apple
-    enum 2 |> equal Fruits.Banana
-    enum 4 |> equal Fruits.Coconut
+    enum 1 = Fruits.Apple |> equal true
+    enum 2 = Fruits.Banana |> equal true
+    enum 4 = Fruits.Coconut |> equal true
 
 [<Fact>]
 let ``Pattern matching can be nested within a switch statement`` () = // See #483

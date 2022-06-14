@@ -1243,12 +1243,12 @@ let ``Array.transpose works`` () =
     Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
     |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
     // empty array
-    Array.transpose [| |]
+    Array.transpose<int> [| |]
     |> equal [| |]
     // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
-    Array.transpose [| [||] |]
+    Array.transpose<int> [| [||] |]
     |> equal [| |]
-    Array.transpose [| [||]; [||] |]
+    Array.transpose<int> [| [||]; [||] |]
     |> equal [| |]
     // jagged arrays throw on transpose
     // TODO:
