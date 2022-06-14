@@ -27,6 +27,9 @@ type CacheInfo =
         References: string list
         FableLibDir: string
         FableModulesDir: string
+        Exclude: string option
+        SourceMaps: bool
+        SourceMapsRoot: string option
     }
     static member GetPath(fableModulesDir: string, isDebug: bool) =
         IO.Path.Combine(fableModulesDir, $"""project_cracked{if isDebug then "_debug" else ""}.json""")
@@ -50,25 +53,28 @@ type CacheInfo =
         | None -> true
         | Some other -> this.GetTimestamp() > other.GetTimestamp()
 
-type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration, exclude, replace, precompiledLib, noCache, noRestore, projFile) =
+type CrackerOptions(cliArgs: CliArgs) =
     let builtDlls = HashSet()
-    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projFile, outDir)
+    let fableModulesDir = CrackerOptions.GetFableModulesFromProject(cliArgs.ProjectFile, cliArgs.OutDir)
     let cacheInfo =
-        if noCache then None
-        else CacheInfo.TryRead(fableModulesDir, fableOpts.DebugMode)
+        if cliArgs.NoCache then None
+        else CacheInfo.TryRead(fableModulesDir, cliArgs.CompilerOptions.DebugMode)
 
-    member _.NoCache = noCache
+    member _.NoCache = cliArgs.NoCache
     member _.CacheInfo = cacheInfo
     member _.FableModulesDir = fableModulesDir
-    member _.FableOptions: CompilerOptions = fableOpts
-    member _.FableLib: string option = fableLib
-    member _.OutDir: string option = outDir
-    member _.Configuration: string = configuration
-    member _.Exclude: string option = exclude
-    member _.Replace: Map<string, string> = replace
-    member _.PrecompiledLib: string option = precompiledLib
-    member _.NoRestore: bool = noRestore
-    member _.ProjFile: string = projFile
+    member _.FableOptions: CompilerOptions = cliArgs.CompilerOptions
+    member _.FableLib: string option = cliArgs.FableLibraryPath
+    member _.OutDir: string option = cliArgs.OutDir
+    member _.Configuration: string = cliArgs.Configuration
+    member _.Exclude: string option = cliArgs.Exclude
+    member _.Replace: Map<string, string> = cliArgs.Replace
+    member _.PrecompiledLib: string option = cliArgs.PrecompiledLib
+    member _.NoRestore: bool = cliArgs.NoRestore
+    member _.ProjFile: string = cliArgs.ProjectFile
+    member _.SourceMaps: bool = cliArgs.SourceMaps
+    member _.SourceMapsRoot: string option = cliArgs.SourceMapsRoot
+
     member _.BuildDll(normalizedDllPath: string) =
         if not(builtDlls.Contains(normalizedDllPath)) then
             let projDir =
@@ -78,7 +84,7 @@ type CrackerOptions(fableOpts: CompilerOptions, fableLib, outDir, configuration,
                 |> Array.skip 1
                 |> Array.rev
                 |> String.concat "/"
-            Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
+            Process.runSync projDir "dotnet" ["build"; "-c"; cliArgs.Configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
     static member GetFableModulesFromDir(baseDir: string): string =
@@ -619,7 +625,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
                     Log.verbose(lazy $"Cached project info ({cacheTimestamp}) will be discarded because {File.relPathToCurDir filePath} ({fileTimestamp}) is newer")
                 isOlder
 
-            cacheInfo.Version = Literals.VERSION && (
+            cacheInfo.Version = Literals.VERSION
+            && cacheInfo.Exclude = opts.Exclude
+            && (
                 [
                     cacheInfo.ProjectPath
                     yield! cacheInfo.References
@@ -640,7 +648,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
                                     | None -> false
                             else false
                     else false
-        )))
+                )
+            )
+        )
 
     match cacheInfo with
     | Some cacheInfo ->
@@ -649,7 +659,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
         // Check if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
         // (this means the last compilation was done for another build mode so we cannot reuse the files)
         let canReuseCompiledFiles =
-            let sameOptions = cacheInfo.FableOptions = opts.FableOptions
+            let sameOptions =
+                cacheInfo.FableOptions = opts.FableOptions
+                && cacheInfo.SourceMaps = opts.SourceMaps
+                && cacheInfo.SourceMapsRoot = opts.SourceMapsRoot
+
             if not sameOptions then
                 Log.verbose(lazy "Won't reuse compiled files because last compilation used different options")
                 false
@@ -735,6 +749,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 FSharpOptions = otherOptions
                 SourcePaths = sourcePaths
                 References = projRefs
+                Exclude = opts.Exclude
+                SourceMaps = opts.SourceMaps
+                SourceMapsRoot = opts.SourceMapsRoot
             }
 
         if not opts.NoCache then
