@@ -1158,12 +1158,12 @@ module Util =
             makeLibCall com ctx None "Seq" "ofList" false [expr]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashSetEntries" true [expr]
+            let ar = makeLibCall com ctx None "Native" "hashSetEntries" false [expr]
             makeLibCall com ctx None "Seq" "ofArray" false [ar]
         | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashMapEntries" true [expr]
+            let ar = makeLibCall com ctx None "Native" "hashMapEntries" false [expr]
             makeLibCall com ctx None "Seq" "ofArray" false [ar]
 
         // casts to generic param
