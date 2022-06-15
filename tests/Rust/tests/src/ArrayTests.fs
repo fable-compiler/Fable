@@ -987,22 +987,22 @@ let ``Array.zip3 works`` () =
 //     let ys = xs :> _ System.Collections.Generic.IList
 //     ys |> Seq.length |> equal 3
 
-// [<Fact>]
-// let ``Mapping with typed arrays doesn't coerce`` () =
-//     let data = [| 1 .. 12 |]
-//     let page size page data =
-//         data
-//         |> Array.skip ((page-1) * size)
-//         |> Array.take size
-//     let test1 =
-//         [| 1..4 |]
-//         |> Array.map (fun x -> page 3 x data)
-//     let test2 =
-//         [| 1..4 |]
-//         |> Seq.map (fun x -> page 3 x data)
-//         |> Array.ofSeq
-//     test1 |> Array.concat |> Array.sum |> equal 78
-//     test2 |> Array.concat |> Array.sum |> equal 78
+[<Fact>]
+let ``Mapping with typed arrays doesn't coerce`` () =
+    let data = [| 1 .. 12 |]
+    let page size page data =
+        data
+        |> Array.skip ((page-1) * size)
+        |> Array.take size
+    let test1 =
+        [| 1..4 |]
+        |> Array.map (fun x -> page 3 x data)
+    let test2 =
+        [| 1..4 |]
+        |> Seq.map (fun x -> page 3 x data)
+        |> Array.ofSeq
+    test1 |> Array.concat |> Array.sum |> equal 78
+    test2 |> Array.concat |> Array.sum |> equal 78
 
 [<Fact>]
 let ``Array.item works`` () =
@@ -1084,11 +1084,11 @@ let ``Array.tail works`` () =
 // #endif
 //     |> equal true
 
-// [<Fact>]
-// let ``Array iterators from range do rewind`` () =
-//     let xs = [|1..5|] |> Array.toSeq
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+[<Fact>]
+let ``Array iterators from range do rewind`` () =
+    let xs = [|1..5|] |> Array.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
 [<Fact>]
 let ``Array indexed works`` () =

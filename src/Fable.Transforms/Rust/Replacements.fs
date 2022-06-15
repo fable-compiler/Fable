@@ -106,7 +106,8 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ ->
-            Helper.InstanceCall(head, "to_string", String, [])
+            let s = Helper.InstanceCall(head, "to_string", String, [])
+            Helper.LibCall(com, "String", "string", String, [makeRef s])
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -1139,7 +1140,6 @@ let getEnumerator com r t (expr: Expr) =
     | IsEntity (Types.dictionary) _
     | IsEntity (Types.idictionary) _
     | IsEntity (Types.ireadonlydictionary) _ ->
-        let expr = makeRef expr
         let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [expr], [expr.Type])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r)
     | _ ->
@@ -2043,7 +2043,6 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "get_IsReadOnly", _, _ -> makeBoolConst false |> Some
     | "get_Count", Some c, _ -> getLength r t c |> Some
     | "GetEnumerator", Some c, _ ->
-        let c = makeRef c
         let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [c], [c.Type])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
     | "ContainsValue", Some c, [arg] ->
@@ -2053,13 +2052,10 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         let args = args |> List.map makeRef
         Helper.InstanceCall(c, "contains_key", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "TryGetValue", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "tryGetValue", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "TryAdd", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapTryAdd", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "Add", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapAdd", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "Remove", Some c, _ ->
         let args = args |> List.map makeRef
@@ -2068,10 +2064,8 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "Clear", Some c, _ ->
         Helper.InstanceCall(getMut c, "clear", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Item", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapGet", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "set_Item", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapSet", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Keys", Some c, _ ->
         Helper.LibCall(com, "Native", "hashMapKeys", t, c::args, ?loc=r) |> Some

@@ -143,7 +143,7 @@ pub mod Native {
         mkRefMut(HashSet::from_iter(a.iter().cloned()))
     }
 
-    pub fn hashSetEntries<T: Clone>(set: &HashSet_1<T>) -> Array<T> {
+    pub fn hashSetEntries<T: Clone>(set: HashSet_1<T>) -> Array<T> {
         array(Vec::from_iter(set.iter().cloned()))
     }
 
@@ -165,18 +165,18 @@ pub mod Native {
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
         dict: HashMap_2<K, V>,
-        k: &K,
-        v: &V,
+        k: K,
+        v: V,
     ) -> bool {
         // dict.get_mut().try_insert(k.clone(), v.clone()).is_ok() // nightly only
-        if dict.get_mut().contains_key(k) {
+        if dict.get_mut().contains_key(&k) {
             false
         } else {
             dict.get_mut().insert(k.clone(), v.clone()).is_none()
         }
     }
 
-    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K, v: V) {
         match dict.get_mut().insert(k.clone(), v.clone()) {
             Some(v) => {
                 panic!("An item with the same key has already been added.")
@@ -185,8 +185,8 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K) -> V {
-        match dict.get_mut().get(k) {
+    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K) -> V {
+        match dict.get_mut().get(&k) {
             Some(v) => v.clone(),
             None => {
                 panic!("The given key was not present in the dictionary.")
@@ -194,16 +194,16 @@ pub mod Native {
         }
     }
 
-    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: &K, v: &V) {
+    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K, v: V) {
         dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
     }
 
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
         dict: HashMap_2<K, V>,
-        k: &K,
+        k: K,
         res: &RefCell<V>,
     ) -> bool {
-        match dict.get_mut().get(k) {
+        match dict.get_mut().get(&k) {
             Some(v) => {
                 res.set(v.clone());
                 true
@@ -220,7 +220,7 @@ pub mod Native {
         array(Vec::from_iter(dict.values().cloned()))
     }
 
-    pub fn hashMapEntries<K: Clone, V: Clone>(dict: &HashMap_2<K, V>) -> Array<(K, V)> {
+    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<(K, V)> {
         array(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
