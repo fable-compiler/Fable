@@ -106,7 +106,8 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ ->
-            Helper.InstanceCall(head, "to_string", String, [])
+            let s = Helper.InstanceCall(head, "to_string", String, [])
+            Helper.LibCall(com, "String", "string", String, [makeRef s])
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
