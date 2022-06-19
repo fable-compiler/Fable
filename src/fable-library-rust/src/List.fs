@@ -89,8 +89,13 @@ let ofOption<'T> (opt: 'T option): 'T list =
     | Some x -> singleton x
     | None -> empty()
 
-// Redirected to Seq.toList to avoid dependency (see Replacements)
-// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
+let ofSeq (xs: 'T seq) =
+    let mutable root = empty()
+    let mutable node = root
+    for x in xs do
+        node <- node |> appendConsNoTail x
+        if isEmpty root then root <- node
+    root
 
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
@@ -663,90 +668,90 @@ let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list)
     |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
     |> ofArray
 
-// let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let result =
-//         (List.Empty, xs) ||> fold (fun acc x ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 List.Cons(x, List.Cons(y, acc))
-//             else List.Cons(x, acc))
-//     let result =
-//         if isDone then result
-//         elif i + 1 = index then List.Cons(y, result)
-//         else invalidArg "index" SR.indexOutOfBounds
-//     reverse result
+let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let res =
+        (empty(), xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                cons x (cons y acc)
+            else cons x acc)
+    let res =
+        if isDone then res
+        elif i + 1 = index then cons y res
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse res
 
-// let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let ys = ofSeq ys
-//     let result =
-//         (List.Empty, xs) ||> fold (fun acc x ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 List.Cons(x, append ys acc)
-//             else List.Cons(x, acc))
-//     let result =
-//         if isDone then result
-//         elif i + 1 = index then append ys result
-//         else invalidArg "index" SR.indexOutOfBounds
-//     reverse result
+let insertManyAt (index: int) (ys: 'T seq) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let ys = ofSeq ys
+    let res =
+        (empty(), xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                cons x (append ys acc)
+            else cons x acc)
+    let res =
+        if isDone then res
+        elif i + 1 = index then append ys res
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse res
 
-// let removeAt (index: int) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let ys =
-//         xs |> filter (fun _ ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 false
-//             else true)
-//     if not isDone then
-//         invalidArg "index" SR.indexOutOfBounds
-//     ys
+let removeAt (index: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                false
+            else true)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    res
 
-// let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     // incomplete -1, in-progress 0, complete 1
-//     let mutable status = -1
-//     let ys =
-//         xs |> filter (fun _ ->
-//             i <- i + 1
-//             if i = index then
-//                 status <- 0
-//                 false
-//             elif i > index then
-//                 if i < index + count then
-//                     false
-//                 else
-//                     status <- 1
-//                     true
-//             else true)
-//     let status =
-//         if status = 0 && i + 1 = index + count then 1
-//         else status
-//     if status < 1 then
-//         // F# always says the wrong parameter is index but the problem may be count
-//         let arg = if status < 0 then "index" else "count"
-//         invalidArg arg SR.indexOutOfBounds
-//     ys
+let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
+    res
 
-// let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
-//     let mutable isDone = false
-//     let ys =
-//         xs |> mapIndexed (fun i x ->
-//             if i = index then
-//                 isDone <- true
-//                 y
-//             else x)
-//     if not isDone then
-//         invalidArg "index" SR.indexOutOfBounds
-//     ys
+let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable isDone = false
+    let res =
+        xs |> mapIndexed (fun i x ->
+            if i = index then
+                isDone <- true
+                y
+            else x)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    res
 
 // let init = initialize
 // let iter = iterate
