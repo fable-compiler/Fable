@@ -621,6 +621,52 @@ let transpose (lists: 'T list list): 'T list list =
                 nodes.[i] <- nodes.[i] |> appendConsNoTail x))
         roots
 
+let distinct<'T when 'T: equality> (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'T>()
+    xs |> filter (fun x -> hashSet.Add(x))
+
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'Key>()
+    xs |> filter (fun x -> hashSet.Add(projection x))
+
+let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
+    xs |> filter (fun x -> hashSet.Add(x))
+
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): ('Key * int) list =
+    let dict = System.Collections.Generic.Dictionary<'Key, int>()
+    let keys = ResizeArray<'Key>()
+    xs |> iterate (fun x ->
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            keys.Add(key)
+    )
+    keys
+    |> asArray
+    |> Array.map (fun key -> key, dict.[key])
+    |> ofArray
+
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): ('Key * 'T list) list =
+    let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+    let keys = ResizeArray<'Key>()
+    xs |> iterate (fun x ->
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            prev.Add(x)
+        | false, _ ->
+            dict.Add(key, ResizeArray [|x|])
+            keys.Add(key)
+    )
+    keys
+    |> asArray
+    |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
+    |> ofArray
+
 // let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
 //     let mutable i = -1
 //     let mutable isDone = false

@@ -18,8 +18,8 @@ let sumFirstTwo (xs: seq<float>) =
 //     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
 //     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
 
-// type DummyUnion = Number of int
-// type ExceptFoo = { Bar:string }
+type DummyUnion = Number of int
+type ExceptFoo = { Bar:string }
 
 type Point =
     { x: int; y: int }
@@ -884,73 +884,73 @@ let ``Seq.compareWith works`` () =
     Seq.compareWith (-) xs ys |> equal -1
     Seq.compareWith (-) xs zs |> equal 1
 
-// [<Fact>]
-// let ``Seq.countBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.countBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
+[<Fact>]
+let ``Seq.countBy works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.countBy (fun x -> x % 2)
+    ys |> Seq.toArray |> equal [|(1, 2); (0, 2)|]
 
-// [<Fact>]
-// let ``Seq.distinct works`` () =
-//     let xs = [1; 1; 1; 2; 2; 3; 3]
-//     let ys = xs |> Seq.distinct
-//     ys |> Seq.length |> equal 3
-//     ys |> Seq.sum |> equal 6
+[<Fact>]
+let ``Seq.distinct works`` () =
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> Seq.distinct
+    ys |> Seq.length |> equal 3
+    ys |> Seq.sum |> equal 6
 
-// [<Fact>]
-// let ``Seq.distinct with tuples works`` () =
-//     let xs = [(1, 2); (2, 3); (1, 2)]
-//     let ys = xs |> Seq.distinct
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.sumBy fst |> equal 3
+[<Fact>]
+let ``Seq.distinct with tuples works`` () =
+    let xs = [(1, 2); (2, 3); (1, 2)]
+    let ys = xs |> Seq.distinct
+    ys |> Seq.length |> equal 2
+    ys |> Seq.sumBy fst |> equal 3
 
-// [<Fact>]
-// let ``Seq.distinctBy works`` () =
-//     let xs = [4; 4; 4; 6; 6; 5; 5]
-//     let ys = xs |> Seq.distinctBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.head >= 4 |> equal true
+[<Fact>]
+let ``Seq.distinctBy works`` () =
+    let xs = [4; 4; 4; 6; 6; 5; 5]
+    let ys = xs |> Seq.distinctBy (fun x -> x % 2)
+    ys |> Seq.length |> equal 2
+    ys |> Seq.head >= 4 |> equal true
 
-// [<Fact>]
-// let ``Seq.distinctBy with tuples works`` () =
-//     let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
-//     let ys = xs |> Seq.distinctBy (fun (x,_) -> x % 2)
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.head |> fst >= 4 |> equal true
+[<Fact>]
+let ``Seq.distinctBy with tuples works`` () =
+    let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+    let ys = xs |> Seq.distinctBy (fun (x,_) -> x % 2)
+    ys |> Seq.length |> equal 2
+    ys |> Seq.head |> fst >= 4 |> equal true
 
-// [<Fact>]
-// let ``Seq.distinct works on infinite sequences`` () =
-//     let rec numbersFrom n =
-//         seq { yield n; yield n; yield! numbersFrom (n + 1) }
-//     let xs =
-//         numbersFrom 1
-//         |> Seq.distinct
-//         |> Seq.take 5
-//     xs |> Seq.toList |> equal [1; 2; 3; 4; 5]
+[<Fact>]
+let ``Seq.distinct works on infinite sequences`` () =
+    let rec numbersFrom n =
+        seq { yield n; yield n; yield! numbersFrom (n + 1) }
+    let xs =
+        numbersFrom 1
+        |> Seq.distinct
+        |> Seq.take 5
+    xs |> Seq.toList |> equal [1; 2; 3; 4; 5]
 
-// [<Fact>]
-// let ``Seq.distinctBy works on infinite sequences`` () =
-//     let rec numbersFrom n =
-//         seq { yield n; yield n; yield! numbersFrom (n + 1) }
-//     let xs =
-//         numbersFrom 1
-//         |> Seq.distinctBy (fun x -> x / 5)
-//         |> Seq.take 5
-//     xs |> Seq.toList |> equal [1; 5; 10; 15; 20]
+[<Fact>]
+let ``Seq.distinctBy works on infinite sequences`` () =
+    let rec numbersFrom n =
+        seq { yield n; yield n; yield! numbersFrom (n + 1) }
+    let xs =
+        numbersFrom 1
+        |> Seq.distinctBy (fun x -> x / 5)
+        |> Seq.take 5
+    xs |> Seq.toList |> equal [1; 5; 10; 15; 20]
 
-// [<Fact>]
-// let ``Seq.groupBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.groupBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.iter (fun (k,v) ->
-//         v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
+[<Fact>]
+let ``Seq.groupBy works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> x % 2)
+    ys |> Seq.length |> equal 2
+    ys |> Seq.iter (fun (k,v) ->
+        v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
 
-// [<Fact>]
-// let ``Seq.groupBy with structural equality works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
-//     ys |> Seq.length |> equal 2
+[<Fact>]
+let ``Seq.groupBy with structural equality works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
+    ys |> Seq.length |> equal 2
 
 [<Fact>]
 let ``Seq.exactlyOne works`` () =
@@ -960,16 +960,16 @@ let ``Seq.exactlyOne works`` () =
 
 [<Fact>]
 let ``Seq.tryExactlyOne works`` () =
-        seq {1.} |> Seq.tryExactlyOne |> equal (Some 1.)
-        seq {1.; 2.} |> Seq.tryExactlyOne |> equal None
-        Seq.empty<float> |> Seq.tryExactlyOne |> equal None
+    seq {1.} |> Seq.tryExactlyOne |> equal (Some 1.)
+    seq {1.; 2.} |> Seq.tryExactlyOne |> equal None
+    Seq.empty<float> |> Seq.tryExactlyOne |> equal None
 
-// [<Fact>]
-// let ``Seq.initInfinite works`` () =
-//     Seq.initInfinite (fun i -> 2. * float i)
-//     |> Seq.take 10
-//     |> Seq.sum
-//     |> equal 90.
+[<Fact>]
+let ``Seq.initInfinite works`` () =
+    Seq.initInfinite (fun i -> 2. * float i)
+    |> Seq.take 10
+    |> Seq.sum
+    |> equal 90.
 
 [<Fact>]
 let ``Seq.last works`` () =
@@ -986,17 +986,12 @@ let ``Seq.tryLast works`` () =
 
 [<Fact>]
 let ``Seq.pairwise works`` () =
-    let xs = [1; 2; 3; 4]
+    Seq.pairwise<int> [] |> Seq.length |> equal 0
+    Seq.pairwise [1] |> Seq.length |> equal 0
+    Seq.pairwise [1; 2] |> Seq.head |> equal (1, 2)
+    let xs = seq {1; 2; 3; 4}
     let ys = xs |> Seq.pairwise
-    ys |> Seq.head |> equal (1, 2)
-    // ys |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
-    // |> String.concat "" |> equal "122334"
-
-[<Fact>]
-let ``Seq.pairwise works with empty input`` () = // See #1941
-    ([||] : int array) |> Seq.pairwise |> Seq.length |> equal 0
-    [1] |> Seq.pairwise |> Seq.length |> equal 0
-    [1; 2] |> Seq.pairwise |> Seq.head |> equal (1, 2)
+    ys |> Seq.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
 
 [<Fact>]
 let ``Seq.permute works`` () =
@@ -1078,36 +1073,36 @@ let ``Seq.where works`` () =
     |> Seq.length
     |> equal 3
 
-// [<Fact>]
-// let ``Seq.except works`` () =
-//     Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
-//     Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
-//     Seq.except [1] [1; 1; 1; 1] |> Seq.isEmpty |> equal true
-//     Seq.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> Seq.isEmpty |> equal true
-//     Seq.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> Seq.isEmpty |> equal true
-//     Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
-//     Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
-//     Seq.except [|49|] [|7; 49|] |> Seq.last|> equal 7
-//     Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
+[<Fact>]
+let ``Seq.except works`` () =
+    Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
+    Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
+    Seq.except [1] [1; 1; 1; 1] |> Seq.isEmpty |> equal true
+    Seq.except [|49|] [|7; 49|] |> Seq.last |> equal 7
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
+    Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
+    // Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
 
 // [<Fact>]
 // let ``Seq.item throws exception when index is out of range`` () =
 //     let xs = [0]
 //     (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``Seq iterators from range do rewind`` () =
-//     let xs = seq {for i=1 to 5 do i}
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+[<Fact>]
+let ``Seq iterators from range do rewind`` () =
+    let xs = seq {for i=1 to 5 do i}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-//     let xs = seq {1..5}
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    let xs = seq {1..5}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-//     let xs = seq {'A'..'F'}
-//     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
-//     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+    let xs = seq {'A'..'F'}
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
 
 [<Fact>]
 let ``Seq.filter doesn't blow the stack with long sequences`` () = // See #459

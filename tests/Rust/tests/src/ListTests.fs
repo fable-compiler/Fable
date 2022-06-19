@@ -5,7 +5,7 @@ open Util.Testing
 // type List(x: int) =
 //     member val Value = x
 
-// type ExceptFoo = { Bar:string }
+type ExceptFoo = { Bar:string }
 
 // let testListChoose xss =
 //     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
@@ -759,33 +759,33 @@ let ``List.averageBy works`` () =
 //     [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
 //     |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
-// [<Fact>]
-// let ``List.distinct works`` () =
-//     let xs = [1; 1; 1; 2; 2; 3; 3]
-//     let ys = xs |> List.distinct
-//     ys |> List.length |> equal 3
-//     ys |> List.sum |> equal 6
+[<Fact>]
+let ``List.distinct works`` () =
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> List.distinct
+    ys |> List.length |> equal 3
+    ys |> List.sum |> equal 6
 
-// [<Fact>]
-// let ``List.distinct with tuples works`` () =
-//     let xs = [(1, 2); (2, 3); (1, 2)]
-//     let ys = xs |> List.distinct
-//     ys |> List.length |> equal 2
-//     ys |> List.sumBy fst |> equal 3
+[<Fact>]
+let ``List.distinct with tuples works`` () =
+    let xs = [(1, 2); (2, 3); (1, 2)]
+    let ys = xs |> List.distinct
+    ys |> List.length |> equal 2
+    ys |> List.sumBy fst |> equal 3
 
-// [<Fact>]
-// let ``List.distinctBy works`` () =
-//     let xs = [4; 4; 4; 6; 6; 5; 5]
-//     let ys = xs |> List.distinctBy (fun x -> x % 2)
-//     ys |> List.length |> equal 2
-//     ys |> List.head >= 4 |> equal true
+[<Fact>]
+let ``List.distinctBy works`` () =
+    let xs = [4; 4; 4; 6; 6; 5; 5]
+    let ys = xs |> List.distinctBy (fun x -> x % 2)
+    ys |> List.length |> equal 2
+    ys |> List.head >= 4 |> equal true
 
-// [<Fact>]
-// let ``List.distinctBy with tuples works`` () =
-//     let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
-//     let ys = xs |> List.distinctBy (fun (x,_) -> x % 2)
-//     ys |> List.length |> equal 2
-//     ys |> List.head |> fst >= 4 |> equal true
+[<Fact>]
+let ``List.distinctBy with tuples works`` () =
+    let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+    let ys = xs |> List.distinctBy (fun (x,_) -> x % 2)
+    ys |> List.length |> equal 2
+    ys |> List.head |> fst >= 4 |> equal true
 
 [<Fact>]
 let ``List.findBack works`` () =
@@ -871,14 +871,12 @@ let ``List.partition works`` () =
 
 [<Fact>]
 let ``List.pairwise works`` () =
-    List.pairwise<int> [] |> List.isEmpty |> equal true
-    List.pairwise [1] |> List.isEmpty |> equal true
+    ([]: int list) |> List.pairwise |> List.isEmpty |> equal true
+    [1] |> List.pairwise |> List.isEmpty |> equal true
+    [1; 2] |> Seq.pairwise |> Seq.head |> equal (1, 2)
     let xs = [1; 2; 3; 4]
     let ys = xs |> List.pairwise
-    ys |> List.head |> equal (1, 2)
-    // ys |> List.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
-    // ys |> List.map (fun (x, y) -> sprintf "%i%i" x y)
-    // |> String.concat "" |> equal "122334"
+    ys |> List.toArray |> equal [|(1, 2); (2, 3); (3, 4)|]
 
 [<Fact>]
 let ``List.permute works`` () =
@@ -933,27 +931,27 @@ let ``List.compareWith works`` () =
     List.compareWith (-) xs ys |> equal -1
     List.compareWith (-) xs zs |> equal 1
 
-// [<Fact>]
-// let ``List.countBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> List.countBy (fun x -> x % 2)
-//     |> List.length |> equal 2
+[<Fact>]
+let ``List.countBy works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> List.countBy (fun x -> x % 2)
+    ys |> List.toArray |> equal [|(1, 2); (0, 2)|]
 
-// [<Fact>]
-// let ``List.groupBy returns valid list`` () =
-//     let xs = [1; 2]
-//     let worked =
-//         match List.groupBy (fun _ -> true) xs with
-//         | [true, [1; 2]] -> true
-//         | _ -> false
-//     worked |> equal true
+[<Fact>]
+let ``List.groupBy returns valid list`` () =
+    let xs = [1; 2]
+    let worked =
+        match List.groupBy (fun _ -> true) xs with
+        | [true, [1; 2]] -> true
+        | _ -> false
+    worked |> equal true
 
-// [<Fact>]
-// let ``List.groupBy maintains order`` () =
-//     let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
-//     let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
-//     let grouped = xs |> List.groupBy fst
-//     grouped |> equal mapped
+[<Fact>]
+let ``List.groupBy maintains order`` () =
+    let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+    let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+    let grouped = xs |> List.groupBy fst
+    grouped |> equal mapped
 
 [<Fact>]
 let ``List.unfold works`` () =
@@ -981,47 +979,48 @@ let ``List.windowed works`` () = // See #1716
 
 // [<Fact>]
 // let ``Types with same name as imports work`` () =
-//         let li = [List 5]
-//         equal 5 li.Head.Value
+//     let li = [List 5]
+//     equal 5 li.Head.Value
 
 // [<Fact>]
 // let ``List.Item throws exception when index is out of range`` () =
 //     let xs = [0]
 //     (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``List.except works`` () =
-//     List.except [2] [1; 3; 2] |> List.last |> equal 3
-//     List.except [2] [2; 4; 6] |> List.head |> equal 4
-//     List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
-//     List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
-//     List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
-//     List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
-//     List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
-//     List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
+[<Fact>]
+let ``List.except works`` () =
+    List.except [2] [1; 3; 2] |> List.last |> equal 3
+    List.except [2] [2; 4; 6] |> List.head |> equal 4
+    List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
+    List.except [49] [7; 49] |> List.last |> equal 7
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
+    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
+    List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
+    // List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
 
-// [<Fact>]
-// let ``List iterators from range do rewind`` () =
-//     let xs = [1..5] |> List.toSeq
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-//     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+[<Fact>]
+let ``List iterators from range do rewind`` () =
+    let xs = [1..5] |> List.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
 // [<Fact>]
 // let ``List comprehensions returning None work`` () =
 //     let spam : string option list = [for _ in 0..5 -> None]
 //     List.length spam |> equal 6
 
-// [<Fact>]
-// let ``Int list tail doesn't get wrapped with | 0`` () = // See #1447
-//     let revert xs =
-//         let rec rev acc (ls: int list) =
-//             match ls with
-//             | [] -> acc
-//             | h::t -> rev (h::acc) t
-//         rev [] xs
-//     let res = revert [2;3;4]
-//     equal 3 res.Length
-//     equal 4 res.Head
+[<Fact>]
+let ``Int list tail doesn't get wrapped with | 0`` () = // See #1447
+    let revert xs =
+        let rec rev acc (ls: int list) =
+            match ls with
+            | [] -> acc
+            | h::t -> rev (h::acc) t
+        rev [] xs
+    let res = revert [2;3;4]
+    equal 3 res.Length
+    equal 4 res.Head
 
 [<Fact>]
 let ``List.allPairs works`` () =
@@ -1034,20 +1033,17 @@ let ``List.allPairs works`` () =
             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
             (4, 'd'); (4, 'e'); (4, 'f')]
 
-// // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-// // #if FABLE_COMPILER
-// [<Fact>]
-// let ``Implicit yields work`` () =
-//     let makeList condition =
-//         [
-//             1
-//             2
-//             if condition then
-//                 3
-//         ]
-//     makeList true |> List.sum |> equal 6
-//     makeList false |> List.sum |> equal 3
-// // #endif
+[<Fact>]
+let ``Implicit yields work`` () =
+    let makeList condition =
+        [
+            1
+            2
+            if condition then
+                3
+        ]
+    makeList true |> List.sum |> equal 6
+    makeList false |> List.sum |> equal 3
 
 [<Fact>]
 let ``List.splitInto works`` () =

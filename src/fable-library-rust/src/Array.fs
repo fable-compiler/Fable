@@ -3,6 +3,8 @@ module Array
 // For optimization, functions may return ResizeArray instead of Array.
 // That's fine, because they both have the same representation in Rust.
 
+// The inline keyword is used in some places to infer type constraints.
+
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the array."
     let inputArrayWasEmpty = "The input array was empty"
@@ -742,6 +744,48 @@ let transpose (arrays: 'T[][]): 'T[][] =
                 res2.Add (arrays.[j].[i])
             res.Add (res2 |> asArray)
         res |> asArray
+
+let distinct<'T when 'T: equality> (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'T>()
+    xs |> filter (fun x -> hashSet.Add(x))
+
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'Key>()
+    xs |> filter (fun x -> hashSet.Add(projection x))
+
+let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
+    xs |> filter (fun x -> hashSet.Add(x))
+
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): ('Key * int)[] =
+    let dict = System.Collections.Generic.Dictionary<'Key, int>()
+    let keys = ResizeArray<'Key>()
+    for x in xs do
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            keys.Add(key)
+    keys
+    |> asArray
+    |> map (fun key -> key, dict.[key])
+
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): ('Key * 'T[])[] =
+    let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+    let keys = ResizeArray<'Key>()
+    for x in xs do
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            prev.Add(x)
+        | false, _ ->
+            dict.Add(key, ResizeArray [|x|])
+            keys.Add(key)
+    keys
+    |> asArray
+    |> map (fun key -> key, dict.[key] |> asArray)
 
 // let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
 //     let len = xs.Length

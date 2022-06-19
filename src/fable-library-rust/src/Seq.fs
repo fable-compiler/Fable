@@ -5,7 +5,6 @@
 
 module Seq
 
-// open Fable.Core
 // open System.Collections.Generic
 
 open Interfaces
@@ -1013,7 +1012,7 @@ let inline average (xs: 'T seq): 'T =
     if count = 0 then invalidOp SR.inputSequenceEmpty
     LanguagePrimitives.DivideByInt total count
 
-let inline averageBy (projection: 'T -> 'U) (xs: 'T seq) : 'U =
+let inline averageBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
     let mutable count = 0
     let zero = LanguagePrimitives.GenericZero
     let folder acc x = count <- count + 1; acc + (projection x)
@@ -1034,6 +1033,60 @@ let chunkBySize (chunkSize: int) (xs: 'T seq): 'T[] seq =
         xs
         |> toArray
         |> Array.chunkBySize chunkSize
+        |> ofArray
+    )
+
+let distinct<'T when 'T: equality> (xs: 'T seq) =
+    delay (fun () ->
+        let hashSet = System.Collections.Generic.HashSet<'T>()
+        xs |> filter (fun x -> hashSet.Add(x))
+    )
+
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) =
+    delay (fun () ->
+        let hashSet = System.Collections.Generic.HashSet<'Key>()
+        xs |> filter (fun x -> hashSet.Add(projection x))
+    )
+
+let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
+    delay (fun () ->
+        let hashSet = System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
+        xs |> filter (fun x -> hashSet.Add(x))
+    )
+
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq): ('Key * int) seq =
+    delay (fun () ->
+        let dict = System.Collections.Generic.Dictionary<'Key, int>()
+        let keys = ResizeArray<'Key>()
+        for x in xs do
+            let key = projection x
+            match dict.TryGetValue(key) with
+            | true, prev ->
+                dict.[key] <- prev + 1
+            | false, _ ->
+                dict.[key] <- 1
+                keys.Add(key)
+        keys
+        |> asArray
+        |> Array.map (fun key -> key, dict.[key])
+        |> ofArray
+    )
+
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq): ('Key * 'T seq) seq =
+    delay (fun () ->
+        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+        let keys = ResizeArray<'Key>()
+        for x in xs do
+            let key = projection x
+            match dict.TryGetValue(key) with
+            | true, prev ->
+                prev.Add(x)
+            | false, _ ->
+                dict.Add(key, ResizeArray [|x|])
+                keys.Add(key)
+        keys
+        |> asArray
+        |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
         |> ofArray
     )
 
