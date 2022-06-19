@@ -1,4 +1,4 @@
-module Choice
+module Choice_
 
 //[<CompiledName("FSharpChoice`2")>]
 type Choice<'T1,'T2> =

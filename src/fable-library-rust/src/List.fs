@@ -1,4 +1,4 @@
-module List
+module List_
 
 type Node<'T> = {
     head: 'T
@@ -28,9 +28,6 @@ let private setConsTail (t: 'T list) (xs: 'T list) =
     | Some node -> node.tail <- t
     | None -> ()
 
-let private emptyRoot (): 'T list =
-    Some { head = Unchecked.defaultof<_>; tail = None }
-
 let private appendConsNoTail (x: 'T) (xs: 'T list) =
     let t = consNoTail x
     setConsTail t xs
@@ -41,7 +38,6 @@ let private appendConsNoTail (x: 'T) (xs: 'T list) =
 
 let empty (): 'T list = //List.Empty
     None
-    // { head = Unchecked.defaultof<_>; tail = None }
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
     Some { head = x; tail = xs }

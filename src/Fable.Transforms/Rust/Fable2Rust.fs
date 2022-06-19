@@ -161,7 +161,7 @@ module TypeInfo =
         mkGenericPathTy [name] None
 
     let getLibraryImportName (com: IRustCompiler) ctx moduleName typeName =
-        let selector = moduleName + "::" + typeName
+        let selector = moduleName + "_::" + typeName
         let libPath = getLibPath com moduleName
         com.GetImportName(ctx, selector, libPath, None)
 
@@ -1801,25 +1801,25 @@ module Util =
             // TODO: a more general way of doing this in Replacements
             let genArgs =
                 match info.Selector, typ with
-                | "Native::arrayEmpty", Fable.Array(genArg, _) ->
+                | "Native_::arrayEmpty", Fable.Array(genArg, _) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::arrayWithCapacity", Fable.Array(genArg, _) ->
+                | "Native_::arrayWithCapacity", Fable.Array(genArg, _) ->
                     transformGenArgs com ctx [genArg]
-                | ("Native::defaultOf" | "Native::getZero"), genArg ->
+                | ("Native_::defaultOf" | "Native_::getZero"), genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Set::empty", Replacements.Util.Builtin (Replacements.Util.FSharpSet(genArg)) ->
+                | "Set_::empty", Replacements.Util.Builtin (Replacements.Util.FSharpSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Map::empty", Replacements.Util.Builtin (Replacements.Util.FSharpMap(k, v)) ->
+                | "Map_::empty", Replacements.Util.Builtin (Replacements.Util.FSharpMap(k, v)) ->
                     transformGenArgs com ctx [k; v]
-                | "Seq::empty", IEnumerable genArg ->
+                | "Seq_::empty", IEnumerable genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashSetEmpty", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
+                | "Native_::hashSetEmpty", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashSetWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
+                | "Native_::hashSetWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native::hashMapEmpty", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
+                | "Native_::hashMapEmpty", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
-                | "Native::hashMapWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
+                | "Native_::hashMapWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
                 | _ -> None
             let callee = transformImport com ctx r t info genArgs

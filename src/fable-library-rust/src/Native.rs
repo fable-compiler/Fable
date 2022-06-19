@@ -4,10 +4,10 @@
 mod Mutable;
 mod Lazy;
 
-pub mod Native {
+pub mod Native_ {
 
     // re-export at module level
-    pub use crate::Choice::*;
+    pub use crate::Choice_::*;
     pub use std::collections::{HashMap, HashSet};
     pub use std::rc::Rc;
     pub use super::Mutable::*;
@@ -19,7 +19,7 @@ pub mod Native {
 
     // TODO: use these types in generated code
     pub type string = Rc<str>;
-    pub type seq<T> = Rc<dyn crate::Interfaces::IEnumerable_1<T>>;
+    pub type seq<T> = Rc<dyn crate::Interfaces_::IEnumerable_1<T>>;
     pub type RefCell<T> = Rc<MutCell<T>>;
     pub type Array<T> = Rc<MutCell<Vec<T>>>;
     pub type HashSet_1<T> = Rc<MutCell<HashSet<T>>>;
@@ -123,8 +123,8 @@ pub mod Native {
     {
         let iter = mkMut(iter);
         let f = mkRef(move || iter.get_mut().next());
-        let en = crate::Seq::Enumerable::fromFunction(f);
-        crate::Seq::mkSeq(mkRef(move || en.clone()))
+        let en = crate::Seq_::Enumerable::fromFunction(f);
+        crate::Seq_::mkSeq(mkRef(move || en.clone()))
     }
 
     // -----------------------------------------------------------

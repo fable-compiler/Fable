@@ -3,11 +3,11 @@
 // https://github.com/dotnet/fsharp/blob/main/src/fsharp/FSharp.Core/seq.fs
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module Seq
+module Seq_
 
 // open System.Collections.Generic
 
-open Interfaces
+open Interfaces_
 
 type 'T seq = IEnumerable<'T>
 

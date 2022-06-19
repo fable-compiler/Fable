@@ -1,4 +1,4 @@
-module Util
+module Util_
 
 let equals (x: 'T) (y: 'T): bool =
     x = y

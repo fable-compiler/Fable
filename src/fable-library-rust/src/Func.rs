@@ -1,6 +1,6 @@
 // [Y combinator](https://en.wikipedia.org/wiki/Fixed-point_combinator#Fixed-point_combinators_in_lambda_calculus)
 
-pub mod Func {
+pub mod Func_ {
 
     // fixed-point combinator for Fn(&T1) -> R
     trait Apply1<T1, R> {

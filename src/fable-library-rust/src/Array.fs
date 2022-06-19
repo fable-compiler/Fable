@@ -1,4 +1,4 @@
-module Array
+module Array_
 
 // For optimization, functions may return ResizeArray instead of Array.
 // That's fine, because they both have the same representation in Rust.
