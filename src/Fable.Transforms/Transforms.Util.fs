@@ -605,7 +605,7 @@ module AST =
     let makeImportLib (com: Compiler) t memberName moduleName =
         let selector =
             match com.Options.Language with
-            | Rust -> moduleName + "::" + memberName //TODO: fix when imports change
+            | Rust -> moduleName + "_::" + memberName //TODO: fix when imports change
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName

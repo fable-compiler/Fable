@@ -1,4 +1,4 @@
-module Interfaces
+module Interfaces_
 
 type IEnumerator<'T> =
     inherit System.IDisposable

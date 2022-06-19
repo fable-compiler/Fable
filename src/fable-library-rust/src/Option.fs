@@ -1,4 +1,4 @@
-module Option
+module Option_
 
 let bind<'T, 'U> (binder: 'T -> 'U option) (opt: 'T option): 'U option =
     match opt with

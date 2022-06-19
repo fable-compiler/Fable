@@ -286,7 +286,7 @@ let toList com t (expr: Expr) =
     | String ->
         let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
         Helper.LibCall(com, "List", "ofArray", t, [a])
-    | IEnumerable -> Helper.LibCall(com, "Seq", "toList", t, [expr])
+    | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [expr])
     | _ -> TypeCast(expr, t)
 
 let toSeq com t (expr: Expr) =
@@ -1398,15 +1398,17 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
+    // | "ToArray", [arg] ->
+    //     Helper.LibCall(com, "Array", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToList", [arg] ->
+        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CreateEvent", [addHandler; removeHandler; createHandler] ->
         Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq" meth i.GenericArgs args
         Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1481,17 +1483,6 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "ToArray", Some ar, [] ->
         Helper.LibCall(com, "Native", "arrayCopy", t, [ar], ?loc=r) |> Some
     | _ -> None
-
-// let nativeArrayFunctions =
-//     dict [| "Exists", "some"
-//             "Filter", "filter"
-//             "Find", "find"
-//             "FindIndex", "findIndex"
-//             "ForAll", "every"
-//             "Iterate", "forEach"
-//             "Reduce", "reduce"
-//             "ReduceBack", "reduceRight"
-//             "SortInPlaceWith", "sort" |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
@@ -1582,17 +1573,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         copyToArray com r t i args
     | ("Concat" | "Transpose" as meth), [arg] ->
         Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [toArray com t arg], i.SignatureArgTypes, ?loc=r) |> Some
-    // | Patterns.DicContains nativeArrayFunctions meth, _ ->
-    //     let args, thisArg = List.splitLast args
-    //     let argTypes = List.take (List.length args) i.SignatureArgTypes
-    //     Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Array" meth i.GenericArgs args
         Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1626,16 +1611,14 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     | "ToSeq", [arg] ->
         Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "OfSeq", [arg] ->
-        Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Concat" | "Transpose" as meth), [arg] ->
         Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [toList com t arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "List" meth i.GenericArgs args
         Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let discardUnitArgs args =

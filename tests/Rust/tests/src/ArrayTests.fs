@@ -7,7 +7,7 @@ open Util.Testing
 
 // let add (xs: int[]) = ParamArrayTest.Add(xs)
 
-// type ExceptFoo = { Bar: string }
+type ExceptFoo = { Bar: string }
 
 // let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
 
@@ -291,41 +291,41 @@ let ``Array.length works with non-numeric arrays`` () =
 //     Array.blit xs 3 ys 5 4
 //     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
 
-// [<Fact>]
-// let ``Array.distinct works`` () =
-//     let xs = [| 1; 1; 1; 2; 2; 3; 3 |]
-//     let ys = xs |> Array.distinct
-//     ys |> Array.length |> equal 3
-//     ys |> Array.sum |> equal 6
+[<Fact>]
+let ``Array.distinct works`` () =
+    let xs = [| 1; 1; 1; 2; 2; 3; 3 |]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 3
+    ys |> Array.sum |> equal 6
 
-// [<Fact>]
-// let ``Array.distinct with tuples works`` () =
-//     let xs = [|(1, 2); (2, 3); (1, 2)|]
-//     let ys = xs |> Array.distinct
-//     ys |> Array.length |> equal 2
-//     ys |> Array.sumBy fst |> equal 3
+[<Fact>]
+let ``Array.distinct with tuples works`` () =
+    let xs = [|(1, 2); (2, 3); (1, 2)|]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 2
+    ys |> Array.sumBy fst |> equal 3
 
-// [<Fact>]
-// let ``Array.distinctBy works`` () =
-//     let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
-//     let ys = xs |> Array.distinctBy (fun x -> x % 2)
-//     ys |> Array.length |> equal 2
-//     ys |> Array.head >= 4 |> equal true
+[<Fact>]
+let ``Array.distinctBy works`` () =
+    let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
+    let ys = xs |> Array.distinctBy (fun x -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head >= 4 |> equal true
 
-// [<Fact>]
-// let ``Array.distinctBy with tuples works`` () =
-//     let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
-//     let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
-//     ys |> Array.length |> equal 2
-//     ys |> Array.head |> fst >= 4 |> equal true
+[<Fact>]
+let ``Array.distinctBy with tuples works`` () =
+    let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+    let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head |> fst >= 4 |> equal true
 
-// [<Fact>]
-// let ``Array distinctBy works on large array`` () =
-//     let xs = [| 0 .. 50000 |]
-//     let ys =
-//         Array.append xs xs
-//         |> Array.distinctBy(fun x -> x.ToString())
-//     ys |> equal xs
+[<Fact>]
+let ``Array distinctBy works on large array`` () =
+    let xs = [| 0 .. 50000 |]
+    let ys =
+        Array.append xs xs
+        |> Array.distinctBy(fun x -> x.ToString())
+    ys |> equal xs
 
 [<Fact>]
 let ``Array.sub works`` () =
@@ -594,11 +594,11 @@ let ``Array.compareWith works`` () =
     Array.compareWith (-) xs ys |> equal -1
     Array.compareWith (-) xs zs |> equal 1
 
-// [<Fact>]
-// let ``Array.countBy works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     xs |> Array.countBy (fun x -> x % 2)
-//     |> Array.length |> equal 2
+[<Fact>]
+let ``Array.countBy works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = xs |> Array.countBy (fun x -> x % 2)
+    ys |> equal [|(1, 2); (0, 2)|]
 
 [<Fact>]
 let ``Array.map works`` () =
@@ -706,8 +706,6 @@ let ``Array.pairwise works`` () =
     let xs = [|1; 2; 3; 4|]
     let ys = xs |> Array.pairwise
     ys |> equal [|(1, 2); (2, 3); (3, 4)|]
-    // ys |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
-    // |> String.concat "" |> equal "122334"
 
 [<Fact>]
 let ``Array.permute works`` () =
@@ -1043,36 +1041,37 @@ let ``Array.tail works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
-// [<Fact>]
-// let ``Array.groupBy returns valid array`` () =
-//     let xs = [|1; 2|]
-//     let actual = Array.groupBy (fun _ -> true) xs
-//     let actualKey, actualGroup = actual.[0]
-//     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
-//     worked |> equal true
+[<Fact>]
+let ``Array.groupBy returns valid array`` () =
+    let xs = [|1; 2|]
+    let actual = Array.groupBy (fun _ -> true) xs
+    let actualKey, actualGroup = actual.[0]
+    let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
+    worked |> equal true
 
-// [<Fact>]
-// let ``Array.groupBy does not run into undefined exception`` () =
-//     let ys = [| 1;2;3 |] |> Array.groupBy (fun x -> x = 2)
-//     ys |> equal [| (false, [| 1;3 |]); (true, [| 2 |]) |]
+[<Fact>]
+let ``Array.groupBy does not run into undefined exception`` () =
+    let ys = [| 1;2;3 |] |> Array.groupBy (fun x -> x = 2)
+    ys |> equal [| (false, [| 1;3 |]); (true, [| 2 |]) |]
 
-// [<Fact>]
-// let ``Array.groupBy maintains order`` () =
-//     let xs = [| 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 |]
-//     let mapped = xs |> Array.take 4 |> Array.map (fun (x,y) -> x, [|x,y; x,y+1|])
-//     let grouped = xs |> Array.groupBy fst
-//     grouped |> equal mapped
+[<Fact>]
+let ``Array.groupBy maintains order`` () =
+    let xs = [| 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 |]
+    let mapped = xs |> Array.take 4 |> Array.map (fun (x,y) -> x, [|x,y; x,y+1|])
+    let grouped = xs |> Array.groupBy fst
+    grouped |> equal mapped
 
-// [<Fact>]
-// let ``Array.except works`` () =
-//     Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
-//     Array.except [|2|] [|2; 4; 6|] |> Array.head |> equal 4
-//     Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
-//     Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
-//     Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 't'|] |> Array.isEmpty |> equal true
-//     Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
-//     Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
-//     Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
+[<Fact>]
+let ``Array.except works`` () =
+    Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
+    Array.except [|2|] [|2; 4; 6|] |> Array.head |> equal 4
+    Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
+    Array.except [|49|] [|7; 49|] |> Array.last |> equal 7
+    Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
+    Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 't'|] |> Array.isEmpty |> equal true
+    Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
+    Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
+    // Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
 
 // [<Fact>]
 // let ``Array.[i] is undefined in Fable when i is out of range`` () =
@@ -1250,92 +1249,92 @@ let ``Array.transpose works`` () =
     |> equal [| |]
     Array.transpose<int> [| [||]; [||] |]
     |> equal [| |]
+
     // jagged arrays throw on transpose
-    // TODO:
     // throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
     // throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
 
-// [<Fact>]
-// let ``Array.updateAt works`` () =
-//     // integer list
-//     equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
-//     equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
-//     equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
+[<Fact>]
+let ``Array.updateAt works`` () =
+    // integer list
+    equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
 
-//     //string list
-//     equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+    // empty list & out of bounds
+    // throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
+    // throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    // throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``Array.insertAt works`` () =
-//     // integer list
-//     equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
-//     equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
-//     equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
+[<Fact>]
+let ``Array.insertAt works`` () =
+    // integer list
+    equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
 
-//     //string list
-//     equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     equal [|0|] (Array.insertAt 0 0 [||])
-//     throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+    // empty list & out of bounds
+    equal [|0|] (Array.insertAt 0 0 [||])
+    // throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    // throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``Array.insertManyAt works`` () =
-//     // integer list
-//     equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
-//     equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
-//     equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
+[<Fact>]
+let ``Array.insertManyAt works`` () =
+    // integer list
+    equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
+    equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
+    equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
 
-//     //string list
-//     equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
-//     throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+    // empty list & out of bounds
+    equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
+    // throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    // throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
 
-// [<Fact>]
-// let ``Array.removeAt works`` () =
-//     // integer list
-//     equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
-//     equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
-//     equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
+[<Fact>]
+let ``Array.removeAt works`` () =
+    // integer list
+    equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
+    equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
+    equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
 
-//     //string list
-//     equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+    // empty list & out of bounds
+    // throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
+    // throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    // throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``Array.removeManyAt works`` () =
-//     // integer list
-//     equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
-//     equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
-//     equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
+[<Fact>]
+let ``Array.removeManyAt works`` () =
+    // integer list
+    equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
+    equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
+    equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
 
-//     //string list
-//     equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+    // empty list & out of bounds
+    // throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
+    // throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    // throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
