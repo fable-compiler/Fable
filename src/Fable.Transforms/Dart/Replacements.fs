@@ -629,7 +629,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
 let tryEntityRef com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent
     then tryReplacedEntityRef com ent.FullName
-    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
+    else FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
 let entityRef com ent =
     match tryEntityRef com ent with

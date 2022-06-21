@@ -737,7 +737,7 @@ let tryEntityRef (com: Compiler) entFullName =
 let tryConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent
     then tryEntityRef com ent.FullName
-    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
+    else FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
 let constructor com ent =
     match tryConstructor com ent with
@@ -2601,11 +2601,13 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | Some callee ->
+        let isCurrent = i.CompiledName = "get_Current"
         // Enumerators are mangled, use the fully qualified name
-        let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
+        let isGenericCurrent = isCurrent && i.DeclaringEntityFullName <> Types.ienumerator
         let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
         let methName = entityName + "." + i.CompiledName
-        Helper.InstanceCall(callee, methName, t, args, ?loc=r) |> Some
+        if isCurrent then getFieldWith r t callee methName |> Some
+        else Helper.InstanceCall(callee, methName, t, args, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
