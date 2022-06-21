@@ -8,8 +8,8 @@ exception FableError of string
 [<RequireQualifiedAccess>]
 module Tag =
     let [<Literal>] empty = ""
-    let contains (key: string) (tag: string) = tag.Split(' ') |> Array.contains key
-    let add (key: string) (tag: string) = tag.Split(' ') |> Array.append [|key|] |> String.concat " "
+    let contains (key: string) (tag: string) = tag.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.contains key
+    let add (key: string) (tag: string) = tag.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.append [|key|] |> String.concat " "
 
     let (|Contains|_|) (key: string) (tag: string) = if contains key tag then Some () else None
 

@@ -353,7 +353,7 @@ module Reflection =
                     genericEntity ent.FullName generics, stmts
                 else
                     let reflectionMethodExpr =
-                        FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+                        FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
 
                     let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
 
@@ -1899,7 +1899,7 @@ module Util =
                 elif info.IsSetter then
                     let decorators = [ Expression.name $"{memb.Name}.setter" ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
-                elif info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
+                elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
 
                     let iterator =
@@ -3633,7 +3633,7 @@ module Util =
                 { args with Args = self :: args.Args }
 
         [ yield makeMethod memb.Name arguments body decorators returnType
-          if info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
+          if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
               yield makeMethod "__iter__" (Arguments.arguments ([ self ])) (enumerator2iterator com ctx) decorators returnType ]
 
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -3928,7 +3928,10 @@ module Util =
                 |> List.collect (fun memb ->
                     withCurrentScope ctx memb.UsedNames
                     <| fun ctx ->
-                        let info = com.GetMember(memb.MemberRef)
+                        let info =
+                            memb.ImplementedSignatureRef
+                            |> Option.map (com.GetMember)
+                            |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
                         if info.IsGetter || info.IsSetter then
                             transformAttachedProperty com ctx info memb
                         else

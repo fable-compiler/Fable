@@ -753,7 +753,7 @@ module TypeInfo =
                     //     || FSharp2Fable.Util.isReplacementCandidate ent then
                     //     genericEntity ent.FullName generics
                     // else
-                    //     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+                    //     let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 

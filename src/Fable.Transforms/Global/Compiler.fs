@@ -124,6 +124,13 @@ module CompilerExt =
                     | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
+        member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
+            match memberRef with
+            | Fable.MemberRef(entityRef, uniqueName) ->
+                com.TryGetEntity(entityRef)
+                |> Option.bind (fun ent -> Map.tryFind uniqueName ent.MembersFunctionsAndValues)
+            | Fable.GeneratedMemberRef gen -> Some(gen :> _)
+
         member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
             match memberRef with
             | Fable.MemberRef(entityRef, uniqueName) ->

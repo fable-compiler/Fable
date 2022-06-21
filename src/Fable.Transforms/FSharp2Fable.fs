@@ -37,7 +37,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             let baseExpr =
                 match tryGlobalOrImportedEntity com baseEnt with
                 | Some baseExpr -> baseExpr
-                | None -> entityRef com baseEnt
+                | None -> entityIdent com baseEnt
             Fable.Call(baseExpr, info, t, r)
         // Other cases, like Emit will call directly the base expression
         | e -> e
@@ -183,7 +183,7 @@ let private transformCallee com ctx callee (calleeType: FSharpType) =
     let callee =
         match callee with
         | Some callee -> callee
-        | None -> entityRef com (FsEnt calleeType.TypeDefinition)
+        | None -> entityIdent com (FsEnt calleeType.TypeDefinition)
     return callee
   }
 
@@ -206,42 +206,28 @@ let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts (imple
             e.FullName
         | None -> ""
 
-    // Don't use the type from the arguments as the override may come
-    // from another type, like ToString()
+    // Don't use the type from the arguments as the override may come from another type, like ToString()
     tryDefinition sign.DeclaringType
     |> Option.bind (fun (ent, _entFullName) ->
-        ent.TryGetMembersFunctionsAndValues()
-        |> Seq.tryPick (fun m ->
-            if m.CompiledName = sign.Name
-            then Some(ent, m)
+        // Only compare param types for overloads (single curried parameter group)
+        let paramTypes =
+            if sign.AbstractArguments.Count = 1 then
+                sign.AbstractArguments[0] |> Seq.map (fun p -> makeType Map.empty p.Type) |> Seq.toArray |> Some
             else None
-        ))
+        tryFindAbstractMember ent sign.Name paramTypes
+        |> Option.map (fun m -> ent, m))
     |> Option.map (fun (ent, memb) ->
-        let isMangled = isMangledAbstractEntity com ent
-        let isGetter = FsMemberFunctionOrValue.IsGetter(memb)
-        let isSetter = not isGetter && FsMemberFunctionOrValue.IsSetter(memb)
-        let name =
-            if isMangled then
-                let overloadHash =
-                    if isGetter || isSetter then ""
-                    else
-                        memb.CurriedParameterGroups
-                        |> Seq.mapToList (Seq.mapToList (fun p -> makeType Map.empty p.Type))
-                        |> OverloadSuffix.getHashFromCurriedParamTypeGroups (FsEnt ent)
-                getMangledAbstractMemberName ent sign.Name overloadHash
-            else
-                let name =
-                    if isGetter || isSetter then Naming.removeGetSetPrefix sign.Name
-                    else sign.Name
-                // Setters can have same name as getters, assume there will always be a getter
-                if not isSetter && (nonMangledNameConflicts implementingEntityName name || implementingEntityFields.Contains(name)) then
-                    $"Member %s{name} is duplicated, use Mangle attribute to prevent conflicts with interfaces"
-                    // TODO: Temporarily emitting a warning, because this errors in old libraries, like Fable.React.HookBindings
-                    |> addWarning com ctx.InlinePath r
-                name
+        let info = getAbstractMemberInfo com ent memb
+        // Setters can have same name as getters, assume there will always be a getter
+        if not info.isMangled
+            && not info.isSetter
+            && (nonMangledNameConflicts implementingEntityName info.name || implementingEntityFields.Contains(info.name)) then
+                $"Member %s{info.name} is duplicated, use Mangle attribute to prevent conflicts with interfaces"
+                // TODO: Temporarily emitting a warning, because this errors in old libraries, like Fable.React.HookBindings
+                |> addWarning com ctx.InlinePath r
         {|
-            name = name
-            isMangled = isMangled
+            name = info.name
+            isMangled = info.isMangled
             memberRef = Fable.MemberRef(FsEnt.Ref(ent), getMemberUniqueName memb)
         |}
     )
@@ -1180,16 +1166,6 @@ let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrV
     let memberRef = Fable.GeneratedMember.Value()
     transformImport com r typ name [] memberRef selector path
 
-let private getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
-    match memb.DeclaringEntity with
-    | Some ent -> Fable.MemberRef(FsEnt.Ref(ent), getMemberUniqueName memb)
-    | None -> Fable.GeneratedMember.Function(isInstance=memb.IsInstanceMember, hasSpread=hasParamArray memb)
-
-let private getValueMemberRef (memb: FSharpMemberOrFunctionOrValue) =
-    match memb.DeclaringEntity with
-    | Some ent -> Fable.MemberRef(FsEnt.Ref(ent), getMemberUniqueName memb)
-    | None -> Fable.GeneratedMember.Value(isInstance=memb.IsInstanceMember, isMutable=memb.IsMutable)
-
 let private transformMemberValue (com: IFableCompiler) ctx name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let value = transformExpr com ctx value |> run
     match value with
@@ -1240,7 +1216,7 @@ let private applyJsPyDecorators (com: IFableCompiler) (_ctx: Context) name (memb
                 makeTypeConst None typ value)
             |> Seq.toList
         let callInfo = Fable.CallInfo.Create(args=args, isCons=true)
-        FsEnt(ent) |> entityRef com
+        FsEnt(ent) |> entityIdent com
         |> makeCall None Fable.Any callInfo
 
     let applyDecorator (body: Fable.Expr)

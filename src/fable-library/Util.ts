@@ -86,8 +86,8 @@ export function sameConstructor<T>(x: T, y: T) {
 }
 
 export interface IEnumerator<T> extends IDisposable {
-  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
-  ["System.Collections.IEnumerator.get_Current"](): T | undefined;
+  get ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
+  get ["System.Collections.IEnumerator.get_Current"](): T | undefined;
   ["System.Collections.IEnumerator.MoveNext"](): boolean;
   ["System.Collections.IEnumerator.Reset"](): void;
   Dispose(): void;
@@ -100,10 +100,10 @@ export interface IEnumerable<T> extends Iterable<T> {
 export class Enumerator<T> implements IEnumerator<T> {
   private current?: T;
   constructor(private iter: Iterator<T>) { }
-  public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
+  public get ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
     return this.current;
   }
-  public ["System.Collections.IEnumerator.get_Current"]() {
+  public get ["System.Collections.IEnumerator.get_Current"]() {
     return this.current;
   }
   public ["System.Collections.IEnumerator.MoveNext"]() {
@@ -125,12 +125,11 @@ export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
     : new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
-    [Symbol.iterator]() { return this; },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
-      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"]() : undefined;
+      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"] : undefined;
       return { done: !hasNext, value: current } as IteratorResult<T>;
     },
   };

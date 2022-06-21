@@ -240,7 +240,7 @@ module Reflection =
                     [| Expression.stringLiteral(ent.FullName) |]
                     |> libReflectionCall com ctx None "measure"
                 else
-                    let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+                    let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     Expression.callExpression(callee, generics)
 
@@ -1057,22 +1057,22 @@ module Util =
             None
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.ObjectExprMember list) baseCall: Expression =
-        let compileAsClass =
-            Option.isSome baseCall || members |> List.exists (fun m ->
-                let info = com.GetMember(m.MemberRef)
-                // Optimization: Object literals with getters and setters are very slow in V8
-                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
-                info.IsSetter || (info.IsGetter && canHaveSideEffects m.Body))
-
         let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
             ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl)
 
+        let mutable compileAsClass = Option.isSome baseCall
         let members =
             members |> List.collect (fun memb ->
                 let info = com.GetMember(memb.MemberRef)
+
+                // Optimization: Object literals with getters and setters are very slow in V8
+                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
+                if not compileAsClass then
+                    compileAsClass <- info.IsSetter || (info.IsGetter && canHaveSideEffects memb.Body)
+
                 let prop, computed = memberFromName memb.Name
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
@@ -1082,7 +1082,7 @@ module Util =
                     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
                     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
-                elif info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
+                elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
                     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
@@ -1126,35 +1126,35 @@ module Util =
     let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
         let namedParamsInfo, hasSpread, args =
             match info with
-            | CallInfo i ->
-                let mi = com.GetMember(i.MemberRef)
-                let namedParamsInfo =
-                    // ParamObject/NamedParams attribute is not compatible with arg spread
-                    if not mi.HasSpread then
-                        let addUnnammedParamsWarning() =
-                            "NamedParams cannot be used with unnamed parameters"
-                            |> addWarning com [] r
-
-                        let mutable i = -1
-                        (None, List.concat mi.CurriedParameterGroups) ||> List.fold (fun acc p ->
-                            i <- i + 1
-                            match acc with
-                            | Some(namedIndex, names) ->
-                                match p.Name with
-                                | Some name -> Some(namedIndex, name::names)
-                                | None -> addUnnammedParamsWarning(); None
-                            | None when p.IsNamed ->
-                                match p.Name with
-                                | Some name ->
-                                    let namedIndex = i
-                                    Some(namedIndex, [name])
-                                | None -> addUnnammedParamsWarning(); None
-                            | None -> None)
-                        |> Option.map (fun (index, names) ->
-                            {| Index = index; Parameters = List.rev names |})
-                    else None
-                namedParamsInfo, mi.HasSpread, i.Args
             | NoCallInfo args -> None, false, args
+            | CallInfo callInfo ->
+                match com.TryGetMember(callInfo.MemberRef) with
+                | None -> None, false, callInfo.Args
+                // ParamObject/NamedParams attribute is not compatible with arg spread
+                | Some memberInfo when memberInfo.HasSpread -> None, true, callInfo.Args
+                | Some memberInfo when not memberInfo.HasSpread ->
+                    let addUnnammedParamsWarning() =
+                        "NamedParams cannot be used with unnamed parameters"
+                        |> addWarning com [] r
+
+                    let mutable i = -1
+                    (None, List.concat memberInfo.CurriedParameterGroups) ||> List.fold (fun acc p ->
+                        i <- i + 1
+                        match acc with
+                        | Some(namedIndex, names) ->
+                            match p.Name with
+                            | Some name -> Some(namedIndex, name::names)
+                            | None -> addUnnammedParamsWarning(); None
+                        | None when p.IsNamed ->
+                            match p.Name with
+                            | Some name ->
+                                let namedIndex = i
+                                Some(namedIndex, [name])
+                            | None -> addUnnammedParamsWarning(); None
+                        | None -> None)
+                    |> Option.map (fun (index, names) ->
+                        {| Index = index; Parameters = List.rev names |})
+                    |> fun namedParamsInfo -> namedParamsInfo, false, callInfo.Args
 
         let args, objArg =
             match namedParamsInfo with
@@ -1299,12 +1299,11 @@ module Util =
                     |> addErrorAndReturnNull com range |> Some
             | _ -> None
 
-        let memberInfo = com.GetMember(callInfo.MemberRef)
-        match optimized with
-        | Some e -> e
-        | None when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
+        match optimized, com.TryGetMember(callInfo.MemberRef) with
+        | Some e, _ -> e
+        | None, Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
             transformJsxCall com ctx callee callInfo.Args memberInfo
-        | None ->
+        | None, _ ->
             let callee = com.TransformAsExpr(ctx, callee)
             let args = transformCallArgs com ctx range (CallInfo callInfo)
             match callInfo.ThisArg with
@@ -2126,7 +2125,7 @@ module Util =
             getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
         [|
             yield makeMethod memb.Name args body
-            if info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
+            if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
                 yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
         |]
 
@@ -2266,7 +2265,10 @@ module Util =
                     |> List.toArray
                     |> Array.collect (fun memb ->
                         withCurrentScope ctx memb.UsedNames <| fun ctx ->
-                            let info = com.GetMember(memb.MemberRef)
+                            let info =
+                                memb.ImplementedSignatureRef
+                                |> Option.map (com.GetMember)
+                                |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
                             if info.IsGetter || info.IsSetter then
                                 transformAttachedProperty com ctx info memb
                             else
