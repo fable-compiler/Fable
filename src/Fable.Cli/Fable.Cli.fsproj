@@ -5,8 +5,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-010</PackageVersion>
-    <PackageReleaseNotes>* Use wrapping options for Dart</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-011</PackageVersion>
+    <PackageReleaseNotes>* Fix import paths in Python</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
