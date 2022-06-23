@@ -23,14 +23,24 @@ type EntityPath =
 type EntityRef =
     { FullName: string
       Path: EntityPath }
+    member this.DisplayName =
+        let name = this.FullName.Substring(this.FullName.LastIndexOf('.') + 1)
+        match name.IndexOf('`') with
+        | -1 -> name
+        | i -> name.Substring(0, i)
     member this.SourcePath =
         match this.Path with
         | SourcePath p
         | PrecompiledLib(p,_) -> Some p
         | AssemblyPath _ | CoreAssemblyName _ -> None
 
+type MemberRefInfo =
+    { IsInstance: bool
+      Name: string
+      ArgTypes: Type list }
+
 type MemberRef =
-    | MemberRef of entityRef: EntityRef * uniqueName: string
+    | MemberRef of entity: EntityRef * info: MemberRefInfo
     | GeneratedMemberRef of GeneratedMember
 
 type DeclaredType =
@@ -76,6 +86,8 @@ type Parameter =
     abstract Attributes: Attribute seq
     abstract Name: string option
     abstract Type: Type
+    abstract IsIn: bool
+    abstract IsOut: bool
     abstract IsNamed: bool
     abstract IsOptional: bool
     abstract DefaultValue: Expr option
@@ -93,6 +105,7 @@ type MemberFunctionOrValue =
     abstract IsInline: bool
     abstract IsPublic: bool
     abstract IsInstance: bool
+    abstract IsExtension: bool
     abstract IsValue: bool
     abstract IsMutable: bool
     abstract IsGetter: bool
@@ -115,7 +128,7 @@ type Entity =
     abstract AllInterfaces: DeclaredType seq
     abstract DeclaredInterfaces: DeclaredType seq
     abstract GenericParameters: GenericParam list
-    abstract MembersFunctionsAndValues: Map<string, MemberFunctionOrValue>
+    abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
     abstract IsAbstractClass: bool
@@ -184,6 +197,9 @@ type Type =
 
 type GeneratedMemberInfo =
     {
+        Name: string
+        ParamTypes: Type list
+        ReturnType: Type
         IsInstance: bool
         HasSpread: bool
         IsMutable: bool
@@ -195,29 +211,41 @@ type GeneratedMember =
     | GeneratedGetter of info: GeneratedMemberInfo
     | GeneratedSetter of info: GeneratedMemberInfo
 
-    static member Function(?isInstance, ?hasSpread) =
+    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread) =
         {
+            Name = name
+            ParamTypes = paramTypes
+            ReturnType = returnType
             IsInstance = defaultArg isInstance true
             HasSpread = defaultArg hasSpread false
             IsMutable = false
         } |> GeneratedFunction |> GeneratedMemberRef
 
-    static member Value(?isInstance, ?isMutable) =
+    static member Value(name, typ, ?isInstance, ?isMutable) =
         {
+            Name = name
+            ParamTypes = []
+            ReturnType = typ
             IsInstance = defaultArg isInstance true
             IsMutable = defaultArg isMutable false
             HasSpread = false
         } |> GeneratedValue |> GeneratedMemberRef
 
-    static member Getter(?isInstance) =
+    static member Getter(name, typ, ?isInstance) =
         {
+            Name = name
+            ParamTypes = []
+            ReturnType = typ
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
         } |> GeneratedGetter |> GeneratedMemberRef
 
-    static member Setter(?isInstance) =
+    static member Setter(name, typ, ?isInstance) =
         {
+            Name = name
+            ParamTypes = [typ]
+            ReturnType = Unit
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
@@ -230,22 +258,25 @@ type GeneratedMember =
         | GeneratedGetter info -> info
         | GeneratedSetter info -> info
 
+    static member Param(typ, ?name) =
+        { new Parameter with
+            member _.Attributes = []
+            member _.Name = name
+            member _.Type = typ
+            member _.IsIn = false
+            member _.IsOut = false
+            member _.IsNamed = false
+            member _.IsOptional = false
+            member _.DefaultValue = None }
+
     interface MemberFunctionOrValue with
-        member _.DisplayName = "unknown"
-        member _.CompiledName = "unknown"
-        member _.FullName = "unknown"
-        member _.CurriedParameterGroups = []
-        // Returning a dummy argument for now, maybe when generating members
-        // we should pass at least the name, args and returning type
-        member _.ReturnParameter =
-            { new Parameter with
-                member _.Attributes = []
-                member _.Name = None
-                member _.Type = Any
-                member _.IsNamed = false
-                member _.IsOptional = false
-                member _.DefaultValue = None }
+        member this.DisplayName = this.Info.Name
+        member this.CompiledName = this.Info.Name
+        member this.FullName = this.Info.Name
+        // TODO: Try getting generic paramas from ParamTypes?
         member _.GenericParameters = []
+        member this.CurriedParameterGroups = [this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))]
+        member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
         member this.IsInstance = this.Info.IsInstance
         member this.HasSpread = this.Info.HasSpread
         member this.IsMutable = this.Info.IsMutable
@@ -254,6 +285,7 @@ type GeneratedMember =
         member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
         member _.IsPublic = true
         member _.IsInline = false
+        member _.IsExtension = false
         member _.IsOverrideOrExplicitInterfaceImplementation = false
         member _.IsDispatchSlot = false
         member _.Attributes = []
@@ -395,7 +427,7 @@ type CallInfo =
       /// This is used for the uncurrying mechanism
       SignatureArgTypes: Type list
       GenericArgs: Type list
-      MemberRef: MemberRef
+      MemberRef: MemberRef option
       Tag: string }
     static member Create(
             ?thisArg: Expr,
@@ -403,7 +435,6 @@ type CallInfo =
             ?genArgs: Type list,
             ?sigArgTypes: Type list,
             ?memberRef: MemberRef,
-            ?hasSpread: bool,
             ?isCons: bool,
             ?tag: string) =
         let tag = defaultArg tag Tag.empty
@@ -411,8 +442,7 @@ type CallInfo =
           Args = defaultArg args []
           GenericArgs = defaultArg genArgs []
           SignatureArgTypes = defaultArg sigArgTypes []
-          MemberRef = memberRef |> Option.defaultWith (fun () ->
-            GeneratedMember.Function(?hasSpread=hasSpread))
+          MemberRef = memberRef
           Tag = match isCons with Some true -> Tag.add "new" tag | Some false | None -> tag }
 
 type ReplaceCallInfo =

@@ -626,13 +626,13 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 
-let tryEntityRef com ent =
-    if FSharp2Fable.Util.isReplacementCandidate ent
+let tryEntityIdent com (ent: Fable.Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent.Ref
     then tryReplacedEntityRef com ent.FullName
     else FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
-let entityRef com ent =
-    match tryEntityRef com ent with
+let entityIdent com ent =
+    match tryEntityIdent com ent with
     | Some r -> r
     | None ->
         $"Cannot find {ent.FullName} reference"
@@ -1836,7 +1836,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.ConstructorCall(entityRef com ent, t, [], ?loc=r) |> Some
+            Helper.ConstructorCall(entityIdent com ent, t, [], ?loc=r) |> Some
         | t -> $"Cannot create instance of type unresolved at compile time: %A{t}"
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2930,7 +2930,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | _ -> None
     | _ -> None
 
-let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
+let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)

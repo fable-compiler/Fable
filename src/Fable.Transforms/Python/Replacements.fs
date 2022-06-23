@@ -789,7 +789,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
 
-let tryEntityRef (com: Compiler) entFullName =
+let tryEntityIdent (com: Compiler) entFullName =
     match entFullName with
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
@@ -822,8 +822,8 @@ let tryEntityRef (com: Compiler) entFullName =
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent then
-        tryEntityRef com ent.FullName
+    if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
+        tryEntityIdent com ent.FullName
     else
         FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
@@ -4118,7 +4118,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | _ -> None
     | _ -> None
 
-let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
+let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
