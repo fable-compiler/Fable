@@ -110,6 +110,7 @@ type MemberFunctionOrValue =
     abstract IsMutable: bool
     abstract IsGetter: bool
     abstract IsSetter: bool
+    abstract IsProperty: bool
     abstract IsOverrideOrExplicitInterfaceImplementation: bool
     abstract IsDispatchSlot: bool
     abstract GenericParameters: GenericParam list
@@ -203,6 +204,7 @@ type GeneratedMemberInfo =
         IsInstance: bool
         HasSpread: bool
         IsMutable: bool
+        DeclaringEntity: EntityRef option
     }
 
 type GeneratedMember =
@@ -211,7 +213,7 @@ type GeneratedMember =
     | GeneratedGetter of info: GeneratedMemberInfo
     | GeneratedSetter of info: GeneratedMemberInfo
 
-    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread) =
+    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread, ?entRef) =
         {
             Name = name
             ParamTypes = paramTypes
@@ -219,9 +221,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             HasSpread = defaultArg hasSpread false
             IsMutable = false
+            DeclaringEntity = entRef
         } |> GeneratedFunction |> GeneratedMemberRef
 
-    static member Value(name, typ, ?isInstance, ?isMutable) =
+    static member Value(name, typ, ?isInstance, ?isMutable, ?entRef) =
         {
             Name = name
             ParamTypes = []
@@ -229,9 +232,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = defaultArg isMutable false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedValue |> GeneratedMemberRef
 
-    static member Getter(name, typ, ?isInstance) =
+    static member Getter(name, typ, ?isInstance, ?entRef) =
         {
             Name = name
             ParamTypes = []
@@ -239,9 +243,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedGetter |> GeneratedMemberRef
 
-    static member Setter(name, typ, ?isInstance) =
+    static member Setter(name, typ, ?isInstance, ?entRef) =
         {
             Name = name
             ParamTypes = [typ]
@@ -249,6 +254,7 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedSetter |> GeneratedMemberRef
 
     member this.Info =
@@ -283,13 +289,14 @@ type GeneratedMember =
         member this.IsValue = match this with GeneratedValue _ -> true | _ -> false
         member this.IsGetter = match this with GeneratedGetter _ -> true | _ -> false
         member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
+        member _.IsProperty = false
         member _.IsPublic = true
         member _.IsInline = false
         member _.IsExtension = false
         member _.IsOverrideOrExplicitInterfaceImplementation = false
         member _.IsDispatchSlot = false
         member _.Attributes = []
-        member _.DeclaringEntity = None
+        member this.DeclaringEntity = this.Info.DeclaringEntity
         member _.ApparentEnclosingEntity = None
         member _.ImplementedAbstractSignatures = []
 

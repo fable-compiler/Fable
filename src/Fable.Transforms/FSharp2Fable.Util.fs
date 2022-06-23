@@ -188,6 +188,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsMutable = m.IsMutable
         member _.IsGetter = FsMemberFunctionOrValue.IsGetter(m)
         member _.IsSetter = FsMemberFunctionOrValue.IsSetter(m)
+        member _.IsProperty = m.IsProperty
         member _.IsOverrideOrExplicitInterfaceImplementation = m.IsOverrideOrExplicitInterfaceImplementation
 
         member _.DisplayName = FsMemberFunctionOrValue.DisplayName m
@@ -273,12 +274,6 @@ type FsEnt(ent: FSharpEntity) =
 
         member _.MembersFunctionsAndValues =
             ent.TryGetMembersFunctionsAndValues()
-            |> Seq.collect (fun m -> [
-                if m.IsProperty then
-                    if m.HasGetterMethod then m.GetterMethod
-                    if m.HasSetterMethod then m.SetterMethod
-                else m
-            ])
             |> Seq.map (fun m -> FsMemberFunctionOrValue(m))
 
         member _.AllInterfaces =
