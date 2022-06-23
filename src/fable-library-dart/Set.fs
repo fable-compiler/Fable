@@ -594,7 +594,6 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
-[<NoOverloadSuffix>]
 // [<CompiledName("FSharpSet`1")>]
 // [<DebuggerTypeProxy(typedefof<SetDebugView<_>>)>]
 // [<DebuggerDisplay("Count = {Count}")>]

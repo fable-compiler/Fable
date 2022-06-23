@@ -66,6 +66,7 @@ type Compiler =
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
+    abstract TryGetMember: Fable.MemberRef -> Fable.MemberFunctionOrValue option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
@@ -124,21 +125,10 @@ module CompilerExt =
                     | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
-        member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
-            match memberRef with
-            | Fable.MemberRef(entityRef, uniqueName) ->
-                com.TryGetEntity(entityRef)
-                |> Option.bind (fun ent -> Map.tryFind uniqueName ent.MembersFunctionsAndValues)
-            | Fable.GeneratedMemberRef gen -> Some(gen :> _)
-
         member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
-            match memberRef with
-            | Fable.MemberRef(entityRef, uniqueName) ->
-                let ent = com.GetEntity(entityRef)
-                match Map.tryFind uniqueName ent.MembersFunctionsAndValues with
-                | Some m -> m
-                | None -> failwith $"Cannot find member {uniqueName} in entity %s{entityRef.FullName}"
-            | Fable.GeneratedMemberRef gen -> upcast gen
+            match com.TryGetMember(memberRef) with
+            | Some e -> e
+            | None -> failwith $"Cannot find member ref: %A{memberRef}"
 
         member com.ToPluginHelper() =
             { new PluginHelper with
@@ -177,8 +167,11 @@ module CompilerExt =
                         transform pluginInstance helper input)
 
         member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
-            com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
-                (com.Plugins.MemberDeclarationPlugins, com.GetMember(decl.MemberRef).Attributes, decl, fun p h i -> p.Transform(h, file, i))
+            match com.TryGetMember(decl.MemberRef) with
+            | None -> decl
+            | Some memb ->
+                com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
+                    (com.Plugins.MemberDeclarationPlugins, memb.Attributes, decl, fun p h i -> p.Transform(h, file, i))
 
         member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>

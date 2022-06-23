@@ -556,13 +556,15 @@ module private Transforms =
         | ObjectExpr(members, t, baseCall) ->
             let members =
                 members |> List.map (fun m ->
-                    let mRef = com.GetMember(m.MemberRef)
-                    let isGetterOrValueWithoutGenerics =
-                        mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
-                    if isGetterOrValueWithoutGenerics then
-                        let value = uncurryArgs com false [mRef.ReturnParameter.Type] [m.Body]
-                        { m with Body = List.head value }
-                    else m)
+                    match com.TryGetMember(m.MemberRef) with
+                    | Some mRef ->
+                        let isGetterOrValueWithoutGenerics =
+                            mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
+                        if isGetterOrValueWithoutGenerics then
+                            let value = uncurryArgs com false [mRef.ReturnParameter.Type] [m.Body]
+                            { m with Body = List.head value }
+                        else m
+                    | None -> m)
             ObjectExpr(members, t, baseCall)
         | e -> e
 

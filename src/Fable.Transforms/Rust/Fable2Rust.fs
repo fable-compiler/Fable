@@ -1757,21 +1757,28 @@ module Util =
         | _ -> expr |> mkParenExpr // if not an identifier, wrap it in parentheses
 
     let isDeclEntityKindOf (com: IRustCompiler) isKindOf (callInfo: Fable.CallInfo) =
-        let mi = com.GetMember(callInfo.MemberRef)
-        match mi.DeclaringEntity with
-        | Some entRef ->
-            let ent = com.GetEntity(entRef)
-            ent |> isKindOf
-        | None -> false
+        callInfo.MemberRef
+        |> Option.bind com.TryGetMember
+        |> Option.bind (fun mi -> mi.DeclaringEntity)
+        |> Option.bind com.TryGetEntity
+        |> Option.map isKindOf
+        |> Option.defaultValue false
 
     let isModuleMember (com: IRustCompiler) (callInfo: Fable.CallInfo) =
         isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let memberInfo = com.GetMember(callInfo.MemberRef)
+        let issParamByRefPreferred =
+            callInfo.MemberRef
+            |> Option.bind com.TryGetMember
+            |> Option.map (fun memberInfo ->
+                memberInfo.Attributes
+                |> Seq.exists (fun a -> a.Entity.FullName.Contains("ByRefAttr")))
+            |> Option.defaultValue false
+
         let ctx =
-            let issParamByRefPreferred = memberInfo.Attributes |> Seq.exists (fun a -> a.Entity.FullName.Contains("ByRefAttr"))
-            { ctx with IsCallingFunction = true; Typegen = { ctx.Typegen with IsParamByRefPreferred = issParamByRefPreferred } }
+            { ctx with IsCallingFunction = true
+                       Typegen = { ctx.Typegen with IsParamByRefPreferred = issParamByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
@@ -3125,7 +3132,7 @@ module Util =
         ent.AllInterfaces
         |> Seq.collect (fun i ->
             let e = com.GetEntity(i.Entity)
-            Map.values e.MembersFunctionsAndValues)
+            e.MembersFunctionsAndValues)
         |> Seq.map (fun m -> m.DisplayName)
         |> Set.ofSeq
 
@@ -3216,8 +3223,8 @@ module Util =
                     ent.Ref,
                     fields |> List.map (fun ident -> ident.Type)
                 ), None)
-        let info = Fable.GeneratedMember.Function() |> com.GetMember
         let name = declName //TODO: is this correct?
+        let info = Fable.GeneratedMember.Function(name, fields |> List.map (fun f -> f.Type), body.Type) |> com.GetMember
         transformAssocMemberFunction com ctx info name fields body
 
     let interfacesToIgnore =
@@ -3240,7 +3247,6 @@ module Util =
             |> Seq.collect (fun iface ->
                 let ifaceEnt = com.GetEntity(iface.Entity)
                 ifaceEnt.MembersFunctionsAndValues
-                |> Map.values
                 |> Seq.map (fun memb ->
                     let thisArg = { makeIdent "this" with IsThisArgument = true }
                     let memberArgs =
@@ -3696,6 +3702,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

@@ -349,11 +349,11 @@ module Reflection =
                 if ent.IsInterface
                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                   || FSharp2Fable.Util.isReplacementCandidate ent then
+                   || FSharp2Fable.Util.isReplacementCandidate entRef then
                     genericEntity ent.FullName generics, stmts
                 else
                     let reflectionMethodExpr =
-                        FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
+                        FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
 
                     let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
 
@@ -1935,65 +1935,42 @@ module Util =
         Expression.call (Expression.name name), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo) : Expression list * Keyword list * Statement list =
-        let namedParamsInfo, hasSpread, args =
+        let paramsInfo, args =
             match info with
-            | CallInfo i ->
-                let mi = com.GetMember(i.MemberRef)
-                let namedParamsInfo =
-                    // ParamObject/NamedParams attribute is not compatible with arg spread
-                    if not mi.HasSpread then
-                        let addUnnammedParamsWarning() =
-                            "NamedParams cannot be used with unnamed parameters"
-                            |> addWarning com [] r
+            | NoCallInfo args -> None, args
+            | CallInfo callInfo ->
+                let paramsInfo = tryGetParamsInfo com callInfo
+                paramsInfo, callInfo.Args
 
-                        let mutable i = -1
-                        (None, List.concat mi.CurriedParameterGroups) ||> List.fold (fun acc p ->
-                            i <- i + 1
-                            match acc with
-                            | Some(namedIndex, names) ->
-                                match p.Name with
-                                | Some name -> Some(namedIndex, name::names)
-                                | None -> addUnnammedParamsWarning(); None
-                            | None when p.IsNamed ->
-                                match p.Name with
-                                | Some name ->
-                                    let namedIndex = i
-                                    Some(namedIndex, [name])
-                                | None -> addUnnammedParamsWarning(); None
-                            | None -> None)
-                        |> Option.map (fun (index, names) ->
-                            {| Index = index; Parameters = List.rev names |})
-                    else None
-                namedParamsInfo, mi.HasSpread, i.Args
-            | NoCallInfo args -> None, false, args
 
         let args, objArg, stmts =
-            match namedParamsInfo with
+            paramsInfo
+            |> Option.map (splitNamedArgs args)
+            |> function
             | None -> args, None, []
-            | Some i when i.Index > List.length args -> args, None, []
-            | Some i ->
-                let args, objValues = List.splitAt i.Index args
-                let objValuesLen = List.length objValues
-                if List.length i.Parameters < objValuesLen then
-                    "NamedParams detected but more arguments present than param names"
-                    |> addWarning com [] r
-                    args, None, []
-                else
-                    let objKeys = List.take objValuesLen i.Parameters
-                    let objArg, stmts =
-                        List.zip objKeys objValues
-                        |> List.choose (function
-                            | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
-                            | k, v -> Some(k, v))
-                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                                            |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
-                        |> List.unzip
-                        |> (fun (kv, stmts) ->
-                            kv
-                            |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)),
-                            stmts |> List.collect id)
+            | Some(args, []) -> args, None, []
+            | Some(args, namedArgs) ->
+                let objArg, stmts =
+                    namedArgs
+                    |> List.choose (fun (p, v) ->
+                        match p.Name, v with
+                        | Some k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
+                        | Some k, v -> Some(k, v)
+                        | None, _ -> None)
+                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                                        |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                    |> List.unzip
+                    |> (fun (kv, stmts) ->
+                        kv
+                        |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)),
+                        stmts |> List.collect id)
 
-                    args, Some objArg, stmts
+                args, Some objArg, stmts
+
+        let hasSpread =
+            paramsInfo
+            |> Option.map (fun i -> i.HasSpread)
+            |> Option.defaultValue false
 
         let args, stmts' =
             match args with
@@ -3809,7 +3786,6 @@ module Util =
 
         let members =
             classEnt.MembersFunctionsAndValues
-            |> Map.values
             |> List.ofSeq
             |> List.groupBy (fun memb -> memb.DisplayName)
             // Remove duplicate method when we have getters and setters
@@ -4120,6 +4096,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
 

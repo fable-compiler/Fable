@@ -523,7 +523,6 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
-[<NoOverloadSuffix>]
 type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
 
     // [<System.NonSerialized>]

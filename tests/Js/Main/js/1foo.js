@@ -85,7 +85,7 @@ export function handleClass(constructor) {
 }
 
 export class MyJsClassWithOptionArgs {
-    constructor(opts) {
+    constructor(opts = {}) {
         this.value = String(opts.foo) + String(opts.bar) + String(opts.baz);
     }
     method(foo, bar, opts) {

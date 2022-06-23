@@ -232,7 +232,7 @@ module Reflection =
                     genericGlobalOrImportedEntity generics ent
                 elif ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                    || FSharp2Fable.Util.isReplacementCandidate ent then
+                    || FSharp2Fable.Util.isReplacementCandidate entRef then
                     genericEntity ent.FullName generics
                 // TODO: Strictly measure types shouldn't appear in the runtime, but we support it for now
                 // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
@@ -240,7 +240,7 @@ module Reflection =
                     [| Expression.stringLiteral(ent.FullName) |]
                     |> libReflectionCall com ctx None "measure"
                 else
-                    let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
+                    let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     Expression.callExpression(callee, generics)
 
@@ -1124,59 +1124,36 @@ module Util =
             Expression.newExpression(classExpr, [||])
 
     let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
-        let namedParamsInfo, hasSpread, args =
+        let paramsInfo, args =
             match info with
-            | NoCallInfo args -> None, false, args
+            | NoCallInfo args -> None, args
             | CallInfo callInfo ->
-                match com.TryGetMember(callInfo.MemberRef) with
-                | None -> None, false, callInfo.Args
-                // ParamObject/NamedParams attribute is not compatible with arg spread
-                | Some memberInfo when memberInfo.HasSpread -> None, true, callInfo.Args
-                | Some memberInfo when not memberInfo.HasSpread ->
-                    let addUnnammedParamsWarning() =
-                        "NamedParams cannot be used with unnamed parameters"
-                        |> addWarning com [] r
-
-                    let mutable i = -1
-                    (None, List.concat memberInfo.CurriedParameterGroups) ||> List.fold (fun acc p ->
-                        i <- i + 1
-                        match acc with
-                        | Some(namedIndex, names) ->
-                            match p.Name with
-                            | Some name -> Some(namedIndex, name::names)
-                            | None -> addUnnammedParamsWarning(); None
-                        | None when p.IsNamed ->
-                            match p.Name with
-                            | Some name ->
-                                let namedIndex = i
-                                Some(namedIndex, [name])
-                            | None -> addUnnammedParamsWarning(); None
-                        | None -> None)
-                    |> Option.map (fun (index, names) ->
-                        {| Index = index; Parameters = List.rev names |})
-                    |> fun namedParamsInfo -> namedParamsInfo, false, callInfo.Args
+                let paramsInfo = tryGetParamsInfo com callInfo
+                paramsInfo, callInfo.Args
 
         let args, objArg =
-            match namedParamsInfo with
+            paramsInfo
+            |> Option.map (splitNamedArgs args)
+            |> function
             | None -> args, None
-            | Some i when i.Index > List.length args -> args, None
-            | Some i ->
-                let args, objValues = List.splitAt i.Index args
-                let objValuesLen = List.length objValues
-                if List.length i.Parameters < objValuesLen then
-                    "NamedParams detected but more arguments present than param names"
-                    |> addWarning com [] r
-                    args, None
-                else
-                    let objKeys = List.take objValuesLen i.Parameters
-                    let objArg =
-                        List.zip objKeys objValues
-                        |> List.choose (function
-                            | k, Fable.Value(Fable.NewOption(value,_, _),_) -> value |> Option.map (fun v -> k, v)
-                            | k, v -> Some(k, v))
-                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                        |> makeJsObject
-                    args, Some objArg
+            | Some(args, []) -> args, None
+            | Some(args, namedArgs) ->
+                let objArg =
+                    namedArgs
+                    |> List.choose (fun (p, v) ->
+                        match p.Name, v with
+                        | Some k, Fable.Value(Fable.NewOption(value,_, _),_) ->
+                            value |> Option.map (fun v -> k, v)
+                        | Some k, v -> Some(k, v)
+                        | None, _ -> None)
+                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                    |> makeJsObject
+                args, Some objArg
+
+        let hasSpread =
+            paramsInfo
+            |> Option.map (fun i -> i.HasSpread)
+            |> Option.defaultValue false
 
         let args =
             match args with
@@ -1299,17 +1276,21 @@ module Util =
                     |> addErrorAndReturnNull com range |> Some
             | _ -> None
 
-        match optimized, com.TryGetMember(callInfo.MemberRef) with
-        | Some e, _ -> e
-        | None, Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
-            transformJsxCall com ctx callee callInfo.Args memberInfo
-        | None, _ ->
-            let callee = com.TransformAsExpr(ctx, callee)
-            let args = transformCallArgs com ctx range (CallInfo callInfo)
-            match callInfo.ThisArg with
-            | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-            | None when Fable.Tag.contains "new" callInfo.Tag -> Expression.newExpression(callee, List.toArray args, ?loc=range)
-            | None -> callFunction range callee args
+        match optimized with
+        | Some e -> e
+        | None ->
+            callInfo.MemberRef
+            |> Option.bind com.TryGetMember
+            |> function
+            | Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
+                transformJsxCall com ctx callee callInfo.Args memberInfo
+            | _ ->
+                let callee = com.TransformAsExpr(ctx, callee)
+                let args = transformCallArgs com ctx range (CallInfo callInfo)
+                match callInfo.ThisArg with
+                | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+                | None when Fable.Tag.contains "new" callInfo.Tag -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+                | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx range (NoCallInfo args) with
@@ -2265,14 +2246,14 @@ module Util =
                     |> List.toArray
                     |> Array.collect (fun memb ->
                         withCurrentScope ctx memb.UsedNames <| fun ctx ->
-                            let info =
-                                memb.ImplementedSignatureRef
-                                |> Option.map (com.GetMember)
-                                |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
-                            if info.IsGetter || info.IsSetter then
-                                transformAttachedProperty com ctx info memb
-                            else
-                                transformAttachedMethod com ctx info memb)
+                            memb.ImplementedSignatureRef
+                            |> Option.bind (com.TryGetMember)
+                            |> Option.orElseWith (fun () -> com.TryGetMember(memb.MemberRef))
+                            |> function
+                                | None -> [||]
+                                | Some info ->
+                                    if info.IsGetter || info.IsSetter then transformAttachedProperty com ctx info memb
+                                    else transformAttachedMethod com ctx info memb)
 
                 match decl.Constructor with
                 | Some cons ->
@@ -2386,6 +2367,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
