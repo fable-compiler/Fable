@@ -1240,8 +1240,7 @@ module Util =
         | Fable.Extended (kind, _) ->
             match kind with
             | Fable.Throw _
-            | Fable.Debugger
-            | Fable.RegionStart _ -> true
+            | Fable.Debugger -> true
             | Fable.Curry _ -> false
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
@@ -3057,8 +3056,7 @@ module Util =
             match instruction with
             | Fable.Curry (e, arity) -> transformCurry com ctx e arity
             | Fable.Throw _
-            | Fable.Debugger
-            | Fable.RegionStart _ -> iife com ctx expr
+            | Fable.Debugger -> iife com ctx expr
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
         match expr with
@@ -3078,7 +3076,6 @@ module Util =
                 | None -> failwith "TODO: rethrow"
                 | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise (e) ]
             | Fable.Debugger -> []
-            | Fable.RegionStart header -> [ Statement.RegionStart header ]
 
         | Fable.TypeCast (e, t) ->
             let expr, stmts = transformCast com ctx t e
@@ -3985,9 +3982,10 @@ module Util =
             imports
             |> List.map (fun im ->
                 //printfn "Import: %A" im
-                if im.Module.Contains("fable_modules") then
-                    ()
-                let moduleName = im.Module |> Helpers.rewriteFableImport com
+                // if im.Module.Contains("fable_modules") then
+                //     ()
+                // let moduleName = im.Module |> Helpers.rewriteFableImport com
+                let moduleName = im.Module
                 match im.Name with
                 | Some "*"
                 | Some "default" ->

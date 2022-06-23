@@ -623,7 +623,7 @@ module Util =
 
         | Fable.Extended(kind, _) ->
             match kind with
-            | Fable.Throw _ | Fable.Debugger | Fable.RegionStart _ -> true
+            | Fable.Throw _ | Fable.Debugger -> true
             | Fable.Curry _ -> false
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
@@ -1781,7 +1781,7 @@ module Util =
         | Fable.Extended(instruction, _) ->
             match instruction with
             | Fable.Curry(e, arity) -> transformCurry com ctx e arity
-            | Fable.Throw _ | Fable.Debugger | Fable.RegionStart _ -> iife com ctx expr
+            | Fable.Throw _ | Fable.Debugger -> iife com ctx expr
 
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
@@ -1792,7 +1792,6 @@ module Util =
 
         | Fable.Extended(kind, r) ->
             match kind with
-            | Fable.RegionStart _ -> [||]
             | Fable.Curry(e, arity) -> [|transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy|]
             | Fable.Throw(Some(TransformExpr com ctx e), _) -> [|Statement.throwStatement(e, ?loc=r)|]
             | Fable.Throw(None, _) -> [|Statement.throwStatement(Expression.nullLiteral(), ?loc=r)|]

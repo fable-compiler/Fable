@@ -2578,8 +2578,7 @@ module Util =
                 match expr with
                 | None -> failwith "TODO: rethrow"
                 | Some(TransformExpr com ctx msg) -> mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
-            | Fable.Debugger
-            | Fable.RegionStart _ ->
+            | Fable.Debugger ->
                 // TODO:
                 $"Unimplemented Extended expression: %A{kind}"
                 |> addError com [] r

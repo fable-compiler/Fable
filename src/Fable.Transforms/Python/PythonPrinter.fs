@@ -33,7 +33,6 @@ module PrinterExtensions =
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
-            | RegionStart _ -> ()
 
         member printer.Print(node: Try) =
             printer.Print("try: ", ?loc = node.Loc)
@@ -757,68 +756,10 @@ let printLine (printer: Printer) (line: string) =
     printer.Print(line)
     printer.PrintNewLine()
 
-let runWithRegions writer delimiter nativeRegions (program: Module) : Async<unit> =
-    let printNativeRegion (printer: PrinterImpl) (nativeRegion: string list) =
-        for line in nativeRegion do
-            printLine printer line
-
-        printer.Flush()
-
-    let printFSharpRegion (printer: PrinterImpl) (fsharpRegion: Statement list) =
-        let fsharpRegion =
-            match fsharpRegion with
-            | RegionStart label :: fsharpRegion ->
-                printLine printer $"{delimiter} START: {label}"
-                fsharpRegion
-            | fsharpRegion ->
-                printLine printer $"{delimiter} START"
-                fsharpRegion
-        // TODO: print imports without extra lines
-        // TODO: remove the extra line in the last statement
-        for decl in fsharpRegion do
-            printDeclWithExtraLine false printer decl
-
-        printLine printer $"{delimiter} END"
-        printer.Flush()
-
-    let rec printRegions (printer: PrinterImpl) (nativeRegions: string list list) (fsharpRegions: Statement list list) =
-        async {
-            match nativeRegions, fsharpRegions with
-            | [], [] -> do! printer.Flush()
-
-            | [], fsharpRegions ->
-                for region in fsharpRegions do
-                    do! printFSharpRegion printer region
-
-            | nativeRegions, [] ->
-                for region in nativeRegions do
-                    do! printNativeRegion printer region
-
-            | nativeRegion :: restNativeRegions, fsharpRegion :: restFsharpRegions ->
-                do! printNativeRegion printer nativeRegion
-                do! printFSharpRegion printer fsharpRegion
-                return! printRegions printer restNativeRegions restFsharpRegions
-        }
-
-    let rec getFSharpRegions regions currentRegion revertedDecls =
-        match revertedDecls with
-        | [] -> currentRegion :: regions
-
-        | (RegionStart _ as decl) :: decls ->
-            let regions = (decl :: currentRegion) :: regions
-            getFSharpRegions regions [] decls
-
-        | decl :: decls -> getFSharpRegions regions (decl :: currentRegion) decls
-
-    async {
-        use printer = new PrinterImpl(writer)
-        let fsharpRegions = List.rev program.Body |> getFSharpRegions [] []
-        do! printRegions printer nativeRegions fsharpRegions
-    }
-
 let run writer (program: Module) : Async<unit> =
     async {
-        use printer = new PrinterImpl(writer)
+        use printerImpl = new PrinterImpl(writer)
+        let printer = printerImpl :> Printer
 
         let imports, restDecls =
             program.Body
@@ -828,13 +769,18 @@ let run writer (program: Module) : Async<unit> =
                 | _ -> false)
 
         for decl in imports do
-            printDeclWithExtraLine false printer decl
+            match decl with
+            | ImportFrom ({ Module = Some(Identifier path) } as info) ->
+                let path = printer.MakeImportPath(path)
+                ImportFrom { info with Module = Some(Identifier path) }
+            | decl -> decl
+            |> printDeclWithExtraLine false printer
 
-        (printer :> Printer).PrintNewLine()
-        do! printer.Flush()
+        printer.PrintNewLine()
+        do! printerImpl.Flush()
 
         for decl in restDecls do
             printDeclWithExtraLine true printer decl
             // TODO: Only flush every XXX lines?
-            do! printer.Flush()
+            do! printerImpl.Flush()
     }

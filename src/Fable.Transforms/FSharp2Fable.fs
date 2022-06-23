@@ -1754,8 +1754,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             Fable.Extended(Fable.Curry(resolveInlineExpr com ctx info e, arity), r)
         | Fable.Throw(e, t) ->
             Fable.Extended(Fable.Throw(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx t), r)
-        | Fable.Debugger
-        | Fable.RegionStart _ -> e
+        | Fable.Debugger -> e
 
     | Fable.Unresolved(e, t, r) ->
         match e with

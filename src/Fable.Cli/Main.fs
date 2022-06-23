@@ -628,19 +628,16 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     projCracked, filesToCompile
 
 let private areCompiledFilesUpToDate (cliArgs: CliArgs) (state: State) (filesToCompile: string[]) =
-    // When using regions we keep contents of the target files we cannot use the timestamp to decide if they're up-to-date
-    if cliArgs.UseRegion then false
-    else
-        let pathResolver = state.GetPathResolver()
-        filesToCompile
-        |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-        |> Array.forall (fun source ->
-            let outPath = getOutPath state.CliArgs pathResolver source
-            let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
-            if not existsAndIsNewer then
-                Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
-            existsAndIsNewer
-        )
+    let pathResolver = state.GetPathResolver()
+    filesToCompile
+    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+    |> Array.forall (fun source ->
+        let outPath = getOutPath state.CliArgs pathResolver source
+        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
+        if not existsAndIsNewer then
+            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
+        existsAndIsNewer
+    )
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
