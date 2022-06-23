@@ -97,13 +97,15 @@ module Python =
     type PythonFileWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+        let sourcePath = com.CurrentFile
 
         let isLibrary = com.OutputType = OutputType.Library || Naming.isInFableModules com.CurrentFile
         let isFableLibrary = isLibrary && List.contains "FABLE_LIBRARY" com.Options.Define
 
-        let sourcePath =
-            if isLibrary then com.CurrentFile
-            else IO.Path.Join(projDir, IO.Path.GetFileName(com.CurrentFile)) |> Path.normalizeFullPath
+        // For non-library files, import resolution must be done from the main directory
+        let targetPathForResolution =
+            if isLibrary then targetPath
+            else IO.Path.Join(defaultArg cliArgs.OutDir projDir, IO.Path.GetFileName(targetPath)) |> Path.normalizeFullPath
 
         interface Printer.Writer with
             member _.Write(str) = stream.WriteAsync(str) |> Async.AwaitTask
@@ -122,8 +124,14 @@ module Python =
                     // HACK for fable-library as we want to flatten the structure
                     if isFableLibrary then "." + normalizeFileName path
                     else
-                        let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
-                        let parts = path.Split('/')
+                        let outDir =
+                            match cliArgs.OutDir with
+                            | Some outDir -> Some outDir
+                            // For files from the main program, always use an outDir to enforce resolution using targetPathForResolution
+                            | None when not isLibrary -> Some projDir
+                            | None -> None
+                        let resolvedPath = Imports.getImportPath pathResolver sourcePath targetPathForResolution projDir outDir path
+                        let parts = resolvedPath.Split('/')
                         let path =
                             let mutable i = -1
                             parts
