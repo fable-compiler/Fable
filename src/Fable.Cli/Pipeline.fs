@@ -80,29 +80,63 @@ module Python =
         || c = '\u2028'
         || c = '\u2029'
 
+    // PEP8: Modules (i.e files) should have short, all-lowercase names
+    // Note that Python modules cannot contain dots or it will be impossible to import them
+    let normalizeFileName path =
+        Path.GetFileNameWithoutExtension(path).Replace(".", "_")
+        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+        |> PY.Naming.checkPyKeywords
+
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
 
-        // PEP8: Modules (i.e files) should have short, all-lowercase names
-        // Note that Python modules cannot contain dots or it will be impossible to import them
-        let fileName =
-            Path.GetFileNameWithoutExtension(targetPath).Replace(".", "_")
-            |> Naming.applyCaseRule Core.CaseRules.SnakeCase
-            |> PY.Naming.checkPyKeywords
+        let fileName = normalizeFileName targetPath
         Path.Combine(targetDir, fileName + fileExt)
 
-    type PythonFileWriter(targetPath: string) =
+    type PythonFileWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
+        let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+
+        let isLibrary = com.OutputType = OutputType.Library || Naming.isInFableModules com.CurrentFile
+        let isFableLibrary = isLibrary && List.contains "FABLE_LIBRARY" com.Options.Define
+
+        let sourcePath =
+            if isLibrary then com.CurrentFile
+            else IO.Path.Join(projDir, IO.Path.GetFileName(com.CurrentFile)) |> Path.normalizeFullPath
 
         interface Printer.Writer with
-            member _.Write(str) =
-                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.Write(str) = stream.WriteAsync(str) |> Async.AwaitTask
+
             member _.Dispose() = stream.Dispose()
+
             member _.EscapeStringLiteral(str) = Naming.encodeString charRequiresEncoding str
-            member _.MakeImportPath(path) = path
+
             member _.AddSourceMapping _ = ()
-            member _.AddLog(msg, severity, ?range) = () // TODO
+
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+
+            member _.MakeImportPath(path) =
+                if path.Contains('/') then
+                    // HACK for fable-library as we want to flatten the structure
+                    if isFableLibrary then "." + normalizeFileName path
+                    else
+                        let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+                        let parts = path.Split('/')
+                        let path =
+                            let mutable i = -1
+                            parts
+                            |> Array.choose (fun part ->
+                                i <- i + 1
+                                if part = "." then None
+                                elif part = ".." then Some ""
+                                elif i = parts.Length - 1 then Some(normalizeFileName part)
+                                else Some part // TODO: normalize also dir names?
+                            )
+                            |> String.concat "."
+                        if isLibrary then "." + path else path
+                else path
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.
     let initFileWriter =
@@ -118,7 +152,7 @@ module Python =
         })
     initFileWriter.Start()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) _pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
         let python =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
@@ -126,33 +160,9 @@ module Python =
 
         let outPath = getTargetPath cliArgs outPath
 
-        if not cliArgs.UseRegion then
-            // TODO: Check if compilation is silent or file is empty (see JS)
-            let writer = new PythonFileWriter(outPath)
-            do! PythonPrinter.run writer python
-
-        else
-            let delimiter = "# " + Naming.fableRegion
-            let nativeRegions =
-                if IO.File.Exists(outPath) then
-                    ((Some [], []), IO.File.ReadLines(outPath))
-                    ||> Seq.fold (fun (currentRegion, nativeRegions) line ->
-                        let isDelimiter = line.StartsWith(delimiter)
-                        match currentRegion with
-                        | Some currentRegion ->
-                            if isDelimiter then None, (List.rev currentRegion)::nativeRegions
-                            else Some(line::currentRegion), nativeRegions
-                        | None ->
-                            if isDelimiter then Some [], nativeRegions
-                            else None, nativeRegions
-                    )
-                    |> function
-                        | Some region, regions -> (List.rev region)::regions |> List.rev
-                        | None, regions -> regions |> List.rev
-                else []
-
-            let writer = new PythonFileWriter(outPath)
-            do! PythonPrinter.runWithRegions writer delimiter nativeRegions python
+        // TODO: Check if compilation is silent or file is empty (see JS)
+        let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)
+        do! PythonPrinter.run writer python
 
         match com.OutputType with
         | OutputType.Library ->
@@ -180,6 +190,7 @@ module Dart =
     type DartWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
         let sourcePath = com.CurrentFile
         let fileExt = cliArgs.CompilerOptions.FileExtension
+        let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let stream = new IO.StreamWriter(targetPath)
         interface Printer.Writer with
             member _.Write(str) =
@@ -187,7 +198,6 @@ module Dart =
             member _.EscapeStringLiteral(str) =
                 str.Replace(@"\", @"\\").Replace(@"$", @"\$").Replace("\r", @"\r").Replace("\n", @"\n").Replace("'", @"\'")
             member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
             member _.AddSourceMapping _ = ()

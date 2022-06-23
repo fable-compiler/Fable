@@ -1502,7 +1502,6 @@ module Util =
             | Fable.Curry(e, arity) ->
                 Dart.Replacements.curryExprAtRuntime com arity e
                 |> transform com ctx returnStrategy
-            | Fable.RegionStart _ -> [], None
             | Fable.Throw(None, t) ->
                 [Expression.rethrowExpression(transformType com ctx t) |> Statement.ExpressionStatement], None
             | Fable.Throw(Some expr, t) ->

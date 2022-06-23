@@ -13,11 +13,6 @@ module Util =
     /// Alias of nativeOnly
     let inline jsNative<'T> : 'T = nativeOnly<'T>
 
-    /// Marks the start of a region. When using the --delimiter option,
-    /// Fable will try to match these regions with areas surrounded by
-    /// lines starting with the delimiter in the target file.
-    let region (header: string): unit = ()
-
 module Experimental =
     /// Reads the name of an identifier, a property or a type
     let inline nameof(expr: 'a): string = nativeOnly

@@ -844,8 +844,7 @@ module AST =
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)
             | Throw(e, t) -> Extended(Throw(Option.map f e, t), r)
-            | Debugger
-            | RegionStart _ -> e
+            | Debugger -> e
         | Value(kind, r) ->
             match kind with
             | ThisValue _ | BaseValue _

@@ -462,9 +462,6 @@ type TestKind =
 type ExtendedSet =
     | Throw of expr: Expr option * typ: Type
     | Debugger
-    /// When using the delimiter option, this marks the start of a region
-    /// that we'll try to match with delimited regions in the target file
-    | RegionStart of label: string
     /// Used in the uncurrying transformations, we'll try to remove the curried expressions
     /// with beta reduction but in some cases it may be necessary to do it at runtime
     | Curry of expr: Expr * arity: int
@@ -472,7 +469,7 @@ type ExtendedSet =
         match this with
         | Throw(_,t) -> t
         | Curry (expr, _) -> expr.Type
-        | Debugger | RegionStart _ -> Unit
+        | Debugger -> Unit
 
 type Witness =
     { TraitName: string
