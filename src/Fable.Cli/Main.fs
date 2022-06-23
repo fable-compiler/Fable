@@ -437,7 +437,7 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                     let state =
                         if not(state.FilesToCompileSet.Contains(fileName)) then state
                         else
-                            let state = { state with FableProj = state.FableProj.Update(file) }
+                            let state = { state with FableProj = state.FableProj.Update([file]) }
                             fableCompile state fileName
                     return! loop state
 

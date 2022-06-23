@@ -18,11 +18,11 @@ let inline private transformExprList com ctx xs = trampolineListMap (transformEx
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
 let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
-    let baseEnt = FsEnt baseEnt
+    let baseEntRef = FsEnt.Ref(baseEnt)
     let argTypes = lazy getArgTypes com baseCons
     let baseArgs = transformExprList com ctx baseArgs |> run
     let genArgs = genArgs |> List.map (makeType ctx.GenericArgs)
-    match Replacements.Api.tryBaseConstructor com ctx baseEnt argTypes genArgs baseArgs with
+    match Replacements.Api.tryBaseConstructor com ctx baseEntRef argTypes genArgs baseArgs with
     | Some(baseRef, args) ->
         let callInfo = Fable.CallInfo.Create(args=args, sigArgTypes=getArgTypes com baseCons)
         makeCall r Fable.Unit callInfo baseRef
@@ -35,9 +35,9 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             // The baseExpr will be the exposed constructor function,
             // replace with a direct reference to the entity
             let baseExpr =
-                match tryGlobalOrImportedEntity com baseEnt with
+                match tryGlobalOrImportedFSharpEntity com baseEnt with
                 | Some baseExpr -> baseExpr
-                | None -> entityIdent com baseEnt
+                | None -> FsEnt.Ref baseEnt |> entityIdent com
             Fable.Call(baseExpr, info, t, r)
         // Other cases, like Emit will call directly the base expression
         | e -> e
@@ -122,7 +122,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
     let resolveMemberCall (entity: Fable.Entity) (entGenArgs: Fable.Type list) membCompiledName isInstance argTypes thisArg args =
         let entGenParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
         let entGenArgsMap = List.zip entGenParamNames entGenArgs |> Map
-        tryFindMember com entity entGenArgsMap membCompiledName isInstance argTypes
+        tryFindMember entity entGenArgsMap membCompiledName isInstance argTypes
         |> Option.map (fun memb ->
             // Resolve method generic args before making the call, see #2135
             let genArgsMap =
@@ -183,7 +183,7 @@ let private transformCallee com ctx callee (calleeType: FSharpType) =
     let callee =
         match callee with
         | Some callee -> callee
-        | None -> entityIdent com (FsEnt calleeType.TypeDefinition)
+        | None -> FsEnt.Ref calleeType.TypeDefinition |> entityIdent com
     return callee
   }
 
@@ -228,7 +228,7 @@ let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts (imple
         {|
             name = info.name
             isMangled = info.isMangled
-            memberRef = Fable.MemberRef(FsEnt.Ref(ent), getMemberUniqueName memb)
+            memberRef = getFunctionMemberRef com memb
         |}
     )
     |> Option.defaultWith (fun () ->
@@ -236,9 +236,11 @@ let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts (imple
         let isSetter = not isGetter && sign.Name.StartsWith("set_") && countNonCurriedParamsForSignature sign = 1
         let name = if isGetter || isSetter then Naming.removeGetSetPrefix sign.Name else sign.Name
         let generatedMember =
-            if isGetter then Fable.GeneratedMember.Getter()
-            elif isSetter then Fable.GeneratedMember.Setter()
-            else Fable.GeneratedMember.Function()
+            if isGetter then Fable.GeneratedMember.Getter(name, makeType Map.empty sign.AbstractReturnType)
+            elif isSetter then Fable.GeneratedMember.Setter(name, makeType Map.empty (sign.AbstractArguments[0].[1].Type))
+            else Fable.GeneratedMember.Function(name,
+                sign.AbstractArguments |> Seq.concat |> Seq.mapToList (fun p -> makeType Map.empty p.Type),
+                makeType Map.empty sign.AbstractReturnType)
         {|
             name = name
             isMangled = false
@@ -485,7 +487,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match comp with
             | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
             | None -> upcast FsEnt memb.DeclaringEntity.Value
-        let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
+        let membOpt = tryFindMember entity ctx.GenericArgs opName false argTypes
         return (match membOpt with
                 | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
                 | None -> failwith $"Cannot find member %s{entity.FullName}.%s{opName}")
@@ -1113,7 +1115,7 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
         | Some(Atts.global_ | Naming.StartsWith Atts.import _ | Naming.StartsWith Atts.emit _) -> true
         | _ -> false)
     || (match meth.DeclaringEntity with
-        | Some ent -> isGlobalOrImportedEntity (FsEnt ent)
+        | Some ent -> isGlobalOrImportedFSharpEntity ent
         | None -> false)
 
 let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
@@ -1135,7 +1137,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               Args = args
               Body = body
               UsedNames = set ctx.UsedNamesInDeclarationScope
-              MemberRef = Fable.MemberRef(FsEnt.Ref(ent), getMemberUniqueName memb)
+              MemberRef = getFunctionMemberRef com memb
               ImplementedSignatureRef = None
               Tag = Fable.Tag.empty
               XmlDoc = tryGetXmlDoc memb.XmlDoc }
@@ -1163,7 +1165,7 @@ let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrV
     if memb.IsMutable && isPublicMember memb then // See #1314
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
-    let memberRef = Fable.GeneratedMember.Value()
+    let memberRef = Fable.GeneratedMember.Value(name, typ)
     transformImport com r typ name [] memberRef selector path
 
 let private transformMemberValue (com: IFableCompiler) ctx name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
@@ -1216,7 +1218,7 @@ let private applyJsPyDecorators (com: IFableCompiler) (_ctx: Context) name (memb
                 makeTypeConst None typ value)
             |> Seq.toList
         let callInfo = Fable.CallInfo.Create(args=args, isCons=true)
-        FsEnt(ent) |> entityIdent com
+        FsEnt.Ref(ent) |> entityIdent com
         |> makeCall None Fable.Any callInfo
 
     let applyDecorator (body: Fable.Expr)
@@ -1263,8 +1265,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
         let selector = importExprSelector memb info.Selector
         let memberRef =
             // If this is a getter, it means the imported value is an object but Fable will call it as a function, see #2329
-            if memb.IsPropertyGetterMethod then Fable.GeneratedMember.Function()
-            else Fable.GeneratedMember.Value()
+            if memb.IsPropertyGetterMethod then Fable.GeneratedMember.Function(name, [], typ)
+            else Fable.GeneratedMember.Value(name, typ)
         transformImport com r typ name [] memberRef selector info.Path
     | body ->
         // If this is a static constructor, call it immediately
@@ -1279,9 +1281,9 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
                 match com.Options.Language with
                 | JavaScript | TypeScript | Python ->
                     match applyJsPyDecorators com ctx name memb args body with
-                    | Some body -> body, Fable.GeneratedMember.Value(isInstance=memb.IsInstanceMember)
-                    | None -> body, getFunctionMemberRef memb
-                | _ -> body, getFunctionMemberRef memb
+                    | Some body -> body, Fable.GeneratedMember.Value(name, body.Type, isInstance=memb.IsInstanceMember)
+                    | None -> body, getFunctionMemberRef com memb
+                | _ -> body, getFunctionMemberRef com memb
 
             [Fable.MemberDeclaration
                 { Name = name
@@ -1320,7 +1322,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
         { Name = info.name
           Args = args
           Body = body
-          MemberRef = getFunctionMemberRef memb
+          MemberRef = getFunctionMemberRef com memb
           ImplementedSignatureRef = Some info.memberRef
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Tag = Fable.Tag.empty
@@ -1340,7 +1342,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           Body = body
           Args = args
           UsedNames = set ctx.UsedNamesInDeclarationScope
-          MemberRef = Fable.MemberRef(FsEnt.Ref(declaringEntity), getMemberUniqueName memb)
+          MemberRef = getFunctionMemberRef com memb
           ImplementedSignatureRef = None
           Tag = Fable.Tag.empty
           XmlDoc = tryGetXmlDoc memb.XmlDoc })
@@ -1843,10 +1845,12 @@ type FableCompiler(com: Compiler) =
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+        member _.TryGetMember(ref) = com.TryGetMember(ref)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
+
 
 let rec attachClassMembers (com: FableCompiler) = function
     | Fable.ModuleDeclaration decl ->

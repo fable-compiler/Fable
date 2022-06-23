@@ -7,10 +7,6 @@ open System.Collections.Generic
 
 type ParamTypes = Fable.Type list
 
-[<RequireQualifiedAccess>]
-module private Atts =
-    let [<Literal>] noOverloadSuffix = "Fable.Core.NoOverloadSuffixAttribute" // typeof<Fable.Core.OverloadSuffixAttribute>.FullName
-
 let private tryFindAttributeArgs fullName (atts: Fable.Attribute seq) =
     atts |> Seq.tryPick (fun att ->
         if att.Entity.FullName = fullName then Some att.ConstructorArgs
@@ -104,16 +100,11 @@ let private stringHash (s: string) =
         h <- (h * 33) ^^^ (int s[i])
     h
 
-let private getHashPrivate (entAtts: Fable.Attribute seq) (paramTypes: ParamTypes) genParams =
-    // TODO: This is only useful when compiling fable-library,
-    // use conditional compilation?
-    match tryFindAttributeArgs Atts.noOverloadSuffix entAtts with
-    | Some _ -> ""
-    | _ ->
-        paramTypes
-        |> List.map (getTypeFastFullName genParams >> stringHash)
-        |> combineHashCodes
-        |> hashToString
+let private getHashPrivate (paramTypes: ParamTypes) genParams =
+    paramTypes
+    |> List.map (getTypeFastFullName genParams >> stringHash)
+    |> combineHashCodes
+    |> hashToString
 
 let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
     // Don't use overload suffix for members without arguments
@@ -122,7 +113,7 @@ let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
     | [Fable.Unit] -> true
     | _ -> false
 
-let getHashFromCurriedParamTypeGroups (entity: Fable.Entity) (curriedParamTypeGroups: Fable.Type list list) =
+let getHash (entityGenericParams: string list) (curriedParamTypeGroups: Fable.Type list list) =
     match curriedParamTypeGroups with
     | [paramTypes] ->
         if hasEmptyOverloadSuffix paramTypes then ""
@@ -130,29 +121,23 @@ let getHashFromCurriedParamTypeGroups (entity: Fable.Entity) (curriedParamTypeGr
             // Generics can have different names in signature
             // and implementation files, use the position instead
             let genParams =
-                entity.GenericParameters
-                |> List.mapi (fun i p -> p.Name, string i)
+                entityGenericParams
+                |> List.mapi (fun i p -> p, string i)
                 |> dict
-            getHashPrivate entity.Attributes paramTypes genParams
+            getHashPrivate paramTypes genParams
     // Members with curried params cannot be overloaded in F#
     // TODO: Also private methods defined with `let` cannot be overloaded
     // but I don't know how to identify them in the AST
     | _ -> ""
 
-let getHash (entity: Fable.Entity) (m: Fable.MemberFunctionOrValue) =
-    m.CurriedParameterGroups
-    |> List.map (List.map (fun p -> p.Type))
-    |> getHashFromCurriedParamTypeGroups entity
-
 /// Used for extension members
-let getExtensionHash (m: Fable.MemberFunctionOrValue) =
-    match m.CurriedParameterGroups with
-    | [params'] ->
-        let paramTypes = params' |> List.map (fun p -> p.Type)
+let getExtensionHash (curriedParamTypeGroups: Fable.Type list list) =
+    match curriedParamTypeGroups with
+    | [paramTypes] ->
         if hasEmptyOverloadSuffix paramTypes then ""
         else
             // Type resolution in extension member seems to be different
             // and doesn't take generics into account
-            dict [] |> getHashPrivate [] paramTypes
+            dict [] |> getHashPrivate paramTypes
     // Members with curried params cannot be overloaded in F#
     | _ -> ""

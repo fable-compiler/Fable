@@ -18,35 +18,35 @@ type EqualityComparer<'T when 'T : equality>() =
         member __.Equals(x, y) = LanguagePrimitives.GenericEquality x y
         member __.GetHashCode(x) = LanguagePrimitives.GenericHash x
 
-type Stack<'t> private (initialContents, initialCount) =
+type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
     let mutable count = initialCount
 
-    new(initialCapacity : int) = Stack<'t>(Array.zeroCreate<'t>(initialCapacity), 0)
+    new(initialCapacity : int) = Stack<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
-    new() = Stack<'t>(4)
+    new() = Stack<'T>(4)
 
-    new(xs : IEnumerable<'t>) =
+    new(xs : IEnumerable<'T>) =
         let arr = Array.ofSeq xs
-        Stack<'t>(arr, arr.Length)
+        Stack<'T>(arr, arr.Length)
 
-    member this.Ensure(newSize) =
+    member _.Ensure(newSize) =
         let oldSize = contents.Length
         if newSize > oldSize then
             let old = contents
             contents <- Array.zeroCreate (max newSize (oldSize * 2))
             Array.blit old 0 contents 0 count
 
-    member this.Count = count
+    member _.Count = count
 
-    member this.Pop() =
+    member _.Pop() =
         count <- count - 1
         contents.[count]
 
-    member this.Peek() =
+    member _.Peek() =
         contents.[count - 1]
 
-    member this.Contains(x : 't) =
+    member _.Contains(x : 'T) =
         let mutable found = false
         let mutable i = 0
 
@@ -58,7 +58,7 @@ type Stack<'t> private (initialContents, initialCount) =
 
         found
 
-    member this.TryPeek(result : 't byref) =
+    member this.TryPeek(result : 'T byref) =
         if count > 0
         then
             result <- this.Peek()
@@ -66,7 +66,7 @@ type Stack<'t> private (initialContents, initialCount) =
         else
             false
 
-    member this.TryPop(result : 't byref) =
+    member this.TryPop(result : 'T byref) =
         if count > 0
         then
             result <- this.Pop()
@@ -79,7 +79,7 @@ type Stack<'t> private (initialContents, initialCount) =
         contents.[count] <- x
         count <- count + 1
 
-    member this.Clear() =
+    member _.Clear() =
         count <- 0
         Array.fill contents 0 contents.Length Unchecked.defaultof<_>
 
@@ -88,11 +88,11 @@ type Stack<'t> private (initialContents, initialCount) =
         then
             this.Ensure(count)
 
-    member this.ToArray() =
+    member _.ToArray() =
         Array.init count (fun i -> contents.[count - 1 - i])
 
-    interface IEnumerable<'t> with
-        member this.GetEnumerator() =
+    interface IEnumerable<'T> with
+        member _.GetEnumerator() =
             (seq {
                 let mutable index = count - 1
 
@@ -102,10 +102,8 @@ type Stack<'t> private (initialContents, initialCount) =
             }).GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<'t>).GetEnumerator()
-            :> System.Collections.IEnumerator
-
-
+            (this :> IEnumerable<'T>).GetEnumerator()
+            :> Collections.IEnumerator
 
 type Queue<'T> private (initialContents, initialCount) =
     let mutable contents : 'T array = initialContents
@@ -183,41 +181,41 @@ type Queue<'T> private (initialContents, initialCount) =
             result <- this.Peek()
             true
 
-    member this.Contains(x : 'T) =
+    member _.Contains(x : 'T) =
         let mutable found = false
         let mutable i = 0
 
         while i < count && not found do
-            if System.Object.Equals(x, contents.[i |> toIndex]) then
+            if Object.Equals(x, contents.[i |> toIndex]) then
                 found <- true
             else
                 i <- i + 1
 
         found
 
-    member this.Clear() =
+    member _.Clear() =
         count <- 0
         head <- 0
         tail <- 0
         Array.fill contents 0 (size()) Unchecked.defaultof<_>
 
-    member this.TrimExcess() =
+    member _.TrimExcess() =
         if float count / float contents.Length > 0.9
         then
             ensure(count)
 
-    member this.ToArray() =
+    member _.ToArray() =
         toSeq() |> Seq.toArray
 
-    member this.CopyTo( target : 'T array, start : int ) =
+    member _.CopyTo( target : 'T array, start : int ) =
         let mutable i = start
         for item in toSeq() do
             target.[i] <- item
             i <- i + 1
 
     interface IEnumerable<'T> with
-        member this.GetEnumerator() = toSeq().GetEnumerator()
+        member _.GetEnumerator() = toSeq().GetEnumerator()
 
         member this.GetEnumerator() =
             (this :> IEnumerable<'T>).GetEnumerator()
-            :> System.Collections.IEnumerator
+            :> Collections.IEnumerator

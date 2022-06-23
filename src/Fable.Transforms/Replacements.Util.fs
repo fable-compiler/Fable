@@ -36,13 +36,25 @@ type Helper =
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
 
         let callee = makeImportLib com Any coreMember coreModule
-        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?hasSpread=hasSpread, ?isCons=isConstructor)
+        let memberRef =
+            match hasSpread with
+            | Some true ->
+                let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
+                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=false, hasSpread=true) |> Some
+            | Some false | None -> None
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)
 
     static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
                                 ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportUserGenerated None Any selector path
-        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?hasSpread=hasSpread, ?isCons=isConstructor)
+        let memberRef =
+            match hasSpread with
+            | Some true ->
+                let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
+                GeneratedMember.Function(selector, argTypes, returnType, isInstance=false, hasSpread=true) |> Some
+            | Some false | None -> None
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list, ?genArgs,
@@ -70,7 +82,7 @@ let objValue (k, v): ObjectExprMember =
         Name = k
         Args = []
         Body = v
-        MemberRef = GeneratedMember.Value()
+        MemberRef = GeneratedMember.Value(k, v.Type)
     }
 
 let typedObjExpr t kvs =
@@ -472,6 +484,6 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
         sourceTypes |> List.tryPick (function
             | DeclaredType(ent,_) ->
                 let ent = com.GetEntity(ent)
-                FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
+                FSharp2Fable.TypeHelpers.tryFindMember ent ctx.GenericArgs opName false argTypes
             | _ -> None)
         |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)

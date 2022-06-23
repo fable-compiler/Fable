@@ -686,6 +686,39 @@ module AST =
         | Float64 -> "float64"
         | Decimal -> "decimal"
 
+    type ParamsInfo = {|
+        NamedIndex: int option
+        Parameters: Parameter list
+        HasSpread: bool
+    |}
+
+    let tryGetParamsInfo (com: Compiler) (callInfo: CallInfo): ParamsInfo option =
+        callInfo.MemberRef
+        |> Option.bind com.TryGetMember
+        |> function
+        | None -> None
+        // ParamObject/NamedParams attribute is not compatible with arg spread
+        | Some memberInfo when memberInfo.HasSpread ->
+            {| NamedIndex = None
+               HasSpread = true
+               Parameters = List.concat memberInfo.CurriedParameterGroups |}
+            |> Some
+        | Some memberInfo ->
+            let parameters = List.concat memberInfo.CurriedParameterGroups
+            {| HasSpread = false
+               Parameters = parameters
+               NamedIndex = parameters |> List.tryFindIndex (fun p -> p.IsNamed) |}
+            |> Some
+
+    let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
+        match info.NamedIndex with
+        | None -> args, []
+        | Some index when index > args.Length || index > info.Parameters.Length -> args, []
+        | Some index ->
+            let args, namedValues = List.splitAt index args
+            let namedKeys = List.skip index info.Parameters |> List.truncate namedValues.Length
+            args, List.zipSafe namedKeys namedValues
+
     /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =
         // When the lambda has a single unit arg, usually the method call has no args
@@ -712,6 +745,7 @@ module AST =
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
+        | MetaType, MetaType
         | Any, Any
         | Unit, Unit
         | Boolean, Boolean

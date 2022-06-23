@@ -151,7 +151,7 @@ module Util =
         Expression.listLiteral(values, typ)
 
     let tryGetEntityIdent (com: IDartCompiler) ctx ent =
-        Dart.Replacements.tryEntityRef com ent
+        Dart.Replacements.tryEntityIdent com ent
         |> Option.bind (fun entRef ->
             match transformAndCaptureExpr com ctx entRef with
             | [], IdentExpression ident -> Some ident
@@ -366,65 +366,36 @@ module Util =
         statements1 @ statements2 @ [Statement.continueStatement(tc.Label)]
 
     let transformCallArgs (com: IDartCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
-        let paramsInfo, namedParamsInfo, thisArg, args =
+        let paramsInfo, thisArg, args =
             match info with
-            | NoCallInfo args -> None, None, None, args
-            | CallInfo info ->
-                let addUnnamedParamsWarning() =
-                    "NamedParams cannot be used with unnamed parameters"
-                    |> addWarning com [] r
-
-                let mi = com.GetMember(info.MemberRef)
-                let paramsInfo = List.concat mi.CurriedParameterGroups
-
-                let mutable i = -1
-                (None, paramsInfo) ||> List.fold (fun acc p ->
-                    i <- i + 1
-                    match acc with
-                    | Some(namedIndex, names) ->
-                        match p.Name with
-                        | Some name -> Some(namedIndex, {| Name = name; IsOptional = p.IsOptional |}::names)
-                        | None -> addUnnamedParamsWarning(); None
-                    | None when p.IsNamed ->
-                        match p.Name with
-                        | Some name ->
-                            let namedIndex = i
-                            Some(namedIndex, [{| Name = name; IsOptional = p.IsOptional |}])
-                        | None -> addUnnamedParamsWarning(); None
-                    | None -> None)
-                |> function
-                    | None -> Some paramsInfo, None, info.ThisArg, info.Args
-                    | Some(index, names) ->
-                        let namedParamsInfo = {| Index = index; Parameters = List.rev names |}
-                        Some paramsInfo, Some namedParamsInfo, info.ThisArg, info.Args
+            | NoCallInfo args -> None, None, args
+            | CallInfo callInfo ->
+                let paramsInfo = tryGetParamsInfo com callInfo
+                paramsInfo, callInfo.ThisArg, callInfo.Args
 
         let unnamedArgs, namedArgs =
-            match namedParamsInfo with
+            paramsInfo
+            |> Option.map (splitNamedArgs args)
+            |> function
             | None -> args, []
-            | Some i when i.Index > List.length args -> args, []
-            | Some i ->
-                let args, namedValues = List.splitAt i.Index args
-                let namedValuesLen = List.length namedValues
-                if List.length i.Parameters < namedValuesLen then
-                    "NamedParams detected but more arguments present than param names"
-                    |> addWarning com [] r
-                    args, []
-                else
-                    let namedKeys = List.take namedValuesLen i.Parameters
-                    let namedArgs =
-                        List.zip namedKeys namedValues
-                        |> List.choose (function
-                            | p, Fable.Value((Fable.Null _ | Fable.NewOption(None,_,_)), _) when p.IsOptional -> None
-                            | p, v -> Some(p.Name, v))
-                    args, namedArgs
+            | Some(args, []) -> args, []
+            | Some(args, namedArgs) ->
+                args,
+                namedArgs
+                |> List.choose (fun (p, v) ->
+                    match p.Name, v with
+                    | _, Fable.Value((Fable.Null _ | Fable.NewOption(None,_,_)), _) when p.IsOptional -> None
+                    | Some k, v -> Some(k, v)
+                    | None, _ -> None)
 
         let unnamedArgs =
             match unnamedArgs, paramsInfo with
             | [Fable.Value(Fable.UnitConstant,_)], _ -> []
             | args, Some paramsInfo ->
                 let argsLen = args.Length
-                if paramsInfo.Length >= argsLen then
-                    ([], List.zip args (List.take argsLen paramsInfo) |> List.rev)
+                let parameters = paramsInfo.Parameters
+                if parameters.Length >= argsLen then
+                    ([], List.zip args (List.take argsLen parameters) |> List.rev)
                     ||> List.fold (fun acc (arg, par) ->
                         if par.IsOptional then
                             match arg with
@@ -842,7 +813,10 @@ module Util =
                 let isConst =
                     areConstTypes genArgs
                     && List.forall (snd >> isConstExpr ctx) args
-                    && com.GetMember(callInfo.MemberRef).Attributes |> hasConstAttribute
+                    && callInfo.MemberRef
+                        |> Option.bind com.TryGetMember
+                        |> Option.map (fun m -> hasConstAttribute m.Attributes)
+                        |> Option.defaultValue false
                 let args =
                     if isConst then args |> List.map (fun (name, arg) -> name, removeConst arg)
                     else args
@@ -1798,7 +1772,6 @@ module Util =
         let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
-            |> Map.values
             |> Seq.mapToList (transformAbstractMember com ctx)
         [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 
@@ -2171,7 +2144,6 @@ module Util =
 
         let abstractMembers =
             classEnt.MembersFunctionsAndValues
-            |> Map.values
             |> Seq.choose (fun m ->
                 if m.IsDispatchSlot then
                     transformAbstractMember com ctx m |> Some
@@ -2312,6 +2284,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
