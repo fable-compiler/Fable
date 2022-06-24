@@ -1772,6 +1772,7 @@ module Util =
         let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
         let methods =
             ent.MembersFunctionsAndValues
+            |> Seq.filter (fun memb -> not memb.IsProperty)
             |> Seq.mapToList (transformAbstractMember com ctx)
         [Declaration.classDeclaration(decl.Name, genParams=genParams, methods=methods, isAbstract=true)]
 

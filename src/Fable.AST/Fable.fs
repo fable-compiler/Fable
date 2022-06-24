@@ -107,6 +107,9 @@ type MemberFunctionOrValue =
     abstract IsMutable: bool
     abstract IsGetter: bool
     abstract IsSetter: bool
+    /// Indicates the member is a wrapper for a getter and/or setter,
+    /// it evals to false for the actual getter/setter methods
+    abstract IsProperty: bool
     abstract IsOverrideOrExplicitInterfaceImplementation: bool
     abstract IsDispatchSlot: bool
     abstract GenericParameters: GenericParam list
@@ -287,6 +290,7 @@ type GeneratedMember =
         member this.IsValue = match this with GeneratedValue _ -> true | _ -> false
         member this.IsGetter = match this with GeneratedGetter _ -> true | _ -> false
         member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
+        member _.IsProperty = false
         member _.IsPublic = true
         member _.IsInline = false
         member _.IsExtension = false

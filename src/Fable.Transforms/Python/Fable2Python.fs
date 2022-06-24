@@ -3783,6 +3783,7 @@ module Util =
 
         let members =
             classEnt.MembersFunctionsAndValues
+            |> Seq.filter (fun memb -> not memb.IsProperty)
             |> List.ofSeq
             |> List.groupBy (fun memb -> memb.DisplayName)
             // Remove duplicate method when we have getters and setters

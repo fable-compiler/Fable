@@ -3246,6 +3246,7 @@ module Util =
             |> Seq.collect (fun iface ->
                 let ifaceEnt = com.GetEntity(iface.Entity)
                 ifaceEnt.MembersFunctionsAndValues
+                |> Seq.filter (fun memb -> not memb.IsProperty)
                 |> Seq.map (fun memb ->
                     let thisArg = { makeIdent "this" with IsThisArgument = true }
                     let memberArgs =
