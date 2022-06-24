@@ -66,7 +66,6 @@ type Compiler =
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
-    abstract TryGetMember: Fable.MemberRef -> Fable.MemberFunctionOrValue option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
@@ -89,9 +88,9 @@ module CompilerExt =
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
                 let m = r.Match(v)
-                int m.Groups.[1].Value,
-                int m.Groups.[2].Value,
-                if m.Groups.[3].Success then int m.Groups.[3].Value else 0
+                int m.Groups[1].Value,
+                int m.Groups[2].Value,
+                if m.Groups[3].Success then int m.Groups[3].Value else 0
 
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
@@ -125,6 +124,13 @@ module CompilerExt =
                     | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
+        member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
+            match memberRef with
+            | Fable.GeneratedMemberRef gen -> Some(gen :> _)
+            | Fable.MemberRef(entityRef, memberInfo) ->
+                com.TryGetEntity(entityRef)
+                |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
+
         member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
             match com.TryGetMember(memberRef) with
             | Some e -> e
@@ -148,7 +154,7 @@ module CompilerExt =
                         // TODO: This is a simplified version of the actual mechanism and will not work with deduplicated paths
                         let projDir = Path.GetDirectoryName(com.ProjectFile)
                         let relPath = Path.getRelativeFileOrDirPath true projDir false file
-                        let relPath = if relPath.StartsWith("./") then relPath.[2..] else relPath
+                        let relPath = if relPath.StartsWith("./") then relPath[2..] else relPath
                         Path.Combine(outDir, relPath)
              }
 

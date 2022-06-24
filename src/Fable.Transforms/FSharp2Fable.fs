@@ -228,7 +228,7 @@ let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts (imple
         {|
             name = info.name
             isMangled = info.isMangled
-            memberRef = getFunctionMemberRef com memb
+            memberRef = getFunctionMemberRef memb
         |}
     )
     |> Option.defaultWith (fun () ->
@@ -1126,7 +1126,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
     | Some ent ->
         let mutable baseCall = None
         let captureBaseCall =
-            getBaseEntity ent
+            tryGetBaseEntity ent
             |> Option.map (fun (ent, _) -> ent, fun c -> baseCall <- Some c)
         let bodyCtx, args = bindMemberArgs com ctx args
         let bodyCtx = { bodyCtx with CaptureBaseConsCall = captureBaseCall }
@@ -1137,7 +1137,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               Args = args
               Body = body
               UsedNames = set ctx.UsedNamesInDeclarationScope
-              MemberRef = getFunctionMemberRef com memb
+              MemberRef = getFunctionMemberRef memb
               ImplementedSignatureRef = None
               Tag = Fable.Tag.empty
               XmlDoc = tryGetXmlDoc memb.XmlDoc }
@@ -1282,8 +1282,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
                 | JavaScript | TypeScript | Python ->
                     match applyJsPyDecorators com ctx name memb args body with
                     | Some body -> body, Fable.GeneratedMember.Value(name, body.Type, isInstance=memb.IsInstanceMember)
-                    | None -> body, getFunctionMemberRef com memb
-                | _ -> body, getFunctionMemberRef com memb
+                    | None -> body, getFunctionMemberRef memb
+                | _ -> body, getFunctionMemberRef memb
 
             [Fable.MemberDeclaration
                 { Name = name
@@ -1322,7 +1322,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
         { Name = info.name
           Args = args
           Body = body
-          MemberRef = getFunctionMemberRef com memb
+          MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = Some info.memberRef
           UsedNames = set ctx.UsedNamesInDeclarationScope
           Tag = Fable.Tag.empty
@@ -1342,7 +1342,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           Body = body
           Args = args
           UsedNames = set ctx.UsedNamesInDeclarationScope
-          MemberRef = getFunctionMemberRef com memb
+          MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = None
           Tag = Fable.Tag.empty
           XmlDoc = tryGetXmlDoc memb.XmlDoc })
@@ -1845,7 +1845,6 @@ type FableCompiler(com: Compiler) =
         member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
-        member _.TryGetMember(ref) = com.TryGetMember(ref)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

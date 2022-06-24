@@ -1037,7 +1037,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx None (CallInfo info)
+            let args = transformCallArgs com ctx (CallInfo info)
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1123,7 +1123,7 @@ module Util =
             let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
-    let transformCallArgs (com: IBabelCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
+    let transformCallArgs (com: IBabelCompiler) ctx (info: ArgsInfo) =
         let paramsInfo, args =
             match info with
             | NoCallInfo args -> None, args
@@ -1203,7 +1203,7 @@ module Util =
         let macro = info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        transformCallArgs com ctx range (CallInfo info)
+        transformCallArgs com ctx (CallInfo info)
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1286,14 +1286,14 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | _ ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx range (CallInfo callInfo)
+                let args = transformCallArgs com ctx (CallInfo callInfo)
                 match callInfo.ThisArg with
                 | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
                 | None when Fable.Tag.contains "new" callInfo.Tag -> Expression.newExpression(callee, List.toArray args, ?loc=range)
                 | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx range (NoCallInfo args) with
+        match transformCallArgs com ctx (NoCallInfo args) with
         | [] -> callFunction range applied []
         | args -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg])
 
@@ -2366,7 +2366,6 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
-            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

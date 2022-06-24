@@ -365,7 +365,7 @@ module Util =
 
         statements1 @ statements2 @ [Statement.continueStatement(tc.Label)]
 
-    let transformCallArgs (com: IDartCompiler) ctx (r: SourceLocation option) (info: ArgsInfo) =
+    let transformCallArgs (com: IDartCompiler) ctx (info: ArgsInfo) =
         let paramsInfo, thisArg, args =
             match info with
             | NoCallInfo args -> None, None, args
@@ -761,9 +761,9 @@ module Util =
 
                 statements1 @ captureStatements @ [Statement.ifStatement(expr1, statements2)], captureExpr
 
-    let transformEmit (com: IDartCompiler) ctx range t returnStrategy (emitInfo: Fable.EmitInfo) =
+    let transformEmit (com: IDartCompiler) ctx t returnStrategy (emitInfo: Fable.EmitInfo) =
         let info = emitInfo.CallInfo
-        let statements, args = transformCallArgs com ctx range (CallInfo info)
+        let statements, args = transformCallArgs com ctx (CallInfo info)
         let args = List.map snd args
 
         let emitExpr = Expression.emitExpression(emitInfo.Macro, args, transformType com ctx t)
@@ -808,7 +808,7 @@ module Util =
                 let t = transformType com ctx t
                 let genArgs = transformGenArgs com ctx callInfo.GenericArgs
                 let calleeStatements, callee = transformAndCaptureExpr com ctx callee
-                let argStatements, args = transformCallArgs com ctx range (CallInfo callInfo)
+                let argStatements, args = transformCallArgs com ctx (CallInfo callInfo)
                 let statements, callee = combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
                 let isConst =
                     areConstTypes genArgs
@@ -834,7 +834,7 @@ module Util =
         | _ ->
             let t = transformType com ctx t
             let calleeStatements, callee = transformAndCaptureExpr com ctx callee
-            let argStatements, args = transformCallArgs com ctx range (NoCallInfo args)
+            let argStatements, args = transformCallArgs com ctx (NoCallInfo args)
             let statements, callee = combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
             let invocation =
                 match args with
@@ -1433,7 +1433,7 @@ module Util =
     let extractBaseArgs (com: IDartCompiler) (ctx: Context) (classDecl: Fable.ClassDecl) =
         match classDecl.BaseCall with
         | Some(Fable.Call(_baseRef, info, _, _) as e) ->
-            match transformCallArgs com ctx None (CallInfo info) with
+            match transformCallArgs com ctx (CallInfo info) with
             | [], args -> args
             | _, args ->
                 $"Rewrite base arguments for {classDecl.Entity.FullName} so they can be compiled as Dart expressions"
@@ -1546,8 +1546,8 @@ module Util =
         | Fable.CurriedApply(callee, args, typ, range) ->
             transformCurriedApplyAsStatements com ctx range typ returnStrategy callee args
 
-        | Fable.Emit(info, t, range) ->
-            transformEmit com ctx range t returnStrategy info
+        | Fable.Emit(info, t, _range) ->
+            transformEmit com ctx t returnStrategy info
 
         | Fable.Operation(kind, t, r) ->
             transformOperation com ctx r t returnStrategy kind
@@ -2284,7 +2284,6 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
-            member _.TryGetMember(ref) = com.TryGetMember(ref)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
