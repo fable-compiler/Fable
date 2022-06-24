@@ -204,6 +204,7 @@ type GeneratedMemberInfo =
         IsInstance: bool
         HasSpread: bool
         IsMutable: bool
+        DeclaringEntity: EntityRef option
     }
 
 type GeneratedMember =
@@ -212,7 +213,7 @@ type GeneratedMember =
     | GeneratedGetter of info: GeneratedMemberInfo
     | GeneratedSetter of info: GeneratedMemberInfo
 
-    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread) =
+    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread, ?entRef) =
         {
             Name = name
             ParamTypes = paramTypes
@@ -220,9 +221,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             HasSpread = defaultArg hasSpread false
             IsMutable = false
+            DeclaringEntity = entRef
         } |> GeneratedFunction |> GeneratedMemberRef
 
-    static member Value(name, typ, ?isInstance, ?isMutable) =
+    static member Value(name, typ, ?isInstance, ?isMutable, ?entRef) =
         {
             Name = name
             ParamTypes = []
@@ -230,9 +232,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = defaultArg isMutable false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedValue |> GeneratedMemberRef
 
-    static member Getter(name, typ, ?isInstance) =
+    static member Getter(name, typ, ?isInstance, ?entRef) =
         {
             Name = name
             ParamTypes = []
@@ -240,9 +243,10 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedGetter |> GeneratedMemberRef
 
-    static member Setter(name, typ, ?isInstance) =
+    static member Setter(name, typ, ?isInstance, ?entRef) =
         {
             Name = name
             ParamTypes = [typ]
@@ -250,6 +254,7 @@ type GeneratedMember =
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
+            DeclaringEntity = entRef
         } |> GeneratedSetter |> GeneratedMemberRef
 
     member this.Info =
@@ -271,6 +276,7 @@ type GeneratedMember =
             member _.DefaultValue = None }
 
     interface MemberFunctionOrValue with
+        member this.DeclaringEntity = this.Info.DeclaringEntity
         member this.DisplayName = this.Info.Name
         member this.CompiledName = this.Info.Name
         member this.FullName = this.Info.Name
@@ -290,7 +296,6 @@ type GeneratedMember =
         member _.IsOverrideOrExplicitInterfaceImplementation = false
         member _.IsDispatchSlot = false
         member _.Attributes = []
-        member _.DeclaringEntity = None
         member _.ApparentEnclosingEntity = None
         member _.ImplementedAbstractSignatures = []
 
