@@ -2058,8 +2058,8 @@ module Util =
                     // If method implements an abstract signature, use that info to decide if it's a getter or setter
                     let info = defaultArg abstractInfo info
                     let kind =
-                        if info.IsGetter then MethodKind.IsGetter
-                        else if info.IsSetter then MethodKind.IsSetter
+                        if not memb.IsMangled && info.IsGetter then MethodKind.IsGetter
+                        elif not memb.IsMangled && info.IsSetter then MethodKind.IsSetter
                         else MethodKind.IsMethod
                     kind, sanitizeMember memb.Name
 

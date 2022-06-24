@@ -2001,7 +2001,7 @@ module Util =
                 $"Unexpected static interface/override call: %s{memb.FullName}"
                 |> attachRange r |> failwith
         let info = getAbstractMemberInfo com entity memb
-        if info.isGetter then
+        if not info.isMangled && info.isGetter then
             // Set the field as maybe calculated so it's not displaced by beta reduction
             let kind = Fable.FieldInfo.Create(
                 info.name,
@@ -2010,7 +2010,7 @@ module Util =
                 tag = getFieldTag memb
             )
             Fable.Get(callee, kind, typ, r)
-        elif info.isSetter then
+        elif not info.isMangled && info.isSetter then
             let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)

@@ -1057,30 +1057,30 @@ module Util =
             None
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.ObjectExprMember list) baseCall: Expression =
+
         let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
             ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl)
 
-        let mutable compileAsClass = Option.isSome baseCall
+        let members = members |> List.map (fun memb -> memb, com.GetMember(memb.MemberRef))
+
+        // Optimization: Object literals with getters and setters are very slow in V8
+        // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
+        let compileAsClass = (Option.isSome baseCall, members) ||> List.fold (fun compileAsClass (memb, info) ->
+            compileAsClass || (not memb.IsMangled && (info.IsSetter || (info.IsGetter && canHaveSideEffects memb.Body))))
+
         let members =
-            members |> List.collect (fun memb ->
-                let info = com.GetMember(memb.MemberRef)
-
-                // Optimization: Object literals with getters and setters are very slow in V8
-                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
-                if not compileAsClass then
-                    compileAsClass <- info.IsSetter || (info.IsGetter && canHaveSideEffects memb.Body)
-
+            members |> List.collect (fun (memb, info) ->
                 let prop, computed = memberFromName memb.Name
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
+                if not memb.IsMangled && (info.IsValue || (not compileAsClass && info.IsGetter)) then
                     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
-                elif info.IsGetter then
+                elif not memb.IsMangled && info.IsGetter then
                     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
-                elif info.IsSetter then
+                elif not memb.IsMangled && info.IsSetter then
                     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
                 elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
                     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
@@ -2251,7 +2251,8 @@ module Util =
                             |> function
                                 | None -> [||]
                                 | Some info ->
-                                    if info.IsGetter || info.IsSetter then transformAttachedProperty com ctx info memb
+                                    if not memb.IsMangled && (info.IsGetter || info.IsSetter)
+                                    then transformAttachedProperty com ctx info memb
                                     else transformAttachedMethod com ctx info memb)
 
                 match decl.Constructor with

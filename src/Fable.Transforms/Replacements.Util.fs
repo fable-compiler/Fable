@@ -82,6 +82,7 @@ let objValue (k, v): ObjectExprMember =
         Name = k
         Args = []
         Body = v
+        IsMangled = false
         MemberRef = GeneratedMember.Value(k, v.Type)
     }
 

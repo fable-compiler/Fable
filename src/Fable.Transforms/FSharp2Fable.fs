@@ -265,6 +265,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
         return { Name = info.name
                  Args = args
                  Body = body
+                 IsMangled = info.isMangled
                  MemberRef = info.memberRef }
       }
 
@@ -1139,6 +1140,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               Args = args
               Body = body
               UsedNames = set ctx.UsedNamesInDeclarationScope
+              IsMangled = false
               MemberRef = getFunctionMemberRef memb
               ImplementedSignatureRef = None
               Tag = Fable.Tag.empty
@@ -1158,6 +1160,7 @@ let private transformImport _com r typ name args memberRef selector path =
           Args = args
           Body = makeImportUserGenerated r typ selector path
           UsedNames = Set.empty
+          IsMangled = true
           MemberRef = memberRef
           ImplementedSignatureRef = None
           Tag = Fable.Tag.empty
@@ -1195,6 +1198,7 @@ let private transformMemberValue (com: IFableCompiler) ctx name (memb: FSharpMem
             { Name = name
               Args = [] //Kind = Fable.MemberValue(memb.IsMutable)
               Body = fableValue
+              IsMangled = true
               MemberRef = getValueMemberRef memb
               ImplementedSignatureRef = None
               UsedNames = set ctx.UsedNamesInDeclarationScope
@@ -1292,6 +1296,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
                   Args = args
                   Body = body
                   UsedNames = set ctx.UsedNamesInDeclarationScope
+                  IsMangled = true
                   MemberRef = memberRef
                   ImplementedSignatureRef = None
                   Tag = Fable.Tag.empty
@@ -1324,6 +1329,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
         { Name = info.name
           Args = args
           Body = body
+          IsMangled = info.isMangled
           MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = Some info.memberRef
           UsedNames = set ctx.UsedNamesInDeclarationScope
@@ -1335,14 +1341,15 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
     let entFullName = declaringEntity.FullName
-    let name =
+    let name, isMangled =
         match Compiler.Language with
-        | Rust -> getMemberDeclarationName com memb |> fst
-        | _ -> Naming.removeGetSetPrefix memb.CompiledName
+        | Rust -> getMemberDeclarationName com memb |> fst, true
+        | _ -> Naming.removeGetSetPrefix memb.CompiledName, false
     com.AddAttachedMember(entFullName, isMangled=false, memb =
         { Name = name
           Body = body
           Args = args
+          IsMangled = isMangled
           UsedNames = set ctx.UsedNamesInDeclarationScope
           MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = None
