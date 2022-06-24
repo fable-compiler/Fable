@@ -1768,7 +1768,7 @@ module Util =
         isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let issParamByRefPreferred =
+        let isParamByRefPreferred =
             callInfo.MemberRef
             |> Option.bind com.TryGetMember
             |> Option.map (fun memberInfo ->
@@ -1778,7 +1778,7 @@ module Util =
 
         let ctx =
             { ctx with IsCallingFunction = true
-                       Typegen = { ctx.Typegen with IsParamByRefPreferred = issParamByRefPreferred } }
+                       Typegen = { ctx.Typegen with IsParamByRefPreferred = isParamByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
@@ -3393,8 +3393,7 @@ module Util =
                     let makeDecl (decl: Fable.MemberDecl) =
                         withCurrentScope ctx decl.UsedNames <| fun ctx ->
                             let info = com.GetMember(decl.MemberRef)
-                            let name = if info.IsInstance then decl.Name else info.FullName
-                            transformAssocMemberFunction com ctx info name decl.Args decl.Body
+                            transformAssocMemberFunction com ctx info decl.Name decl.Args decl.Body
                     decl.AttachedMembers
                     |> List.filter (fun m -> tMethods |> Set.contains m.Name)
                     |> List.map makeDecl

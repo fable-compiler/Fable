@@ -1893,13 +1893,14 @@ module Util =
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = nonCurriedArgTypes
             })
-        | _ ->
+        | ent ->
+            let entRef = ent |> Option.map FsEnt.Ref
             let argTypes =
                  memb.CurriedParameterGroups
                  |> Seq.concat
                  |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
             let returnType = makeType Map.empty memb.ReturnParameter.Type
-            Fable.GeneratedMember.Function(memb.CompiledName, argTypes, returnType, isInstance=memb.IsInstanceMember, hasSpread=hasParamArray memb)
+            Fable.GeneratedMember.Function(memb.CompiledName, argTypes, returnType, isInstance=memb.IsInstanceMember, hasSpread=hasParamArray memb, ?entRef=entRef)
 
     let getValueMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -1910,9 +1911,10 @@ module Util =
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = None
             })
-        | _ ->
+        | ent ->
+            let entRef = ent |> Option.map FsEnt.Ref
             let typ = makeType Map.empty memb.ReturnParameter.Type
-            Fable.GeneratedMember.Value(memb.CompiledName, typ, isInstance=memb.IsInstanceMember, isMutable=memb.IsMutable)
+            Fable.GeneratedMember.Value(memb.CompiledName, typ, isInstance=memb.IsInstanceMember, isMutable=memb.IsMutable, ?entRef=entRef)
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
