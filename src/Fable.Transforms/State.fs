@@ -254,16 +254,6 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                     // Check also the precompiled dll because this may come from a precompiled inline expr
                     project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))
 
-        member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
-            match memberRef with
-            | Fable.GeneratedMemberRef gen -> Some(gen :> _)
-            | Fable.MemberRef(entityRef, memberInfo) ->
-                (com :> Compiler).TryGetEntity(entityRef)
-                |> Option.bind (fun ent ->
-                    match FSharp2Fable.TypeHelpers.tryFindMemberRef ent memberInfo with
-                    | Some m -> Some m
-                    | None -> None)
-
         member this.GetInlineExpr(memberUniqueName) =
             match project.TryGetInlineExpr(this, memberUniqueName) with
             | Some e -> e

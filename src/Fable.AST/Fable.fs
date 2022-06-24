@@ -36,8 +36,8 @@ type EntityRef =
 
 type MemberRefInfo =
     { IsInstance: bool
-      Name: string
-      ArgTypes: Type list }
+      CompiledName: string
+      NonCurriedArgTypes: Type list option }
 
 type MemberRef =
     | MemberRef of entity: EntityRef * info: MemberRefInfo
@@ -129,6 +129,7 @@ type Entity =
     abstract DeclaredInterfaces: DeclaredType seq
     abstract GenericParameters: GenericParam list
     abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
+    abstract TryFindMember: MemberRefInfo -> MemberFunctionOrValue option
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
     abstract IsAbstractClass: bool
