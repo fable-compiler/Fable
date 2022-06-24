@@ -331,7 +331,7 @@ module AST =
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
         let rec uncurryLambdaInner (name: string option) accArgs remainingArity expr =
             if remainingArity = Some 0 then
-                Delegate(List.rev accArgs, expr, name, "") |> Some
+                Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
             else
                 match expr, remainingArity with
                 | Lambda(arg, body, name2), _ ->
@@ -339,7 +339,7 @@ module AST =
                     uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
                 // If there's no arity expectation we can return the flattened part
                 | _, None when List.isEmpty accArgs |> not ->
-                    Delegate(List.rev accArgs, expr, name, Tag.empty) |> Some
+                    Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
         match expr with
@@ -488,7 +488,7 @@ module AST =
         Value(value, r)
 
     let makeTypeInfo r t =
-        TypeInfo(t, Tag.empty) |> makeValue r
+        TypeInfo(t, Tags.empty) |> makeValue r
 
     let makeTypeDefinitionInfo r t =
         let t =
@@ -518,7 +518,7 @@ module AST =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
 
     let makeDelegate args body =
-        Delegate(args, body, None, Tag.empty)
+        Delegate(args, body, None, Tags.empty)
 
     let makeLambda (args: Ident list) (body: Expr) =
         (args, body) ||> List.foldBack (fun arg body ->

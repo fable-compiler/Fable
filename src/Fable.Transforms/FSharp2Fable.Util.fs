@@ -770,10 +770,10 @@ module Helpers =
                     |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
         )
 
-    let getFieldTag (memb: FSharpMemberOrFunctionOrValue) =
+    let tryGetFieldTag (memb: FSharpMemberOrFunctionOrValue) =
         if Compiler.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes
-        then "const"
-        else Fable.Tag.empty
+        then Some "const"
+        else None
 
 module Patterns =
     open FSharpExprPatterns
@@ -2007,7 +2007,7 @@ module Util =
                 info.name,
                 fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
                 maybeCalculated = true,
-                tag = getFieldTag memb
+                ?tag = tryGetFieldTag memb
             )
             Fable.Get(callee, kind, typ, r)
         elif not info.isMangled && info.isSetter then
@@ -2129,7 +2129,7 @@ module Util =
                 callAttachedMember com r typ callInfo e memb |> Some
 
             | Some classExpr, None when memb.IsConstructor ->
-                Fable.Call(classExpr, { callInfo with Tag = Fable.Tag.add "new" callInfo.Tag }, typ, r) |> Some
+                Fable.Call(classExpr, { callInfo with Tags = "new"::callInfo.Tags }, typ, r) |> Some
 
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls com e memb then
@@ -2137,7 +2137,7 @@ module Util =
                     let kind = Fable.FieldInfo.Create(
                         getMemberDisplayName memb,
                         maybeCalculated = true,
-                        tag = getFieldTag memb
+                        ?tag = tryGetFieldTag memb
                     )
                     Fable.Get(moduleOrClassExpr, kind, typ, r) |> Some
                 else
@@ -2282,7 +2282,7 @@ module Util =
 
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
             let classExpr = FsEnt.Ref entity |> entityIdent com
-            Fable.Call(classExpr, { callInfo with Tag = Fable.Tag.add "new" callInfo.Tag }, typ, r)
+            Fable.Call(classExpr, { callInfo with Tags = "new"::callInfo.Tags }, typ, r)
 
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).

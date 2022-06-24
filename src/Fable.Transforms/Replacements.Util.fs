@@ -74,7 +74,7 @@ let makeUniqueIdent ctx t name =
     |> makeTypedIdent t
 
 let withTag tag = function
-    | Call(e, i, t, r) -> Call(e, { i with Tag = Tag.add tag i.Tag }, t, r)
+    | Call(e, i, t, r) -> Call(e, { i with Tags = tag::i.Tags }, t, r)
     | e -> e
 
 let objValue (k, v): ObjectExprMember =

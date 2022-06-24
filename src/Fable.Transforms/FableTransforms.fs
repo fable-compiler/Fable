@@ -197,9 +197,9 @@ let noSideEffectBeforeIdent identName expr =
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect
         | Call(e1, info, _, _) ->
-            match info.Tag, info.Args with
+            match info.Tags, info.Args with
             // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
-            | Tag.Contains "pojo", IdentExpr i::_ -> i.Name = identName
+            | Tags.Contains "pojo", IdentExpr i::_ -> i.Name = identName
             | _ ->
                 e1 :: (Option.toList info.ThisArg) @ info.Args
                 |> findIdentOrSideEffectInList |> orSideEffect
@@ -287,7 +287,7 @@ let rec uncurryLambdaType (revArgTypes: Type list) (returnType: Type) =
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
         | Lambda(arg, body, name) -> Some([arg], body, name)
-        | Delegate(args, body, name, Tag.empty) -> Some(args, body, name)
+        | Delegate(args, body, name, []) -> Some(args, body, name)
         | _ -> None
 
     let (|ImmediatelyApplicable|_|) = function
@@ -454,13 +454,13 @@ module private Transforms =
                                                                           && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let(ident, Delegate(args, fnBody, None, Tag.empty), letBody)
+            Let(ident, Delegate(args, fnBody, None, Tags.empty), letBody)
         // Anonymous lambda immediately applied
         | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
             let info = makeCallInfo None argExprs (args |> List.map (fun a -> a.Type))
-            Delegate(args, fnBody, Some name, Tag.empty)
+            Delegate(args, fnBody, Some name, Tags.empty)
             |> makeCall r t info
         | e -> e
 
