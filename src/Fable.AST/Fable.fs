@@ -304,6 +304,7 @@ type ObjectExprMember = {
     Args: Ident list
     Body: Expr
     MemberRef: MemberRef
+    IsMangled: bool
 }
 
 type MemberDecl = {
@@ -311,6 +312,7 @@ type MemberDecl = {
     Args: Ident list
     Body: Expr
     MemberRef: MemberRef
+    IsMangled: bool
     ImplementedSignatureRef: MemberRef option
     UsedNames: Set<string>
     XmlDoc: string option

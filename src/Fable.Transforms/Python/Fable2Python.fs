@@ -1892,10 +1892,10 @@ module Util =
             |> List.collect (fun memb ->
                 let info = com.GetMember(memb.MemberRef)
 
-                if info.IsGetter || info.IsValue then
+                if not memb.IsMangled && (info.IsGetter || info.IsValue) then
                     let decorators = [ Expression.name ("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
-                elif info.IsSetter then
+                elif not memb.IsMangled && info.IsSetter then
                     let decorators = [ Expression.name $"{memb.Name}.setter" ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
@@ -3905,7 +3905,7 @@ module Util =
                             memb.ImplementedSignatureRef
                             |> Option.map (com.GetMember)
                             |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
-                        if info.IsGetter || info.IsSetter then
+                        if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
                             transformAttachedProperty com ctx info memb
                         else
                             transformAttachedMethod com ctx info memb)
