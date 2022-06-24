@@ -26,19 +26,15 @@ module Extensions =
         else false
 
     type FSharpEntity with
-        member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool) = seq {
-            for m in entity.TryGetMembersFunctionsAndValues() do
-                // Discard properties as getters/setters are already listed separately
-                // For what I've seen properties only appear in entities with extension members
-                if not m.IsProperty then yield m
-
+        member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool): FSharpMemberOrFunctionOrValue seq =
+            let ownMembers = entity.TryGetMembersFunctionsAndValues()
             match includeHierarchy with
             | Some true ->
                 match TypeHelpers.tryGetBaseEntity entity with
-                | Some(baseDef, _) -> yield! baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true)
-                | _ -> ()
-            | _ -> ()
-        }
+                | Some(baseDef, _) ->
+                    Seq.append ownMembers (baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true))
+                | _ -> ownMembers
+            | _ -> ownMembers
 
         member entity.TryFindMember(
             compiledName: string,
@@ -241,6 +237,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.IsInstance = m.IsInstanceMember
         member _.IsExtension = m.IsExtensionMember
         member _.IsMutable = m.IsMutable
+        member _.IsProperty = m.IsProperty
         member _.IsGetter = FsMemberFunctionOrValue.IsGetter(m)
         member _.IsSetter = FsMemberFunctionOrValue.IsSetter(m)
         member _.IsOverrideOrExplicitInterfaceImplementation = m.IsOverrideOrExplicitInterfaceImplementation
