@@ -6,12 +6,9 @@ open Fable.AST.Fable
 exception FableError of string
 
 [<RequireQualifiedAccess>]
-module Tag =
-    let [<Literal>] empty = ""
-    let contains (key: string) (tag: string) = tag.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.contains key
-    let add (key: string) (tag: string) = tag.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.append [|key|] |> String.concat " "
-
-    let (|Contains|_|) (key: string) (tag: string) = if contains key tag then Some () else None
+module Tags =
+    let empty: string list = []
+    let (|Contains|_|) (key: string) (tags: string list) = if List.contains key tags then Some () else None
 
 type EntityPath =
     | SourcePath of string
@@ -316,7 +313,7 @@ type MemberDecl = {
     ImplementedSignatureRef: MemberRef option
     UsedNames: Set<string>
     XmlDoc: string option
-    Tag: string
+    Tags: string list
 }
 
 type ClassDecl = {
@@ -326,7 +323,7 @@ type ClassDecl = {
     BaseCall: Expr option
     AttachedMembers: MemberDecl list
     XmlDoc: string option
-    Tag: string
+    Tags: string list
 }
 
 type ActionDecl = {
@@ -389,7 +386,7 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
-    | TypeInfo of typ: Type * tag: string
+    | TypeInfo of typ: Type * tags: string list
     | Null of typ: Type
     | UnitConstant
     | BoolConstant of value: bool
@@ -436,7 +433,7 @@ type CallInfo =
       SignatureArgTypes: Type list
       GenericArgs: Type list
       MemberRef: MemberRef option
-      Tag: string }
+      Tags: string list }
     static member Create(
             ?thisArg: Expr,
             ?args: Expr list,
@@ -445,13 +442,13 @@ type CallInfo =
             ?memberRef: MemberRef,
             ?isCons: bool,
             ?tag: string) =
-        let tag = defaultArg tag Tag.empty
+        let tags = Option.toList tag
         { ThisArg = thisArg
           Args = defaultArg args []
           GenericArgs = defaultArg genArgs []
           SignatureArgTypes = defaultArg sigArgTypes []
           MemberRef = memberRef
-          Tag = match isCons with Some true -> Tag.add "new" tag | Some false | None -> tag }
+          Tags = match isCons with Some true -> "new"::tags | Some false | None -> tags }
 
 type ReplaceCallInfo =
     { CompiledName: string
@@ -496,7 +493,7 @@ type FieldInfo =
         IsMutable: bool
         /// Indicates the field shouldn't be moved in beta reduction
         MaybeCalculated: bool
-        Tag: string
+        Tags: string list
     }
     member this.CanHaveSideEffects =
         this.IsMutable || this.MaybeCalculated
@@ -505,7 +502,7 @@ type FieldInfo =
           FieldType = fieldType
           IsMutable = defaultArg isMutable false
           MaybeCalculated = defaultArg maybeCalculated false
-          Tag = defaultArg tag Tag.empty }
+          Tags = Option.toList tag }
         |> FieldGet
 
 type UnionFieldInfo =
@@ -584,7 +581,7 @@ type Expr =
     /// Lambdas are curried, they always have a single argument (which can be unit)
     | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * name: string option * tag: string
+    | Delegate of args: Ident list * body: Expr * name: string option * tags: string list
     | ObjectExpr of members: ObjectExprMember list * typ: Type * baseCall: Expr option
 
     // Type cast and tests

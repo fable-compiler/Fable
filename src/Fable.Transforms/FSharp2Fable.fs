@@ -718,7 +718,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                             TraitName = traitName
                             IsInstance = isInstance
                             FileName = com.CurrentFile
-                            Expr = Fable.Delegate(args, body, None, Fable.Tag.empty)
+                            Expr = Fable.Delegate(args, body, None, Fable.Tags.empty)
                         }
                         return { ctx with Witnesses = w::ctx.Witnesses }
                     })
@@ -1143,7 +1143,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               IsMangled = false
               MemberRef = getFunctionMemberRef memb
               ImplementedSignatureRef = None
-              Tag = Fable.Tag.empty
+              Tags = Fable.Tags.empty
               XmlDoc = tryGetXmlDoc memb.XmlDoc }
         com.AddConstructor(ent.FullName, cons, baseCall)
         []
@@ -1163,7 +1163,7 @@ let private transformImport _com r typ name args memberRef selector path =
           IsMangled = true
           MemberRef = memberRef
           ImplementedSignatureRef = None
-          Tag = Fable.Tag.empty
+          Tags = Fable.Tags.empty
           XmlDoc = None }]
 
 let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrValue) selector path =
@@ -1202,7 +1202,7 @@ let private transformMemberValue (com: IFableCompiler) ctx name (memb: FSharpMem
               MemberRef = getValueMemberRef memb
               ImplementedSignatureRef = None
               UsedNames = set ctx.UsedNamesInDeclarationScope
-              Tag = Fable.Tag.empty
+              Tags = Fable.Tags.empty
               XmlDoc = tryGetXmlDoc memb.XmlDoc }]
 
 // TODO: This should be moved to Fable2Babel/Fable2Python
@@ -1257,7 +1257,7 @@ let private applyJsPyDecorators (com: IFableCompiler) (_ctx: Context) name (memb
         | [] -> None
         | decorators ->
             // This must be compiled as JS `function` (not arrow) so we don't have issues with bound this
-            let body = Fable.Delegate(args, body, None, "not-arrow")
+            let body = Fable.Delegate(args, body, None, ["not-arrow"])
             List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1279,7 +1279,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
         if memb.CompiledName = ".cctor" then
             [Fable.ActionDeclaration
                 { Body =
-                    Fable.Delegate(args, body, Some name, Fable.Tag.empty)
+                    Fable.Delegate(args, body, Some name, Fable.Tags.empty)
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
@@ -1299,7 +1299,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
                   IsMangled = true
                   MemberRef = memberRef
                   ImplementedSignatureRef = None
-                  Tag = Fable.Tag.empty
+                  Tags = Fable.Tags.empty
                   XmlDoc = tryGetXmlDoc memb.XmlDoc }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1333,7 +1333,7 @@ let private transformImplementedSignature (com: FableCompiler) (ctx: Context)
           MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = Some info.memberRef
           UsedNames = set ctx.UsedNamesInDeclarationScope
-          Tag = Fable.Tag.empty
+          Tags = Fable.Tags.empty
           XmlDoc = tryGetXmlDoc memb.XmlDoc })
 
 let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context)
@@ -1353,7 +1353,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           UsedNames = set ctx.UsedNamesInDeclarationScope
           MemberRef = getFunctionMemberRef memb
           ImplementedSignatureRef = None
-          Tag = Fable.Tag.empty
+          Tags = Fable.Tags.empty
           XmlDoc = tryGetXmlDoc memb.XmlDoc })
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
@@ -1471,7 +1471,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                               Constructor = None
                               BaseCall = None
                               AttachedMembers = []
-                              Tag = Fable.Tag.empty
+                              Tags = Fable.Tags.empty
                               XmlDoc = tryGetXmlDoc fsEnt.XmlDoc }]
             // This adds modules in the AST for languages that support them (like Rust)
             | sub when (fsEnt.IsFSharpModule || fsEnt.IsNamespace) && (com :> Compiler).Options.Language = Rust ->

@@ -824,7 +824,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, info) -> Some([arg], body, info)
-        | Fable.Delegate(args, body, info, Fable.Tag.empty) -> Some(args, body, info)
+        | Fable.Delegate(args, body, info, []) -> Some(args, body, info)
         | _ -> None
 
     let (|Lets|_|) = function

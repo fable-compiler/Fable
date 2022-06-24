@@ -1151,7 +1151,7 @@ module Util =
     let (|Function|_|) =
         function
         | Fable.Lambda (arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate (args, body, _, Fable.Tag.empty) -> Some(args, body)
+        | Fable.Delegate (args, body, _, []) -> Some(args, body)
         | _ -> None
 
     let discardUnitArg (args: Fable.Ident list) =
@@ -2115,7 +2115,7 @@ module Util =
         | Fable.Get (_, Fable.FieldGet{ Name = "sort" }, _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
 
         | _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
-        | _, None when Fable.Tag.contains "new" callInfo.Tag -> Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
+        | _, None when List.contains "new" callInfo.Tags -> Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
         | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
@@ -3887,7 +3887,7 @@ module Util =
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
-                if Fable.Tag.contains "export-default" decl.Tag then
+                if List.contains "export-default" decl.Tags then
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
                 else
                     decls

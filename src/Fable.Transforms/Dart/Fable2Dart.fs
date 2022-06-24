@@ -74,7 +74,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _, Fable.Tag.empty) -> Some(args, body)
+        | Fable.Delegate(args, body, _, []) -> Some(args, body)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -790,10 +790,10 @@ module Util =
         | _ ->
             // Try to optimize some patterns after FableTransforms
             let optimized =
-                match callInfo.Tag, callInfo.Args with
-                | Fable.Tag.Contains "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
+                match callInfo.Tags, callInfo.Args with
+                | Fable.Tags.Contains "array", [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                     Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range) |> Some
-                | Fable.Tag.Contains "ignore", [arg] ->
+                | Fable.Tags.Contains "ignore", [arg] ->
                     match returnStrategy with
                     // If we're not going to return or assign the value we can skip the `ignore` call
                     | Return(isVoid=true) | Ignore -> Some arg
@@ -998,7 +998,7 @@ module Util =
                     | _ -> fableExpr
                 transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                     let t = transformType com ctx t
-                    Expression.propertyAccess(expr, fieldName, t, isConst=Fable.Tag.contains "const" info.Tag))
+                    Expression.propertyAccess(expr, fieldName, t, isConst=List.contains "const" info.Tags))
 
         | Fable.ListHead ->
             transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->

@@ -45,7 +45,7 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     | ExprType(Option(t2,_)) ->
         let fn =
             let f = makeTypedIdent t2 "f"
-            Delegate([f], uncurry (IdentExpr f), None, Tag.empty)
+            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
         Helper.LibCall(com, "Option", "map", t, [fn; expr])
     | expr -> uncurry expr
 
@@ -453,7 +453,7 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, None, Tag.empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 and makeComparer (com: ICompiler) ctx typArg =
     Helper.LibCall(com, "Types", "Comparer", Any, [makeComparerFunction com ctx typArg])
@@ -462,14 +462,14 @@ and makeEqualityFunction (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, None, Tag.empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     Helper.LibCall(com, "Types", "EqualityComparer", Any, [
-        Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tag.empty)
-        Delegate([x], structuralHash com None (IdentExpr x), None, Tag.empty)
+        Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tags.empty)
+        Delegate([x], structuralHash com None (IdentExpr x), None, Tags.empty)
     ])
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
@@ -529,7 +529,7 @@ let makeAddFunction (com: ICompiler) ctx t =
     let x = makeTypedIdent t "x"
     let y = makeTypedIdent t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
-    Delegate([x; y], body, None, Tag.empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
     Helper.LibCall(com, "Types", "GenericAdder", Any, [
@@ -542,7 +542,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let x = makeTypedIdent t "x"
         let i = makeTypedIdent Int32.Number "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
-        Delegate([x; i], body, None, Tag.empty)
+        Delegate([x; i], body, None, Tags.empty)
     Helper.LibCall(com, "Types", "GenericAverager", Any, [
         getZero com ctx t |> makeDelegate []
         makeAddFunction com ctx t
@@ -791,18 +791,18 @@ let makeRefCell com r typ (value: Expr) =
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter =
-        Delegate([], value, None, Tag.empty)
+        Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tag.empty)
+        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
-        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), None, Tag.empty)
+        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tag.empty)
+        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 // Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
@@ -810,13 +810,13 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
     let getter =
         let info = makeCallInfo None [] []
         let value = makeCall r t info value
-        Delegate([], value, None, Tag.empty)
+        Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
         let args = [IdentExpr v; makeBoolConst true]
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
-        Delegate([v], value, None, Tag.empty)
+        Delegate([v], value, None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

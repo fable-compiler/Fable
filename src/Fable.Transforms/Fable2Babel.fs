@@ -563,7 +563,7 @@ module Util =
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, _) -> Some([arg], body)
-        | Fable.Delegate(args, body, _, Fable.Tag.empty) -> Some(args, body)
+        | Fable.Delegate(args, body, _, []) -> Some(args, body)
         | _ -> None
 
     let (|Lets|_|) = function
@@ -933,7 +933,7 @@ module Util =
         | Fable.TypeInfo(t, tag) ->
             if com.Options.NoReflection then addErrorAndReturnNull com r "Reflection is disabled"
             else
-                let genMap = if Fable.Tag.contains "allow-generics" tag then None else Some Map.empty
+                let genMap = if List.contains "allow-generics" tag then None else Some Map.empty
                 transformTypeInfo com ctx r genMap t
         | Fable.Null _t ->
             // if com.Options.typescript
@@ -1249,23 +1249,23 @@ module Util =
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
         let optimized =
-            match callInfo.Tag, callInfo.Args with
-            | Fable.Tag.Contains "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
+            match callInfo.Tags, callInfo.Args with
+            | Fable.Tags.Contains "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
                 Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
                 |> transformAsExpr com ctx
                 |> Some
-            | Fable.Tag.Contains "pojo", keyValueList::caseRule::_ ->
+            | Fable.Tags.Contains "pojo", keyValueList::caseRule::_ ->
                 JS.Replacements.makePojo com (Some caseRule) keyValueList
                 |> Option.map (transformAsExpr com ctx)
-            | Fable.Tag.Contains "pojo", keyValueList::_ ->
+            | Fable.Tags.Contains "pojo", keyValueList::_ ->
                 JS.Replacements.makePojo com None keyValueList
                 |> Option.map (transformAsExpr com ctx)
-            | Fable.Tag.Contains "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
+            | Fable.Tags.Contains "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
                 transformJsxEl com ctx componentOrTag props |> Some
-            | Fable.Tag.Contains "jsx", _ ->
+            | Fable.Tags.Contains "jsx", _ ->
                 "Expecting a static list or array literal (no generator) for JSX props"
                 |> addErrorAndReturnNull com range |> Some
-            | Fable.Tag.Contains "jsx-template", args ->
+            | Fable.Tags.Contains "jsx-template", args ->
                 match args with
                 | StringConst template ::_ -> Expression.jsxTemplate(template) |> Some
                 | MaybeCasted(Fable.Value(Fable.StringTemplate(_, parts, values), _))::_ ->
@@ -1289,7 +1289,7 @@ module Util =
                 let args = transformCallArgs com ctx (CallInfo callInfo)
                 match callInfo.ThisArg with
                 | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-                | None when Fable.Tag.contains "new" callInfo.Tag -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+                | None when List.contains "new" callInfo.Tags -> Expression.newExpression(callee, List.toArray args, ?loc=range)
                 | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
@@ -1698,7 +1698,7 @@ module Util =
             |> makeArrowFunctionExpression name
 
         | Fable.Delegate(args, body, name, tag) ->
-            if Fable.Tag.contains "not-arrow" tag then
+            if List.contains "not-arrow" tag then
                 let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
                 Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
             else
@@ -2229,7 +2229,7 @@ module Util =
                     else
                         [transformModuleFunction com ctx info decl.Name decl.Args decl.Body]
 
-                if Fable.Tag.contains "export-default" decl.Tag then
+                if List.contains "export-default" decl.Tags then
                     decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
                 else decls
 
