@@ -2,6 +2,8 @@ module Fable.Tests.ResizeArrays
 
 open Util.Testing
 
+type Animal = Duck of int | Dog of int
+
 let tests =
   testList "ResizeArrays" [
     testCase "ResizeArray zero creation works" <| fun () ->
@@ -264,4 +266,32 @@ let tests =
         try (xs.Item 1) |> ignore; false with _ -> true
         #endif
         |> equal true
+
+    testCase "ResizeArray.Remove works with non-primitive types" <| fun _ ->
+        let myResizeArray = new ResizeArray<Animal>()
+        myResizeArray.Add (Duck 5)
+        myResizeArray.Remove (Duck 3) |> ignore
+        myResizeArray.Count |> equal 1
+        myResizeArray.Remove (Dog 5) |> ignore
+        myResizeArray.Count |> equal 1
+        myResizeArray.Remove (Duck 5) |> ignore
+        myResizeArray.Count |> equal 0
+
+    testCase "ResizeArray.Contains works with non-primitive types" <| fun _ ->
+        let myResizeArray = new ResizeArray<Animal>()
+        myResizeArray.Add (Duck 5)
+        myResizeArray.Contains (Duck 3) |> equal false
+        myResizeArray.Contains (Dog 5) |> equal false
+        myResizeArray.Contains (Duck 5) |> equal true
+
+    testCase "ResizeArray.IndexOf works with non-primitive types" <| fun _ ->
+        let myResizeArray = new ResizeArray<Animal>()
+        myResizeArray.Add (Duck 5)
+        myResizeArray.IndexOf (Duck 3) |> equal -1
+        myResizeArray.IndexOf (Dog 5) |> equal -1
+        myResizeArray.IndexOf (Duck 5) |> equal 0
+        myResizeArray.Add(Dog 3)
+        myResizeArray.IndexOf(Dog 3) |> equal 1
+        myResizeArray.IndexOf(Dog 3, 0, 1) |> equal -1
+        myResizeArray.IndexOf(Duck 5, 1) |> equal -1
   ]

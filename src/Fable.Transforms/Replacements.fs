@@ -1888,6 +1888,15 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
         Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
+let injectIndexOfArgs com ctx r genArgs args =
+    let args =
+        match args with
+        | [ar; item; start; count] -> [ar; item; start; count]
+        | [ar; item; start] -> [ar; item; start; makeNone(Number Int32)]
+        | [ar; item] -> [ar; item; makeNone(Number Int32); makeNone(Number Int32)]
+        | _ -> failwith "Unexpected number of arguments"
+    injectArg com ctx r "Array" "indexOf" genArgs args
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Use Any to prevent creation of a typed array (not resizable)
@@ -1909,7 +1918,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Add", Some ar, [arg] ->
         "void ($0)" |> emitJsExpr r t [Helper.InstanceCall(ar, "push", t, [arg])] |> Some
     | "Remove", Some ar, [arg] ->
-        Helper.LibCall(com, "Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
+        let args = injectArg com ctx r "Array" "removeInPlace" i.GenericArgs [arg; ar]
+        Helper.LibCall(com, "Array", "removeInPlace", t, args, ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
     | "FindIndex", Some ar, [arg] ->
@@ -1943,14 +1953,16 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetRange", Some ar, [idx; cnt] ->
         Helper.LibCall(com, "Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
-    | "Contains", Some (MaybeCasted(ar)), [arg] ->
-        match ar.Type with
-        | Array _ ->
-            let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
-            makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-        | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
+    | "Contains", Some ar, [arg] ->
+        let args = injectArg com ctx r "Array" "contains" i.GenericArgs [arg; ar]
+        let moduleName =
+            match ar.Type with
+            | Array _ -> "Array"
+            | _ -> "Seq"
+        Helper.LibCall(com, moduleName, "contains", t, args, ?loc=r) |> Some
     | "IndexOf", Some ar, args ->
-        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+        let args = injectIndexOfArgs com ctx r i.GenericArgs (ar::args)
+        Helper.LibCall(com, "Array", "indexOf", t, args, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
         Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
     | "InsertRange", Some ar, [idx; arg] ->
@@ -2014,6 +2026,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "IndexOf", None, args ->
+        let args = injectIndexOfArgs com ctx r i.GenericArgs args
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | _ -> None

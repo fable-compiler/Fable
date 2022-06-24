@@ -417,6 +417,9 @@ module AST =
     let makeNull () =
         Value(Null Any, None)
 
+    let makeNone t =
+        Value(NewOption(None, t), None)
+
     let makeValue r value =
         Value(value, r)
 
