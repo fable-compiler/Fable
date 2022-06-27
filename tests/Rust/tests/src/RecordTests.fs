@@ -146,7 +146,7 @@ let ``Records with ref-type interior mutability`` () =
     x.MutRefValue <- x.MutRefValue + "c"
     x.MutRefValue |> equal "abc"
 
-[<Fable.Core.PointerType(Fable.Core.PtrType.Arc)>]
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
 type ArcRecord = {
     a: int
     b: string

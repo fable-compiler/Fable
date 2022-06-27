@@ -404,7 +404,7 @@ module TypeInfo =
             match com.GetEntity(entRef) with
             | HasEmitAttribute _ -> None
                 // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
-            | HasPointerTypeAttribute ptrType ->
+            | HasReferenceTypeAttribute ptrType ->
                 if not (isCopyableType com Set.empty typ) then
                     Some ptrType
                 else None
@@ -627,9 +627,9 @@ module TypeInfo =
     type PointerType =
         | Rc
         | Arc
-    let (|HasPointerTypeAttribute|_|) (ent: Fable.Entity) =
+    let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes |> Seq.tryPick (fun att ->
-            if att.Entity.FullName.StartsWith(Atts.ptrType) then
+            if att.Entity.FullName.StartsWith(Atts.refType) then
                 match att.ConstructorArgs with
                 | [:? int as ptrType] ->
                     match ptrType with
@@ -1271,7 +1271,7 @@ module Util =
         makeCall ["Arc";"from"] None [value]
     let maybeWrapSmartPtr ent expr =
         match ent with
-        | HasPointerTypeAttribute a ->
+        | HasReferenceTypeAttribute a ->
             match a with
             | Rc -> expr |> makeRcValue
             | Arc -> expr |> makeArcValue

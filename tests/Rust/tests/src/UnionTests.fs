@@ -122,7 +122,7 @@ let ``Match with condition works`` () =
     b1 |> matchStringWhenStringNotHello |> equal "hello"
     b2 |> matchStringWhenStringNotHello |> equal "not hello"
 
-[<Fable.Core.PointerType(Fable.Core.PtrType.Arc)>]
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
 type ArcUnion =
     | ArcS of string
     | ArcI of int

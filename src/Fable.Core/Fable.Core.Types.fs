@@ -240,11 +240,3 @@ type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     static member op_ErasedCast(x:'i) = Case9 x
     static member inline op_ErasedCast(x:'t) : U9<_, _, _, _, _, _, _, _, ^U> =
         Case9 (^U: (static member op_ErasedCast: 't -> ^U) x)
-
-
-type PtrType =
-    | Rc = 0
-    | Arc = 1
-// Rust - Defines the pointer type that is to be used to wrap the object (Rc/Arc)
-type PointerTypeAttribute(pointerType: PtrType) =
-    inherit Attribute()

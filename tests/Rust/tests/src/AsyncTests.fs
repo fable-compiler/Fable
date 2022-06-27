@@ -14,7 +14,7 @@ let shouldExecPrim () =
     let t = Async.StartAsTask comp
     t.Result |> equal 6
 
-[<Fable.Core.PointerType(Fable.Core.PtrType.Arc)>]
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
 type ArcRecord = {
     A: int
 }

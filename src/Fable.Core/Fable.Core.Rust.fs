@@ -19,3 +19,12 @@ type InnerAttrAttribute private (name: string, value: string option, items: stri
     new (name: string) = InnerAttrAttribute(name, None, [||])
     new (name: string, value: string) = InnerAttrAttribute(name, Some value, [||])
     new (name: string, items: string[]) = InnerAttrAttribute(name, None, items)
+
+
+//Rc/arc control
+type RefType =
+    | Rc = 0
+    | Arc = 1
+// Rust - Defines the pointer type that is to be used to wrap the object (Rc/Arc)
+type ReferenceTypeAttribute(pointerType: RefType) =
+    inherit Attribute()
