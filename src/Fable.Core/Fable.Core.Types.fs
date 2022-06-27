@@ -240,7 +240,3 @@ type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     static member op_ErasedCast(x:'i) = Case9 x
     static member inline op_ErasedCast(x:'t) : U9<_, _, _, _, _, _, _, _, ^U> =
         Case9 (^U: (static member op_ErasedCast: 't -> ^U) x)
-
-// Rust - Allow stuff to be passed by reference
-type ByRefAttribute() =
-    inherit Attribute()

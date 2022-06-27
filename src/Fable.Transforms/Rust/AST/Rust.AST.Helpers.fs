@@ -553,7 +553,7 @@ module Attrs =
         mkAttribute kind AttrStyle.Outer
 
     let mkEqAttr (name: Symbol) (value: Symbol): Attribute =
-        let args = MacArgs.Eq(DUMMY_SP, mkIdentToken value)
+        let args = MacArgs.Eq(DUMMY_SP, mkStrToken value)
         let kind = mkAttrKind name args
         mkAttribute kind AttrStyle.Outer
 

@@ -1219,9 +1219,9 @@ let ``Array.splitInto works`` () =
 
 [<Fact>]
 let ``Array.tryExactlyOne works`` () =
-        [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
-        [|1.;2.|] |> Array.tryExactlyOne |> equal None
-        [||] |> Array.tryExactlyOne<float> |> equal None
+    [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
+    [|1.;2.|] |> Array.tryExactlyOne |> equal None
+    [||] |> Array.tryExactlyOne<float> |> equal None
 
 // [<Fact>]
 // let ``Array.exactlyOne works II`` () =
