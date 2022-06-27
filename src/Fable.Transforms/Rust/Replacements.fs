@@ -2384,6 +2384,19 @@ let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Enter" | "Exit" -> Null Type.Unit |> makeValue r |> Some
     | _ -> None
 
+let task (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, i.GenericArgs with
+    | _, "Task", [tType] ->
+        Helper.LibCall(com, "Task", "new", tType, args, ?loc=r) |> Some
+    | Some x, "get_Result", _ ->
+        Helper.InstanceCall(x, "get_result", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+let taskNG (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, i.GenericArgs with
+    | _, "FromResult", [tType] ->
+        Helper.LibCall(com, "Task", "from_result", tType, args, ?loc=r) |> Some
+    | _ -> None
+
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "CreateInstance", None, ([_type] | [_type; (ExprType(Array(Any,_)))]) ->
@@ -2541,6 +2554,9 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [arg; f] ->
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Delay", _ -> Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Bind", _ -> Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Return", _ -> Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2556,6 +2572,37 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "Catch" -> Helper.LibCall(com, "Async", "catchAsync", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Fable.Core extensions
     | meth -> Helper.LibCall(com, "Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    // | _, "Run", _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
+    // | _, "Singleton", _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
+    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | _, "Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Return", _ -> Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Delay", _ -> Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+
+let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | _, "TaskBuilderBase.Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | _, "task", _ -> Helper.LibCall(com, "Task", "new", t, [], ?loc=r) |> Some
+    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    // TODO: Throw error for RunSynchronously
+    | _, _, _ -> None
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseGuid (literalGuid: string) =
@@ -2853,6 +2900,8 @@ let private replacedModules =
     "System.Threading.CancellationToken", cancels
     "System.Threading.CancellationTokenSource", cancels
     "System.Threading.Monitor", monitor
+    "System.Threading.Tasks.Task`1", task
+    "System.Threading.Tasks.Task", taskNG
     "System.Activator", activator
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
@@ -2873,6 +2922,10 @@ let private replacedModules =
     "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
     "Microsoft.FSharp.Control.FSharpAsync", asyncs
     "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
+    "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilderM
+    "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
+    "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilderB
+    "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilderHP
     Types.guid, guids
     "System.Uri", uris
     "System.Lazy`1", laziness
