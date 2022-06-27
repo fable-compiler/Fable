@@ -11,7 +11,7 @@ pub mod Async_ {
 
     use super::Task_::Task_1;
 
-    pub struct FSharpAsync_1<T: Sized + Send + Sync> {
+    pub struct Async_1<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>
     }
 
@@ -20,7 +20,7 @@ pub mod Async_ {
     //     pub static POOL: std::cell::RefCell<LocalPool>  = std::cell::RefCell::from(LocalPool::new());
     // }
 
-    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<FSharpAsync_1<T>>) -> Task_1<T>{
+    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> Arc<Task_1<T>> {
         //todo
         let task = Task_1::<T>::new();
         let task1 = task.clone();
@@ -41,31 +41,7 @@ pub mod Async_ {
         //handle.join().expect("great");
 
         task.set_handle(handle);
-        task
-    }
-
-    pub fn bind<T: Clone + Send + Sync + 'static, U: Clone + Send + Sync + 'static>(
-        opt: FSharpAsync_1<T>,
-        binder: Arc<impl Fn(T) -> FSharpAsync_1<U> + 'static + Send + Sync>
-                         ) -> FSharpAsync_1<U>
-    {
-        let next =
-            async move {
-                let mut m = opt.future.lock().await;
-                let m = m.as_mut().await;
-                let nextAsync = binder(m);
-                let mut next = nextAsync.future.lock().await;
-                next.as_mut().await
-            };
-
-        let b :Pin<Box<dyn Future<Output=U> + Send + Sync>> = Box::pin(next);
-        FSharpAsync_1 { future: Arc::from(Mutex::from(b)) }
-    }
-
-    pub fn r_return<T: Send + Sync + 'static>(item: T) -> FSharpAsync_1<T>{
-        let r = ready(item);
-        let b :Pin<Box<dyn Future<Output=T> + Send + Sync>> = Box::pin(r);
-        FSharpAsync_1 { future: Arc::from(Mutex::from(b)) }
+        Arc::from(task)
     }
 }
 
@@ -74,17 +50,17 @@ pub mod AsyncBuilder_ {
 
     use futures::lock::Mutex;
 
-    use super::Async_::FSharpAsync_1;
+    use super::Async_::Async_1;
 
-    pub fn delay<T: Send + Sync>(binder: Arc<impl Fn() -> Arc<FSharpAsync_1<T>> + 'static>) -> Arc<FSharpAsync_1<T>> {
+    pub fn delay<T: Send + Sync>(binder: Arc<impl Fn() -> Arc<Async_1<T>> + 'static>) -> Arc<Async_1<T>> {
         let pr = binder();
-        Arc::from(FSharpAsync_1 {future: pr.future.clone()})
+        Arc::from(Async_1 {future: pr.future.clone()})
     }
 
     pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
-        opt: Arc<FSharpAsync_1<T>>,
-        binder: Arc<impl Fn(T) -> Arc<FSharpAsync_1<U>> + Send + Sync + 'static>
-                         ) -> Arc<FSharpAsync_1<U>>
+        opt: Arc<Async_1<T>>,
+        binder: Arc<impl Fn(T) -> Arc<Async_1<U>> + Send + Sync + 'static>
+                         ) -> Arc<Async_1<U>>
     {
         let next =
             async move {
@@ -96,13 +72,13 @@ pub mod AsyncBuilder_ {
             };
 
         let b :Pin<Box<dyn Future<Output=U> + Send + Sync + 'static>> = Box::pin(next);
-        Arc::from(FSharpAsync_1 { future: Arc::from(Mutex::from(b)) })
+        Arc::from(Async_1 { future: Arc::from(Mutex::from(b)) })
     }
 
-    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<FSharpAsync_1<T>>{
+    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async_1<T>>{
         let r = ready(item);
         let b :Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(r);
-        Arc::from(FSharpAsync_1 { future: Arc::from(Mutex::from(b)) })
+        Arc::from(Async_1 { future: Arc::from(Mutex::from(b)) })
     }
 }
 

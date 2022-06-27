@@ -390,6 +390,12 @@ module TypeInfo =
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
             -> Some Rc
 
+        // always Arc-wrapped
+        | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) _
+        | Replacements.Util.IsEntity (Types.task) _
+        | Replacements.Util.IsEntity (Types.taskGeneric) _ ->
+            Some Arc
+
         // conditionally Rc-wrapped
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
             if not (isCopyableType com Set.empty typ) then Some Rc else None
@@ -502,6 +508,12 @@ module TypeInfo =
         transformImportType com ctx genArgs "Native" "HashMap"
         |> makeMutTy com ctx
         // transformImportType com ctx genArgs "Native" "HashMap`2"
+
+    let transformAsyncType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Async" "Async`1"
+
+    let transformTaskType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Task" "Task`1"
 
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
@@ -732,6 +744,8 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.keyCollection) (entRef, [k; v]) -> transformArrayType com ctx k
             | Replacements.Util.IsEntity (Types.valueCollection) (entRef, [k; v]) -> transformArrayType com ctx v
             | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx (inferIfAny t)
+            | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) (_, [t]) -> transformAsyncType com ctx t
+            | Replacements.Util.IsEntity (Types.taskGeneric) (_, [t]) -> transformTaskType com ctx t
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with
@@ -1256,7 +1270,14 @@ module Util =
             match a with
             | Rc -> expr |> makeRcValue
             | Arc -> expr |> makeArcValue
-        | _ -> expr |> makeRcValue
+        | _ ->
+            match ent.FullName with
+            | Types.fsharpAsyncGeneric
+            | Types.task
+            | Types.taskGeneric ->
+                expr |> makeArcValue
+            | _ ->
+                expr |> makeRcValue
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"from"] None [value]
