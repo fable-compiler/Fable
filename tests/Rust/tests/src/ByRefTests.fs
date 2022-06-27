@@ -1,6 +1,7 @@
 module Fable.Tests.ByRefTests
 
 open Util.Testing
+open Fable.Core.Rust
 
 type Obj = {
     X: int
@@ -26,7 +27,7 @@ let ``pass obj by ref works`` () =
     byrefObjFn &b |> equal 3
     a |> equal a //prevent inlining
 
-[<Fable.Core.ByRef>]
+[<ByRef>]
 let byrefAttrRootObjDecFn (x: Obj) =
     x.X + 1
 
@@ -40,7 +41,7 @@ let ``pass obj by ref using attr on fn works`` () =
 
 // // TODO: Use ByRef attr as Param not yet working
 
-// let byrefAttrIntFn ([<Fable.Core.ByRef>] x: int) =
+// let byrefAttrIntFn ([<ByRef>] x: int) =
 //     x + 1
 
 // [<Fact>]
@@ -49,7 +50,7 @@ let ``pass obj by ref using attr on fn works`` () =
 //     byrefAttrIntFn a |> equal 2
 //     a |> equal 1 // a is not modified & prevent inlining
 
-// let byrefAttrObjFn ([<Fable.Core.ByRef>] x: Obj) =
+// let byrefAttrObjFn ([<ByRef>] x: Obj) =
 //     x.X + 1
 
 // [<Fact>]

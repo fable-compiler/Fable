@@ -92,3 +92,23 @@ let ``Functions in class fields are uncurried`` () =
     let adder = TestClass((+))
     let res = adder.Add(2, 3)
     res |> equal 5
+
+#if FABLE_COMPILER_RUST
+open Fable.Core.Rust
+
+[<Attr("should_panic")>]
+[<Fact>]
+let ``Simple outer attribute works`` (): unit =
+    failwith "Some error"
+
+[<Attr("ignore", "intentionally")>]
+[<Fact>]
+let ``Name value outer attribute works`` (): unit =
+    failwith "Some error"
+
+[<Attr("should_panic", [|"expected=\"Some error\""|])>]
+[<Fact>]
+let ``Delimited outer attribute works`` (): unit =
+    failwith "Some error"
+
+#endif //FABLE_COMPILER_RUST

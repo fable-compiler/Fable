@@ -1768,17 +1768,17 @@ module Util =
         isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
 
     let transformCall (com: IRustCompiler) ctx range typ calleeExpr (callInfo: Fable.CallInfo) =
-        let isParamByRefPreferred =
+        let isByRefPreferred =
             callInfo.MemberRef
             |> Option.bind com.TryGetMember
             |> Option.map (fun memberInfo ->
                 memberInfo.Attributes
-                |> Seq.exists (fun a -> a.Entity.FullName.Contains("ByRefAttr")))
+                |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
 
         let ctx =
             { ctx with IsCallingFunction = true
-                       Typegen = { ctx.Typegen with IsParamByRefPreferred = isParamByRefPreferred } }
+                       Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
@@ -2615,7 +2615,7 @@ module Util =
             )
             let makeModItems (fullPath, moduleName) =
                 let importPath = Fable.Path.getRelativePath com.CurrentFile fullPath
-                let attrs = [mkEqAttr "path" ("\"" + importPath  + "\"")]
+                let attrs = [mkEqAttr "path" importPath]
                 let modItem = mkUnloadedModItem attrs moduleName
                 let useItem = mkGlobUseItem [] [moduleName]
                 if isFableLibrary com
@@ -3010,13 +3010,39 @@ module Util =
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs }
         mkItemStmt fnItem, ctxNext
 
+    let transformAttributes (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) =
+        info.Attributes
+        |> Seq.collect (fun att ->
+            // translate test methods attributes
+            // TODO: support more test frameworks
+            if att.Entity.FullName.EndsWith(".FactAttribute") then
+                [mkAttr "test" []]
+            // custom outer attributes
+            elif att.Entity.FullName = Atts.rustAttr then
+                match att.ConstructorArgs with
+                | [:? string as name] -> [mkAttr name []]
+                | [:? string as name; :? string as value] -> [mkEqAttr name value]
+                | [:? string as name; :? (obj[]) as items] -> [mkAttr name (items |> Array.map string)]
+                | _ -> []
+            // custom inner attributes
+            elif att.Entity.FullName = Atts.rustInnerAttr then
+                match att.ConstructorArgs with
+                | [:? string as name] -> [mkInnerAttr name []]
+                | [:? string as name; :? string as value] -> [mkInnerEqAttr name value]
+                | [:? string as name; :? (obj[]) as items] -> [mkInnerAttr name (items |> Array.map string)]
+                | _ -> []
+            else []
+        )
+
     let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
         let info = com.GetMember(decl.MemberRef)
+        let isByRefPreferred =
+            info.Attributes
+            |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
         let fnDecl, fnBody, fnGenParams =
             let ctx = { ctx with Typegen = { ctx.Typegen with
-                                                IsParamByRefPreferred = info.Attributes
-                                                                        |> Seq.exists (fun q -> q.Entity.FullName.Contains("ByRefAttr")) } }
+                                                IsParamByRefPreferred = isByRefPreferred } }
             transformFunction com ctx (Some info.FullName) decl.Args decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
@@ -3025,12 +3051,7 @@ module Util =
         let header = DEFAULT_FN_HEADER
         let generics = makeGenerics fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
-        let attrs =
-            // translate test methods attributes
-            // TODO: support more test frameworks
-            info.Attributes
-            |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
-            |> Seq.map (fun _ -> mkAttr "test" [])
+        let attrs = transformAttributes com ctx info
         let fnItem = mkFnItem attrs name kind
         // let fnItem =
         //     if info.IsPublic
@@ -3080,10 +3101,7 @@ module Util =
         let header = DEFAULT_FN_HEADER
         let generics = makeGenerics fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
-        let attrs =
-            info.Attributes
-            |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
-            |> Seq.map (fun _ -> mkAttr "test" [])
+        let attrs = transformAttributes com ctx info
         let fnItem = mkFnAssocItem attrs name kind
         fnItem
 
