@@ -14,6 +14,24 @@ let shouldExecPrim () =
     let t = Async.StartAsTask comp
     t.Result |> equal 6
 
+[<Fable.Core.PointerType(Fable.Core.PtrType.Arc)>]
+type ArcRecord = {
+    A: int
+}
+
+[<Fact>]
+let shouldCorrectlyScopeArcRecord () =
+    let a = { A = 3 }
+    let ab = async { return a }
+    let comp = async {
+        let x = 2
+        let! a = ab
+        let y = a.A
+        return x + y
+    }
+    let t = Async.StartAsTask comp
+    t.Result |> equal 5
+
 // open System.Threading.Tasks
 // [<Fact>]
 // let shouldExecutedTask () =

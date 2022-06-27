@@ -51,6 +51,7 @@ type Context =
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
     IsCallingFunction: bool
+    RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -556,10 +557,14 @@ module TypeInfo =
             mkFnTraitGenericBound inputs output
             mkLifetimeGenericBound "'static"
         ]
-        if ctx.Typegen.IsParamType
-        then mkImplTraitTy bounds
-        else mkDynTraitTy bounds
-        |> makeRcTy com ctx
+        let underlyingTy =
+            if ctx.Typegen.IsParamType
+            then mkImplTraitTy bounds
+            else mkDynTraitTy bounds
+        if ctx.RequiresSendSync then
+            underlyingTy |> makeArcTy com ctx
+        else
+            underlyingTy |> makeRcTy com ctx
 
     let numberType kind: Rust.Ty =
         match kind with
@@ -1832,7 +1837,16 @@ module Util =
             |> Option.defaultValue false
 
         let ctx =
+            let isSendSync =
+                match calleeExpr with
+                | Fable.Import(info, t, r) ->
+                    match info.Selector with
+                    | "AsyncBuilder_::delay"
+                    | "AsyncBuilder_::bind" -> true
+                    | _ -> false
+                | _ -> false
             { ctx with IsCallingFunction = true
+                       RequiresSendSync = isSendSync
                        Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
@@ -2964,18 +2978,22 @@ module Util =
                 let fixName = "fix" + string (List.length args)
                 makeNativeCall com ctx None "Func" fixName [closureExpr]
             else closureExpr
-        if not (Set.isEmpty closedOverCloneableNames) then
-            mkStmtBlockExpr [
-                for name in closedOverCloneableNames do
-                    let pat = mkIdentPat name false false
-                    let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
-                    let cloneExpr = makeClone identExpr
-                    let letExpr = mkLetExpr pat cloneExpr
-                    yield letExpr |> mkSemiStmt
-                yield closureExpr |> mkExprStmt
-            ]
-        else closureExpr
-        |> makeRcValue
+        let closureExpr =
+            if not (Set.isEmpty closedOverCloneableNames) then
+                mkStmtBlockExpr [
+                    for name in closedOverCloneableNames do
+                        let pat = mkIdentPat name false false
+                        let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
+                        let cloneExpr = makeClone identExpr
+                        let letExpr = mkLetExpr pat cloneExpr
+                        yield letExpr |> mkSemiStmt
+                    yield closureExpr |> mkExprStmt
+                ]
+            else closureExpr
+        if ctx.RequiresSendSync then
+            closureExpr |> makeArcValue
+        else
+            closureExpr |> makeRcValue
 
     let makeTypeBounds argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3802,6 +3820,7 @@ module Compiler =
             ScopedSymbols = Map.empty
             IsInPluralizedExpr = false
             IsCallingFunction = true
+            RequiresSendSync = false
             Typegen = { IsParamType = false
                         IsParamByRefPreferred = false
                         IsRawType = false } }
