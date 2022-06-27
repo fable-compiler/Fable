@@ -51,6 +51,7 @@ type Context =
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
     IsCallingFunction: bool
+    RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
     Typegen: TypegenContext }
 
 type IRustCompiler =
@@ -174,6 +175,8 @@ module TypeInfo =
     // Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
     let makeRcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Rc"
+    let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
+        [ty] |> makeImportType com ctx "Native" "Arc"
 
     // TODO: emit Lazy or SyncLazy depending on threading.
     let makeLazyTy com ctx (ty: Rust.Ty): Rust.Ty =
@@ -376,7 +379,7 @@ module TypeInfo =
         | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
         | Fable.Tuple _
         | Fable.AnonymousRecordType _
-            -> false
+            -> None
 
         // always Rc-wrapped
         | Fable.String
@@ -386,16 +389,27 @@ module TypeInfo =
         | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEnumerator _
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
-            -> true
+            -> Some Rc
+
+        // always Arc-wrapped
+        | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) _
+        | Replacements.Util.IsEntity (Types.task) _
+        | Replacements.Util.IsEntity (Types.taskGeneric) _ ->
+            Some Arc
 
         // conditionally Rc-wrapped
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
-            not (isCopyableType com Set.empty typ)
+            if not (isCopyableType com Set.empty typ) then Some Rc else None
         | Fable.DeclaredType (entRef, _) ->
             match com.GetEntity(entRef) with
-            | HasEmitAttribute _ -> false // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | HasEmitAttribute _ -> None
+                // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
+            | HasReferenceTypeAttribute ptrType ->
+                if not (isCopyableType com Set.empty typ) then
+                    Some ptrType
+                else None
             | _ ->
-                not (isCopyableType com Set.empty typ)
+                if not (isCopyableType com Set.empty typ) then Some Rc else None
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -496,6 +510,12 @@ module TypeInfo =
         |> makeMutTy com ctx
         // transformImportType com ctx genArgs "Native" "HashMap`2"
 
+    let transformAsyncType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Async" "Async`1"
+
+    let transformTaskType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Task" "Task`1"
+
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
         |> List.map (transformType com ctx)
@@ -537,10 +557,14 @@ module TypeInfo =
             mkFnTraitGenericBound inputs output
             mkLifetimeGenericBound "'static"
         ]
-        if ctx.Typegen.IsParamType
-        then mkImplTraitTy bounds
-        else mkDynTraitTy bounds
-        |> makeRcTy com ctx
+        let underlyingTy =
+            if ctx.Typegen.IsParamType
+            then mkImplTraitTy bounds
+            else mkDynTraitTy bounds
+        if ctx.RequiresSendSync then
+            underlyingTy |> makeArcTy com ctx
+        else
+            underlyingTy |> makeRcTy com ctx
 
     let numberType kind: Rust.Ty =
         match kind with
@@ -598,6 +622,20 @@ module TypeInfo =
             if att.Entity.FullName.StartsWith(Atts.emit) then
                 match att.ConstructorArgs with
                 | [:? string as macro] -> Some macro
+                | _ -> None
+            else None)
+    type PointerType =
+        | Rc
+        | Arc
+    let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
+        ent.Attributes |> Seq.tryPick (fun att ->
+            if att.Entity.FullName.StartsWith(Atts.refType) then
+                match att.ConstructorArgs with
+                | [:? int as ptrType] ->
+                    match ptrType with
+                    | 0 -> Some Rc
+                    | 1 -> Some Arc
+                    | _ -> None
                 | _ -> None
             else None)
 
@@ -711,6 +749,8 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.keyCollection) (entRef, [k; v]) -> transformArrayType com ctx k
             | Replacements.Util.IsEntity (Types.valueCollection) (entRef, [k; v]) -> transformArrayType com ctx v
             | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx (inferIfAny t)
+            | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) (_, [t]) -> transformAsyncType com ctx t
+            | Replacements.Util.IsEntity (Types.taskGeneric) (_, [t]) -> transformTaskType com ctx t
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with
@@ -757,9 +797,12 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
-        if shouldBeRefCountWrapped com typ && not ctx.Typegen.IsRawType
-        then makeRcTy com ctx ty
-        else ty
+        match shouldBeRefCountWrapped com typ, not ctx.Typegen.IsRawType with
+        | Some Rc, true ->
+            makeRcTy com ctx ty
+        | Some Arc, true ->
+            makeArcTy com ctx ty
+        | _ -> ty
 
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -1224,6 +1267,22 @@ module Util =
 
     let makeRcValue (value: Rust.Expr) =
         makeCall ["Rc";"from"] None [value]
+    let makeArcValue (value: Rust.Expr) =
+        makeCall ["Arc";"from"] None [value]
+    let maybeWrapSmartPtr ent expr =
+        match ent with
+        | HasReferenceTypeAttribute a ->
+            match a with
+            | Rc -> expr |> makeRcValue
+            | Arc -> expr |> makeArcValue
+        | _ ->
+            match ent.FullName with
+            | Types.fsharpAsyncGeneric
+            | Types.task
+            | Types.taskGeneric ->
+                expr |> makeArcValue
+            | _ ->
+                expr |> makeRcValue
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"from"] None [value]
@@ -1258,7 +1317,7 @@ module Util =
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
         let expr = com.TransformAsExpr(ctx, fableExpr)
-        if shouldBeRefCountWrapped com typ
+        if shouldBeRefCountWrapped com typ |> Option.isSome
         then makeAsRef expr
         else
             if isRefScoped ctx name
@@ -1452,7 +1511,8 @@ module Util =
         let expr = mkStructExpr path fields // TODO: range
         if isCopyableEntity com Set.empty ent
         then expr
-        else expr |> makeRcValue
+        else
+            maybeWrapSmartPtr ent expr
 
     let mapKnownUnionCaseNames fullName =
         match fullName with
@@ -1473,7 +1533,7 @@ module Util =
         let expr = callFunction com ctx None callee values
         if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
         then expr
-        else expr |> makeRcValue
+        else expr |> maybeWrapSmartPtr ent
 
     let makeThis (com: IRustCompiler) ctx r typ =
         let expr = mkGenericPathExpr [rawIdent "self"] None
@@ -1580,7 +1640,7 @@ module Util =
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
                 expr |> mkAddrOfExpr
-            elif shouldBeRefCountWrapped com e.Type && not isOnlyReference then
+            elif shouldBeRefCountWrapped com e.Type |> Option.isSome && not isOnlyReference then
                 expr |> makeClone
             elif isCloneableType com e.Type && not isOnlyReference then
                 expr |> makeClone // TODO: can this clone be removed somehow?
@@ -1777,7 +1837,16 @@ module Util =
             |> Option.defaultValue false
 
         let ctx =
+            let isSendSync =
+                match calleeExpr with
+                | Fable.Import(info, t, r) ->
+                    match info.Selector with
+                    | "AsyncBuilder_::delay"
+                    | "AsyncBuilder_::bind" -> true
+                    | _ -> false
+                | _ -> false
             { ctx with IsCallingFunction = true
+                       RequiresSendSync = isSendSync
                        Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
@@ -2777,7 +2846,7 @@ module Util =
                 && (ident.IsMutable ||
                     (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
-                    (shouldBeRefCountWrapped com ident.Type) ||
+                    (shouldBeRefCountWrapped com ident.Type |> Option.isSome) ||
                     // Closures may capture Ref counted vars, so by cloning
                     // the actual closure, all attached ref counted var are cloned too
                     (match ident.Type with
@@ -2909,18 +2978,22 @@ module Util =
                 let fixName = "fix" + string (List.length args)
                 makeNativeCall com ctx None "Func" fixName [closureExpr]
             else closureExpr
-        if not (Set.isEmpty closedOverCloneableNames) then
-            mkStmtBlockExpr [
-                for name in closedOverCloneableNames do
-                    let pat = mkIdentPat name false false
-                    let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
-                    let cloneExpr = makeClone identExpr
-                    let letExpr = mkLetExpr pat cloneExpr
-                    yield letExpr |> mkSemiStmt
-                yield closureExpr |> mkExprStmt
-            ]
-        else closureExpr
-        |> makeRcValue
+        let closureExpr =
+            if not (Set.isEmpty closedOverCloneableNames) then
+                mkStmtBlockExpr [
+                    for name in closedOverCloneableNames do
+                        let pat = mkIdentPat name false false
+                        let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
+                        let cloneExpr = makeClone identExpr
+                        let letExpr = mkLetExpr pat cloneExpr
+                        yield letExpr |> mkSemiStmt
+                    yield closureExpr |> mkExprStmt
+                ]
+            else closureExpr
+        if ctx.RequiresSendSync then
+            closureExpr |> makeArcValue
+        else
+            closureExpr |> makeRcValue
 
     let makeTypeBounds argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3747,6 +3820,7 @@ module Compiler =
             ScopedSymbols = Map.empty
             IsInPluralizedExpr = false
             IsCallingFunction = true
+            RequiresSendSync = false
             Typegen = { IsParamType = false
                         IsParamByRefPreferred = false
                         IsRawType = false } }

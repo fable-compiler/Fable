@@ -10,6 +10,7 @@ pub mod Native_ {
     pub use crate::Choice_::*;
     pub use std::collections::{HashMap, HashSet};
     pub use std::rc::Rc;
+    pub use std::sync::Arc;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
 

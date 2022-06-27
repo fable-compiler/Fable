@@ -121,3 +121,21 @@ let ``Match with condition works`` () =
     let b2 = DeepWrappedB "not"
     b1 |> matchStringWhenStringNotHello |> equal "hello"
     b2 |> matchStringWhenStringNotHello |> equal "not hello"
+
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
+type ArcUnion =
+    | ArcS of string
+    | ArcI of int
+
+let add1 = function
+    | ArcS s -> s + "1" |> ArcS
+    | ArcI i -> i + 1 |> ArcI
+
+[<Fact>]
+let ``Union with pointer type works`` () =
+    let a = ArcS "hello"
+    let b = ArcI 42
+    let aa = add1 a
+    let bb = add1 b
+    aa |> equal (ArcS "hello1")
+    bb |> equal (ArcI 43)

@@ -145,3 +145,21 @@ let ``Records with ref-type interior mutability`` () =
     x.MutRefValue |> equal "ab"
     x.MutRefValue <- x.MutRefValue + "c"
     x.MutRefValue |> equal "abc"
+
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
+type ArcRecord = {
+    a: int
+    b: string
+    c: float
+}
+
+let add1 (a) =
+    { a = a.a + 1; b = a.b + "1"; c = a.c + 1.0 }
+
+[<Fact>]
+let ``Arc record fields works`` () =
+    let x = { a=1; b="2"; c=3.0 }
+    let y = x |> add1
+    y.a |> equal 2
+    y.b |> equal "21"
+    y.c |> equal 4.0
