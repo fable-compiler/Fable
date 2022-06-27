@@ -2,7 +2,7 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.
 // See https://github.com/dotnet/fsharp/blob/main/License.txt
 
-module Map
+module Map_
 
 // A functional language implementation using binary trees
 

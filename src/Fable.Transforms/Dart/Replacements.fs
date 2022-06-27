@@ -45,7 +45,7 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     | ExprType(Option(t2,_)) ->
         let fn =
             let f = makeTypedIdent t2 "f"
-            Delegate([f], uncurry (IdentExpr f), FuncInfo.Empty)
+            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
         Helper.LibCall(com, "Option", "map", t, [fn; expr])
     | expr -> uncurry expr
 
@@ -453,7 +453,7 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, FuncInfo.Empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 and makeComparer (com: ICompiler) ctx typArg =
     Helper.LibCall(com, "Types", "Comparer", Any, [makeComparerFunction com ctx typArg])
@@ -462,14 +462,14 @@ and makeEqualityFunction (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, FuncInfo.Empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
     let y = makeTypedIdent typArg "y"
     Helper.LibCall(com, "Types", "EqualityComparer", Any, [
-        Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
-        Delegate([x], structuralHash com None (IdentExpr x), FuncInfo.Empty)
+        Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tags.empty)
+        Delegate([x], structuralHash com None (IdentExpr x), None, Tags.empty)
     ])
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
@@ -529,7 +529,7 @@ let makeAddFunction (com: ICompiler) ctx t =
     let x = makeTypedIdent t "x"
     let y = makeTypedIdent t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
-    Delegate([x; y], body, FuncInfo.Empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
     Helper.LibCall(com, "Types", "GenericAdder", Any, [
@@ -542,73 +542,12 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let x = makeTypedIdent t "x"
         let i = makeTypedIdent Int32.Number "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
-        Delegate([x; i], body, FuncInfo.Empty)
+        Delegate([x; i], body, None, Tags.empty)
     Helper.LibCall(com, "Types", "GenericAverager", Any, [
         getZero com ctx t |> makeDelegate []
         makeAddFunction com ctx t
         divideFn
     ])
-
-let makePojoFromLambda com arg =
-    let rec flattenSequential = function
-        | Sequential statements ->
-            List.collect flattenSequential statements
-        | e -> [e]
-    match arg with
-    | Lambda(_, lambdaBody, _) ->
-        (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
-            match acc, statement with
-            | Some acc, Set(_, FieldSet(fieldName), _, value, _) ->
-                objValue (fieldName, value)::acc |> Some
-            | _ -> None)
-    | _ -> None
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [arg]))
-
-let makePojo (com: Compiler) caseRule keyValueList =
-    let makeObjMember caseRule name values =
-        let value =
-            match values with
-            | [] -> makeBoolConst true
-            | [value] -> value
-            | values -> Value(NewArray(ArrayValues values, Any, MutableArray), None)
-        objValue(Naming.applyCaseRule caseRule name, value)
-
-    // let rec findKeyValueList scope identName =
-    //     match scope with
-    //     | [] -> None
-    //     | (_,ident2,expr)::prevScope ->
-    //         if identName = ident2.Name then
-    //             match expr with
-    //             | Some(ArrayOrListLiteral(kvs,_)) -> Some kvs
-    //             | Some(MaybeCasted(IdentExpr ident)) -> findKeyValueList prevScope ident.Name
-    //             | _ -> None
-    //         else findKeyValueList prevScope identName
-
-    let caseRule =
-        match caseRule with
-        | Some(NumberConst(:? int as rule,_)) -> Some rule
-        | _ -> None
-        |> Option.map enum
-        |> Option.defaultValue Fable.Core.CaseRules.None
-
-    match keyValueList with
-    | ArrayOrListLiteral(kvs,_) -> Some kvs
-    // | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
-    | _ -> None
-    |> Option.bind (fun kvs ->
-        (kvs, Some []) ||> List.foldBack (fun m acc ->
-            match acc, m with
-            // Try to get the member key and value at compile time for unions and tuples
-            | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _),_)) ->
-                let uci = com.GetEntity(ent).UnionCases |> List.item uci
-                let name = defaultArg uci.CompiledName uci.Name
-                makeObjMember caseRule name values::acc |> Some
-            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values,_),_)) ->
-                // Don't change the case for tuples in disguise
-                makeObjMember Core.CaseRules.None name values::acc |> Some
-            | _ -> None))
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
 
 let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Type list) args =
     let injectArgInner args (injectType, injectGenArgIndex) =
@@ -687,13 +626,13 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 
-let tryEntityRef com ent =
-    if FSharp2Fable.Util.isReplacementCandidate ent
+let tryEntityIdent com (ent: Fable.Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent.Ref
     then tryReplacedEntityRef com ent.FullName
-    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
+    else FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
-let entityRef com ent =
-    match tryEntityRef com ent with
+let entityIdent com ent =
+    match tryEntityIdent com ent with
     | Some r -> r
     | None ->
         $"Cannot find {ent.FullName} reference"
@@ -718,10 +657,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
-    | _, "region" ->
-        match args with
-        | [RequireStringConst com ctx r header] -> Extended(RegionStart header, r) |> Some
-        | _ -> None
     | _, ("jsNative"|"nativeOnly") ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
@@ -856,18 +791,18 @@ let makeRefCell com r typ (value: Expr) =
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter =
-        Delegate([], value, FuncInfo.Empty)
+        Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), FuncInfo.Empty)
+        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
-        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), FuncInfo.Empty)
+        Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), FuncInfo.Empty)
+        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 // Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
@@ -875,13 +810,13 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
     let getter =
         let info = makeCallInfo None [] []
         let value = makeCall r t info value
-        Delegate([], value, FuncInfo.Empty)
+        Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
         let args = [IdentExpr v; makeBoolConst true]
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
-        Delegate([v], value, FuncInfo.Empty)
+        Delegate([v], value, None, Tags.empty)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1901,7 +1836,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.ConstructorCall(entityRef com ent, t, [], ?loc=r) |> Some
+            Helper.ConstructorCall(entityIdent com ent, t, [], ?loc=r) |> Some
         | t -> $"Cannot create instance of type unresolved at compile time: %A{t}"
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2788,9 +2723,9 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
         makeStrConst name
         parameters
             |> List.map (fun (name, t) ->
-                makeTuple None [makeStrConst name; makeGenericTypeInfo None t])
+                makeTuple None [makeStrConst name; makeTypeInfo None t])
             |> makeArray Any
-        makeGenericTypeInfo None returnType
+        makeTypeInfo None returnType
     ]
     Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isConstructor=true, ?loc=r)
 
@@ -2995,7 +2930,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | _ -> None
     | _ -> None
 
-let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
+let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)

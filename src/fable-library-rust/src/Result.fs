@@ -1,4 +1,4 @@
-module Result
+module Result_
 
 let map mapping result =
     match result with

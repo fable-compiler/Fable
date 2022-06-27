@@ -35,7 +35,10 @@ module Atts =
     let [<Literal>] jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
     let [<Literal>] pyDecorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
     let [<Literal>] pyReflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
-    let [<Literal>] dartIsConst = "Fable.Core.Dart.IsConstAttribute"
+    let [<Literal>] dartIsConst = "Fable.Core.Dart.IsConstAttribute" // typeof<Fable.Core.Dart.IsConstAttribute>.FullName
+    let [<Literal>] rustByRef = "Fable.Core.Rust.ByRefAttribute"// typeof<Fable.Core.Rust.ByRefAttribute>.FullName
+    let [<Literal>] rustAttr = "Fable.Core.Rust.AttrAttribute"// typeof<Fable.Core.Rust.AttrAttribute>.FullName
+    let [<Literal>] rustInnerAttr = "Fable.Core.Rust.InnerAttrAttribute"// typeof<Fable.Core.Rust.InnerAttrAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -294,21 +297,21 @@ module AST =
 
     /// Only matches lambda immediately nested within each other
     let rec nestedLambda checkArity expr =
-        let rec inner accArgs body info =
+        let rec inner accArgs body name =
             match body with
-            | Lambda(arg, body, { Name = None }) ->
-                inner (arg::accArgs) body info
-            | _ -> List.rev accArgs, body, info
+            | Lambda(arg, body, None) ->
+                inner (arg::accArgs) body name
+            | _ -> List.rev accArgs, body, name
         match expr with
-        | Lambda(arg, body, info) ->
-            let args, body, info = inner [arg] body info
+        | Lambda(arg, body, name) ->
+            let args, body, name = inner [arg] body name
             if checkArity then
                 match expr.Type with
                 | NestedLambdaType(argTypes, _)
-                    when List.sameLength args argTypes -> Some(args, body, info)
+                    when List.sameLength args argTypes -> Some(args, body, name)
                 | _ -> None
             else
-                Some(args, body, info)
+                Some(args, body, name)
         | _ -> None
 
     let (|NestedLambdaWithSameArity|_|) expr =
@@ -332,17 +335,15 @@ module AST =
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
         let rec uncurryLambdaInner (name: string option) accArgs remainingArity expr =
             if remainingArity = Some 0 then
-                let info = FuncInfo.Create(?name=name)
-                Delegate(List.rev accArgs, expr, info) |> Some
+                Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
             else
                 match expr, remainingArity with
-                | Lambda(arg, body, info), _ ->
+                | Lambda(arg, body, name2), _ ->
                     let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
-                    uncurryLambdaInner (Option.orElse info.Name name) (arg::accArgs) remainingArity body
+                    uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
                 // If there's no arity expectation we can return the flattened part
                 | _, None when List.isEmpty accArgs |> not ->
-                    let info = FuncInfo.Create(?name=name)
-                    Delegate(List.rev accArgs, expr, info) |> Some
+                    Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
         match expr with
@@ -491,10 +492,7 @@ module AST =
         Value(value, r)
 
     let makeTypeInfo r t =
-        TypeInfo(t, { AllowGenerics = false }) |> makeValue r
-
-    let makeGenericTypeInfo r t =
-        TypeInfo(t, { AllowGenerics = true }) |> makeValue r
+        TypeInfo(t, Tags.empty) |> makeValue r
 
     let makeTypeDefinitionInfo r t =
         let t =
@@ -524,11 +522,11 @@ module AST =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
 
     let makeDelegate args body =
-        Delegate(args, body, FuncInfo.Empty)
+        Delegate(args, body, None, Tags.empty)
 
     let makeLambda (args: Ident list) (body: Expr) =
         (args, body) ||> List.foldBack (fun arg body ->
-            Lambda(arg, body, FuncInfo.Empty))
+            Lambda(arg, body, None))
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
@@ -606,7 +604,7 @@ module AST =
     let makeImportLib (com: Compiler) t memberName moduleName =
         let selector =
             match com.Options.Language with
-            | Rust -> moduleName + "::" + memberName //TODO: fix when imports change
+            | Rust -> moduleName + "_::" + memberName //TODO: fix when imports change
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName
@@ -625,13 +623,13 @@ module AST =
         ClassImport(path) |> makeInternalImport com Any selector path
 
     let makeCallInfo thisArg args sigArgTypes =
-        CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
+        CallInfo.Create(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
 
     let emit r t args isStatement macro =
         let emitInfo =
             { Macro = macro
               IsStatement = isStatement
-              CallInfo = CallInfo.Make(args=args) }
+              CallInfo = CallInfo.Create(args=args) }
         Emit(emitInfo, t, r)
 
     let emitExpr r t args macro =
@@ -692,6 +690,39 @@ module AST =
         | Float64 -> "float64"
         | Decimal -> "decimal"
 
+    type ParamsInfo = {|
+        NamedIndex: int option
+        Parameters: Parameter list
+        HasSpread: bool
+    |}
+
+    let tryGetParamsInfo (com: Compiler) (callInfo: CallInfo): ParamsInfo option =
+        callInfo.MemberRef
+        |> Option.bind com.TryGetMember
+        |> function
+        | None -> None
+        // ParamObject/NamedParams attribute is not compatible with arg spread
+        | Some memberInfo when memberInfo.HasSpread ->
+            {| NamedIndex = None
+               HasSpread = true
+               Parameters = List.concat memberInfo.CurriedParameterGroups |}
+            |> Some
+        | Some memberInfo ->
+            let parameters = List.concat memberInfo.CurriedParameterGroups
+            {| HasSpread = false
+               Parameters = parameters
+               NamedIndex = parameters |> List.tryFindIndex (fun p -> p.IsNamed) |}
+            |> Some
+
+    let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
+        match info.NamedIndex with
+        | None -> args, []
+        | Some index when index > args.Length || index > info.Parameters.Length -> args, []
+        | Some index ->
+            let args, namedValues = List.splitAt index args
+            let namedKeys = List.skip index info.Parameters |> List.truncate namedValues.Length
+            args, List.zipSafe namedKeys namedValues
+
     /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =
         // When the lambda has a single unit arg, usually the method call has no args
@@ -718,6 +749,7 @@ module AST =
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
+        | MetaType, MetaType
         | Any, Any
         | Unit, Unit
         | Boolean, Boolean
@@ -845,8 +877,7 @@ module AST =
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)
             | Throw(e, t) -> Extended(Throw(Option.map f e, t), r)
-            | Debugger
-            | RegionStart _ -> e
+            | Debugger -> e
         | Value(kind, r) ->
             match kind with
             | ThisValue _ | BaseValue _
@@ -870,7 +901,7 @@ module AST =
                 NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
         | Test(e, kind, r) -> Test(f e, kind, r)
         | Lambda(arg, body, name) -> Lambda(arg, f body, name)
-        | Delegate(args, body, name) -> Delegate(args, f body, name)
+        | Delegate(args, body, name, tag) -> Delegate(args, f body, name, tag)
         | ObjectExpr(members, t, baseCall) ->
             let baseCall = Option.map f baseCall
             let members = members |> List.map (fun m -> { m with Body = f m.Body })

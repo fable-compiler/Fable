@@ -1,4 +1,4 @@
-module List
+module List_
 
 type Node<'T> = {
     head: 'T
@@ -28,9 +28,6 @@ let private setConsTail (t: 'T list) (xs: 'T list) =
     | Some node -> node.tail <- t
     | None -> ()
 
-let private emptyRoot (): 'T list =
-    Some { head = Unchecked.defaultof<_>; tail = None }
-
 let private appendConsNoTail (x: 'T) (xs: 'T list) =
     let t = consNoTail x
     setConsTail t xs
@@ -41,7 +38,6 @@ let private appendConsNoTail (x: 'T) (xs: 'T list) =
 
 let empty (): 'T list = //List.Empty
     None
-    // { head = Unchecked.defaultof<_>; tail = None }
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
     Some { head = x; tail = xs }
@@ -93,8 +89,13 @@ let ofOption<'T> (opt: 'T option): 'T list =
     | Some x -> singleton x
     | None -> empty()
 
-// Redirected to Seq.toList to avoid dependency (see Replacements)
-// let ofSeq (xs: seq<'T>): 'T list = Seq.toList xs
+let ofSeq (xs: 'T seq) =
+    let mutable root = empty()
+    let mutable node = root
+    for x in xs do
+        node <- node |> appendConsNoTail x
+        if isEmpty root then root <- node
+    root
 
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
@@ -621,90 +622,136 @@ let transpose (lists: 'T list list): 'T list list =
                 nodes.[i] <- nodes.[i] |> appendConsNoTail x))
         roots
 
-// let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let result =
-//         (List.Empty, xs) ||> fold (fun acc x ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 List.Cons(x, List.Cons(y, acc))
-//             else List.Cons(x, acc))
-//     let result =
-//         if isDone then result
-//         elif i + 1 = index then List.Cons(y, result)
-//         else invalidArg "index" SR.indexOutOfBounds
-//     reverse result
+let distinct<'T when 'T: equality> (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'T>()
+    xs |> filter (fun x -> hashSet.Add(x))
 
-// let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let ys = ofSeq ys
-//     let result =
-//         (List.Empty, xs) ||> fold (fun acc x ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 List.Cons(x, append ys acc)
-//             else List.Cons(x, acc))
-//     let result =
-//         if isDone then result
-//         elif i + 1 = index then append ys result
-//         else invalidArg "index" SR.indexOutOfBounds
-//     reverse result
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'Key>()
+    xs |> filter (fun x -> hashSet.Add(projection x))
 
-// let removeAt (index: int) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     let mutable isDone = false
-//     let ys =
-//         xs |> filter (fun _ ->
-//             i <- i + 1
-//             if i = index then
-//                 isDone <- true
-//                 false
-//             else true)
-//     if not isDone then
-//         invalidArg "index" SR.indexOutOfBounds
-//     ys
+let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T list): 'T list =
+    let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
+    xs |> filter (fun x -> hashSet.Add(x))
 
-// let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
-//     let mutable i = -1
-//     // incomplete -1, in-progress 0, complete 1
-//     let mutable status = -1
-//     let ys =
-//         xs |> filter (fun _ ->
-//             i <- i + 1
-//             if i = index then
-//                 status <- 0
-//                 false
-//             elif i > index then
-//                 if i < index + count then
-//                     false
-//                 else
-//                     status <- 1
-//                     true
-//             else true)
-//     let status =
-//         if status = 0 && i + 1 = index + count then 1
-//         else status
-//     if status < 1 then
-//         // F# always says the wrong parameter is index but the problem may be count
-//         let arg = if status < 0 then "index" else "count"
-//         invalidArg arg SR.indexOutOfBounds
-//     ys
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): ('Key * int) list =
+    let dict = System.Collections.Generic.Dictionary<'Key, int>()
+    let keys = ResizeArray<'Key>()
+    xs |> iterate (fun x ->
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            keys.Add(key)
+    )
+    keys
+    |> asArray
+    |> Array.map (fun key -> key, dict.[key])
+    |> ofArray
 
-// let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
-//     let mutable isDone = false
-//     let ys =
-//         xs |> mapIndexed (fun i x ->
-//             if i = index then
-//                 isDone <- true
-//                 y
-//             else x)
-//     if not isDone then
-//         invalidArg "index" SR.indexOutOfBounds
-//     ys
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): ('Key * 'T list) list =
+    let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+    let keys = ResizeArray<'Key>()
+    xs |> iterate (fun x ->
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            prev.Add(x)
+        | false, _ ->
+            dict.Add(key, ResizeArray [|x|])
+            keys.Add(key)
+    )
+    keys
+    |> asArray
+    |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
+    |> ofArray
+
+let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let res =
+        (empty(), xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                cons x (cons y acc)
+            else cons x acc)
+    let res =
+        if isDone then res
+        elif i + 1 = index then cons y res
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse res
+
+let insertManyAt (index: int) (ys: 'T seq) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let ys = ofSeq ys
+    let res =
+        (empty(), xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                cons x (append ys acc)
+            else cons x acc)
+    let res =
+        if isDone then res
+        elif i + 1 = index then append ys res
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse res
+
+let removeAt (index: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                false
+            else true)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    res
+
+let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
+    res
+
+let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable isDone = false
+    let res =
+        xs |> mapIndexed (fun i x ->
+            if i = index then
+                isDone <- true
+                y
+            else x)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    res
 
 // let init = initialize
 // let iter = iterate

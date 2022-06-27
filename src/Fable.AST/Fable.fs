@@ -5,6 +5,11 @@ open Fable.AST.Fable
 
 exception FableError of string
 
+[<RequireQualifiedAccess>]
+module Tags =
+    let empty: string list = []
+    let (|Contains|_|) (key: string) (tags: string list) = if List.contains key tags then Some () else None
+
 type EntityPath =
     | SourcePath of string
     | AssemblyPath of string
@@ -15,18 +20,30 @@ type EntityPath =
 type EntityRef =
     { FullName: string
       Path: EntityPath }
+    member this.DisplayName =
+        let name = this.FullName.Substring(this.FullName.LastIndexOf('.') + 1)
+        match name.IndexOf('`') with
+        | -1 -> name
+        | i -> name.Substring(0, i)
     member this.SourcePath =
         match this.Path with
         | SourcePath p
         | PrecompiledLib(p,_) -> Some p
         | AssemblyPath _ | CoreAssemblyName _ -> None
 
+type MemberRefInfo =
+    { IsInstance: bool
+      CompiledName: string
+      NonCurriedArgTypes: Type list option }
+
+type MemberRef =
+    | MemberRef of entity: EntityRef * info: MemberRefInfo
+    | GeneratedMemberRef of GeneratedMember
+
 type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
 
-// TODO: In Fable 4 this should be a record as it can be serialized through MemberInfo
-// (also avoid `obj` for ConstructorArgs?)
 type Attribute =
     abstract Entity: EntityRef
     abstract ConstructorArgs: obj list
@@ -58,40 +75,49 @@ type Constraint =
     | IsEnum
 
 type GenericParam =
-    { Name: string
-      IsMeasure: bool
-      Constraints: Constraint list }
+    abstract Name: string
+    abstract IsMeasure: bool
+    abstract Constraints: Constraint list
 
 type Parameter =
-    { Name: string option
-      Type: Type }
+    abstract Attributes: Attribute seq
+    abstract Name: string option
+    abstract Type: Type
+    abstract IsIn: bool
+    abstract IsOut: bool
+    abstract IsNamed: bool
+    abstract IsOptional: bool
+    abstract DefaultValue: Expr option
 
-// TODO: In Fable 4 this should be a record for consistency with other serializable types
-type MemberInfo =
+type AbstractSignature =
+    abstract Name: string
+    abstract DeclaringType: Type
+
+type MemberFunctionOrValue =
+    abstract DisplayName: string
+    abstract CompiledName: string
+    abstract FullName: string
     abstract Attributes: Attribute seq
     abstract HasSpread: bool
-    abstract IsMangled: bool
     abstract IsInline: bool
     abstract IsPublic: bool
     abstract IsInstance: bool
+    abstract IsExtension: bool
     abstract IsValue: bool
     abstract IsMutable: bool
     abstract IsGetter: bool
     abstract IsSetter: bool
+    /// Indicates the member is a wrapper for a getter and/or setter,
+    /// it evals to false for the actual getter/setter methods
     abstract IsProperty: bool
-    abstract IsEnumerator: bool
     abstract IsOverrideOrExplicitInterfaceImplementation: bool
-
-type MemberFunctionOrValue =
-    inherit MemberInfo
-    abstract DisplayName: string
-    abstract CompiledName: string
-    abstract FullName: string
+    abstract IsDispatchSlot: bool
     abstract GenericParameters: GenericParam list
     abstract CurriedParameterGroups: Parameter list list
     abstract ReturnParameter: Parameter
-    abstract ApparentEnclosingEntity: EntityRef
-    abstract IsDispatchSlot: bool
+    abstract DeclaringEntity: EntityRef option
+    abstract ApparentEnclosingEntity: EntityRef option
+    abstract ImplementedAbstractSignatures: AbstractSignature seq
 
 type Entity =
     abstract Ref: EntityRef
@@ -103,6 +129,7 @@ type Entity =
     abstract DeclaredInterfaces: DeclaredType seq
     abstract GenericParameters: GenericParam list
     abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
+    abstract TryFindMember: MemberRefInfo -> MemberFunctionOrValue option
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
     abstract IsAbstractClass: bool
@@ -169,39 +196,129 @@ type Type =
         | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
         | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> this
 
-type ActionDecl = {
-    Body: Expr
-    UsedNames: Set<string>
-}
+type GeneratedMemberInfo =
+    {
+        Name: string
+        ParamTypes: Type list
+        ReturnType: Type
+        IsInstance: bool
+        HasSpread: bool
+        IsMutable: bool
+        DeclaringEntity: EntityRef option
+    }
 
-type ArgDecl = {
-    Ident: Ident
-    IsOptional: bool
-    IsNamed: bool
-    DefaultValue: Expr option
-} with
-    static member Create(ident: Ident, ?isOptional, ?isNamed, ?defaultValue) =
-        { Ident = ident
-          IsOptional = defaultArg isOptional false
-          IsNamed = defaultArg isNamed false
-          DefaultValue = defaultValue }
+type GeneratedMember =
+    | GeneratedFunction of info: GeneratedMemberInfo
+    | GeneratedValue of info: GeneratedMemberInfo
+    | GeneratedGetter of info: GeneratedMemberInfo
+    | GeneratedSetter of info: GeneratedMemberInfo
+
+    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread, ?entRef) =
+        {
+            Name = name
+            ParamTypes = paramTypes
+            ReturnType = returnType
+            IsInstance = defaultArg isInstance true
+            HasSpread = defaultArg hasSpread false
+            IsMutable = false
+            DeclaringEntity = entRef
+        } |> GeneratedFunction |> GeneratedMemberRef
+
+    static member Value(name, typ, ?isInstance, ?isMutable, ?entRef) =
+        {
+            Name = name
+            ParamTypes = []
+            ReturnType = typ
+            IsInstance = defaultArg isInstance true
+            IsMutable = defaultArg isMutable false
+            HasSpread = false
+            DeclaringEntity = entRef
+        } |> GeneratedValue |> GeneratedMemberRef
+
+    static member Getter(name, typ, ?isInstance, ?entRef) =
+        {
+            Name = name
+            ParamTypes = []
+            ReturnType = typ
+            IsInstance = defaultArg isInstance true
+            IsMutable = false
+            HasSpread = false
+            DeclaringEntity = entRef
+        } |> GeneratedGetter |> GeneratedMemberRef
+
+    static member Setter(name, typ, ?isInstance, ?entRef) =
+        {
+            Name = name
+            ParamTypes = [typ]
+            ReturnType = Unit
+            IsInstance = defaultArg isInstance true
+            IsMutable = false
+            HasSpread = false
+            DeclaringEntity = entRef
+        } |> GeneratedSetter |> GeneratedMemberRef
+
+    member this.Info =
+        match this with
+        | GeneratedFunction info -> info
+        | GeneratedValue info -> info
+        | GeneratedGetter info -> info
+        | GeneratedSetter info -> info
+
+    static member Param(typ, ?name) =
+        { new Parameter with
+            member _.Attributes = []
+            member _.Name = name
+            member _.Type = typ
+            member _.IsIn = false
+            member _.IsOut = false
+            member _.IsNamed = false
+            member _.IsOptional = false
+            member _.DefaultValue = None }
+
+    interface MemberFunctionOrValue with
+        member this.DeclaringEntity = this.Info.DeclaringEntity
+        member this.DisplayName = this.Info.Name
+        member this.CompiledName = this.Info.Name
+        member this.FullName = this.Info.Name
+        // TODO: Try getting generic paramas from ParamTypes?
+        member _.GenericParameters = []
+        member this.CurriedParameterGroups = [this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))]
+        member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
+        member this.IsInstance = this.Info.IsInstance
+        member this.HasSpread = this.Info.HasSpread
+        member this.IsMutable = this.Info.IsMutable
+        member this.IsValue = match this with GeneratedValue _ -> true | _ -> false
+        member this.IsGetter = match this with GeneratedGetter _ -> true | _ -> false
+        member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
+        member _.IsProperty = false
+        member _.IsPublic = true
+        member _.IsInline = false
+        member _.IsExtension = false
+        member _.IsOverrideOrExplicitInterfaceImplementation = false
+        member _.IsDispatchSlot = false
+        member _.Attributes = []
+        member _.ApparentEnclosingEntity = None
+        member _.ImplementedAbstractSignatures = []
+
+type ObjectExprMember = {
+    Name: string
+    Args: Ident list
+    Body: Expr
+    MemberRef: MemberRef
+    IsMangled: bool
+}
 
 type MemberDecl = {
     Name: string
-    FullDisplayName: string
-    Args: ArgDecl list
+    Args: Ident list
     Body: Expr
-    Info: MemberInfo
-    GenericParams: GenericParam list
+    MemberRef: MemberRef
+    IsMangled: bool
+    ImplementedSignatureRef: MemberRef option
     UsedNames: Set<string>
-    /// This can only be set once per file
-    /// for a declaration in the root scope
-    ExportDefault: bool
-    DeclaringEntity: EntityRef option
     XmlDoc: string option
-} with
-    member this.ArgIdents = this.Args |> List.map (fun a -> a.Ident)
-    member this.ArgTypes = this.Args |> List.map (fun a -> a.Ident.Type)
+    Tags: string list
+}
 
 type ClassDecl = {
     Name: string
@@ -210,6 +327,12 @@ type ClassDecl = {
     BaseCall: Expr option
     AttachedMembers: MemberDecl list
     XmlDoc: string option
+    Tags: string list
+}
+
+type ActionDecl = {
+    Body: Expr
+    UsedNames: Set<string>
 }
 
 type ModuleDecl = {
@@ -251,24 +374,6 @@ type Ident =
         |> Option.bind (fun r -> r.identifierName)
         |> Option.defaultValue x.Name
 
-type TypeInfoDetails =
-    {
-        /// In languages with generic info (like JS) we normally don't accept type info including generics at runtime.
-        /// This flag signals that we should allow generics for a specific situation
-        AllowGenerics: bool
-    }
-
-type FuncInfo =
-    {
-        Name: string option
-        /// In JS indicates the function cannot be compiled as arrow function
-        NotCompilableAsArrow: bool
-    }
-    static member Create(?name: string) =
-        { Name = name; NotCompilableAsArrow = false }
-    static member Empty =
-        FuncInfo.Create()
-
 type NewArrayKind =
     | ArrayValues of values: Expr list
     | ArrayAlloc of size: Expr
@@ -285,7 +390,7 @@ type ValueKind =
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
     | ThisValue of typ: Type
     | BaseValue of boundIdent: Ident option * typ: Type
-    | TypeInfo of typ: Type * details: TypeInfoDetails
+    | TypeInfo of typ: Type * tags: string list
     | Null of typ: Type
     | UnitConstant
     | BoolConstant of value: bool
@@ -323,21 +428,6 @@ type ValueKind =
         | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
-type ParamInfo =
-    { Name: string option
-      Type: Type
-      IsNamed: bool
-      IsOptional: bool }
-
-type CallMemberInfo =
-    { CurriedParameterGroups: ParamInfo list list
-      Attributes: Attribute list
-      IsInstance: bool
-      IsGetter: bool
-      FullName: string
-      CompiledName: string
-      DeclaringEntity: EntityRef option }
-
 type CallInfo =
     { ThisArg: Expr option
       Args: Expr list
@@ -346,27 +436,23 @@ type CallInfo =
       /// This is used for the uncurrying mechanism
       SignatureArgTypes: Type list
       GenericArgs: Type list
-      CallMemberInfo: CallMemberInfo option
-      HasSpread: bool
-      IsConstructor: bool
-      /// Tag used to apply further transformations to the call at the end of the AST transformation chain
-      Tag: string option }
-    static member Make(?thisArg: Expr,
-                       ?args: Expr list,
-                       ?genArgs: Type list,
-                       ?sigArgTypes: Type list,
-                       ?memberInfo: CallMemberInfo,
-                       ?hasSpread: bool,
-                       ?isCons: bool,
-                       ?tag: string) =
+      MemberRef: MemberRef option
+      Tags: string list }
+    static member Create(
+            ?thisArg: Expr,
+            ?args: Expr list,
+            ?genArgs: Type list,
+            ?sigArgTypes: Type list,
+            ?memberRef: MemberRef,
+            ?isCons: bool,
+            ?tag: string) =
+        let tags = Option.toList tag
         { ThisArg = thisArg
           Args = defaultArg args []
           GenericArgs = defaultArg genArgs []
           SignatureArgTypes = defaultArg sigArgTypes []
-          CallMemberInfo = memberInfo
-          HasSpread = defaultArg hasSpread false
-          IsConstructor = defaultArg isCons false
-          Tag = tag }
+          MemberRef = memberRef
+          Tags = match isCons with Some true -> "new"::tags | Some false | None -> tags }
 
 type ReplaceCallInfo =
     { CompiledName: string
@@ -411,17 +497,16 @@ type FieldInfo =
         IsMutable: bool
         /// Indicates the field shouldn't be moved in beta reduction
         MaybeCalculated: bool
-        /// In Dart indicates if the field is a constant
-        IsConst: bool
+        Tags: string list
     }
     member this.CanHaveSideEffects =
         this.IsMutable || this.MaybeCalculated
-    static member Create(name, ?fieldType: Type, ?isMutable: bool, ?maybeCalculated: bool, ?isConst: bool) =
+    static member Create(name, ?fieldType: Type, ?isMutable: bool, ?maybeCalculated: bool, ?tag: string) =
         { Name = name
           FieldType = fieldType
           IsMutable = defaultArg isMutable false
           MaybeCalculated = defaultArg maybeCalculated false
-          IsConst = defaultArg isConst false }
+          Tags = Option.toList tag }
         |> FieldGet
 
 type UnionFieldInfo =
@@ -462,9 +547,6 @@ type TestKind =
 type ExtendedSet =
     | Throw of expr: Expr option * typ: Type
     | Debugger
-    /// When using the delimiter option, this marks the start of a region
-    /// that we'll try to match with delimited regions in the target file
-    | RegionStart of label: string
     /// Used in the uncurrying transformations, we'll try to remove the curried expressions
     /// with beta reduction but in some cases it may be necessary to do it at runtime
     | Curry of expr: Expr * arity: int
@@ -472,7 +554,7 @@ type ExtendedSet =
         match this with
         | Throw(_,t) -> t
         | Curry (expr, _) -> expr.Type
-        | Debugger | RegionStart _ -> Unit
+        | Debugger -> Unit
 
 type Witness =
     { TraitName: string
@@ -481,7 +563,7 @@ type Witness =
       Expr: Expr }
     member this.ArgTypes =
         match this.Expr with
-        | Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
+        | Delegate(args,_,_,_) -> args |> List.map (fun a -> a.Type)
         | _ -> []
 
 /// Unresolved expressions are used in precompiled inline functions.
@@ -501,10 +583,10 @@ type Expr =
 
     // Closures
     /// Lambdas are curried, they always have a single argument (which can be unit)
-    | Lambda of arg: Ident * body: Expr * info: FuncInfo
+    | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of args: Ident list * body: Expr * info: FuncInfo
-    | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
+    | Delegate of args: Ident list * body: Expr * name: string option * tags: string list
+    | ObjectExpr of members: ObjectExprMember list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
     | TypeCast of expr: Expr * Type
@@ -569,7 +651,7 @@ type Expr =
         | IfThenElse (_, expr, _, _)
         | DecisionTree (expr, _) -> expr.Type
         | Lambda(arg, body, _) -> LambdaType(arg.Type, body.Type)
-        | Delegate(args, body, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
+        | Delegate(args, body, _, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
 
     member this.Range: SourceLocation option =
         match this with
@@ -582,7 +664,7 @@ type Expr =
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)
-        | Delegate (_, e, _)
+        | Delegate (_, e, _, _)
         | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
         | Call(_,_,_,r)

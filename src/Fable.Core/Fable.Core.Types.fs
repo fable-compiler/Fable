@@ -13,11 +13,11 @@ type CaseRules =
     /// FooBar -> foo-bar
     | KebabCase = 4
 
-/// Used on interfaces to mangle member names. This allows overloading and
-/// prevents conflicts with other interfaces, but cannot be used to interact with JS.
-[<AttributeUsage(AttributeTargets.Interface)>]
-type MangleAttribute() =
+/// Used on interfaces to mangle member names. This allows overloading and prevents conflicts
+/// other interfaces, but will make interop with native code more difficult.
+type MangleAttribute(mangle: bool) =
     inherit Attribute()
+    new () = MangleAttribute(true)
 
 /// Used on a class to attach all members, useful when you want to use the class from JS.
 [<AttributeUsage(AttributeTargets.Class)>]
@@ -117,11 +117,6 @@ type NamedParamsAttribute = ParamObjectAttribute
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
-    inherit Attribute()
-
-/// Intended for replacement types in Fable.Library
-[<AttributeUsage(AttributeTargets.Class)>]
-type NoOverloadSuffixAttribute() =
     inherit Attribute()
 
 /// Erased union type to represent one of two possible values.
@@ -246,9 +241,6 @@ type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     static member inline op_ErasedCast(x:'t) : U9<_, _, _, _, _, _, _, _, ^U> =
         Case9 (^U: (static member op_ErasedCast: 't -> ^U) x)
 
-// Rust - Allow stuff to be passed by reference
-type ByRefAttribute() =
-    inherit Attribute()
 
 type PtrType =
     | Rc = 0

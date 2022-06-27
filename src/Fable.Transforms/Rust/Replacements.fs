@@ -106,7 +106,8 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ ->
-            Helper.InstanceCall(head, "to_string", String, [])
+            let s = Helper.InstanceCall(head, "to_string", String, [])
+            Helper.LibCall(com, "String", "string", String, [makeRef s])
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -285,7 +286,7 @@ let toList com t (expr: Expr) =
     | String ->
         let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
         Helper.LibCall(com, "List", "ofArray", t, [a])
-    | IEnumerable -> Helper.LibCall(com, "Seq", "toList", t, [expr])
+    | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [expr])
     | _ -> TypeCast(expr, t)
 
 let toSeq com t (expr: Expr) =
@@ -512,7 +513,7 @@ let makeComparerFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
-    Delegate([x; y], body, FuncInfo.Empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeComparer (com: ICompiler) ctx typArg =
     objExpr ["Compare", makeComparerFunction com ctx typArg]
@@ -521,13 +522,13 @@ let makeComparer (com: ICompiler) ctx typArg =
 //     let x = makeUniqueIdent ctx typArg "x"
 //     let y = makeUniqueIdent ctx typArg "y"
 //     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-//     Delegate([x; y], body, FuncInfo.Empty)
+//     Delegate([x; y], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
-    objExpr ["Equals",  Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), FuncInfo.Empty)
-             "GetHashCode", Delegate([x], structuralHash com None (IdentExpr x), FuncInfo.Empty)]
+    objExpr ["Equals",  Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tags.empty)
+             "GetHashCode", Delegate([x], structuralHash com None (IdentExpr x), None, Tags.empty)]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -609,7 +610,7 @@ let makeAddFunction (com: ICompiler) ctx t =
     let x = makeUniqueIdent ctx t "x"
     let y = makeUniqueIdent ctx t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
-    Delegate([x; y], body, FuncInfo.Empty)
+    Delegate([x; y], body, None, Tags.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
     objExpr [
@@ -622,7 +623,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let x = makeUniqueIdent ctx t "x"
         let i = makeUniqueIdent ctx (Number(Int32, NumberInfo.Empty)) "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
-        Delegate([x; i], body, FuncInfo.Empty)
+        Delegate([x; i], body, None, Tags.empty)
     objExpr [
         "GetZero", getZero com ctx t |> makeDelegate []
         "Add", makeAddFunction com ctx t
@@ -790,7 +791,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | selector ->
                     let selector =
                         let m = makeIdent "m"
-                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), FuncInfo.Empty)
+                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), None, Tags.empty)
                     Helper.InstanceCall(import, "then", t, [selector])
             let arg =
                 match arg with
@@ -802,7 +803,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             // TODO: Check this is not a fable-library import?
             | Import(info,_,_) ->
                 dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) |> Some
-            | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), { Name = None })
+            | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), None)
                 when argEquals args callInfo.Args ->
                 dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) |> Some
             | _ ->
@@ -1139,7 +1140,6 @@ let getEnumerator com r t (expr: Expr) =
     | IsEntity (Types.dictionary) _
     | IsEntity (Types.idictionary) _
     | IsEntity (Types.ireadonlydictionary) _ ->
-        let expr = makeRef expr
         let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [expr], [expr.Type])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r)
     | _ ->
@@ -1398,15 +1398,17 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
+    // | "ToArray", [arg] ->
+    //     Helper.LibCall(com, "Array", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToList", [arg] ->
+        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "CreateEvent", [addHandler; removeHandler; createHandler] ->
         Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq" meth i.GenericArgs args
         Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1481,17 +1483,6 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "ToArray", Some ar, [] ->
         Helper.LibCall(com, "Native", "arrayCopy", t, [ar], ?loc=r) |> Some
     | _ -> None
-
-// let nativeArrayFunctions =
-//     dict [| "Exists", "some"
-//             "Filter", "filter"
-//             "Find", "find"
-//             "FindIndex", "findIndex"
-//             "ForAll", "every"
-//             "Iterate", "forEach"
-//             "Reduce", "reduce"
-//             "ReduceBack", "reduceRight"
-//             "SortInPlaceWith", "sort" |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
@@ -1582,17 +1573,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         copyToArray com r t i args
     | ("Concat" | "Transpose" as meth), [arg] ->
         Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [toArray com t arg], i.SignatureArgTypes, ?loc=r) |> Some
-    // | Patterns.DicContains nativeArrayFunctions meth, _ ->
-    //     let args, thisArg = List.splitLast args
-    //     let argTypes = List.take (List.length args) i.SignatureArgTypes
-    //     Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Array" meth i.GenericArgs args
         Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1626,16 +1611,14 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     | "ToSeq", [arg] ->
         Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "OfSeq", [arg] ->
-        Helper.LibCall(com, "Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Concat" | "Transpose" as meth), [arg] ->
         Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [toList com t arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
-        Helper.LibCall(com, "Seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        // let args = injectArg com ctx r "List" meth i.GenericArgs args
         Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let discardUnitArgs args =
@@ -2043,7 +2026,6 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "get_IsReadOnly", _, _ -> makeBoolConst false |> Some
     | "get_Count", Some c, _ -> getLength r t c |> Some
     | "GetEnumerator", Some c, _ ->
-        let c = makeRef c
         let ar = Helper.LibCall(com, "Native", "hashMapEntries", t, [c], [c.Type])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ar], ?loc=r) |> Some
     | "ContainsValue", Some c, [arg] ->
@@ -2053,13 +2035,10 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         let args = args |> List.map makeRef
         Helper.InstanceCall(c, "contains_key", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "TryGetValue", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "tryGetValue", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "TryAdd", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapTryAdd", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "Add", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapAdd", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "Remove", Some c, _ ->
         let args = args |> List.map makeRef
@@ -2068,10 +2047,8 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "Clear", Some c, _ ->
         Helper.InstanceCall(getMut c, "clear", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Item", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapGet", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "set_Item", Some c, _ ->
-        let args = args |> List.map makeRef
         Helper.LibCall(com, "Native", "hashMapSet", t, c::args, c.Type::i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Keys", Some c, _ ->
         Helper.LibCall(com, "Native", "hashMapKeys", t, c::args, ?loc=r) |> Some

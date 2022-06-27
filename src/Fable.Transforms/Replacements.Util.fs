@@ -15,13 +15,13 @@ type CallInfo = ReplaceCallInfo
 
 type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?genArgs, ?loc: SourceLocation) =
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(consExpr, { info with IsConstructor = true }, returnType, loc)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, isCons=true)
+        Call(consExpr, info, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?genArgs, ?loc: SourceLocation) =
         let callee = getField callee memb
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
         Call(callee, info, returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
@@ -36,16 +36,26 @@ type Helper =
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
 
         let callee = makeImportLib com Any coreMember coreModule
-        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let memberRef =
+            match hasSpread with
+            | Some true ->
+                let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
+                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=false, hasSpread=true) |> Some
+            | Some false | None -> None
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
                                 ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportUserGenerated None Any selector path
-        let info = CallInfo.Make(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let memberRef =
+            match hasSpread with
+            | Some true ->
+                let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
+                GeneratedMember.Function(selector, argTypes, returnType, isInstance=false, hasSpread=true) |> Some
+            | Some false | None -> None
+        let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list, ?genArgs,
                              ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
@@ -53,8 +63,8 @@ type Helper =
             match memb with
             | Some memb -> getField (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
-        let info = CallInfo.Make(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs)
-        Call(callee, { info with IsConstructor = defaultArg isConstructor false }, returnType, loc)
+        let info = CallInfo.Create(args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?isCons=isConstructor)
+        Call(callee, info, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getFieldWith loc typ (makeIdentExpr ident) memb
@@ -64,21 +74,16 @@ let makeUniqueIdent ctx t name =
     |> makeTypedIdent t
 
 let withTag tag = function
-    | Call(e, i, t, r) -> Call(e, { i with Tag = Some tag }, t, r)
+    | Call(e, i, t, r) -> Call(e, { i with Tags = tag::i.Tags }, t, r)
     | e -> e
 
-let objValue (k, v): MemberDecl =
+let objValue (k, v): ObjectExprMember =
     {
         Name = k
-        FullDisplayName = k
         Args = []
         Body = v
-        GenericParams = []
-        UsedNames = Set.empty
-        Info = FSharp2Fable.MemberInfo(isValue=true)
-        ExportDefault = false
-        DeclaringEntity = None
-        XmlDoc = None
+        IsMangled = false
+        MemberRef = GeneratedMember.Value(k, v.Type)
     }
 
 let typedObjExpr t kvs =
@@ -342,7 +347,7 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
         |> curriedApply None interType (IdentExpr capturedFun1Var)
         |> List.singleton
         |> curriedApply r retType (IdentExpr capturedFun2Var)
-    Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, FuncInfo.Empty)))
+    Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, None)))
 
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
 let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
@@ -457,7 +462,7 @@ let tryFindInScope (ctx: Context) identName =
 
 let (|MaybeInScope|) (ctx: Context) e =
     match e with
-    | MaybeCasted(IdentExpr ident) when not ident.IsMutable ->
+    | MaybeCasted(IdentExpr ident) when not ident.IsMutable  ->
         match tryFindInScope ctx ident.Name with
         | Some e -> e
         | None -> e
@@ -480,6 +485,6 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
         sourceTypes |> List.tryPick (function
             | DeclaredType(ent,_) ->
                 let ent = com.GetEntity(ent)
-                FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
+                FSharp2Fable.TypeHelpers.tryFindMember ent ctx.GenericArgs opName false argTypes
             | _ -> None)
         |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)

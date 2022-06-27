@@ -125,12 +125,11 @@ export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
     : new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
-    [Symbol.iterator]() { return this; },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
-      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"]() : undefined;
+      const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
       return { done: !hasNext, value: current } as IteratorResult<T>;
     },
   };

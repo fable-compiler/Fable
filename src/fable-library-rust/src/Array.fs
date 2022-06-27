@@ -1,7 +1,9 @@
-module Array
+module Array_
 
 // For optimization, functions may return ResizeArray instead of Array.
 // That's fine, because they both have the same representation in Rust.
+
+// The inline keyword is used in some places to infer type constraints.
 
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the array."
@@ -743,75 +745,119 @@ let transpose (arrays: 'T[][]): 'T[][] =
             res.Add (res2 |> asArray)
         res |> asArray
 
-// let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
-//     let len = xs.Length
-//     if index < 0 || index > len then
-//         invalidArg "index" SR.indexOutOfBounds
-//     let target = zeroCreateFrom xs (len + 1)
-//     for i = 0 to (index - 1) do
-//         target.[i] <- xs.[i]
-//     target.[index] <- y
-//     for i = index to (len - 1) do
-//         target.[i + 1] <- xs.[i]
-//     target
+let distinct<'T when 'T: equality> (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'T>()
+    xs |> filter (fun x -> hashSet.Add(x))
 
-// let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
-//     let len = xs.Length
-//     if index < 0 || index > len then
-//         invalidArg "index" SR.indexOutOfBounds
-//     let ys = arrayFrom ys
-//     let len2 = ys.Length
-//     let target = zeroCreateFrom xs (len + len2)
-//     for i = 0 to (index - 1) do
-//         target.[i] <- xs.[i]
-//     for i = 0 to (len2 - 1) do
-//         target.[index + i] <- ys.[i]
-//     for i = index to (len - 1) do
-//         target.[i + len2] <- xs.[i]
-//     target
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'Key>()
+    xs |> filter (fun x -> hashSet.Add(projection x))
 
-// let removeAt (index: int) (xs: 'T[]): 'T[] =
-//     if index < 0 || index >= xs.Length then
-//         invalidArg "index" SR.indexOutOfBounds
-//     let mutable i = -1
-//     xs |> filter (fun _ ->
-//         i <- i + 1
-//         i <> index)
+let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T[]): 'T[] =
+    let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
+    xs |> filter (fun x -> hashSet.Add(x))
 
-// let removeManyAt (index: int) (count: int) (xs: 'T[]): 'T[] =
-//     let mutable i = -1
-//     // incomplete -1, in-progress 0, complete 1
-//     let mutable status = -1
-//     let ys =
-//         xs |> filter (fun _ ->
-//             i <- i + 1
-//             if i = index then
-//                 status <- 0
-//                 false
-//             elif i > index then
-//                 if i < index + count then
-//                     false
-//                 else
-//                     status <- 1
-//                     true
-//             else true)
-//     let status =
-//         if status = 0 && i + 1 = index + count then 1
-//         else status
-//     if status < 1 then
-//         // F# always says the wrong parameter is index but the problem may be count
-//         let arg = if status < 0 then "index" else "count"
-//         invalidArg arg SR.indexOutOfBounds
-//     ys
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): ('Key * int)[] =
+    let dict = System.Collections.Generic.Dictionary<'Key, int>()
+    let keys = ResizeArray<'Key>()
+    for x in xs do
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            keys.Add(key)
+    keys
+    |> asArray
+    |> map (fun key -> key, dict.[key])
 
-// let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
-//     let len = xs.Length
-//     if index < 0 || index >= len then
-//         invalidArg "index" SR.indexOutOfBounds
-//     let target = zeroCreateFrom xs len
-//     for i = 0 to (len - 1) do
-//         target.[i] <- if i = index then y else xs.[i]
-//     target
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]): ('Key * 'T[])[] =
+    let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+    let keys = ResizeArray<'Key>()
+    for x in xs do
+        let key = projection x
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            prev.Add(x)
+        | false, _ ->
+            dict.Add(key, ResizeArray [|x|])
+            keys.Add(key)
+    keys
+    |> asArray
+    |> map (fun key -> key, dict.[key] |> asArray)
+
+let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+    let len = xs.Length
+    if index < 0 || index > len then
+        invalidArg "index" SR.indexOutOfBounds
+    let res = ResizeArray<_>(len + 1)
+    for i = 0 to (index - 1) do
+        res.Add (xs.[i])
+    res.Add (y)
+    for i = index to (len - 1) do
+        res.Add (xs.[i])
+    res |> asArray
+
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
+    let len = xs.Length
+    if index < 0 || index > len then
+        invalidArg "index" SR.indexOutOfBounds
+    let ys = Seq.toArray ys
+    let len2 = ys.Length
+    let res = ResizeArray<_>(len + len2)
+    for i = 0 to (index - 1) do
+        res.Add (xs.[i])
+    for i = 0 to (len2 - 1) do
+        res.Add (ys.[i])
+    for i = index to (len - 1) do
+        res.Add (xs.[i])
+    res |> asArray
+
+let removeAt (index: int) (xs: 'T[]): 'T[] =
+    if index < 0 || index >= xs.Length then
+        invalidArg "index" SR.indexOutOfBounds
+    let mutable i = -1
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            i <> index)
+    res
+
+let removeManyAt (index: int) (count: int) (xs: 'T[]): 'T[] =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let res =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
+    res
+
+let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+    let len = xs.Length
+    if index < 0 || index >= len then
+        invalidArg "index" SR.indexOutOfBounds
+    let res = ResizeArray<_>(len)
+    for i = 0 to (len - 1) do
+        res.Add (if i = index then y else xs.[i])
+    res |> asArray
 
 // let init = initialize
 // let iter = iterate

@@ -16,7 +16,6 @@ type CliArgs =
       RootDir: string
       OutDir: string option
       IsWatch: bool
-      UseRegion: bool
       Precompile: bool
       PrecompiledLib: string option
       FableLibraryPath: string option
@@ -590,81 +589,6 @@ module Json =
             | Bool v -> box v
             | String v -> box v
 
-    type Attribute =
-        { Entity: Fable.EntityRef; Params: AttParam list }
-        static member FromFableAttribute(value: Fable.Attribute) =
-            { Entity = value.Entity; Params = AttParam.From value.ConstructorArgs }
-        static member ToFableAttribute(value: Attribute) =
-            { new Fable.Attribute with
-                  member _.ConstructorArgs = value.Params |> List.map (fun v -> v.Value)
-                  member _.Entity = value.Entity }
-
-    // We cannot change MemberInfo to avoid breaking plugins so we use a specific converter
-    type MemberInfoConverter() =
-        inherit JsonConverter<Fable.MemberInfo>()
-        member _.ReadBoolean(reader: byref<Utf8JsonReader>) =
-            let b = reader.GetBoolean()
-            reader.Read() |> ignore
-            b
-
-        override this.Read(reader: byref<Utf8JsonReader>, _typeToConvert, options) =
-            reader.Read() |> ignore // Skip start array
-            reader.Read() |> ignore // Skip start array for attributes
-            let attributes = ResizeArray<Fable.Attribute>()
-            while reader.TokenType <> JsonTokenType.EndArray do
-                JsonSerializer.Deserialize<Attribute>(&reader, options)
-                |> Attribute.ToFableAttribute
-                |> attributes.Add
-            reader.Read() |> ignore // Skip end array for attributes
-            let hasSpread = this.ReadBoolean(&reader)
-            let isMangled = this.ReadBoolean(&reader)
-            let isInline = this.ReadBoolean(&reader)
-            let isPublic = this.ReadBoolean(&reader)
-            let isInstance = this.ReadBoolean(&reader)
-            let isValue = this.ReadBoolean(&reader)
-            let isMutable = this.ReadBoolean(&reader)
-            let isGetter = this.ReadBoolean(&reader)
-            let isSetter = this.ReadBoolean(&reader)
-            let isProperty = this.ReadBoolean(&reader)
-            let isEnumerator = this.ReadBoolean(&reader)
-            let isOverride = this.ReadBoolean(&reader)
-            reader.Read() |> ignore // Skip end array
-            { new Fable.MemberInfo with
-                member _.Attributes = attributes
-                member _.HasSpread = hasSpread
-                member _.IsMangled = isMangled
-                member _.IsInline = isInline
-                member _.IsPublic = isPublic
-                member _.IsInstance = isInstance
-                member _.IsValue = isValue
-                member _.IsMutable = isMutable
-                member _.IsGetter = isGetter
-                member _.IsSetter = isSetter
-                member _.IsProperty = isProperty
-                member _.IsEnumerator = isEnumerator
-                member _.IsOverrideOrExplicitInterfaceImplementation = isOverride }
-
-        override _.Write(writer, value, options) =
-            writer.WriteStartArray()
-            writer.WriteStartArray()
-            value.Attributes
-            |> Seq.map Attribute.FromFableAttribute
-            |> Seq.iter (fun att -> JsonSerializer.Serialize(writer, att, options))
-            writer.WriteEndArray()
-            writer.WriteBooleanValue(value.HasSpread)
-            writer.WriteBooleanValue(value.IsMangled)
-            writer.WriteBooleanValue(value.IsInline)
-            writer.WriteBooleanValue(value.IsPublic)
-            writer.WriteBooleanValue(value.IsInstance)
-            writer.WriteBooleanValue(value.IsValue)
-            writer.WriteBooleanValue(value.IsMutable)
-            writer.WriteBooleanValue(value.IsGetter)
-            writer.WriteBooleanValue(value.IsSetter)
-            writer.WriteBooleanValue(value.IsProperty)
-            writer.WriteBooleanValue(value.IsEnumerator)
-            writer.WriteBooleanValue(value.IsOverrideOrExplicitInterfaceImplementation)
-            writer.WriteEndArray()
-
     type DoubleConverter() =
         inherit JsonConverter<float>()
         override _.Read(reader, _typeToConvert, _options) =
@@ -724,7 +648,6 @@ module Json =
         // should still prevent StackOverflow exceptions
         let jsonOptions = JsonSerializerOptions(MaxDepth=1024)
         jsonOptions.Converters.Add(DoubleConverter())
-        jsonOptions.Converters.Add(MemberInfoConverter())
         // JsonUnionEncoding.InternalTag serializes unions in a more compact way, as Thoth.Json
         jsonOptions.Converters.Add(JsonFSharpConverter(unionEncoding = JsonUnionEncoding.InternalTag))
         jsonOptions

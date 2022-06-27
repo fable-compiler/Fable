@@ -458,6 +458,11 @@ type MangledAbstractClass5(v) =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+type IndexedProps(v: int) =
+    let mutable v = v
+    member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
+    member _.Item with get (v2: float) = float v + v2 / 2.
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -467,6 +472,13 @@ let tests =
     //     |> Array.item 0
     //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
     //     |> equal 1
+
+    testCase "Indexed properties work" <| fun () ->
+        let f = IndexedProps(5)
+        f[4] |> equal 9
+        f[3] <- "6"
+        f[4] |> equal 13
+        f[4.] |> equal 11
 
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
         let t = TestType9()

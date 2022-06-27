@@ -100,11 +100,12 @@ type PrecompiledInfo =
     abstract TryGetRootModule: normalizedFullPath: string -> string option
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
-type Project(projFile: string,
-             sourceFiles: string[],
-             implFiles: Map<string, ImplFile>,
-             assemblies: Assemblies,
-             ?precompiledInfo: PrecompiledInfo) =
+type Project private (
+        projFile: string,
+        sourceFiles: string[],
+        implFiles: Map<string, ImplFile>,
+        assemblies: Assemblies,
+        ?precompiledInfo: PrecompiledInfo) =
 
     let inlineExprsDic =
         implFiles
@@ -138,13 +139,6 @@ type Project(projFile: string,
             |> Map
 
         Project(projFile, sourceFiles, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
-
-    member this.Update(file: FSharpImplementationFileContents) =
-        let implFiles =
-            let key = Path.normalizePathAndEnsureFsExtension file.FileName
-            let file = ImplFile.From(file)
-            Map.add key file this.ImplementationFiles
-        Project(this.ProjectFile, this.SourceFiles, implFiles, this.Assemblies, this.PrecompiledInfo)
 
     member this.Update(files: FSharpImplementationFileContents list) =
         let implFiles =

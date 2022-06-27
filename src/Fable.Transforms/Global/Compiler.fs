@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "4.0.0-snake-island-alpha-010"
+    let [<Literal>] VERSION = "4.0.0-snake-island-alpha-011"
 
 type CompilerOptionsHelper =
     static member Make(?language,
@@ -88,9 +88,9 @@ module CompilerExt =
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
                 let m = r.Match(v)
-                int m.Groups.[1].Value,
-                int m.Groups.[2].Value,
-                if m.Groups.[3].Success then int m.Groups.[3].Value else 0
+                int m.Groups[1].Value,
+                int m.Groups[2].Value,
+                if m.Groups[3].Success then int m.Groups[3].Value else 0
 
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
@@ -124,6 +124,18 @@ module CompilerExt =
                     | Fable.SourcePath _ -> "user"
                 failwith $"Cannot find {category} entity %s{entityRef.FullName}"
 
+        member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
+            match memberRef with
+            | Fable.GeneratedMemberRef gen -> Some(gen :> _)
+            | Fable.MemberRef(entityRef, memberInfo) ->
+                com.TryGetEntity(entityRef)
+                |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
+
+        member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
+            match com.TryGetMember(memberRef) with
+            | Some e -> e
+            | None -> failwith $"Cannot find member ref: %A{memberRef}"
+
         member com.ToPluginHelper() =
             { new PluginHelper with
                 member _.LibraryDir = com.LibraryDir
@@ -131,6 +143,7 @@ module CompilerExt =
                 member _.Options = com.Options
                 member _.GetRootModule(fileName) = com.GetRootModule(fileName)
                 member _.GetEntity(ref) = com.GetEntity(ref)
+                member _.GetMember(ref) = com.GetMember(ref)
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
                 member _.GetOutputPath() =
@@ -141,7 +154,7 @@ module CompilerExt =
                         // TODO: This is a simplified version of the actual mechanism and will not work with deduplicated paths
                         let projDir = Path.GetDirectoryName(com.ProjectFile)
                         let relPath = Path.getRelativeFileOrDirPath true projDir false file
-                        let relPath = if relPath.StartsWith("./") then relPath.[2..] else relPath
+                        let relPath = if relPath.StartsWith("./") then relPath[2..] else relPath
                         Path.Combine(outDir, relPath)
              }
 
@@ -160,8 +173,11 @@ module CompilerExt =
                         transform pluginInstance helper input)
 
         member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
-            com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
-                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, file, i))
+            match com.TryGetMember(decl.MemberRef) with
+            | None -> decl
+            | Some memb ->
+                com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
+                    (com.Plugins.MemberDeclarationPlugins, memb.Attributes, decl, fun p h i -> p.Transform(h, file, i))
 
         member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>

@@ -1,4 +1,4 @@
-module Range
+module Range_
 
 let inline rangeNumeric (start: 'T) (step: 'T) (stop: 'T) =
     let zero = LanguagePrimitives.GenericZero
