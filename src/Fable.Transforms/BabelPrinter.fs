@@ -1069,7 +1069,7 @@ let run writer (program: Program): Async<unit> =
             printer.PrintNewLine()
 
     async {
-        use printer = new PrinterImpl(writer)
+        let printer = new PrinterImpl(writer)
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
