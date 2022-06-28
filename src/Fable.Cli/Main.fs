@@ -144,11 +144,56 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
-        let stream = new IO.StreamWriter(targetPath)
+        let memoryStream = new IO.MemoryStream()
+        let stream = new IO.StreamWriter(memoryStream)
         let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
+        let WriteStreamToFileAsync(stream : IO.Stream, filePath : string) = async {
+            stream.Seek(0, IO.SeekOrigin.Begin) |> ignore
+            use fileStream = new IO.StreamWriter(filePath)
+            do! stream.CopyToAsync(fileStream.BaseStream) |> Async.AwaitTask
+            do! fileStream.FlushAsync() |> Async.AwaitTask
+        }
+        let IsMemoryStreamEqualToFileAsync() = async {
+            memoryStream.Seek(0, IO.SeekOrigin.Begin) |> ignore
+            use fileStream = IO.File.OpenRead(targetPath)
+
+            let bufferSize = 1024
+
+            let readBytesAsync (stream: IO.Stream) size = async {
+                let buffer = Array.zeroCreate size
+                let rec nextBytesAsync() = async {
+                    let! count = stream.AsyncRead(buffer, 0, size)
+                    if count = 0 then return None
+                    else 
+                        let res = 
+                            if count = size then buffer
+                            else buffer |> Seq.take count |> Array.ofSeq
+                        return Some(res)
+                }
+                return! nextBytesAsync()
+            }
+
+            let rec compareBytesAsync bytes1 bytes2 = async {
+                match bytes1, bytes2 with
+                | Some(b1), Some(b2) when b1 <> b2 -> return false
+                | Some(_), Some(_) -> 
+                    let! nextBytes1 = readBytesAsync memoryStream bufferSize
+                    let! nextBytes2 = readBytesAsync fileStream bufferSize
+                    return! compareBytesAsync nextBytes1 nextBytes2
+                | None, None -> return true
+                | _ -> return false
+            }
+
+            let! memoryBytes = readBytesAsync memoryStream bufferSize
+            let! fileBytes = readBytesAsync fileStream bufferSize
+            return! compareBytesAsync memoryBytes fileBytes
+        }
         interface BabelPrinter.Writer with
             member _.Write(str) =
-                stream.WriteAsync(str) |> Async.AwaitTask
+                async {
+                    do! stream.WriteAsync(str) |> Async.AwaitTask
+                    do! stream.FlushAsync() |> Async.AwaitTask
+                }
             member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
@@ -172,6 +217,20 @@ module private Util =
                     mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
         member _.SourceMap =
             mapGenerator.Force().toJSON()
+        member _.WriteToFileIfChangedAsync() = async {
+            if (memoryStream.Length = 0) then return ()
+
+            if (not(IO.File.Exists(targetPath))) then 
+                do! WriteStreamToFileAsync(memoryStream, targetPath)
+            else
+                let fileInfo = new IO.FileInfo(targetPath)
+                if fileInfo.Length <> memoryStream.Length then 
+                    do! WriteStreamToFileAsync(memoryStream, targetPath)
+                else
+                    let! isEqualToFile = IsMemoryStreamEqualToFileAsync()
+                    if (not isEqualToFile) then
+                        do! WriteStreamToFileAsync(memoryStream, targetPath)
+          }
 
     let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent = async {
         try
@@ -187,12 +246,15 @@ module private Util =
                 let dir = IO.Path.GetDirectoryName outPath
                 if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
-                // write output to file
+                use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
+
+                // write output to a memory stream
                 let! sourceMap = async {
-                    use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
                     do! BabelPrinter.run writer babel
                     return if cliArgs.SourceMaps then Some writer.SourceMap else None
                 }
+
+                do! writer.WriteToFileIfChangedAsync()
 
                 // write source map to file
                 match sourceMap with
