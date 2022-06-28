@@ -157,16 +157,15 @@ module private Util =
             memoryStream.Seek(0, IO.SeekOrigin.Begin) |> ignore
             use fileStream = IO.File.OpenRead(targetPath)
 
-            let bufferSize = 1024
+            let buffer = Array.zeroCreate 1024
 
-            let readBytesAsync (stream: IO.Stream) size = async {
-                let buffer = Array.zeroCreate size
+            let readBytesAsync (stream: IO.Stream) = async {
                 let rec nextBytesAsync() = async {
-                    let! count = stream.AsyncRead(buffer, 0, size)
+                    let! count = stream.AsyncRead(buffer, 0, buffer.Length)
                     if count = 0 then return None
                     else 
                         let res = 
-                            if count = size then buffer
+                            if count = buffer.Length then buffer
                             else buffer |> Seq.take count |> Array.ofSeq
                         return Some(res)
                 }
@@ -177,15 +176,15 @@ module private Util =
                 match bytes1, bytes2 with
                 | Some(b1), Some(b2) when b1 <> b2 -> return false
                 | Some(_), Some(_) -> 
-                    let! nextBytes1 = readBytesAsync memoryStream bufferSize
-                    let! nextBytes2 = readBytesAsync fileStream bufferSize
+                    let! nextBytes1 = readBytesAsync memoryStream
+                    let! nextBytes2 = readBytesAsync fileStream 
                     return! compareBytesAsync nextBytes1 nextBytes2
                 | None, None -> return true
                 | _ -> return false
             }
 
-            let! memoryBytes = readBytesAsync memoryStream bufferSize
-            let! fileBytes = readBytesAsync fileStream bufferSize
+            let! memoryBytes = readBytesAsync memoryStream 
+            let! fileBytes = readBytesAsync fileStream
             return! compareBytesAsync memoryBytes fileBytes
         }
         interface BabelPrinter.Writer with
