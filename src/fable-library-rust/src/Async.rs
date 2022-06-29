@@ -5,7 +5,9 @@ pub mod Async_ {
     use std::pin::Pin;
     use std::sync::{Arc};
     use std::thread;
+    use std::time::Duration;
 
+    use futures::FutureExt;
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
 
@@ -13,6 +15,23 @@ pub mod Async_ {
 
     pub struct Async_1<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>
+    }
+
+    impl <T: Clone + Send + Sync> Future for &Async_1<T> {
+        type Output = T;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+            let p = self.future.try_lock()
+                .map(|mut f|f.poll_unpin(cx))
+                .unwrap_or_else(||{
+                    //Again blocking wait, not good
+                    thread::sleep(Duration::from_millis(10));
+                    cx.waker().wake_by_ref();
+
+                    std::task::Poll::Pending
+                });
+            p
+        }
     }
 
     pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> Arc<Task_1<T>> {
@@ -24,6 +43,21 @@ pub mod Async_ {
         let task = Arc::from(Task_1::new(unitFut));
         Task_1::start(task.clone());
         task
+    }
+
+    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> T {
+        let unitFut = async move {
+            let mut res = a.future.lock().await;
+            let res = res.as_mut().await;
+            res
+        };
+        executor::block_on(unitFut)
+    }
+
+    pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task_1<T>>) -> Arc<Async_1<T>> {
+        let fut = async move { (&*a).await };
+        let a: Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(fut);
+        Arc::from(Async_1{ future: Arc::from(Mutex::from(a)) })
     }
 }
 
@@ -190,35 +224,20 @@ pub mod Task_ {
             self.result.read().unwrap().is_complete()
         }
 
-        pub fn test_result(&self) {
-            while !self.is_complete() {
-                //eprintln!("{:?} try get result", thread::current().id());
-                thread::sleep(Duration::from_millis(1000));
-            }
-        }
-
         pub fn get_result(&self) -> T {
             while !self.is_complete() {
                 //eprintln!("{:?} try get result", thread::current().id());
-                thread::sleep(Duration::from_millis(1000));
-                // let handle = self.handle.lock().unwrap().take();
-                // match handle {
-                //     Some(h) => {
-                //         h.join().expect("Join should work");
-                //     },
-                //     None => {}
-                // }
+                thread::sleep(Duration::from_millis(10));
             }
             //eprintln!("{:?} has result", thread::current().id());
             let t = self.result.read().unwrap().unwrap();
             t
         }
 
-        // pub fn set_handle(&self, handle: JoinHandle<()>){
-        //     self.handle.lock().unwrap().replace(handle);
-        // }
-
         pub fn start(t: Arc<Task_1<T>>) {
+            if !t.result.read().unwrap().is_new() {
+                return
+            }
             let ts = t.result.write().unwrap().replace(TaskState::Running);
             match ts {
                 TaskState::New(mut fut) => {
