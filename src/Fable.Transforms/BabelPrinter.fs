@@ -53,9 +53,6 @@ type PrinterImpl(writer: Writer) =
             builder.Clear() |> ignore
         }
 
-    interface IDisposable with
-        member _.Dispose() = writer.Dispose()
-
     interface Printer with
         member _.Line = line
         member _.Column = column

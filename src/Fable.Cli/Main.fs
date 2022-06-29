@@ -147,46 +147,38 @@ module private Util =
         let memoryStream = new IO.MemoryStream()
         let stream = new IO.StreamWriter(memoryStream)
         let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
+
         let WriteStreamToFileAsync(stream : IO.Stream, filePath : string) = async {
             stream.Seek(0, IO.SeekOrigin.Begin) |> ignore
             use fileStream = new IO.StreamWriter(filePath)
             do! stream.CopyToAsync(fileStream.BaseStream) |> Async.AwaitTask
             do! fileStream.FlushAsync() |> Async.AwaitTask
+            return true
         }
+
         let IsMemoryStreamEqualToFileAsync() = async {
+            let areStreamsEqualAsync (stream1: IO.Stream) (stream2: IO.Stream) =
+                let buffer1 = Array.zeroCreate<byte> 1024
+                let buffer2 = Array.zeroCreate<byte> 1024
+
+                let rec areStreamsEqualAsync() = async {
+                    let! count1 = stream1.AsyncRead(buffer1, 0, buffer1.Length)
+                    let! count2 = stream2.AsyncRead(buffer2, 0, buffer2.Length)
+                    match count1, count2 with
+                    | 0, 0 -> return true
+                    | count1, count2 when count1 = count2 && buffer1 = buffer2 ->
+                        return! areStreamsEqualAsync()
+                    | _ -> return false
+                }
+
+                areStreamsEqualAsync()
+
             memoryStream.Seek(0, IO.SeekOrigin.Begin) |> ignore
             use fileStream = IO.File.OpenRead(targetPath)
 
-            let buffer = Array.zeroCreate 1024
-
-            let readBytesAsync (stream: IO.Stream) = async {
-                let rec nextBytesAsync() = async {
-                    let! count = stream.AsyncRead(buffer, 0, buffer.Length)
-                    if count = 0 then return None
-                    else 
-                        let res = 
-                            if count = buffer.Length then buffer
-                            else buffer |> Seq.take count |> Array.ofSeq
-                        return Some(res)
-                }
-                return! nextBytesAsync()
-            }
-
-            let rec compareBytesAsync bytes1 bytes2 = async {
-                match bytes1, bytes2 with
-                | Some(b1), Some(b2) when b1 <> b2 -> return false
-                | Some(_), Some(_) -> 
-                    let! nextBytes1 = readBytesAsync memoryStream
-                    let! nextBytes2 = readBytesAsync fileStream 
-                    return! compareBytesAsync nextBytes1 nextBytes2
-                | None, None -> return true
-                | _ -> return false
-            }
-
-            let! memoryBytes = readBytesAsync memoryStream 
-            let! fileBytes = readBytesAsync fileStream
-            return! compareBytesAsync memoryBytes fileBytes
+            return! areStreamsEqualAsync memoryStream fileStream
         }
+
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 async {
@@ -214,21 +206,23 @@ module private Util =
                     let targetPath = Path.normalizeFullPath targetPath
                     let sourcePath = Path.getRelativeFileOrDirPath false targetPath false sourcePath
                     mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+
         member _.SourceMap =
             mapGenerator.Force().toJSON()
-        member _.WriteToFileIfChangedAsync() = async {
-            if (memoryStream.Length = 0) then return ()
 
-            if (not(IO.File.Exists(targetPath))) then 
-                do! WriteStreamToFileAsync(memoryStream, targetPath)
+        member _.WriteToFileIfChangedAsync(): Async<bool> = async {
+            if memoryStream.Length = 0 then
+                return false
+            elif not(IO.File.Exists(targetPath)) then
+                return! WriteStreamToFileAsync(memoryStream, targetPath)
             else
                 let fileInfo = new IO.FileInfo(targetPath)
-                if fileInfo.Length <> memoryStream.Length then 
-                    do! WriteStreamToFileAsync(memoryStream, targetPath)
+                if fileInfo.Length <> memoryStream.Length then
+                    return! WriteStreamToFileAsync(memoryStream, targetPath)
                 else
-                    let! isEqualToFile = IsMemoryStreamEqualToFileAsync()
-                    if (not isEqualToFile) then
-                        do! WriteStreamToFileAsync(memoryStream, targetPath)
+                    match! IsMemoryStreamEqualToFileAsync() with
+                    | false -> return! WriteStreamToFileAsync(memoryStream, targetPath)
+                    | true -> return false
           }
 
     let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent = async {
@@ -246,23 +240,14 @@ module private Util =
                 if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
                 use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
+                do! BabelPrinter.run writer babel
+                let! written = writer.WriteToFileIfChangedAsync()
 
-                // write output to a memory stream
-                let! sourceMap = async {
-                    do! BabelPrinter.run writer babel
-                    return if cliArgs.SourceMaps then Some writer.SourceMap else None
-                }
-
-                do! writer.WriteToFileIfChangedAsync()
-
-                // write source map to file
-                match sourceMap with
-                | Some sourceMap ->
+                if written && cliArgs.SourceMaps then
                     let mapPath = outPath + ".map"
                     do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
                     use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                    do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
-                | None -> ()
+                    do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
 
             return Ok {| File = com.CurrentFile
                          OutPath = outPath

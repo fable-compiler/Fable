@@ -4,11 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.14</Version>
-    <PackageVersion>3.7.14</PackageVersion>
-    <PackageReleaseNotes>* Fix #2924: Invalidate cache if source maps option changes
-* Fix #2925: Always set unicode flag for Regex
-* Enable non-booleans in Emit optional syntax</PackageReleaseNotes>
+    <Version>3.7.15</Version>
+    <PackageVersion>3.7.15</PackageVersion>
+    <PackageReleaseNotes>* Fix #2869: Avoid unnecessary updates @hensou
+* Fix #2931: Array.IndexOf with non-primitive</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

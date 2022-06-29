@@ -1,3 +1,8 @@
+### 3.7.15
+
+* Fix #2869: Avoid unnecessary updates @hensou
+* Fix #2931: Array.IndexOf with non-primitive
+
 ### 3.7.14
 
 * Fix #2924: Invalidate cache if source maps option changes
