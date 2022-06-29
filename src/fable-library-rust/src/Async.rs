@@ -15,33 +15,15 @@ pub mod Async_ {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>
     }
 
-    // todo - set up global thread pool
-    // thread_local! {
-    //     pub static POOL: std::cell::RefCell<LocalPool>  = std::cell::RefCell::from(LocalPool::new());
-    // }
-
     pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> Arc<Task_1<T>> {
-        //todo
-        let task = Task_1::<T>::new();
-        let task1 = task.clone();
-        let handle = thread::spawn(move || {
-            let unitFut = async {
-                let mut res = a.future.lock().await;
-                let res = res.as_mut().await;
-                task1.set_result(res);
-            };
-            executor::block_on(unitFut);
-        });
-
-        //todo - use threadpool as spinning up a new thread for every Task is obviously super inefficient
-        // POOL::with(|pool|{
-        //    pool.run_until(unitFut);
-        // });
-        //pool.run_until(unitFut);
-        //handle.join().expect("great");
-
-        task.set_handle(handle);
-        Arc::from(task)
+        let unitFut = async move {
+            let mut res = a.future.lock().await;
+            let res = res.as_mut().await;
+            res
+        };
+        let task = Arc::from(Task_1::new(unitFut));
+        Task_1::start(task.clone());
+        task
     }
 }
 
@@ -82,56 +64,230 @@ pub mod AsyncBuilder_ {
     }
 }
 
+pub mod ThreadPool {
+    use std::sync::RwLock;
+
+    use futures::executor::ThreadPool;
+
+    static mut POOL: Option<RwLock<ThreadPool>> = None;
+    pub fn try_init_and_get_pool() -> & 'static RwLock<ThreadPool> {
+        unsafe {
+            if POOL.is_none() {
+                let pool = ThreadPool::new().unwrap();
+                POOL = Some(RwLock::new(pool));
+            }
+
+            POOL.as_ref().unwrap()
+        }
+    }
+}
 
 pub mod Task_ {
-    use std::{sync::{Mutex, Arc}, thread::{self, JoinHandle}, time::Duration};
+    use std::{sync::{Arc, RwLock}, thread::{self, JoinHandle}, time::Duration, task::Poll, pin::Pin};
 
-    #[derive(Default, Clone)]
-    pub struct Task_1<T: Sized + Clone + Send> {
-        result: Arc<Mutex<Option<T>>>,
-        handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    use futures::{FutureExt, Future};
+
+    use super::ThreadPool::try_init_and_get_pool;
+
+    pub enum TaskState<T: Sized + Clone + Send> {
+        New(Pin<Box<dyn Future<Output = T> + Send + Sync>>),
+        Running,
+        Complete(T)
     }
 
-    impl <T: Clone + Send> Task_1<T>{
-        pub fn new() -> Task_1<T> {
-            Task_1 { result: Arc::from(Mutex::default()), handle: Arc::from(Mutex::from(None)) }
+    impl <T: Sized + Clone + Send + 'static> TaskState<T> {
+
+        pub fn is_new(&self) -> bool {
+            match self {
+                TaskState::New(_) => true,
+                _ => false,
+            }
         }
 
-        pub fn set_result(self, value: T){
-            let mut m = self.result.lock().unwrap();
-            (*m).get_or_insert(value);
+        pub fn is_running(&self) -> bool {
+            match self {
+                TaskState::Running => true,
+                _ => false,
+            }
+        }
+
+        pub fn is_complete(&self) -> bool {
+            match self {
+                TaskState::Complete(_) => true,
+                _ => false,
+            }
+        }
+
+        pub fn unwrap(&self) -> T {
+            match self {
+                TaskState::Complete(t) => t.clone(),
+                _ => panic!("Task not yet complete"),
+            }
+        }
+
+        pub fn replace(&mut self, next: TaskState<T>) -> TaskState<T> {
+            std::mem::replace(self, next)
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Task_1<T: Sized + Clone + Send> {
+        result: Arc<RwLock<TaskState<T>>>,
+    }
+
+    impl <T: Clone + Send + Sync> Future for &Task_1<T> {
+        type Output = T;
+
+        fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+            //eprintln!("{:?} Polling task for result", thread::current().id());
+            let m = self.result.read().unwrap();
+
+            match &*m {
+                TaskState::New(_) => {
+                    //schedule?
+                    //eprintln!("{:?} poll: task is new, waking up", thread::current().id());
+                    cx.waker().wake_by_ref();
+                    Poll::Pending
+                },
+                TaskState::Running  => {
+                    //eprintln!("{:?} poll: pending, nothing to do", thread::current().id());
+
+                    //todo - this is no good as it blocks the thread. It needs to be non-blocking and delegate out
+                    thread::sleep(Duration::from_millis(100));
+                    cx.waker().wake_by_ref();
+
+                    Poll::Pending
+                },
+                TaskState::Complete(res) => {
+                    //eprintln!("{:?} Poll succeeded", thread::current().id());
+                    Poll::Ready(res.clone())
+                },
+            }
+        }
+    }
+
+    impl <T: Clone + Send + Sync + 'static> Task_1<T>{
+        pub fn new(fut: impl Future<Output = T> + Send + Sync + 'static) -> Task_1<T> {
+            Task_1 { result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))) }
+        }
+
+        pub fn from_result(value: T) -> Task_1<T> {
+            Task_1 { result: Arc::from(RwLock::from(TaskState::Complete(value))) }
+        }
+
+        pub fn set_result(&self, value: T){
+            let mut m = self.result.write().unwrap();
+            //eprintln!("{:?} set task result", thread::current().id());
+            (*m) = TaskState::Complete(value);
+            //eprintln!("{:?} set task result completed", thread::current().id());
+        }
+
+        pub fn is_new(&self) -> bool {
+            self.result.read().unwrap().is_new()
+        }
+
+        fn is_complete(&self) -> bool {
+            self.result.read().unwrap().is_complete()
+        }
+
+        pub fn test_result(&self) {
+            while !self.is_complete() {
+                //eprintln!("{:?} try get result", thread::current().id());
+                thread::sleep(Duration::from_millis(1000));
+            }
         }
 
         pub fn get_result(&self) -> T {
-            while self.result.lock().unwrap().is_none() {
-                thread::sleep(Duration::from_millis(10));
-                let handle = self.handle.lock().unwrap().take();
-                match handle {
-                    Some(h) => {
-                        h.join().expect("Join should work");
-                    },
-                    None => {}
-                }
+            while !self.is_complete() {
+                //eprintln!("{:?} try get result", thread::current().id());
+                thread::sleep(Duration::from_millis(1000));
+                // let handle = self.handle.lock().unwrap().take();
+                // match handle {
+                //     Some(h) => {
+                //         h.join().expect("Join should work");
+                //     },
+                //     None => {}
+                // }
             }
-            let t = self.result.lock().unwrap().as_ref().unwrap().clone();
+            //eprintln!("{:?} has result", thread::current().id());
+            let t = self.result.read().unwrap().unwrap();
             t
         }
 
-        pub fn set_handle(&self, handle: JoinHandle<()>){
-            self.handle.lock().unwrap().replace(handle);
+        // pub fn set_handle(&self, handle: JoinHandle<()>){
+        //     self.handle.lock().unwrap().replace(handle);
+        // }
+
+        pub fn start(t: Arc<Task_1<T>>) {
+            let ts = t.result.write().unwrap().replace(TaskState::Running);
+            match ts {
+                TaskState::New(mut fut) => {
+                    let f2 = async move {
+                        let res = fut.as_mut().await;
+                        t.set_result(res);
+                    };
+                    let pool = super::ThreadPool::try_init_and_get_pool();
+                    //eprintln!("{:?} new task added to queue", thread::current().id());
+                    pool.write().unwrap().spawn_ok(f2);
+                }
+                _ => {}
+            }
         }
     }
 
-    pub fn bind(){
-        //todo
+    pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
+        opt: Arc<Task_1<T>>,
+        binder: Arc<impl Fn(T) -> Arc<Task_1<U>> + Send + Sync + 'static>
+                         ) -> Arc<Task_1<U>> {
+        let next =
+            async move {
+                //eprintln!("{:?} begin await source fut", thread::current().id());
+                let m = opt.as_ref().await;
+                //eprintln!("{:?} awaiting source future success", thread::current().id());
+                let nextAsync = binder(m);
+                if nextAsync.is_new() {
+                    Task_1::start(nextAsync.clone());
+                }
+                let next = nextAsync.as_ref().await;
+                //eprintln!("{:?} setting result", thread::current().id());
+                next
+            };
+
+        let task = Task_1::new(next);
+        Arc::from(task)
     }
 
-    pub fn r_return(){
-        //todo
+    pub fn delay<T: Clone + Send + Sync>(binder: Arc<impl Fn() -> Arc<Task_1<T>> + 'static>) -> Arc<Task_1<T>> {
+        let pr = binder();
+        pr
+    }
+
+    pub fn r_return<T: Clone + Send + Sync + 'static>(item: T) -> Arc<Task_1<T>> {
+        let t = Task_1::from_result(item);
+        Arc::from(t)
     }
 
     pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task_1<T>> {
-        let t = Task_1 { result: Arc::from(Mutex::from(Some(t))), handle: Arc::from(Mutex::from(None)) };
+        let t = Task_1 { result: Arc::from(RwLock::from(TaskState::Complete(t))) };
         Arc::from(t)
+    }
+}
+
+pub mod TaskBuilder_ {
+    use std::{sync::Arc, rc::Rc};
+
+    use super::Task_::Task_1;
+
+    pub struct TaskBuilder {}
+
+    impl TaskBuilder {
+        pub fn run<T: Clone + Send + Sync + 'static>(&self, task: Arc<Task_1<T>>) -> Arc<Task_1<T>> {
+            Task_1::start(task.clone());
+            task
+        }
+    }
+
+    pub fn new() -> Rc<TaskBuilder> {
+        Rc::from(TaskBuilder {})
     }
 }

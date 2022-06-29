@@ -516,6 +516,9 @@ module TypeInfo =
     let transformTaskType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Task" "Task`1"
 
+    let transformTaskBuilderType com ctx: Rust.Ty =
+        transformImportType com ctx [] "TaskBuilder" "TaskBuilder"
+
     let transformTupleType com ctx genArgs: Rust.Ty =
         genArgs
         |> List.map (transformType com ctx)
@@ -751,6 +754,8 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx (inferIfAny t)
             | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) (_, [t]) -> transformAsyncType com ctx t
             | Replacements.Util.IsEntity (Types.taskGeneric) (_, [t]) -> transformTaskType com ctx t
+            | Replacements.Util.IsEntity (Types.taskBuilder) (_, []) -> transformTaskBuilderType com ctx
+            | Replacements.Util.IsEntity (Types.taskBuilderModule) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with
@@ -1842,7 +1847,11 @@ module Util =
                 | Fable.Import(info, t, r) ->
                     match info.Selector with
                     | "AsyncBuilder_::delay"
-                    | "AsyncBuilder_::bind" -> true
+                    | "AsyncBuilder_::bind"
+                    | "Task_::bind"
+                    | "Task_::delay"
+                    | "TaskBuilder_::bind"
+                    | "TaskBuilder_::delay" -> true
                     | _ -> false
                 | _ -> false
             { ctx with IsCallingFunction = true

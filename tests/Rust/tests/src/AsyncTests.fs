@@ -32,14 +32,14 @@ let shouldCorrectlyScopeArcRecord () =
     let t = Async.StartAsTask comp
     t.Result |> equal 5
 
-// open System.Threading.Tasks
-// [<Fact>]
-// let shouldExecutedTask () =
-//     let a = Task.FromResult 1
-//     let b = Task.FromResult 2
-//     let comp = task {
-//         let! a = a
-//         let! b = b
-//         return a + b
-//     }
-//     comp.Result |> equal 3
+open System.Threading.Tasks
+[<Fact>]
+let shouldExecuteTask () =
+    let a = Task.FromResult 1
+    let b = Task.FromResult 2
+    let comp = task {
+        let! a = a
+        let! b = b
+        return a + b
+    }
+    comp.Result |> equal 3

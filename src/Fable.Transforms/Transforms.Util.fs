@@ -101,6 +101,7 @@ module Types =
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] fsharpAsyncGeneric = "Microsoft.FSharp.Control.FSharpAsync`1"
     let [<Literal>] taskBuilder = "Microsoft.FSharp.Control.TaskBuilder"
+    let [<Literal>] taskBuilderModule = "Microsoft.FSharp.Control.TaskBuilderModule"
     let [<Literal>] task = "System.Threading.Tasks.Task"
     let [<Literal>] taskGeneric = "System.Threading.Tasks.Task`1"
     let [<Literal>] cancellationToken = "System.Threading.CancellationToken"
