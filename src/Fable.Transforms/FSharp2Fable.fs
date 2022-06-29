@@ -525,7 +525,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! lambda = transformExpr com ctx lambda
         return lambda
 
-    | FSharpExprPatterns.FastIntegerForLoop(start, limit, body, isUp) ->
+    | FSharpExprPatterns.FastIntegerForLoop(start, limit, body, isUp, _, _) ->
         let r = makeRangeFrom fsExpr
         match body with
         | FSharpExprPatterns.Lambda (PutIdentInScope com ctx (newContext, ident), body) ->
@@ -535,7 +535,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeForLoop r isUp ident start limit body
         | _ -> return failwithf $"Unexpected loop {r}: %A{fsExpr}"
 
-    | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr) ->
+    | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _) ->
         let! guardExpr = transformExpr com ctx guardExpr
         let! bodyExpr = transformExpr com ctx bodyExpr
         return (guardExpr, bodyExpr) ||> makeWhileLoop (makeRangeFrom fsExpr)
@@ -583,7 +583,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
         return Replacements.defaultof com ctx typ
 
-    | FSharpExprPatterns.Let((var, value), body) ->
+    | FSharpExprPatterns.Let((var, value, _), body) ->
         match value, body with
         | (CreateEvent(value, event) as createEvent), _ ->
             let! value = transformExpr com ctx value
@@ -615,9 +615,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // First get a context containing all idents and use it compile the values
         let ctx, idents =
             (recBindings, (ctx, []))
-            ||> List.foldBack (fun (PutIdentInScope com ctx (newContext, ident), _) (ctx, idents) ->
+            ||> List.foldBack (fun (PutIdentInScope com ctx (newContext, ident), _, _) (ctx, idents) ->
                 (newContext, ident::idents))
-        let _, bindingExprs = List.unzip recBindings
+        let _, bindingExprs, _ = List.unzip3 recBindings
         let! exprs = transformExprList com ctx bindingExprs
         let bindings = List.zip idents exprs
         let! body = transformExpr com ctx body
@@ -726,7 +726,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         // When using Fable dynamic operator, we must untuple arguments
         // Note F# compiler wraps the value in a closure if it detects it's a lambda
-        | FSharpExprPatterns.Let((_, FSharpExprPatterns.Call(None,m,_,_,[e1; e2])),_), args
+        | FSharpExprPatterns.Let((_, FSharpExprPatterns.Call(None,m,_,_,[e1; e2]), _),_), args
                 when m.FullName = "Fable.Core.JsInterop.(?)" ->
             let! e1 = transformExpr com ctx e1
             let! e2 = transformExpr com ctx e2
@@ -767,14 +767,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
 
-    | FSharpExprPatterns.TryFinally (body, finalBody) ->
+    | FSharpExprPatterns.TryFinally (body, finalBody, _, _) ->
         let r = makeRangeFrom fsExpr
         match body with
-        | FSharpExprPatterns.TryWith(body, _, _, catchVar, catchBody) ->
+        | FSharpExprPatterns.TryWith(body, _, _, catchVar, catchBody, _, _) ->
             return makeTryCatch com ctx r body (Some (catchVar, catchBody)) (Some finalBody)
         | _ -> return makeTryCatch com ctx r body None (Some finalBody)
 
-    | FSharpExprPatterns.TryWith (body, _, _, catchVar, catchBody) ->
+    | FSharpExprPatterns.TryWith (body, _, _, catchVar, catchBody, _, _) ->
         return makeTryCatch com ctx (makeRangeFrom fsExpr) body (Some (catchVar, catchBody)) None
 
     | FSharpExprPatterns.NewDelegate(delegateType, fsExpr) ->
