@@ -2577,6 +2577,10 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     match thisArg, i.CompiledName, args with
     // | _, "Run", _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
     // | _, "Singleton", _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
+    | None, ".ctor", _ ->
+        makeImportLib com t "new" "TaskBuilder" |> Some
+    | Some x, "Run", _ ->
+        Helper.InstanceCall(x, "run", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2595,7 +2599,7 @@ let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Ex
 
 let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
-    | _, "task", _ -> Helper.LibCall(com, "Task", "new", t, [], ?loc=r) |> Some
+    | _, "task", _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
