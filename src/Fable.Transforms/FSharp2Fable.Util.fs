@@ -672,29 +672,29 @@ module Patterns =
         | _ -> None
 
     let (|ForOf|_|) = function
-        | Let((_, value), // Coercion to seq
-              Let((_, Call(None, meth, _, [], [])),
+        | Let((_, value, _), // Coercion to seq
+              Let((_, Call(None, meth, _, [], []), _),
                 TryFinally(
                   WhileLoop(_,
-                    Let((ident, _), body)), _)))
-        | Let((_, Call(Some value, meth, _, [], [])),
+                    Let((ident, _, _), body), _), _, _, _)))
+        | Let((_, Call(Some value, meth, _, [], []), _),
                 TryFinally(
                     WhileLoop(_,
-                        Let((ident, _), body)), _))
+                        Let((ident, _, _), body), _), _, _, _))
             // Using only the compiled name is riskier but with the fullname we miss some cases
             // TODO: Check the return type of meth is or implements IEnumerator
             when meth.CompiledName = "GetEnumerator" ->
             // when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
             Some(ident, value, body)
         // optimized "for x in list"
-        | Let((_, UnionCaseGet(value, typ, unionCase, field)),
-                WhileLoop(_, Let((ident, _), body)))
+        | Let((_, UnionCaseGet(value, typ, unionCase, field), _),
+                WhileLoop(_, Let((ident, _, _), body), _))
             when (getFsTypeFullName typ) = Types.list
                 && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
             Some (ident, value, body)
         // optimized "for _x in list"
-        | Let((ident, UnionCaseGet(value, typ, unionCase, field)),
-                WhileLoop(_, body))
+        | Let((ident, UnionCaseGet(value, typ, unionCase, field), _),
+                WhileLoop(_, body, _))
             when (getFsTypeFullName typ) = Types.list
                 && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
             Some (ident, value, body)
@@ -703,7 +703,7 @@ module Patterns =
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
     /// where the F# compiler automatically passes a byref arg and returns it as a tuple
     let (|ByrefArgToTuple|_|) = function
-        | Let((outArg1, (DefaultValue _ as def)),
+        | Let((outArg1, (DefaultValue _ as def), _),
                 NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs, callArgs); Value outArg3]))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
             match List.splitLast callArgs with
@@ -714,7 +714,7 @@ module Patterns =
 
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
     let (|ByrefArgToTupleOptimizedIf|_|) = function
-        | Let((outArg1, (DefaultValue _ as def)), IfThenElse
+        | Let((outArg1, (DefaultValue _ as def), _), IfThenElse
                 (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), thenExpr, elseExpr))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
             match List.splitLast callArgs with
@@ -725,7 +725,7 @@ module Patterns =
 
     /// This matches another boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
     let (|ByrefArgToTupleOptimizedTree|_|) = function
-        | Let((outArg1, (DefaultValue _ as def)), DecisionTree(IfThenElse
+        | Let((outArg1, (DefaultValue _ as def), _), DecisionTree(IfThenElse
                 (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), thenExpr, elseExpr), targetsExpr))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
             match List.splitLast callArgs with
@@ -736,8 +736,8 @@ module Patterns =
 
     /// This matches another boilerplate generated for TryGetValue/TryParse/DivRem (--crossoptimize-)
     let (|ByrefArgToTupleOptimizedLet|_|) = function
-        | Let((outArg1, (DefaultValue _ as def)),
-                Let((arg_0, Call(callee, memb, ownerGenArgs, membGenArgs, callArgs)), restExpr))
+        | Let((outArg1, (DefaultValue _ as def), _),
+                Let((arg_0, Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), _), restExpr))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
@@ -773,7 +773,7 @@ module Patterns =
         if com.Options.OptimizeFSharpAst then
             match fsExpr with
             // work-around for optimized string operator (Operators.string)
-            | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
+            | Let((var, Call(None, memb, _, membArgTypes, membArgs), _),
                                 DecisionTree(IfThenElse(_, _, IfThenElse
                                                             (TypeTest(tt, Value vv), _, _)), _))
                     when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"

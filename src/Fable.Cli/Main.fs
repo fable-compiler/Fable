@@ -161,14 +161,26 @@ module private Util =
                 let buffer1 = Array.zeroCreate<byte> 1024
                 let buffer2 = Array.zeroCreate<byte> 1024
 
+                let areBuffersEqual count1 count2 =
+                    if count1 <> count2 then false
+                    else
+                        let mutable i = 0
+                        let mutable equal = true
+                        while equal && i < count1 do
+                            equal <- buffer1[i] = buffer2[i]
+                            i <- i + 1
+                        equal
+
                 let rec areStreamsEqualAsync() = async {
                     let! count1 = stream1.AsyncRead(buffer1, 0, buffer1.Length)
                     let! count2 = stream2.AsyncRead(buffer2, 0, buffer2.Length)
                     match count1, count2 with
                     | 0, 0 -> return true
-                    | count1, count2 when count1 = count2 && buffer1 = buffer2 ->
-                        return! areStreamsEqualAsync()
-                    | _ -> return false
+                    | count1, count2 when areBuffersEqual count1 count2 ->
+                        if count1 < buffer1.Length then return true
+                        else return! areStreamsEqualAsync()
+                    | _ ->
+                        return false
                 }
 
                 areStreamsEqualAsync()
