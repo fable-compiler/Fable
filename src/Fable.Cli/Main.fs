@@ -153,7 +153,12 @@ module private Util =
             use fileStream = new IO.StreamWriter(filePath)
             do! stream.CopyToAsync(fileStream.BaseStream) |> Async.AwaitTask
             do! fileStream.FlushAsync() |> Async.AwaitTask
-            return true
+
+            if cliArgs.SourceMaps then
+                let mapPath = filePath + ".map"
+                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                let sourceMap = mapGenerator.Force().toJSON()
+                do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
         }
 
         let IsMemoryStreamEqualToFileAsync() = async {
@@ -183,6 +188,9 @@ module private Util =
             member _.Write(str) =
                 async {
                     do! stream.WriteAsync(str) |> Async.AwaitTask
+                    if cliArgs.SourceMaps then
+                        let mapPath = targetPath + ".map"
+                        do! stream.WriteLineAsync($"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}") |> Async.AwaitTask
                     do! stream.FlushAsync() |> Async.AwaitTask
                 }
             member _.EscapeJsStringLiteral(str) =
@@ -210,19 +218,19 @@ module private Util =
         member _.SourceMap =
             mapGenerator.Force().toJSON()
 
-        member _.WriteToFileIfChangedAsync(): Async<bool> = async {
+        member _.WriteToFileIfChangedAsync(): Async<unit> = async {
             if memoryStream.Length = 0 then
-                return false
+                return ()
             elif not(IO.File.Exists(targetPath)) then
-                return! WriteStreamToFileAsync(memoryStream, targetPath)
+                do! WriteStreamToFileAsync(memoryStream, targetPath)
             else
                 let fileInfo = new IO.FileInfo(targetPath)
                 if fileInfo.Length <> memoryStream.Length then
-                    return! WriteStreamToFileAsync(memoryStream, targetPath)
+                    do! WriteStreamToFileAsync(memoryStream, targetPath)
                 else
                     match! IsMemoryStreamEqualToFileAsync() with
-                    | false -> return! WriteStreamToFileAsync(memoryStream, targetPath)
-                    | true -> return false
+                    | false -> do! WriteStreamToFileAsync(memoryStream, targetPath)
+                    | true -> return ()
           }
 
     let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent = async {
@@ -241,13 +249,7 @@ module private Util =
 
                 use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, pathResolver)
                 do! BabelPrinter.run writer babel
-                let! written = writer.WriteToFileIfChangedAsync()
-
-                if written && cliArgs.SourceMaps then
-                    let mapPath = outPath + ".map"
-                    do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                    use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                    do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
+                do! writer.WriteToFileIfChangedAsync()
 
             return Ok {| File = com.CurrentFile
                          OutPath = outPath
