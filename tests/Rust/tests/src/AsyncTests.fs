@@ -14,6 +14,41 @@ let shouldExecPrim () =
     let t = Async.StartAsTask comp
     t.Result |> equal 6
 
+[<Fact>]
+let shouldExecSynchronously () =
+    let y = async { return 3 }
+    let comp = async {
+        let x = 1
+        let! y = y
+        return x + y
+    }
+    let t = Async.RunSynchronously comp
+    t |> equal 4
+
+[<Fact>]
+let shouldConvertTaskToASyncAndEvalCorrectly () =
+    let t = task { return 1 } |> Async.AwaitTask
+    t |> Async.RunSynchronously |> equal 1
+
+// [<Fact>]
+// let shouldExecAsParallelStructurallyCorrect () =
+//     let t = Async.Parallel [
+//         async { return 1 }
+//         async { return 2 }
+//     ]
+//     t |> Async.RunSynchronously |> Array.sum |> equal 3
+
+// [<Fact>]
+// let shouldMarshalMutOverAsyncClosureCorrectly () =
+//     let mutable x = 1
+//     let comp = async {
+//         let! z = async { return 3 }
+//         x <- x + 1
+//         return x + z
+//     }
+//     let t = Async.StartAsTask comp
+//     t.Result |> equal 5
+
 [<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
 type ArcRecord = {
     A: int
@@ -29,6 +64,7 @@ let shouldCorrectlyScopeArcRecord () =
         let y = a.A
         return x + y
     }
+
     let t = Async.StartAsTask comp
     t.Result |> equal 5
 
