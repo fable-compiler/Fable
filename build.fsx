@@ -716,9 +716,11 @@ match BUILD_ARGS_LOWER with
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildLibraryPyIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --region --cwd ../quicktest-py --noCache"
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --noCache --runWatch python -m quicktest"
 | "quicktest-dart"::_ ->
     run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest-dart --exclude Fable.Core --noCache --runWatch dart run Quicktest.fs.dart"
+| "quicktest-rust"::_ ->
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang rust -e .rs --cwd ../quicktest-rust --exclude Fable.Core --noCache --runWatch cargo run"
 | "run"::_ ->
     buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
