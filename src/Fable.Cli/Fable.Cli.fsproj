@@ -4,10 +4,11 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.15</Version>
-    <PackageVersion>3.7.15</PackageVersion>
-    <PackageReleaseNotes>* Fix #2869: Avoid unnecessary updates @hensou
-* Fix #2931: Array.IndexOf with non-primitive</PackageReleaseNotes>
+    <Version>3.7.16</Version>
+    <PackageVersion>3.7.16</PackageVersion>
+    <PackageReleaseNotes>* Fix #2869: Don't update maps @hensou
+* Fix #2869: Use deterministic names for compiler-generate variables
+* Update FCS @ncave</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

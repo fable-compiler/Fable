@@ -1,3 +1,9 @@
+### 3.7.16
+
+* Fix #2869: Don't update maps @hensou
+* Fix #2869: Use deterministic names for compiler-generate variables
+* Update FCS @ncave
+
 ### 3.7.15
 
 * Fix #2869: Avoid unnecessary updates @hensou
