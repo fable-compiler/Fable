@@ -4543,6 +4543,12 @@
  (Originally from FSComp.txt:458)
 </summary>
 </member>
+<member name="M:FSComp.SR.parsExpectingExpressionInTuple">
+<summary>
+ Expecting expression
+ (Originally from FSComp.txt:1648)
+</summary>
+</member>
 <member name="M:FSComp.SR.parsExpectedTypeAfterToken">
 <summary>
  Expected a type after this point
@@ -5894,7 +5900,7 @@
 </member>
 <member name="M:FSComp.SR.lexInvalidNumericLiteral">
 <summary>
- This is not a valid numeric literal. Valid numeric literals include 1, 0x1, 0o1, 0b1, 1l (int), 1u (uint32), 1L (int64), 1UL (uint64), 1s (int16), 1y (sbyte), 1uy (byte), 1.0 (float), 1.0f (float32), 1.0m (decimal), 1I (BigInteger).
+ This is not a valid numeric literal. Valid numeric literals include 1, 0x1, 0o1, 0b1, 1l (int/int32), 1u (uint/uint32), 1L (int64), 1UL (uint64), 1s (int16), 1us (uint16), 1y (int8/sbyte), 1uy (uint8/byte), 1.0 (float/double), 1.0f (float32/single), 1.0m (decimal), 1I (bigint).
  (Originally from FSComp.txt:1032)
 </summary>
 </member>
@@ -13450,6 +13456,16 @@
 <member name="T:FSharp.Compiler.Xml.XmlDoc">
 <summary>
  Represents collected XmlDoc lines
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SyntaxTrivia.SynTypeFunTrivia.ArrowRange">
+<summary>
+ The syntax range of the `-&gt;` token.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.SyntaxTrivia.SynTypeFunTrivia">
+<summary>
+ Represents additional information for SynType.Fun
 </summary>
 </member>
 <member name="P:FSharp.Compiler.SyntaxTrivia.SynValSigTrivia.EqualsRange">
@@ -21514,49 +21530,39 @@ Get the signature for the value&apos;s XML documentation
  Debug layout for class and record fields
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.implFilesL(FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.CheckedImplFile})">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.implFilesL(Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.CheckedImplFile})">
 <summary>
  Debug layout for a list of implementation files
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.implFileL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.CheckedImplFile)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.implFileL(FSharp.Compiler.TypedTree.CheckedImplFile)">
 <summary>
  Debug layout for an implementation file
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.decisionTreeL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.DecisionTree)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.decisionTreeL(FSharp.Compiler.TypedTree.DecisionTree)">
 <summary>
  Debug layout for a decision tree
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.tyconL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Entity)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.tyconL(FSharp.Compiler.TypedTree.Entity)">
 <summary>
  Debug layout for a type definition
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.exprL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Expr)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.exprL(FSharp.Compiler.TypedTree.Expr)">
 <summary>
  Debug layout for an expression
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.bindingL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Binding)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.bindingL(FSharp.Compiler.TypedTree.Binding)">
 <summary>
  Debug layout for a binding of an expression to a value
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.typeOfValL(FSharp.Compiler.TypedTree.Val)">
-<summary>
- Debug layout for the type of a value
-</summary>
-</member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.entityL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Entity)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.entityL(FSharp.Compiler.TypedTree.Entity)">
 <summary>
  Debug layout for a module or namespace definition
-</summary>
-</member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.entityTypeL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.ModuleOrNamespaceType)">
-<summary>
- Debug layout for the type signature of a module or namespace definition
 </summary>
 </member>
 <member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.slotSigL(FSharp.Compiler.TypedTree.SlotSig)">
@@ -21599,7 +21605,7 @@ Get the signature for the value&apos;s XML documentation
  Debug layout for an integer
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.valAtBindL(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Val)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.valAtBindL(FSharp.Compiler.TypedTree.Val)">
 <summary>
  Debug layout for an value definition at its binding site
 </summary>
@@ -21614,7 +21620,7 @@ Get the signature for the value&apos;s XML documentation
  Debug layout for a reference to a value
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.showExpr(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Expr)">
+<member name="M:FSharp.Compiler.TypedTreeOps.DebugPrint.showExpr(FSharp.Compiler.TypedTree.Expr)">
 <summary>
  Convert an expression to a string for debugging purposes
 </summary>
@@ -21624,9 +21630,24 @@ Get the signature for the value&apos;s XML documentation
  Convert a type to a string for debugging purposes
 </summary>
 </member>
+<member name="P:FSharp.Compiler.TypedTreeOps.DebugPrint.layoutTypes">
+<summary>
+ A global flag indicating whether debug output should include type information
+</summary>
+</member>
 <member name="P:FSharp.Compiler.TypedTreeOps.DebugPrint.layoutRanges">
 <summary>
  A global flag indicating whether debug output should include ranges
+</summary>
+</member>
+<member name="P:FSharp.Compiler.TypedTreeOps.DebugPrint.layoutStamps">
+<summary>
+ A global flag indicating whether debug output should include stamps of Val and Entity
+</summary>
+</member>
+<member name="P:FSharp.Compiler.TypedTreeOps.DebugPrint.layoutValReprInfo">
+<summary>
+ A global flag indicating whether debug output should include ValReprInfo
 </summary>
 </member>
 <member name="T:FSharp.Compiler.TypedTreeOps.DebugPrint">
