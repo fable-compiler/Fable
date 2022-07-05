@@ -1,11 +1,11 @@
-//# 3 "src/fsharp/pplex.fsl"
+//# 3 "src/Compiler/pplex.fsl"
  
 
 module internal FSharp.Compiler.PPLexer
 
 open System
 
-open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.Lexhelp
 open FSharp.Compiler.ParseHelpers
 open FSharp.Compiler.Syntax
@@ -16,7 +16,7 @@ let lexeme (lexbuf : UnicodeLexing.Lexbuf) = UnicodeLexing.Lexbuf.LexemeString l
 
 let fail (args : LexArgs) (lexbuf:UnicodeLexing.Lexbuf) e =
      let m = lexbuf.LexemeRange
-     args.errorLogger.ErrorR(Error(e,m))
+     args.diagnosticsLogger.ErrorR(Error(e,m))
      PPParser.EOF
 
 //# 22 "pplex.fs"
@@ -86,62 +86,62 @@ let rec _fslex_dummy () = _fslex_dummy()
 and tokenstream args lexbuf =
   match _fslex_tables.Interpret(3,lexbuf) with
   | 0 -> ( 
-//# 48 "src/fsharp/pplex.fsl"
+//# 48 "src/Compiler/pplex.fsl"
                                  PPParser.PRELUDE                                              
 //# 91 "pplex.fs"
           )
   | 1 -> ( 
-//# 49 "src/fsharp/pplex.fsl"
+//# 49 "src/Compiler/pplex.fsl"
                                  PPParser.PRELUDE                                              
 //# 96 "pplex.fs"
           )
   | 2 -> ( 
-//# 50 "src/fsharp/pplex.fsl"
+//# 50 "src/Compiler/pplex.fsl"
                                  PPParser.ID(lexeme lexbuf)                                    
 //# 101 "pplex.fs"
           )
   | 3 -> ( 
-//# 52 "src/fsharp/pplex.fsl"
+//# 52 "src/Compiler/pplex.fsl"
                                  PPParser.OP_NOT                                               
 //# 106 "pplex.fs"
           )
   | 4 -> ( 
-//# 53 "src/fsharp/pplex.fsl"
+//# 53 "src/Compiler/pplex.fsl"
                                  PPParser.OP_AND                                               
 //# 111 "pplex.fs"
           )
   | 5 -> ( 
-//# 54 "src/fsharp/pplex.fsl"
+//# 54 "src/Compiler/pplex.fsl"
                                  PPParser.OP_OR                                                
 //# 116 "pplex.fs"
           )
   | 6 -> ( 
-//# 55 "src/fsharp/pplex.fsl"
+//# 55 "src/Compiler/pplex.fsl"
                                  PPParser.LPAREN                                               
 //# 121 "pplex.fs"
           )
   | 7 -> ( 
-//# 56 "src/fsharp/pplex.fsl"
+//# 56 "src/Compiler/pplex.fsl"
                                  PPParser.RPAREN                                               
 //# 126 "pplex.fs"
           )
   | 8 -> ( 
-//# 58 "src/fsharp/pplex.fsl"
+//# 58 "src/Compiler/pplex.fsl"
                                  tokenstream args lexbuf                                       
 //# 131 "pplex.fs"
           )
   | 9 -> ( 
-//# 60 "src/fsharp/pplex.fsl"
+//# 60 "src/Compiler/pplex.fsl"
                                  PPParser.EOF                                                  
 //# 136 "pplex.fs"
           )
   | 10 -> ( 
-//# 61 "src/fsharp/pplex.fsl"
+//# 61 "src/Compiler/pplex.fsl"
                                  fail args lexbuf (FSComp.SR.pplexExpectedSingleLineComment()) 
 //# 141 "pplex.fs"
           )
   | 11 -> ( 
-//# 62 "src/fsharp/pplex.fsl"
+//# 62 "src/Compiler/pplex.fsl"
                                 
                                    let lex = lexeme lexbuf
                                    let _   = rest lexbuf
@@ -150,7 +150,7 @@ and tokenstream args lexbuf =
 //# 150 "pplex.fs"
           )
   | 12 -> ( 
-//# 67 "src/fsharp/pplex.fsl"
+//# 67 "src/Compiler/pplex.fsl"
                                  PPParser.EOF                                                  
 //# 155 "pplex.fs"
           )
@@ -159,12 +159,12 @@ and tokenstream args lexbuf =
 and rest  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 70 "src/fsharp/pplex.fsl"
+//# 70 "src/Compiler/pplex.fsl"
                                  rest lexbuf   
 //# 164 "pplex.fs"
           )
   | 1 -> ( 
-//# 71 "src/fsharp/pplex.fsl"
+//# 71 "src/Compiler/pplex.fsl"
                                  ()            
 //# 169 "pplex.fs"
           )
