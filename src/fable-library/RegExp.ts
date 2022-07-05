@@ -4,10 +4,11 @@ export function create(pattern: string, options = 0) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002
+  // * Compiled:    0x0008 (ignored)
   // * Singleline:  0x0010
   // * ECMAScript:  0x0100 (ignored)
-  if ((options & ~(1 ^ 2 ^ 16 ^ 256)) !== 0) {
-    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Singleline and ECMAScript");
+  if ((options & ~(1 ^ 2 ^ 8 ^ 16 ^ 256)) !== 0) {
+    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline and ECMAScript");
   }
   // Set always global and unicode flags for compatibility with dotnet, see #2925
   let flags = "gu";

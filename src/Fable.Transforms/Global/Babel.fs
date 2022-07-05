@@ -722,8 +722,10 @@ module Helpers =
             let flags =
                 flags |> Seq.map (function
                     | RegexGlobal -> "g"
+                    | RegexUnicode -> "u"
                     | RegexIgnoreCase -> "i"
                     | RegexMultiline -> "m"
+                    | RegexSingleline -> "s"
                     | RegexSticky -> "y") |> Seq.fold (+) ""
             RegExp(pattern, flags, loc)
 

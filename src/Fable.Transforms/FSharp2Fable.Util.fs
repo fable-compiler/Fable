@@ -1335,9 +1335,15 @@ module TypeHelpers =
 module Identifiers =
     open Helpers
     open TypeHelpers
+    open System.Text.RegularExpressions
 
     let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
-        let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
+        let compiledName =
+            // The F# compiler sometimes adds a numeric suffix. Remove it because it's not deterministic.
+            // See https://github.com/fable-compiler/Fable/issues/2869#issuecomment-1169574962
+            if fsRef.IsCompilerGenerated then Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
+            else fsRef.CompiledName
+        let sanitizedName = (compiledName, Naming.NoMemberPart)
                             ||> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName

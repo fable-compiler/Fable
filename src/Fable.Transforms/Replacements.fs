@@ -2948,15 +2948,16 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     let createRegex r t args =
         let makeRegexConst r (pattern: string) flags =
-            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
+            let flags = RegexGlobal::RegexUnicode::flags // .NET regex are always global & unicode
             RegexConstant(pattern, flags) |> makeValue r
 
         let (|RegexFlags|_|) e =
             let rec getFlags = function
-                | NumberOrEnumConst(1., _) -> Some [RegexFlag.RegexIgnoreCase]
-                | NumberOrEnumConst(2., _) -> Some [RegexFlag.RegexMultiline]
-                // TODO: We're missing RegexFlag.Singleline in the AST
-                // | NumberOrEnumConst(16., _) -> Some [RegexFlag.Singleline]
+                | NumberOrEnumConst(1., _) -> Some [RegexIgnoreCase]
+                | NumberOrEnumConst(2., _) -> Some [RegexMultiline]
+                | NumberOrEnumConst(8., _) -> Some [] // Compiled flag (ignored)
+                | NumberOrEnumConst(16., _) -> Some [RegexSingleline]
+                | NumberOrEnumConst(256., _) -> Some [] // ECMAScript flag (ignored)
                 | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
                     match getFlags flags1, getFlags flags2 with
                     | Some flags1, Some flags2 -> Some(flags1 @ flags2)
