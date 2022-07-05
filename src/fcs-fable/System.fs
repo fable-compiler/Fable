@@ -30,3 +30,10 @@ type StringComparer(comp: System.StringComparison) =
             | _ -> failwithf "Unsupported StringComparison: %A" comp
     interface System.Collections.Generic.IComparer<string> with
         member x.Compare(a,b) = System.String.Compare(a, b, comp)
+
+type ArraySegment<'T>(arr: 'T[]) =
+    member _.Array = arr
+    member _.Count = arr.Length
+    member _.Offset = 0
+    new (arr: 'T[], offset: int, count: int) =
+        ArraySegment<'T>(Array.sub arr offset count)
