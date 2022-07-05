@@ -1,4 +1,4 @@
-//# 3 "src/fsharp/absil/illex.fsl"
+//# 3 "src/Compiler/AbstractIL/illex.fsl"
  
 
 module internal FSharp.Compiler.AbstractIL.AsciiLexer 
@@ -13,17 +13,24 @@ open FSharp.Compiler.AbstractIL.AsciiParser
 open FSharp.Compiler.AbstractIL.AsciiConstants 
 
 
+#if FABLE_COMPILER
+
 let lexeme (lexbuf : LexBuffer<_>) = LexBuffer<_>.LexemeString lexbuf
 let lexemeChar (lexbuf : LexBuffer<_>) n = lexbuf.LexemeChar n |> char
 
-/// Trim n chars from both sides of lexbuf, return string
 let lexemeTrimBoth (lexbuf : LexBuffer<_>) (n:int) (m:int) = 
-#if FABLE_COMPILER
-    LexBuffer<_>.LexemeSliceToString (lexbuf, n, lexbuf.LexemeLength - (n+m))
-#else
+    LexBuffer<_>.LexemeString(lexbuf).Substring(n, lexbuf.LexemeLength - (n+m))
+
+#else //!FABLE_COMPILER
+
+let lexeme (lexbuf : LexBuffer<char>) = LexBuffer<char>.LexemeString lexbuf
+let lexemeChar (lexbuf : LexBuffer<char>) n = lexbuf.LexemeChar n
+
+let lexemeTrimBoth (lexbuf : LexBuffer<_>) (n:int) (m:int) = 
     let s = lexbuf.LexemeView
     s.Slice(n, s.Length - (n+m)).ToString()
-#endif
+
+#endif //!FABLE_COMPILER
 
 let unexpectedChar _lexbuf =
   raise Parsing.RecoverableParseError ;;
@@ -91,7 +98,7 @@ let evalDigit ch  = (int ch) - (int '0')
 let kwdOrInstrOrId s = match (Lazy.force kwdInstrTable).TryFind s with Some v -> v | _ -> VAL_ID s
         
 
-//# 94 "illex.fs"
+//# 101 "illex.fs"
 let trans : uint16[] array = 
     [| 
     (* State 0 *)
@@ -376,152 +383,152 @@ let rec _fslex_dummy () = _fslex_dummy()
 and token  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 100 "src/fsharp/absil/illex.fsl"
+//# 107 "src/Compiler/AbstractIL/illex.fsl"
                          COMMA 
-//# 381 "illex.fs"
+//# 388 "illex.fs"
           )
   | 1 -> ( 
-//# 101 "src/fsharp/absil/illex.fsl"
+//# 108 "src/Compiler/AbstractIL/illex.fsl"
                          DOT 
-//# 386 "illex.fs"
+//# 393 "illex.fs"
           )
   | 2 -> ( 
-//# 102 "src/fsharp/absil/illex.fsl"
+//# 109 "src/Compiler/AbstractIL/illex.fsl"
                          STAR 
-//# 391 "illex.fs"
+//# 398 "illex.fs"
           )
   | 3 -> ( 
-//# 103 "src/fsharp/absil/illex.fsl"
+//# 110 "src/Compiler/AbstractIL/illex.fsl"
                          BANG 
-//# 396 "illex.fs"
+//# 403 "illex.fs"
           )
   | 4 -> ( 
-//# 104 "src/fsharp/absil/illex.fsl"
+//# 111 "src/Compiler/AbstractIL/illex.fsl"
                          AMP 
-//# 401 "illex.fs"
+//# 408 "illex.fs"
           )
   | 5 -> ( 
-//# 105 "src/fsharp/absil/illex.fsl"
+//# 112 "src/Compiler/AbstractIL/illex.fsl"
                          LPAREN 
-//# 406 "illex.fs"
+//# 413 "illex.fs"
           )
   | 6 -> ( 
-//# 106 "src/fsharp/absil/illex.fsl"
+//# 113 "src/Compiler/AbstractIL/illex.fsl"
                          RPAREN 
-//# 411 "illex.fs"
+//# 418 "illex.fs"
           )
   | 7 -> ( 
-//# 107 "src/fsharp/absil/illex.fsl"
+//# 114 "src/Compiler/AbstractIL/illex.fsl"
                          LBRACK 
-//# 416 "illex.fs"
+//# 423 "illex.fs"
           )
   | 8 -> ( 
-//# 108 "src/fsharp/absil/illex.fsl"
+//# 115 "src/Compiler/AbstractIL/illex.fsl"
                          RBRACK 
-//# 421 "illex.fs"
+//# 428 "illex.fs"
           )
   | 9 -> ( 
-//# 109 "src/fsharp/absil/illex.fsl"
+//# 116 "src/Compiler/AbstractIL/illex.fsl"
                          SLASH 
-//# 426 "illex.fs"
+//# 433 "illex.fs"
           )
   | 10 -> ( 
-//# 110 "src/fsharp/absil/illex.fsl"
+//# 117 "src/Compiler/AbstractIL/illex.fsl"
                          LESS 
-//# 431 "illex.fs"
+//# 438 "illex.fs"
           )
   | 11 -> ( 
-//# 111 "src/fsharp/absil/illex.fsl"
+//# 118 "src/Compiler/AbstractIL/illex.fsl"
                          GREATER 
-//# 436 "illex.fs"
+//# 443 "illex.fs"
           )
   | 12 -> ( 
-//# 112 "src/fsharp/absil/illex.fsl"
+//# 119 "src/Compiler/AbstractIL/illex.fsl"
                            ELIPSES 
-//# 441 "illex.fs"
+//# 448 "illex.fs"
           )
   | 13 -> ( 
-//# 113 "src/fsharp/absil/illex.fsl"
+//# 120 "src/Compiler/AbstractIL/illex.fsl"
                           DCOLON 
-//# 446 "illex.fs"
+//# 453 "illex.fs"
           )
   | 14 -> ( 
-//# 114 "src/fsharp/absil/illex.fsl"
+//# 121 "src/Compiler/AbstractIL/illex.fsl"
                          PLUS 
-//# 451 "illex.fs"
+//# 458 "illex.fs"
           )
   | 15 -> ( 
-//# 116 "src/fsharp/absil/illex.fsl"
+//# 123 "src/Compiler/AbstractIL/illex.fsl"
                         VAL_INT64(int64(lexeme lexbuf)) 
-//# 456 "illex.fs"
+//# 463 "illex.fs"
           )
   | 16 -> ( 
-//# 125 "src/fsharp/absil/illex.fsl"
+//# 132 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT32_ELIPSES(int32(lexemeTrimBoth lexbuf 0 3)) 
-//# 461 "illex.fs"
+//# 468 "illex.fs"
           )
   | 17 -> ( 
-//# 127 "src/fsharp/absil/illex.fsl"
+//# 134 "src/Compiler/AbstractIL/illex.fsl"
                        let c1 = (lexemeChar lexbuf 0) in 
                        let c2 = (lexemeChar lexbuf 1) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
                          VAL_INT64(int64 (10*evalDigit c1 + evalDigit c2) )
                        else VAL_ID(lexeme lexbuf) 
-//# 470 "illex.fs"
+//# 477 "illex.fs"
           )
   | 18 -> ( 
-//# 133 "src/fsharp/absil/illex.fsl"
+//# 140 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
-//# 475 "illex.fs"
+//# 482 "illex.fs"
           )
   | 19 -> ( 
-//# 135 "src/fsharp/absil/illex.fsl"
+//# 142 "src/Compiler/AbstractIL/illex.fsl"
                        let c1 = (lexemeChar lexbuf 6) in 
                        let c2 = (lexemeChar lexbuf 7) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
                          VAL_INT64(int64 (10*evalDigit c1 + evalDigit c2)) 
                        else VAL_ID(lexeme lexbuf) 
-//# 484 "illex.fs"
+//# 491 "illex.fs"
           )
   | 20 -> ( 
-//# 142 "src/fsharp/absil/illex.fsl"
+//# 149 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
-//# 489 "illex.fs"
+//# 496 "illex.fs"
           )
   | 21 -> ( 
-//# 144 "src/fsharp/absil/illex.fsl"
+//# 151 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_FLOAT64( (float (lexeme lexbuf)) ) 
-//# 494 "illex.fs"
+//# 501 "illex.fs"
           )
   | 22 -> ( 
-//# 147 "src/fsharp/absil/illex.fsl"
+//# 154 "src/Compiler/AbstractIL/illex.fsl"
                        let s = (lexeme lexbuf) in kwdOrInstr s 
-//# 499 "illex.fs"
+//# 506 "illex.fs"
           )
   | 23 -> ( 
-//# 149 "src/fsharp/absil/illex.fsl"
+//# 156 "src/Compiler/AbstractIL/illex.fsl"
                        kwdOrInstrOrId (lexeme lexbuf) 
-//# 504 "illex.fs"
+//# 511 "illex.fs"
           )
   | 24 -> ( 
-//# 152 "src/fsharp/absil/illex.fsl"
+//# 159 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_DOTTEDNAME(lexeme lexbuf) 
-//# 509 "illex.fs"
+//# 516 "illex.fs"
           )
   | 25 -> ( 
-//# 155 "src/fsharp/absil/illex.fsl"
+//# 162 "src/Compiler/AbstractIL/illex.fsl"
                        token lexbuf 
-//# 514 "illex.fs"
+//# 521 "illex.fs"
           )
   | 26 -> ( 
-//# 157 "src/fsharp/absil/illex.fsl"
+//# 164 "src/Compiler/AbstractIL/illex.fsl"
                        unexpectedChar lexbuf 
-//# 519 "illex.fs"
+//# 526 "illex.fs"
           )
   | 27 -> ( 
-//# 159 "src/fsharp/absil/illex.fsl"
+//# 166 "src/Compiler/AbstractIL/illex.fsl"
                        EOF 
-//# 524 "illex.fs"
+//# 531 "illex.fs"
           )
   | _ -> failwith "token"
 

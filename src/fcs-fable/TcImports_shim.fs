@@ -19,7 +19,7 @@ open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.CompilerOptions
 open FSharp.Compiler.Diagnostics
-open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.IO
 open FSharp.Compiler.NameResolution
 open FSharp.Compiler.ParseAndCheckInputs
@@ -45,13 +45,13 @@ module TcImports =
         let tcImports = TcImports ()
 
         let sigDataReaders ilModule =
-            [ for resource in ilModule.Resources.AsList do
+            [ for resource in ilModule.Resources.AsList() do
                 if IsSignatureDataResource resource then 
                     let _ccuName = GetSignatureDataResourceName resource
                     yield resource.GetBytes() ]
 
         let optDataReaders ilModule =
-            [ for resource in ilModule.Resources.AsList do
+            [ for resource in ilModule.Resources.AsList() do
                 if IsOptimizationDataResource resource then
                     let _ccuName = GetOptimizationDataResourceName resource
                     yield resource.GetBytes() ]
@@ -101,7 +101,7 @@ module TcImports =
         let memoize_opt = new MemoizationTable<_,_> (LoadOptData, keyComparer=HashIdentity.Structural)
 
         let GetCustomAttributesOfILModule (ilModule: ILModuleDef) =
-            (match ilModule.Manifest with Some m -> m.CustomAttrs | None -> ilModule.CustomAttrs).AsList
+            (match ilModule.Manifest with Some m -> m.CustomAttrs | None -> ilModule.CustomAttrs).AsList()
 
         let GetAutoOpenAttributes ilModule =
             ilModule |> GetCustomAttributesOfILModule |> List.choose TryFindAutoOpenAttr
@@ -118,7 +118,7 @@ module TcImports =
                 FSharpViewOfMetadata = ccu
                 AssemblyAutoOpenAttributes = GetAutoOpenAttributes ilModule
                 AssemblyInternalsVisibleToAttributes = GetInternalsVisibleToAttributes ilModule
-#if !NO_EXTENSIONTYPING
+#if !NO_TYPEPROVIDERS
                 IsProviderGenerated = false
                 TypeProviders = []
 #endif
@@ -151,7 +151,7 @@ module TcImports =
                 match ilModule.Manifest with 
                 | Some manifest -> manifest.ExportedTypes
                 | None -> mkILExportedTypes []
-#if !NO_EXTENSIONTYPING
+#if !NO_TYPEPROVIDERS
             let invalidateCcu = new Event<_>()
 #endif
             let minfo: PickledCcuInfo = sigdata.Value.RawData //TODO: handle missing sigdata
@@ -164,7 +164,7 @@ module TcImports =
                     SourceCodeDirectory = codeDir
                     IsFSharp = true
                     Contents = minfo.mspec
-#if !NO_EXTENSIONTYPING
+#if !NO_TYPEPROVIDERS
                     InvalidateEvent=invalidateCcu.Publish
                     IsProviderGenerated = false
                     ImportProvidedType = (fun ty -> Import.ImportProvidedType (tcImports.GetImportMap()) m ty)
@@ -249,10 +249,10 @@ module TcImports =
         let ilGlobals = mkILGlobals (primaryScopeRef, assembliesThatForwardToPrimaryAssembly, fsharpCoreScopeRef)
 
         let tcGlobals = TcGlobals (
-                            tcConfig.compilingFslib, ilGlobals, fslibCcuInfo.FSharpViewOfMetadata,
+                            tcConfig.compilingFSharpCore, ilGlobals, fslibCcuInfo.FSharpViewOfMetadata,
                             tcConfig.implicitIncludeDir, tcConfig.mlCompatibility,
                             tcConfig.isInteractive, tryFindSysTypeCcu, tcConfig.emitDebugInfoInQuotations,
-                            tcConfig.noDebugData, tcConfig.pathMap, tcConfig.langVersion)
+                            tcConfig.noDebugAttributes, tcConfig.pathMap, tcConfig.langVersion)
 
 #if DEBUG
         // the global_g reference cell is used only for debug printing

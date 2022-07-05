@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="6.0.1" /> -->
-    <Reference Include="../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" />
-    <PackageReference Include="Fable.Core" Version="3.4.0" />
+    <!-- <PackageReference Include="FSharp.Core" Version="6.0.5" /> -->
+    <!-- <Reference Include="../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
+    <PackageReference Include="Fable.Core" Version="3.7.1" />
   </ItemGroup>
 
 </Project>
