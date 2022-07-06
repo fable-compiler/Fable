@@ -3643,14 +3643,18 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            // TODO: perhaps collect other use decls from usage in body
-            let useItem = mkGlobUseItem [] ["super"]
-            let useDecls = [useItem]
             let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
-            let attrs =  []
-            let modDecls = useDecls @ memberDecls
-            let modItem = modDecls |> mkModItem attrs decl.Name
-            [modItem |> mkPublicItem]
+            if List.isEmpty memberDecls then
+                [] // don't output empty modules
+            else
+                // TODO: perhaps collect other use decls from usage in body
+                let useItem = mkGlobUseItem [] ["super"]
+                let useDecls = [useItem]
+                let attrs =  []
+                let modDecls = useDecls @ memberDecls
+                let modItem = modDecls |> mkModItem attrs decl.Name
+                [modItem |> mkPublicItem]
+
 
         | Fable.ActionDeclaration decl ->
             // TODO: use ItemKind.Static with IIFE closure?
