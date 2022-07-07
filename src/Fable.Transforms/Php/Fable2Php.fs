@@ -1020,8 +1020,10 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         let modifiers =
             flags
             |> List.map (function
+                | RegexUnicode -> ""
                 | RegexIgnoreCase -> "i"
                 | RegexMultiline -> "m"
+                | RegexSingleline -> "s"
                 | RegexGlobal ->
                     addWarning com [] range "Regex global flag is not supported in Php"
                     ""

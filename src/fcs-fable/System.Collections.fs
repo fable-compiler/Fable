@@ -20,26 +20,36 @@ module Generic =
             item
 
 module Immutable =
+    open System.Collections.Generic
 
+    // not actually immutable, just a ResizeArray
     type ImmutableArray<'T> =
         static member CreateBuilder() = ResizeArray<'T>()
+
+    // not actually immutable, just a Dictionary
+    type ImmutableDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
+        inherit Dictionary<'Key, 'Value>(comparer)
+        static member Create(comparer) = ImmutableDictionary<'Key, 'Value>(comparer)
+        static member Empty = ImmutableDictionary<'Key, 'Value>(EqualityComparer.Default)
+        member x.Add (key: 'Key, value: 'Value) = x[key] <- value; x
+        member x.SetItem (key: 'Key, value: 'Value) = x[key] <- value; x
 
 module Concurrent =
     open System.Collections.Generic
 
-    /// not actually thread safe, just an extension of Dictionary
+    // not actually thread safe, just a Dictionary
     [<AllowNullLiteral>]
     type ConcurrentDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
         inherit Dictionary<'Key, 'Value>(comparer)
 
         new () =
-            ConcurrentDictionary(EqualityComparer.Default)
+            ConcurrentDictionary<'Key, 'Value>(EqualityComparer.Default)
         new (_concurrencyLevel: int, _capacity: int) =
-            ConcurrentDictionary()
+            ConcurrentDictionary<'Key, 'Value>()
         new (_concurrencyLevel: int, comparer: IEqualityComparer<'Key>) =
-            ConcurrentDictionary(comparer)
+            ConcurrentDictionary<'Key, 'Value>(comparer)
         new (_concurrencyLevel: int, _capacity: int, comparer: IEqualityComparer<'Key>) =
-            ConcurrentDictionary(comparer)
+            ConcurrentDictionary<'Key, 'Value>(comparer)
 
         member x.TryAdd (key: 'Key, value: 'Value): bool =
             if x.ContainsKey(key)

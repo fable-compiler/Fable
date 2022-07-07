@@ -2349,22 +2349,6 @@ let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
-let (|RegexFlags|_|) e =
-    let rec getFlags = function
-        | NumberConst(:? int as value, _) ->
-            match value with
-            | 1 -> Some [RegexFlag.RegexIgnoreCase]
-            | 2 -> Some [RegexFlag.RegexMultiline]
-            // TODO: We're missing RegexFlag.Singleline in the AST
-            // | 16 -> Some [RegexFlag.Singleline]
-            | _ -> None
-        | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
-            match getFlags flags1, getFlags flags2 with
-            | Some flags1, Some flags2 -> Some(flags1 @ flags2)
-            | _ -> None
-        | _ -> None
-    getFlags e
-
 let regexMatchToSeq com t e =
     Helper.LibCall(com, "RegExp", "GroupIterable", t, [e])
 

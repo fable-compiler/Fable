@@ -446,7 +446,7 @@ let testProjectConfigs() =
       "tests/Integration/ProjectConfigs/ConsoleApp", String.Empty
     ]
     |> List.iter (fun (projectDir, configuration) ->
-        let buildDir = "build/tests/Integration/"+ projectDir
+        let buildDir = "build/"+ projectDir
 
         cleanDirs [ buildDir ]
         runFableWithArgs projectDir [
@@ -609,23 +609,18 @@ let githubRelease() =
 
 let copyFcsRepo sourceDir =
     let targetDir = "src/fcs-fable"
+    let path1 = "fcs/fcs-fable"
+    let path2 = "src/Compiler"
     cleanDirs [targetDir]
-    copyDirRecursive (sourceDir </> "fcs/fcs-fable") targetDir
-    [ "src/fsharp"
-    ; "src/fsharp/absil"
-    ; "src/fsharp/ilx"
-    ; "src/fsharp/service"
-    ; "src/fsharp/symbols"
-    ; "src/fsharp/utils"
-    ] |> List.iter (fun path ->
-        copyDirNonRecursive (sourceDir </> path) (targetDir </> path))
+    copyDirRecursive (sourceDir </> path1) targetDir
+    copyDirRecursive (sourceDir </> path2) (targetDir </> path2)
     removeFile (targetDir </> ".gitignore")
     let projPath = (targetDir </> "fcs-fable.fsproj")
     let projText = readFile projPath
     let projText =
         Regex.Replace(projText,
             @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
-            "$1/src$2")
+            "$1/src/Compiler$2")
     // let projText =
     //     Regex.Replace(projText,
     //         @"artifacts\/bin\/FSharp.Core\/Release\/netstandard2.0",

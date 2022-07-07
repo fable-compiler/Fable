@@ -306,16 +306,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     static member Init(cliArgs: CliArgs) =
         Log.always $"Parsing {cliArgs.ProjectFileAsRelativePath}..."
         let result, ms = Performance.measure <| fun () ->
-            CrackerOptions(fableOpts = cliArgs.CompilerOptions,
-                           fableLib = cliArgs.FableLibraryPath,
-                           outDir = cliArgs.OutDir,
-                           configuration = cliArgs.Configuration,
-                           exclude = cliArgs.Exclude,
-                           replace = cliArgs.Replace,
-                           precompiledLib = cliArgs.PrecompiledLib,
-                           noCache = cliArgs.NoCache,
-                           noRestore = cliArgs.NoRestore,
-                           projFile = cliArgs.ProjectFile)
+            CrackerOptions(cliArgs)
             |> getFullProjectOpts
 
         // We display "parsed" because "cracked" may not be understood by users

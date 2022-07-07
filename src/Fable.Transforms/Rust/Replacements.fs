@@ -2413,25 +2413,6 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     match i.CompiledName with
     | ".ctor" ->
-        let makeRegexConst r (pattern: string) flags =
-            let flags = RegexFlag.RegexGlobal::flags // .NET regex are always global
-            RegexConstant(pattern, flags) |> makeValue r
-
-        let (|RegexFlags|_|) e =
-            let rec getFlags = function
-                | NumberConst(:? int as value, _) ->
-                    match value with
-                    | 1 -> Some [RegexFlag.RegexIgnoreCase]
-                    | 2 -> Some [RegexFlag.RegexMultiline]
-                    // TODO: We're missing RegexFlag.Singleline in the AST
-                    // | 16 -> Some [RegexFlag.Singleline]
-                    | _ -> None
-                | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
-                    match getFlags flags1, getFlags flags2 with
-                    | Some flags1, Some flags2 -> Some(flags1 @ flags2)
-                    | _ -> None
-                | _ -> None
-            getFlags e
         match args with
         | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
         | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some

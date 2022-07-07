@@ -70,19 +70,19 @@
             "request": "launch",
             "name": "Run bench-compiler (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
-            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "coreclr",
             "request": "launch",
             "name": "Run bench-compiler (.NET)",
-            "preLaunchTask": "build bench-compiler",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net5.0/bench-compiler.dll",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net6.0/bench-compiler.dll",
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib", "--printAst"],
-            // "args": ["${workspaceRoot}/tests/Rust/Fable.Tests.Rust.fsproj", "out-tests", "--lang", "Rust", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {

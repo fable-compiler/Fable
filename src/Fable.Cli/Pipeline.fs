@@ -5,6 +5,65 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 
+type Stream =
+    static member WriteToFile(memoryStream : IO.Stream, filePath : string) = async {
+        memoryStream.Seek(0, IO.SeekOrigin.Begin) |> ignore
+        use fileStream = new IO.StreamWriter(filePath)
+        do! memoryStream.CopyToAsync(fileStream.BaseStream) |> Async.AwaitTask
+        do! fileStream.FlushAsync() |> Async.AwaitTask
+        return true
+    }
+
+    static member IsEqualToFile(memoryStream: IO.Stream, targetPath: string) = async {
+        let areStreamsEqual (stream1: IO.Stream) (stream2: IO.Stream) =
+            let buffer1 = Array.zeroCreate<byte> 1024
+            let buffer2 = Array.zeroCreate<byte> 1024
+
+            let areBuffersEqual count1 count2 =
+                if count1 <> count2 then false
+                else
+                    let mutable i = 0
+                    let mutable equal = true
+                    while equal && i < count1 do
+                        equal <- buffer1[i] = buffer2[i]
+                        i <- i + 1
+                    equal
+
+            let rec areStreamsEqual() = async {
+                let! count1 = stream1.AsyncRead(buffer1, 0, buffer1.Length)
+                let! count2 = stream2.AsyncRead(buffer2, 0, buffer2.Length)
+                match count1, count2 with
+                | 0, 0 -> return true
+                | count1, count2 when areBuffersEqual count1 count2 ->
+                    if count1 < buffer1.Length then return true
+                    else return! areStreamsEqual()
+                | _ ->
+                    return false
+            }
+
+            areStreamsEqual()
+
+        memoryStream.Seek(0, IO.SeekOrigin.Begin) |> ignore
+        use fileStream = IO.File.OpenRead(targetPath)
+
+        return! areStreamsEqual memoryStream fileStream
+    }
+
+    static member WriteToFileIfChanged(memoryStream: IO.Stream, targetPath: string): Async<bool> = async {
+        if memoryStream.Length = 0 then
+            return false
+        elif not(IO.File.Exists(targetPath)) then
+            return! Stream.WriteToFile(memoryStream, targetPath)
+        else
+            let fileInfo = new IO.FileInfo(targetPath)
+            if fileInfo.Length <> memoryStream.Length then
+                return! Stream.WriteToFile(memoryStream, targetPath)
+            else
+                match! Stream.IsEqualToFile(memoryStream, targetPath) with
+                | false -> return! Stream.WriteToFile(memoryStream, targetPath)
+                | true -> return false
+        }
+
 module Js =
     type BabelWriter(cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
@@ -13,9 +72,28 @@ module Js =
             if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
         let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
-        let stream = new IO.StreamWriter(targetPath)
+        let memoryStream = new IO.MemoryStream()
+        let stream = new IO.StreamWriter(memoryStream)
         let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
+
+        member _.WriteToFileIfChanged() = async {
+            if cliArgs.SourceMaps then
+                let mapPath = targetPath + ".map"
+                do! stream.WriteLineAsync($"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}") |> Async.AwaitTask
+
+            do! stream.FlushAsync() |> Async.AwaitTask
+            let! written = Stream.WriteToFileIfChanged(memoryStream, targetPath)
+
+            if written && cliArgs.SourceMaps then
+                use fs = IO.File.Open(targetPath + ".map", IO.FileMode.Create)
+                do! mapGenerator.Force().toJSON().SerializeAsync(fs) |> Async.AwaitTask
+
+            stream.Dispose()
+        }
+
         interface Printer.Writer with
+            // Don't dispose the stream here because we need to access the memory stream to check if file has changed
+            member _.Dispose() = ()
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.EscapeStringLiteral(str) =
@@ -32,7 +110,6 @@ module Js =
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
                     File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
                 else path
-            member _.Dispose() = stream.Dispose()
             member _.AddLog(msg, severity, ?range) = () // TODO
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
                 if cliArgs.SourceMaps then
@@ -41,8 +118,6 @@ module Js =
                     let targetPath = Path.normalizeFullPath targetPath
                     let sourcePath = Path.getRelativeFileOrDirPath false targetPath false sourcePath
                     mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
-        member _.SourceMap =
-            mapGenerator.Force().toJSON()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let babel =
@@ -51,19 +126,10 @@ module Js =
             |> Fable2Babel.Compiler.transformFile com
 
         if not(isSilent || babel.IsEmpty) then
-            let! sourceMap = async {
-                use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
-                do! BabelPrinter.run writer babel
-                return if cliArgs.SourceMaps then Some writer.SourceMap else None
-            }
-
-            match sourceMap with
-            | Some sourceMap ->
-                let mapPath = outPath + ".map"
-                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
-            | None -> ()
+            use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
+            do! BabelPrinter.run writer babel
+            // TODO: Check also if file has actually changed with other printers
+            do! writer.WriteToFileIfChanged()
     }
 
 module Python =

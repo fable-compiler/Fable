@@ -1,54 +1,52 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ArtifactsDir Condition="'$(ArtifactsDir)' == ''">artifacts</ArtifactsDir>
-    <FSharpSourcesRoot>$(MSBuildProjectDirectory)/../../../src</FSharpSourcesRoot>
+    <FSharpSourcesRoot>$(MSBuildProjectDirectory)/../../../src/Compiler</FSharpSourcesRoot>
   </PropertyGroup>
-  <Import Project="../../../src/buildtools/buildtools.targets" />
+  <Import Project="../../../buildtools/buildtools.targets" />
   <!-- <Import Project="fssrgen.targets" /> -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
-    <!-- <RollForward>Major</RollForward> -->
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <TargetFramework>net6.0</TargetFramework>
+    <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
   <ItemGroup>
-    <!-- <FsSrGen Include="$(FSharpSourcesRoot)/fsharp/FSComp.txt">
+    <!-- <FsSrGen Include="$(FSharpSourcesRoot)/FSComp.txt">
       <Link>FSComp.txt</Link>
     </FsSrGen>
-    <FsSrGen Include="$(FSharpSourcesRoot)/fsharp/fsi/FSIstrings.txt">
+    <FsSrGen Include="$(FSharpSourcesRoot)/Interactive/FSIstrings.txt">
       <Link>FSIstrings.txt</Link>
     </FsSrGen> -->
-    <FsLex Include="$(FSharpSourcesRoot)/fsharp/absil/illex.fsl">
+    <FsLex Include="$(FSharpSourcesRoot)/AbstractIL/illex.fsl">
       <OtherFlags>--unicode --lexlib Internal.Utilities.Text.Lexing</OtherFlags>
-      <Link>AbsIL/illex.fsl</Link>
+      <Link>AbstractIL/illex.fsl</Link>
     </FsLex>
-    <FsYacc Include="$(FSharpSourcesRoot)/fsharp/absil/ilpars.fsy">
-      <OtherFlags>--module FSharp.Compiler.AbstractIL.Internal.AsciiParser --open FSharp.Compiler.AbstractIL --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
-      <Link>AbsIL/ilpars.fsy</Link>
+    <FsYacc Include="$(FSharpSourcesRoot)/AbstractIL/ilpars.fsy">
+      <OtherFlags>--module FSharp.Compiler.AbstractIL.AsciiParser --open FSharp.Compiler.AbstractIL --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
+      <Link>AbstractIL/ilpars.fsy</Link>
     </FsYacc>
-    <FsLex Include="$(FSharpSourcesRoot)/fsharp/pplex.fsl">
+    <FsLex Include="$(FSharpSourcesRoot)/pplex.fsl">
       <OtherFlags>--unicode --lexlib Internal.Utilities.Text.Lexing</OtherFlags>
-      <Link>ParserAndUntypedAST/pplex.fsl</Link>
+      <Link>SyntaxTree/pplex.fsl</Link>
     </FsLex>
-    <FsYacc Include="$(FSharpSourcesRoot)/fsharp/pppars.fsy">
-      <OtherFlags>--module FSharp.Compiler.PPParser --open FSharp.Compiler --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
-      <Link>ParserAndUntypedAST/pppars.fsy</Link>
+    <FsYacc Include="$(FSharpSourcesRoot)/pppars.fsy">
+      <OtherFlags>--module FSharp.Compiler.PPParser --open FSharp.Compiler --open FSharp.Compiler.Syntax --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
+      <Link>SyntaxTree/pppars.fsy</Link>
     </FsYacc>
-    <FsLex Include="$(FSharpSourcesRoot)/fsharp/lex.fsl">
+    <FsLex Include="$(FSharpSourcesRoot)/lex.fsl">
       <OtherFlags>--unicode --lexlib Internal.Utilities.Text.Lexing</OtherFlags>
-      <Link>ParserAndUntypedAST/lex.fsl</Link>
+      <Link>SyntaxTree/lex.fsl</Link>
     </FsLex>
-    <FsYacc Include="$(FSharpSourcesRoot)/fsharp/pars.fsy">
-      <OtherFlags>--module FSharp.Compiler.Parser --open FSharp.Compiler --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
-      <Link>ParserAndUntypedAST/pars.fsy</Link>
+    <FsYacc Include="$(FSharpSourcesRoot)/pars.fsy">
+      <OtherFlags>--module FSharp.Compiler.Parser --open FSharp.Compiler --open FSharp.Compiler.Syntax --internal --lexlib Internal.Utilities.Text.Lexing --parslib Internal.Utilities.Text.Parsing</OtherFlags>
+      <Link>SyntaxTree/pars.fsy</Link>
     </FsYacc>
     <Compile Include="fssrgen.fsx" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
+    <!-- <PackageReference Include="FSharp.Core" Version="6.0.5" /> -->
+    <!-- <Reference Include="../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
   </ItemGroup>
 
-  <Target Name="GenerateCode" AfterTargets="Restore" BeforeTargets="BeforeBuild" DependsOnTargets="CallFsLex;CallFsYacc"></Target>
-  <!-- <Target Name="GenerateCode" AfterTargets="Restore" BeforeTargets="BeforeBuild" DependsOnTargets="CallFsLex;CallFsYacc;CallFsSrGen"></Target> -->
 </Project>

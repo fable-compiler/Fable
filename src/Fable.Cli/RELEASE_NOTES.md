@@ -38,6 +38,30 @@
 
 * Snake Island alpha release
 
+### 3.7.16
+
+* Fix #2869: Don't update maps @hensou
+* Fix #2869: Use deterministic names for compiler-generate variables
+* Update FCS @ncave
+
+### 3.7.15
+
+* Fix #2869: Avoid unnecessary updates @hensou
+* Fix #2931: Array.IndexOf with non-primitive
+
+### 3.7.14
+
+* Fix #2924: Invalidate cache if source maps option changes
+* Fix #2925: Always set unicode flag for Regex
+* Enable non-booleans in Emit optional syntax
+
+### 3.7.12
+
+* Resolve `defaultArg` at compile time when possible
+* Fix #2900: Equality with prototype-less JS objects
+* Fix #2895: FableLibDir in cached info is empty when using --precompiledLib
+* Fix #2880: Trait call with unit of measure
+
 ### 3.7.11
 
 * Fix generic param user/compiler generated name conflicts

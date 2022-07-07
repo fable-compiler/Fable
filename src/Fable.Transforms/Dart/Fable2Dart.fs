@@ -615,6 +615,8 @@ module Util =
             let flagToArg = function
                 | RegexIgnoreCase -> Some(Some "caseSensitive", Expression.booleanLiteral false)
                 | RegexMultiline -> Some(Some "multiLine", Expression.booleanLiteral true)
+                | RegexSingleline -> Some(Some "dotAll", Expression.booleanLiteral true)
+                | RegexUnicode -> Some(Some "unicode", Expression.booleanLiteral true)
                 | RegexGlobal
                 | RegexSticky -> None
             let regexIdent = makeImmutableIdent MetaType "RegExp"

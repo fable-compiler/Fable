@@ -7,16 +7,16 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/41.0.1-dev": {
+      "FSharp.Compiler.Service/41.0.5-dev": {
         "dependencies": {
-          "FSharp.Core": "6.0.1-dev",
-          "FSharp.DependencyManager.Nuget": "6.0.1-dev",
-          "Microsoft.Build.Framework": "16.11.0",
-          "Microsoft.Build.Tasks.Core": "16.11.0",
-          "Microsoft.Build.Utilities.Core": "16.11.0",
-          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.21518.1",
-          "Microsoft.SourceLink.AzureRepos.Git": "1.1.1-beta-21566-01",
-          "Microsoft.SourceLink.GitHub": "1.1.1-beta-21566-01",
+          "FSharp.Core": "6.0.5-dev",
+          "FSharp.DependencyManager.Nuget": "6.0.5-dev",
+          "Microsoft.Build.Framework": "17.0.0",
+          "Microsoft.Build.Tasks.Core": "17.0.0",
+          "Microsoft.Build.Utilities.Core": "17.0.0",
+          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22325.1",
+          "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22325-02",
+          "Microsoft.SourceLink.GitHub": "1.2.0-beta-22325-02",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
           "System.Collections.Immutable": "5.0.0",
@@ -31,7 +31,7 @@
           "System.Reflection.Metadata": "5.0.0",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Runtime": "4.3.0",
-          "System.Runtime.CompilerServices.Unsafe": "5.0.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0",
           "System.Runtime.InteropServices": "4.3.0",
           "System.Runtime.Loader": "4.3.0",
           "System.Security.Claims": "4.3.0",
@@ -86,21 +86,21 @@
           }
         }
       },
-      "Microsoft.Build.Framework/16.11.0": {
+      "Microsoft.Build.Framework/17.0.0": {
         "dependencies": {
           "System.Security.Permissions": "4.7.0"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Framework.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.11.0.36601"
+            "fileVersion": "17.0.0.52104"
           }
         }
       },
-      "Microsoft.Build.Tasks.Core/16.11.0": {
+      "Microsoft.Build.Tasks.Core/17.0.0": {
         "dependencies": {
-          "Microsoft.Build.Framework": "16.11.0",
-          "Microsoft.Build.Utilities.Core": "16.11.0",
+          "Microsoft.Build.Framework": "17.0.0",
+          "Microsoft.Build.Utilities.Core": "17.0.0",
           "Microsoft.NET.StringTools": "1.0.0",
           "Microsoft.Win32.Registry": "4.3.0",
           "System.CodeDom": "4.4.0",
@@ -115,14 +115,14 @@
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Tasks.Core.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.11.0.36601"
+            "fileVersion": "17.0.0.52104"
           }
         }
       },
-      "Microsoft.Build.Tasks.Git/1.1.1-beta-21566-01": {},
-      "Microsoft.Build.Utilities.Core/16.11.0": {
+      "Microsoft.Build.Tasks.Git/1.2.0-beta-22325-02": {},
+      "Microsoft.Build.Utilities.Core/17.0.0": {
         "dependencies": {
-          "Microsoft.Build.Framework": "16.11.0",
+          "Microsoft.Build.Framework": "17.0.0",
           "Microsoft.NET.StringTools": "1.0.0",
           "Microsoft.Win32.Registry": "4.3.0",
           "System.Collections.Immutable": "5.0.0",
@@ -133,15 +133,15 @@
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Utilities.Core.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.11.0.36601"
+            "fileVersion": "17.0.0.52104"
           }
         }
       },
-      "Microsoft.DotNet.XliffTasks/1.0.0-beta.21518.1": {},
+      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22325.1": {},
       "Microsoft.NET.StringTools/1.0.0": {
         "dependencies": {
           "System.Memory": "4.5.4",
-          "System.Runtime.CompilerServices.Unsafe": "5.0.0"
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.NET.StringTools.dll": {
@@ -152,17 +152,17 @@
       },
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.NETCore.Targets/1.1.0": {},
-      "Microsoft.SourceLink.AzureRepos.Git/1.1.1-beta-21566-01": {
+      "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22325-02": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.1.1-beta-21566-01",
-          "Microsoft.SourceLink.Common": "1.1.1-beta-21566-01"
+          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22325-02",
+          "Microsoft.SourceLink.Common": "1.2.0-beta-22325-02"
         }
       },
-      "Microsoft.SourceLink.Common/1.1.1-beta-21566-01": {},
-      "Microsoft.SourceLink.GitHub/1.1.1-beta-21566-01": {
+      "Microsoft.SourceLink.Common/1.2.0-beta-22325-02": {},
+      "Microsoft.SourceLink.GitHub/1.2.0-beta-22325-02": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.1.1-beta-21566-01",
-          "Microsoft.SourceLink.Common": "1.1.1-beta-21566-01"
+          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22325-02",
+          "Microsoft.SourceLink.Common": "1.2.0-beta-22325-02"
         }
       },
       "Microsoft.Win32.Primitives/4.3.0": {
@@ -491,7 +491,7 @@
         "dependencies": {
           "System.Buffers": "4.5.1",
           "System.Numerics.Vectors": "4.4.0",
-          "System.Runtime.CompilerServices.Unsafe": "5.0.0"
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Memory.dll": {
@@ -739,11 +739,11 @@
           "Microsoft.NETCore.Targets": "1.1.0"
         }
       },
-      "System.Runtime.CompilerServices.Unsafe/5.0.0": {
+      "System.Runtime.CompilerServices.Unsafe/6.0.0": {
         "runtime": {
           "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
-            "assemblyVersion": "5.0.0.0",
-            "fileVersion": "5.0.20.51904"
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.21.52210"
           }
         }
       },
@@ -1119,36 +1119,16 @@
           }
         }
       },
-      "FSharp.Core/6.0.1-dev": {
-        "dependencies": {
-          "System.Linq.Queryable": "4.3.0",
-          "System.Net.Requests": "4.3.0",
-          "System.Threading.Tasks.Parallel": "4.3.0"
-        },
+      "FSharp.Core/6.0.5-dev": {
         "runtime": {
           "FSharp.Core.dll": {}
         },
         "resources": {
-          "cs/FSharp.Core.resources.dll": {
-            "locale": "cs"
-          },
-          "de/FSharp.Core.resources.dll": {
-            "locale": "de"
-          },
-          "es/FSharp.Core.resources.dll": {
-            "locale": "es"
-          },
-          "fr/FSharp.Core.resources.dll": {
-            "locale": "fr"
-          },
           "it/FSharp.Core.resources.dll": {
             "locale": "it"
           },
-          "ja/FSharp.Core.resources.dll": {
-            "locale": "ja"
-          },
-          "ko/FSharp.Core.resources.dll": {
-            "locale": "ko"
+          "ru/FSharp.Core.resources.dll": {
+            "locale": "ru"
           },
           "pl/FSharp.Core.resources.dll": {
             "locale": "pl"
@@ -1156,23 +1136,38 @@
           "pt-BR/FSharp.Core.resources.dll": {
             "locale": "pt-BR"
           },
-          "ru/FSharp.Core.resources.dll": {
-            "locale": "ru"
+          "ja/FSharp.Core.resources.dll": {
+            "locale": "ja"
           },
-          "tr/FSharp.Core.resources.dll": {
-            "locale": "tr"
+          "cs/FSharp.Core.resources.dll": {
+            "locale": "cs"
+          },
+          "ko/FSharp.Core.resources.dll": {
+            "locale": "ko"
           },
           "zh-Hans/FSharp.Core.resources.dll": {
             "locale": "zh-Hans"
           },
+          "tr/FSharp.Core.resources.dll": {
+            "locale": "tr"
+          },
+          "fr/FSharp.Core.resources.dll": {
+            "locale": "fr"
+          },
           "zh-Hant/FSharp.Core.resources.dll": {
             "locale": "zh-Hant"
+          },
+          "de/FSharp.Core.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.Core.resources.dll": {
+            "locale": "es"
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/6.0.1-dev": {
+      "FSharp.DependencyManager.Nuget/6.0.5-dev": {
         "dependencies": {
-          "FSharp.Core": "6.0.1-dev",
+          "FSharp.Core": "6.0.5-dev",
           "System.Collections.Immutable": "5.0.0",
           "System.Diagnostics.Process": "4.3.0",
           "System.Diagnostics.TraceSource": "4.3.0",
@@ -1184,6 +1179,7 @@
           "System.Reflection.Metadata": "5.0.0",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Runtime": "4.3.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0",
           "System.Runtime.InteropServices": "4.3.0",
           "System.Runtime.Loader": "4.3.0",
           "System.Security.Claims": "4.3.0",
@@ -1197,26 +1193,11 @@
           "FSharp.DependencyManager.Nuget.dll": {}
         },
         "resources": {
-          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "cs"
-          },
-          "de/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "de"
-          },
-          "es/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "es"
-          },
-          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "fr"
-          },
           "it/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "it"
           },
-          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ja"
-          },
-          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ko"
+          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ru"
           },
           "pl/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pl"
@@ -1224,62 +1205,77 @@
           "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pt-BR"
           },
-          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ru"
+          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ja"
           },
-          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "tr"
+          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "cs"
+          },
+          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ko"
           },
           "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "zh-Hans"
           },
+          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "tr"
+          },
+          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "fr"
+          },
           "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "zh-Hant"
+          },
+          "de/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "es"
           }
         }
       }
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/41.0.1-dev": {
+    "FSharp.Compiler.Service/41.0.5-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "Microsoft.Build.Framework/16.11.0": {
+    "Microsoft.Build.Framework/17.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ZBKk+0W/fstpsYg7j1nNvqUQ4vjl4xetKwRf7/CCp956lckEOKuCpNO9yj0yO/UlmUaNGU+8csF+oYWIdOZGPw==",
-      "path": "microsoft.build.framework/16.11.0",
-      "hashPath": "microsoft.build.framework.16.11.0.nupkg.sha512"
+      "sha512": "sha512-XbFA0z+6Ws2pNeRXYcDF3lKlNgRoSGMm2Q5HKzZD+EbwYMKPKrl/BJnnkMuDJHU0KravYHfhzBnLLJpPeZ3E7A==",
+      "path": "microsoft.build.framework/17.0.0",
+      "hashPath": "microsoft.build.framework.17.0.0.nupkg.sha512"
     },
-    "Microsoft.Build.Tasks.Core/16.11.0": {
+    "Microsoft.Build.Tasks.Core/17.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-nEQgJlskVzK0oaBlPNYGbBpU7uPTwTHJ1T2rid3LRc6/CKOuBPtXEWgF1HxsldlHsx5q79sn8AE0RqAhQm7EVQ==",
-      "path": "microsoft.build.tasks.core/16.11.0",
-      "hashPath": "microsoft.build.tasks.core.16.11.0.nupkg.sha512"
+      "sha512": "sha512-6772b15xCfwBRkz8MzGZb1YpyvvZmAtCbSx9frZJ0bpXKrhyN/+BP9mOjp2xVaJPyNBOfh9CwUOo+mnJheO/pw==",
+      "path": "microsoft.build.tasks.core/17.0.0",
+      "hashPath": "microsoft.build.tasks.core.17.0.0.nupkg.sha512"
     },
-    "Microsoft.Build.Tasks.Git/1.1.1-beta-21566-01": {
+    "Microsoft.Build.Tasks.Git/1.2.0-beta-22325-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-qhmeoKmoYYCJfEIRZl26S8MMW26GTW/u9DtcPYe6jS++Nr2roNN50WhVRw+p/2uUuC/NN8b6YIyi1+z52oHsTg==",
-      "path": "microsoft.build.tasks.git/1.1.1-beta-21566-01",
-      "hashPath": "microsoft.build.tasks.git.1.1.1-beta-21566-01.nupkg.sha512"
+      "sha512": "sha512-x15F8Be22m9nTK40UuCslYi3aiLArTg5fq55UDlBpHPNkS5PyF2n/tLjgblsRBJ8TibBc+xy/TcQnHBZf2EU2g==",
+      "path": "microsoft.build.tasks.git/1.2.0-beta-22325-02",
+      "hashPath": "microsoft.build.tasks.git.1.2.0-beta-22325-02.nupkg.sha512"
     },
-    "Microsoft.Build.Utilities.Core/16.11.0": {
+    "Microsoft.Build.Utilities.Core/17.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-qJ02OPuYuCkcJRm3AeUV3GT6vQ1yGg4ChKi6wc+X7bSJqu6yuTxwVn7kSPx/4uD/kPyhJkzOPRi1ez5SLdXFeQ==",
-      "path": "microsoft.build.utilities.core/16.11.0",
-      "hashPath": "microsoft.build.utilities.core.16.11.0.nupkg.sha512"
+      "sha512": "sha512-+eqDvecetKfsZR9WqLQ96F9xhxFb3m9VOjkyzuaA/2D1cub1aW9XyegZb8+gEpBa+o7dHnIN9FskC+tRXtqLSQ==",
+      "path": "microsoft.build.utilities.core/17.0.0",
+      "hashPath": "microsoft.build.utilities.core.17.0.0.nupkg.sha512"
     },
-    "Microsoft.DotNet.XliffTasks/1.0.0-beta.21518.1": {
+    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22325.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-8iH66HD/cFqtwulncc67YyTUDlodxJ5Ac7/nB6mQtc1nOcVT63Fy3hjrhw6ywjKIinG6tYTN7euRrwknbfUdbg==",
-      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.21518.1",
-      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.21518.1.nupkg.sha512"
+      "sha512": "sha512-CS7GUg7VIMq1xAtm2L2dwR9bd/EcLoQ2RgtuPaKs1XVxyUCfmEMk/nXuUHpPVMIIH0kmHWab8MshnWAGt/bZ5A==",
+      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22325.1",
+      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22325.1.nupkg.sha512"
     },
     "Microsoft.NET.StringTools/1.0.0": {
       "type": "package",
@@ -1302,26 +1298,26 @@
       "path": "microsoft.netcore.targets/1.1.0",
       "hashPath": "microsoft.netcore.targets.1.1.0.nupkg.sha512"
     },
-    "Microsoft.SourceLink.AzureRepos.Git/1.1.1-beta-21566-01": {
+    "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22325-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-xXlHkYiDJlRFE78vFuCbmiqj4fYBMyppviLUF9BZojltG9ShU5c3anoUDW+w8kKFdEovL4KSdyZ33VwkX1jE7A==",
-      "path": "microsoft.sourcelink.azurerepos.git/1.1.1-beta-21566-01",
-      "hashPath": "microsoft.sourcelink.azurerepos.git.1.1.1-beta-21566-01.nupkg.sha512"
+      "sha512": "sha512-t/bvqg8c02eHzaXE5xKl4oChPk1/AhBxrPzCMy8R5MyO0thdDmo7SIoOyIuP6bfZI1UzjO/g41yFVWPhqXylCw==",
+      "path": "microsoft.sourcelink.azurerepos.git/1.2.0-beta-22325-02",
+      "hashPath": "microsoft.sourcelink.azurerepos.git.1.2.0-beta-22325-02.nupkg.sha512"
     },
-    "Microsoft.SourceLink.Common/1.1.1-beta-21566-01": {
+    "Microsoft.SourceLink.Common/1.2.0-beta-22325-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-tHssgwLxyVNGR00VzXBUfPDC+P2mpM0Nus8M1YA7fdahDIvc771ptWEEdZNRSXtbBpCCQW+sxN3vqf7CXE2BKQ==",
-      "path": "microsoft.sourcelink.common/1.1.1-beta-21566-01",
-      "hashPath": "microsoft.sourcelink.common.1.1.1-beta-21566-01.nupkg.sha512"
+      "sha512": "sha512-SP903Xy72oOOBSwZzqK6YSwuVGgpOELHE9M2B3Llm9/Gg2+lu0yJzFigA4/BQv1LFLDZ6sAiHd4p+A7pX3qpFA==",
+      "path": "microsoft.sourcelink.common/1.2.0-beta-22325-02",
+      "hashPath": "microsoft.sourcelink.common.1.2.0-beta-22325-02.nupkg.sha512"
     },
-    "Microsoft.SourceLink.GitHub/1.1.1-beta-21566-01": {
+    "Microsoft.SourceLink.GitHub/1.2.0-beta-22325-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-PPHqgIFxV0m9mMoxmOdV2dA5t8nfe4p4b5KkixT5TQ+Mm+ZGeV6gIYyUQmiQUQ+heGP9JcsPHjZl1JhziJC3hg==",
-      "path": "microsoft.sourcelink.github/1.1.1-beta-21566-01",
-      "hashPath": "microsoft.sourcelink.github.1.1.1-beta-21566-01.nupkg.sha512"
+      "sha512": "sha512-Rt0leyTgyJCRgX4cXrJ1ZIqo2Qga58LXDqKMyadXlZg+GQJAqllid7NEBQcYNoRN7HYdglmu4otx/nTAjGmP+w==",
+      "path": "microsoft.sourcelink.github/1.2.0-beta-22325-02",
+      "hashPath": "microsoft.sourcelink.github.1.2.0-beta-22325-02.nupkg.sha512"
     },
     "Microsoft.Win32.Primitives/4.3.0": {
       "type": "package",
@@ -1729,12 +1725,12 @@
       "path": "system.runtime/4.3.0",
       "hashPath": "system.runtime.4.3.0.nupkg.sha512"
     },
-    "System.Runtime.CompilerServices.Unsafe/5.0.0": {
+    "System.Runtime.CompilerServices.Unsafe/6.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ZD9TMpsmYJLrxbbmdvhwt9YEgG5WntEnZ/d1eH8JBX9LBp+Ju8BSBhUGbZMNVHHomWo2KVImJhTDl2hIgw/6MA==",
-      "path": "system.runtime.compilerservices.unsafe/5.0.0",
-      "hashPath": "system.runtime.compilerservices.unsafe.5.0.0.nupkg.sha512"
+      "sha512": "sha512-/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg==",
+      "path": "system.runtime.compilerservices.unsafe/6.0.0",
+      "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
     },
     "System.Runtime.Extensions/4.3.0": {
       "type": "package",
@@ -1939,12 +1935,12 @@
       "path": "system.threading.threadpool/4.3.0",
       "hashPath": "system.threading.threadpool.4.3.0.nupkg.sha512"
     },
-    "FSharp.Core/6.0.1-dev": {
+    "FSharp.Core/6.0.5-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/6.0.1-dev": {
+    "FSharp.DependencyManager.Nuget/6.0.5-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

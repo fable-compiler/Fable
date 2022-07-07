@@ -39,7 +39,7 @@ type NumberKind =
 
 // TODO: Add missing flags https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#advanced_searching_with_flags
 type RegexFlag =
-    | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky
+    | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky | RegexUnicode | RegexSingleline
 
 // Operators
 type UnaryOperator =
