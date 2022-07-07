@@ -488,3 +488,20 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
                 FSharp2Fable.TypeHelpers.tryFindMember ent ctx.GenericArgs opName false argTypes
             | _ -> None)
         |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)
+
+let (|RegexFlags|_|) e =
+    let rec getFlags = function
+        | NumberConst(:? int as value, _) ->
+            match value with
+            | 1 -> Some [RegexIgnoreCase]
+            | 2 -> Some [RegexMultiline]
+            | 8 -> Some [] // Compiled flag (ignored)
+            | 16 -> Some [RegexSingleline]
+            | 256 -> Some [] // ECMAScript flag (ignored)
+            | _ -> None
+        | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+            match getFlags flags1, getFlags flags2 with
+            | Some flags1, Some flags2 -> Some(flags1 @ flags2)
+            | _ -> None
+        | _ -> None
+    getFlags e

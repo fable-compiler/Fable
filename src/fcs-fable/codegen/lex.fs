@@ -1,4 +1,4 @@
-//# 3 "src/fsharp/lex.fsl"
+//# 3 "src/Compiler/lex.fsl"
  
 
 module internal FSharp.Compiler.Lexer
@@ -20,7 +20,7 @@ open Internal.Utilities.Text.Lexing
 
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL
-open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.Features
 open FSharp.Compiler.IO
 open FSharp.Compiler.Lexhelp
@@ -49,7 +49,7 @@ let lexeme (lexbuf : UnicodeLexing.Lexbuf) = UnicodeLexing.Lexbuf.LexemeString l
 /// Trim n chars from both sides of lexbuf, return string
 let lexemeTrimBoth  (lexbuf : UnicodeLexing.Lexbuf) (n:int) (m:int) =
 #if FABLE_COMPILER
-    LexBuffer<_>.LexemeSliceToString (lexbuf, n, lexbuf.LexemeLength - (n+m))
+    LexBuffer<_>.LexemeString(lexbuf).Substring(n, lexbuf.LexemeLength - (n+m))
 #else
     let s = lexbuf.LexemeView
     s.Slice(n, s.Length - (n+m)).ToString()
@@ -64,7 +64,7 @@ let lexemeTrimLeft   lexbuf n = lexemeTrimBoth lexbuf n 0
 /// Throw a lexing error with a message
 let fail args (lexbuf:UnicodeLexing.Lexbuf) msg dflt =
      let m = lexbuf.LexemeRange
-     args.errorLogger.ErrorR(Error(msg,m))
+     args.diagnosticsLogger.ErrorR(Error(msg,m))
      dflt
 
 //--------------------------
@@ -115,9 +115,7 @@ let parseOctalUInt64 (s:string) =
     Convert.ToUInt64(s, 8)
 
 let removeUnderscores (s:string) =
-    match s with
-    | null -> null
-    | s -> s.Replace("_", "")
+    s.Replace("_", "")
 
 let parseInt32 (s:string) =
     let s = removeUnderscores s
@@ -261,7 +259,7 @@ let evalIfDefExpression startPos reportLibraryOnlyFeatures langVersion args (loo
     lexbuf.EndPos       <- startPos
     let tokenStream     = FSharp.Compiler.PPLexer.tokenstream args
     let expr            = FSharp.Compiler.PPParser.start tokenStream lexbuf
-    LexerIfdefEval lookup expr
+    (LexerIfdefEval lookup expr), expr
 
 let evalFloat args lexbuf =
     try
@@ -270,7 +268,7 @@ let evalFloat args lexbuf =
         fail args lexbuf (FSComp.SR.lexInvalidFloat()) 0.0f
 
 
-//# 273 "lex.fs"
+//# 271 "lex.fs"
 let trans : uint16[] array = 
     [| 
     (* State 0 *)
@@ -1849,106 +1847,106 @@ let rec _fslex_dummy () = _fslex_dummy()
 and token args skip lexbuf =
   match _fslex_tables.Interpret(365,lexbuf) with
   | 0 -> ( 
-//# 393 "src/fsharp/lex.fsl"
+//# 391 "src/Compiler/lex.fsl"
                       Keywords.KeywordOrIdentifierToken args lexbuf (lexeme lexbuf) 
-//# 1854 "lex.fs"
+//# 1852 "lex.fs"
           )
   | 1 -> ( 
-//# 396 "src/fsharp/lex.fsl"
+//# 394 "src/Compiler/lex.fsl"
                       DO_BANG 
-//# 1859 "lex.fs"
+//# 1857 "lex.fs"
           )
   | 2 -> ( 
-//# 399 "src/fsharp/lex.fsl"
+//# 397 "src/Compiler/lex.fsl"
                       YIELD_BANG(true)  
-//# 1864 "lex.fs"
+//# 1862 "lex.fs"
           )
   | 3 -> ( 
-//# 402 "src/fsharp/lex.fsl"
+//# 400 "src/Compiler/lex.fsl"
                       YIELD_BANG(false) 
-//# 1869 "lex.fs"
+//# 1867 "lex.fs"
           )
   | 4 -> ( 
-//# 405 "src/fsharp/lex.fsl"
+//# 403 "src/Compiler/lex.fsl"
                       MATCH_BANG 
-//# 1874 "lex.fs"
+//# 1872 "lex.fs"
           )
   | 5 -> ( 
-//# 408 "src/fsharp/lex.fsl"
+//# 406 "src/Compiler/lex.fsl"
                       AND_BANG(false) 
-//# 1879 "lex.fs"
+//# 1877 "lex.fs"
           )
   | 6 -> ( 
-//# 411 "src/fsharp/lex.fsl"
+//# 409 "src/Compiler/lex.fsl"
                       let tok = Keywords.KeywordOrIdentifierToken args lexbuf (lexemeTrimRight lexbuf 1)
                       match tok with
                       | LET _ -> BINDER (lexemeTrimRight lexbuf 1)
                       | _ -> fail args lexbuf (FSComp.SR.lexIdentEndInMarkReserved("!")) (Keywords.KeywordOrIdentifierToken args lexbuf (lexeme lexbuf)) 
-//# 1887 "lex.fs"
+//# 1885 "lex.fs"
           )
   | 7 -> ( 
-//# 417 "src/fsharp/lex.fsl"
+//# 415 "src/Compiler/lex.fsl"
                       fail args lexbuf (FSComp.SR.lexIdentEndInMarkReserved("#")) (Keywords.KeywordOrIdentifierToken args lexbuf (lexeme lexbuf)) 
-//# 1892 "lex.fs"
+//# 1890 "lex.fs"
           )
   | 8 -> ( 
-//# 420 "src/fsharp/lex.fsl"
+//# 418 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 1
                       // Allow <max_int+1> to parse as min_int.  Allowed only because we parse '-' as an operator.
                       if Ranges.isInt8BadMax n then INT8(SByte.MinValue, true (* 'true' = 'bad'*) )
                       else if n > int SByte.MaxValue || n < int SByte.MinValue then fail args lexbuf (FSComp.SR.lexOutsideEightBitSigned()) (INT8(0y, false))
                       else INT8(sbyte n, false)  
-//# 1901 "lex.fs"
+//# 1899 "lex.fs"
           )
   | 9 -> ( 
-//# 427 "src/fsharp/lex.fsl"
+//# 425 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 1
                       if n > int Byte.MaxValue || n < 0 then fail args lexbuf (FSComp.SR.lexOutsideEightBitSignedHex()) (INT8(0y, false))
                       else INT8(sbyte(byte(n)), false) 
-//# 1908 "lex.fs"
+//# 1906 "lex.fs"
           )
   | 10 -> ( 
-//# 432 "src/fsharp/lex.fsl"
+//# 430 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 2
                       if n > int Byte.MaxValue || n < 0 then fail args lexbuf (FSComp.SR.lexOutsideEightBitUnsigned()) (UINT8(0uy))
                       else UINT8(byte n)  
-//# 1915 "lex.fs"
+//# 1913 "lex.fs"
           )
   | 11 -> ( 
-//# 437 "src/fsharp/lex.fsl"
+//# 435 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 1
                       // Allow <max_int+1> to parse as min_int.  Allowed only because we parse '-' as an operator.
                       if Ranges.isInt16BadMax n then INT16(Int16.MinValue, true (* 'true' = 'bad'*) )
                       else if n > int Int16.MaxValue || n < int Int16.MinValue then fail args lexbuf (FSComp.SR.lexOutsideSixteenBitSigned()) (INT16(0s, false))
                       else INT16(int16 n, false)  
-//# 1924 "lex.fs"
+//# 1922 "lex.fs"
           )
   | 12 -> ( 
-//# 444 "src/fsharp/lex.fsl"
+//# 442 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 1
                       if n > int UInt16.MaxValue || n < 0 then fail args lexbuf (FSComp.SR.lexOutsideSixteenBitSigned()) (INT16(0s,false))
                       else INT16(int16(uint16(n)), false) 
-//# 1931 "lex.fs"
+//# 1929 "lex.fs"
           )
   | 13 -> ( 
-//# 449 "src/fsharp/lex.fsl"
+//# 447 "src/Compiler/lex.fsl"
                       let n = lexemeTrimRightToInt32 args lexbuf 2
                       if n > int UInt16.MaxValue || n < 0 then fail args lexbuf (FSComp.SR.lexOutsideSixteenBitUnsigned()) (UINT16(0us))
                       else UINT16(uint16 n) 
-//# 1938 "lex.fs"
+//# 1936 "lex.fs"
           )
   | 14 -> ( 
-//# 454 "src/fsharp/lex.fsl"
+//# 452 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexemeTrimRight lexbuf 2)
                       // Allow <max_int+1> to parse as min_int.  Allowed only because we parse '-' as an operator.
                       if Ranges.isInt32BadMax s then INT32_DOT_DOT(Int32.MinValue, true (* 'true' = 'bad'*) ) else
                       let n = try int32 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitSigned()) 0
                       INT32_DOT_DOT(n, false)
                     
-//# 1948 "lex.fs"
+//# 1946 "lex.fs"
           )
   | 15 -> ( 
-//# 463 "src/fsharp/lex.fsl"
+//# 461 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexeme lexbuf)
                       // Allow <max_int+1> to parse as min_int.  Allowed only because we parse '-' as an operator.
                       if Ranges.isInt32BadMax s then INT32(Int32.MinValue, true (* 'true' = 'bad'*) ) else
@@ -1956,10 +1954,10 @@ and token args skip lexbuf =
                           try int32 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitSigned()) 0
                       INT32(n, false)
                     
-//# 1959 "lex.fs"
+//# 1957 "lex.fs"
           )
   | 16 -> ( 
-//# 473 "src/fsharp/lex.fsl"
+//# 471 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexemeTrimRight lexbuf 1)
                       // Allow <max_int+1> to parse as min_int.  Allowed only because we parse '-' as an operator.
                       if Ranges.isInt32BadMax s then INT32(Int32.MinValue, true (* 'true' = 'bad'*) ) else
@@ -1967,30 +1965,30 @@ and token args skip lexbuf =
                           try int32 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitSigned()) 0
                       INT32(n, false)
                     
-//# 1970 "lex.fs"
+//# 1968 "lex.fs"
           )
   | 17 -> ( 
-//# 482 "src/fsharp/lex.fsl"
+//# 480 "src/Compiler/lex.fsl"
                      
                       let s = removeUnderscores (lexemeTrimRight lexbuf 1)
                       let n =
                           try int64 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitUnsigned()) 0L
                       if n > int64 UInt32.MaxValue || n < 0L then fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitUnsigned()) (UINT32(0u)) else
                       UINT32(uint32 (uint64 n)) 
-//# 1980 "lex.fs"
+//# 1978 "lex.fs"
           )
   | 18 -> ( 
-//# 490 "src/fsharp/lex.fsl"
+//# 488 "src/Compiler/lex.fsl"
                      
                       let s = removeUnderscores (lexemeTrimRight lexbuf 2)
                       let n =
                           try int64 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitUnsigned()) 0L
                       if n > int64 UInt32.MaxValue || n < 0L then fail args lexbuf (FSComp.SR.lexOutsideThirtyTwoBitUnsigned()) (UINT32(0u)) else
                       UINT32(uint32 (uint64 n)) 
-//# 1990 "lex.fs"
+//# 1988 "lex.fs"
           )
   | 19 -> ( 
-//# 498 "src/fsharp/lex.fsl"
+//# 496 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexemeTrimRight lexbuf 1)
                       // Allow <max_int+1> to parse as min_int.  Stupid but allowed because we parse '-' as an operator.
                       if Ranges.isInt64BadMax s then INT64(Int64.MinValue, true (* 'true' = 'bad'*) ) else
@@ -1998,18 +1996,18 @@ and token args skip lexbuf =
                           try int64 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideSixtyFourBitSigned()) 0L
                       INT64(n,false)
                     
-//# 2001 "lex.fs"
+//# 1999 "lex.fs"
           )
   | 20 -> ( 
-//# 507 "src/fsharp/lex.fsl"
+//# 505 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexemeTrimRight lexbuf 2)
                       let n =
                         try uint64 s with _ -> fail args lexbuf (FSComp.SR.lexOutsideSixtyFourBitUnsigned()) 0UL
                       UINT64(n) 
-//# 2009 "lex.fs"
+//# 2007 "lex.fs"
           )
   | 21 -> ( 
-//# 513 "src/fsharp/lex.fsl"
+//# 511 "src/Compiler/lex.fsl"
                       let s = removeUnderscores (lexemeTrimRight lexbuf 1)
                       // Allow <max_nativeint+1> to parse as min_nativeint.  Stupid but allowed because we parse '-' as an operator.
                       if Ranges.isInt64BadMax s then NATIVEINT(Int64.MinValue, true) else
@@ -2017,36 +2015,36 @@ and token args skip lexbuf =
                           try int64 s with _ ->  fail args lexbuf (FSComp.SR.lexOutsideNativeSigned()) 0L
                       NATIVEINT(n,false)
                     
-//# 2020 "lex.fs"
+//# 2018 "lex.fs"
           )
   | 22 -> ( 
-//# 522 "src/fsharp/lex.fsl"
+//# 520 "src/Compiler/lex.fsl"
                       try
                           UNATIVEINT(uint64 (removeUnderscores (lexemeTrimRight lexbuf 2)))
                       with _ ->  fail args lexbuf (FSComp.SR.lexOutsideNativeUnsigned())  (UNATIVEINT(0UL)) 
-//# 2027 "lex.fs"
+//# 2025 "lex.fs"
           )
   | 23 -> ( 
-//# 527 "src/fsharp/lex.fsl"
+//# 525 "src/Compiler/lex.fsl"
                       IEEE32 (evalFloat args lexbuf) 
-//# 2032 "lex.fs"
+//# 2030 "lex.fs"
           )
   | 24 -> ( 
-//# 530 "src/fsharp/lex.fsl"
+//# 528 "src/Compiler/lex.fsl"
                       if lexbuf.SupportsFeature LanguageFeature.DotlessFloat32Literal then
                          IEEE32 (evalFloat args lexbuf)
                       else
                          fail args lexbuf (FSComp.SR.lexInvalidFloat()) (IEEE32 0.0f)
                     
-//# 2041 "lex.fs"
+//# 2039 "lex.fs"
           )
   | 25 -> ( 
-//# 537 "src/fsharp/lex.fsl"
+//# 535 "src/Compiler/lex.fsl"
                       IEEE64 (try float(lexeme lexbuf) with _ -> fail args lexbuf (FSComp.SR.lexInvalidFloat()) 0.0) 
-//# 2046 "lex.fs"
+//# 2044 "lex.fs"
           )
   | 26 -> ( 
-//# 540 "src/fsharp/lex.fsl"
+//# 538 "src/Compiler/lex.fsl"
                       try
                          let s = removeUnderscores (lexemeTrimRight lexbuf 1)
                          // This implements a range check for decimal literals
@@ -2055,10 +2053,10 @@ and token args skip lexbuf =
                       with
                          e -> fail args lexbuf (FSComp.SR.lexOusideDecimal()) (DECIMAL (decimal 0))
                     
-//# 2058 "lex.fs"
+//# 2056 "lex.fs"
           )
   | 27 -> ( 
-//# 550 "src/fsharp/lex.fsl"
+//# 547 "src/Compiler/lex.fsl"
                      
                #if FABLE_COMPILER
                       fail args lexbuf (FSComp.SR.lexInvalidFloat()) (IEEE32 0.0f)
@@ -2070,10 +2068,10 @@ and token args skip lexbuf =
                       IEEE32 (System.BitConverter.ToSingle(System.BitConverter.GetBytes(int32 (uint32 (uint64 n64))),0))
                #endif
                     
-//# 2073 "lex.fs"
+//# 2071 "lex.fs"
           )
   | 28 -> ( 
-//# 563 "src/fsharp/lex.fsl"
+//# 560 "src/Compiler/lex.fsl"
                      
                #if FABLE_COMPILER
                       fail args lexbuf (FSComp.SR.lexInvalidFloat()) (IEEE64 0.0)
@@ -2082,37 +2080,37 @@ and token args skip lexbuf =
                       IEEE64 (System.BitConverter.Int64BitsToDouble(n64))
                #endif
                     
-//# 2085 "lex.fs"
+//# 2083 "lex.fs"
           )
   | 29 -> ( 
-//# 573 "src/fsharp/lex.fsl"
+//# 570 "src/Compiler/lex.fsl"
                         let s = lexeme lexbuf
                         BIGNUM (removeUnderscores (lexemeTrimRight lexbuf 1), s.[s.Length-1..s.Length-1]) 
-//# 2091 "lex.fs"
+//# 2089 "lex.fs"
           )
   | 30 -> ( 
-//# 577 "src/fsharp/lex.fsl"
+//# 574 "src/Compiler/lex.fsl"
                         fail args lexbuf (FSComp.SR.lexInvalidNumericLiteral()) (INT32(0,false)) 
-//# 2096 "lex.fs"
+//# 2094 "lex.fs"
           )
   | 31 -> ( 
-//# 580 "src/fsharp/lex.fsl"
+//# 577 "src/Compiler/lex.fsl"
                       let s = lexeme lexbuf
                       CHAR (if s.[1] = '\\' then escape s.[2] else s.[1])  
-//# 2102 "lex.fs"
+//# 2100 "lex.fs"
           )
   | 32 -> ( 
-//# 584 "src/fsharp/lex.fsl"
+//# 581 "src/Compiler/lex.fsl"
                       let s = lexeme lexbuf
                       let x = int32 (if s.[1] = '\\' then escape s.[2] else s.[1])
                       if x < 0 || x > 127 then
                           fail args lexbuf (FSComp.SR.lexInvalidByteLiteral()) (UINT8(byte 0))
                       else
                           UINT8 (byte(x))  
-//# 2112 "lex.fs"
+//# 2110 "lex.fs"
           )
   | 33 -> ( 
-//# 592 "src/fsharp/lex.fsl"
+//# 589 "src/Compiler/lex.fsl"
                       let s = lexeme lexbuf
                       let c = trigraph s.[2] s.[3] s.[4]
                       let x = int32 c
@@ -2120,91 +2118,91 @@ and token args skip lexbuf =
                           fail args lexbuf (FSComp.SR.lexInvalidCharLiteral()) (CHAR c)
                       else
                           CHAR c 
-//# 2123 "lex.fs"
+//# 2121 "lex.fs"
           )
   | 34 -> ( 
-//# 601 "src/fsharp/lex.fsl"
+//# 598 "src/Compiler/lex.fsl"
                       let s = lexeme lexbuf
                       let x = int32 (trigraph s.[2] s.[3] s.[4])
                       if x < 0 || x > 255 then
                           fail args lexbuf (FSComp.SR.lexInvalidByteLiteral()) (UINT8(byte 0))
                       else
                           UINT8 (byte(x))  
-//# 2133 "lex.fs"
+//# 2131 "lex.fs"
           )
   | 35 -> ( 
-//# 609 "src/fsharp/lex.fsl"
+//# 606 "src/Compiler/lex.fsl"
                       let x = int32 (unicodeGraphShort (lexemeTrimBoth lexbuf 3 2))
                       if x < 0 || x > 127 then
                           fail args lexbuf (FSComp.SR.lexInvalidByteLiteral()) (UINT8(byte 0))
                       else
                           UINT8 (byte(x))  
-//# 2142 "lex.fs"
+//# 2140 "lex.fs"
           )
   | 36 -> ( 
-//# 615 "src/fsharp/lex.fsl"
+//# 612 "src/Compiler/lex.fsl"
                                             CHAR (char (int32 (hexGraphShort (lexemeTrimBoth lexbuf 3 1)))) 
-//# 2147 "lex.fs"
+//# 2145 "lex.fs"
           )
   | 37 -> ( 
-//# 617 "src/fsharp/lex.fsl"
+//# 614 "src/Compiler/lex.fsl"
                                                 CHAR (char (int32 (unicodeGraphShort (lexemeTrimBoth lexbuf 3 1)))) 
-//# 2152 "lex.fs"
+//# 2150 "lex.fs"
           )
   | 38 -> ( 
-//# 620 "src/fsharp/lex.fsl"
+//# 617 "src/Compiler/lex.fsl"
                       match unicodeGraphLong (lexemeTrimBoth lexbuf 3 1) with
                       | SingleChar(c) -> CHAR (char c)
                       | _ -> fail args lexbuf  (FSComp.SR.lexThisUnicodeOnlyInStringLiterals()) (CHAR (char 0)) 
-//# 2159 "lex.fs"
+//# 2157 "lex.fs"
           )
   | 39 -> ( 
-//# 625 "src/fsharp/lex.fsl"
+//# 622 "src/Compiler/lex.fsl"
                       if lexbuf.SupportsFeature LanguageFeature.MLCompatRevisions then
                          mlCompatWarning (FSComp.SR.lexIndentOffForML()) lexbuf.LexemeRange
                       if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 2167 "lex.fs"
+//# 2165 "lex.fs"
           )
   | 40 -> ( 
-//# 631 "src/fsharp/lex.fsl"
+//# 628 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 2173 "lex.fs"
+//# 2171 "lex.fs"
           )
   | 41 -> ( 
-//# 635 "src/fsharp/lex.fsl"
+//# 632 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
                       else token args skip lexbuf  
-//# 2179 "lex.fs"
+//# 2177 "lex.fs"
           )
   | 42 -> ( 
-//# 639 "src/fsharp/lex.fsl"
+//# 636 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Token (args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 2185 "lex.fs"
+//# 2183 "lex.fs"
           )
   | 43 -> ( 
-//# 643 "src/fsharp/lex.fsl"
+//# 640 "src/Compiler/lex.fsl"
                       LPAREN_STAR_RPAREN 
-//# 2190 "lex.fs"
+//# 2188 "lex.fs"
           )
   | 44 -> ( 
-//# 646 "src/fsharp/lex.fsl"
+//# 643 "src/Compiler/lex.fsl"
                       let m = lexbuf.LexemeRange
                       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, 1, m))
                       else comment (1,m,args) skip lexbuf 
-//# 2197 "lex.fs"
+//# 2195 "lex.fs"
           )
   | 45 -> ( 
-//# 651 "src/fsharp/lex.fsl"
+//# 648 "src/Compiler/lex.fsl"
                       let m = lexbuf.LexemeRange
                       if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))
                       else mlOnly m args skip lexbuf 
-//# 2204 "lex.fs"
+//# 2202 "lex.fs"
           )
   | 46 -> ( 
-//# 656 "src/fsharp/lex.fsl"
+//# 653 "src/Compiler/lex.fsl"
                       let buf, fin, m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2213,10 +2211,10 @@ and token args skip lexbuf =
                       | [] -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, LexerStringKind.String, m))
                       else singleQuoteString (buf, fin, m, LexerStringKind.String, args) skip lexbuf 
-//# 2216 "lex.fs"
+//# 2214 "lex.fs"
           )
   | 47 -> ( 
-//# 668 "src/fsharp/lex.fsl"
+//# 665 "src/Compiler/lex.fsl"
                       let buf, fin, m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2224,10 +2222,10 @@ and token args skip lexbuf =
                       | [] -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, LexerStringKind.InterpolatedStringFirst, m))
                       else tripleQuoteString (buf, fin, m, LexerStringKind.InterpolatedStringFirst, args) skip lexbuf 
-//# 2227 "lex.fs"
+//# 2225 "lex.fs"
           )
   | 48 -> ( 
-//# 679 "src/fsharp/lex.fsl"
+//# 676 "src/Compiler/lex.fsl"
                       let buf,fin,m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2236,10 +2234,10 @@ and token args skip lexbuf =
                       | _ -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, LexerStringKind.InterpolatedStringFirst, m))
                       else singleQuoteString (buf, fin, m, LexerStringKind.InterpolatedStringFirst, args) skip lexbuf 
-//# 2239 "lex.fs"
+//# 2237 "lex.fs"
           )
   | 49 -> ( 
-//# 691 "src/fsharp/lex.fsl"
+//# 688 "src/Compiler/lex.fsl"
                       let buf, fin, m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2247,10 +2245,10 @@ and token args skip lexbuf =
                       | _ -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, LexerStringKind.String, m))
                       else tripleQuoteString (buf, fin, m, LexerStringKind.String, args) skip lexbuf 
-//# 2250 "lex.fs"
+//# 2248 "lex.fs"
           )
   | 50 -> ( 
-//# 702 "src/fsharp/lex.fsl"
+//# 699 "src/Compiler/lex.fsl"
                       let buf, fin, m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2259,10 +2257,10 @@ and token args skip lexbuf =
                       | _ -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, LexerStringKind.String, m))
                       else verbatimString (buf, fin, m, LexerStringKind.String, args) skip lexbuf 
-//# 2262 "lex.fs"
+//# 2260 "lex.fs"
           )
   | 51 -> ( 
-//# 714 "src/fsharp/lex.fsl"
+//# 711 "src/Compiler/lex.fsl"
                       let buf, fin, m = startString args lexbuf
                       // Single quote in triple quote ok, others disallowed
                       match args.stringNest with
@@ -2271,318 +2269,323 @@ and token args skip lexbuf =
                       | _ -> ()
                       if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, LexerStringKind.InterpolatedStringFirst, m))
                       else verbatimString (buf, fin, m, LexerStringKind.InterpolatedStringFirst, args) skip lexbuf 
-//# 2274 "lex.fs"
+//# 2272 "lex.fs"
           )
   | 52 -> ( 
-//# 726 "src/fsharp/lex.fsl"
+//# 723 "src/Compiler/lex.fsl"
                       if skip then token args skip lexbuf
                       else WHITESPACE (LexCont.Token(args.ifdefStack, args.stringNest)) 
-//# 2280 "lex.fs"
+//# 2278 "lex.fs"
           )
   | 53 -> ( 
-//# 730 "src/fsharp/lex.fsl"
-                      if args.lightStatus.Status then errorR(Error(FSComp.SR.lexTabsNotAllowed(), lexbuf.LexemeRange))
+//# 727 "src/Compiler/lex.fsl"
+                      if args.indentationSyntaxStatus.Status then errorR(Error(FSComp.SR.lexTabsNotAllowed(), lexbuf.LexemeRange))
                       if not skip then WHITESPACE (LexCont.Token(args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 2287 "lex.fs"
+//# 2285 "lex.fs"
           )
   | 54 -> ( 
-//# 735 "src/fsharp/lex.fsl"
+//# 732 "src/Compiler/lex.fsl"
                       // 4+ slash are 1-line comments, online 3 slash are XmlDoc
                       let m = lexbuf.LexemeRange
                       LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
                       if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
-                      else singleLineComment (None,1,m,args) skip lexbuf 
-//# 2296 "lex.fs"
+                      else singleLineComment (None,1,m,m,args) skip lexbuf 
+//# 2294 "lex.fs"
           )
   | 55 -> ( 
-//# 742 "src/fsharp/lex.fsl"
+//# 739 "src/Compiler/lex.fsl"
                       // Match exactly 3 slash, 4+ slash caught by preceding rule
                       let m = lexbuf.LexemeRange
                       let doc = lexemeTrimLeft lexbuf 3
                       let sb = (new StringBuilder(100)).Append(doc)
                       if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
-                      else singleLineComment (Some (m, sb),1,m,args) skip lexbuf 
-//# 2306 "lex.fs"
+                      else singleLineComment (Some (m, sb),1,m,m,args) skip lexbuf 
+//# 2304 "lex.fs"
           )
   | 56 -> ( 
-//# 750 "src/fsharp/lex.fsl"
+//# 747 "src/Compiler/lex.fsl"
                       // Need to read all operator symbols too, otherwise it might be parsed by a rule below
                       let m = lexbuf.LexemeRange
                       LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
                       if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
-                      else singleLineComment (None,1,m,args) skip lexbuf 
-//# 2315 "lex.fs"
+                      else singleLineComment (None,1,m,m,args) skip lexbuf 
+//# 2313 "lex.fs"
           )
   | 57 -> ( 
-//# 757 "src/fsharp/lex.fsl"
+//# 754 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then WHITESPACE (LexCont.Token(args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 2322 "lex.fs"
+//# 2320 "lex.fs"
           )
   | 58 -> ( 
-//# 762 "src/fsharp/lex.fsl"
+//# 759 "src/Compiler/lex.fsl"
                       Keywords.IdentifierToken args lexbuf (lexemeTrimBoth lexbuf 2 2) 
-//# 2327 "lex.fs"
+//# 2325 "lex.fs"
           )
   | 59 -> ( 
-//# 765 "src/fsharp/lex.fsl"
+//# 762 "src/Compiler/lex.fsl"
                        let pos = lexbuf.EndPos
                        if skip then
-                         let s = lexeme lexbuf
-                         let rec parseLeadingDirective n =
-                           match s.[n] with
-                           | c when c >= 'a' && c <= 'z' -> parseLeadingDirective (n+1)
-                           | _ -> parseLeadingWhitespace n // goto the next state
-                         and parseLeadingWhitespace n =
-                           match s.[n] with
-                           | ' ' | '\t' -> parseLeadingWhitespace (n+1)
-                           | _ -> parseLineNumber n n // goto the next state
-                         and parseLineNumber start n =
-                           match s.[n] with
-                           | c when c >= '0' && c <= '9' -> parseLineNumber start (n+1)
-                           | _ -> let text =  (String.sub s start (n-start))
-                                  let lineNumber =
-                                      try int32 text
-                                      with err -> errorR(Error(FSComp.SR.lexInvalidLineNumber(text), lexbuf.LexemeRange)); 0
-                                  lineNumber, parseWhitespaceBeforeFile n // goto the next state
-                         and parseWhitespaceBeforeFile n =
-                           match s.[n] with
-                           | ' ' | '\t' | '@' -> parseWhitespaceBeforeFile (n+1)
-                           | '"' -> Some (parseFile (n+1) (n+1))
-                           | _ -> None
-                         and parseFile start n =
-                           match s.[n] with
-                           | '"' -> String.sub s start (n-start)
-                           | _ -> parseFile start (n+1)
-                         // Call the parser
-                         let line,file = parseLeadingDirective 1
-                         // Construct the new position
-                         if args.applyLineDirectives then
-                             lexbuf.EndPos <- pos.ApplyLineDirective((match file with Some f -> FileIndex.fileIndexOfFile f | None -> pos.FileIndex), line)
-                         else
-                             // add a newline when we don't apply a directive since we consumed a newline getting here
-                             newline lexbuf
-                         token args skip lexbuf
+                           let s = lexeme lexbuf
+                           let rec parseLeadingDirective n =
+                               match s.[n] with
+                               | c when c >= 'a' && c <= 'z' -> parseLeadingDirective (n+1)
+                               | _ -> parseLeadingWhitespace n // goto the next state
+                           and parseLeadingWhitespace n =
+                               match s.[n] with
+                               | ' ' | '\t' -> parseLeadingWhitespace (n+1)
+                               | _ -> parseLineNumber n n // goto the next state
+                           and parseLineNumber start n =
+                               match s.[n] with
+                               | c when c >= '0' && c <= '9' -> parseLineNumber start (n+1)
+                               | _ -> 
+                                   let text = String.sub s start (n-start)
+                                   let lineNumber =
+                                       try
+                                           int32 text
+                                       with err ->
+                                           errorR(Error(FSComp.SR.lexInvalidLineNumber(text), lexbuf.LexemeRange))
+                                           0
+                                   lineNumber, parseWhitespaceBeforeFile n // goto the next state
+                           and parseWhitespaceBeforeFile n =
+                               match s.[n] with
+                               | ' ' | '\t' | '@' -> parseWhitespaceBeforeFile (n+1)
+                               | '"' -> Some (parseFile (n+1) (n+1))
+                               | _ -> None
+                           and parseFile start n =
+                               match s.[n] with
+                               | '"' -> String.sub s start (n-start)
+                               | _ -> parseFile start (n+1)
+                           // Call the parser
+                           let line, file = parseLeadingDirective 1
+                           // Construct the new position
+                           if args.applyLineDirectives then
+                               lexbuf.EndPos <- pos.ApplyLineDirective((match file with Some f -> FileIndex.fileIndexOfFile f | None -> pos.FileIndex), line)
+                           else
+                               // add a newline when we don't apply a directive since we consumed a newline getting here
+                               newline lexbuf
+                           token args skip lexbuf
                        else
-                         // add a newline when we don't apply a directive since we consumed a newline getting here
-                         newline lexbuf
-                         HASH_LINE (LexCont.Token (args.ifdefStack, args.stringNest)) 
-//# 2372 "lex.fs"
+                           // add a newline when we don't apply a directive since we consumed a newline getting here
+                           newline lexbuf
+                           HASH_LINE (LexCont.Token (args.ifdefStack, args.stringNest))
+                    
+//# 2375 "lex.fs"
           )
   | 60 -> ( 
-//# 813 "src/fsharp/lex.fsl"
+//# 818 "src/Compiler/lex.fsl"
                          checkExprOp lexbuf; LQUOTE ("<@ @>", false) 
-//# 2377 "lex.fs"
+//# 2380 "lex.fs"
           )
   | 61 -> ( 
-//# 815 "src/fsharp/lex.fsl"
+//# 820 "src/Compiler/lex.fsl"
                           checkExprOp lexbuf; LQUOTE ("<@@ @@>", true) 
-//# 2382 "lex.fs"
+//# 2385 "lex.fs"
           )
   | 62 -> ( 
-//# 817 "src/fsharp/lex.fsl"
+//# 822 "src/Compiler/lex.fsl"
                          checkExprOp lexbuf; RQUOTE ("<@ @>", false) 
-//# 2387 "lex.fs"
+//# 2390 "lex.fs"
           )
   | 63 -> ( 
-//# 819 "src/fsharp/lex.fsl"
+//# 824 "src/Compiler/lex.fsl"
                           checkExprOp lexbuf; RQUOTE ("<@@ @@>", true) 
-//# 2392 "lex.fs"
+//# 2395 "lex.fs"
           )
   | 64 -> ( 
-//# 821 "src/fsharp/lex.fsl"
+//# 826 "src/Compiler/lex.fsl"
                         HASH 
-//# 2397 "lex.fs"
+//# 2400 "lex.fs"
           )
   | 65 -> ( 
-//# 823 "src/fsharp/lex.fsl"
+//# 828 "src/Compiler/lex.fsl"
                         AMP 
-//# 2402 "lex.fs"
+//# 2405 "lex.fs"
           )
   | 66 -> ( 
-//# 825 "src/fsharp/lex.fsl"
+//# 830 "src/Compiler/lex.fsl"
                          AMP_AMP 
-//# 2407 "lex.fs"
+//# 2410 "lex.fs"
           )
   | 67 -> ( 
-//# 827 "src/fsharp/lex.fsl"
+//# 832 "src/Compiler/lex.fsl"
                          BAR_BAR 
-//# 2412 "lex.fs"
+//# 2415 "lex.fs"
           )
   | 68 -> ( 
-//# 829 "src/fsharp/lex.fsl"
+//# 834 "src/Compiler/lex.fsl"
                          QUOTE 
-//# 2417 "lex.fs"
+//# 2420 "lex.fs"
           )
   | 69 -> ( 
-//# 831 "src/fsharp/lex.fsl"
+//# 836 "src/Compiler/lex.fsl"
                         LPAREN 
-//# 2422 "lex.fs"
+//# 2425 "lex.fs"
           )
   | 70 -> ( 
-//# 833 "src/fsharp/lex.fsl"
+//# 838 "src/Compiler/lex.fsl"
                         RPAREN 
-//# 2427 "lex.fs"
+//# 2430 "lex.fs"
           )
   | 71 -> ( 
-//# 835 "src/fsharp/lex.fsl"
+//# 840 "src/Compiler/lex.fsl"
                         STAR 
-//# 2432 "lex.fs"
+//# 2435 "lex.fs"
           )
   | 72 -> ( 
-//# 837 "src/fsharp/lex.fsl"
+//# 842 "src/Compiler/lex.fsl"
                         COMMA 
-//# 2437 "lex.fs"
+//# 2440 "lex.fs"
           )
   | 73 -> ( 
-//# 839 "src/fsharp/lex.fsl"
+//# 844 "src/Compiler/lex.fsl"
                          RARROW 
-//# 2442 "lex.fs"
+//# 2445 "lex.fs"
           )
   | 74 -> ( 
-//# 841 "src/fsharp/lex.fsl"
+//# 846 "src/Compiler/lex.fsl"
                         QMARK 
-//# 2447 "lex.fs"
+//# 2450 "lex.fs"
           )
   | 75 -> ( 
-//# 843 "src/fsharp/lex.fsl"
+//# 848 "src/Compiler/lex.fsl"
                          QMARK_QMARK 
-//# 2452 "lex.fs"
+//# 2455 "lex.fs"
           )
   | 76 -> ( 
-//# 845 "src/fsharp/lex.fsl"
+//# 850 "src/Compiler/lex.fsl"
                          DOT_DOT 
-//# 2457 "lex.fs"
+//# 2460 "lex.fs"
           )
   | 77 -> ( 
-//# 847 "src/fsharp/lex.fsl"
+//# 852 "src/Compiler/lex.fsl"
                           DOT_DOT_HAT 
-//# 2462 "lex.fs"
+//# 2465 "lex.fs"
           )
   | 78 -> ( 
-//# 849 "src/fsharp/lex.fsl"
+//# 854 "src/Compiler/lex.fsl"
                         DOT 
-//# 2467 "lex.fs"
+//# 2470 "lex.fs"
           )
   | 79 -> ( 
-//# 851 "src/fsharp/lex.fsl"
+//# 856 "src/Compiler/lex.fsl"
                         COLON 
-//# 2472 "lex.fs"
+//# 2475 "lex.fs"
           )
   | 80 -> ( 
-//# 853 "src/fsharp/lex.fsl"
+//# 858 "src/Compiler/lex.fsl"
                          COLON_COLON 
-//# 2477 "lex.fs"
+//# 2480 "lex.fs"
           )
   | 81 -> ( 
-//# 855 "src/fsharp/lex.fsl"
+//# 860 "src/Compiler/lex.fsl"
                          COLON_GREATER 
-//# 2482 "lex.fs"
+//# 2485 "lex.fs"
           )
   | 82 -> ( 
-//# 857 "src/fsharp/lex.fsl"
+//# 862 "src/Compiler/lex.fsl"
                           RQUOTE_DOT ("<@ @>",false) 
-//# 2487 "lex.fs"
+//# 2490 "lex.fs"
           )
   | 83 -> ( 
-//# 859 "src/fsharp/lex.fsl"
+//# 864 "src/Compiler/lex.fsl"
                            RQUOTE_DOT ("<@@ @@>",true) 
-//# 2492 "lex.fs"
+//# 2495 "lex.fs"
           )
   | 84 -> ( 
-//# 861 "src/fsharp/lex.fsl"
+//# 866 "src/Compiler/lex.fsl"
                           GREATER_BAR_RBRACK 
-//# 2497 "lex.fs"
+//# 2500 "lex.fs"
           )
   | 85 -> ( 
-//# 863 "src/fsharp/lex.fsl"
+//# 868 "src/Compiler/lex.fsl"
                           COLON_QMARK_GREATER 
-//# 2502 "lex.fs"
+//# 2505 "lex.fs"
           )
   | 86 -> ( 
-//# 865 "src/fsharp/lex.fsl"
+//# 870 "src/Compiler/lex.fsl"
                          COLON_QMARK 
-//# 2507 "lex.fs"
+//# 2510 "lex.fs"
           )
   | 87 -> ( 
-//# 867 "src/fsharp/lex.fsl"
+//# 872 "src/Compiler/lex.fsl"
                          COLON_EQUALS 
-//# 2512 "lex.fs"
+//# 2515 "lex.fs"
           )
   | 88 -> ( 
-//# 869 "src/fsharp/lex.fsl"
+//# 874 "src/Compiler/lex.fsl"
                          SEMICOLON_SEMICOLON 
-//# 2517 "lex.fs"
+//# 2520 "lex.fs"
           )
   | 89 -> ( 
-//# 871 "src/fsharp/lex.fsl"
+//# 876 "src/Compiler/lex.fsl"
                         SEMICOLON 
-//# 2522 "lex.fs"
+//# 2525 "lex.fs"
           )
   | 90 -> ( 
-//# 873 "src/fsharp/lex.fsl"
+//# 878 "src/Compiler/lex.fsl"
                          LARROW 
-//# 2527 "lex.fs"
+//# 2530 "lex.fs"
           )
   | 91 -> ( 
-//# 875 "src/fsharp/lex.fsl"
+//# 880 "src/Compiler/lex.fsl"
                         EQUALS 
-//# 2532 "lex.fs"
+//# 2535 "lex.fs"
           )
   | 92 -> ( 
-//# 877 "src/fsharp/lex.fsl"
+//# 882 "src/Compiler/lex.fsl"
                         LBRACK 
-//# 2537 "lex.fs"
+//# 2540 "lex.fs"
           )
   | 93 -> ( 
-//# 879 "src/fsharp/lex.fsl"
+//# 884 "src/Compiler/lex.fsl"
                          LBRACK_BAR 
-//# 2542 "lex.fs"
+//# 2545 "lex.fs"
           )
   | 94 -> ( 
-//# 881 "src/fsharp/lex.fsl"
+//# 886 "src/Compiler/lex.fsl"
                          LBRACE_BAR 
-//# 2547 "lex.fs"
+//# 2550 "lex.fs"
           )
   | 95 -> ( 
-//# 883 "src/fsharp/lex.fsl"
+//# 888 "src/Compiler/lex.fsl"
                         LESS false 
-//# 2552 "lex.fs"
+//# 2555 "lex.fs"
           )
   | 96 -> ( 
-//# 885 "src/fsharp/lex.fsl"
+//# 890 "src/Compiler/lex.fsl"
                         GREATER false 
-//# 2557 "lex.fs"
+//# 2560 "lex.fs"
           )
   | 97 -> ( 
-//# 887 "src/fsharp/lex.fsl"
+//# 892 "src/Compiler/lex.fsl"
                          LBRACK_LESS 
-//# 2562 "lex.fs"
+//# 2565 "lex.fs"
           )
   | 98 -> ( 
-//# 889 "src/fsharp/lex.fsl"
+//# 894 "src/Compiler/lex.fsl"
                         RBRACK 
-//# 2567 "lex.fs"
+//# 2570 "lex.fs"
           )
   | 99 -> ( 
-//# 891 "src/fsharp/lex.fsl"
+//# 896 "src/Compiler/lex.fsl"
                          BAR_RBRACK 
-//# 2572 "lex.fs"
+//# 2575 "lex.fs"
           )
   | 100 -> ( 
-//# 893 "src/fsharp/lex.fsl"
+//# 898 "src/Compiler/lex.fsl"
                          BAR_RBRACE 
-//# 2577 "lex.fs"
+//# 2580 "lex.fs"
           )
   | 101 -> ( 
-//# 895 "src/fsharp/lex.fsl"
+//# 900 "src/Compiler/lex.fsl"
                          GREATER_RBRACK 
-//# 2582 "lex.fs"
+//# 2585 "lex.fs"
           )
   | 102 -> ( 
-//# 898 "src/fsharp/lex.fsl"
+//# 903 "src/Compiler/lex.fsl"
                      
                       match args.stringNest with
                       | [] -> ()
@@ -2594,15 +2597,15 @@ and token args skip lexbuf =
                       let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                       LBRACE cont
                     
-//# 2597 "lex.fs"
+//# 2600 "lex.fs"
           )
   | 103 -> ( 
-//# 910 "src/fsharp/lex.fsl"
+//# 915 "src/Compiler/lex.fsl"
                         BAR 
-//# 2602 "lex.fs"
+//# 2605 "lex.fs"
           )
   | 104 -> ( 
-//# 913 "src/fsharp/lex.fsl"
+//# 918 "src/Compiler/lex.fsl"
                      
                       // We encounter a '}' in the expression token stream.  First check if we're in an interpolated string expression
                       // and continue the string if necessary
@@ -2627,122 +2630,123 @@ and token args skip lexbuf =
                           let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                           RBRACE cont
                     
-//# 2630 "lex.fs"
+//# 2633 "lex.fs"
           )
   | 105 -> ( 
-//# 940 "src/fsharp/lex.fsl"
+//# 945 "src/Compiler/lex.fsl"
                         DOLLAR 
-//# 2635 "lex.fs"
+//# 2638 "lex.fs"
           )
   | 106 -> ( 
-//# 942 "src/fsharp/lex.fsl"
+//# 947 "src/Compiler/lex.fsl"
                         PERCENT_OP("%") 
-//# 2640 "lex.fs"
+//# 2643 "lex.fs"
           )
   | 107 -> ( 
-//# 944 "src/fsharp/lex.fsl"
+//# 949 "src/Compiler/lex.fsl"
                          PERCENT_OP("%%") 
-//# 2645 "lex.fs"
+//# 2648 "lex.fs"
           )
   | 108 -> ( 
-//# 946 "src/fsharp/lex.fsl"
+//# 951 "src/Compiler/lex.fsl"
                         MINUS 
-//# 2650 "lex.fs"
+//# 2653 "lex.fs"
           )
   | 109 -> ( 
-//# 948 "src/fsharp/lex.fsl"
+//# 953 "src/Compiler/lex.fsl"
                         RESERVED 
-//# 2655 "lex.fs"
+//# 2658 "lex.fs"
           )
   | 110 -> ( 
-//# 950 "src/fsharp/lex.fsl"
+//# 955 "src/Compiler/lex.fsl"
                         RESERVED 
-//# 2660 "lex.fs"
+//# 2663 "lex.fs"
           )
   | 111 -> ( 
-//# 952 "src/fsharp/lex.fsl"
+//# 957 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; INFIX_STAR_STAR_OP(lexeme lexbuf) 
-//# 2665 "lex.fs"
+//# 2668 "lex.fs"
           )
   | 112 -> ( 
-//# 954 "src/fsharp/lex.fsl"
+//# 959 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; INFIX_STAR_DIV_MOD_OP(lexeme lexbuf) 
-//# 2670 "lex.fs"
+//# 2673 "lex.fs"
           )
   | 113 -> ( 
-//# 956 "src/fsharp/lex.fsl"
+//# 961 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; PLUS_MINUS_OP(lexeme lexbuf) 
-//# 2675 "lex.fs"
+//# 2678 "lex.fs"
           )
   | 114 -> ( 
-//# 958 "src/fsharp/lex.fsl"
+//# 963 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; INFIX_AT_HAT_OP(lexeme lexbuf) 
-//# 2680 "lex.fs"
+//# 2683 "lex.fs"
           )
   | 115 -> ( 
-//# 960 "src/fsharp/lex.fsl"
+//# 965 "src/Compiler/lex.fsl"
                                                                               checkExprOp lexbuf; INFIX_COMPARE_OP(lexeme lexbuf) 
-//# 2685 "lex.fs"
+//# 2688 "lex.fs"
           )
   | 116 -> ( 
-//# 962 "src/fsharp/lex.fsl"
+//# 967 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; INFIX_AMP_OP(lexeme lexbuf) 
-//# 2690 "lex.fs"
+//# 2693 "lex.fs"
           )
   | 117 -> ( 
-//# 964 "src/fsharp/lex.fsl"
+//# 969 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; INFIX_BAR_OP(lexeme lexbuf) 
-//# 2695 "lex.fs"
+//# 2698 "lex.fs"
           )
   | 118 -> ( 
-//# 966 "src/fsharp/lex.fsl"
+//# 971 "src/Compiler/lex.fsl"
                                                                          checkExprOp lexbuf; PREFIX_OP(lexeme lexbuf) 
-//# 2700 "lex.fs"
+//# 2703 "lex.fs"
           )
   | 119 -> ( 
-//# 970 "src/fsharp/lex.fsl"
+//# 975 "src/Compiler/lex.fsl"
                                       FUNKY_OPERATOR_NAME(lexeme lexbuf) 
-//# 2705 "lex.fs"
+//# 2708 "lex.fs"
           )
   | 120 -> ( 
-//# 973 "src/fsharp/lex.fsl"
+//# 978 "src/Compiler/lex.fsl"
                     // Treat shebangs like regular comments, but they are only allowed at the start of a file
                       let m = lexbuf.LexemeRange
                       let tok = LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, 1, m))
                       let tok = shouldStartFile args lexbuf m (0,FSComp.SR.lexHashBangMustBeFirstInFile()) tok
-                      if not skip then tok else singleLineComment (None,1,m,args) skip lexbuf 
-//# 2714 "lex.fs"
+                      if not skip then tok else singleLineComment (None,1,m,m,args) skip lexbuf 
+//# 2717 "lex.fs"
           )
   | 121 -> ( 
-//# 981 "src/fsharp/lex.fsl"
-                    if args.lightStatus.ExplicitlySet && args.lightStatus.WarnOnMultipleTokens then
+//# 986 "src/Compiler/lex.fsl"
+                    if args.indentationSyntaxStatus.ExplicitlySet && args.indentationSyntaxStatus.WarnOnMultipleTokens then
                         let s = lexeme lexbuf
                         warning(Error((0, sprintf "%s should only be set once in an F# source file." s), lexbuf.LexemeRange))
                         // TODO: where should this go? (abelb)
                         //warning(Error((0,"#light should only occur as the first non-comment text in an F# source file."), lexbuf.LexemeRange))
-                    args.lightStatus.Status <- true
+                    args.indentationSyntaxStatus.Status <- true
                     if not skip then HASH_LIGHT (LexCont.Token(args.ifdefStack, args.stringNest))
                     else token args skip lexbuf 
-//# 2726 "lex.fs"
+//# 2729 "lex.fs"
           )
   | 122 -> ( 
-//# 991 "src/fsharp/lex.fsl"
-                    args.lightStatus.Status <- false
+//# 996 "src/Compiler/lex.fsl"
+                    args.indentationSyntaxStatus.Status <- false
                     if lexbuf.SupportsFeature LanguageFeature.MLCompatRevisions then
                         mlCompatError (FSComp.SR.mlCompatLightOffNoLongerSupported()) lexbuf.LexemeRange
                     else
                         mlCompatWarning (FSComp.SR.lexIndentOffForML()) lexbuf.LexemeRange
                     if not skip then HASH_LIGHT (LexCont.Token (args.ifdefStack, args.stringNest))
                     else token args skip lexbuf 
-//# 2737 "lex.fs"
+//# 2740 "lex.fs"
           )
   | 123 -> ( 
-//# 1000 "src/fsharp/lex.fsl"
+//# 1005 "src/Compiler/lex.fsl"
                     let m = lexbuf.LexemeRange
-                    let lookup id = List.contains id args.defines
+                    let lookup id = List.contains id args.conditionalDefines
                     let lexed = lexeme lexbuf
-                    let isTrue = evalIfDefExpression lexbuf.StartPos lexbuf.ReportLibraryOnlyFeatures lexbuf.LanguageVersion args lookup lexed
+                    let isTrue, expr = evalIfDefExpression lexbuf.StartPos lexbuf.ReportLibraryOnlyFeatures lexbuf.LanguageVersion args lookup lexed
                     args.ifdefStack <- (IfDefIf,m) :: args.ifdefStack
+                    LexbufIfdefStore.SaveIfHash(lexbuf, lexed, expr, m)
                     // Get the token; make sure it starts at zero position & return
                     let cont, f =
                         if isTrue then
@@ -2755,10 +2759,10 @@ and token args skip lexbuf =
                             cont, f
                     let tok = shouldStartLine args lexbuf m (FSComp.SR.lexHashIfMustBeFirst()) (HASH_IF(m,lexed,cont))
                     if not skip then tok else f lexbuf 
-//# 2758 "lex.fs"
+//# 2762 "lex.fs"
           )
   | 124 -> ( 
-//# 1021 "src/fsharp/lex.fsl"
+//# 1027 "src/Compiler/lex.fsl"
                     let lexed = (lexeme lexbuf)
                     match args.ifdefStack with
                     | [] ->  LEX_FAILURE (FSComp.SR.lexHashElseNoMatchingIf())
@@ -2766,66 +2770,72 @@ and token args skip lexbuf =
                     | (IfDefIf,_) :: rest ->
                       let m = lexbuf.LexemeRange
                       args.ifdefStack <- (IfDefElse,m) :: rest
+                      LexbufIfdefStore.SaveElseHash(lexbuf, lexed, m)
                       let tok = HASH_ELSE(m, lexed, LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Skip(0, m)))
                       let tok = shouldStartLine args lexbuf m (FSComp.SR.lexHashElseMustBeFirst()) tok
                       if not skip then tok else endline (LexerEndlineContinuation.Skip(0, m)) args skip lexbuf 
-//# 2772 "lex.fs"
+//# 2777 "lex.fs"
           )
   | 125 -> ( 
-//# 1033 "src/fsharp/lex.fsl"
+//# 1040 "src/Compiler/lex.fsl"
                     let lexed = (lexeme lexbuf)
                     let m = lexbuf.LexemeRange
                     match args.ifdefStack with
                     | []->  LEX_FAILURE (FSComp.SR.lexHashEndingNoMatchingIf())
                     | _ :: rest ->
                        args.ifdefStack <- rest
+                       LexbufIfdefStore.SaveEndIfHash(lexbuf, lexed, m)
                        let tok = HASH_ENDIF(m,lexed,LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Token))
                        let tok = shouldStartLine args lexbuf m (FSComp.SR.lexHashEndifMustBeFirst()) tok
                        if not skip then tok else endline LexerEndlineContinuation.Token args skip lexbuf 
-//# 2785 "lex.fs"
+//# 2791 "lex.fs"
           )
   | 126 -> ( 
-//# 1044 "src/fsharp/lex.fsl"
+//# 1052 "src/Compiler/lex.fsl"
                     let tok = WHITESPACE (LexCont.Token (args.ifdefStack, args.stringNest))
                     let tok = fail args lexbuf (FSComp.SR.lexHashIfMustHaveIdent()) tok
                     if not skip then tok else token args skip lexbuf 
-//# 2792 "lex.fs"
+//# 2798 "lex.fs"
           )
   | 127 -> ( 
-//# 1052 "src/fsharp/lex.fsl"
+//# 1060 "src/Compiler/lex.fsl"
                     let n = (lexeme lexbuf).IndexOf('#')
                     lexbuf.StartPos <- lexbuf.StartPos.ShiftColumnBy(n)
                     HASH_IDENT(lexemeTrimLeft lexbuf (n+1)) 
-//# 2799 "lex.fs"
+//# 2805 "lex.fs"
           )
   | 128 -> ( 
-//# 1059 "src/fsharp/lex.fsl"
+//# 1067 "src/Compiler/lex.fsl"
                     unexpectedChar lexbuf 
-//# 2804 "lex.fs"
+//# 2810 "lex.fs"
           )
   | 129 -> ( 
-//# 1062 "src/fsharp/lex.fsl"
+//# 1070 "src/Compiler/lex.fsl"
                     EOF (LexCont.Token(args.ifdefStack, args.stringNest)) 
-//# 2809 "lex.fs"
+//# 2815 "lex.fs"
           )
   | _ -> failwith "token"
 // Rule ifdefSkip
 and ifdefSkip n m args skip lexbuf =
   match _fslex_tables.Interpret(308,lexbuf) with
   | 0 -> ( 
-//# 1068 "src/fsharp/lex.fsl"
+//# 1076 "src/Compiler/lex.fsl"
                     let m = lexbuf.LexemeRange
                     // If #if is the first thing on the line then increase depth, otherwise skip, because it is invalid (e.g. "(**) #if ...")
                     if (m.StartColumn <> 0) then
                       if not skip then INACTIVECODE (LexCont.IfDefSkip(args.ifdefStack, args.stringNest, n, m))
                       else ifdefSkip n m args skip lexbuf
                     else
+                      let lexed = lexeme lexbuf
+                      let lookup id = List.contains id args.conditionalDefines
+                      let _, expr = evalIfDefExpression lexbuf.StartPos lexbuf.ReportLibraryOnlyFeatures lexbuf.LanguageVersion args lookup lexed
+                      LexbufIfdefStore.SaveIfHash(lexbuf, lexed, expr, m)
                       let tok = INACTIVECODE(LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Skip(n+1, m)))
                       if not skip then tok else endline (LexerEndlineContinuation.Skip(n+1, m)) args skip lexbuf 
-//# 2825 "lex.fs"
+//# 2835 "lex.fs"
           )
   | 1 -> ( 
-//# 1079 "src/fsharp/lex.fsl"
+//# 1091 "src/Compiler/lex.fsl"
                      let lexed = (lexeme lexbuf)
                      let m = lexbuf.LexemeRange
                      // If #else is the first thing on the line then process it, otherwise ignore, because it is invalid (e.g. "(**) #else ...")
@@ -2838,16 +2848,18 @@ and ifdefSkip n m args skip lexbuf =
                         | (IfDefElse,_) :: _rest -> LEX_FAILURE (FSComp.SR.lexHashEndifRequiredForElse())
                         | (IfDefIf,_) :: rest ->
                           let m = lexbuf.LexemeRange
+                          LexbufIfdefStore.SaveElseHash(lexbuf, lexed, m)
                           args.ifdefStack <- (IfDefElse,m) :: rest
                           if not skip then HASH_ELSE(m,lexed,LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Token))
                           else endline LexerEndlineContinuation.Token args skip lexbuf
                       else
+                        LexbufIfdefStore.SaveElseHash(lexbuf, lexed, m)
                         if not skip then INACTIVECODE(LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Skip(n, m)))
                         else endline (LexerEndlineContinuation.Skip(n, m)) args skip lexbuf 
-//# 2847 "lex.fs"
+//# 2859 "lex.fs"
           )
   | 2 -> ( 
-//# 1100 "src/fsharp/lex.fsl"
+//# 1114 "src/Compiler/lex.fsl"
                      let lexed = lexeme lexbuf
                      let m = lexbuf.LexemeRange
                      // If #endif is the first thing on the line then process it, otherwise ignore, because it is invalid (e.g. "(**) #endif ...")
@@ -2858,38 +2870,40 @@ and ifdefSkip n m args skip lexbuf =
                          match args.ifdefStack with
                          | [] ->  LEX_FAILURE (FSComp.SR.lexHashEndingNoMatchingIf())
                          | _ :: rest ->
+                             LexbufIfdefStore.SaveEndIfHash(lexbuf, lexed, m)
                              args.ifdefStack <- rest
                              if not skip then HASH_ENDIF(m,lexed,LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Token))
                              else endline LexerEndlineContinuation.Token args skip lexbuf
                       else
+                          LexbufIfdefStore.SaveEndIfHash(lexbuf, lexed, m)
                           let tok = INACTIVECODE(LexCont.EndLine(args.ifdefStack, args.stringNest, LexerEndlineContinuation.Skip(n-1, m)))
                           let tok = shouldStartLine args lexbuf m (FSComp.SR.lexWrongNestedHashEndif()) tok
                           if not skip then tok else endline (LexerEndlineContinuation.Skip(n-1, m)) args skip lexbuf 
-//# 2868 "lex.fs"
+//# 2882 "lex.fs"
           )
   | 3 -> ( 
-//# 1120 "src/fsharp/lex.fsl"
+//# 1136 "src/Compiler/lex.fsl"
                      newline lexbuf; ifdefSkip n m args skip lexbuf 
-//# 2873 "lex.fs"
+//# 2887 "lex.fs"
           )
   | 4 -> ( 
-//# 1129 "src/fsharp/lex.fsl"
+//# 1145 "src/Compiler/lex.fsl"
                      // This tries to be nice and get tokens as 'words' because VS uses this when selecting stuff
                      if not skip then INACTIVECODE (LexCont.IfDefSkip(args.ifdefStack, args.stringNest, n, m))
                      else ifdefSkip n m args skip lexbuf 
-//# 2880 "lex.fs"
+//# 2894 "lex.fs"
           )
   | 5 -> ( 
-//# 1134 "src/fsharp/lex.fsl"
+//# 1150 "src/Compiler/lex.fsl"
                      EOF (LexCont.IfDefSkip(args.ifdefStack, args.stringNest, n, m)) 
-//# 2885 "lex.fs"
+//# 2899 "lex.fs"
           )
   | _ -> failwith "ifdefSkip"
 // Rule endline
 and endline cont args skip lexbuf =
   match _fslex_tables.Interpret(301,lexbuf) with
   | 0 -> ( 
-//# 1140 "src/fsharp/lex.fsl"
+//# 1156 "src/Compiler/lex.fsl"
                     newline lexbuf
                     match cont with
                     | LexerEndlineContinuation.Token ->
@@ -2899,31 +2913,31 @@ and endline cont args skip lexbuf =
                         if not skip then INACTIVECODE (LexCont.IfDefSkip(args.ifdefStack, args.stringNest, n, m))
                         else ifdefSkip n m args skip lexbuf
                   
-//# 2902 "lex.fs"
+//# 2916 "lex.fs"
           )
   | 1 -> ( 
-//# 1152 "src/fsharp/lex.fsl"
+//# 1168 "src/Compiler/lex.fsl"
                     match cont with
                     | LexerEndlineContinuation.Token ->
                         EOF(LexCont.Token(args.ifdefStack, args.stringNest))
                     | LexerEndlineContinuation.Skip(n, m) ->
                         EOF(LexCont.IfDefSkip(args.ifdefStack, args.stringNest, n, m))
                   
-//# 2912 "lex.fs"
+//# 2926 "lex.fs"
           )
   | 2 -> ( 
-//# 1162 "src/fsharp/lex.fsl"
+//# 1178 "src/Compiler/lex.fsl"
                     let tok = WHITESPACE (LexCont.Token (args.ifdefStack, args.stringNest))
                     let tok = fail args lexbuf (FSComp.SR.pplexExpectedSingleLineComment()) tok
                     if not skip then tok else token args skip lexbuf 
-//# 2919 "lex.fs"
+//# 2933 "lex.fs"
           )
   | _ -> failwith "endline"
 // Rule singleQuoteString
 and singleQuoteString sargs skip lexbuf =
   match _fslex_tables.Interpret(244,lexbuf) with
   | 0 -> ( 
-//# 1168 "src/fsharp/lex.fsl"
+//# 1184 "src/Compiler/lex.fsl"
                      let (_buf, _fin, m, kind, args) = sargs
                      newline lexbuf
                      let text = lexeme lexbuf
@@ -2931,43 +2945,43 @@ and singleQuoteString sargs skip lexbuf =
                      advanceColumnBy lexbuf (text.Length - text2.Length)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 2934 "lex.fs"
+//# 2948 "lex.fs"
           )
   | 1 -> ( 
-//# 1177 "src/fsharp/lex.fsl"
+//# 1193 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addByteChar buf (escape (lexeme lexbuf).[1])
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 2942 "lex.fs"
+//# 2956 "lex.fs"
           )
   | 2 -> ( 
-//# 1183 "src/fsharp/lex.fsl"
+//# 1199 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let s = lexeme lexbuf
                      addByteChar buf (trigraph s.[1] s.[2] s.[3])
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 2951 "lex.fs"
+//# 2965 "lex.fs"
           )
   | 3 -> ( 
-//# 1190 "src/fsharp/lex.fsl"
+//# 1206 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeChar buf (int (hexGraphShort (lexemeTrimLeft lexbuf 2)))
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf  
-//# 2959 "lex.fs"
+//# 2973 "lex.fs"
           )
   | 4 -> ( 
-//# 1196 "src/fsharp/lex.fsl"
+//# 1212 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeChar buf (int (unicodeGraphShort (lexemeTrimLeft lexbuf 2)))
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf  
-//# 2967 "lex.fs"
+//# 2981 "lex.fs"
           )
   | 5 -> ( 
-//# 1202 "src/fsharp/lex.fsl"
+//# 1218 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let hexChars = lexemeTrimLeft lexbuf 2
                      let result() =
@@ -2983,35 +2997,35 @@ and singleQuoteString sargs skip lexbuf =
                          addUnicodeChar buf (int hi)
                          addUnicodeChar buf (int lo)
                          result() 
-//# 2986 "lex.fs"
+//# 3000 "lex.fs"
           )
   | 6 -> ( 
-//# 1219 "src/fsharp/lex.fsl"
+//# 1235 "src/Compiler/lex.fsl"
                      let (buf, fin, _m, kind, args) = sargs
                      let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                      fin.Finish buf kind (enum<LexerStringFinisherContext>(0)) cont
                    
-//# 2994 "lex.fs"
+//# 3008 "lex.fs"
           )
   | 7 -> ( 
-//# 1225 "src/fsharp/lex.fsl"
+//# 1241 "src/Compiler/lex.fsl"
                      let (buf, fin, _m, kind, args) = sargs
                      let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                      fin.Finish buf { kind with IsByteString = true } (enum<LexerStringFinisherContext>(0)) cont
                    
-//# 3002 "lex.fs"
+//# 3016 "lex.fs"
           )
   | 8 -> ( 
-//# 1231 "src/fsharp/lex.fsl"
+//# 1247 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let s = lexeme lexbuf
                      addUnicodeString buf (if kind.IsInterpolated then s.[0..0] else s)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 3011 "lex.fs"
+//# 3025 "lex.fs"
           )
   | 9 -> ( 
-//# 1238 "src/fsharp/lex.fsl"
+//# 1254 "src/Compiler/lex.fsl"
                      let (buf, fin, m, kind, args) = sargs
                      if kind.IsInterpolated then
                          // get a new range for where the fill starts
@@ -3024,10 +3038,10 @@ and singleQuoteString sargs skip lexbuf =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                          else singleQuoteString sargs skip lexbuf
                    
-//# 3027 "lex.fs"
+//# 3041 "lex.fs"
           )
   | 10 -> ( 
-//# 1252 "src/fsharp/lex.fsl"
+//# 1268 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let result() =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
@@ -3038,103 +3052,103 @@ and singleQuoteString sargs skip lexbuf =
                          addUnicodeString buf (lexeme lexbuf)
                          (result())
                    
-//# 3041 "lex.fs"
+//# 3055 "lex.fs"
           )
   | 11 -> ( 
-//# 1264 "src/fsharp/lex.fsl"
+//# 1280 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      newline lexbuf
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 3050 "lex.fs"
+//# 3064 "lex.fs"
           )
   | 12 -> ( 
-//# 1271 "src/fsharp/lex.fsl"
+//# 1287 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 3058 "lex.fs"
+//# 3072 "lex.fs"
           )
   | 13 -> ( 
-//# 1278 "src/fsharp/lex.fsl"
+//# 1294 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
-//# 3066 "lex.fs"
-          )
-  | 14 -> ( 
-//# 1284 "src/fsharp/lex.fsl"
-                     let (buf, _fin, m, kind, args) = sargs
-                     addUnicodeString buf (lexeme lexbuf)
-                     if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
-                     else singleQuoteString sargs skip lexbuf 
-//# 3074 "lex.fs"
-          )
-  | 15 -> ( 
-//# 1290 "src/fsharp/lex.fsl"
-                     let (_buf, _fin, m, kind, args) = sargs
-                     EOF (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m)) 
 //# 3080 "lex.fs"
           )
-  | 16 -> ( 
-//# 1296 "src/fsharp/lex.fsl"
+  | 14 -> ( 
+//# 1300 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
                      else singleQuoteString sargs skip lexbuf 
 //# 3088 "lex.fs"
           )
+  | 15 -> ( 
+//# 1306 "src/Compiler/lex.fsl"
+                     let (_buf, _fin, m, kind, args) = sargs
+                     EOF (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m)) 
+//# 3094 "lex.fs"
+          )
+  | 16 -> ( 
+//# 1312 "src/Compiler/lex.fsl"
+                     let (buf, _fin, m, kind, args) = sargs
+                     addUnicodeString buf (lexeme lexbuf)
+                     if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, kind, m))
+                     else singleQuoteString sargs skip lexbuf 
+//# 3102 "lex.fs"
+          )
   | _ -> failwith "singleQuoteString"
 // Rule verbatimString
 and verbatimString sargs skip lexbuf =
   match _fslex_tables.Interpret(211,lexbuf) with
   | 0 -> ( 
-//# 1303 "src/fsharp/lex.fsl"
+//# 1319 "src/Compiler/lex.fsl"
                     let (buf, _fin, m, kind, args) = sargs
                     addByteChar buf '\"'
                     if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                     else verbatimString sargs skip lexbuf 
-//# 3100 "lex.fs"
+//# 3114 "lex.fs"
           )
   | 1 -> ( 
-//# 1309 "src/fsharp/lex.fsl"
+//# 1325 "src/Compiler/lex.fsl"
                      let (buf, fin, _m, kind, args) = sargs
                      let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                      fin.Finish buf kind LexerStringFinisherContext.Verbatim cont
                    
-//# 3108 "lex.fs"
+//# 3122 "lex.fs"
           )
   | 2 -> ( 
-//# 1315 "src/fsharp/lex.fsl"
+//# 1331 "src/Compiler/lex.fsl"
                      let (buf, fin, _m, kind, args) = sargs
                      let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                      fin.Finish buf { kind with IsByteString = true } LexerStringFinisherContext.Verbatim cont
                    
-//# 3116 "lex.fs"
+//# 3130 "lex.fs"
           )
   | 3 -> ( 
-//# 1321 "src/fsharp/lex.fsl"
+//# 1337 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      newline lexbuf
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                      else verbatimString sargs skip lexbuf 
-//# 3125 "lex.fs"
+//# 3139 "lex.fs"
           )
   | 4 -> ( 
-//# 1328 "src/fsharp/lex.fsl"
+//# 1344 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let s = lexeme lexbuf
                      addUnicodeString buf (if kind.IsInterpolated then s.[0..0] else s)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                      else verbatimString sargs skip lexbuf 
-//# 3134 "lex.fs"
+//# 3148 "lex.fs"
           )
   | 5 -> ( 
-//# 1335 "src/fsharp/lex.fsl"
+//# 1351 "src/Compiler/lex.fsl"
                      let (buf, fin, m, kind, args) = sargs
                      if kind.IsInterpolated then
                          // get a new range for where the fill starts
@@ -3147,10 +3161,10 @@ and verbatimString sargs skip lexbuf =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                          else verbatimString sargs skip lexbuf
                    
-//# 3150 "lex.fs"
+//# 3164 "lex.fs"
           )
   | 6 -> ( 
-//# 1349 "src/fsharp/lex.fsl"
+//# 1365 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let result() =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
@@ -3161,101 +3175,101 @@ and verbatimString sargs skip lexbuf =
                          addUnicodeString buf (lexeme lexbuf)
                          (result())
                    
-//# 3164 "lex.fs"
+//# 3178 "lex.fs"
           )
   | 7 -> ( 
-//# 1361 "src/fsharp/lex.fsl"
+//# 1377 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                      else verbatimString sargs skip lexbuf 
-//# 3172 "lex.fs"
+//# 3186 "lex.fs"
           )
   | 8 -> ( 
-//# 1368 "src/fsharp/lex.fsl"
+//# 1384 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                      else verbatimString sargs skip lexbuf 
-//# 3180 "lex.fs"
-          )
-  | 9 -> ( 
-//# 1374 "src/fsharp/lex.fsl"
-                     let (buf, _fin, m, kind, args) = sargs
-                     addUnicodeString buf (lexeme lexbuf)
-                     if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
-                     else verbatimString sargs skip lexbuf 
-//# 3188 "lex.fs"
-          )
-  | 10 -> ( 
-//# 1380 "src/fsharp/lex.fsl"
-                     let (_buf, _fin, m, kind, args) = sargs
-                     EOF (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m)) 
 //# 3194 "lex.fs"
           )
-  | 11 -> ( 
-//# 1385 "src/fsharp/lex.fsl"
+  | 9 -> ( 
+//# 1390 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
                      else verbatimString sargs skip lexbuf 
 //# 3202 "lex.fs"
           )
+  | 10 -> ( 
+//# 1396 "src/Compiler/lex.fsl"
+                     let (_buf, _fin, m, kind, args) = sargs
+                     EOF (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m)) 
+//# 3208 "lex.fs"
+          )
+  | 11 -> ( 
+//# 1401 "src/Compiler/lex.fsl"
+                     let (buf, _fin, m, kind, args) = sargs
+                     addUnicodeString buf (lexeme lexbuf)
+                     if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, kind, m))
+                     else verbatimString sargs skip lexbuf 
+//# 3216 "lex.fs"
+          )
   | _ -> failwith "verbatimString"
 // Rule tripleQuoteString
 and tripleQuoteString sargs skip lexbuf =
   match _fslex_tables.Interpret(178,lexbuf) with
   | 0 -> ( 
-//# 1392 "src/fsharp/lex.fsl"
+//# 1408 "src/Compiler/lex.fsl"
                      let (buf, fin, _m, kind, args) = sargs
                      let cont = LexCont.Token(args.ifdefStack, args.stringNest)
                      fin.Finish buf kind (enum<LexerStringFinisherContext>(4)) cont 
-//# 3213 "lex.fs"
+//# 3227 "lex.fs"
           )
   | 1 -> ( 
-//# 1397 "src/fsharp/lex.fsl"
+//# 1413 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      newline lexbuf
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3222 "lex.fs"
+//# 3236 "lex.fs"
           )
   | 2 -> ( 
-//# 1405 "src/fsharp/lex.fsl"
+//# 1421 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3230 "lex.fs"
+//# 3244 "lex.fs"
           )
   | 3 -> ( 
-//# 1412 "src/fsharp/lex.fsl"
+//# 1428 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3238 "lex.fs"
+//# 3252 "lex.fs"
           )
   | 4 -> ( 
-//# 1418 "src/fsharp/lex.fsl"
+//# 1434 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3246 "lex.fs"
+//# 3260 "lex.fs"
           )
   | 5 -> ( 
-//# 1424 "src/fsharp/lex.fsl"
+//# 1440 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let s = lexeme lexbuf
                      addUnicodeString buf (if kind.IsInterpolated then s.[0..0] else s)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3255 "lex.fs"
+//# 3269 "lex.fs"
           )
   | 6 -> ( 
-//# 1431 "src/fsharp/lex.fsl"
+//# 1447 "src/Compiler/lex.fsl"
                      let (buf, fin, m, kind, args) = sargs
                      if kind.IsInterpolated then
                          // get a new range for where the fill starts
@@ -3268,10 +3282,10 @@ and tripleQuoteString sargs skip lexbuf =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                          else tripleQuoteString sargs skip lexbuf
                    
-//# 3271 "lex.fs"
+//# 3285 "lex.fs"
           )
   | 7 -> ( 
-//# 1445 "src/fsharp/lex.fsl"
+//# 1461 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      let result() =
                          if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
@@ -3282,116 +3296,120 @@ and tripleQuoteString sargs skip lexbuf =
                          addUnicodeString buf (lexeme lexbuf)
                          (result())
                    
-//# 3285 "lex.fs"
+//# 3299 "lex.fs"
           )
   | 8 -> ( 
-//# 1457 "src/fsharp/lex.fsl"
+//# 1473 "src/Compiler/lex.fsl"
                      let (_buf, _fin, m, kind, args) = sargs
                      EOF (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m)) 
-//# 3291 "lex.fs"
+//# 3305 "lex.fs"
           )
   | 9 -> ( 
-//# 1462 "src/fsharp/lex.fsl"
+//# 1478 "src/Compiler/lex.fsl"
                      let (buf, _fin, m, kind, args) = sargs
                      addUnicodeString buf (lexeme lexbuf)
                      if not skip then STRING_TEXT (LexCont.String(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, kind, m))
                      else tripleQuoteString sargs skip lexbuf 
-//# 3299 "lex.fs"
+//# 3313 "lex.fs"
           )
   | _ -> failwith "tripleQuoteString"
 // Rule singleLineComment
 and singleLineComment cargs skip lexbuf =
   match _fslex_tables.Interpret(165,lexbuf) with
   | 0 -> ( 
-//# 1470 "src/fsharp/lex.fsl"
-                      let buff,_n, _m, args = cargs
+//# 1486 "src/Compiler/lex.fsl"
+                      let buff,_n, mStart, mEnd, args = cargs
                       trySaveXmlDoc lexbuf buff
                       newline lexbuf
                       // Saves the documentation (if we're collecting any) into a buffer-local variable.
                       if not skip then LINE_COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
-                      else token args skip lexbuf 
-//# 3313 "lex.fs"
+                      else
+                          if Option.isNone buff then LexbufCommentStore.SaveSingleLineComment(lexbuf, mStart, mEnd)
+                          token args skip lexbuf 
+//# 3329 "lex.fs"
           )
   | 1 -> ( 
-//# 1478 "src/fsharp/lex.fsl"
-                      let _, _n, _m, args = cargs
+//# 1496 "src/Compiler/lex.fsl"
+                      let buff, _n, mStart, mEnd, args = cargs
+                      trySaveXmlDoc lexbuf buff
+                      LexbufCommentStore.SaveSingleLineComment(lexbuf, mStart, mEnd)
                       // NOTE: it is legal to end a file with this comment, so we'll return EOF as a token
                       EOF (LexCont.Token(args.ifdefStack, args.stringNest)) 
-//# 3320 "lex.fs"
+//# 3338 "lex.fs"
           )
   | 2 -> ( 
-//# 1484 "src/fsharp/lex.fsl"
-                      let buff, n, m, args = cargs
+//# 1504 "src/Compiler/lex.fsl"
+                      let buff, n, m, _, args = cargs
                       // Append the current token to the XML documentation if we're collecting it
                       tryAppendXmlDoc buff (lexeme lexbuf)
                       if not skip then LINE_COMMENT (LexCont.SingleLineComment(args.ifdefStack, args.stringNest, n, m))
-                      else singleLineComment (buff, n, m, args) skip lexbuf  
-//# 3329 "lex.fs"
+                      else singleLineComment (buff, n, m, lexbuf.LexemeRange, args) skip lexbuf  
+//# 3347 "lex.fs"
           )
   | 3 -> ( 
-//# 1491 "src/fsharp/lex.fsl"
-                      let _, _n, _m, args = cargs
+//# 1511 "src/Compiler/lex.fsl"
+                      let _, _n, _mStart, _mEnd, args = cargs
                       if not skip then LINE_COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 3336 "lex.fs"
+//# 3354 "lex.fs"
           )
   | _ -> failwith "singleLineComment"
 // Rule comment
 and comment cargs skip lexbuf =
   match _fslex_tables.Interpret(139,lexbuf) with
   | 0 -> ( 
-//# 1498 "src/fsharp/lex.fsl"
+//# 1518 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                      else comment (n, m, args) skip lexbuf  
-//# 3347 "lex.fs"
+//# 3365 "lex.fs"
           )
   | 1 -> ( 
-//# 1503 "src/fsharp/lex.fsl"
+//# 1523 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m))
                      else stringInComment n m args skip lexbuf 
-//# 3354 "lex.fs"
+//# 3372 "lex.fs"
           )
   | 2 -> ( 
-//# 1508 "src/fsharp/lex.fsl"
+//# 1528 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, n, m))
                      else tripleQuoteStringInComment n m args skip lexbuf 
-//# 3361 "lex.fs"
+//# 3379 "lex.fs"
           )
   | 3 -> ( 
-//# 1513 "src/fsharp/lex.fsl"
+//# 1533 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m))
                      else verbatimStringInComment n m args skip lexbuf 
-//# 3368 "lex.fs"
+//# 3386 "lex.fs"
           )
   | 4 -> ( 
-//# 1518 "src/fsharp/lex.fsl"
+//# 1538 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      LexbufLocalXmlDocStore.AddGrabPoint(lexbuf)
                      if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                      else comment cargs skip lexbuf 
-//# 3376 "lex.fs"
+//# 3394 "lex.fs"
           )
   | 5 -> ( 
-//# 1524 "src/fsharp/lex.fsl"
+//# 1544 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n+1, m))
                      else comment (n+1,m,args) skip lexbuf 
-//# 3383 "lex.fs"
+//# 3401 "lex.fs"
           )
   | 6 -> ( 
-//# 1529 "src/fsharp/lex.fsl"
+//# 1549 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      newline lexbuf
                      if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                      else comment cargs skip lexbuf 
-//# 3391 "lex.fs"
+//# 3409 "lex.fs"
           )
   | 7 -> ( 
-//# 1534 "src/fsharp/lex.fsl"
+//# 1554 "src/Compiler/lex.fsl"
                     
                      let n, m, args = cargs
                      if n > 1 then
@@ -3400,192 +3418,194 @@ and comment cargs skip lexbuf =
                      else
                          LexbufLocalXmlDocStore.AddGrabPointDelayed(lexbuf)
                          if not skip then COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
-                         else token args skip lexbuf 
-//# 3404 "lex.fs"
+                         else
+                             LexbufCommentStore.SaveBlockComment(lexbuf, m, lexbuf.LexemeRange) 
+                             token args skip lexbuf 
+//# 3424 "lex.fs"
           )
   | 8 -> ( 
-//# 1546 "src/fsharp/lex.fsl"
+//# 1568 "src/Compiler/lex.fsl"
                      let n, m, args = cargs
                      if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                      else comment cargs skip lexbuf 
-//# 3411 "lex.fs"
+//# 3431 "lex.fs"
           )
   | 9 -> ( 
-//# 1551 "src/fsharp/lex.fsl"
+//# 1573 "src/Compiler/lex.fsl"
                       let n, m, args = cargs
                       EOF (LexCont.Comment(args.ifdefStack, args.stringNest, n, m)) 
-//# 3417 "lex.fs"
+//# 3437 "lex.fs"
           )
   | 10 -> ( 
-//# 1555 "src/fsharp/lex.fsl"
+//# 1577 "src/Compiler/lex.fsl"
                       let n, m, args = cargs
                       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                       else comment (n, m, args) skip lexbuf 
-//# 3424 "lex.fs"
+//# 3444 "lex.fs"
           )
   | _ -> failwith "comment"
 // Rule stringInComment
 and stringInComment n m args skip lexbuf =
   match _fslex_tables.Interpret(90,lexbuf) with
   | 0 -> ( 
-//# 1562 "src/fsharp/lex.fsl"
+//# 1584 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m))
                       else stringInComment n m args skip lexbuf 
-//# 3435 "lex.fs"
+//# 3455 "lex.fs"
           )
   | 1 -> ( 
-//# 1575 "src/fsharp/lex.fsl"
+//# 1597 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m))
                       else stringInComment n m args skip lexbuf 
-//# 3441 "lex.fs"
+//# 3461 "lex.fs"
           )
   | 2 -> ( 
-//# 1580 "src/fsharp/lex.fsl"
+//# 1602 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                       else comment (n, m, args) skip lexbuf 
-//# 3447 "lex.fs"
+//# 3467 "lex.fs"
           )
   | 3 -> ( 
-//# 1584 "src/fsharp/lex.fsl"
+//# 1606 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m))
                       else stringInComment n m args skip lexbuf 
-//# 3454 "lex.fs"
+//# 3474 "lex.fs"
           )
   | 4 -> ( 
-//# 1589 "src/fsharp/lex.fsl"
+//# 1611 "src/Compiler/lex.fsl"
                       EOF (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m)) 
-//# 3459 "lex.fs"
+//# 3479 "lex.fs"
           )
   | 5 -> ( 
-//# 1593 "src/fsharp/lex.fsl"
+//# 1615 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.SingleQuote, n, m))
                       else stringInComment n m args skip lexbuf 
-//# 3465 "lex.fs"
+//# 3485 "lex.fs"
           )
   | _ -> failwith "stringInComment"
 // Rule verbatimStringInComment
 and verbatimStringInComment n m args skip lexbuf =
   match _fslex_tables.Interpret(61,lexbuf) with
   | 0 -> ( 
-//# 1599 "src/fsharp/lex.fsl"
+//# 1621 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m))
                       else verbatimStringInComment n m args skip lexbuf 
-//# 3475 "lex.fs"
+//# 3495 "lex.fs"
           )
   | 1 -> ( 
-//# 1603 "src/fsharp/lex.fsl"
+//# 1625 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                       else comment (n, m, args) skip lexbuf 
-//# 3481 "lex.fs"
+//# 3501 "lex.fs"
           )
   | 2 -> ( 
-//# 1610 "src/fsharp/lex.fsl"
+//# 1632 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m))
                       else verbatimStringInComment n m args skip lexbuf 
-//# 3487 "lex.fs"
+//# 3507 "lex.fs"
           )
   | 3 -> ( 
-//# 1614 "src/fsharp/lex.fsl"
+//# 1636 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m))
                       else verbatimStringInComment n m args skip lexbuf 
-//# 3494 "lex.fs"
+//# 3514 "lex.fs"
           )
   | 4 -> ( 
-//# 1619 "src/fsharp/lex.fsl"
+//# 1641 "src/Compiler/lex.fsl"
                       EOF (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m)) 
-//# 3499 "lex.fs"
+//# 3519 "lex.fs"
           )
   | 5 -> ( 
-//# 1623 "src/fsharp/lex.fsl"
+//# 1645 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.Verbatim, n, m))
                       else verbatimStringInComment n m args skip lexbuf 
-//# 3505 "lex.fs"
+//# 3525 "lex.fs"
           )
   | _ -> failwith "verbatimStringInComment"
 // Rule tripleQuoteStringInComment
 and tripleQuoteStringInComment n m args skip lexbuf =
   match _fslex_tables.Interpret(31,lexbuf) with
   | 0 -> ( 
-//# 1629 "src/fsharp/lex.fsl"
+//# 1651 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Comment(args.ifdefStack, args.stringNest, n, m))
                       else comment (n, m, args) skip lexbuf 
-//# 3515 "lex.fs"
+//# 3535 "lex.fs"
           )
   | 1 -> ( 
-//# 1636 "src/fsharp/lex.fsl"
+//# 1658 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, n, m))
                       else tripleQuoteStringInComment n m args skip lexbuf 
-//# 3521 "lex.fs"
+//# 3541 "lex.fs"
           )
   | 2 -> ( 
-//# 1640 "src/fsharp/lex.fsl"
+//# 1662 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, n, m))
                       else tripleQuoteStringInComment n m args skip lexbuf 
-//# 3528 "lex.fs"
+//# 3548 "lex.fs"
           )
   | 3 -> ( 
-//# 1645 "src/fsharp/lex.fsl"
+//# 1667 "src/Compiler/lex.fsl"
                       EOF (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, n, m)) 
-//# 3533 "lex.fs"
+//# 3553 "lex.fs"
           )
   | 4 -> ( 
-//# 1649 "src/fsharp/lex.fsl"
+//# 1671 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.StringInComment(args.ifdefStack, args.stringNest, LexerStringStyle.TripleQuote, n, m))
                       else tripleQuoteStringInComment n m args skip lexbuf 
-//# 3539 "lex.fs"
+//# 3559 "lex.fs"
           )
   | _ -> failwith "tripleQuoteStringInComment"
 // Rule mlOnly
 and mlOnly m args skip lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 1655 "src/fsharp/lex.fsl"
+//# 1677 "src/Compiler/lex.fsl"
                       let buf = ByteBuffer.Create StringCapacity
                       let m2 = lexbuf.LexemeRange
                       let _ = singleQuoteString (buf, LexerStringFinisher.Default, m2, LexerStringKind.String, args) skip lexbuf
                       if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))
                       else mlOnly m args skip lexbuf 
-//# 3552 "lex.fs"
+//# 3572 "lex.fs"
           )
   | 1 -> ( 
-//# 1662 "src/fsharp/lex.fsl"
+//# 1684 "src/Compiler/lex.fsl"
                       newline lexbuf
                       if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))
                       else mlOnly m args skip lexbuf 
-//# 3559 "lex.fs"
+//# 3579 "lex.fs"
           )
   | 2 -> ( 
-//# 1667 "src/fsharp/lex.fsl"
+//# 1689 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 3565 "lex.fs"
+//# 3585 "lex.fs"
           )
   | 3 -> ( 
-//# 1671 "src/fsharp/lex.fsl"
+//# 1693 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.Token(args.ifdefStack, args.stringNest))
                       else token args skip lexbuf 
-//# 3571 "lex.fs"
+//# 3591 "lex.fs"
           )
   | 4 -> ( 
-//# 1675 "src/fsharp/lex.fsl"
+//# 1697 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))
                       else mlOnly m args skip lexbuf 
-//# 3577 "lex.fs"
+//# 3597 "lex.fs"
           )
   | 5 -> ( 
-//# 1679 "src/fsharp/lex.fsl"
+//# 1701 "src/Compiler/lex.fsl"
                       EOF (LexCont.MLOnly(args.ifdefStack, args.stringNest, m)) 
-//# 3582 "lex.fs"
+//# 3602 "lex.fs"
           )
   | 6 -> ( 
-//# 1683 "src/fsharp/lex.fsl"
+//# 1705 "src/Compiler/lex.fsl"
                       if not skip then COMMENT (LexCont.MLOnly(args.ifdefStack, args.stringNest, m))
                       else mlOnly m args skip lexbuf 
-//# 3588 "lex.fs"
+//# 3608 "lex.fs"
           )
   | _ -> failwith "mlOnly"
 

@@ -3,11 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <RollForward>Major</RollForward>
+    <!-- <RollForward>Major</RollForward> -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="source-map-sharp" Version="1.0.7" />
+    <PackageReference Include="source-map-sharp" Version="1.0.8" />
   </ItemGroup>
 
   <ItemGroup>

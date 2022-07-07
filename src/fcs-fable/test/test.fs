@@ -8,7 +8,7 @@ open Fable.Compiler.Platform
 // let references = Metadata.references_full
 // let metadataPath = "../../../../temp/metadata/" // .NET BCL binaries
 let references = Metadata.references_core
-let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
+let metadataPath =  __SOURCE_DIRECTORY__ + "/../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 [<EntryPoint>]
 let main _argv =
@@ -20,7 +20,7 @@ let main _argv =
     let checker = InteractiveChecker.Create(references, readAllBytes, defines, optimize)
 
     let projectFileName = "project"
-    let fileName = "test_script.fsx"
+    let fileName = __SOURCE_DIRECTORY__ + "/test_script.fsx"
     let source = readAllText fileName
 
     let parseResults, typeCheckResults, projectResults =

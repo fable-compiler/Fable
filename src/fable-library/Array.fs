@@ -151,14 +151,21 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[
 
 let where predicate (array: _[]) = filterImpl predicate array
 
-let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+let indexOf<'T> (array: 'T[]) (item: 'T) (start: int option) (count: int option) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let start = defaultArg start 0
+    let end' = count |> Option.map (fun c -> start + c) |> Option.defaultValue array.Length
+
     let rec loop i =
-        if i >= array.Length
-        then false
+        if i >= end'
+        then -1
         else
-            if eq.Equals (value, array.[i]) then true
+            if eq.Equals (item, array.[i]) then i
             else loop (i + 1)
-    loop 0
+
+    loop start
+
+let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    indexOf array value None None eq >= 0
 
 let empty cons = allocateArrayFromCons cons 0
 
@@ -275,9 +282,8 @@ let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
         insertImpl array i x |> ignore
         i <- i + 1
 
-let removeInPlace (item: 'T) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let i = indexOfImpl array item 0
+let removeInPlace (item: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let i = indexOf array item None None eq
     if i > -1 then
         spliceImpl array i 1 |> ignore
         true
@@ -332,11 +338,6 @@ let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count
 //             if i < trg.Length then
 //               Array.blit src 0 trg i src.Length
 //               loopi (i + src.Length) in loopi 0
-
-let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
-    let start = defaultArg start 0
-    let i = indexOfImpl array item start
-    if count.IsSome && i >= start + count.Value then -1 else i
 
 let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: Cons<'T>) =
     let len = source.Length

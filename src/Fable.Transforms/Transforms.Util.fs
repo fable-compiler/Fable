@@ -489,6 +489,9 @@ module AST =
     let makeNull () =
         Value(Null Any, None)
 
+    let makeNone t =
+        Value(NewOption(None, t, false), None)
+
     let makeValue r value =
         Value(value, r)
 
@@ -533,6 +536,10 @@ module AST =
     let makeStrConst (x: string) = StringConstant x |> makeValue None
     let makeIntConst (x: int) = NumberConstant (x, Int32, NumberInfo.Empty) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, NumberInfo.Empty) |> makeValue None
+
+    let makeRegexConst r (pattern: string) flags =
+        let flags = RegexGlobal::RegexUnicode::flags // .NET regex are always global & unicode
+        RegexConstant(pattern, flags) |> makeValue r
 
     let makeConstFromObj (value: obj) =
         match value with
