@@ -49,7 +49,7 @@ let shouldConvertTaskToASyncAndEvalCorrectly () =
 //     let t = Async.StartAsTask comp
 //     t.Result |> equal 5
 
-[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.RefType.Arc)>]
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Arc)>]
 type ArcRecord = {
     A: int
 }

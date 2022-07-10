@@ -72,14 +72,13 @@ pub mod Native_ {
         mkRefMut(x)
     }
 
-    #[inline]
-    pub fn array<T: Clone>(v: Vec<T>) -> Array<T> {
-        mkRefMut(v)
-    }
-
     // -----------------------------------------------------------
     // Arrays
     // -----------------------------------------------------------
+
+    pub fn array<T: Clone>(v: Vec<T>) -> Array<T> {
+        mkRefMut(v)
+    }
 
     pub fn arrayEmpty<T: Clone>() -> Array<T> {
         array(Vec::new())
