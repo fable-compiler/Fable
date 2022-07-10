@@ -818,6 +818,16 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
         | _ -> None
+    | "Fable.Core.Rust", _ ->
+        match i.CompiledName, args with
+        | "import", [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] ->
+            makeImportUserGenerated r t selector path |> Some
+        | "importAll", [RequireStringConst com ctx r path] ->
+            makeImportUserGenerated r t "*" path |> Some
+        | "emitExpr", [args; RequireStringConst com ctx r macro] ->
+            let args = destructureTupleArgs [args]
+            emitExpr r t args macro |> Some
+        | _ -> None
     | _ -> None
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

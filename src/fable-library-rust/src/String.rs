@@ -91,7 +91,7 @@ pub mod String_ {
         string(s.trim_matches(c))
     }
 
-    pub fn trimChars(s: string, a: Array<char> ) -> string {
+    pub fn trimChars(s: string, a: Array<char>) -> string {
         string(s.trim_matches(a.as_slice()))
     }
 
@@ -103,7 +103,7 @@ pub mod String_ {
         string(s.trim_end_matches(c))
     }
 
-    pub fn trimEndChars(s: string, a: Array<char> ) -> string {
+    pub fn trimEndChars(s: string, a: Array<char>) -> string {
         string(s.trim_end_matches(a.as_slice()))
     }
 
@@ -115,7 +115,7 @@ pub mod String_ {
         string(s.trim_start_matches(c))
     }
 
-    pub fn trimStartChars(s: string, a: Array<char> ) -> string {
+    pub fn trimStartChars(s: string, a: Array<char>) -> string {
         string(s.trim_start_matches(a.as_slice()))
     }
 
@@ -164,7 +164,6 @@ pub mod String_ {
         let right = substring(s, i + count);
         string(&[left.as_ref(), right.as_ref()].concat())
     }
-
 
     fn toIndex(offset: i32, opt: Option<(&str, &str)>) -> i32 {
         match opt {
