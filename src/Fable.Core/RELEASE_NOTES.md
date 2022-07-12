@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-006
+
+* Some Rust helpers
+
 ### 4.0.0-snake-island-alpha-005
 
 * DartNullable and other Dart helpers
