@@ -53,6 +53,9 @@ type PrinterImpl(writer: Writer) =
             builder.Clear() |> ignore
         }
 
+    interface IDisposable with
+        member _.Dispose() = writer.Dispose()
+
     interface Printer with
         member _.Line = line
         member _.Column = column
@@ -1066,7 +1069,7 @@ let run writer (program: Program): Async<unit> =
             printer.PrintNewLine()
 
     async {
-        let printer = new PrinterImpl(writer)
+        use printer = new PrinterImpl(writer)
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
