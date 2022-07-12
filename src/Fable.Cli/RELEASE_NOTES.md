@@ -1,3 +1,11 @@
+### 4.0.0-snake-island-alpha-012
+
+* Update to latest FCS @ncave
+* Rust Support module imports @ncave
+* Rust: Implement basic thread pool + tasks + task builder @alexswan10k
+* Rust: Async builder, tasks, configurable pointer types @alexswan10k
+* Rust: attribute support @ncave
+
 ### 4.0.0-snake-island-alpha-011
 
 * Fix import paths in Python
