@@ -229,10 +229,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
             let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, NumberInfo.Empty), args)
             Helper.LibCall(com, "Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
-        | Int64 | UInt64 -> TypeCast(args.Head, targetType)
-        | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 as kind -> TypeCast(args.Head, targetType)
-        | Float32 | Float64 -> TypeCast(args.Head, targetType)
-        | NativeInt | UNativeInt -> FableError "Converting (u)nativeint to long is not supported" |> raise
+        | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -933,6 +930,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         toInt com ctx r t args |> Some
     | "ToInt64", _ -> toLong com ctx r false t args |> Some
     | "ToUInt64", _ -> toLong com ctx r true t args |> Some
+    | "ToIntPtr", _ -> toLong com ctx r false t args |> Some
+    | "ToUIntPtr", _ -> toLong com ctx r true t args |> Some
     | ("ToSingle"|"ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com args.Head |> Some

@@ -197,8 +197,6 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         | Some "Winexe" -> OutputType.Winexe
         | _ -> OutputType.Library
 
-    member _.Options = options
-    member _.CurrentFile = currentFile
     member _.Logs = logs.ToArray()
     member _.WatchDependencies =
         match watchDependencies with Some w -> Array.ofSeq w | None -> [||]

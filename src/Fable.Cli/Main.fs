@@ -147,8 +147,9 @@ module private Util =
                 changeExtension file fileExt
 
     let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent = async {
+        let fileName = (com :> Compiler).CurrentFile
         try
-            let outPath = getOutPath cliArgs pathResolver com.CurrentFile
+            let outPath = getOutPath cliArgs pathResolver fileName
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
@@ -156,13 +157,13 @@ module private Util =
 
             do! Pipeline.compileFile com cliArgs pathResolver isSilent outPath
 
-            return Ok {| File = com.CurrentFile
+            return Ok {| File = fileName
                          OutPath = outPath
                          Logs = com.Logs
                          InlineExprs = Array.empty<string * InlineExpr>
                          WatchDependencies = com.WatchDependencies |}
         with e ->
-            return Error {| File = com.CurrentFile
+            return Error {| File = fileName
                             Exception = e |}
     }
 

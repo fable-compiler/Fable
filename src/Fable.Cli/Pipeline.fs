@@ -226,38 +226,54 @@ module Python =
         })
     initFileWriter.Start()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let python =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Python.Compiler.transformFile com
 
-        let outPath = getTargetPath cliArgs outPath
+        if not (isSilent || PythonPrinter.isEmpty python) then
+            let outPath = getTargetPath cliArgs outPath
 
-        // TODO: Check if compilation is silent or file is empty (see JS)
-        let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)
-        do! PythonPrinter.run writer python
+            let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)
+            do! PythonPrinter.run writer python
 
-        match com.OutputType with
-        | OutputType.Library ->
-            // Make sure we include an empty `__init__.py` in every directory of a library
-            let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
-            initFileWriter.Post(outPath)
+            match com.OutputType with
+            | OutputType.Library ->
+                // Make sure we include an empty `__init__.py` in every directory of a library
+                let outPath = Path.Combine((Path.GetDirectoryName(outPath), "__init__.py"))
+                initFileWriter.Post(outPath)
 
-        | _ -> ()
+            | _ -> ()
     }
 
 module Php =
-    let compileFile (com: Compiler) (outPath: string) = async {
+    type PhpWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let stream = new IO.StreamWriter(targetPath)
+        interface Printer.Writer with
+            member _.EscapeStringLiteral(str) = str
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+                if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
+            member _.AddSourceMapping _ = ()
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let php =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
-            |> Fable2Php.transformFile com
+            |> Fable2Php.Compiler.transformFile com
 
-        use w = new IO.StreamWriter(outPath)
-        let ctx = PhpPrinter.Output.Writer.create w
-        PhpPrinter.Output.writeFile ctx php
-        w.Flush()
+        if not (isSilent || PhpPrinter.isEmpty php) then
+            use writer = new PhpWriter(com, cliArgs, pathResolver, outPath)
+            do! PhpPrinter.run writer php
     }
 
 module Dart =
@@ -285,7 +301,7 @@ module Dart =
             |> FableTransforms.transformFile com
             |> Fable2Dart.Compiler.transformFile com
 
-        if not(isSilent || file.IsEmpty) then
+        if not (isSilent || DartPrinter.isEmpty file) then
             use writer = new DartWriter(com, cliArgs, pathResolver, outPath)
             do! DartPrinter.run writer file
     }
@@ -310,21 +326,21 @@ module Rust =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver (outPath: string) = async {
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let crate =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Rust.Compiler.transformFile com
 
-        // TODO: Check if compilation is silent or file is empty (see JS)
-        use writer = new RustWriter(com, cliArgs, pathResolver, outPath)
-        do! RustPrinter.run writer crate
+        if not (isSilent || RustPrinter.isEmpty crate) then
+            use writer = new RustWriter(com, cliArgs, pathResolver, outPath)
+            do! RustPrinter.run writer crate
     }
 
 let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
     match com.Options.Language with
     | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver isSilent outPath
-    | Python -> Python.compileFile com cliArgs pathResolver outPath
-    | Php -> Php.compileFile com outPath
+    | Python -> Python.compileFile com cliArgs pathResolver isSilent outPath
+    | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
-    | Rust -> Rust.compileFile com cliArgs pathResolver outPath
+    | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath

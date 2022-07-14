@@ -756,6 +756,9 @@ let printLine (printer: Printer) (line: string) =
     printer.Print(line)
     printer.PrintNewLine()
 
+let isEmpty (program: Module): bool =
+    false //TODO: determine if printer will not print anything
+
 let run writer (program: Module) : Async<unit> =
     async {
         use printerImpl = new PrinterImpl(writer)
