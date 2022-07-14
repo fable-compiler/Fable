@@ -123,8 +123,6 @@ let tests =
         } |> Async.StartImmediate
         equal !result "abcdef"
 
-    // Disable this test for dotnet as it's failing too many times in Appveyor
-    #if FABLE_COMPILER
     testCaseAsync "Async cancellation works" <| fun () ->
         async {
             let res1, res2, res3 = ref false, ref false, ref false
@@ -154,7 +152,17 @@ let tests =
             equal false !res1
             equal 1 x
         }
-    #endif
+
+    testCaseAsync "CancellationToken can be disposed" <| fun () -> // See #2879
+        async {
+            let res1 = ref false
+            do
+                use tcs1 = new System.Threading.CancellationTokenSource()
+                sleepAndAssign tcs1.Token res1
+            do! Async.Sleep 300
+            // Disposing the CancellationToken doesn't cancel the operation
+            equal true !res1
+        }
 
     testCase "Async.StartWithContinuations works" <| fun () ->
         let res1, res2, res3 = ref "", ref "", ref ""
