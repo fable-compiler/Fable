@@ -228,43 +228,92 @@ let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: i
     | None ->
         [||]
 
-let compileToFableAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language =
+let mapFableError (com: Compiler) (log: Log) =
+    let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
+    {
+        FileName = com.CurrentFile
+        StartLine = r.start.line
+        StartColumn = r.start.column
+        EndLine = r.``end``.line
+        EndColumn = r.``end``.column
+        Message =
+            if log.Tag = "FABLE"
+            then "FABLE: " + log.Message
+            else log.Message
+        IsWarning =
+            match log.Severity with
+            | Fable.Severity.Error -> false
+            | Fable.Severity.Warning
+            | Fable.Severity.Info -> true
+    }
+
+type BabelResult(ast: Babel.Program, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type DartResult(ast: Dart.File, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type PhpResult(ast: Php.PhpFile, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type PythonResult(ast: Python.Module, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type RustResult(ast: Rust.AST.Types.Crate, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+let transformToFableAst (com: Compiler): Fable.File =
+    let fileName = com.CurrentFile
+    try
+        FSharp2Fable.Compiler.transformFile com
+        |> FableTransforms.transformFile com
+    with
+    | Fable.FableError msg ->
+        com.AddLog(msg, Severity.Error, fileName=fileName)
+        Fable.File([])
+    | ex ->
+        let msg = ex.Message + Environment.NewLine + ex.StackTrace
+        com.AddLog(msg, Severity.Error, fileName=fileName, tag="EXCEPTION")
+        Fable.File([])
+
+let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File): IFableResult =
+    // get errors
+    let errors = com.Logs |> Array.map (mapFableError com)
+
+    // transform Fable AST to target language AST
+    match (com :> Compiler).Options.Language with
+    | JavaScript | TypeScript ->
+        let ast = Fable2Babel.Compiler.transformFile com fableAst
+        upcast BabelResult(ast, errors)
+    | Php ->
+        let ast = Fable2Php.Compiler.transformFile com fableAst
+        upcast PhpResult(ast, errors)
+    | Python ->
+        let ast = Fable2Python.Compiler.transformFile com fableAst
+        upcast PythonResult(ast, errors)
+    | Dart ->
+        let ast = Fable2Dart.Compiler.transformFile com fableAst
+        upcast DartResult(ast, errors)
+    | Rust ->
+        let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
+        upcast RustResult(ast, errors)
+
+let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language: IFableResult =
     let res = results :?> ParseAndCheckResults
     let project = res.GetProject()
     let com = makeCompiler fableLibrary typedArrays language results.OtherFSharpOptions project fileName
-    let fableAst =
-        FSharp2Fable.Compiler.transformFile com
-        |> FableTransforms.transformFile com
-    let errors =
-        com.Logs |> Array.map (fun log ->
-            let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
-            {
-                FileName = fileName
-                StartLine = r.start.line
-                StartColumn = r.start.column
-                EndLine = r.``end``.line
-                EndColumn = r.``end``.column
-                Message =
-                    if log.Tag = "FABLE"
-                    then "FABLE: " + log.Message
-                    else log.Message
-                IsWarning =
-                    match log.Severity with
-                    | Fable.Severity.Error -> false
-                    | Fable.Severity.Warning
-                    | Fable.Severity.Info -> true
-            })
-    (com, fableAst, errors)
-
-type BabelResult(program: Babel.Program, errors) =
-    member _.Program = program
-    interface IFableResult with
-        member _.FableErrors = errors
-
-type RustResult(crate: Rust.AST.Types.Crate, errors) =
-    member _.Crate = crate
-    interface IFableResult with
-        member _.FableErrors = errors
+    let fableAst = transformToFableAst com
+    fableAst |> transformToTargetAst com
 
 let makeWriter (writer: IWriter) =
     { new Printer.Writer with
@@ -274,14 +323,6 @@ let makeWriter (writer: IWriter) =
         member _.AddLog(msg, severity, ?range) = ()
         member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
         member _.Write(str) = writer.Write(str) }
-
-let printBabelAst (babel: BabelResult) (writer: IWriter) =
-    let writer = makeWriter writer
-    BabelPrinter.run writer babel.Program
-
-let printRustAst (rust: RustResult) (writer: IWriter) =
-    let writer = makeWriter writer
-    Rust.RustPrinter.run writer rust.Crate
 
 let getLanguage (language: string) =
     match language.ToLowerInvariant() with
@@ -333,26 +374,17 @@ let init () =
         member _.CompileToTargetAst(fableLibrary:string, results:IParseAndCheckResults, fileName:string, typedArrays, language) =
             let language = getLanguage language
             let typedArrays =
-                if language = JavaScript then typedArrays else None // not used for other languages
-
-            let com, fableAst, errors =
-                compileToFableAst results fileName fableLibrary typedArrays language
-
-            match language with
-            | JavaScript | TypeScript ->
-                let babelAst = fableAst |> Fable2Babel.Compiler.transformFile com
-                upcast BabelResult(babelAst, errors)
-            | Rust ->
-                let rustAst = fableAst |> Rust.Fable2Rust.Compiler.transformFile com
-                upcast RustResult(rustAst, errors)
-            // TODO: add other languages
-            | _ -> failwithf "Unsupported language: %A" language
+                if language = JavaScript then typedArrays else None // only used for JS
+            compileToTargetAst results fileName fableLibrary typedArrays language
 
         member _.PrintTargetAst(fableResult, writer) =
+            let writer = makeWriter writer
             match fableResult with
-            | :? BabelResult as babel -> printBabelAst babel writer
-            | :? RustResult as rust -> printRustAst rust writer
-            // TODO: add other languages
+            | :? BabelResult as babel -> BabelPrinter.run writer babel.Ast
+            | :? DartResult as dart -> DartPrinter.run writer dart.Ast
+            | :? PhpResult as php -> PhpPrinter.run writer php.Ast
+            | :? PythonResult as python -> PythonPrinter.run writer python.Ast
+            | :? RustResult as rust -> Rust.RustPrinter.run writer rust.Ast
             | _ -> failwith "Unexpected Fable result"
 
         member _.FSharpAstToString(results:IParseAndCheckResults, fileName:string) =

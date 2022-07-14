@@ -566,23 +566,7 @@ module AST =
         | Boolean, (:? bool as x) -> BoolConstant x |> makeValue r
         | String, (:? string as x) -> StringConstant x |> makeValue r
         | Char, (:? char as x) -> CharConstant x |> makeValue r
-        // Integer types
-        | Number(Int8, info), (:? int8 as x) -> NumberConstant(x, Int8, info) |> makeValue r
-        | Number(UInt8, info), (:? uint8 as x) -> NumberConstant(x, UInt8, info) |> makeValue r
-        | Number(Int16, info), (:? int16 as x) -> NumberConstant(x, Int16, info) |> makeValue r
-        | Number(UInt16, info), (:? uint16 as x) -> NumberConstant(x, UInt16, info) |> makeValue r
-        | Number(Int32, info), (:? int32 as x) -> NumberConstant(x, Int32, info) |> makeValue r
-        | Number(UInt32, info), (:? uint32 as x) -> NumberConstant(x, UInt32, info) |> makeValue r
-        | Number(Int64, info), (:? int64 as x) -> NumberConstant(x, Int64, info) |> makeValue r
-        | Number(UInt64, info), (:? uint64 as x) -> NumberConstant(x, UInt64, info) |> makeValue r
-        // Float types
-        | Number(Float32, info), (:? float32 as x) -> NumberConstant(x, Float32, info) |> makeValue r
-        | Number(Float64, info), (:? float as x) -> NumberConstant(x, Float64, info) |> makeValue r
-        | Number(Decimal, info), (:? decimal as x) -> NumberConstant(x, Decimal, info) |> makeValue r
-        // Pointer types
-        | Number(NativeInt, info), (:? nativeint as x) -> NumberConstant(x, Int64, info) |> makeValue r
-        | Number(UNativeInt, info), (:? unativeint as x) -> NumberConstant(x, UInt64, info) |> makeValue r
-        // Unit
+        | Number(kind, info), x -> NumberConstant(x, kind, info) |> makeValue r
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const

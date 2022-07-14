@@ -234,6 +234,11 @@ module Literals =
           kind = LitKind.Int(value, LitIntType.Unsuffixed)
           span = DUMMY_SP }
 
+    let mkIsizeLit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value) (Some "isize")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.Isize))
+          span = DUMMY_SP }
+
     let mkInt8Lit (value: uint64): Lit =
         { token = mkIntTokenLit (string value) (Some "i8")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I8))
@@ -252,6 +257,11 @@ module Literals =
     let mkInt64Lit (value: uint64): Lit =
         { token = mkIntTokenLit (string value) (Some "i64")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I64))
+          span = DUMMY_SP }
+
+    let mkUsizeLit (value: uint64): Lit =
+        { token = mkIntTokenLit (string value) (Some "usize")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.Usize))
           span = DUMMY_SP }
 
     let mkUInt8Lit (value: uint64): Lit =
@@ -605,6 +615,11 @@ module Exprs =
         |> mkIntLit
         |> mkLitExpr
 
+    let mkIsizeLitExpr value: Expr =
+        value
+        |> mkIsizeLit
+        |> mkLitExpr
+
     let mkInt8LitExpr value: Expr =
         value
         |> mkInt8Lit
@@ -623,6 +638,11 @@ module Exprs =
     let mkInt64LitExpr value: Expr =
         value
         |> mkInt64Lit
+        |> mkLitExpr
+
+    let mkUsizeLitExpr value: Expr =
+        value
+        |> mkUsizeLit
         |> mkLitExpr
 
     let mkUInt8LitExpr value: Expr =

@@ -157,7 +157,7 @@ module Patterns =
 
     let (|SetContains|_|) set item =
         if Set.contains item set then Some SetContains else None
-    
+
     let (|ListLast|_|) (xs: 'a list) =
         if List.isEmpty xs then None
         else
@@ -603,6 +603,13 @@ module Path =
         let i = normPath.LastIndexOf("/")
         if i < 0 then "", normPath
         else normPath.Substring(0, i), normPath.Substring(i + 1)
+
+    let IsPathRooted (path: string): bool =
+#if FABLE_COMPILER
+        path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(":") = 1
+#else
+        IO.Path.IsPathRooted(path)
+#endif
 
     let GetFullPath (path: string): string =
 #if FABLE_COMPILER

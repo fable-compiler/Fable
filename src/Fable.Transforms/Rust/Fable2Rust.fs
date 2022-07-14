@@ -1381,6 +1381,9 @@ module Util =
         | Float64, (:? float as x) when System.Double.IsNegativeInfinity(x) ->
             mkGenericPathExpr ["f64";"NEG_INFINITY"] None
 
+        | NativeInt, (:? nativeint as x) ->
+            let expr = mkIsizeLitExpr (abs x |> uint64)
+            if x < 0n then expr |> mkNegExpr else expr
         | Int8, (:? int8 as x) ->
             let expr = mkInt8LitExpr (abs x |> uint64)
             if x < 0y then expr |> mkNegExpr else expr
@@ -1393,6 +1396,8 @@ module Util =
         | Int64, (:? int64 as x) ->
             let expr = mkInt64LitExpr (abs x |> uint64)
             if x < 0 then expr |> mkNegExpr else expr
+        | UNativeInt, (:? unativeint as x) ->
+            mkUsizeLitExpr (x |> uint64)
         | UInt8, (:? uint8 as x) ->
             mkUInt8LitExpr (x |> uint64)
         | UInt16, (:? uint16 as x) ->

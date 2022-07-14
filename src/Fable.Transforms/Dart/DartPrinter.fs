@@ -884,6 +884,9 @@ module PrinterExtensions =
 
 open PrinterExtensions
 
+let isEmpty (file: File): bool =
+    List.isEmpty file.Declarations
+
 let run (writer: Writer) (file: File): Async<unit> =
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Declaration) =
         match decl with

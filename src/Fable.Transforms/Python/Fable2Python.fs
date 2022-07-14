@@ -546,7 +546,7 @@ module Helpers =
             | ""
             | "." -> fileDir
             | _ ->
-                IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
+                Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), fileDir))
                 |> Path.normalizePath
 
         let outDir = com.OutputDir |> Option.defaultValue projDir
@@ -590,7 +590,7 @@ module Helpers =
                 // Avoid going out of fable_modules and back down again, i.e ../fable_modules/fable_library
                 if Naming.isInFableModules com.CurrentFile then
                     Path.getCommonBaseDir [ com.CurrentFile
-                                            IO.Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)) ]
+                                            Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), com.LibraryDir)) ]
                 else
                     Path.getCommonBaseDir [ com.CurrentFile
                                             com.ProjectFile ]
@@ -644,10 +644,12 @@ module Helpers =
 
             if normalizedPath.Length > 1 then
                 notInProjectDir
+#if !FABLE_COMPILER
                 // import exists in file dir
                 && IO.Directory.Exists(Path.Combine(fileDir, normalizedPath))
                 // import exists in project dir
                 && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))
+#endif
             else
                 notInProjectDir
 

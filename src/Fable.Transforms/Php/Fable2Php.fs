@@ -1,6 +1,5 @@
 ﻿module Fable.Transforms.Fable2Php
 
-open System.IO
 open Fable
 open Fable.AST
 open Fable.AST.Php
@@ -1585,30 +1584,32 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.FindLableLevel(label) =
             List.findIndex(function Some v when v = label -> true | _ -> false) breakable
 
+module Compiler =
 
-let transformFile com (file: Fable.File) =
-    let phpComp = PhpCompiler(com) :> IPhpCompiler
-    phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
+    let transformFile com (file: Fable.File) =
+        let phpComp = PhpCompiler(com) :> IPhpCompiler
+        phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
 
-    let rootModule = com.GetRootModule(phpComp.CurrentFile) |> nsreplacement
-    phpComp.SetPhpNamespace(rootModule)
-    let decls =
-        [
-            for i,decl in List.indexed file.Declarations do
-                let decls =
-                    try
-                        convertDecl phpComp decl
-                    with
-                    |    ex ->
-                        eprintfn "Error while transpiling decl %d: %O" i ex
-                        reraise()
-                for d in decls  do
-                    i,d
-        ]
+        let rootModule = com.GetRootModule(phpComp.CurrentFile) |> nsreplacement
+        phpComp.SetPhpNamespace(rootModule)
+        let decls =
+            [
+                for i,decl in List.indexed file.Declarations do
+                    let decls =
+                        try
+                            convertDecl phpComp decl
+                        with
+                        |    ex ->
+                            eprintfn "Error while transpiling decl %d: %O" i ex
+                            reraise()
+                    for d in decls  do
+                        i,d
+            ]
 
-
-    { Filename = phpComp.CurrentFile + ".php"
-      Namespace = Some phpComp.PhpNamespace
-      Require = phpComp.Require
-      Uses = phpComp.NsUse
-      Decls = decls }
+        {
+            Filename = phpComp.CurrentFile + ".php"
+            Namespace = Some phpComp.PhpNamespace
+            Require = phpComp.Require
+            Uses = phpComp.NsUse
+            Decls = decls
+        }
