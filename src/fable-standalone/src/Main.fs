@@ -318,7 +318,6 @@ let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary ty
 let makeWriter (writer: IWriter) =
     { new Printer.Writer with
         member _.Dispose() = writer.Dispose()
-        member _.EscapeStringLiteral(str) = writer.EscapeStringLiteral(str)
         member _.MakeImportPath(path) = writer.MakeImportPath(path)
         member _.AddLog(msg, severity, ?range) = ()
         member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)

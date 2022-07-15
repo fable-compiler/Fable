@@ -11,7 +11,6 @@ type SourceMapping =
 type Writer =
     inherit IDisposable
     abstract AddSourceMapping: SourceMapping -> unit
-    abstract EscapeStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
     abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
@@ -24,7 +23,6 @@ type Printer =
     abstract Print: string * ?loc: SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
-    abstract EscapeStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
@@ -86,9 +84,6 @@ type PrinterImpl(writer: Writer, ?indent: string) =
 
                 builder.Append(str) |> ignore
                 column <- column + str.Length
-
-        member _.EscapeStringLiteral(str) =
-            writer.EscapeStringLiteral(str)
 
         member _.MakeImportPath(path) =
             writer.MakeImportPath(path)

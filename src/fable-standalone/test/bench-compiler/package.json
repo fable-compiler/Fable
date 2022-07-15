@@ -4,8 +4,12 @@
   "scripts": {
     "clean": "git clean -fdX",
 
-    "build-rust": "dotnet run -c Release -- ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust",
-    "trace-rust": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet bin/Release/net5.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust",
+    "build-tests-rust": "dotnet run -c Release -- ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust",
+    "build-tests-dart": "dotnet run -c Release -- ../../../../tests/Dart/src/Fable.Tests.Dart.fsproj --outDir out-tests-dart --fableLib out-lib --lang Dart",
+    "build-tests-python": "dotnet run -c Release -- ../../../../tests/Python/Fable.Tests.Python.fsproj --outDir out-tests-python --fableLib out-lib --lang Python",
+    "build-tests-rust-node": "node --stack_size=1200 out-node/app.js ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust",
+    "build-tests-dart-node": "node --stack_size=1200 out-node/app.js ../../../../tests/Dart/src/Fable.Tests.Dart.fsproj --outDir out-tests-dart --fableLib out-lib --lang Dart",
+    "build-tests-python-node": "node --stack_size=1200 out-node/app.js ../../../../tests/Python/Fable.Tests.Python.fsproj --outDir out-tests-python --fableLib out-lib --lang Python",
 
     "prebuild-cli": "npm run clean && npm run prebuild-lib && npm run build-lib-cli",
     "build-cli": "dotnet run -c Release -p ../../../Fable.Cli -- bench-compiler.fsproj --outDir out-node --fableLib out-lib",
@@ -26,7 +30,7 @@
     "native": "cd . && \"bin/Release/net5.0/win-x64/native/bench-compiler\"",
     "build-native": "npm run native bench-compiler.fsproj out-node",
     "build-test-native": "npm run native ../../../../../fable-test/fable-test.fsproj out-test",
-    "build-tests-native": "npm run native ../../../../tests/Main/Fable.Tests.fsproj out-tests",
+    "build-tests-native": "npm run native ../../../../tests/Js/Main/Fable.Tests.fsproj out-tests",
 
     "rollup-bundle": "npm run rollup -- out-node/app.js -o dist/bundle.js --format esm",
     "terser-bundle": "npm run terser -- dist/bundle.js -o dist/bundle.min.js --mangle --compress",
@@ -49,10 +53,10 @@
 
     "prebuild-tests": "npm run clean && npm run build-lib",
     "prebuild-tests-ts": "npm run clean && npm run build-lib-ts",
-    "build-tests": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib --sourceMaps",
+    "build-tests": "dotnet run -c Release ../../../../tests/Js/Main/Fable.Tests.fsproj out-tests --fableLib out-lib --sourceMaps",
     "build-tests-ts": "npm run build-tests -- --fableLib out-lib-ts --typescript",
     "build-tests-opt": "npm run build-tests -- --optimize",
-    "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib --sourceMaps",
+    "build-tests-node": "node out-node/app.js ../../../../tests/Js/Main/Fable.Tests.fsproj out-tests --fableLib out-lib --sourceMaps",
     "tests": "npm run mocha -- out-tests --colors --reporter dot",
 
     "tsc": "node ../../../../node_modules/typescript/bin/tsc",
@@ -73,6 +77,7 @@
     "prof-preprocess": "node --prof-process --preprocess isolate-*.log > profile.v8log.json",
     "speedscope": "speedscope profile.v8log.json",
     "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
-    "trace": "node --trace-deopt out-node/app.js bench-compiler.fsproj out-node2 > deopt.log"
+    "trace-node": "node --trace-deopt out-node/app.js bench-compiler.fsproj out-node2 > deopt.log",
+    "trace-rust": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet bin/Release/net6.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust"
   }
 }

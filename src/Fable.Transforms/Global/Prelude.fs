@@ -509,47 +509,31 @@ module Naming =
         |> preventConflicts conflicts
 
     // Ported to F# from https://github.com/microsoft/referencesource/blob/master/System.Web/Util/HttpEncoder.cs#L391
-    let encodeString charRequiresEncoding (value: string) : string =
+    let escapeString charRequiresEncoding (value: string) : string =
         if (String.IsNullOrEmpty(value)) then
             String.Empty
         else
-            let mutable sb : StringBuilder option = None
-            let mutable startIndex = 0
-            let mutable count = 0
-
+            let sb = StringBuilder(value.Length)
             for i = 0 to value.Length - 1 do
-                let c = value.[i]
+                match value.[i] with
+                | '\'' -> sb.Append("\\\'") |> ignore
+                | '\"' -> sb.Append("\\\"") |> ignore
+                | '\\' -> sb.Append("\\\\") |> ignore
+                | '\r' -> sb.Append("\\r") |> ignore
+                | '\t' -> sb.Append("\\t") |> ignore
+                | '\n' -> sb.Append("\\n") |> ignore
+                | '\b' -> sb.Append("\\b") |> ignore
+                | '\f' -> sb.Append("\\f") |> ignore
+                | c when charRequiresEncoding c
+                        || c < (char) 0x20  // other control chars
+                        || c = '\u0085'     // other newline chars
+                        || c = '\u2028'
+                        || c = '\u2029' ->
+                    let u = String.Format(@"\u{0:x4}", int c)
+                    sb.Append(u) |> ignore
+                | c -> sb.Append(c) |> ignore
 
-                // Append the unhandled characters (that do not require special treament)
-                // to the string builder when special characters are detected.
-                if (charRequiresEncoding c) then
-                    match sb, count with
-                    | Some sb, count when count > 0 -> sb.Append(value, startIndex, count) |> ignore
-                    | None, _ ->
-                        sb <- StringBuilder(value.Length + 5).Append(value, startIndex, count) |> Some
-                    | _ -> ()
-
-                    startIndex <- i + 1
-                    count <- 0
-
-                match c, sb with
-                | '\r', Some(sb) -> sb.Append("\\r") |> ignore
-                | '\t', Some(sb) -> sb.Append("\\t") |> ignore
-                | '\"', Some(sb) -> sb.Append("\\\"") |> ignore
-                | '\\', Some(sb) -> sb.Append("\\\\") |> ignore
-                | '\n', Some(sb) -> sb.Append("\\n") |> ignore
-                | '\b', Some(sb) -> sb.Append("\\b") |> ignore
-                | '\f', Some(sb) -> sb.Append("\\f") |> ignore
-                | c, Some(sb) when charRequiresEncoding c ->
-                    sb.Append("\\u") |> ignore
-                    sb.Append((int c).ToString("x4", CultureInfo.InvariantCulture)) |> ignore
-                | _ -> count <- count + 1
-
-            match sb, count with
-            | Some sb, count when count > 0 ->
-                sb.Append(value, startIndex, count).ToString()
-            | Some sb, _ -> sb.ToString()
-            | None, _ -> value
+            sb.ToString()
 
 module Path =
     open System

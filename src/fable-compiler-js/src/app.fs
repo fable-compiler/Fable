@@ -87,7 +87,6 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
     let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.EscapeStringLiteral(str) = escapeJsString(str)
         member _.MakeImportPath(path) =
             let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir options.outDir path
             if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
@@ -263,7 +262,7 @@ let run opts projectFileName outDir =
             // TODO: This only works if the project is an .fsx file
             let outDir = Option.defaultValue "." outDir
             let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
-            let runArgs = opts.[i+1..] |> String.concat " "
+            let runArgs = opts[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
         outDir = opts |> argValue ["--outDir"; "-o"] |> Option.orElse outDir

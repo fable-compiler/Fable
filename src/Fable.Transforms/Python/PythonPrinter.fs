@@ -347,7 +347,7 @@ module PrinterExtensions =
 
                     String.concat ", " rep)
 
-                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?):(.*?)\}\}" (fun m ->
                     let i = int m.Groups.[1].Value
 
                     match node.Args.[i] with
@@ -550,8 +550,10 @@ module PrinterExtensions =
                 match value with
                 | :? string as value ->
                     printer.Print("\"")
-                    printer.Print(printer.EscapeStringLiteral(value))
+                    printer.Print(Naming.escapeString (fun _ -> false) value)
                     printer.Print("\"")
+                | :? bool as value ->
+                    printer.Print(if value then "True" else "False")
                 | _ -> printer.Print(string value)
 
             | IfExp ex -> printer.Print(ex)
