@@ -26,9 +26,6 @@ let measureTime (f: 'a -> 'b) x =
     sw.Stop()
     res, sw.ElapsedMilliseconds
 
-let escapeJsString (str: string) =
-    System.Web.HttpUtility.JavaScriptStringEncode(str)
-
 let ensureDirExists (path: string): unit =
     Directory.CreateDirectory(path) |> ignore
 
@@ -126,7 +123,6 @@ let measureTime (f: 'a -> 'b) x =
     let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
-let escapeJsString (str: string) = JS.util.escapeJsStringLiteral(str)
 let ensureDirExists (dir: string) = JS.util.ensureDirExists(dir)
 let serializeToJson (data: obj) = JS.util.serializeToJson(data)
 

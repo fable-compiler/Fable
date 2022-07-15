@@ -614,7 +614,7 @@ module PrinterExtensions =
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
-            // Note we cannot use EscapeStringLiteral literal because it will corrupt the regex pattern
+            // Note we cannot use Naming.escapeString because it will corrupt the regex pattern
             printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\r", @"\r").Replace("\n", @"\n"))
             printer.Print("/")
             printer.Print(flags)
@@ -622,7 +622,7 @@ module PrinterExtensions =
         member printer.Print(node: StringLiteral) =
             let (StringLiteral(value, loc)) = node
             printer.Print("\"", ?loc=loc)
-            printer.Print(printer.EscapeStringLiteral(value))
+            printer.Print(Naming.escapeString (fun _ -> false) value)
             printer.Print("\"")
 
         member printer.PrintNumeric(value, loc) =

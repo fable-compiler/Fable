@@ -96,8 +96,6 @@ module Js =
             member _.Dispose() = ()
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeStringLiteral(str) =
-                Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path =
@@ -133,19 +131,6 @@ module Js =
     }
 
 module Python =
-    let charRequiresEncoding (c: char) =
-        c < (char) 0x20 // control chars always have to be encoded
-        || c = '\"' // chars which must be encoded per JSON spec
-        || c = '\\'
-        || c = '\''
-        // HTML-sensitive chars encoded for safety
-        //|| c = '<'
-        //|| c = '>'
-        //|| (c = '&')
-        || c = '\u0085' // newline chars have to be encoded
-        || c = '\u2028'
-        || c = '\u2029'
-
     // PEP8: Modules (i.e files) should have short, all-lowercase names
     // Note that Python modules cannot contain dots or it will be impossible to import them
     let normalizeFileName path =
@@ -177,8 +162,6 @@ module Python =
             member _.Write(str) = stream.WriteAsync(str) |> Async.AwaitTask
 
             member _.Dispose() = stream.Dispose()
-
-            member _.EscapeStringLiteral(str) = Naming.encodeString charRequiresEncoding str
 
             member _.AddSourceMapping _ = ()
 
@@ -253,7 +236,6 @@ module Php =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let stream = new IO.StreamWriter(targetPath)
         interface Printer.Writer with
-            member _.EscapeStringLiteral(str) = str
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =
@@ -285,8 +267,6 @@ module Dart =
         interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeStringLiteral(str) =
-                str.Replace(@"\", @"\\").Replace(@"$", @"\$").Replace("\r", @"\r").Replace("\n", @"\n").Replace("'", @"\'")
             member _.MakeImportPath(path) =
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
@@ -314,7 +294,6 @@ module Rust =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let stream = new IO.StreamWriter(targetPath)
         interface Printer.Writer with
-            member _.EscapeStringLiteral(str) = str
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =

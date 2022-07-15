@@ -260,7 +260,7 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
                 rep.Add("$" + string j)
             String.concat ", " rep)
 
-        // |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+        // |> replace @"\{\{\s*\$(\d+)\s*\?(.*?):(.*?)\}\}" (fun m ->
         //     let i = int m.Groups.[1].Value
         //     match args.[i] with
         //     | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value

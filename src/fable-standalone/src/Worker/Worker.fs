@@ -48,7 +48,6 @@ type SourceWriter(sourceMaps: bool) =
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.EscapeStringLiteral(str) = escapeJsStringLiteral(str)
         member _.MakeImportPath(path) = path
         member _.AddSourceMapping(mapping) = ()
         member _.Dispose() = ()

@@ -153,14 +153,14 @@ type System.String with
         let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
         let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
         let res = System.Text.RegularExpressions.Regex.Replace(res, @"[\x00-\x1F]",
-                    fun c -> System.String.Format(@"\u{{{0:x4}}}", int c.Value.[0]))
+            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value.[0], "}"))
         res
     member self.escape_default() =
         // escapes \\, \', \", \t, \r, \n, [^\x20-\x7F]
         let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
         let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
         let res = System.Text.RegularExpressions.Regex.Replace(res, @"[^\x20-\x7F]",
-                    fun c -> System.String.Format(@"\u{{{0:x4}}}", int c.Value.[0]))
+            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value.[0], "}"))
         res
 
 type System.Text.StringBuilder with

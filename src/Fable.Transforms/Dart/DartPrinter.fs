@@ -92,7 +92,7 @@ module PrinterExtensions =
                         rep.Add("$" + string j)
                     String.concat ", " rep)
 
-                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?):(.*?)\}\}" (fun m ->
                     let i = int m.Groups[1].Value
                     match args[i] with
                     | Literal(BooleanLiteral(value=value)) when value -> m.Groups[2].Value
@@ -337,8 +337,10 @@ module PrinterExtensions =
                     printer.PrintExprList("[", values, "]")
             | BooleanLiteral v -> printer.Print(if v then "true" else "false")
             | StringLiteral value ->
+                let escape str =
+                    (Naming.escapeString (fun _ -> false) str).Replace(@"$", @"\$")
                 printer.Print("'")
-                printer.Print(printer.EscapeStringLiteral(value))
+                printer.Print(escape value)
                 printer.Print("'")
             | IntegerLiteral value ->
                 printer.Print(value.ToString())
