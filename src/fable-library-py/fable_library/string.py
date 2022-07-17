@@ -205,6 +205,11 @@ def fs_format(str: str):
 
 
 def format(string: str, *args: Any) -> str:
+    if not string and args:
+        # Called with culture info
+        string = args[0]
+        args = args[1:]
+
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
