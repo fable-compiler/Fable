@@ -1,6 +1,8 @@
 module Fable.Tests.String
 
 open System
+open System.Globalization
+
 open Util.Testing
 
 #nowarn "44" // This construct is deprecated. Uri.EscapeUriString can corrupt the Uri string in some cases. (code 44)
@@ -148,9 +150,9 @@ let ``test sprintf integers with sign and padding works`` () =
 
 [<Fact>]
 let ``test String.Format combining padding and zeroes pattern works`` () =
-    String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
-    String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
-    String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+    String.Format(CultureInfo.InvariantCulture, "{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+    String.Format(CultureInfo.InvariantCulture, "{0:000.00}foo", 5) |> equal "005.00foo"
+    String.Format(CultureInfo.InvariantCulture, "{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
 
 [<Fact>]
 let ``test StringBuilder works`` () =
@@ -193,7 +195,7 @@ let ``test StringBuilder.Append works with various overloads`` () =
                       .Append("bcd".ToCharArray())
                       .Append('/')
                       .Append(true)
-                      .Append(5.2)
+                      .AppendFormat(CultureInfo.InvariantCulture, "{0}", 5.2)
                       .Append(34)
     equal "aaabcd/true5.234" (builder.ToString().ToLower())
 
