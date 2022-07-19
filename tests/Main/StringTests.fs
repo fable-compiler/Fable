@@ -382,6 +382,12 @@ let tests =
             String.Format(CultureInfo.InvariantCulture, "{0:#}", 12343235354M) |> equal "12343235354"
             String.Format(CultureInfo.InvariantCulture, "{0:0}", 12343235354M) |> equal "12343235354"
 
+      testCase "String.Format trims trailing zeroes when using # placeholder" <| fun () -> // Fix #2950
+            String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", -6789.5688) |> equal "-6,789.5688"
+            String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", 6789.5688) |> equal "6,789.5688"
+            String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", -6789.5688) |> equal "-0,000,006,789.56880000"
+            String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", 6789.5688) |> equal "0,000,006,789.56880000"
+
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M
           decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"
