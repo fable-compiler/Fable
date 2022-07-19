@@ -515,12 +515,16 @@ let toList (s: Set<'T>) =
 
 let toSeq (s: Set<'T>) =
     // Seq.delay (fun () -> mkIEnumerator s) //TODO:
+    // TODO: avoid extra allocation
     Seq.delay (fun () -> toArray s |> Seq.ofArray)
 
 let compareTo (s1: Set<'T>) (s2: Set<'T>) =
-    LanguagePrimitives.GenericComparison (toArray s1) (toArray s2)
+    // LanguagePrimitives.GenericComparison s1 s2
+    // TODO: avoid extra allocation
+    Array.compareWith compare (toArray s1) (toArray s2)
 
 let equalsTo (s1: Set<'T>) (s2: Set<'T>) =
+    // TODO: avoid extra allocation
     LanguagePrimitives.GenericEquality (toArray s1) (toArray s2)
 
 let ofArray xs =

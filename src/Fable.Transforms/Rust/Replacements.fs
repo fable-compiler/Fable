@@ -440,10 +440,10 @@ let equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //     makeBinOp r Boolean left right op
     // | Builtin (BclDateTime|BclDateTimeOffset) ->
     //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    // | Array _ ->
-    //     Helper.LibCall(com, "Array", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
-    // | List _ ->
-    //     Helper.LibCall(com, "List", "equalsTo", Boolean, [left; right], ?loc=r) |> is equal
+    | Array _ ->
+        Helper.LibCall(com, "Array", "equalsTo", Boolean, [left; right], ?loc=r)
+    | List _ ->
+        Helper.LibCall(com, "List", "equalsTo", Boolean, [left; right], ?loc=r)
     | Builtin (FSharpSet _) ->
         Helper.LibCall(com, "Set", "equalsTo", Boolean, [left; right], ?loc=r)
     | Builtin (FSharpMap _) ->
@@ -471,10 +471,10 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    // | Array _ ->
-    //     Helper.LibCall(com, "Array", "compareTo", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
-    // | List _ ->
-    //     Helper.LibCall(com, "List", "compareTo", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+    | Array _ ->
+        Helper.LibCall(com, "Array", "compareTo", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+    | List _ ->
+        Helper.LibCall(com, "List", "compareTo", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
     | Builtin (FSharpSet _) ->
         Helper.LibCall(com, "Set", "compareTo", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
     | Builtin (FSharpMap _) ->

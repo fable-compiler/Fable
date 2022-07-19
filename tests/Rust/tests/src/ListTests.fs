@@ -47,84 +47,10 @@ let ``List.Empty works`` () =
 //     List.isEmpty xs |> equal true
 
 [<Fact>]
-let ``List.Cons works`` () =
-    let xs = 1::2::3::[]
-    List.head xs |> equal 1
-    let xs = List.tail xs
-    List.head xs |> equal 2
-    let xs = List.tail xs
-    List.head xs |> equal 3
-    let xs = List.tail xs
-    List.isEmpty xs |> equal true
-
-[<Fact>]
-let ``List.length works`` () =
-    let xs = 1::2::3::[]
-    List.length xs |> equal 3
-    let xs = [1; 2; 3; 4]
-    List.length xs |> equal 4
-
-[<Fact>]
-let ``List.item works`` () =
-    let xs = [1; 2]
-    xs |> List.item 1 |> equal 2
-
-// [<Fact>]
-// let ``List option works`` () =
-//     let xs: int list option = Some []
-//     let ys: int list option = None
-//     Option.isSome xs |> equal true
-//     Option.isNone ys |> equal true
-
-[<Fact>]
-let ``List equality works`` () =
-    let xs = [1;2;3]
-    let ys = [1;2;3]
-    let zs = [1;4;3]
-    xs = ys |> equal true
-    xs = zs |> equal false
-
-[<Fact>]
-let ``List comparison works`` () =
-    let xs = [1.;2.;3.]
-    let ys = [1.;2.;3.]
-    let zs = [1.;4.;3.]
-    xs < ys |> equal false
-    xs < zs |> equal true
-
-// [<Fact>]
-// let ``Pattern matching with lists works`` () =
-//     match [] with [] -> true | _ -> false
-//     |> equal true
-//     match [1] with [] -> 0 | [x] -> 1 | x::xs -> 2
-//     |> equal 1
-//     match [1;2;3] with [] -> 0 | _::x::xs -> x | _ -> 3
-//     |> equal 2
-//     match [1.;2.;3.;4.] with [] -> 0 | [x] -> 1 | x::xs -> xs.Length
-//     |> equal 3
-//     match ["a";"b"] with [] -> 0 | ["a";"b"] -> 1 | _ -> 2
-//     |> equal 1
-
-[<Fact>]
-let ``List.Length works`` () =
-    let xs = [1; 2; 3; 4]
-    let ys: int list = []
-    equal 4 xs.Length
-    equal 0 ys.Length
-
-[<Fact>]
-let ``List.IsEmpty works`` () =
-    let xs = [1; 2; 3; 4]
-    let ys: int list = []
-    let zs = List.empty<int>
-    equal false xs.IsEmpty
-    equal true ys.IsEmpty
-    equal true zs.IsEmpty
-
-[<Fact>]
-let ``List.Equals works`` () =
-    let xs = [1;2;3]
-    xs.Equals(xs) |> equal true
+let ``List.empty works`` () =
+    let xs = 1 :: List.Empty
+    let ys = 1 :: List.empty
+    xs.Length + ys.Length |> equal 2
 
 [<Fact>]
 let ``List.Head works`` () =
@@ -137,9 +63,15 @@ let ``List.Tail works`` () =
     equal 2 xs.Tail.Head
 
 [<Fact>]
-let ``List.Item works`` () =
-    let xs = [1; 2; 3; 4]
-    equal 4 xs.[3]
+let ``List.Cons works`` () =
+    let xs = 1::2::3::[]
+    List.head xs |> equal 1
+    let xs = List.tail xs
+    List.head xs |> equal 2
+    let xs = List.tail xs
+    List.head xs |> equal 3
+    let xs = List.tail xs
+    List.isEmpty xs |> equal true
 
 [<Fact>]
 let ``List.Cons works II`` () =
@@ -162,10 +94,128 @@ let ``List.Cons works II`` () =
 //     List.sum li4 |> equal 84
 
 [<Fact>]
-let ``List.empty works`` () =
-    let xs = 1 :: List.Empty
-    let ys = 1 :: List.empty
-    xs.Length + ys.Length |> equal 2
+let ``List.Length works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys: int list = []
+    equal 4 xs.Length
+    equal 0 ys.Length
+
+[<Fact>]
+let ``List.IsEmpty works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys: int list = []
+    let zs = List.empty<int>
+    equal false xs.IsEmpty
+    equal true ys.IsEmpty
+    equal true zs.IsEmpty
+
+[<Fact>]
+let ``List equality works`` () =
+    let a1 = [1; 2; 3]
+    let a2 = [1; 2; 3]
+    let a3 = [1; 2; 4]
+    let a4 = [1; 2; 3; 4]
+    a1 = a1 |> equal true
+    a1 = a2 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``List.Equals works`` () =
+    let a1 = [1; 2; 3]
+    let a2 = [1; 2; 3]
+    let a3 = [1; 2; 4]
+    let a4 = [1; 2; 3; 4]
+    a1.Equals(a1) |> equal true
+    a1.Equals(a2) |> equal true
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
+
+[<Fact>]
+let ``List comparison works`` () =
+    let a1 = [1; 2; 3]
+    let a2 = [1; 2; 3]
+    let a3 = [1; 2; 4]
+    let a4 = [1; 2; 3; 4]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a1 > a1 |> equal false
+    a1 > a2 |> equal false
+    a1 > a3 |> equal false
+    a1 > a4 |> equal false
+
+[<Fact>]
+let ``List compare works`` () =
+    let a1 = [1; 2; 3]
+    let a2 = [1; 2; 3]
+    let a3 = [1; 2; 4]
+    let a4 = [1; 2; 3; 4]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal 1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal -1
+
+[<Fact>]
+let ``List.compareWith works`` () =
+    let a1 = [1; 2; 3]
+    let a2 = [1; 2; 3]
+    let a3 = [1; 2; 4]
+    let a4 = [1; 2; 3; 4]
+    List.compareWith compare a1 a1 |> equal 0
+    List.compareWith compare a1 a2 |> equal 0
+    List.compareWith compare a1 a3 |> equal -1
+    List.compareWith compare a1 a4 |> equal -1
+    List.compareWith compare a3 a4 |> equal 1
+    List.compareWith compare a3 a2 |> equal 1
+    List.compareWith compare a4 a2 |> equal 1
+    List.compareWith compare a4 a3 |> equal -1
+
+[<Fact>]
+let ``List.Item works`` () =
+    let xs = [1; 2; 3; 4]
+    equal 4 xs.[3]
+
+[<Fact>]
+let ``List.item works`` () =
+    let xs = [1; 2]
+    xs |> List.item 1 |> equal 2
+
+[<Fact>]
+let ``List.length works`` () =
+    let xs = 1::2::3::[]
+    List.length xs |> equal 3
+    let xs = [1; 2; 3; 4]
+    List.length xs |> equal 4
+
+// [<Fact>]
+// let ``List option works`` () =
+//     let xs: int list option = Some []
+//     let ys: int list option = None
+//     Option.isSome xs |> equal true
+//     Option.isNone ys |> equal true
+
+[<Fact>]
+let ``Pattern matching with lists works`` () =
+    match []: int list with [] -> true | _ -> false
+    |> equal true
+    match [1] with [] -> 0 | [x] -> 1 | x::xs -> 2
+    |> equal 1
+    match [1;2;3] with [] -> 0 | _::x::xs -> x | _ -> 3
+    |> equal 2
+    match [1.;2.;3.;4.] with [] -> 0 | [x] -> 1 | x::xs -> xs.Length
+    |> equal 3
+    match ["a";"b"] with [] -> 0 | ["a";"b"] -> 1 | _ -> 2
+    |> equal 1
 
 [<Fact>]
 let ``List.append works`` () =
@@ -921,15 +971,6 @@ let ``List.tryLast works`` () =
     let xs = [1.; 2.; 3.; 4.]
     List.tryLast xs |> equal (Some 4.)
     List.tryLast<float> [] |> equal None
-
-[<Fact>]
-let ``List.compareWith works`` () =
-    let xs = [1; 2; 3; 4]
-    let ys = [1; 2; 3; 5]
-    let zs = [1; 2; 3; 3]
-    List.compareWith (-) xs xs |> equal 0
-    List.compareWith (-) xs ys |> equal -1
-    List.compareWith (-) xs zs |> equal 1
 
 [<Fact>]
 let ``List.countBy works`` () =

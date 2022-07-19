@@ -49,22 +49,74 @@ let ``Array expressions works`` () =
 
 [<Fact>]
 let ``Array equality works`` () =
-    let a1 = [|1;2;3|]
-    let a2 = [|1;2;3|]
-    let a3 = [|1;2;1|]
-    let a4 = [|1;2|]
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
     a1 = a1 |> equal true
     a1 = a2 |> equal true
     a1 = a3 |> equal false
     a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``Array.Equals works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1.Equals(a1) |> equal true
+    // a1.Equals(a2) |> equal false //TODO: reference equality
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
 
 [<Fact>]
 let ``Array comparison works`` () =
-    let xs = [|1.;2.;3.|]
-    let ys = [|1.;2.;3.|]
-    let zs = [|1.;4.;3.|]
-    xs < ys |> equal false
-    xs < zs |> equal true
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a1 > a1 |> equal false
+    a1 > a2 |> equal false
+    a1 > a3 |> equal false
+    a1 > a4 |> equal false
+
+[<Fact>]
+let ``Array compare works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal -1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal 1
+
+[<Fact>]
+let ``Array.compareWith works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    Array.compareWith compare a1 a1 |> equal 0
+    Array.compareWith compare a1 a2 |> equal 0
+    Array.compareWith compare a1 a3 |> equal -1
+    Array.compareWith compare a1 a4 |> equal -1
+    Array.compareWith compare a3 a4 |> equal 1
+    Array.compareWith compare a3 a2 |> equal 1
+    Array.compareWith compare a4 a2 |> equal 1
+    Array.compareWith compare a4 a3 |> equal -1
 
 [<Fact>]
 let ``Array get by index works`` () =
@@ -144,15 +196,14 @@ let ``Array.copy works`` () =
     xs.[1] <- xs.[1] + 1
     ys |> equal [|1;2;3|]
 
-// [<Fact>]
-// let ``Pattern matching with arrays works`` () =
-//     let empty = Array.empty<int>
-//     match empty with [||] -> true | _ -> false
-//     |> equal true
-//     match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
-//     |> equal 1
-//     match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
-//     |> equal 1
+[<Fact>]
+let ``Pattern matching with arrays works`` () =
+    // match [||]: int[] with [||] -> true | _ -> false
+    // |> equal true // TODO: needs reference equality to work
+    match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
+    |> equal 1
+    match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
+    |> equal 1
 
 // [<Fact>]
 // let ``ParamArrayAttribute works`` () =
@@ -584,15 +635,6 @@ let ``Array.iteri2 works`` () =
         total <- total + (float i) * x + (float i) * y
     ) xs xs
     total |> equal 40.
-
-[<Fact>]
-let ``Array.compareWith works`` () =
-    let xs = [|1; 2; 3; 4|]
-    let ys = [|1; 2; 3; 5|]
-    let zs = [|1; 2; 3; 3|]
-    Array.compareWith (-) xs xs |> equal 0
-    Array.compareWith (-) xs ys |> equal -1
-    Array.compareWith (-) xs zs |> equal 1
 
 [<Fact>]
 let ``Array.countBy works`` () =

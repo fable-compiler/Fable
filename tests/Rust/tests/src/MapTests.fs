@@ -47,6 +47,75 @@ let ``Map.IsEmpty works`` () =
     ys.IsEmpty |> equal false
 
 [<Fact>]
+let ``Map equality works`` () =
+    let a1 = Map [("a",1); ("b",2); ("c",3)]
+    let a2 = Map [("a",1); ("b",2); ("c",3)]
+    let a3 = Map [("a",1); ("b",2); ("c",4)]
+    let a4 = Map [("a",1); ("b",2); ("c",3); ("d",4)]
+    a1 = a1 |> equal true
+    a1 = a2 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``Map.Equals works`` () =
+    let a1 = Map [("a",1); ("b",2); ("c",3)]
+    let a2 = Map [("a",1); ("b",2); ("c",3)]
+    let a3 = Map [("a",1); ("b",2); ("c",4)]
+    let a4 = Map [("a",1); ("b",2); ("c",3); ("d",4)]
+    a1.Equals(a1) |> equal true
+    a1.Equals(a2) |> equal true
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
+
+[<Fact>]
+let ``Map comparison works`` () =
+    let a1 = Map [("a",1); ("b",2); ("c",3)]
+    let a2 = Map [("a",1); ("b",2); ("c",3)]
+    let a3 = Map [("a",1); ("b",2); ("c",4)]
+    let a4 = Map [("a",1); ("b",2); ("c",3); ("d",4)]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a1 > a1 |> equal false
+    a1 > a2 |> equal false
+    a1 > a3 |> equal false
+    a1 > a4 |> equal false
+
+[<Fact>]
+let ``Map compare works`` () =
+    let a1 = Map [("a",1); ("b",2); ("c",3)]
+    let a2 = Map [("a",1); ("b",2); ("c",3)]
+    let a3 = Map [("a",1); ("b",2); ("c",4)]
+    let a4 = Map [("a",1); ("b",2); ("c",3); ("d",4)]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal 1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal -1
+
+// [<Fact>]
+// let ``Map works with keys with custom comparison`` () =
+//     Map.empty
+//     |> Map.add { Bar = "a"; Baz = 5 } 1
+//     |> Map.add { Bar = "a"; Baz = 10 } 2
+//     |> Map.count
+//     |> equal 2
+//     Map.empty
+//     |> Map.add { Bar = "a"; Foo = 5 } 1
+//     |> Map.add { Bar = "a"; Foo = 10 } 2
+//     |> Map.count
+//     |> equal 1
+
+[<Fact>]
 let ``Map.Count works`` () =
     let xs = Map.empty<int, int>
     xs.Count |> equal 0
@@ -306,38 +375,3 @@ let ``Map.change works`` () =
     |> Map.toArray |> equal (Map.toArray m)
     m |> Map.change "b" (Option.map (fun v -> v + 1))
     |> Map.toArray |> equal (Map.toArray m2)
-
-[<Fact>]
-let ``Map equality works`` () =
-    let m = Map ["a",1; "b",2]
-    let m2 = Map ["a",1; "b",3]
-    m = m |> equal true
-    m = m2 |> equal false
-
-// [<Fact>]
-// let ``Map comparison works`` () =
-//     let m = Map ["a",1; "b",2]
-//     let m2 = Map ["a",1; "b",3]
-//     m < m |> equal false
-//     m < m2 |> equal true
-
-[<Fact>]
-let ``Map compare works`` () =
-    let m = Map ["a",1; "b",2]
-    let m2 = Map ["a",1; "b",3]
-    compare m m |> equal 0
-    compare m m2 |> equal -1
-
-// [<Fact>]
-// let ``Map works with keys with custom comparison`` () =
-//     Map.empty
-//     |> Map.add { Bar = "a"; Baz = 5 } 1
-//     |> Map.add { Bar = "a"; Baz = 10 } 2
-//     |> Map.count
-//     |> equal 2
-
-//     Map.empty
-//     |> Map.add { Bar = "a"; Foo = 5 } 1
-//     |> Map.add { Bar = "a"; Foo = 10 } 2
-//     |> Map.count
-//     |> equal 1

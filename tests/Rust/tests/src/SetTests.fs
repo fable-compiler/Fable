@@ -23,17 +23,73 @@ let ``Set.IsEmpty works`` () =
     let ys = set [1; 1]
     ys.IsEmpty |> equal false
 
-[<Fact>]
-let ``Set.Count works`` () =
-    let xs = Set.empty |> Set.add 1
-    xs.Count
-    |> equal 1
-
 // [<Fact>]
 // let ``Seq.isEmpty function works on Set`` () =
 //     let xs = set [1]
 //     xs |> Seq.isEmpty
 //     |> equal false
+
+[<Fact>]
+let ``Set equality works`` () =
+    let a1 = set [1; 2; 3]
+    let a2 = set [1; 2; 3]
+    let a3 = set [1; 2; 4]
+    let a4 = set [1; 2; 3; 4]
+    a1 = a1 |> equal true
+    a1 = a2 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``Set.Equals works`` () =
+    let a1 = set [1; 2; 3]
+    let a2 = set [1; 2; 3]
+    let a3 = set [1; 2; 4]
+    let a4 = set [1; 2; 3; 4]
+    a1.Equals(a1) |> equal true
+    a1.Equals(a2) |> equal true
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
+
+[<Fact>]
+let ``Set comparison works`` () =
+    let a1 = set [1; 2; 3]
+    let a2 = set [1; 2; 3]
+    let a3 = set [1; 2; 4]
+    let a4 = set [1; 2; 3; 4]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a1 > a1 |> equal false
+    a1 > a2 |> equal false
+    a1 > a3 |> equal false
+    a1 > a4 |> equal false
+
+[<Fact>]
+let ``Set compare works`` () =
+    let a1 = set [1; 2; 3]
+    let a2 = set [1; 2; 3]
+    let a3 = set [1; 2; 4]
+    let a4 = set [1; 2; 3; 4]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal 1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal -1
+
+[<Fact>]
+let ``Set.Count works`` () =
+    let xs = Set.empty |> Set.add 1
+    xs.Count
+    |> equal 1
 
 [<Fact>]
 let ``Set.add works`` () =
@@ -306,32 +362,6 @@ let ``Set.toSeq works`` () =
     let zs = Set.toSeq ys
     (Seq.item 2 xs) = (Seq.item 2 zs)
     |> equal true
-
-[<Fact>]
-let ``Set equality works`` () =
-    let xs = set [1.; 2.; 3.; 4.]
-    let ys = set [1.; 2.; 3.; 4.]
-    let zs = set [1.; 2.; 4.; 4.]
-    xs = ys |> equal true
-    xs = zs |> equal false
-
-// [<Fact>]
-// let ``Set comparison works`` () =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.; 3.; 4.]
-//     let zs = set [1.; 2.; 4.; 4.]
-//     xs < ys |> equal false
-//     xs < zs |> equal true
-//     zs > ys |> equal true
-
-[<Fact>]
-let ``Set compare works`` () =
-    let xs = set [1.; 2.; 3.; 4.]
-    let ys = set [1.; 2.; 3.; 4.]
-    let zs = set [1.; 2.; 4.; 4.]
-    compare xs ys |> equal 0
-    compare xs zs |> equal -1
-    compare zs ys |> equal 1
 
 [<Fact>]
 let ``Comparing large sets works`` () = // See #2203
