@@ -586,6 +586,16 @@ module TypeInfo =
         | Decimal -> makeFullNamePathTy Types.decimal None
         | BigInt -> makeFullNamePathTy Types.bigint None
 
+    let getEntityFullName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
+        match entRef.SourcePath with
+        | Some path when path <> com.CurrentFile ->
+            // entity is imported from another file
+            let importPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false path
+            let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
+            importName
+        | _ ->
+            entRef.FullName
+
     let getInterfaceEntityName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         match entRef.FullName with
         | Types.icollection
@@ -601,14 +611,7 @@ module TypeInfo =
         | Types.ireadonlydictionary
             -> getLibraryImportName com ctx "Interfaces" "IDictionary`2"
         | _ ->
-            match entRef.SourcePath with
-            | Some path when path <> com.CurrentFile ->
-                // interface is imported from another file
-                let importPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
-                importName
-            | _ ->
-                entRef.FullName
+            getEntityFullName com ctx entRef
 
     let tryFindInterface (com: IRustCompiler) fullName (entRef: Fable.EntityRef): Fable.DeclaredType option =
         let ent = com.GetEntity(entRef)
@@ -653,7 +656,8 @@ module TypeInfo =
             transformInterfaceType com ctx entRef genArgs
         | ent ->
             let genArgs = transformGenArgs com ctx genArgs
-            makeFullNamePathTy ent.FullName genArgs
+            let entName = getEntityFullName com ctx entRef
+            makeFullNamePathTy entName genArgs
 
     let transformResultType com ctx genArgs: Rust.Ty =
         transformGenericType com ctx genArgs (rawIdent "Result")
