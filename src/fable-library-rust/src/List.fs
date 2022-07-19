@@ -231,10 +231,19 @@ let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int
         if c = 0 then compareWith comparer (tail xs) (tail ys) else c
 
 let compareTo (xs: 'T list) (ys: 'T list) =
-    LanguagePrimitives.GenericComparison xs ys
+    // LanguagePrimitives.GenericComparison xs ys
+    compareWith compare xs ys
 
-let equalsTo (xs: 'T list) (ys: 'T list) =
-    LanguagePrimitives.GenericEquality xs ys
+let rec equalsTo (xs: 'T list) (ys: 'T list) =
+    // LanguagePrimitives.GenericEquality xs ys
+    match (isEmpty xs), (isEmpty ys) with
+    | true, true -> true
+    | true, false -> false
+    | false, true -> false
+    | false, false ->
+        if (head xs) = (head ys)
+        then equalsTo (tail xs) (tail ys)
+        else false
 
 let rec exists predicate (xs: 'T list) =
     if isEmpty xs then false

@@ -113,28 +113,46 @@ let choose (chooser: 'T -> 'U option) (source: 'T[]): 'U[] =
     res |> asArray
 
 let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-    let length1 = source1.Length
-    let length2 = source2.Length
+    let len1 = source1.Length
+    let len2 = source2.Length
+    let len = if len1 < len2 then len1 else len2
     let mutable i = 0
-    let mutable result = 0
-    if length1 < length2 then
-        while i < source1.Length && result = 0 do
-            result <- comparer source1.[i] source2.[i]
-            i <- i + 1
-    else
-        while i < source2.Length && result = 0 do
-            result <- comparer source1.[i] source2.[i]
-            i <- i + 1
-    if result <> 0 then result
-    elif length1 = length2 then 0
-    elif length1 < length2 then -1
-    else 1
+    let mutable res = 0
+    while res = 0 && i < len do
+        res <- comparer source1.[i] source2.[i]
+        i <- i + 1
+    if res <> 0 then res
+    elif len1 > len2 then 1
+    elif len1 < len2 then -1
+    else 0
 
 let compareTo (source1: 'T[]) (source2: 'T[]) =
-    LanguagePrimitives.GenericComparison source1 source2
+    // LanguagePrimitives.GenericComparison source1 source2
+    let len1 = source1.Length
+    let len2 = source2.Length
+    if len1 > len2 then 1
+    elif len1 < len2 then -1
+    else
+        let mutable i = 0
+        let mutable res = 0
+        while res = 0 && i < len1 do
+            res <- compare source1.[i] source2.[i]
+            i <- i + 1
+        res
 
 let equalsTo (source1: 'T[]) (source2: 'T[]) =
-    LanguagePrimitives.GenericEquality source1 source2
+    // LanguagePrimitives.GenericEquality source1 source2
+    let len1 = source1.Length
+    let len2 = source2.Length
+    if len1 = len2 then
+        let mutable i = 0
+        let mutable res = true
+        while res && i < len1 do
+            res <- source1.[i] = source2.[i]
+            i <- i + 1
+        res
+    else
+        false
 
 let mapIndexed (mapping: int -> 'T -> 'U) (source: 'T[]): 'U[] =
     let len = source.Length

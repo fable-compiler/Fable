@@ -397,13 +397,16 @@ let toList (m: Map<'K, 'V>) =
 
 let toSeq (m: Map<'K, 'V>) =
     // Seq.delay (fun () -> mkIEnumerator m) // TODO:
+    // TODO: avoid extra allocation
     Seq.delay (fun () -> toArray m |> Seq.ofArray)
 
 let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
-    //TODO: only keys should need to have comparison
-    LanguagePrimitives.GenericComparison (toArray m1) (toArray m2)
+    // LanguagePrimitives.GenericComparison m1 m2
+    // TODO: avoid extra allocation
+    Array.compareWith compare (toArray m1) (toArray m2)
 
 let equalsTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
+    // TODO: avoid extra allocation
     LanguagePrimitives.GenericEquality (toArray m1) (toArray m2)
 
 let ofArray xs =
