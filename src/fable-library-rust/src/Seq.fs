@@ -472,7 +472,7 @@ let compareTo (xs: 'T seq) (ys: 'T seq) =
     // LanguagePrimitives.GenericComparison xs ys
     compareWith compare xs ys
 
-let equalsTo (xs: 'T seq) (ys: 'T seq) =
+let equals (xs: 'T seq) (ys: 'T seq) =
     // LanguagePrimitives.GenericEquality xs ys
     use e1 = ofSeq xs
     use e2 = ofSeq ys

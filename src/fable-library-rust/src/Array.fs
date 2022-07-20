@@ -140,7 +140,7 @@ let compareTo (source1: 'T[]) (source2: 'T[]) =
             i <- i + 1
         res
 
-let equalsTo (source1: 'T[]) (source2: 'T[]) =
+let equals (source1: 'T[]) (source2: 'T[]) =
     // LanguagePrimitives.GenericEquality source1 source2
     let len1 = source1.Length
     let len2 = source2.Length
