@@ -723,13 +723,14 @@ let ``List snail to append works`` () =
     let zs = ys @ xs
     zs |> List.toArray |> equal [|0; 1; 2; 3; 4|]
 
-// [<Fact>]
-// let ``List slice works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs.[..2] |> List.sum |> equal 6
-//     xs.[2..] |> List.sum |> equal 7
-//     xs.[1..2] |> List.sum |> equal 5
-//     xs.[0..-1] |> List.sum |> equal 0
+[<Fact>]
+let ``List slice works`` () =
+    let xs = [1; 2; 3; 4]
+    xs.[..2] |> List.toArray |> equal [|1; 2; 3|]
+    xs.[2..] |> List.toArray |> equal [|3; 4|]
+    xs.[1..2] |> List.toArray |> equal [|2; 3|]
+    xs.[0..-1] |> List.toArray |> equal [||]
+    xs.[-50..50] |> List.toArray |> equal [|1; 2; 3; 4|]
 
 [<Fact>]
 let ``List.truncate works`` () =

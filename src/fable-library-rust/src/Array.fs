@@ -547,16 +547,29 @@ let permute (indexMap: int -> int) (source: 'T[]): 'T[] =
         invalidOp SR.invalidPermutation
     res
 
-// let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
-//     let lower = defaultArg lower 0
-//     let upper = defaultArg upper 0
-//     let length = (if upper > 0 then upper else target.Length - 1) - lower
-//     // can't cast to TypedArray, so can't use TypedArray-specific methods
-//     // if isTypedArrayImpl target && source.Length <= length then
-//     //     typedArraySetImpl target source lower
-//     // else
-//     for i = 0 to length do
-//         target.[i + lower] <- source.[i]
+let inline private setSubArray (target: 'T[]) (start: int) (count: int) (source: 'T[]): unit =
+    for i = 0 to count - 1 do
+        target.[start + i] <- source.[i]
+
+let inline private computeSlice bound lower upper length =
+    let low =
+        match lower with
+        | Some n when n >= bound -> n
+        | _ -> bound
+    let high =
+        match upper with
+        | Some m when m < bound + length -> m
+        | _ -> bound + length - 1
+    low, high
+
+let getSlice (source: 'T[]) (lower: int option) (upper: int option): 'T[] =
+    let start, stop = computeSlice 0 lower upper source.Length
+    getSubArray source start (stop - start + 1)
+
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]): unit =
+    let start = defaultArg lower 0
+    let stop = defaultArg upper (target.Length - 1)
+    setSubArray target start (stop - start + 1) source
 
 let sortInPlaceWith (comparer: 'T -> 'T -> int) (source: 'T[]): unit =
     System.Array.Sort(source, comparer)

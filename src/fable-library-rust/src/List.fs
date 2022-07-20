@@ -546,6 +546,10 @@ let rec skip count (xs: 'T list) =
         if isEmpty xs then invalidArg "list" SR.notEnoughElements
         skip (count - 1) (tail xs)
 
+let rec skipSafe count (xs: 'T list) =
+    if count <= 0 || isEmpty xs then xs
+    else skipSafe (count - 1) (tail xs)
+
 let rec skipWhile (predicate: 'T -> bool) (xs: 'T list) =
     if isEmpty xs then xs
     elif not (predicate (head xs)) then xs
@@ -574,14 +578,16 @@ let truncate count (xs: 'T list) =
         else None
     unfold gen (count, xs)
 
-// let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
-//     let len = length xs
-//     let startIndex = defaultArg startIndex 0
-//     let endIndex = defaultArg endIndex (len - 1)
-//     if startIndex < 0 then invalidArg "startIndex" SR.indexOutOfBounds
-//     elif endIndex >= len then invalidArg "endIndex" SR.indexOutOfBounds
-//     elif endIndex < startIndex then (empty())
-//     else xs |> skip startIndex |> take (endIndex - startIndex + 1)
+let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
+    match lower, upper with
+    | None, None ->
+        xs
+    | Some start, None ->
+        xs |> skipSafe start
+    | None, Some stop ->
+        xs |> truncate (stop + 1)
+    | Some start, Some stop ->
+        xs |> skipSafe start |> truncate (stop - start + 1)
 
 let splitAt index (xs: 'T list) =
     if index < 0 then invalidArg "index" SR.inputMustBeNonNegative
