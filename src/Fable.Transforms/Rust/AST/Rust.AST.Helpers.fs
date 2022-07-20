@@ -1228,6 +1228,14 @@ module Variants =
         let disr_expr = None
         mkVariant attrs ident vis is_placeholder data disr_expr
 
+    let mkUnitVariant attrs name: Variant =
+        let ident = mkIdent name
+        let data = VariantData.Unit(DUMMY_NODE_ID)
+        let vis = INHERITED_VIS
+        let is_placeholder = false
+        let disr_expr = None
+        mkVariant attrs ident vis is_placeholder data disr_expr
+
 [<AutoOpen>]
 module Items =
 

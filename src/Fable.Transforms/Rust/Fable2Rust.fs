@@ -159,6 +159,10 @@ module TypeInfo =
         makeFullNamePath fullName genArgs
         |> mkPathTy
 
+    let makeFullNameIdentPat (fullName: string) =
+        let fullName = fullName.Replace(".", "::")
+        mkIdentPat fullName false false
+
     let primitiveType (name: string): Rust.Ty =
         mkGenericPathTy [name] None
 
@@ -222,11 +226,14 @@ module TypeInfo =
             let entNames = Set.add ent.FullName entNames
             if ent.IsFSharpUnion then
                 ent.UnionCases |> Seq.forall (fun uci ->
-                    uci.UnionCaseFields |> List.forall (fun fi ->
-                        isTypeOf com entNames fi.FieldType))
+                    uci.UnionCaseFields |> List.forall (fun field ->
+                        isTypeOf com entNames field.FieldType
+                    )
+                )
             else
                 ent.FSharpFields |> Seq.forall (fun fi ->
-                    isTypeOf com entNames fi.FieldType)
+                    isTypeOf com entNames fi.FieldType
+                )
 
     let isTypeOfType (com: IRustCompiler) isTypeOf isEntityOf entNames typ =
         match typ with
@@ -537,7 +544,7 @@ module TypeInfo =
     //     let fnRetTy =
     //         if returnType = Fable.Unit then VOID_RETURN_TY
     //         else transformType com ctx returnType |> mkFnRetTy
-    //     let pat = mkIdentPat "a" false false
+    //     let pat = makeFullNameIdentPat "a"
     //     let inputs = argTypes |> List.map (fun tInput ->
     //         mkParam [] (transformParamType com ctx tInput) pat false)
     //     let fnDecl = mkFnDecl inputs fnRetTy
@@ -1552,7 +1559,10 @@ module Util =
         let unionCase = ent.UnionCases |> List.item tag
         let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
         let callee = makeFullNamePathExpr unionCaseName None //genArgs
-        let expr = callFunction com ctx None callee values
+        let expr =
+            if List.isEmpty values
+            then callee
+            else callFunction com ctx None callee values
         if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
         then expr
         else expr |> maybeWrapSmartPtr ent
@@ -2042,14 +2052,12 @@ module Util =
                 let unionCase = ent.UnionCases |> List.item info.CaseIndex
                 let fieldName = "x"
                 let fields =
-                    unionCase.UnionCaseFields
-                    |> Seq.mapi (fun i field ->
-                        if i = info.FieldIndex then
-                            mkIdentPat fieldName false false
-                        else WILD_PAT)
-                let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
-                let path = makeFullNamePath unionCaseName None
-                let pat = mkTupleStructPat path fields
+                    unionCase.UnionCaseFields |> List.mapi (fun i _field ->
+                        if i = info.FieldIndex
+                        then makeFullNameIdentPat fieldName
+                        else WILD_PAT
+                    )
+                let pat = makeUnionCasePat unionCase.FullName fields
                 let expr =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
@@ -2231,7 +2239,7 @@ module Util =
         let limitExpr = transformExprMaybeUnwrapRef com ctx limit
         let ctx = { ctx with IsInPluralizedExpr = true }
         let bodyExpr = com.TransformAsExpr(ctx, body)
-        let varPat = mkIdentPat var.Name false false
+        let varPat = makeFullNameIdentPat var.Name
         let rangeExpr =
             if isUp then
                 mkRangeExpr (Some startExpr) (Some limitExpr) true
@@ -2305,6 +2313,15 @@ module Util =
             let decl = varDeclaration (identAsPattern var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
             [|decl|]
 *)
+
+    let makeUnionCasePat unionCaseFullName fields =
+        let unionCaseName = mapKnownUnionCaseNames unionCaseFullName
+        if List.isEmpty fields then
+            makeFullNameIdentPat unionCaseName
+        else
+            let path = makeFullNamePath unionCaseName None
+            mkTupleStructPat path fields
+
     let transformTest (com: IRustCompiler) ctx range kind (fableExpr: Fable.Expr): Rust.Expr =
         match kind with
         | Fable.TypeTest t ->
@@ -2323,20 +2340,18 @@ module Util =
                 assert(ent.IsFSharpUnion)
                 // let genArgs = transformGenArgs com ctx genArgs // TODO:
                 let unionCase = ent.UnionCases |> List.item tag
-                let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
-                let path = makeFullNamePath unionCaseName None
                 let fields =
                     match fableExpr with
                     | Fable.IdentExpr id ->
-                        unionCase.UnionCaseFields
-                        |> Seq.mapi (fun i _field ->
+                        unionCase.UnionCaseFields |> List.mapi (fun i _field ->
                             let fieldName = $"{id.Name}_{tag}_{i}"
-                            mkIdentPat fieldName false false
+                            makeFullNameIdentPat fieldName
                         )
-                        |> Seq.toList
                     | _ ->
-                        [WILD_PAT]
-                let pat = mkTupleStructPat path fields
+                        if List.isEmpty unionCase.UnionCaseFields
+                        then []
+                        else [WILD_PAT]
+                let pat = makeUnionCasePat unionCase.FullName fields
                 let expr =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type (getIdentName fableExpr)
@@ -2359,12 +2374,10 @@ module Util =
                     let unionCase = ent.UnionCases |> List.item caseIndex
                     match evalName with
                     | Some idName ->
-                        unionCase.UnionCaseFields
-                        |> Seq.mapi (fun i field ->
+                        unionCase.UnionCaseFields |> List.mapi (fun i field ->
                             let fieldName = $"{idName}_{caseIndex}_{i}"
                             (fieldName, idName, field.FieldType)
                         )
-                        |> Seq.toList
                     | _ -> []
                 else []
             | _ -> []
@@ -2397,7 +2410,7 @@ module Util =
                 transformLeaveContext com ctx None bodyExpr
             mkArm attrs pat guard body
 
-        let makeUnionCasePat evalType evalName caseIndex =
+        let makeUnionCasePatOpt evalType evalName caseIndex =
             match evalType with
             | Fable.Option(genArg, _) ->
                 // let genArgs = transformGenArgs com ctx [genArg]
@@ -2409,15 +2422,11 @@ module Util =
                         match caseIndex with
                         | 0 ->
                             let fieldName = $"{idName}_{caseIndex}_{0}"
-                            [mkIdentPat fieldName false false]
+                            [makeFullNameIdentPat fieldName]
                         | _ -> []
                     | _ ->
                         [WILD_PAT]
-                if List.isEmpty fields then
-                    Some(mkIdentPat unionCaseFullName false false)
-                else
-                    let path = makeFullNamePath unionCaseFullName None
-                    Some(mkTupleStructPat path fields)
+                Some(makeUnionCasePat unionCaseFullName fields)
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
                 if ent.IsFSharpUnion then
@@ -2426,35 +2435,32 @@ module Util =
                     let fields =
                         match evalName with
                         | Some idName ->
-                            unionCase.UnionCaseFields
-                            |> Seq.mapi (fun i _field ->
+                            unionCase.UnionCaseFields |> List.mapi (fun i _field ->
                                 let fieldName = $"{idName}_{caseIndex}_{i}"
-                                mkIdentPat fieldName false false
+                                makeFullNameIdentPat fieldName
                             )
-                            |> Seq.toList
                         | _ ->
-                            [WILD_PAT]
-                    let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
-                    if List.isEmpty fields then
-                        Some(mkIdentPat unionCaseName false false)
-                    else
-                        let path = makeFullNamePath unionCaseName None
-                        Some(mkTupleStructPat path fields)
+                            if List.isEmpty unionCase.UnionCaseFields
+                            then []
+                            else [WILD_PAT]
+                    Some(makeUnionCasePat unionCase.FullName fields)
                 else
                     None
             | _ ->
                 None
+
         let evalType, evalName =
             match evalExpr with
             | Fable.Get (Fable.IdentExpr id, Fable.UnionTag, _, _) ->
                 id.Type, Some id.Name
             | _ -> evalExpr.Type, None
+
         let arms =
             cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                 let patOpt =
                     match caseExpr with
                     | Fable.Value (Fable.NumberConstant (:? int as tag, Int32, Fable.NumberInfo.Empty), r) ->
-                        makeUnionCasePat evalType evalName tag
+                        makeUnionCasePatOpt evalType evalName tag
                     | _ -> None
                 let pat =
                     match patOpt with
@@ -2463,6 +2469,7 @@ module Util =
                 let extraVals = namesForIndex evalType evalName targetIndex
                 makeArm pat targetIndex (boundValues) extraVals
             )
+
         let defaultArm =
             let targetIndex, boundValues = defaultCase
             // To see if the default arm should actually be a union case pattern, we have to
@@ -2474,10 +2481,10 @@ module Util =
                     match expr with
                     | Fable.Get (Fable.IdentExpr id, Fable.OptionValue, _, _)
                         when Some id.Name = evalName && id.Type = evalType ->
-                        makeUnionCasePat evalType evalName 0
+                        makeUnionCasePatOpt evalType evalName 0
                     | Fable.Get (Fable.IdentExpr id, Fable.UnionField info, _, _)
                         when Some id.Name = evalName && id.Type = evalType ->
-                        makeUnionCasePat evalType evalName info.CaseIndex
+                        makeUnionCasePatOpt evalType evalName info.CaseIndex
                     | _ ->
                         //need to recurse or this only works for trivial expressions
                         let subExprs = FableTransforms.getSubExpressions expr
@@ -2486,9 +2493,11 @@ module Util =
             let pat = patOpt |> Option.defaultValue WILD_PAT
             let extraVals = namesForIndex evalType evalName targetIndex
             makeArm pat targetIndex boundValues extraVals
+
         let expr =
             evalExpr
             |> prepareRefForPatternMatch com ctx evalType (evalName |> Option.defaultValue "")
+
         mkMatchExpr expr (arms @ [defaultArm])
 
     let matchTargetIdentAndValues idents values =
@@ -3011,7 +3020,7 @@ module Util =
             if not (Set.isEmpty closedOverCloneableNames) then
                 mkStmtBlockExpr [
                     for name in closedOverCloneableNames do
-                        let pat = mkIdentPat name false false
+                        let pat = makeFullNameIdentPat name
                         let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
                         let cloneExpr = makeClone identExpr
                         let letExpr = mkLetExpr pat cloneExpr
@@ -3303,10 +3312,13 @@ module Util =
                 let name = uci.Name
                 let isPublic = false
                 let fields =
-                    uci.UnionCaseFields |> List.map (fun fi ->
-                        let ty = transformType com ctx fi.FieldType
-                        mkField [] fi.Name ty isPublic)
-                mkTupleVariant [] name fields
+                    uci.UnionCaseFields |> List.map (fun field ->
+                        let ty = transformType com ctx field.FieldType
+                        mkField [] field.Name ty isPublic
+                    )
+                if List.isEmpty uci.UnionCaseFields
+                then mkUnitVariant [] name
+                else mkTupleVariant [] name fields
             )
         let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
