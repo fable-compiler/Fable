@@ -1937,14 +1937,12 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx] ->
         Helper.LibCall(com, "String", "getCharAt", t, args, ?loc=r) |> Some
+    | "GetStringSlice", None, [ar; lower; upper] ->
+        Helper.LibCall(com, "String", "getSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
     | "SetArray", _, [ar; idx; value] -> setExpr r ar idx value |> Some
-    | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
-        let upper =
-            match upper with
-            | Value(NewOption(None,_,_),_) -> getExpr None (Number(Int32, NumberInfo.Empty)) ar (makeStrConst "length")
-            | _ -> add upper (makeIntConst 1)
-        Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
+    | "GetArraySlice", None, [ar; lower; upper] ->
+        Helper.LibCall(com, "Array", "getSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "SetArraySlice", None, args ->
         Helper.LibCall(com, "Array", "setSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("TypeTestGeneric" | "TypeTestFast"), None, [expr] ->

@@ -149,6 +149,28 @@ pub mod String_ {
         string(&s.chars().skip(i as usize).take(count as usize).collect::<String>())
     }
 
+    pub fn getSlice(s: string, lower: Option<i32>, upper: Option<i32>) -> string {
+        match (lower, upper) {
+            (None, None) => {
+                s
+            },
+            (Some(start), None) => {
+                let start = if start < 0 { 0 } else { start };
+                substring(s, start)
+            },
+            (None, Some(stop)) => {
+                let start = 0;
+                let count = if stop < start { 0 } else { stop - start + 1 };
+                substring2(s, 0, count)
+            },
+            (Some(start), Some(stop)) => {
+                let start = if start < 0 { 0 } else { start };
+                let count = if stop < start { 0 } else { stop - start + 1 };
+                substring2(s, start, count)
+            },
+        }
+    }
+
     pub fn insert(s: string, i: i32, v: string) -> string {
         let left = substring2(s.clone(), 0, i);
         let right = substring(s, i);

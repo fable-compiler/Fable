@@ -247,36 +247,44 @@ let ``Pattern matching with arrays works`` () =
 //     let xs2 = Array.map string [|1;2|]
 //     (box xs2.[1]) :? string |> equal true
 
-// [<Fact>]
-// let ``Array slice with upper index work`` () =
-//     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-//     xs.[..2] |> equal [| 1; 2; 3 |]
-//     xs.[..2] <- ys
-//     xs |> equal [| 8; 8; 8; 4; 5; 6 |]
+[<Fact>]
+let ``Array slice with upper index work`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+    xs.[..2] |> equal [| 1; 2; 3 |]
+    xs.[..2] <- ys
+    xs |> equal [| 8; 8; 8; 4; 5; 6 |]
 
-// [<Fact>]
-// let ``Array slice with lower index work`` () =
-//     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-//     xs.[4..] |> equal [| 5; 6 |]
-//     xs.[4..] <- ys
-//     xs |> equal [| 1; 2; 3; 4; 8; 8 |]
+[<Fact>]
+let ``Array slice with lower index work`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+    xs.[4..] |> equal [| 5; 6 |]
+    xs.[4..] <- ys
+    xs |> equal [| 1; 2; 3; 4; 8; 8 |]
 
-// [<Fact>]
-// let ``Array slice with both indices work`` () =
-//     let xs = [| 1; 2; 3; 4; 5; 6 |]
-//     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-//     xs.[1..3] |> equal [| 2; 3; 4 |]
-//     xs.[1..3] <- ys
-//     xs |> equal [| 1; 8; 8; 8; 5; 6 |]
+[<Fact>]
+let ``Array slice with both indices work`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+    xs.[1..3] |> equal [| 2; 3; 4 |]
+    xs.[1..3] <- ys
+    xs |> equal [| 1; 8; 8; 8; 5; 6 |]
 
-// [<Fact>]
-// let ``Array slice with non-numeric arrays work`` () =
-//     let xs = [|"A";"B";"C";"D"|]
-//     xs.[1..2] <- [|"X";"X";"X";"X"|]
-//     equal xs.[2] "X"
-//     equal xs.[3] "D"
+[<Fact>]
+let ``Array slice with invalid indices work`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
+    xs.[0..-1] |> equal [||]
+    xs.[-50..50] |> equal [| 1; 2; 3; 4; 5; 6 |]
+    xs.[0..-1] <- ys
+    xs |> equal [| 1; 2; 3; 4; 5; 6 |]
+
+[<Fact>]
+let ``Array slice with non-numeric arrays work`` () =
+    let xs = [|"A";"B";"C";"D"|]
+    xs.[1..2] <- [|"X";"X";"X";"X"|]
+    xs |> equal [|"A";"X";"X";"D"|]
 
 [<Fact>]
 let ``Array literals work`` () =
