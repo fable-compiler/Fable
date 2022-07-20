@@ -428,16 +428,35 @@ let rec moveNext (i: SetIterator<'T>) =
         i.started <- true; // The first call to MoveNext "starts" the enumeration.
         not i.stack.IsEmpty
 
+// type SetEnumerator<'T when 'T : comparison>(s) =
+//     let mutable i = mkIterator s
+//     interface System.Collections.Generic.IEnumerator<'T> with
+//         member _.Current: 'T = current i
+//         member _.Current: obj = box (current i)
+//         member _.MoveNext() = moveNext i
+//         member _.Reset() = i <- mkIterator s
+//         member _.Dispose() = ()
+
 // let mkIEnumerator s =
-//     let mutable  i = mkIterator s
-//     { new IEnumerator<_> with
-//           member _.Current = current i
-//       interface IEnumerator with
-//           member _.Current = box (current i)
-//           member _.MoveNext() = moveNext i
-//           member _.Reset() = i <- mkIterator s
-//       interface System.IDisposable with
-//           member _.Dispose() = () }
+//     new SetEnumerator<_>(s) :> System.Collections.Generic.IEnumerator<_>
+
+// let toSeq (s: Set<'T>) =
+//     let en = mkIEnumerator s
+//     en |> Seq.unfold (fun en ->
+//         if en.MoveNext()
+//         then Some(en.Current, en)
+//         else None)
+
+// // let mkIEnumerator s =
+// //     let mutable  i = mkIterator s
+// //     { new IEnumerator<_> with
+// //           member _.Current = current i
+// //       interface IEnumerator with
+// //           member _.Current = box (current i)
+// //           member _.MoveNext() = moveNext i
+// //           member _.Reset() = i <- mkIterator s
+// //       interface System.IDisposable with
+// //           member _.Dispose() = () }
 
 // /// Set comparison.  Note this can be expensive.
 // let rec compareStacks (l1: Set<'T> list) (l2: Set<'T> list): int =
@@ -513,20 +532,6 @@ let toArray (s: Set<'T>) =
 let toList (s: Set<'T>) =
     foldBack (fun k acc -> k::acc) s []
 
-let toSeq (s: Set<'T>) =
-    // Seq.delay (fun () -> mkIEnumerator s) //TODO:
-    // TODO: avoid extra allocation
-    Seq.delay (fun () -> toArray s |> Seq.ofArray)
-
-let compareTo (s1: Set<'T>) (s2: Set<'T>) =
-    // LanguagePrimitives.GenericComparison s1 s2
-    // TODO: avoid extra allocation
-    Array.compareWith compare (toArray s1) (toArray s2)
-
-let equalsTo (s1: Set<'T>) (s2: Set<'T>) =
-    // TODO: avoid extra allocation
-    LanguagePrimitives.GenericEquality (toArray s1) (toArray s2)
-
 let ofArray xs =
     Array.fold (fun acc k -> add k acc) empty xs
 
@@ -535,6 +540,23 @@ let ofList xs =
 
 let ofSeq xs =
     Seq.fold (fun acc k -> add k acc) empty xs
+
+let toSeq (s: Set<'T>) =
+    Seq.delay (fun () ->
+        mkIterator s
+        |> Seq.unfold (fun i ->
+            if moveNext i
+            then Some(current i, i)
+            else None)
+    )
+
+let compareTo (s1: Set<'T>) (s2: Set<'T>) =
+    // LanguagePrimitives.GenericComparison s1 s2
+    Seq.compareWith compare (toSeq s1) (toSeq s2)
+
+let equals (s1: Set<'T>) (s2: Set<'T>) =
+    // LanguagePrimitives.GenericEquality s1 s2
+    compareTo s1 s2 = 0
 
 (*
 

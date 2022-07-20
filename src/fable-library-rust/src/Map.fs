@@ -395,20 +395,6 @@ let toArray (m: Map<'K, 'V>) =
 let toList (m: Map<'K, 'V>) =
     foldBack (fun k v acc -> (k, v)::acc) m []
 
-let toSeq (m: Map<'K, 'V>) =
-    // Seq.delay (fun () -> mkIEnumerator m) // TODO:
-    // TODO: avoid extra allocation
-    Seq.delay (fun () -> toArray m |> Seq.ofArray)
-
-let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
-    // LanguagePrimitives.GenericComparison m1 m2
-    // TODO: avoid extra allocation
-    Array.compareWith compare (toArray m1) (toArray m2)
-
-let equalsTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
-    // TODO: avoid extra allocation
-    LanguagePrimitives.GenericEquality (toArray m1) (toArray m2)
-
 let ofArray xs =
     Array.fold (fun acc (k, v) -> add k v acc) empty xs
 
@@ -455,41 +441,77 @@ let unexpectedStackForCurrent() =
 let unexpectedStackForMoveNext() =
     failwith "Please report error: Map iterator, unexpected stack for moveNext"
 
-// let current i =
-//     if i.started then
-//         match i.stack with
-//         | Some t :: _ ->
-//             if t.Height = 1 then KeyValuePair<_, _>(t.Key, t.Value)
-//             else unexpectedStackForCurrent()
-//         | _ -> alreadyFinished()
-//     else
-//         notStarted()
+let current i =
+    if i.started then
+        match i.stack with
+        | Some t :: _ ->
+            if t.Height = 1 then
+                // KeyValuePair<_, _>(t.Key, t.Value)
+                (t.Key, t.Value)
+            else unexpectedStackForCurrent()
+        | _ -> alreadyFinished()
+    else
+        notStarted()
 
-// let rec moveNext i =
-//     if i.started then
-//         match i.stack with
-//         | Some m :: rest ->
-//             if t.Height = 1 then
-//                 i.stack <- collapseLHS rest
-//                 not i.stack.IsEmpty
-//             else unexpectedStackForMoveNext()
-//         | _ -> false
-//     else
-//         i.started <- true  // The first call to MoveNext "starts" the enumeration.
-//         not i.stack.IsEmpty
+let rec moveNext i =
+    if i.started then
+        match i.stack with
+        | Some t :: rest ->
+            if t.Height = 1 then
+                i.stack <- collapseLHS rest
+                not i.stack.IsEmpty
+            else unexpectedStackForMoveNext()
+        | _ -> false
+    else
+        i.started <- true  // The first call to MoveNext "starts" the enumeration.
+        not i.stack.IsEmpty
+
+let toSeq (m: Map<'K, 'V>) =
+    Seq.delay (fun () ->
+        mkIterator m
+        |> Seq.unfold (fun i ->
+            if moveNext i
+            then Some(current i, i)
+            else None)
+    )
+
+let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
+    // LanguagePrimitives.GenericComparison m1 m2
+    Seq.compareWith compare (toSeq m1) (toSeq m2)
+
+let equals (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
+    // LanguagePrimitives.GenericEquality m1 m2
+    compareTo m1 m2 = 0
+
+// type MapEnumerator<'K, 'V when 'K : comparison>(m) =
+//     let mutable i = mkIterator m
+//     interface System.Collections.Generic.IEnumerator<'K * 'V> with
+//         member _.Current: ('K * 'V) = current i
+//         member _.Current: obj = box (current i)
+//         member _.MoveNext() = moveNext i
+//         member _.Reset() = i <- mkIterator m
+//         member _.Dispose() = ()
 
 // let mkIEnumerator m =
-//     let mutable i = mkIterator m
-//     { new IEnumerator<_> with
-//           member _.Current = current i
+//     new MapEnumerator<_,_>(m) :> System.Collections.Generic.IEnumerator<_>
 
-//       interface System.Collections.IEnumerator with
-//           member _.Current = box (current i)
-//           member _.MoveNext() = moveNext i
-//           member _.Reset() = i <- mkIterator m
+// let toSeq (m: Map<'K, 'V>) =
+//     let en = mkIEnumerator m
+//     en |> Seq.unfold (fun en ->
+//         if en.MoveNext()
+//         then Some(en.Current, en)
+//         else None)
 
-//       interface System.IDisposable with
-//           member _.Dispose() = ()}
+// // let mkIEnumerator m =
+// //     let mutable i = mkIterator m
+// //     { new IEnumerator<_> with
+// //           member _.Current = current i
+// //       interface System.Collections.IEnumerator with
+// //           member _.Current = box (current i)
+// //           member _.MoveNext() = moveNext i
+// //           member _.Reset() = i <- mkIterator m
+// //       interface System.IDisposable with
+// //           member _.Dispose() = ()}
 
 (*
 
