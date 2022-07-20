@@ -588,6 +588,13 @@ let tests =
     testCase "Units of measure work with decimals" <| fun () ->
         3M<km/h> + 2M<km/h> |> equal 5M<km/h>
 
+    testCase "Units of measure work with unsigned ints" <| fun () -> // See #2955
+        let s1 = 1uy<km>
+        let s2 = 2us<h>
+        let s3 = 3u<km/h>
+        let s4 = 4ul<mi>
+        $"%i{s1}%i{s2}%i{s3}%i{s4}" |> equal "1234"
+
     testCase "Abbreviated measures work" <| fun () -> // #2313
         let x = 5.<Measure1>
         let c = MeasureTest()

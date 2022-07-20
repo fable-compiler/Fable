@@ -848,20 +848,25 @@ module TypeHelpers =
         Fable.DelegateType(argTypes, returnType)
 
     let numberTypes =
-        dict [Types.int8, Int8
-              Types.uint8, UInt8
-              Types.int16, Int16
-              Types.uint16, UInt16
-              Types.int32, Int32
-              Types.uint32 , UInt32
-              Types.float32, Float32
-              Types.float64, Float64
-               // Units of measure
-              "Microsoft.FSharp.Core.sbyte`1", Int8
-              "Microsoft.FSharp.Core.int16`1", Int16
-              "Microsoft.FSharp.Core.int`1", Int32
-              "Microsoft.FSharp.Core.float32`1", Float32
-              "Microsoft.FSharp.Core.float`1", Float64]
+        dict [
+            Types.int8, Int8
+            Types.uint8, UInt8
+            Types.int16, Int16
+            Types.uint16, UInt16
+            Types.int32, Int32
+            Types.uint32 , UInt32
+            Types.float32, Float32
+            Types.float64, Float64
+             // Units of measure
+            "Microsoft.FSharp.Core.sbyte`1", Int8
+            "Microsoft.FSharp.Core.byte`1", UInt8
+            "Microsoft.FSharp.Core.int16`1", Int16
+            "Microsoft.FSharp.Core.uint16`1", UInt16
+            "Microsoft.FSharp.Core.int`1", Int32
+            "Microsoft.FSharp.Core.uint`1", UInt32
+            "Microsoft.FSharp.Core.float32`1", Float32
+            "Microsoft.FSharp.Core.float`1", Float64
+        ]
 
     let fsharpUMX =
         dict ["bool`1", Choice1Of2 Fable.Boolean
@@ -907,7 +912,9 @@ module TypeHelpers =
             | Types.resizeArray -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number kind
+            // TODO: nativeint/unativeint with units of measure
             | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
+            | "Microsoft.FSharp.Core.uint64`1" -> makeSystemRuntimeType Types.uint64
             | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
             | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
