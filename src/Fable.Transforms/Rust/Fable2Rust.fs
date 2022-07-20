@@ -598,6 +598,8 @@ module TypeInfo =
 
     let getInterfaceEntityName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         match entRef.FullName with
+        | Types.idisposable
+            -> getLibraryImportName com ctx "Interfaces" "IDisposable"
         | Types.icollection
         | Types.icollectionGeneric
             -> getLibraryImportName com ctx "Interfaces" "ICollection`1"
@@ -884,6 +886,10 @@ module Util =
     let (|Lets|_|) = function
         | Fable.Let(ident, value, body) -> Some([ident, value], body)
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
+        | _ -> None
+
+    let (|IDisposable|_|) = function
+        | Replacements.Util.IsEntity (Types.idisposable) _ -> Some()
         | _ -> None
 
     let (|IFormattable|_|) = function
@@ -3018,7 +3024,7 @@ module Util =
         else
             closureExpr |> makeRcValue
 
-    let makeTypeBounds argName (constraints: Fable.Constraint list) =
+    let makeTypeBounds com ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
             // makes gen type bound, e.g. T: From(i32), or T: Default
             let tys = tyNames |> List.map (fun tyName ->
@@ -3055,6 +3061,9 @@ module Util =
                 | IEquatable _ ->
                     [ makeRawBound "Eq"
                     ; makeGenBound ["core";"hash";"Hash"] [] ]
+                | IDisposable ->
+                    let importName = getLibraryImportName com ctx "Interfaces" "IDisposable"
+                    [ makeGenBound [importName] [] ]
                 | _ -> []
             | Fable.Constraint.IsNullable -> []
             | Fable.Constraint.IsValueType -> []
@@ -3071,7 +3080,7 @@ module Util =
         |> List.distinct
         |> List.collect makeConstraint
 
-    let makeGenerics (genParams: Fable.Type list) =
+    let makeGenerics com ctx (genParams: Fable.Type list) =
         let defaultBounds = [
             mkTypeTraitGenericBound [rawIdent "Clone"] None
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
@@ -3079,7 +3088,7 @@ module Util =
         genParams
         |> List.choose (function
             | Fable.GenericParam(name, _isMeasure, constraints) ->
-                let bounds = makeTypeBounds name constraints
+                let bounds = makeTypeBounds com ctx name constraints
                 let p = mkGenericParamFromName [] name (bounds @ defaultBounds)
                 Some p
             | _ -> None)
@@ -3093,7 +3102,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics fnGenParams
+        let generics = makeGenerics com ctx fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = []
         let fnItem = mkFnItem attrs name kind
@@ -3145,7 +3154,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics fnGenParams
+        let generics = makeGenerics com ctx fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx info
         let fnItem = mkFnItem attrs name kind
@@ -3195,7 +3204,7 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let generics = makeGenerics fnGenParams
+        let generics = makeGenerics com ctx fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx info
         let fnItem = mkFnAssocItem attrs name kind
@@ -3281,14 +3290,14 @@ module Util =
         let path =
             let genArgTys = genArgs |> List.map (transformType com ctx)
             mkGenericPath (splitFullName ent.FullName) (mkGenericTypeArgs genArgTys)
-        let generics = genArgs |> makeGenerics
+        let generics = genArgs |> makeGenerics com ctx
         let bounds = [] //TODO:
         let tyItem = mkTyAliasItem [] entName ty generics bounds
         [tyItem]
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entNamesp, entName = splitNameSpace ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
@@ -3305,7 +3314,7 @@ module Util =
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entNamesp, entName = splitNameSpace ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let fields =
             ent.FSharpFields |> Seq.map (fun fi ->
@@ -3373,12 +3382,12 @@ module Util =
                     let returnType = memb.ReturnParameter.Type
                     let fnName = memb.DisplayName
                     let fnDecl = transformFunctionDecl com ctx (thisArg::memberArgs) returnType
-                    let generics = makeGenerics [] //TODO: add generics?
+                    let generics = makeGenerics com ctx [] //TODO: add generics?
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                     mkFnAssocItem [] fnName fnKind
                 )
             )
-        let generics = getEntityGenArgs ent |> makeGenerics
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let entNamesp, entName = splitNameSpace ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
@@ -3449,7 +3458,7 @@ module Util =
                 let ty =
                     let ctx = { ctx with Typegen = { ctx.Typegen with IsRawType = true } }
                     Fable.Type.DeclaredType(ent.Ref, genArgs) |> transformType com ctx
-                let generics = genArgs |> makeGenerics
+                let generics = genArgs |> makeGenerics com ctx
                 let implItem = mkImplItem [] "" ty generics [ctorItem] None
                 [implItem]
 
@@ -3485,11 +3494,11 @@ module Util =
                             Set.contains m.Name nonInterfaceMembersSet)
                     for m in membersNotDeclared ->
                         let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                        let generics = makeGenerics [] //TODO: add generics?
+                        let generics = makeGenerics com ctx [] //TODO: add generics?
                         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                         mkFnAssocItem [] m.Name fnKind
                 ]
-                let generics = getEntityGenArgs ent |> makeGenerics
+                let generics = getEntityGenArgs ent |> makeGenerics com ctx
                 let traitItem = mkTraitItem [] (entName + "Methods") assocItems [] generics
                 [traitItem |> mkPublicItem]
 
@@ -3527,7 +3536,7 @@ module Util =
                     let path =
                         let genArgTys = genArgs |> List.map (transformType com ctx)
                         mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
-                    let generics = genArgs |> makeGenerics
+                    let generics = genArgs |> makeGenerics com ctx
                     let ofTrait = mkTraitRef path |> Some
                     let implItem = mkImplItem [] "" ty generics decls ofTrait
                     [implItem]

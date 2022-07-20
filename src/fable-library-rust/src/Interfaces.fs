@@ -1,5 +1,8 @@
 module Interfaces_
 
+type IDisposable =
+    inherit System.IDisposable
+
 type IEnumerator<'T> =
     inherit System.IDisposable
     abstract Current: 'T

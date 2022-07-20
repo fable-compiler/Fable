@@ -50,7 +50,7 @@ module Enumerable =
         //     str + "]"
 
     [<CompiledName("Enumerator")>]
-    type FromFunction<'T>(next: unit -> 'T option) =
+    type FromFunctions<'T>(next: unit -> 'T option, dispose: unit -> unit) =
         let mutable curr: 'T option = None
         interface IEnumerator<'T> with
             member _.Current =
@@ -58,10 +58,15 @@ module Enumerable =
             member _.MoveNext() =
                 curr <- next()
                 curr.IsSome
-            member _.Dispose() = ()
+            member _.Dispose() =
+                dispose()
 
     let fromFunction next: IEnumerator<'T> =
-        new FromFunction<'T>(next) :> IEnumerator<'T>
+        let dispose() = ()
+        new FromFunctions<'T>(next, dispose) :> IEnumerator<'T>
+
+    let fromFunctions next dispose: IEnumerator<'T> =
+        new FromFunctions<'T>(next, dispose) :> IEnumerator<'T>
 
     let empty<'T>(): IEnumerator<'T> =
         let next(): 'T option = None
@@ -149,6 +154,14 @@ module Enumerable =
             else None
         fromFunction next
 
+    let enumerateThenFinally f (e: IEnumerator<'T>): IEnumerator<'T> =
+        let next() =
+            if e.MoveNext()
+            then Some (e.Current)
+            else None
+        let dispose() = try e.Dispose() finally f()
+        fromFunctions next dispose
+
     let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable finished = false
         let mutable state = None
@@ -167,9 +180,8 @@ module Enumerable =
                 let res = compute state.Value
                 if Option.isNone res then
                     finished <- true
-                    dispose()
                 res
-        fromFunction next
+        fromFunctions next dispose
 
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
         let mutable acc: 'State = state
@@ -480,26 +492,26 @@ let equalsTo (xs: 'T seq) (ys: 'T seq) =
 //         (fun x -> if moveNext x then Some(current x) else None)
 //         (fun x -> match box(x) with :? System.IDisposable as id -> id.Dispose() | _ -> ())
 
-// let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> 'T seq) =
-//     mkSeq (fun () ->
-//         try
-//             let e = restf() |> ofSeq
-//             Enumerable.enumerateThenFinally compensation e
-//         with _ ->
-//             compensation()
-//             reraise()
-//     )
+let finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> 'T seq) =
+    mkSeq (fun () ->
+        try
+            let e = restf() |> ofSeq
+            Enumerable.enumerateThenFinally compensation e
+        with _ ->
+            compensation()
+            reraise()
+    )
 
-// let enumerateThenFinally (source: 'T seq) (compensation: unit -> unit) =
-//     finallyEnumerable(compensation, (fun () -> source))
+let enumerateThenFinally (source: 'T seq) (compensation: unit -> unit) =
+    finallyEnumerable(compensation, (fun () -> source))
 
-// let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #'U seq) =
-//     finallyEnumerable(
-//         (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
-//         (fun () -> source resource :> seq<_>))
+let enumerateUsing (resource: 'T :> System.IDisposable) (sourceGen: 'T -> 'U seq) =
+    finallyEnumerable(
+        (fun () -> resource.Dispose()),
+        (fun () -> sourceGen resource :> seq<_>))
 
-// let enumerateWhile (guard: unit -> bool) (xs: 'T seq) =
-//     concat (unfold (fun i -> if guard() then Some(xs, i + 1) else None) 0)
+let enumerateWhile (guard: unit -> bool) (xs: 'T seq) =
+    concat (unfold (fun i -> if guard() then Some(xs, i + 1) else None) 0)
 
 let exactlyOne (xs: 'T seq) =
     use e = ofSeq xs
