@@ -8,7 +8,7 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     pub fn string(s: &str) -> string {
-        Rc::from(s)
+        Lrc::from(s)
     }
 
     pub fn fromCharCode(code: u32) -> char {
@@ -351,42 +351,42 @@ pub mod String_ {
     // String module
     // -----------------------------------------------------------
 
-    pub fn collect(mapping: Rc<impl Fn(char) -> string>, s: string) -> string {
+    pub fn collect(mapping: Lrc<impl Fn(char) -> string>, s: string) -> string {
         let v: Vec<string> = s.chars().map(|c| mapping(c)).collect();
         string(&v.concat())
     }
 
-    pub fn exists(predicate: Rc<impl Fn(char) -> bool>, s: string) -> bool {
+    pub fn exists(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> bool {
         s.chars().any(|c| predicate(c))
     }
 
-    pub fn filter(predicate: Rc<impl Fn(char) -> bool>, s: string) -> string {
+    pub fn filter(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> string {
         string(&s.chars().filter(|c| predicate(*c)).collect::<String>())
     }
 
-    pub fn forAll(predicate: Rc<impl Fn(char) -> bool>, s: string) -> bool {
+    pub fn forAll(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> bool {
         s.chars().all(|c| predicate(c))
     }
 
-    pub fn init(count: i32, initializer: Rc<impl Fn(i32) -> string>) -> string {
+    pub fn init(count: i32, initializer: Lrc<impl Fn(i32) -> string>) -> string {
         let v: Vec<string> = (0..count).map(|i| initializer(i)).collect();
         string(&v.concat())
     }
 
-    pub fn iter(action: Rc<impl Fn(char) -> ()>, s: string) -> () {
+    pub fn iter(action: Lrc<impl Fn(char) -> ()>, s: string) -> () {
         s.chars().for_each(|c| action(c))
     }
 
-    pub fn iteri(action: Rc<impl Fn(i32, char) -> ()>, s: string) -> () {
+    pub fn iteri(action: Lrc<impl Fn(i32, char) -> ()>, s: string) -> () {
         let mut i: i32 = -1;
         s.chars().for_each(|c| { i += 1; action(i, c) })
     }
 
-    pub fn map(mapping: Rc<impl Fn(char) -> char>, s: string) -> string {
+    pub fn map(mapping: Lrc<impl Fn(char) -> char>, s: string) -> string {
         string(&s.chars().map(|c| mapping(c)).collect::<String>())
     }
 
-    pub fn mapi(mapping: Rc<impl Fn(i32, char) -> char>, s: string) -> string {
+    pub fn mapi(mapping: Lrc<impl Fn(i32, char) -> char>, s: string) -> string {
         let mut i: i32 = -1;
         string(&s.chars().map(|c| { i += 1; mapping(i, c) }).collect::<String>())
     }

@@ -18,13 +18,18 @@ pub mod Native_ {
     pub type Set_1<T> = Option<Rc<crate::Set_::SetTree_1<T>>>;
     pub type Map_2<K, V> = Option<Rc<crate::Map_::MapTree_2<K, V>>>;
 
+    #[cfg(not(futures))]
+    pub type Lrc<T> = Rc<T>;
+    #[cfg(futures)]
+    pub type Lrc<T> = Arc<T>;
+
     // TODO: use these types in generated code
-    pub type string = Rc<str>;
-    pub type seq<T> = Rc<dyn crate::Interfaces_::IEnumerable_1<T>>;
-    pub type RefCell<T> = Rc<MutCell<T>>;
-    pub type Array<T> = Rc<MutCell<Vec<T>>>;
-    pub type HashSet_1<T> = Rc<MutCell<HashSet<T>>>;
-    pub type HashMap_2<K, V> = Rc<MutCell<HashMap<K, V>>>;
+    pub type string = Lrc<str>;
+    pub type seq<T> = Lrc<dyn crate::Interfaces_::IEnumerable_1<T>>;
+    pub type RefCell<T> = Lrc<MutCell<T>>;
+    pub type Array<T> = Lrc<MutCell<Vec<T>>>;
+    pub type HashSet_1<T> = Lrc<MutCell<HashSet<T>>>;
+    pub type HashMap_2<K, V> = Lrc<MutCell<HashMap<K, V>>>;
 
     use core::cmp::Ordering;
     use core::fmt::Debug;
@@ -40,7 +45,7 @@ pub mod Native_ {
         Default::default()
     }
 
-    pub fn comparer<T: Clone>(comp: Rc<impl Fn(T, T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
+    pub fn comparer<T: Clone>(comp: Lrc<impl Fn(T, T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
         move |x, y| match comp(x.clone(), y.clone()) {
             i if i < 0 => Ordering::Less,
             i if i > 0 => Ordering::Greater,
@@ -53,8 +58,8 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     #[inline]
-    pub fn mkRef<T>(x: T) -> Rc<T> {
-        Rc::from(x)
+    pub fn mkRef<T>(x: T) -> Lrc<T> {
+        Lrc::from(x)
     }
 
     #[inline]
@@ -63,7 +68,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn mkRefMut<T: Clone>(x: T) -> Rc<MutCell<T>> {
+    pub fn mkRefMut<T: Clone>(x: T) -> Lrc<MutCell<T>> {
         mkRef(mkMut(x))
     }
 
