@@ -96,17 +96,17 @@ let ``Functions in class fields are uncurried`` () =
 #if FABLE_COMPILER_RUST
 open Fable.Core.Rust
 
-[<Attr("should_panic")>]
+[<OuterAttr("should_panic")>]
 [<Fact>]
 let ``Simple outer attribute works`` (): unit =
     failwith "Some error"
 
-[<Attr("ignore", "intentionally")>]
+[<OuterAttr("ignore", "intentionally")>]
 [<Fact>]
 let ``Name value outer attribute works`` (): unit =
     failwith "Some error"
 
-[<Attr("should_panic", [|"expected=\"Some error\""|])>]
+[<OuterAttr("should_panic", [|"expected=\"Some error\""|])>]
 [<Fact>]
 let ``Delimited outer attribute works`` (): unit =
     failwith "Some error"
