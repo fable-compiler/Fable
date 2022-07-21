@@ -4,11 +4,13 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.16</Version>
-    <PackageVersion>3.7.16</PackageVersion>
-    <PackageReleaseNotes>* Fix #2869: Don't update maps @hensou
-* Fix #2869: Use deterministic names for compiler-generate variables
-* Update FCS @ncave</PackageReleaseNotes>
+    <Version>3.7.17</Version>
+    <PackageVersion>3.7.17</PackageVersion>
+    <PackageReleaseNotes>* Fix #2961: Make Array.compareWith behaviour consistent with dotnet F#
+* Fix #2955: units of mesure with unsigned ints
+* Fix #2950: String formatting: trim trailing zeroes when using # placeholder
+* Fix #2879: Make CancellationTokenSource implement IDisposable
+* Don't print multiple sourceMappingURL comments</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
