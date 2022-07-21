@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+#[cfg(feature = "futures")]
 pub mod Async_ {
     use std::future::{self, Future, ready};
     use std::pin::Pin;
@@ -61,6 +62,7 @@ pub mod Async_ {
     }
 }
 
+#[cfg(feature = "futures")]
 pub mod AsyncBuilder_ {
     use std::{sync::Arc, pin::Pin, future::{Future, ready}};
 
@@ -98,6 +100,7 @@ pub mod AsyncBuilder_ {
     }
 }
 
+#[cfg(feature = "futures")]
 pub mod ThreadPool {
     use std::sync::RwLock;
 
@@ -116,6 +119,7 @@ pub mod ThreadPool {
     }
 }
 
+#[cfg(feature = "futures")]
 pub mod Task_ {
     use std::{sync::{Arc, RwLock}, thread::{self, JoinHandle}, time::Duration, task::Poll, pin::Pin};
 
@@ -292,6 +296,7 @@ pub mod Task_ {
     }
 }
 
+#[cfg(feature = "futures")]
 pub mod TaskBuilder_ {
     use std::{sync::Arc, rc::Rc};
 
