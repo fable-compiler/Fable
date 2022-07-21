@@ -175,8 +175,8 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         tys |> mkGenericTy (splitFullName importName)
 
-    // TODO: emit Rc or Arc depending on threading.
-    // Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
+    let makeLrcTy com ctx (ty: Rust.Ty): Rust.Ty =
+        [ty] |> makeImportType com ctx "Native" "Lrc"
     let makeRcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Rc"
     let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
@@ -396,7 +396,7 @@ module TypeInfo =
         | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEnumerator _
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
-            -> Some Rc
+            -> Some Lrc
 
         // always Arc-wrapped
         | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) _
@@ -406,7 +406,7 @@ module TypeInfo =
 
         // conditionally Rc-wrapped
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
-            if not (isCopyableType com Set.empty typ) then Some Rc else None
+            if not (isCopyableType com Set.empty typ) then Some Lrc else None
         | Fable.DeclaredType (entRef, _) ->
             match com.GetEntity(entRef) with
             | HasEmitAttribute _ -> None
@@ -416,7 +416,7 @@ module TypeInfo =
                     Some ptrType
                 else None
             | _ ->
-                if not (isCopyableType com Set.empty typ) then Some Rc else None
+                if not (isCopyableType com Set.empty typ) then Some Lrc else None
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -574,7 +574,7 @@ module TypeInfo =
         if ctx.RequiresSendSync then
             underlyingTy |> makeArcTy com ctx
         else
-            underlyingTy |> makeRcTy com ctx
+            underlyingTy |> makeLrcTy com ctx
 
     let numberType kind: Rust.Ty =
         match kind with
@@ -641,6 +641,7 @@ module TypeInfo =
             else None)
 
     type PointerType =
+        | Lrc
         | Rc
         | Arc
 
@@ -650,8 +651,9 @@ module TypeInfo =
                 match att.ConstructorArgs with
                 | [:? int as ptrType] ->
                     match ptrType with
-                    | 0 -> Some Rc
-                    | 1 -> Some Arc
+                    | 0 -> Some Lrc
+                    | 1 -> Some Rc
+                    | 2 -> Some Arc
                     | _ -> None
                 | _ -> None
             else None)
@@ -818,6 +820,8 @@ module TypeInfo =
                     //     Expression.callExpression(callee, generics)
 
         match shouldBeRefCountWrapped com typ, not ctx.Typegen.IsRawType with
+        | Some Lrc, true ->
+            makeLrcTy com ctx ty
         | Some Rc, true ->
             makeRcTy com ctx ty
         | Some Arc, true ->
@@ -961,12 +965,12 @@ module Util =
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
         if ident.IsThisArgument then
-            expr |> makeClone |> makeRcValue
+            expr |> makeClone |> makeLrcValue
         elif ident.IsMutable && not (isInRefType com ident.Type) then
             expr |> mutableGet
         else
             if isBoxScoped ctx ident.Name
-            then expr |> makeRcValue
+            then expr |> makeLrcValue
             elif isRefScoped ctx ident.Name
             then expr |> makeClone // |> mkDerefExpr |> mkParenExpr
             else expr
@@ -1289,6 +1293,8 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
+    let makeLrcValue (value: Rust.Expr) =
+        makeCall ["Lrc";"from"] None [value]
     let makeRcValue (value: Rust.Expr) =
         makeCall ["Rc";"from"] None [value]
     let makeArcValue (value: Rust.Expr) =
@@ -1297,6 +1303,7 @@ module Util =
         match ent with
         | HasReferenceTypeAttribute a ->
             match a with
+            | Lrc -> expr |> makeLrcValue
             | Rc -> expr |> makeRcValue
             | Arc -> expr |> makeArcValue
         | _ ->
@@ -1306,7 +1313,7 @@ module Util =
             | Types.taskGeneric ->
                 expr |> makeArcValue
             | _ ->
-                expr |> makeRcValue
+                expr |> makeLrcValue
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"from"] None [value]
@@ -1796,9 +1803,9 @@ module Util =
             | Fable.String, Rust.BinOpKind.Add ->
                 //proprietary string concatenation - String + &String = String
                 let left = mkMethodCallExprOnce "to_string" None left []
-                let strTy = primitiveType "str" |> makeRcTy com ctx
+                let strTy = primitiveType "str" |> makeLrcTy com ctx
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
-                |> makeRcValue
+                |> makeLrcValue
                 |> mkCastExpr strTy
             // | _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
             //         // reference equality
@@ -2154,7 +2161,7 @@ module Util =
         let tyOpt =
             tyOpt |> Option.map (fun ty ->
                 if ident.IsMutable
-                then ty |> makeMutTy com ctx |> makeRcTy com ctx
+                then ty |> makeMutTy com ctx |> makeLrcTy com ctx
                 else ty)
         let initOpt =
             match value with
@@ -2169,7 +2176,7 @@ module Util =
         let initOpt =
             initOpt |> Option.map (fun init ->
                 if ident.IsMutable
-                then init |> makeMutValue |> makeRcValue
+                then init |> makeMutValue |> makeLrcValue
                 else init)
         let local = mkIdentLocal [] ident.Name tyOpt initOpt
         // TODO : traverse body and follow references to decide on if this should be wrapped or not]
@@ -2744,7 +2751,7 @@ module Util =
             let mainName = String.concat "::" path
             let strBody = [
                 $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<Rc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args: Vec<Lrc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -3031,7 +3038,7 @@ module Util =
         if ctx.RequiresSendSync then
             closureExpr |> makeArcValue
         else
-            closureExpr |> makeRcValue
+            closureExpr |> makeLrcValue
 
     let makeTypeBounds com ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3180,13 +3187,13 @@ module Util =
         let value = transformAsExpr com ctx fableExpr
         let value =
             if info.IsMutable
-            then value |> makeMutValue |> makeRcValue
+            then value |> makeMutValue |> makeLrcValue
             else value
         let attrs = []
         let ty = transformType com ctx fableExpr.Type
         let ty =
             if info.IsMutable
-            then ty |> makeMutTy com ctx |> makeRcTy com ctx
+            then ty |> makeMutTy com ctx |> makeLrcTy com ctx
             else ty
 
         let staticItem = mkStaticItem attrs name ty (Some value)
@@ -3295,7 +3302,7 @@ module Util =
         let ty =
             let genArgs = genArgs |> transformGenArgs com ctx
             let bounds = mkTypeTraitGenericBound [entName] genArgs
-            mkTraitTy [bounds] // |> makeRcTy com ctx
+            mkTraitTy [bounds]
         let path =
             let genArgTys = genArgs |> List.map (transformType com ctx)
             mkGenericPath (splitFullName ent.FullName) (mkGenericTypeArgs genArgTys)
@@ -3539,7 +3546,7 @@ module Util =
                     let ty =
                         let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgs
-                        mkTraitTy [bounds] // |> makeRcTy com ctx
+                        mkTraitTy [bounds]
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =
                         if isNonInterface then tEntRef.FullName + "Methods"

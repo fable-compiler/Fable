@@ -22,8 +22,9 @@ type InnerAttrAttribute private (name: string, value: string option, items: stri
 
 //Rc/Arc control
 type PointerType =
-    | Rc = 0
-    | Arc = 1
+    | Lrc = 0
+    | Rc = 1
+    | Arc = 2
 
 // Rust - Defines the pointer type that is to be used to wrap the object (Rc/Arc)
 type ReferenceTypeAttribute(pointerType: PointerType) =

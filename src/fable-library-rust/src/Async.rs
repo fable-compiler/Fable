@@ -301,6 +301,7 @@ pub mod TaskBuilder_ {
     use std::{sync::Arc, rc::Rc};
 
     use super::Task_::Task_1;
+    use super::super::Native_::Lrc;
 
     pub struct TaskBuilder {}
 
@@ -311,7 +312,7 @@ pub mod TaskBuilder_ {
         }
     }
 
-    pub fn new() -> Rc<TaskBuilder> {
-        Rc::from(TaskBuilder {})
+    pub fn new() -> Lrc<TaskBuilder> {
+        Lrc::from(TaskBuilder {})
     }
 }
