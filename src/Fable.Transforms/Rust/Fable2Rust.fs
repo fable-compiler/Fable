@@ -3131,15 +3131,15 @@ module Util =
         let ctxNext = { ctx with ScopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs }
         mkItemStmt fnItem, ctxNext
 
-    let transformAttributes (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) =
-        info.Attributes
+    let transformAttributes (com: IRustCompiler) ctx (attributes: Fable.Attribute seq) =
+        attributes
         |> Seq.collect (fun att ->
             // translate test methods attributes
             // TODO: support more test frameworks
             if att.Entity.FullName.EndsWith(".FactAttribute") then
                 [mkAttr "test" []]
             // custom outer attributes
-            elif att.Entity.FullName = Atts.rustAttr then
+            elif att.Entity.FullName = Atts.rustOuterAttr then
                 match att.ConstructorArgs with
                 | [:? string as name] -> [mkAttr name []]
                 | [:? string as name; :? string as value] -> [mkEqAttr name value]
@@ -3154,6 +3154,7 @@ module Util =
                 | _ -> []
             else []
         )
+        |> Seq.toList
 
     let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
@@ -3172,7 +3173,7 @@ module Util =
         let header = DEFAULT_FN_HEADER
         let generics = makeGenerics com ctx fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
-        let attrs = transformAttributes com ctx info
+        let attrs = transformAttributes com ctx info.Attributes
         let fnItem = mkFnItem attrs name kind
         // let fnItem =
         //     if info.IsPublic
@@ -3200,7 +3201,7 @@ module Util =
         let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
         let valueStmt = mkEmitExprStmt $"{name}.with(|value| value.clone())"
 
-        let attrs = []
+        let attrs = transformAttributes com ctx info.Attributes
         let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
@@ -3222,7 +3223,7 @@ module Util =
         let header = DEFAULT_FN_HEADER
         let generics = makeGenerics com ctx fnGenParams
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
-        let attrs = transformAttributes com ctx info
+        let attrs = transformAttributes com ctx info.Attributes
         let fnItem = mkFnAssocItem attrs name kind
         fnItem
 
@@ -3327,7 +3328,8 @@ module Util =
                 then mkUnitVariant [] name
                 else mkTupleVariant [] name fields
             )
-        let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
+        let attrs = transformAttributes com ctx ent.Attributes
+        let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
         [enumItem |> mkPublicItem] // TODO: add traits for attached members
 
@@ -3344,7 +3346,8 @@ module Util =
                     else ty
                 mkField [] fi.Name ty isPublic
             )
-        let attrs = [mkAttr "derive" (makeDerivedFrom com ent)]
+        let attrs = transformAttributes com ctx ent.Attributes
+        let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let structItem = mkStructItem attrs entName fields generics
         [structItem |> mkPublicItem] // TODO: add traits for attached members
 
@@ -3692,11 +3695,13 @@ module Util =
                 // TODO: perhaps collect other use decls from usage in body
                 let useItem = mkGlobUseItem [] ["super"]
                 let useDecls = [useItem]
-                let attrs =  []
+                let attrs =
+                    match com.TryGetEntity(decl.Entity) with
+                    | Some ent -> transformAttributes com ctx ent.Attributes
+                    | None -> []
                 let modDecls = useDecls @ memberDecls
                 let modItem = modDecls |> mkModItem attrs decl.Name
                 [modItem |> mkPublicItem]
-
 
         | Fable.ActionDeclaration decl ->
             // TODO: use ItemKind.Static with IIFE closure?
