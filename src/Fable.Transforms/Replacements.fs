@@ -855,7 +855,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
+        // Note Array.compareWith doesn't check the length first, see #2961
+        Helper.LibCall(com, "Array", "compareTo", Number Int32, [f; left; right], ?loc=r)
     | List _ ->
         Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
