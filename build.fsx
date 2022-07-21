@@ -500,7 +500,12 @@ let testPython() =
     // Testing in Windows
     // runInDir buildDir "python -m pytest -x"
 
-let testRust() =
+type RustTestMode =
+    | NoFutures
+    | WithFutures
+    | Everything
+
+let testRust testMode =
     // buildLibraryRustIfNotExists()
     buildLibraryRust()
 
@@ -529,7 +534,14 @@ let testRust() =
 
     // run Fable Rust tests
     copyFile (projectDir </> "Cargo.toml") buildDir
-    runInDir buildDir "cargo test"
+    match testMode with
+    | NoFutures ->
+        runInDir buildDir "cargo test"
+    | WithFutures ->
+        runInDir buildDir "cargo test --features futures"
+    | Everything ->
+        runInDir buildDir "cargo test"
+        runInDir buildDir "cargo test --features futures"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
@@ -703,7 +715,9 @@ match BUILD_ARGS_LOWER with
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
-| "test-rust"::_ -> testRust()
+| "test-rust"::_ -> testRust NoFutures
+| "test-rust-futures"::_ -> testRust WithFutures
+| "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
 | "quicktest"::_ ->

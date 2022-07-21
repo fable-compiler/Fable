@@ -3,5 +3,8 @@ name = "fable_tests_rust"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+futures = ["fable_library_rust/futures"]
+
 [dependencies]
-fable_library_rust = { path = "../../fable-library-rust", features = ["futures"] }
+fable_library_rust = { path = "../../fable-library-rust" }
