@@ -14,14 +14,14 @@ pub mod Native_ {
     pub use super::Mutable::*;
     pub use super::Lazy::*;
 
-    pub type List_1<T> = Option<Rc<crate::List_::Node_1<T>>>;
-    pub type Set_1<T> = Option<Rc<crate::Set_::SetTree_1<T>>>;
-    pub type Map_2<K, V> = Option<Rc<crate::Map_::MapTree_2<K, V>>>;
-
-    #[cfg(not(futures))]
+    #[cfg(not(feature = "futures"))]
     pub type Lrc<T> = Rc<T>;
-    #[cfg(futures)]
+    #[cfg(feature = "futures")]
     pub type Lrc<T> = Arc<T>;
+
+    pub type List_1<T> = Option<Lrc<crate::List_::Node_1<T>>>;
+    pub type Set_1<T> = Option<Lrc<crate::Set_::SetTree_1<T>>>;
+    pub type Map_2<K, V> = Option<Lrc<crate::Map_::MapTree_2<K, V>>>;
 
     // TODO: use these types in generated code
     pub type string = Lrc<str>;
