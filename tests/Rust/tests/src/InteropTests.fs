@@ -10,7 +10,7 @@ module Subs =
     [<Emit("$0 * $1")>]
     let mul a b = nativeOnly
 
-    [<Emit("{ let mut v = std::vec::Vec::new(); v.append(&mut vec![$0,$1]); std::rc::Rc::from(MutCell::from(v)) }")>]
+    [<Emit("{ let mut v = std::vec::Vec::new(); v.append(&mut vec![$0,$1]); std::rc::Rc::from(fable_library_rust::Native_::MutCell::from(v)) }")>]
     let fixedVec a b = nativeOnly
 
     //doesn't currently work, but would be preferred
@@ -19,15 +19,12 @@ module Subs =
     //     [<Emit("$0.push($1)")>]
     //     member x.Push a = nativeOnly
 
-    // this is just to make sure MutCell is imported
-    let private _import_MutCell () = let mutable _x = 0 in ()
-
     module Vec =
-        [<Emit("std::rc::Rc<MutCell<Vec<$0>>>")>]
+        [<Emit("std::rc::Rc<fable_library_rust::Native_::MutCell<Vec<$0>>>")>]
         type VecT<'a> =
             [<Emit("$0.get_mut().push($1)")>]
             abstract Push: 'a -> unit
-        [<Emit("std::rc::Rc::from(MutCell::from(std::vec::Vec::new()))")>]
+        [<Emit("std::rc::Rc::from(fable_library_rust::Native_::MutCell::from(std::vec::Vec::new()))")>]
         let create (): VecT<'a> = nativeOnly
         [<Emit("$1.get_mut().push($0)")>]
         let push (item: 'a) (vec: VecT<'a>) = nativeOnly

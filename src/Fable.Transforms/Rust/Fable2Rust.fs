@@ -15,7 +15,9 @@ type Import =
     LocalIdent: string
     ModuleName: string
     ModulePath: string
-    Path: string }
+    Path: string
+    mutable Depths: int list
+    }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -52,13 +54,14 @@ type Context =
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
     IsCallingFunction: bool
     RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
-    Typegen: TypegenContext }
+    Typegen: TypegenContext
+    ModuleDepth: int }
 
 type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> Import list
-    abstract ClearAllImports: unit -> unit
+    abstract ClearAllImports: Context -> unit
     abstract GetAllModules: unit -> (string * string) list
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
@@ -2752,7 +2755,7 @@ module Util =
             let mainName = String.concat "::" path
             let strBody = [
                 $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<Lrc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args: Vec<fable_library_rust::Native_::Lrc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -3689,22 +3692,25 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
+            let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
             let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
             if List.isEmpty memberDecls then
                 [] // don't output empty modules
             else
                 // TODO: perhaps collect other use decls from usage in body
-                let useDecls =
-                    let importItems = com.GetAllImports() |> transformImports com ctx
-                    com.ClearAllImports()
-                    importItems
-                let attrs =
-                    match com.TryGetEntity(decl.Entity) with
-                    | Some ent -> transformAttributes com ctx ent.Attributes
-                    | None -> []
-                let modDecls = useDecls @ memberDecls
-                let modItem = modDecls |> mkModItem attrs decl.Name
-                [modItem |> mkPublicItem]
+                withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
+                    let useDecls =
+                        let importItems = com.GetAllImports() |> transformImports com ctx
+                        com.ClearAllImports ctx
+                        let useItem = mkGlobUseItem [] ["super"]
+                        importItems @ [useItem]
+                    let attrs =
+                        match com.TryGetEntity(decl.Entity) with
+                        | Some ent -> transformAttributes com ctx ent.Attributes
+                        | None -> []
+                    let modDecls = useDecls @ memberDecls
+                    let modItem = modDecls |> mkModItem attrs decl.Name
+                    [modItem |> mkPublicItem]
 
         | Fable.ActionDeclaration decl ->
             // TODO: use ItemKind.Static with IIFE closure?
@@ -3816,7 +3822,9 @@ module Compiler =
                     else path + "::" + selector
                 let import =
                     match imports.TryGetValue(cacheKey) with
-                    | true, import -> import
+                    | true, import ->
+                        import.Depths <- ctx.ModuleDepth::import.Depths
+                        import
                     | false, _ ->
                         let localIdent = getIdentForImport ctx path selector
                         let modulePath = getImportModulePath self path
@@ -3827,6 +3835,7 @@ module Compiler =
                             ModuleName = moduleName
                             ModulePath = modulePath
                             Path = path
+                            Depths = [ctx.ModuleDepth]
                         }
                         // add import module to a global list (across files)
                         if path.Length > 0 && not (isFableLibraryPath self path) then
@@ -3837,7 +3846,14 @@ module Compiler =
                 $"{import.LocalIdent}"
 
             member _.GetAllImports() = imports.Values |> Seq.toList
-            member _.ClearAllImports() = imports.Clear()
+            member _.ClearAllImports ctx =
+                for importKv in imports do
+                    let depthsLeft = importKv.Value.Depths |> List.filter (fun dp -> dp > ctx.ModuleDepth)
+                    importKv.Value.Depths <- depthsLeft
+                    if importKv.Value.Depths.Length = 0 then
+                        imports.Remove(importKv.Key) |> ignore
+                        ctx.UsedNames.RootScope.Remove(importKv.Value.LocalIdent) |> ignore
+
             member _.GetAllModules() = importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
 
             member self.TransformAsExpr(ctx, e) = transformAsExpr self ctx e
@@ -3880,7 +3896,7 @@ module Compiler =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
                           DeclarationScopes = declScopes
-                          CurrentDeclarationScope = Unchecked.defaultof<_> }
+                          CurrentDeclarationScope = HashSet [] }
             DecisionTargets = []
             HoistVars = fun _ -> false
             TailCallOpportunity = None
@@ -3892,7 +3908,8 @@ module Compiler =
             RequiresSendSync = false
             Typegen = { IsParamType = false
                         IsParamByRefPreferred = false
-                        IsRawType = false } }
+                        IsRawType = false }
+            ModuleDepth = 0 }
 
         let topAttrs = [
             // TODO: make some of those conditional on compiler options
@@ -3913,8 +3930,9 @@ module Compiler =
 
         let declItems = List.collect (transformDecl com ctx) file.Declarations
         let entryPointItems = getEntryPointItems com ctx file.Declarations
+        let importItems = com.GetAllImports() |> transformImports com ctx
         let moduleItems = getModuleItems com ctx // adds imports for project files
-        let crateItems = declItems @ moduleItems @ entryPointItems
+        let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
 
         let crate = mkCrate topAttrs crateItems
         crate
