@@ -3679,7 +3679,7 @@ module Util =
         ]
 *)
 
-    let rec transformDecl (com: IRustCompiler) ctx decl =
+    let rec transformDecl (com: IRustCompiler) ctx isRoot decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -3688,13 +3688,19 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
+            let isPath = decl.Members |> List.filter (function | Fable.ModuleDeclaration _ -> true | _ -> false) |> List.length = 1
+            let memberDecls = decl.Members |> List.collect (transformDecl com ctx isRoot)
             if List.isEmpty memberDecls then
                 [] // don't output empty modules
             else
                 // TODO: perhaps collect other use decls from usage in body
-                let useItem = mkGlobUseItem [] ["super"]
-                let useDecls = [useItem]
+                let useDecls =
+                    if isRoot && not isPath then
+                        let importItems = com.GetAllImports() |> transformImports com ctx
+                        importItems
+                    else
+                        let useItem = mkGlobUseItem [] ["super"]
+                        [useItem]
                 let attrs =
                     match com.TryGetEntity(decl.Entity) with
                     | Some ent -> transformAttributes com ctx ent.Attributes
@@ -3907,11 +3913,10 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let declItems = List.collect (transformDecl com ctx) file.Declarations
+        let declItems = List.collect (transformDecl com ctx true) file.Declarations
         let entryPointItems = getEntryPointItems com ctx file.Declarations
-        let importItems = com.GetAllImports() |> transformImports com ctx
         let moduleItems = getModuleItems com ctx // adds imports for project files
-        let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
+        let crateItems = declItems @ moduleItems @ entryPointItems
 
         let crate = mkCrate topAttrs crateItems
         crate

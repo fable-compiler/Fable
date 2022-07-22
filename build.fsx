@@ -234,7 +234,7 @@ let buildLibraryRust() =
     copyFiles libraryDir "*.toml" buildDir
     copyFiles sourceDir "*.rs" outDir
 
-    runInDir buildDir ("cargo build")
+    // runInDir buildDir ("cargo build")
 
 // let buildLibraryRustIfNotExists() =
 //     let baseDir = __SOURCE_DIRECTORY__

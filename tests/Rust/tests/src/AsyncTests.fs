@@ -1,10 +1,10 @@
+[<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"futures\""|])>]
 module Fable.Tests.AsyncTests
 
 open Util.Testing
 open Fable.Core.Rust
 
 [<Fact>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 let shouldExecPrim () =
     let z = async { return 3 }
     let comp = async {
@@ -17,7 +17,6 @@ let shouldExecPrim () =
     t.Result |> equal 6
 
 [<Fact>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 let shouldExecSynchronously () =
     let y = async { return 3 }
     let comp = async {
@@ -29,7 +28,6 @@ let shouldExecSynchronously () =
     t |> equal 4
 
 [<Fact>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 let shouldConvertTaskToASyncAndEvalCorrectly () =
     let t = task { return 1 } |> Async.AwaitTask
     t |> Async.RunSynchronously |> equal 1
@@ -54,13 +52,11 @@ let shouldConvertTaskToASyncAndEvalCorrectly () =
 //     t.Result |> equal 5
 
 [<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Arc)>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 type ArcRecord = {
     A: int
 }
 
 [<Fact>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 let shouldCorrectlyScopeArcRecord () =
     let a = { A = 3 }
     let ab = async { return a }
@@ -76,7 +72,6 @@ let shouldCorrectlyScopeArcRecord () =
 
 open System.Threading.Tasks
 [<Fact>]
-[<Attr("cfg", [|"feature = \"futures\""|])>]
 let shouldExecuteTask () =
     let a = Task.FromResult 1
     let b = Task.FromResult 2
