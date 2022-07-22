@@ -78,6 +78,9 @@ jobs:
   # Separate build job for Rust (will run in parallell)
   build-rust:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test: ["nofutures", "futures"]
 
     steps:
     - uses: actions/checkout@v2
@@ -96,7 +99,7 @@ jobs:
         toolchain: stable
 
     - name: Fable Tests - Rust
-      run: dotnet fsi build.fsx test-rust-all
+      run: dotnet fsi build.fsx test-rust-${{ matrix.test }}
 
   build-dart:
     runs-on: ubuntu-latest

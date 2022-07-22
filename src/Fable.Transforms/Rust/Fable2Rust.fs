@@ -3698,15 +3698,16 @@ module Util =
                 [] // don't output empty modules
             else
                 withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
+                    let ent = com.GetEntity(decl.Entity)
                     let useDecls =
-                        let importItems = com.GetAllImports() |> transformImports com ctx
-                        com.ClearAllImports ctx
                         let useItem = mkGlobUseItem [] ["super"]
-                        importItems @ [useItem]
-                    let attrs =
-                        match com.TryGetEntity(decl.Entity) with
-                        | Some ent -> transformAttributes com ctx ent.Attributes
-                        | None -> []
+                        if ent.IsNamespace then
+                            [useItem]
+                        else
+                            let importItems = com.GetAllImports() |> transformImports com ctx
+                            com.ClearAllImports ctx
+                            useItem :: importItems
+                    let attrs = transformAttributes com ctx ent.Attributes
                     let modDecls = useDecls @ memberDecls
                     let modItem = modDecls |> mkModItem attrs decl.Name
                     [modItem |> mkPublicItem]

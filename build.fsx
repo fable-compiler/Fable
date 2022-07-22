@@ -711,6 +711,7 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust NoFutures
+| "test-rust-nofutures"::_ -> testRust NoFutures
 | "test-rust-futures"::_ -> testRust WithFutures
 | "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
