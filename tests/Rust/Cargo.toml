@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 futures = ["fable_library_rust/futures"]
+# default = ["futures"] # Uncomment when attempting to debug/use rust analyzer to switch to futures mode
 
 [dependencies]
 fable_library_rust = { path = "../../fable-library-rust" }

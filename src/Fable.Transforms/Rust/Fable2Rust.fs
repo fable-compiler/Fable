@@ -3697,7 +3697,6 @@ module Util =
             if List.isEmpty memberDecls then
                 [] // don't output empty modules
             else
-                // TODO: perhaps collect other use decls from usage in body
                 withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
                     let useDecls =
                         let importItems = com.GetAllImports() |> transformImports com ctx
