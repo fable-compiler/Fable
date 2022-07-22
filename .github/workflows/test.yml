@@ -96,7 +96,7 @@ jobs:
         toolchain: stable
 
     - name: Fable Tests - Rust
-      run: dotnet fsi build.fsx test-rust
+      run: dotnet fsi build.fsx test-rust-all
 
   build-dart:
     runs-on: ubuntu-latest

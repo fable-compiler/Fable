@@ -1,6 +1,8 @@
+[<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"futures\""|])>]
 module Fable.Tests.AsyncTests
 
 open Util.Testing
+open Fable.Core.Rust
 
 [<Fact>]
 let shouldExecPrim () =
