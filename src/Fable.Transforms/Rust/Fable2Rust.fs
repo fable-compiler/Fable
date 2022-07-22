@@ -60,7 +60,7 @@ type Context =
 type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
-    abstract GetAllImports: unit -> Import list
+    abstract GetAllImports: Context -> Import list
     abstract ClearAllImports: Context -> unit
     abstract GetAllModules: unit -> (string * string) list
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
@@ -2747,15 +2747,16 @@ module Util =
         let entryPoint = decls |> List.tryPick (tryFindEntryPoint com)
         match entryPoint with
         | Some path ->
-            // add some imports for main
+            // add some imports for main function
             let asStr = getLibraryImportName com ctx "String" "string"
             let asArr = getLibraryImportName com ctx "Native" "array"
+            let tyLrc = getLibraryImportName com ctx "Native" "Lrc"
 
             // main entrypoint
             let mainName = String.concat "::" path
             let strBody = [
                 $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<fable_library_rust::Native_::Lrc<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args: Vec<{tyLrc}<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -3698,15 +3699,14 @@ module Util =
                 [] // don't output empty modules
             else
                 withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
+                    let ent = com.GetEntity(decl.Entity)
+                    // if ent.IsNamespace then // maybe do something different
                     let useDecls =
-                        let importItems = com.GetAllImports() |> transformImports com ctx
-                        com.ClearAllImports ctx
                         let useItem = mkGlobUseItem [] ["super"]
-                        importItems @ [useItem]
-                    let attrs =
-                        match com.TryGetEntity(decl.Entity) with
-                        | Some ent -> transformAttributes com ctx ent.Attributes
-                        | None -> []
+                        let importItems = com.GetAllImports(ctx) |> transformImports com ctx
+                        com.ClearAllImports(ctx)
+                        useItem :: importItems
+                    let attrs = transformAttributes com ctx ent.Attributes
                     let modDecls = useDecls @ memberDecls
                     let modItem = modDecls |> mkModItem attrs decl.Name
                     [modItem |> mkPublicItem]
@@ -3822,7 +3822,8 @@ module Compiler =
                 let import =
                     match imports.TryGetValue(cacheKey) with
                     | true, import ->
-                        import.Depths <- ctx.ModuleDepth::import.Depths
+                        if not (import.Depths |> List.contains ctx.ModuleDepth) then
+                            import.Depths <- ctx.ModuleDepth::import.Depths
                         import
                     | false, _ ->
                         let localIdent = getIdentForImport ctx path selector
@@ -3844,14 +3845,21 @@ module Compiler =
                         import
                 $"{import.LocalIdent}"
 
-            member _.GetAllImports() = imports.Values |> Seq.toList
-            member _.ClearAllImports ctx =
-                for importKv in imports do
-                    let depthsLeft = importKv.Value.Depths |> List.filter (fun dp -> dp > ctx.ModuleDepth)
-                    importKv.Value.Depths <- depthsLeft
-                    if importKv.Value.Depths.Length = 0 then
-                        imports.Remove(importKv.Key) |> ignore
-                        ctx.UsedNames.RootScope.Remove(importKv.Value.LocalIdent) |> ignore
+            member _.GetAllImports(ctx) =
+                imports.Values
+                |> Seq.filter (fun import ->
+                    // return only imports at the current module depth level
+                    import.Depths |> List.forall (fun d -> d = ctx.ModuleDepth))
+                |> Seq.toList
+
+            member _.ClearAllImports(ctx) =
+                for import in imports do
+                    import.Value.Depths <-
+                        // remove all import depths at this module level or deeper
+                        import.Value.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
+                    if import.Value.Depths.Length = 0 then
+                        imports.Remove(import.Key) |> ignore
+                        ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
 
             member _.GetAllModules() = importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
 
@@ -3927,10 +3935,10 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let declItems = List.collect (transformDecl com ctx) file.Declarations
         let entryPointItems = getEntryPointItems com ctx file.Declarations
-        let importItems = com.GetAllImports() |> transformImports com ctx
-        let moduleItems = getModuleItems com ctx // adds imports for project files
+        let importItems = com.GetAllImports(ctx) |> transformImports com ctx
+        let declItems = List.collect (transformDecl com ctx) file.Declarations
+        let moduleItems = getModuleItems com ctx // global module imports
         let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
 
         let crate = mkCrate topAttrs crateItems

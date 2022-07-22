@@ -134,6 +134,7 @@ type Entity =
     abstract UnionCases: UnionCase list
     abstract IsAbstractClass: bool
     abstract IsPublic: bool
+    abstract IsNamespace: bool
     abstract IsFSharpModule: bool
     abstract IsFSharpUnion: bool
     abstract IsFSharpRecord: bool

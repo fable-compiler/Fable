@@ -1496,10 +1496,10 @@ let rec getRootFSharpEntities (declarations: FSharpImplementationFileDeclaration
     let rec getRootFSharpEntitiesInner decl = seq {
         match decl with
         | FSharpImplementationFileDeclaration.Entity (ent, nested) ->
+            yield ent
             if ent.IsNamespace then
                 for d in nested do
                     yield! getRootFSharpEntitiesInner d
-            else ent
         | _ -> ()
     }
     Seq.collect getRootFSharpEntitiesInner declarations

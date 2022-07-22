@@ -354,6 +354,7 @@ type FsEnt(ent: FSharpEntity) =
 
         member _.IsPublic = FsEnt.IsPublic ent
         member _.IsAbstractClass = ent.IsAbstractClass
+        member _.IsNamespace = ent.IsNamespace
         member _.IsFSharpModule = ent.IsFSharpModule
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord

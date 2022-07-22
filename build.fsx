@@ -234,7 +234,8 @@ let buildLibraryRust() =
     copyFiles libraryDir "*.toml" buildDir
     copyFiles sourceDir "*.rs" outDir
 
-    // runInDir buildDir ("cargo build")
+    runInDir buildDir ("cargo fmt")
+    runInDir buildDir ("cargo build")
 
 // let buildLibraryRustIfNotExists() =
 //     let baseDir = __SOURCE_DIRECTORY__
@@ -527,8 +528,13 @@ let testRust testMode =
         "--noCache"
     ]
 
-    // run Fable Rust tests
+    // copy project file
     copyFile (projectDir </> "Cargo.toml") buildDir
+
+    // rustfmt all tests
+    runInDir buildDir "cargo fmt"
+
+    // run Fable Rust tests
     match testMode with
     | NoFutures ->
         runInDir buildDir "cargo test"
@@ -711,6 +717,7 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust NoFutures
+| "test-rust-nofutures"::_ -> testRust NoFutures
 | "test-rust-futures"::_ -> testRust WithFutures
 | "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
