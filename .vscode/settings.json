@@ -23,5 +23,9 @@
         "node_modules",
         "src/fcs-fable"
     ],
+    "rust-analyzer.linkedProjects": [
+        "build/fable-library-rust/Cargo.toml",
+        "build/tests/Rust/Cargo.toml"
+    ],
     "editor.inlayHints.enabled": "offUnlessPressed"
 }
