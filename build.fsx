@@ -280,14 +280,40 @@ let testStandaloneFast() =
     run $"node {fableJs} {testProj} {buildDir}"
     runMocha buildDir
 
+let buildWorker (opts: {| minify: bool; watch: bool |}) =
+    printfn "Building worker%s..." (if opts.minify then "" else " (no minification)")
+
+    let projectDir = "src/fable-standalone/src"
+    let buildDir = "build/fable-standalone"
+    let distDir = "src/fable-standalone/dist"
+
+    runFableWithArgs (projectDir + "/Worker") [
+        "--outDir " + buildDir + "/worker"
+    ]
+
+    let rollupTarget =
+        match opts.minify with
+        | true -> buildDir </> "worker.js"
+        | false -> distDir </> "worker.min.js"
+
+    // make standalone worker dist
+    runNpmScript "rollup" [$"""{buildDir}/worker/Worker.js -o {rollupTarget} --format iife"""]
+
+    if opts.minify then
+        // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
+        runNpmScript "terser" [$"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"]
+
+    // Put fable-library files next to bundle
+    printfn "Copying fable-library..."
+    buildLibraryJsIfNotExists()
+    let libraryDir = "build/fable-library"
+    let libraryTarget = distDir </> "fable-library"
+    copyDirRecursive libraryDir libraryTarget
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryJsIfNotExists()
-
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
     let projectDir = "src/fable-standalone/src"
-    let libraryDir = "build/fable-library"
     let buildDir = "build/fable-standalone"
     let distDir = "src/fable-standalone/dist"
 
@@ -322,11 +348,6 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
             "--watch"
     ]
 
-    // build standalone worker
-    runFableWithArgs (projectDir + "/Worker") [
-        "--outDir " + buildDir + "/worker"
-    ]
-
     // make standalone bundle dist
     runNpmScript "rollup" rollupArgs
     if opts.minify then
@@ -337,38 +358,12 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
             "--compress"
         ]
 
-    // make standalone worker dist
-    runNpmScript "rollup" [$"{buildDir}/worker/Worker.js -o {buildDir}/worker.js --format iife"]
-    // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
-    runNpmScript "terser" [$"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"]
+    // build standalone worker
+    buildWorker opts
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000. |> printfn "Bundle size: %fKB"
     fileSizeInBytes (distDir </> "worker.min.js") / 1000. |> printfn "Worker size: %fKB"
-
-    // Put fable-library files next to bundle
-    let libraryTarget = distDir </> "fable-library"
-    copyDirRecursive libraryDir libraryTarget
-
-    // These files will be used in the browser, so make sure the import paths include .js extension
-    // let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    // getFullPathsInDirectoryRecursively libraryTarget
-    // |> Array.filter (fun file -> file.EndsWith(".js"))
-    // |> Array.iter (fun file ->
-    //     reg.Replace(readFile file, fun m ->
-    //         let fst = m.Groups.[1].Value
-    //         if fst.EndsWith(".js") then m.Value
-    //         else sprintf "import %s.js%s" fst m.Groups.[2].Value)
-    //     |> writeFile file)
-
-    // Bump version
-    // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
-    // let standaloneVersion = Publish.loadNpmVersion projectDir
-    // let (comMajor, comMinor, _, comPrerelease) = Publish.splitVersion compilerVersion
-    // let (staMajor, staMinor, staPatch, _) = Publish.splitVersion standaloneVersion
-    // Publish.bumpNpmVersion projectDir
-    //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
-    //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
 let buildCompilerJs(minify: bool) =
     let projectDir = "src/fable-compiler-js/src"
@@ -745,6 +740,9 @@ match BUILD_ARGS_LOWER with
 | ("fable-standalone"|"standalone")::_ ->
     let minify = hasFlag "--no-minify" |> not
     buildStandalone {|minify=minify; watch=false|}
+| ("fable-worker"|"worker")::_ ->
+    let minify = hasFlag "--no-minify" |> not
+    buildWorker {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->

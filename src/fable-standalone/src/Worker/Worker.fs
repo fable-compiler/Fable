@@ -11,12 +11,12 @@ let PROJECT_NAME = "project.fsproj"
 type IFableInit =
     abstract member init: unit -> IFableManager
 
-let [<Global>] self: obj = nativeOnly
-let [<Global>] importScripts(_path: string): unit = nativeOnly
+let [<Global>] self: obj = jsNative
+let [<Global>] importScripts(_path: string): unit = jsNative
 
 // Load FCS+Fable bundle
 importScripts "bundle.min.js"
-let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = nativeOnly
+let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
 
 let getAssemblyReader(_getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 let escapeJsStringLiteral (str: string): string = importMember "./util.js"
@@ -83,7 +83,7 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                                     OtherFSharpOptions = otherFSharpOptions }
     }
 
-let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOptions =
+let private compileCode fable fileName fsharpNames fsharpCodes language otherFSharpOptions =
     async {
         // detect (and remove) the non-F# compiler options to avoid changing msg contract
         let nonFSharpOptions = set [
@@ -102,17 +102,15 @@ let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOption
             // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             fable.Manager.ParseAndCheckFileInProject(fable.Checker, fileName, PROJECT_NAME, fsharpNames, fsharpCodes, otherFSharpOptions)) ()
 
-        let! jsCode, errors, fableTransformTime = async {
+        let! compiledCode, errors, fableTransformTime = async {
             if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
                 return "", parseResults.Errors, 0.
             else
                 let options = {|
                     typedArrays = Array.contains "--typedArrays" fableOptions
-                    typescript = Array.contains "--typescript" fableOptions
                     sourceMaps = Array.contains "--sourceMaps" fableOptions
                 |}
                 let typedArrays = if options.typedArrays then Some true else None
-                let language = if options.typescript then "TypeScript" else "JavaScript" //TODO: more languages
                 let (res, fableTransformTime) =
                     measureTime (fun () ->
                         fable.Manager.CompileToTargetAst("fable-library", parseResults, fileName, typedArrays, language)
@@ -120,9 +118,9 @@ let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOption
                 // Print target language AST
                 let writer = new SourceWriter(options.sourceMaps)
                 do! fable.Manager.PrintTargetAst(res, writer)
-                let jsCode = writer.Result
+                let compiledCode = writer.Result
 
-                return jsCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
+                return compiledCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
         }
 
         let stats : CompileStats =
@@ -130,7 +128,7 @@ let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOption
               FCS_parsing = parsingTime
               Fable_transform = fableTransformTime }
 
-        return (jsCode, errors, stats)
+        return (compiledCode, errors, stats)
     }
 
 let private combineStats (a : CompileStats) (b : CompileStats) : CompileStats =
@@ -204,16 +202,16 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             JS.console.error("ParseNamedCode", err)
             return! loop box state
 
-    | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
+    | Some fable, CompileCode(fsharpCode, language, otherFSharpOptions) ->
         try
-            let! (jsCode,errors,stats) = compileCode fable FILE_NAME ([| FILE_NAME |])  ([| fsharpCode |]) otherFSharpOptions
-            CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
+            let! (compiledCode,errors,stats) = compileCode fable FILE_NAME ([| FILE_NAME |])  ([| fsharpCode |]) language otherFSharpOptions
+            CompilationFinished (compiledCode, language, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er
             CompilerCrashed er.Message |> state.Worker.Post
         return! loop box state
 
-    | Some fable, CompileFiles(fsharpCode, otherFSharpOptions) ->
+    | Some fable, CompileFiles(fsharpCode, language, otherFSharpOptions) ->
         try
             let codes = fsharpCode |> Array.map (fun c -> c.Content)
             let names = fsharpCode |> Array.mapi (fun i c -> if c.Name = "" then $"test{i}.fs" else c.Name)
@@ -221,20 +219,20 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let! results =
                 names
                 |> Array.map (fun name ->
-                        compileCode fable name names codes  otherFSharpOptions
+                        compileCode fable name names codes language otherFSharpOptions
                     )
                 |> asyncSequential
 
-            let combinedResults =
+            let code, errors, stats =
                 results
                 |> Array.map (fun (a,b,c) -> [| a |], b, c)
                 |> Array.reduce (fun (a,b,c) (d,e,f) ->
-                        Array.append a d, // JS code
-                        Array.append b e, // Erros
+                        Array.append a d, // Compiled code
+                        Array.append b e, // Errors
                         combineStats c f  // Stats
                     )
 
-            CompilationsFinished combinedResults |> state.Worker.Post
+            CompilationsFinished(code, language, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er
             CompilerCrashed er.Message |> state.Worker.Post

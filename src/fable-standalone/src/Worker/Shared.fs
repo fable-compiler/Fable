@@ -16,8 +16,8 @@ type WorkerRequest =
     | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * otherFSharpOptions: string[]
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | ParseFile of file : string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
-    | CompileCode of fsharpCode: string * otherFSharpOptions: string[]
-    | CompileFiles of fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
+    | CompileCode of fsharpCode: string * language: string * otherFSharpOptions: string[]
+    | CompileFiles of fsharpCode: FSharpCodeFile[] * language: string * otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
@@ -36,8 +36,8 @@ type WorkerAnswer =
     | Loaded of version: string
     | LoadFailed
     | ParsedCode of errors: Fable.Standalone.Error[]
-    | CompilationFinished of jsCode: string * errors: Fable.Standalone.Error[] * stats: CompileStats
-    | CompilationsFinished of jsCode: string[] * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationFinished of code: string * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationsFinished of code: string[] * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * lines: string[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
