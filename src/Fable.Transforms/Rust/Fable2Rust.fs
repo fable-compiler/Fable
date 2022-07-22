@@ -58,6 +58,7 @@ type IRustCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: unit -> Import list
+    abstract ClearAllImports: unit -> unit
     abstract GetAllModules: unit -> (string * string) list
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
@@ -3679,7 +3680,7 @@ module Util =
         ]
 *)
 
-    let rec transformDecl (com: IRustCompiler) ctx isRoot decl =
+    let rec transformDecl (com: IRustCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -3688,19 +3689,15 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            let isPath = decl.Members |> List.filter (function | Fable.ModuleDeclaration _ -> true | _ -> false) |> List.length = 1
-            let memberDecls = decl.Members |> List.collect (transformDecl com ctx isRoot)
+            let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
             if List.isEmpty memberDecls then
                 [] // don't output empty modules
             else
                 // TODO: perhaps collect other use decls from usage in body
                 let useDecls =
-                    if isRoot && not isPath then
-                        let importItems = com.GetAllImports() |> transformImports com ctx
-                        importItems
-                    else
-                        let useItem = mkGlobUseItem [] ["super"]
-                        [useItem]
+                    let importItems = com.GetAllImports() |> transformImports com ctx
+                    com.ClearAllImports()
+                    importItems
                 let attrs =
                     match com.TryGetEntity(decl.Entity) with
                     | Some ent -> transformAttributes com ctx ent.Attributes
@@ -3840,6 +3837,7 @@ module Compiler =
                 $"{import.LocalIdent}"
 
             member _.GetAllImports() = imports.Values |> Seq.toList
+            member _.ClearAllImports() = imports.Clear()
             member _.GetAllModules() = importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
 
             member self.TransformAsExpr(ctx, e) = transformAsExpr self ctx e
@@ -3913,7 +3911,7 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let declItems = List.collect (transformDecl com ctx true) file.Declarations
+        let declItems = List.collect (transformDecl com ctx) file.Declarations
         let entryPointItems = getEntryPointItems com ctx file.Declarations
         let moduleItems = getModuleItems com ctx // adds imports for project files
         let crateItems = declItems @ moduleItems @ entryPointItems
