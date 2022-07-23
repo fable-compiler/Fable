@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "Fable"
+version = "4.0.0"
+description = "Fable"
+authors = ["Alfonso Garcia-Caro <@alfonsogcnunez>", "Dag Brattli <dag@brattli.net>"]
+license = "MIT License"
+readme = "README.md"
+homepage = "https://fable.io"
+
+[tool.poetry.dependencies]
+python = ">= 3.9, < 4.0"
+fable-library = ""
+
+[tool.poetry.dev-dependencies]
+fable-library = {path = "./build/fable-library-py", develop = true}
+pytest = "^6.2.4"
+
+[tool.pyright]
+reportMissingTypeStubs = false
+reportMissingImports = false
+reportUnnecessaryTypeIgnoreComment = true
+reportUnusedImport = true
+reportUnusedVariable = true
+reportUnnecessaryIsInstance = true
+reportUnnecessaryComparison = true
+reportUnnecessaryCast = true
+reportPrivateUsage = true
+reportImportCycles = true
+reportDuplicateImport = true
+reportConstantRedefinition = true
+reportOverlappingOverload = true
+reportInconsistentConstructor = true
+reportImplicitStringConcatenation = true
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

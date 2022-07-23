@@ -612,104 +612,6 @@ module Helpers =
         | _, "" -> "."
         | _ -> Path.Combine(fileRelative, relativePath)
 
-    /// This function is a bit complex. Python imports are a bit tricky.
-    /// - Python libraries should use relative imports.
-    /// - Python program must use absolute imports
-    /// - Python cannot import outside the sub-dirs of the main Program (without setting PYTHONPATH)
-    /// In addition when compiling a Fable project as a program, all dependencies will also be compiled as a program, even if they are
-    /// a library (fable-modules). Thus we need to handle a lot of corner cases.
-    ///
-    ///  - outDir
-    ///    - fable_modules
-    ///      - fable_library (may import itself)
-    ///      - nuget_library (may import fable library)
-    ///    - referenced_project
-    ///      - util.py
-    ///    - subdir
-    ///      - misc.py
-    ///    - program.py
-    ///
-    let rewriteFablePathImport (com: IPythonCompiler) (modulePath: string) =
-        let commonPrefix =
-            Path.getCommonBaseDir [ com.ProjectFile
-                                    com.CurrentFile ]
-
-        let normalizedPath = normalizeModulePath com modulePath
-        let projDir = Path.GetDirectoryName(com.ProjectFile)
-        let fileDir = Path.GetDirectoryName(com.CurrentFile)
-
-        /// True if we import something in a project reference
-        let isProjectReference =
-            let notInProjectDir = (not (projDir.EndsWith(commonPrefix)))
-
-            if normalizedPath.Length > 1 then
-                notInProjectDir
-#if !FABLE_COMPILER
-                // import exists in file dir
-                && IO.Directory.Exists(Path.Combine(fileDir, normalizedPath))
-                // import exists in project dir
-                && (not (IO.Directory.Exists(Path.Combine(projDir, normalizedPath))))
-#endif
-            else
-                notInProjectDir
-
-        // printfn "Prefix: %A" (commonPrefix, isProjectReference)
-        let relative =
-            match com.OutputType, isProjectReference with
-            // If the compiled file is not in a sub-dir underneath the project file (e.g project reference) then use
-            // relative imports if and only if the normalizedPath exists within that referenced project. This is e.g the
-            // case when a test project references the library it's testing and the library wants to import own files
-            | _, true -> true
-            | OutputType.Exe, _ -> false
-            | _ -> true
-
-        // printfn $"Relative: {relative}, {com.ProjectFile}, {com.CurrentFile}"
-        // printfn $"OutputDir: {com.OutputDir}  "
-        // printfn $"LibraryDir: {com.LibraryDir}"
-        // printfn "normalizedPath: %A" (relative, normalizedPath)
-
-        let moduleName =
-            let lower =
-                let fileName = Path.GetFileNameWithoutExtension(modulePath)
-
-                match fileName with
-                | "" when modulePath.StartsWith(".") -> modulePath.[1..]
-                | _ ->
-                    fileName
-                    |> Naming.applyCaseRule CaseRules.SnakeCase
-
-            (lower, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
-
-        let path =
-            match relative, normalizedPath with
-            | _, "" -> ""
-            | true, "." -> "."
-            | true, path ->
-                path
-                    .Replace("../../../", "....") // translate path to Python relative syntax
-                    .Replace("../../", "...")
-                    .Replace("../", "..")
-                    .Replace("./", ".")
-                    .Replace("/", ".")
-                + "."
-            | false, "." -> ""
-            | false, path ->
-                // HACK: References to fable_modules are failing, not sure why
-                let path = if path.StartsWith("/") then path.[1..] else path
-                path
-                    .Replace("../", "")
-                    .Replace("./", "")
-                    .Replace("/", ".")
-                + "."
-
-        $"{path}{moduleName}"
-
-    let rewriteFableImport (com: IPythonCompiler) (modulePath: string) =
-        match modulePath with
-        | PythonModule name -> name
-        | _ -> rewriteFablePathImport com modulePath
-
     let unzipArgs (args: (Expression * Statement list) list) : Expression list * Statement list =
         let stmts = args |> List.map snd |> List.collect id
         let args = args |> List.map fst
@@ -3934,10 +3836,6 @@ module Util =
         let imports =
             imports
             |> List.map (fun im ->
-                //printfn "Import: %A" im
-                // if im.Module.Contains("fable_modules") then
-                //     ()
-                // let moduleName = im.Module |> Helpers.rewriteFableImport com
                 let moduleName = im.Module
                 match im.Name with
                 | Some "*"

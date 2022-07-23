@@ -1,4 +1,4 @@
-﻿module Fable.Cli.Pipeline
+module Fable.Cli.Pipeline
 
 open System
 open Fable
@@ -131,16 +131,16 @@ module Js =
     }
 
 module Python =
-    // PEP8: Modules (i.e files) should have short, all-lowercase names
-    // Note that Python modules cannot contain dots or it will be impossible to import them
+    // PEP8: Modules should have short, all-lowercase names Note that Python modules
+    // cannot contain dots or it will be impossible to import them
     let normalizeFileName path =
-        Path.GetFileNameWithoutExtension(path).Replace(".", "_")
+        Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> PY.Naming.checkPyKeywords
 
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath)
+        let targetDir = Path.GetDirectoryName(targetPath).ToLowerInvariant()
 
         let fileName = normalizeFileName targetPath
         Path.Combine(targetDir, fileName + fileExt)
@@ -182,17 +182,15 @@ module Python =
                         let resolvedPath = Imports.getImportPath pathResolver sourcePath targetPathForResolution projDir outDir path
                         let parts = resolvedPath.Split('/')
                         let path =
-                            let mutable i = -1
                             parts
                             |> Array.choose (fun part ->
-                                i <- i + 1
                                 if part = "." then None
                                 elif part = ".." then Some ""
-                                elif i = parts.Length - 1 then Some(normalizeFileName part)
-                                else Some part // TODO: normalize also dir names?
+                                elif part = "fable_modules" then None
+                                else Some(normalizeFileName part)
                             )
                             |> String.concat "."
-                        if isLibrary then "." + path else path
+                        path
                 else path
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.

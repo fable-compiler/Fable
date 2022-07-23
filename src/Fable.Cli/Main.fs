@@ -128,7 +128,12 @@ module private Util =
                 match cliArgs.OutDir with
                 | Some outDir -> outDir
                 | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+            let absPath =
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+                let fileName = IO.Path.GetFileName(file)
+                // Make sure all modules (subdirs) we create within outDir is lower case (PEP8)
+                IO.Path.Join(outDir, absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length).ToLowerInvariant(), fileName)
+
             Path.ChangeExtension(absPath, fileExt)
         | lang ->
             let changeExtension path fileExt =
