@@ -69,6 +69,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Fable Library - Python
+        run: dotnet fsi build.fsx library-py
+
       - name: Install dependencies
         run: |
           pip install poetry
