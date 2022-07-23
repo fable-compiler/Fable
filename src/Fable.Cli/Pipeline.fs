@@ -140,8 +140,7 @@ module Python =
 
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath).ToLowerInvariant()
-
+        let targetDir = Path.GetDirectoryName(targetPath)
         let fileName = normalizeFileName targetPath
         Path.Combine(targetDir, fileName + fileExt)
 
