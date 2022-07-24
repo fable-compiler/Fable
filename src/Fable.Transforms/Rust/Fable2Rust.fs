@@ -182,8 +182,10 @@ module TypeInfo =
 
     let makeLrcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Lrc"
+
     let makeRcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Rc"
+
     let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Arc"
 
@@ -409,11 +411,9 @@ module TypeInfo =
 
         // conditionally Rc-wrapped
         | Fable.Tuple(_, isStruct) ->
-            // if isStruct then None else Some Lrc
-            None
+            if isStruct then None else Some Lrc
         | Fable.AnonymousRecordType(_, _, isStruct) ->
-            // if isStruct then None else Some Lrc
-            None
+            if isStruct then None else Some Lrc
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
             if not (isCopyableType com Set.empty typ) then Some Lrc else None
         | Fable.DeclaredType(entRef, _) ->
@@ -536,14 +536,9 @@ module TypeInfo =
         transformImportType com ctx [] "TaskBuilder" "TaskBuilder"
 
     let transformTupleType com ctx isStruct genArgs: Rust.Ty =
-        let ty =
-            genArgs
-            |> List.map (transformType com ctx)
-            |> mkTupleTy
-        // if isStruct
-        // then ty
-        // else ty |> mkRefTy
-        ty
+        genArgs
+        |> List.map (transformType com ctx)
+        |> mkTupleTy
 
     let transformOptionType com ctx genArg: Rust.Ty =
         transformGenericType com ctx [genArg] (rawIdent "Option")
@@ -1305,10 +1300,13 @@ module Util =
 
     let makeLrcValue (value: Rust.Expr) =
         makeCall ["Lrc";"from"] None [value]
+
     let makeRcValue (value: Rust.Expr) =
         makeCall ["Rc";"from"] None [value]
+
     let makeArcValue (value: Rust.Expr) =
         makeCall ["Arc";"from"] None [value]
+
     let maybeWrapSmartPtr ent expr =
         match ent with
         | HasReferenceTypeAttribute a ->
@@ -1472,7 +1470,7 @@ module Util =
                 mkGenericPathExpr [rawIdent "None"] genArgs
         // if isStruct
         // then expr
-        // else expr |> makeRcValue
+        // else expr |> makeLrcValue
         expr // all options are value options
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
@@ -1535,10 +1533,9 @@ module Util =
             exprs
             |> List.map (transformLeaveContext com ctx None)
             |> mkTupleExpr
-        // if isStruct
-        // then expr
-        // else expr |> makeRcValue
-        expr
+        if isStruct
+        then expr
+        else expr |> makeLrcValue
 
     let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
         let ent = com.GetEntity(entRef)
@@ -2011,7 +2008,7 @@ module Util =
         | Fable.FieldGet info ->
             let fieldName = info.Name
             match fableExpr.Type with
-            | Fable.AnonymousRecordType (fields, args, isStruct) ->
+            | Fable.AnonymousRecordType (fields, _genArgs, isStruct) ->
                 // anonimous records are tuples
                 let idx = fields |> Array.findIndex (fun f -> f = fieldName)
                 (Fable.TupleIndex (idx))

@@ -164,8 +164,9 @@ pub mod Native_ {
         mkRefMut(HashMap::with_capacity(capacity as usize))
     }
 
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap_2<K, V> {
-        mkRefMut(HashMap::from_iter(a.iter().cloned()))
+    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap_2<K, V> {
+        let it = a.iter().map(|pair| pair.as_ref().clone());
+        mkRefMut(HashMap::from_iter(it))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
