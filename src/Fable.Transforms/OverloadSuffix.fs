@@ -60,7 +60,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
     // TODO: Use Func` instead?
     | Fable.DelegateType(argTypes, returnType) ->
         argTypes @ [returnType] |> List.map (getTypeFastFullName genParams) |> String.concat " -> "
-    | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+    | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
         let fields =
             Seq.zip fieldNames genArgs
             |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)

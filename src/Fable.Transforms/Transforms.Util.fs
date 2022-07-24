@@ -513,8 +513,8 @@ module AST =
             | t -> t
         makeTypeInfo r t
 
-    let makeTuple r values =
-        Value(NewTuple(values, false), r)
+    let makeTuple r isStruct values =
+        Value(NewTuple(values, isStruct), r)
 
     let makeResizeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, ResizeArray) |> makeValue None
@@ -762,10 +762,11 @@ module AST =
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
         | GenericParam(name=name1), GenericParam(name=name2) -> name1 = name2
         // Field names must be already sorted
-        | AnonymousRecordType(fields1, gen1), AnonymousRecordType(fields2, gen2) ->
+        | AnonymousRecordType(fields1, gen1, isStruct1), AnonymousRecordType(fields2, gen2, isStruct2) ->
             fields1.Length = fields2.Length
             && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
             && listEquals (typeEquals strict) gen1 gen2
+            && isStruct1 = isStruct2
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
@@ -887,8 +888,8 @@ module AST =
                 NewList(ht, t) |> makeValue r
             | NewRecord(exprs, ent, genArgs) ->
                 NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
-            | NewAnonymousRecord(exprs, ent, genArgs) ->
-                NewAnonymousRecord(List.map f exprs, ent, genArgs) |> makeValue r
+            | NewAnonymousRecord(exprs, ent, genArgs, isStruct) ->
+                NewAnonymousRecord(List.map f exprs, ent, genArgs, isStruct) |> makeValue r
             | NewUnion(exprs, uci, ent, genArgs) ->
                 NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
         | Test(e, kind, r) -> Test(f e, kind, r)

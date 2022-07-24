@@ -182,7 +182,7 @@ module Reflection =
         | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
-        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+        | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
             let genArgs = resolveGenerics (List.toArray genArgs)
             Array.zip fieldNames genArgs
             |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
@@ -411,7 +411,7 @@ module Annotation =
         | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
-        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+        | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
             makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
 
     let makeSimpleTypeAnnotation _com _ctx name =
@@ -1011,7 +1011,7 @@ module Util =
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
-        | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
+        | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->

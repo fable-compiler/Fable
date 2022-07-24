@@ -514,7 +514,7 @@ module Util =
         | Fable.Tuple(genArgs, _) ->
             transformGenArgs com ctx genArgs
             |> transformTupleType com ctx
-        | Fable.AnonymousRecordType(_, genArgs) ->
+        | Fable.AnonymousRecordType(_, genArgs, _) ->
             genArgs
             |> List.map FableTransforms.uncurryType
             |> transformGenArgs com ctx
@@ -671,7 +671,7 @@ module Util =
                 let args = if isConst then List.map removeConst args else args
                 Expression.invocationExpression(consRef.Expr, args, typeRef, genArgs=genArgs, isConst=isConst)
             )
-        | Fable.NewAnonymousRecord(exprs, _fieldNames, _genArgs) ->
+        | Fable.NewAnonymousRecord(exprs, _fieldNames, _genArgs, _isStruct) ->
             transformExprsAndResolve com ctx returnStrategy exprs (transformTuple com ctx)
 
         | Fable.NewUnion(values, tag, ref, genArgs) ->
@@ -985,7 +985,7 @@ module Util =
 
         | Fable.FieldGet info ->
             match fableExpr.Type with
-            | Fable.AnonymousRecordType(fieldNames, _genArgs) ->
+            | Fable.AnonymousRecordType(fieldNames, _genArgs, _isStruct) ->
                 let index = fieldNames |> Array.tryFindIndex ((=) info.Name) |> Option.defaultValue 0
                 transformExprAndResolve com ctx returnStrategy fableExpr (fun expr ->
                     let t = transformType com ctx t

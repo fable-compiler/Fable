@@ -45,7 +45,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
-        makeTuple r argExprs
+        makeTuple r false argExprs
     | ErasedUnion(tdef, _genArgs, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -53,7 +53,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         | _ when tdef.UnionCases.Count > 1 ->
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-        | argExprs -> makeTuple r argExprs
+        | argExprs -> makeTuple r false argExprs
     | TypeScriptTaggedUnion _  ->
         match argExprs with
         | [argExpr] -> argExpr
@@ -165,7 +165,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     |> Option.orElseWith (fun () ->
                         resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args)
                 else resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args
-            | Fable.AnonymousRecordType(sortedFieldNames, entGenArgs)
+            | Fable.AnonymousRecordType(sortedFieldNames, entGenArgs, isStruct)
                     when isInstance && List.isEmpty args && Option.isSome thisArg ->
                 let fieldName = Naming.removeGetSetPrefix traitName
                 Seq.zip sortedFieldNames entGenArgs
@@ -1003,7 +1003,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! argExprs = transformExprList com ctx argExprs
         let fieldNames = fsType.AnonRecordTypeDetails.SortedFieldNames
         let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs) |> makeValue r
+        let isStruct =
+            match fsType.BaseType with
+            | Some typ -> (getFsTypeFullName typ) = Types.valueType
+            | None -> false
+        return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs, isStruct) |> makeValue r
 
     | FSharpExprPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -1694,9 +1698,9 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         | Fable.NewRecord(exprs, ent, genArgs) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
             Fable.NewRecord(List.map (resolveInlineExpr com ctx info) exprs, ent, genArgs) |> makeValue r
-        | Fable.NewAnonymousRecord(exprs, fields, genArgs) ->
+        | Fable.NewAnonymousRecord(exprs, fields, genArgs, isStruct) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
-            Fable.NewAnonymousRecord(List.map (resolveInlineExpr com ctx info) exprs, fields, genArgs) |> makeValue r
+            Fable.NewAnonymousRecord(List.map (resolveInlineExpr com ctx info) exprs, fields, genArgs, isStruct) |> makeValue r
         | Fable.NewUnion(exprs, uci, ent, genArgs) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
             Fable.NewUnion(List.map (resolveInlineExpr com ctx info) exprs, uci, ent, genArgs) |> makeValue r

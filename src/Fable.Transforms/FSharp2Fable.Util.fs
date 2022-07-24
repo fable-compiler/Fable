@@ -1165,7 +1165,11 @@ module TypeHelpers =
         elif t.IsAnonRecordType then
             let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
             let fields = t.AnonRecordTypeDetails.SortedFieldNames
-            Fable.AnonymousRecordType(fields, genArgs)
+            let isStruct =
+                match t.BaseType with
+                | Some typ -> (getFsTypeFullName typ) = Types.valueType
+                | None -> false
+            Fable.AnonymousRecordType(fields, genArgs, isStruct)
         elif t.HasTypeDefinition then
 // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER

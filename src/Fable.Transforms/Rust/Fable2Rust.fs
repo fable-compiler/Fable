@@ -247,7 +247,7 @@ module TypeInfo =
         | Fable.List genArg -> isTypeOf com entNames genArg
         | Fable.Tuple(genArgs, _) ->
             List.forall (isTypeOf com entNames) genArgs
-        | Fable.AnonymousRecordType(_, genArgs) ->
+        | Fable.AnonymousRecordType(_, genArgs, _isStruct) ->
             List.forall (isTypeOf com entNames) genArgs
         | Replacements.Util.Builtin (Replacements.Util.FSharpSet genArg) ->
             isTypeOf com entNames genArg
@@ -389,8 +389,6 @@ module TypeInfo =
         | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpSet _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
-        | Fable.Tuple _
-        | Fable.AnonymousRecordType _
             -> None
 
         // always Rc-wrapped
@@ -410,9 +408,15 @@ module TypeInfo =
             Some Arc
 
         // conditionally Rc-wrapped
+        | Fable.Tuple(_, isStruct) ->
+            // if isStruct then None else Some Lrc
+            None
+        | Fable.AnonymousRecordType(_, _, isStruct) ->
+            // if isStruct then None else Some Lrc
+            None
         | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
             if not (isCopyableType com Set.empty typ) then Some Lrc else None
-        | Fable.DeclaredType (entRef, _) ->
+        | Fable.DeclaredType(entRef, _) ->
             match com.GetEntity(entRef) with
             | HasEmitAttribute _ -> None
             // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
@@ -433,8 +437,8 @@ module TypeInfo =
         | Fable.List _
             -> true
 
-        | Fable.DeclaredType(entRef, _) -> true
         | Fable.AnonymousRecordType _ -> true
+        | Fable.DeclaredType(entRef, _) -> true
 
         | _ -> false
 
@@ -531,10 +535,15 @@ module TypeInfo =
     let transformTaskBuilderType com ctx: Rust.Ty =
         transformImportType com ctx [] "TaskBuilder" "TaskBuilder"
 
-    let transformTupleType com ctx genArgs: Rust.Ty =
-        genArgs
-        |> List.map (transformType com ctx)
-        |> mkTupleTy
+    let transformTupleType com ctx isStruct genArgs: Rust.Ty =
+        let ty =
+            genArgs
+            |> List.map (transformType com ctx)
+            |> mkTupleTy
+        // if isStruct
+        // then ty
+        // else ty |> mkRefTy
+        ty
 
     let transformOptionType com ctx genArg: Rust.Ty =
         transformGenericType com ctx [genArg] (rawIdent "Option")
@@ -750,9 +759,9 @@ module TypeInfo =
                 // else transformLambdaType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) ->
                 transformClosureType com ctx argTypes returnType
-            | Fable.Tuple(genArgs, _) -> transformTupleType com ctx genArgs
-            | Fable.Option(genArg, _) -> transformOptionType com ctx genArg
-            | Fable.Array(genArg, _) -> transformArrayType com ctx genArg
+            | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
+            | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
+            | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex ->
                 // nonGenericTypeInfo Types.regex
@@ -760,12 +769,8 @@ module TypeInfo =
             | Fable.MetaType ->
                 // nonGenericTypeInfo Types.type_
                 TODO_TYPE $"%A{typ}" //TODO:
-            | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-                transformTupleType com ctx genArgs //TODO: temporary - uses tuples for now!
-                // let genArgs = resolveGenerics (List.toArray genArgs)
-                // Array.zip fieldNames genArgs
-                // |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
-                // |> libReflectionCall com ctx None "anonRecord"
+            | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
+                transformTupleType com ctx isStruct genArgs
 
             // pre-defined declared types
             | Replacements.Util.IsEntity (Types.iset) (entRef, [genArg]) -> transformHashSetType com ctx genArg
@@ -802,7 +807,7 @@ module TypeInfo =
                     | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
                     | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg
                     | Replacements.Util.FSharpMap(k, v) -> transformMapType com ctx [k; v]
-                    | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx [k; v]
+                    | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx true [k; v]
                     | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
                     | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
                     | Replacements.Util.FSharpReference(genArg) ->
@@ -1525,7 +1530,7 @@ module Util =
         //     [makeNewArray r typ exprs; tail]
         //     |> libCall com ctx r [] "List" "ofArrayWithTail"
 
-    let makeTuple (com: IRustCompiler) ctx r (exprs: (Fable.Expr) list) isStruct =
+    let makeTuple (com: IRustCompiler) ctx r isStruct (exprs: (Fable.Expr) list) =
         let expr =
             exprs
             |> List.map (transformLeaveContext com ctx None)
@@ -1533,7 +1538,7 @@ module Util =
         // if isStruct
         // then expr
         // else expr |> makeRcValue
-        expr // all tuples are value tuples
+        expr
 
     let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
         let ent = com.GetEntity(entRef)
@@ -1552,8 +1557,7 @@ module Util =
         let expr = mkStructExpr path fields // TODO: range
         if isCopyableEntity com Set.empty ent
         then expr
-        else
-            maybeWrapSmartPtr ent expr
+        else expr |> maybeWrapSmartPtr ent
 
     let mapKnownUnionCaseNames fullName =
         match fullName with
@@ -1626,11 +1630,11 @@ module Util =
             unimplemented ()
         | Fable.NewArray (Fable.ArrayValues values, typ, _isMutable) -> makeArray com ctx r typ values
         | Fable.NewArray ((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _isMutable) -> makeArrayFrom com ctx r typ expr
-        | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r values isStruct
+        | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
         | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
-        | Fable.NewAnonymousRecord (values, fieldNames, genArgs) -> makeTuple com ctx r values false // temporary
+        | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
@@ -2007,8 +2011,8 @@ module Util =
         | Fable.FieldGet info ->
             let fieldName = info.Name
             match fableExpr.Type with
-            | Fable.AnonymousRecordType (fields, args) ->
-                // temporary - redirect anon to tuple calls
+            | Fable.AnonymousRecordType (fields, args, isStruct) ->
+                // anonimous records are tuples
                 let idx = fields |> Array.findIndex (fun f -> f = fieldName)
                 (Fable.TupleIndex (idx))
                 |> transformGet com ctx range typ fableExpr
