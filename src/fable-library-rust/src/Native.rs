@@ -7,12 +7,14 @@ mod Lazy;
 pub mod Native_ {
 
     // re-export at module level
-    pub use crate::Choice_::*;
     pub use std::collections::{HashMap, HashSet};
     pub use std::rc::Rc;
     pub use std::sync::Arc;
+    pub use std::thread_local;
+    pub use startup::on_startup;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
+    pub use crate::Choice_::*;
 
     #[cfg(not(feature = "futures"))]
     pub type Lrc<T> = Rc<T>;
@@ -164,8 +166,9 @@ pub mod Native_ {
         mkRefMut(HashMap::with_capacity(capacity as usize))
     }
 
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap_2<K, V> {
-        mkRefMut(HashMap::from_iter(a.iter().cloned()))
+    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap_2<K, V> {
+        let it = a.iter().map(|pair| pair.as_ref().clone());
+        mkRefMut(HashMap::from_iter(it))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(

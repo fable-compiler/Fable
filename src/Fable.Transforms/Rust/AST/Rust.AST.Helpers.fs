@@ -856,10 +856,6 @@ module Exprs =
         ExprKind.MacCall mac
         |> mkExpr
 
-    let mkEmitExpr value args: Expr =
-        ExprKind.EmitExpression(value, mkVec args)
-        |> mkExpr
-
     let mkMacroExpr (name: string) exprs: Expr =
         let tokens = exprs |> Seq.map mkExprToken
         mkParensCommaDelimitedMacCall name tokens
@@ -881,6 +877,10 @@ module Exprs =
         ExprKind.Index(expr, index)
         |> mkExpr
 
+    let mkEmitExpr value args: Expr =
+        ExprKind.EmitExpression(value, mkVec args)
+        |> mkExpr
+
     let TODO_EXPR name: Expr =
         mkStrLit ("TODO_EXPR_" + name)
         |> mkLitExpr
@@ -900,14 +900,6 @@ module Stmts =
         StmtKind.Empty
         |> mkStmt
 
-    let mkEmitExprStmt value: Stmt =
-        mkErrLitExpr value
-        |> mkExprStmt
-
-    let mkEmitSemiStmt value: Stmt =
-        mkErrLitExpr value
-        |> mkSemiStmt
-
     let mkMacCallStmt (mac: MacCall): Stmt =
         let macCallStmt: MacCallStmt = {
             mac = mac
@@ -922,6 +914,14 @@ module Stmts =
     let mkMacroStmt (name: string) tokens: Stmt =
         mkBraceSemiDelimitedMacCall name tokens
         |> mkMacCallStmt
+
+    let mkEmitExprStmt value: Stmt =
+        mkErrLitExpr value
+        |> mkExprStmt
+
+    let mkEmitSemiStmt value: Stmt =
+        mkErrLitExpr value
+        |> mkSemiStmt
 
 [<AutoOpen>]
 module Generic =
@@ -1367,6 +1367,16 @@ module Items =
         let ident = mkIdent name
         ItemKind.TyAlias(Defaultness.Final, generics, mkVec bounds, Some(ty))
         |> mkItem attrs ident
+
+    let mkMacCallItem attrs name (mac: MacCall): Item =
+        let ident = mkIdent name
+        ItemKind.MacCall mac
+        |> mkItem attrs ident
+
+    let mkMacroItem attrs name exprs: Item =
+        let tokens = exprs |> Seq.map mkExprToken
+        let mac = mkParensCommaDelimitedMacCall name tokens
+        mkMacCallItem attrs name mac
 
     let TODO_ITEM (name: string): Item =
         let attrs = []
