@@ -128,11 +128,29 @@ module private Util =
                 match cliArgs.OutDir with
                 | Some outDir -> outDir
                 | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
+
             let absPath =
                 let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
                 let fileName = IO.Path.GetFileName(file)
-                // Make sure all modules (subdirs) we create within outDir is lower case (PEP8)
-                IO.Path.Join(outDir, absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length).ToLowerInvariant(), fileName)
+
+                // Make sure all packages and modules (subdirs) we create within outDir is lower case (PEP8)
+                let modules =
+                    absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length)
+                        .Trim([|'/'|])
+                        .ToLowerInvariant()
+                        .Split([|'/'|])
+
+                // Generate Python snake_case module within the kebab-case package
+                let modules =
+                    match Array.toList modules with
+                    | Naming.fableModules :: package :: modules ->
+                        let packageModule = package.Replace("-", "_")
+                        Naming.fableModules :: package :: packageModule :: modules
+                    | modules -> modules
+                    |> List.toArray
+                    |> IO.Path.Join
+
+                IO.Path.Join(outDir, modules, fileName)
 
             Path.ChangeExtension(absPath, fileExt)
         | lang ->

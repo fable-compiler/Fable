@@ -181,10 +181,12 @@ module Python =
                         let resolvedPath = Imports.getImportPath pathResolver sourcePath targetPathForResolution projDir outDir path
                         let parts = resolvedPath.Split('/')
                         let path =
+                            let mutable i = -1
                             parts
                             |> Array.choose (fun part ->
-                                if part = "." then None
-                                elif part = ".." then Some ""
+                                i <- i + 1
+                                if part = "." then if i = 0 && isLibrary then Some("") else None
+                                elif part = ".." then None
                                 elif part = "fable_modules" then None
                                 else Some(normalizeFileName part)
                             )
