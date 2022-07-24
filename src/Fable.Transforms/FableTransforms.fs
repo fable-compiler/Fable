@@ -30,7 +30,7 @@ let getSubExpressions = function
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
-        | NewAnonymousRecord(exprs, _, _) -> exprs
+        | NewAnonymousRecord(exprs, _, _, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
     | Lambda(_, body, _) -> [body]
@@ -225,7 +225,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)
-            | NewAnonymousRecord(exprs,_,_) -> findIdentOrSideEffectInList exprs
+            | NewAnonymousRecord(exprs,_,_,_) -> findIdentOrSideEffectInList exprs
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e,_)
@@ -542,9 +542,9 @@ module private Transforms =
         | Value(NewRecord(args, ent, genArgs), r) ->
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
-        | Value(NewAnonymousRecord(args, fieldNames, genArgs), r) ->
+        | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
             let args = uncurryArgs com false genArgs args
-            Value(NewAnonymousRecord(args, fieldNames, genArgs), r)
+            Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields

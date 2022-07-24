@@ -436,12 +436,12 @@ let (|IsEnumerator|_|) = function
         | _ -> None
     | _ -> None
 
-let (|NewAnonymousRecord|_|) = function
+let (|IsNewAnonymousRecord|_|) = function
     // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
-    | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r)) ->
-        Some(List.rev bindings, exprs, fieldNames, genArgs, r)
-    | Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r) ->
-        Some([], exprs, fieldNames, genArgs, r)
+    | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r)) ->
+        Some(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
+    | Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r) ->
+        Some([], exprs, fieldNames, genArgs, isStruct, r)
     | _ -> None
 
 let (|ListSingleton|) x = [x]

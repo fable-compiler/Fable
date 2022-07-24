@@ -279,7 +279,7 @@ module Reflection =
         | Fable.List genArg -> genericTypeInfo "list" [| genArg |]
         | Fable.Regex -> nonGenericTypeInfo Types.regex, []
         | Fable.MetaType -> nonGenericTypeInfo Types.type_, []
-        | Fable.AnonymousRecordType (fieldNames, genArgs) ->
+        | Fable.AnonymousRecordType (fieldNames, genArgs, _isStruct) ->
             let genArgs, stmts = resolveGenerics (List.toArray genArgs)
 
             List.zip (List.ofArray fieldNames) genArgs
@@ -962,7 +962,7 @@ module Annotation =
             | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
-        | Fable.AnonymousRecordType (_, genArgs) ->
+        | Fable.AnonymousRecordType (_, genArgs, _) ->
             let value = Expression.name ("dict")
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
             Expression.subscript (value, Expression.tuple ([ Expression.name "str"; any ])), stmts
@@ -1777,7 +1777,7 @@ module Util =
 
             let consRef, stmts' = ent |> pyConstructor com ctx
             Expression.call (consRef, values, ?loc = r), stmts @ stmts'
-        | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
+        | Fable.NewAnonymousRecord (values, fieldNames, _genArgs, _isStruct) ->
             let values, stmts =
                 values
                 |> List.map (fun x -> com.TransformAsExpr(ctx, x))

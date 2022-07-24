@@ -668,7 +668,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
-            then makeTuple r [makeStrConst name; arg] |> Some
+            then makeTuple r true [makeStrConst name; arg] |> Some
             else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
@@ -722,7 +722,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
             Some(Naming.unknown, -1))
         |> Option.map (fun (s, i) ->
-            makeTuple r [makeStrConst s; makeIntConst i])
+            makeTuple r true [makeStrConst s; makeIntConst i])
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
@@ -2707,7 +2707,7 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
         makeStrConst name
         parameters
             |> List.map (fun (name, t) ->
-                makeTuple None [makeStrConst name; makeTypeInfo None t])
+                makeTuple None false [makeStrConst name; makeTypeInfo None t])
             |> makeArray Any
         makeTypeInfo None returnType
     ]

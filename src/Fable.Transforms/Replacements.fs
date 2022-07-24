@@ -575,7 +575,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin (BclKeyValuePair(k,v)) ->
-        makeTuple None [getZero com ctx k; getZero com ctx v]
+        makeTuple None true [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None) // null
 
@@ -803,7 +803,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
-            then makeTuple r [makeStrConst name; arg] |> Some
+            then makeTuple r true [makeStrConst name; arg] |> Some
             else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
@@ -852,7 +852,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
             Some(Naming.unknown, -1))
         |> Option.map (fun (s, i) ->
-            makeTuple r [makeStrConst s; makeIntConst i])
+            makeTuple r true [makeStrConst s; makeIntConst i])
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
@@ -919,7 +919,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangHat", [arg] -> Some arg
         | "op_BangBang", [arg] ->
             match arg, i.GenericArgs with
-            | NewAnonymousRecord(_, exprs, fieldNames, _, _),
+            | IsNewAnonymousRecord(_, exprs, fieldNames, _, _, _),
               [_; DeclaredType(ent, [])] ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
@@ -948,7 +948,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let isStatement = rest = "Statement"
                 emit r t args isStatement macro |> Some
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-            makeTuple r [name; value] |> Some
+            makeTuple r true [name; value] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "Util", "createObj", Any, args) |> withTag "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
@@ -2056,7 +2056,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> makeTuple r args |> Some
+    | ".ctor", _ -> makeTuple r true args |> Some
     | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None
@@ -2855,7 +2855,7 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
         makeStrConst name
         parameters
             |> List.map (fun (name, t) ->
-                makeTuple None [makeStrConst name; makeGenericTypeInfo None t])
+                makeTuple None false [makeStrConst name; makeGenericTypeInfo None t])
             |> makeArray Any
         makeGenericTypeInfo None returnType
     ]

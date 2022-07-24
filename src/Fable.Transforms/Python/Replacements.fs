@@ -652,7 +652,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Builtin BclDateTime as t -> Helper.LibCall(com, "date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
-    | Builtin (BclKeyValuePair (k, v)) -> makeTuple None [ getZero com ctx k; getZero com ctx v ]
+    | Builtin (BclKeyValuePair (k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None) // null
 
@@ -898,7 +898,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [ Nameof com ctx name as arg ] ->
             if meth = "nameof2" then
-                makeTuple r [ makeStrConst name; arg ] |> Some
+                makeTuple r true [ makeStrConst name; arg ] |> Some
             else
                 makeStrConst name |> Some
         | _ ->
@@ -971,7 +971,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
 
             Some(Naming.unknown, -1))
-        |> Option.map (fun (s, i) -> makeTuple r [ makeStrConst s; makeIntConst i ])
+        |> Option.map (fun (s, i) -> makeTuple r false [ makeStrConst s; makeIntConst i ])
 
     | _, "Async.AwaitPromise.Static" ->
         Helper.LibCall(com, "async_", "awaitPromise", t, args, ?loc = r)
@@ -1075,7 +1075,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangHat", [ arg ] -> Some arg
         | "op_BangBang", [ arg ] ->
             match arg, i.GenericArgs with
-            | NewAnonymousRecord (_, exprs, fieldNames, _, _), [ _; DeclaredType (ent, []) ] ->
+            | IsNewAnonymousRecord (_, exprs, fieldNames, _, _, _), [ _; DeclaredType (ent, []) ] ->
                 let ent = com.GetEntity(ent)
 
                 if ent.IsInterface then
@@ -1114,7 +1114,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 |> addError com ctx.InlinePath r
 
                 None
-        | "op_EqualsEqualsGreater", [ name; MaybeLambdaUncurriedAtCompileTime value ] -> makeTuple r [ name; value ] |> Some
+        | "op_EqualsEqualsGreater", [ name; MaybeLambdaUncurriedAtCompileTime value ] -> makeTuple r false [ name; value ] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "util", "createObj", Any, args)
             |> withTag "pojo"
@@ -2782,7 +2782,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> makeTuple r args |> Some
+    | ".ctor", _ -> makeTuple r false args |> Some
     | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None

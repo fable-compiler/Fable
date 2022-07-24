@@ -595,7 +595,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin BclGuid -> emptyGuid()
     | Builtin (BclKeyValuePair(k,v)) ->
-        makeTuple None [getZero com ctx k; getZero com ctx v]
+        makeTuple None true [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ ->
         Helper.LibCall(com, "Native", "defaultOf", t, [])
@@ -698,7 +698,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
-            then makeTuple r [makeStrConst name; arg] |> Some
+            then makeTuple r true [makeStrConst name; arg] |> Some
             else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
@@ -752,7 +752,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
             Some(Naming.unknown, -1))
         |> Option.map (fun (s, i) ->
-            makeTuple r [makeStrConst s; makeIntConst i])
+            makeTuple r true [makeStrConst s; makeIntConst i])
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
@@ -820,6 +820,24 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | "All", [RequireStringConst com ctx r path]         -> makeImportUserGenerated r t "*" path |> Some
             | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
+        // Dynamic casting, erase
+        | "op_BangHat", [arg] -> Some arg
+        | "op_BangBang", [arg] ->
+            match arg, i.GenericArgs with
+            | IsNewAnonymousRecord(_, exprs, fieldNames, _, _, _),
+              [_; DeclaredType(ent, [])] ->
+                let ent = com.GetEntity(ent)
+                if ent.IsInterface then
+                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
+                    |> function
+                       | Error errors ->
+                            errors
+                            |> List.iter (fun (range, error) -> addWarning com ctx.InlinePath range error)
+                            Some arg
+                       | Ok () ->
+                            Some arg
+                else Some arg
+            | _ -> Some arg
         | _ -> None
     | "Fable.Core.Rust", _ ->
         match i.CompiledName, args with
@@ -1525,9 +1543,9 @@ let createArray (com: ICompiler) ctx r t size value =
     match t, value with
     | Array(typ,_), None ->
         let value = getZero com ctx typ
-        Value(NewArray(makeTuple None [value; size] |> ArrayFrom, typ, MutableArray), r)
+        Value(NewArray(makeTuple None true [value; size] |> ArrayFrom, typ, MutableArray), r)
     | Array(typ,_), Some value ->
-        Value(NewArray(makeTuple None [value; size] |> ArrayFrom, typ, MutableArray), r)
+        Value(NewArray(makeTuple None true [value; size] |> ArrayFrom, typ, MutableArray), r)
     | _ ->
         $"Expecting an array type but got %A{t}"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -2009,7 +2027,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> makeTuple r args |> Some
+    | ".ctor", _ -> makeTuple r true args |> Some
     | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None

@@ -1007,7 +1007,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         match opt with
         | Some expr -> convertExpr com expr
         | None -> PhpConst(PhpConstNull)
-    | Fable.NewAnonymousRecord(values, fields, _ ) ->
+    | Fable.NewAnonymousRecord(values, fields, _genArgs, _isStruct) ->
         PhpNewArray[ for i in 0 .. values.Length - 1 do
                         PhpArrayString fields.[i], convertExpr com values.[i] ]
 

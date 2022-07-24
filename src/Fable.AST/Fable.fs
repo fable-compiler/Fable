@@ -172,7 +172,7 @@ type Type =
     | DelegateType of argTypes: Type list * returnType: Type
     | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
-    | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
+    | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list * isStruct: bool
 
     member this.Generics =
         match this with
@@ -183,7 +183,7 @@ type Type =
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
         | Tuple(gen, _) -> gen
         | DeclaredType (_, gen) -> gen
-        | AnonymousRecordType (_, gen) -> gen
+        | AnonymousRecordType (_, gen, _) -> gen
         // TODO: Check numbers with measure?
         | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> []
 
@@ -196,7 +196,7 @@ type Type =
         | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
-        | AnonymousRecordType(e, gen) -> AnonymousRecordType(e, List.map f gen)
+        | AnonymousRecordType(e, gen, isStruct) -> AnonymousRecordType(e, List.map f gen, isStruct)
         | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> this
 
 type GeneratedMemberInfo =
@@ -410,7 +410,7 @@ type ValueKind =
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
-    | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list
+    | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list * isStruct: bool
     | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
     member this.Type =
         match this with
@@ -429,7 +429,7 @@ type ValueKind =
         | NewList (_, t) -> List t
         | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
+        | NewAnonymousRecord (_, fieldNames, genArgs, isStruct) -> AnonymousRecordType(fieldNames, genArgs, isStruct)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
 type CallInfo =
@@ -754,7 +754,7 @@ type Expr =
 //             | NewList(ht, _) -> "list"
 //                 // match ht with Some(h,t) -> [h;t] | None -> []
 //             | NewRecord(exprs, _, _) -> printMulti "{" exprs "}"
-//             | NewAnonymousRecord(exprs, _, _) -> printMulti "{" exprs "}"
+//             | NewAnonymousRecord(exprs, _, _, _) -> printMulti "{" exprs "}"
 //             | NewUnion(exprs, _, _, _) -> printMulti "union(" exprs ")"
 //         | Curry(e, _, _, _) ->  $"curry({print e})"
 //         | Lambda(arg, body, _) -> printFun ([arg], body)
