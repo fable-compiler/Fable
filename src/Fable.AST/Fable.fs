@@ -101,6 +101,7 @@ type MemberFunctionOrValue =
     abstract HasSpread: bool
     abstract IsInline: bool
     abstract IsPublic: bool
+    abstract IsConstructor: bool
     abstract IsInstance: bool
     abstract IsExtension: bool
     abstract IsValue: bool
@@ -122,6 +123,7 @@ type MemberFunctionOrValue =
 type Entity =
     abstract Ref: EntityRef
     abstract DisplayName: string
+    abstract CompiledName: string
     abstract FullName: string
     abstract Attributes: Attribute seq
     abstract BaseType: DeclaredType option
@@ -285,6 +287,7 @@ type GeneratedMember =
         member _.GenericParameters = []
         member this.CurriedParameterGroups = [this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))]
         member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
+        member this.IsConstructor = this.Info.Name = ".ctor" || this.Info.Name = ".cctor"
         member this.IsInstance = this.Info.IsInstance
         member this.HasSpread = this.Info.HasSpread
         member this.IsMutable = this.Info.IsMutable

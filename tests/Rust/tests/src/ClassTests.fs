@@ -2,6 +2,19 @@ module Fable.Tests.ClassTests
 
 open Util.Testing
 
+[<Struct>]
+type Point(x: float, y: float) =
+    member _.X = x
+    member _.Y = y
+    static member (+) (a: Point, b: Point) = Point(a.X + b.X, a.Y + b.Y)
+
+[<Struct>]
+type SPoint =
+    val X: float
+    val Y: float
+    new (x, y) = { X = x; Y = y }
+    static member (+) (a: SPoint, b: SPoint) = SPoint(a.X + b.X, a.Y + b.Y)
+
 type NTest(x: int, y: int) =
     let a = x + y
     let one = x - x + 1
@@ -16,8 +29,46 @@ type NTest(x: int, y: int) =
 type STest(s: string) =
     member this.Append x = s + x
 
+// TODO - not yet working - weird NULL and type: Any expressions coming out
+type SWrapper(a: STest, b: STest, c: NTest) =
+    member this.AddStrings x =
+        a.Append (b.Append x)
+    member this.AddNum x =
+        c.Add x
+
+type FluentA(x: int) =
+    member this.X = x
+
+type FluentB(a: FluentA) =
+    member this.DoFluentAndReturnSelf (x: int) =
+        this
+    member this.DoFluentAndReturnInner (x: int) =
+        a
+
+type WithCrossModuleInterface(m: int) =
+    interface Common.Interfaces.IHasAdd with
+      member this.Add x y = x + y + m
+
 [<Fact>]
-let ``Class imm methods and props work for prim ints`` () =
+let ``Struct constructors work`` () =
+    let a = Point(1, 2)
+    let b = Point(3, 4)
+    let c = Point()
+    let p = a + b + c
+    (p.X, p.Y) |> equal (4., 6.)
+    p |> equal (Point(4, 6))
+
+[<Fact>]
+let ``Struct constructors work II`` () =
+    let a = SPoint(1, 2)
+    let b = SPoint(3, 4)
+    let c = SPoint()
+    let p = a + b + c
+    (p.X, p.Y) |> equal (4., 6.)
+    p |> equal (SPoint(4, 6))
+
+[<Fact>]
+let ``Class methods and props work`` () =
     let a = NTest(1, 2)
     let b = NTest(3, 4)
     let r = a.Add(1)
@@ -38,17 +89,10 @@ let ``Class imm methods and props work for prim ints`` () =
 //     (a = b) |> equal false
 
 [<Fact>]
-let ``Class imm methods and props work for strings`` () =
+let ``Class methods and props work II`` () =
     let a = STest("hello")
     let res = a.Append " world"
     res |> equal "hello world"
-
-// TODO - not yet working - weird NULL and type: Any expressions coming out
-type SWrapper(a: STest, b: STest, c: NTest) =
-    member this.AddStrings x =
-        a.Append (b.Append x)
-    member this.AddNum x =
-        c.Add x
 
 [<Fact>]
 let ``Class taking other classes as params should work`` () =
@@ -56,25 +100,12 @@ let ``Class taking other classes as params should work`` () =
     a.AddStrings "c" |> equal "abc"
     a.AddNum 2 |> equal 5
 
-type FluentA(x: int) =
-    member this.X = x
-
-type FluentB(a: FluentA) =
-    member this.DoFluentAndReturnSelf (x: int) =
-        this
-    member this.DoFluentAndReturnInner (x: int) =
-        a
-
 [<Fact>]
 let ``Class fluent/builder internal clone pattern should work`` () =
     let a = FluentA(42)
     let b = FluentB(a)
     let res = b.DoFluentAndReturnSelf(1).DoFluentAndReturnSelf(2).DoFluentAndReturnInner(3).X
     res |> equal 42
-
-type WithCrossModuleInterface(m: int) =
-    interface Common.Interfaces.IHasAdd with
-      member this.Add x y = x + y + m
 
 [<Fact>]
 let ``Class interface from another module works`` () =
