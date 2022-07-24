@@ -7,12 +7,14 @@ mod Lazy;
 pub mod Native_ {
 
     // re-export at module level
-    pub use crate::Choice_::*;
     pub use std::collections::{HashMap, HashSet};
     pub use std::rc::Rc;
     pub use std::sync::Arc;
+    pub use std::thread_local;
+    pub use startup::on_startup;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
+    pub use crate::Choice_::*;
 
     #[cfg(not(feature = "futures"))]
     pub type Lrc<T> = Rc<T>;

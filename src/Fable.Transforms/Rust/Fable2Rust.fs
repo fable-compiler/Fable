@@ -3157,9 +3157,16 @@ module Util =
         )
         |> Seq.toList
 
+    let transformModuleAction (com: IRustCompiler) ctx (body: Fable.Expr) =
+        // uses startup::on_startup! for static execution (before main)
+        let expr = transformAsExpr com ctx body
+        let attrs = []
+        let macroName = getLibraryImportName com ctx "Native" "on_startup"
+        let macroItem = mkMacroItem attrs macroName [expr]
+        [macroItem]
+
     let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
-        let info = com.GetMember(decl.MemberRef)
         let isByRefPreferred =
             info.Attributes
             |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
@@ -3182,7 +3189,7 @@ module Util =
         [fnItem |> mkPublicItem]
 
     let transformModuleMember (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
-        // uses thread_local for static initialization
+        // uses std::thread_local! for static initialization
         let name = splitLast decl.Name
         let fableExpr = decl.Body
         let value = transformAsExpr com ctx fableExpr
@@ -3197,8 +3204,9 @@ module Util =
             then ty |> makeMutTy com ctx |> makeLrcTy com ctx
             else ty
 
+        let macroName = getLibraryImportName com ctx "Native" "thread_local"
         let staticItem = mkStaticItem attrs name ty (Some value)
-        let macroStmt = mkMacroStmt "thread_local" [mkItemToken staticItem]
+        let macroStmt = mkMacroStmt macroName [mkItemToken staticItem]
         let valueStmt = mkEmitExprStmt $"{name}.with(|value| value.clone())"
 
         let attrs = transformAttributes com ctx info.Attributes
@@ -3227,40 +3235,6 @@ module Util =
         let fnItem = mkFnAssocItem attrs name kind
         fnItem
 
-(*
-    let transformAction (com: IRustCompiler) ctx expr =
-        // let statements = transformAsStatements com ctx None expr
-        // let hasVarDeclarations =
-        //     statements |> Array.exists (function
-        //         | Declaration(Declaration.VariableDeclaration(_)) -> true
-        //         | _ -> false)
-        // if hasVarDeclarations then
-        //     [ Expression.callExpression(Expression.functionExpression([||], BlockStatement(statements)), [||])
-        //       |> ExpressionStatement |> PrivateModuleDeclaration ]
-        // else statements |> Array.mapToList (fun x -> PrivateModuleDeclaration(x))
-
-    let transformAttachedProperty (com: IRustCompiler) ctx (memb: Fable.MemberDecl) =
-        let isStatic = not info.IsInstance
-        let kind = if info.IsGetter then ClassGetter else ClassSetter
-        let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
-        let key, computed = memberFromName memb.Name
-        ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
-        |> Array.singleton
-
-    let transformAttachedMethod (com: IRustCompiler) ctx (memb: Fable.MemberDecl) =
-        let isStatic = not info.IsInstance
-        let makeMethod name args body =
-            let key, computed = memberFromName name
-            ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
-        let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) memb.Args memb.Body
-        [|
-            yield makeMethod memb.Name args body
-            if info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
-                yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
-        |]
-*)
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters
         |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
@@ -3716,10 +3690,8 @@ module Util =
                     [modItem |> mkPublicItem]
 
         | Fable.ActionDeclaration decl ->
-            // TODO: use ItemKind.Static with IIFE closure?
-            [TODO_ITEM "module_do_bindings_not_implemented_yet"]
-            // withCurrentScope ctx decl.UsedNames <| fun ctx ->
-            //     transformAction com ctx decl.Body
+            withCurrentScope ctx decl.UsedNames <| fun ctx ->
+                transformModuleAction com ctx decl.Body
 
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
