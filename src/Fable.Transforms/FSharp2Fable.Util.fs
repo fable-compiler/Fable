@@ -234,6 +234,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         // (e.g. `let ADD = adder()` when adder returns a function)
         member _.IsValue = Helpers.isModuleValueForDeclarations m
         member _.IsDispatchSlot = m.IsDispatchSlot
+        member _.IsConstructor = m.IsConstructor
         member _.IsInstance = m.IsInstanceMember
         member _.IsExtension = m.IsExtensionMember
         member _.IsMutable = m.IsMutable
@@ -313,6 +314,7 @@ type FsEnt(ent: FSharpEntity) =
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
         member _.DisplayName = ent.DisplayName
+        member _.CompiledName = ent.CompiledName
         member _.FullName = FsEnt.FullName ent
 
         member _.BaseType =

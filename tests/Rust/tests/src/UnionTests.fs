@@ -7,6 +7,21 @@ type MyUnion =
     | Case2 of int
     | Case3 of int
 
+[<Struct>]
+type Point2D =
+    | Planar2D of float * float
+    | Infinity
+
+[<Fact>]
+let ``Struct unions work`` () =
+    let distance p =
+        match p with
+        | Planar2D (x, y) -> sqrt (x * x + y * y)
+        | Infinity -> infinity
+    let p = Planar2D (3, 4)
+    let res = distance p
+    res |> equal 5.
+
 [<Fact>]
 let ``Union case matching works`` () =
     let x = Case1 5
