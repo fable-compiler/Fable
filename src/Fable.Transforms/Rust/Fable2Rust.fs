@@ -1577,7 +1577,7 @@ module Util =
             else
                 fullName
 
-    let makeUnion (com: IRustCompiler) ctx r isStruct values tag entRef genArgs =
+    let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         // let genArgs = transformGenArgs com ctx genArgs
         let unionCase = ent.UnionCases |> List.item tag
@@ -1587,7 +1587,7 @@ module Util =
             if List.isEmpty values
             then callee
             else callFunction com ctx None callee values
-        if isStruct || isCopyableEntity com Set.empty ent || ent.FullName = Types.result
+        if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1646,8 +1646,7 @@ module Util =
             makeRecord com ctx r isStruct values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewUnion (values, tag, entRef, genArgs) ->
-            let isStruct = (com.GetEntity entRef).IsValueType
-            makeUnion com ctx r isStruct values tag entRef genArgs
+            makeUnion com ctx r values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
         let t = e.Type
