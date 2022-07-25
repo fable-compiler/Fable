@@ -1,3 +1,8 @@
+### 4.0.0-snake-island-alpha-013
+
+* Python, import fixes and package generation, @dbrattli
+* Python, use poetry for Python, @dbrattli
+
 ### 4.0.0-snake-island-alpha-012
 
 * Update to latest FCS @ncave
