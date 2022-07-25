@@ -29,9 +29,9 @@ let getSubExpressions = function
             | ArrayFrom e -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
-        | NewRecord(exprs, _, _, _) -> exprs
+        | NewRecord(exprs, _, _) -> exprs
         | NewAnonymousRecord(exprs, _, _, _) -> exprs
-        | NewUnion(exprs, _, _, _, _) -> exprs
+        | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
     | Lambda(_, body, _) -> [body]
     | Delegate(_, body, _, _) -> [body]
@@ -223,8 +223,8 @@ let noSideEffectBeforeIdent identName expr =
                 | ArrayFrom e -> findIdentOrSideEffect e
             | StringTemplate(_,_,exprs)
             | NewTuple(exprs,_)
-            | NewUnion(exprs,_,_,_, _)
-            | NewRecord(exprs,_,_, _)
+            | NewUnion(exprs,_,_,_)
+            | NewRecord(exprs,_,_)
             | NewAnonymousRecord(exprs,_,_,_) -> findIdentOrSideEffectInList exprs
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
@@ -539,16 +539,16 @@ module private Transforms =
             let args = uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
-        | Value(NewRecord(args, ent, genArgs, isStruct), r) ->
+        | Value(NewRecord(args, ent, genArgs), r) ->
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
-            Value(NewRecord(args, ent, genArgs, isStruct), r)
+            Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
             let args = uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r)
-        | Value(NewUnion(args, tag, ent, genArgs, isStruct), r) ->
+        | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
-            Value(NewUnion(args, tag, ent, genArgs, isStruct), r)
+            Value(NewUnion(args, tag, ent, genArgs), r)
         | Set(e, FieldSet(fieldName), t, value, r) ->
             let value = uncurryArgs com false [t] [value]
             Set(e, FieldSet(fieldName), t, List.head value, r)

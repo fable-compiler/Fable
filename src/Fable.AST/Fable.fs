@@ -409,9 +409,9 @@ type ValueKind =
     | NewArray of newKind: NewArrayKind * typ: Type * kind: ArrayKind
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
-    | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list * isStruct: bool
+    | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
     | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list * isStruct: bool
-    | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list * isStruct: bool
+    | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
     member this.Type =
         match this with
         | ThisValue t
@@ -428,9 +428,9 @@ type ValueKind =
         | NewArray (_, t, k) -> Array(t, k)
         | NewList (_, t) -> List t
         | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
-        | NewRecord (_, ent, genArgs, isStruct) -> DeclaredType(ent, genArgs)
+        | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewAnonymousRecord (_, fieldNames, genArgs, isStruct) -> AnonymousRecordType(fieldNames, genArgs, isStruct)
-        | NewUnion (_, _, ent, genArgs, isStruct) -> DeclaredType(ent, genArgs)
+        | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
 type CallInfo =
     { ThisArg: Expr option

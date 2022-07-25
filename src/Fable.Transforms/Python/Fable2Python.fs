@@ -1670,7 +1670,7 @@ module Util =
                 else
                     e, stmts
             | None -> undefined r, []
-        | Fable.NewRecord (values, ent, genArgs, isStruct) ->
+        | Fable.NewRecord (values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
 
             let values, stmts =
@@ -1688,7 +1688,7 @@ module Util =
             List.zip (List.ofArray fieldNames) values
             |> makePyObject,
             stmts
-        | Fable.NewUnion (values, tag, ent, genArgs, isStruct) ->
+        | Fable.NewUnion (values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
 
             let values, stmts =

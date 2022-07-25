@@ -84,7 +84,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeTypeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag com tdef unionCase
-        Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs, tdef.IsValueType) |> makeValue r
+        Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName isInstance (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
     let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
@@ -996,11 +996,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
         let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        let isStruct =
-            match fsType.BaseType with
-            | Some typ -> (getFsTypeFullName typ) = Types.valueType
-            | None -> false
-        return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs, isStruct) |> makeValue r
+        return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue r
 
     | FSharpExprPatterns.NewAnonRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr
@@ -1699,15 +1695,15 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         | Fable.NewList(ht, t) ->
             let ht = ht |> Option.map (fun (h,t) -> resolveInlineExpr com ctx info h, resolveInlineExpr com ctx info t)
             Fable.NewList(ht, resolveInlineType ctx t) |> makeValue r
-        | Fable.NewRecord(exprs, ent, genArgs, isStruct) ->
+        | Fable.NewRecord(exprs, ent, genArgs) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
-            Fable.NewRecord(List.map (resolveInlineExpr com ctx info) exprs, ent, genArgs, isStruct) |> makeValue r
+            Fable.NewRecord(List.map (resolveInlineExpr com ctx info) exprs, ent, genArgs) |> makeValue r
         | Fable.NewAnonymousRecord(exprs, fields, genArgs, isStruct) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
             Fable.NewAnonymousRecord(List.map (resolveInlineExpr com ctx info) exprs, fields, genArgs, isStruct) |> makeValue r
-        | Fable.NewUnion(exprs, uci, ent, genArgs, isStruct) ->
+        | Fable.NewUnion(exprs, uci, ent, genArgs) ->
             let genArgs = List.map (resolveInlineType ctx) genArgs
-            Fable.NewUnion(List.map (resolveInlineExpr com ctx info) exprs, uci, ent, genArgs, isStruct) |> makeValue r
+            Fable.NewUnion(List.map (resolveInlineExpr com ctx info) exprs, uci, ent, genArgs) |> makeValue r
         | Fable.ThisValue t -> Fable.ThisValue(resolveInlineType ctx t) |> makeValue r
         | Fable.Null t -> Fable.Null(resolveInlineType ctx t) |> makeValue r
         | Fable.BaseValue(i, t) -> Fable.BaseValue(Option.map (resolveInlineIdent ctx info) i, resolveInlineType ctx t) |> makeValue r

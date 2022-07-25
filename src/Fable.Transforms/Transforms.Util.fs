@@ -414,7 +414,7 @@ module AST =
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
             | StringTemplate(_,_,exprs)
             | NewTuple(exprs,_)
-            | NewUnion(exprs,_,_,_, _) -> List.exists canHaveSideEffects exprs
+            | NewUnion(exprs,_,_,_) -> List.exists canHaveSideEffects exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
                 | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
@@ -886,12 +886,12 @@ module AST =
             | NewList(ht, t) ->
                 let ht = ht |> Option.map (fun (h,t) -> f h, f t)
                 NewList(ht, t) |> makeValue r
-            | NewRecord(exprs, ent, genArgs, isStruct) ->
-                NewRecord(List.map f exprs, ent, genArgs, isStruct) |> makeValue r
+            | NewRecord(exprs, ent, genArgs) ->
+                NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
             | NewAnonymousRecord(exprs, ent, genArgs, isStruct) ->
                 NewAnonymousRecord(List.map f exprs, ent, genArgs, isStruct) |> makeValue r
-            | NewUnion(exprs, uci, ent, genArgs, isStruct) ->
-                NewUnion(List.map f exprs, uci, ent, genArgs, isStruct) |> makeValue r
+            | NewUnion(exprs, uci, ent, genArgs) ->
+                NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
         | Test(e, kind, r) -> Test(f e, kind, r)
         | Lambda(arg, body, name) -> Lambda(arg, f body, name)
         | Delegate(args, body, name, tag) -> Delegate(args, f body, name, tag)

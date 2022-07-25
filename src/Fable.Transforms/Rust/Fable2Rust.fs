@@ -1641,9 +1641,12 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.NewRecord (values, entRef, genArgs, isStruct) -> makeRecord com ctx r isStruct values entRef genArgs
+        | Fable.NewRecord (values, entRef, genArgs) ->
+            let isStruct = (com.GetEntity entRef).IsValueType
+            makeRecord com ctx r isStruct values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
-        | Fable.NewUnion (values, tag, entRef, genArgs, isStruct) ->
+        | Fable.NewUnion (values, tag, entRef, genArgs) ->
+            let isStruct = (com.GetEntity entRef).IsValueType
             makeUnion com ctx r isStruct values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
@@ -3343,7 +3346,7 @@ module Util =
         let idents = getEntityFieldsAsIdents com ent
         let fields = idents |> List.map Fable.IdentExpr
         let genArgs = getEntityGenArgs ent
-        let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs, ent.IsValueType), None)
+        let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
         let name = declName //TODO: is this always correct?
         let paramTypes = idents |> List.map (fun id -> id.Type)
         let memberRef = Fable.GeneratedMember.Function(name, paramTypes, body.Type, entRef = ent.Ref)
@@ -3362,7 +3365,7 @@ module Util =
                 let fieldIdents = idents |> List.map (fun id -> Map.find id.Name identMap)
                 let fields = fieldIdents |> List.map Fable.IdentExpr
                 let genArgs = getEntityGenArgs ent
-                let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs, ent.IsValueType), None)
+                let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
 
                 // add return value after the body
                 let body = Fable.Sequential (exprs @ [body])
