@@ -1,3 +1,16 @@
+### 4.0.0-snake-island-alpha-014
+
+* Python, import fixes, @dbrattli
+* Rust, records and Unions now are correctly unwrapped when Struct attribute is used to tag as value, alexswan10k
+* Rust, support struct anonymous records, @ncave
+* Rust, added support for struct tuples, @ncave
+* Rust, fixed struct constructors, @ncave
+* Rust, made Async optional, @ncave
+* Rust, added missing type import and slices, @ncave
+* Rust, comparison updates, @ncave
+* Make CancellationTokenSource implement IDisposable, @alfonsogarciacaro
+* Fixed Array.compareWith issue, @alfonsogarciacaro
+
 ### 4.0.0-snake-island-alpha-013
 
 * Python, import fixes and package generation, @dbrattli
