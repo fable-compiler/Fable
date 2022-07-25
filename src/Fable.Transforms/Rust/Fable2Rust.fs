@@ -189,6 +189,9 @@ module TypeInfo =
     let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Arc"
 
+    let makeBoxTy com ctx (ty: Rust.Ty): Rust.Ty =
+        [ty] |> makeImportType com ctx "Native" "Box"
+
     // TODO: emit Lazy or SyncLazy depending on threading.
     let makeLazyTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Lazy"
@@ -652,6 +655,7 @@ module TypeInfo =
         | Lrc
         | Rc
         | Arc
+        | Box
 
     let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes |> Seq.tryPick (fun att ->
@@ -662,6 +666,7 @@ module TypeInfo =
                     | 0 -> Some Lrc
                     | 1 -> Some Rc
                     | 2 -> Some Arc
+                    | 3 -> Some Box
                     | _ -> None
                 | _ -> None
             else None)
@@ -830,6 +835,7 @@ module TypeInfo =
         | Some Lrc -> makeLrcTy com ctx ty
         | Some Rc -> makeRcTy com ctx ty
         | Some Arc -> makeArcTy com ctx ty
+        | Some Box -> makeBoxTy com ctx ty
         | _ -> ty
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -1308,6 +1314,9 @@ module Util =
     let makeArcValue (value: Rust.Expr) =
         makeCall ["Arc";"from"] None [value]
 
+    let makeBoxValue (value: Rust.Expr) =
+        makeCall ["Box";"from"] None [value]
+
     let maybeWrapSmartPtr ent expr =
         match ent with
         | HasReferenceTypeAttribute a ->
@@ -1315,6 +1324,7 @@ module Util =
             | Lrc -> expr |> makeLrcValue
             | Rc -> expr |> makeRcValue
             | Arc -> expr |> makeArcValue
+            | Box -> expr |> makeBoxValue
         | _ ->
             match ent.FullName with
             | Types.fsharpAsyncGeneric
