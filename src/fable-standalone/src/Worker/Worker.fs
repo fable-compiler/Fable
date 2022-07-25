@@ -50,7 +50,7 @@ type SourceWriter(sourceMaps: bool, language: string) =
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.MakeImportPath(path) =
             match language with
-            | "Python" -> path.Replace("/", ".").Replace("-", "_").Replace(".py", "")
+            | "Python" -> path.Replace("/", ".").Replace("-", "_").Replace(".py", "").ToLowerInvariant()
             | _ -> path
         member _.AddSourceMapping(mapping) = ()
         member _.Dispose() = ()
