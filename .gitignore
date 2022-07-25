@@ -209,3 +209,5 @@ project.lock.json
 # Python
 .eggs/
 __pycache__/
+.python-version
+.hypothesis
