@@ -321,6 +321,8 @@ module TypeInfo =
             -> false
         | Fable.Tuple(genArgs, isStruct) ->
             isStruct && (List.forall (isCopyableType com entNames) genArgs)
+        | Fable.AnonymousRecordType(_, genArgs, isStruct) ->
+            isStruct && (List.forall (isCopyableType com entNames) genArgs)
         | _ ->
             isTypeOfType com isCopyableType isCopyableEntity entNames typ
 
@@ -417,8 +419,6 @@ module TypeInfo =
             if isStruct then None else Some Lrc
         | Fable.AnonymousRecordType(_, _, isStruct) ->
             if isStruct then None else Some Lrc
-        | Replacements.Util.Builtin (Replacements.Util.FSharpChoice _) ->
-            if not (isCopyableType com Set.empty typ) then Some Lrc else None
         | Fable.DeclaredType(entRef, _) ->
             match com.GetEntity(entRef) with
             | HasEmitAttribute _ -> None
@@ -426,8 +426,7 @@ module TypeInfo =
             | HasReferenceTypeAttribute ptrType ->
                 Some ptrType
             | ent ->
-                if ent.IsValueType then None
-                elif not (isCopyableType com Set.empty typ) then Some Lrc else None
+                if ent.IsValueType then None else Some Lrc
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -1548,7 +1547,7 @@ module Util =
         then expr
         else expr |> makeLrcValue
 
-    let makeRecord (com: IRustCompiler) ctx r isStruct values entRef genArgs =
+    let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
         let ent = com.GetEntity(entRef)
         let fields =
             Seq.zip ent.FSharpFields values
@@ -1563,7 +1562,7 @@ module Util =
         let genArgs = transformGenArgs com ctx genArgs
         let path = makeFullNamePath ent.FullName genArgs
         let expr = mkStructExpr path fields // TODO: range
-        if isStruct || isCopyableEntity com Set.empty ent
+        if ent.IsValueType
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1587,7 +1586,7 @@ module Util =
             if List.isEmpty values
             then callee
             else callFunction com ctx None callee values
-        if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
+        if ent.IsValueType || ent.FullName = Types.result
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1641,12 +1640,9 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.NewRecord (values, entRef, genArgs) ->
-            let isStruct = (com.GetEntity entRef).IsValueType
-            makeRecord com ctx r isStruct values entRef genArgs
+        | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
-        | Fable.NewUnion (values, tag, entRef, genArgs) ->
-            makeUnion com ctx r values tag entRef genArgs
+        | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
         let t = e.Type
@@ -2595,17 +2591,19 @@ module Util =
                                     when sameEvalExprs evalExpr evalExpr2 ->
                 match treeExpr with
                 | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
-                    let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
-                    Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
+                    let cases = (caseExpr, targetIndex, boundValues) :: cases
+                    Some(evalExpr, List.rev cases, (defaultTargetIndex, defaultBoundValues))
                 | treeExpr ->
-                    checkInner ((caseExpr, targetIndex, boundValues)::cases) evalExpr treeExpr
+                    let cases = (caseExpr, targetIndex, boundValues) :: cases
+                    checkInner cases evalExpr treeExpr
             | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
-                Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
+                Some(evalExpr, List.rev cases, (defaultTargetIndex, defaultBoundValues))
             | _ -> None
         match expr with
         | Fable.IfThenElse(Equals(evalExpr, caseExpr),
                            Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr, _) ->
-            checkInner [(caseExpr, targetIndex, boundValues)] evalExpr treeExpr
+            let cases = [(caseExpr, targetIndex, boundValues)]
+            checkInner cases evalExpr treeExpr
         | _ -> None
 
     let transformDecisionTreeAsExpr (com: IRustCompiler) ctx targets (expr: Fable.Expr): Rust.Expr =
