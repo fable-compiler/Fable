@@ -505,7 +505,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
     | None ->
         let buildDir, libDir =
             match opts.FableOptions.Language with
-            | Python -> "fable-library-py/fable_library", "fable_library"
+            | Python -> "fable-library-py", "fable-library"
             | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
@@ -537,8 +537,8 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir =
-                let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
-                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_"))
+                let name = Naming.applyCaseRule Core.CaseRules.KebabCase pkg.Id
+                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
             copyDirIfDoesNotExist false sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 

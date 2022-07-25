@@ -116,7 +116,7 @@ class TaskBuilder:
         ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]:  # type: ignore
+    def While(self, guard: Callable[[], bool], computation: Delayed[T]) -> Awaitable[T]:
         ...
 
     def While(

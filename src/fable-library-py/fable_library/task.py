@@ -89,7 +89,10 @@ def get_result(value: Awaitable[_T]) -> _T:
 
 
 def start(computation: Awaitable[Any]) -> None:
-    asyncio.create_task(computation)
+    async def runner():
+        return await computation
+
+    asyncio.create_task(runner())
 
     return None
 
