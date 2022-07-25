@@ -163,3 +163,17 @@ let ``Arc record fields works`` () =
     y.a |> equal 2
     y.b |> equal "21"
     y.c |> equal 4.0
+
+[<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Box)>]
+type BoxRecord = {
+    a: int
+}
+
+let add1Box (a) =
+    { a = a.a + 1 }
+
+[<Fact>]
+let ``Box record fields works`` () =
+    let x = { a=1 }
+    let y = x |> add1Box
+    y.a |> equal 2

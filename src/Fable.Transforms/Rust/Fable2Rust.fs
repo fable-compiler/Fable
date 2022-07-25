@@ -189,6 +189,9 @@ module TypeInfo =
     let makeArcTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Arc"
 
+    let makeBoxTy com ctx (ty: Rust.Ty): Rust.Ty =
+        [ty] |> makeImportType com ctx "Native" "Box"
+
     // TODO: emit Lazy or SyncLazy depending on threading.
     let makeLazyTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "Lazy"
@@ -421,11 +424,10 @@ module TypeInfo =
             | HasEmitAttribute _ -> None
             // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
             | HasReferenceTypeAttribute ptrType ->
-                if not (isCopyableType com Set.empty typ) then
-                    Some ptrType
-                else None
-            | _ ->
-                if not (isCopyableType com Set.empty typ) then Some Lrc else None
+                Some ptrType
+            | ent ->
+                if ent.IsValueType then None
+                elif not (isCopyableType com Set.empty typ) then Some Lrc else None
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -653,6 +655,7 @@ module TypeInfo =
         | Lrc
         | Rc
         | Arc
+        | Box
 
     let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes |> Seq.tryPick (fun att ->
@@ -663,6 +666,7 @@ module TypeInfo =
                     | 0 -> Some Lrc
                     | 1 -> Some Rc
                     | 2 -> Some Arc
+                    | 3 -> Some Box
                     | _ -> None
                 | _ -> None
             else None)
@@ -824,12 +828,15 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
+        maybeWrapInPtrTy com ctx typ ty
+
+    let maybeWrapInPtrTy com ctx typ ty =
         match shouldBeRefCountWrapped com typ with
         | Some Lrc -> makeLrcTy com ctx ty
         | Some Rc -> makeRcTy com ctx ty
         | Some Arc -> makeArcTy com ctx ty
+        | Some Box -> makeBoxTy com ctx ty
         | _ -> ty
-
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
         if ent.IsFSharpRecord then
@@ -1307,6 +1314,9 @@ module Util =
     let makeArcValue (value: Rust.Expr) =
         makeCall ["Arc";"from"] None [value]
 
+    let makeBoxValue (value: Rust.Expr) =
+        makeCall ["Box";"from"] None [value]
+
     let maybeWrapSmartPtr ent expr =
         match ent with
         | HasReferenceTypeAttribute a ->
@@ -1314,6 +1324,7 @@ module Util =
             | Lrc -> expr |> makeLrcValue
             | Rc -> expr |> makeRcValue
             | Arc -> expr |> makeArcValue
+            | Box -> expr |> makeBoxValue
         | _ ->
             match ent.FullName with
             | Types.fsharpAsyncGeneric
@@ -1537,7 +1548,7 @@ module Util =
         then expr
         else expr |> makeLrcValue
 
-    let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
+    let makeRecord (com: IRustCompiler) ctx r isStruct values entRef genArgs =
         let ent = com.GetEntity(entRef)
         let fields =
             Seq.zip ent.FSharpFields values
@@ -1552,7 +1563,7 @@ module Util =
         let genArgs = transformGenArgs com ctx genArgs
         let path = makeFullNamePath ent.FullName genArgs
         let expr = mkStructExpr path fields // TODO: range
-        if isCopyableEntity com Set.empty ent
+        if isStruct || isCopyableEntity com Set.empty ent
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1630,9 +1641,12 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
+        | Fable.NewRecord (values, entRef, genArgs) ->
+            let isStruct = (com.GetEntity entRef).IsValueType
+            makeRecord com ctx r isStruct values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
-        | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
+        | Fable.NewUnion (values, tag, entRef, genArgs) ->
+            makeUnion com ctx r values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
         let t = e.Type
@@ -3530,9 +3544,14 @@ module Util =
                     []
                 else
                     let ty =
-                        let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
+                        let genArgs = getEntityGenArgs ent
+                        let entRef = Fable.DeclaredType(entRef, getEntityGenArgs ent)
+                        let genArgs = genArgs |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgs
-                        mkTraitTy [bounds]
+                        let ty = mkTraitTy [bounds]
+                        // TODO : Wrapping the impl block in a Lrc breaks casting (see IEnumerable), because it no longer implements the interface for T but for Lrc<T>
+                        //maybeWrapInPtrTy com ctx entRef ty
+                        ty
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =
                         if isNonInterface then tEntRef.FullName + "Methods"

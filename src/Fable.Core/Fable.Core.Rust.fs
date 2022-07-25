@@ -25,6 +25,7 @@ type PointerType =
     | Lrc = 0
     | Rc = 1
     | Arc = 2
+    | Box = 3
 
 // Rust - Defines the pointer type that is to be used to wrap the object (Rc/Arc)
 type ReferenceTypeAttribute(pointerType: PointerType) =

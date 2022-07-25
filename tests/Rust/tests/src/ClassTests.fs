@@ -37,10 +37,15 @@ type SWrapper(a: STest, b: STest, c: NTest) =
         c.Add x
 
 type FluentA(x: int) =
-    member this.X = x
+    let mutable a = x
+    member this.X = a
+    member this.Add1 () =
+        a <- a + 1
+        this
 
 type FluentB(a: FluentA) =
     member this.DoFluentAndReturnSelf (x: int) =
+        a.Add1() |> ignore
         this
     member this.DoFluentAndReturnInner (x: int) =
         a
@@ -64,6 +69,17 @@ let ``Struct constructors work II`` () =
     let b = SPoint(3, 4)
     let c = SPoint()
     let p = a + b + c
+    (p.X, p.Y) |> equal (4., 6.)
+    p |> equal (SPoint(4, 6))
+
+let addStructxExpl (a: SPoint) (b: SPoint inref) =
+    SPoint(a.X + b.X, a.Y + b.Y)
+
+[<Fact>]
+let ``Struct functions work`` () =
+    let a = SPoint(1, 2)
+    let b = SPoint(3, 4)
+    let p = addStructxExpl a &b
     (p.X, p.Y) |> equal (4., 6.)
     p |> equal (SPoint(4, 6))
 
@@ -105,7 +121,16 @@ let ``Class fluent/builder internal clone pattern should work`` () =
     let a = FluentA(42)
     let b = FluentB(a)
     let res = b.DoFluentAndReturnSelf(1).DoFluentAndReturnSelf(2).DoFluentAndReturnInner(3).X
-    res |> equal 42
+    res |> equal 44 // assuming add 1 for each DoFluent
+    a.X |> equal 44 // original should match as it is internally mutated
+
+[<Fact>]
+let ``Class fluent/builder should be sharing same reference and not cloning when returning this`` () =
+    let a = FluentA(1);
+    let b = a.Add1().Add1();
+    // Does not yet work - Requires this to be Lrc<T> and not T when implementing TypeMethods
+    //a.X |> equal 3
+    b.X |> equal 3
 
 [<Fact>]
 let ``Class interface from another module works`` () =
