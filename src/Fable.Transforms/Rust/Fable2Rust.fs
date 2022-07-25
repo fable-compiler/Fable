@@ -3542,13 +3542,12 @@ module Util =
                     []
                 else
                     let ty =
-                        let genArgs = getEntityGenArgs ent
-                        let entRef = Fable.DeclaredType(entRef, getEntityGenArgs ent)
-                        let genArgs = genArgs |> transformGenArgs com ctx
+                        let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgs
                         let ty = mkTraitTy [bounds]
                         // TODO : Wrapping the impl block in a Lrc breaks casting (see IEnumerable), because it no longer implements the interface for T but for Lrc<T>
-                        //maybeWrapInPtrTy com ctx entRef ty
+                        // let entRef = Fable.DeclaredType(entRef, getEntityGenArgs ent)
+                        // maybeWrapInPtrTy com ctx entRef ty
                         ty
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =

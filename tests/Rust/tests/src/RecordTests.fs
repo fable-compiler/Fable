@@ -177,3 +177,31 @@ let ``Box record fields works`` () =
     let x = { a=1 }
     let y = x |> add1Box
     y.a |> equal 2
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Emit("$0 as Lrc<MyRecord>")>]
+let ensureMyRecordWrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Normal record should be wrapped in a Lrc`` () =
+    { MyRecord.a=1; b="2"; c=3.0 } |> ensureMyRecordWrapped |> ignore
+
+[<Emit("$0 as Arc<ArcRecord>")>]
+let ensureArcRecordWrappedInArc s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``ArcRecord should always be wrapped in Arc`` () =
+    { ArcRecord.a=1; b="2"; c=3.0 } |> ensureArcRecordWrappedInArc |> ignore
+
+[<Emit("$0 as Box<BoxRecord>")>]
+let ensureBoxRecordWrappedInBox s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``BoxRecord should always be wrapped in Box`` () =
+    { BoxRecord.a=1 } |> ensureBoxRecordWrappedInBox |> ignore
+
+[<Emit("$0 as StructRecord")>]
+let ensureIsStructRecordUnwrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Struct record should not be wrapped in a Lrc`` () =
+    { i=1; s="world" } |> ensureIsStructRecordUnwrapped |> ignore
+#endif

@@ -139,3 +139,19 @@ let ``Class interface from another module works`` () =
     res |> equal 4
     //let res2 = Fable.Tests.InterfaceTests.doAddWithInterface(a) // todo: this breaks because duplicate interface + module not imported
     //res2 |> equal 8
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Emit("$0 as Lrc<NTest>")>]
+let ensureMyUnionWrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Normal class should be wrapped in a Lrc`` () =
+    NTest(1, 1) |> ensureMyUnionWrapped |> ignore
+
+[<Emit("$0 as Point")>]
+let ensureIsClassUnionUnwrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Struct class should not be wrapped in a Lrc`` () =
+    Point(1, 1) |> ensureIsClassUnionUnwrapped |> ignore
+#endif

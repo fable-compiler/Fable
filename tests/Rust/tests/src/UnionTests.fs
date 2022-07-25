@@ -154,3 +154,19 @@ let ``Union with pointer type works`` () =
     let bb = add1 b
     aa |> equal (ArcS "hello1")
     bb |> equal (ArcI 43)
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Emit("$0 as Lrc<MyUnion>")>]
+let ensureMyUnionWrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Normal union should be wrapped in a Lrc`` () =
+    MyUnion.Case1 1 |> ensureMyUnionWrapped |> ignore
+
+[<Emit("$0 as Point2D")>]
+let ensureIsStructUnionUnwrapped s = Fable.Core.Util.nativeOnly
+[<Fact>]
+let ``Struct union should not be wrapped in a Lrc`` () =
+    Infinity |> ensureIsStructUnionUnwrapped |> ignore
+#endif
