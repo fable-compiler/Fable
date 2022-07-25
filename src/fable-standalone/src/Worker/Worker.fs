@@ -44,11 +44,14 @@ type State =
       Worker: ObservableWorker<WorkerRequest>
       CurrentResults: Map<string, IParseAndCheckResults> }
 
-type SourceWriter(sourceMaps: bool) =
+type SourceWriter(sourceMaps: bool, language: string) =
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.MakeImportPath(path) = path
+        member _.MakeImportPath(path) =
+            match language with
+            | "Python" -> path.Replace("/", ".").Replace("-", "_").Replace(".py", "")
+            | _ -> path
         member _.AddSourceMapping(mapping) = ()
         member _.Dispose() = ()
     member __.Result = sb.ToString()
@@ -116,7 +119,7 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                         fable.Manager.CompileToTargetAst("fable-library", parseResults, fileName, typedArrays, language)
                     ) ()
                 // Print target language AST
-                let writer = new SourceWriter(options.sourceMaps)
+                let writer = new SourceWriter(options.sourceMaps, language)
                 do! fable.Manager.PrintTargetAst(res, writer)
                 let compiledCode = writer.Result
 
