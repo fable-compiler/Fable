@@ -167,7 +167,7 @@ module kw =
     let RustPrelude = [
         "Copy"; "Send"; "Sized"; "Sync"; "Unpin";
         "drop"; "Drop"; "Fn"; "FnMut"; "FnOnce";
-        "ToOwned"; "Clone";
+        "Box"; "ToOwned"; "Clone";
         "PartialEq"; "PartialOrd"; "Eq"; "Ord";
         "AsRef"; "AsMut"; "Into"; "From"; "Default"
         "Iterator"; "Extend"; "IntoIterator";

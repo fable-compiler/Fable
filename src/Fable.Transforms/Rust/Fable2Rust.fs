@@ -718,6 +718,7 @@ module TypeInfo =
 
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     // TODO: use a genMap?
+
     let transformType (com: IRustCompiler) ctx (typ: Fable.Type): Rust.Ty =
         // let nonGenericTypeInfo fullname =
         //     [| Expression.stringLiteral(fullname) |]
@@ -830,12 +831,15 @@ module TypeInfo =
         maybeWrapInPtrTy com ctx typ ty
 
     let maybeWrapInPtrTy com ctx typ ty =
-        match shouldBeRefCountWrapped com typ with
-        | Some Lrc -> makeLrcTy com ctx ty
-        | Some Rc -> makeRcTy com ctx ty
-        | Some Arc -> makeArcTy com ctx ty
-        | Some Box -> makeBoxTy com ctx ty
-        | _ -> ty
+        if ctx.Typegen.IsParamByRefPreferred
+        then ty
+        else
+            match shouldBeRefCountWrapped com typ with
+            | Some Lrc -> makeLrcTy com ctx ty
+            | Some Rc -> makeRcTy com ctx ty
+            | Some Arc -> makeArcTy com ctx ty
+            | Some Box -> makeBoxTy com ctx ty
+            | _ -> ty
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
         if ent.IsFSharpRecord then
@@ -969,7 +973,7 @@ module Util =
     let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
         match expr with
         | Fable.IdentExpr id -> //when id.IsThisArgument ->
-            // avoids the extra Rc wrapping for self that transformIdentGet does
+            // avoids the extra Lrc wrapping for self that transformIdentGet does
             transformIdent com ctx None id
         | _ -> com.TransformAsExpr(ctx, expr)
 
@@ -2884,7 +2888,7 @@ module Util =
         let isMut = false
         mkInferredParam ident.Name isRef isMut //?loc=id.Range)
 
-    let transformFunctionDecl (com: IRustCompiler) ctx args returnType =
+    let transformFunctionDecl (com: IRustCompiler) ctx isFluent args returnType =
         let inputs =
             args
             |> discardUnitArg
@@ -2892,8 +2896,12 @@ module Util =
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
-                let ctx = { ctx with Typegen = { ctx.Typegen with IsParamType = false } }
-                returnType |> transformType com ctx |> mkFnRetTy
+                let isFluent = false // disabled for now (remove to enable)
+                let ctx = { ctx with Typegen = { ctx.Typegen with
+                                                    IsParamType = false
+                                                    IsParamByRefPreferred = isFluent } }
+                let ty = returnType |> transformParamType com ctx
+                ty |> mkFnRetTy
         mkFnDecl inputs output
 
     let isClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
@@ -2982,7 +2990,7 @@ module Util =
             else None
         { ctx with
             ScopedSymbols = scopedSymbols
-            Typegen = {ctx.Typegen with IsParamByRefPreferred = false}
+            Typegen = { ctx.Typegen with IsParamByRefPreferred = false }
             TailCallOpportunity = tco }
 
     let isTailRecursive (name: string option) (body: Fable.Expr) =
@@ -3013,7 +3021,8 @@ module Util =
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
-        let fnDecl = transformFunctionDecl com ctx args body.Type
+        let isFluent = isFluentMemberBody body
+        let fnDecl = transformFunctionDecl com ctx isFluent args body.Type
         let ctx = getFunctionCtx com ctx name args body isTailRec
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genParams
@@ -3021,7 +3030,7 @@ module Util =
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let isRecursive, isTailRec = isTailRecursive name body
         let fixedArgs = if isRecursive && not isTailRec then (makeIdent name.Value) :: args else args
-        let fnDecl = transformFunctionDecl com ctx fixedArgs Fable.Unit
+        let fnDecl = transformFunctionDecl com ctx false fixedArgs Fable.Unit
         let ctx = getFunctionCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
@@ -3232,6 +3241,25 @@ module Util =
         //     else fnItem
         [fnItem |> mkPublicItem]
 
+    // is the member return type the same as the entity
+    let isFluentMemberType (ent: Fable.Entity) = function
+        | Fable.DeclaredType(entRef, _) -> entRef.FullName = ent.FullName
+        | _ -> false
+
+    // does the member body return "this"
+    let isFluentMemberBody (body: Fable.Expr) =
+        let rec loop = function
+            | Fable.IdentExpr id when id.IsThisArgument -> true
+            | Fable.Sequential exprs -> loop (List.last exprs)
+            | Fable.Let(_, value, body) -> loop body
+            | Fable.LetRec(bindings, body) -> loop body
+            | Fable.IfThenElse(cond, thenExpr, elseExpr, _) ->
+                loop thenExpr || loop elseExpr
+            | Fable.DecisionTree(expr, targets) ->
+                List.map snd targets |> List.exists loop
+            | _ -> false
+        loop body
+
     let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
@@ -3424,7 +3452,8 @@ module Util =
                         |> Seq.toList
                     let returnType = memb.ReturnParameter.Type
                     let fnName = memb.DisplayName
-                    let fnDecl = transformFunctionDecl com ctx (thisArg::memberArgs) returnType
+                    let isFluent = isFluentMemberType ifaceEnt returnType //TODO: find and inspect the actual member body
+                    let fnDecl = transformFunctionDecl com ctx isFluent (thisArg::memberArgs) returnType
                     let generics = makeGenerics com ctx [] //TODO: add generics?
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                     mkFnAssocItem [] fnName fnKind
@@ -3515,7 +3544,8 @@ module Util =
                         decl.AttachedMembers |> List.filter (fun m ->
                             Set.contains m.Name nonInterfaceMembersSet)
                     for m in membersNotDeclared ->
-                        let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                        let isFluent = isFluentMemberBody m.Body
+                        let fnDecl = transformFunctionDecl com ctx isFluent m.Args m.Body.Type
                         let generics = makeGenerics com ctx [] //TODO: add generics?
                         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                         mkFnAssocItem [] m.Name fnKind
@@ -3542,12 +3572,13 @@ module Util =
                     []
                 else
                     let ty =
-                        let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
-                        let bounds = mkTypeTraitGenericBound [entName] genArgs
+                        let genArgs = getEntityGenArgs ent
+                        let genArgTys = genArgs |> transformGenArgs com ctx
+                        let bounds = mkTypeTraitGenericBound [entName] genArgTys
                         let ty = mkTraitTy [bounds]
-                        // TODO : Wrapping the impl block in a Lrc breaks casting (see IEnumerable), because it no longer implements the interface for T but for Lrc<T>
-                        // let entRef = Fable.DeclaredType(entRef, getEntityGenArgs ent)
-                        // maybeWrapInPtrTy com ctx entRef ty
+                        // TODO: Wrapping the impl block in a Lrc breaks casting (see IEnumerable), because it no longer implements the interface for T but for Lrc<T>
+                        // let entTyp = Fable.DeclaredType(entRef, genArgs)
+                        // maybeWrapInPtrTy com ctx entTyp ty
                         ty
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =

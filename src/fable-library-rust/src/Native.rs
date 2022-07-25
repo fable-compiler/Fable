@@ -8,7 +8,7 @@ pub mod Native_ {
 
     // re-export at module level
     pub use std::collections::{HashMap, HashSet};
-    pub use std::boxed::Box;
+    pub use std::boxed::Box as Box_;
     pub use std::rc::Rc;
     pub use std::sync::Arc;
     pub use std::thread_local;
