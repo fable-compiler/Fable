@@ -67,6 +67,17 @@ let ``Struct constructors work II`` () =
     (p.X, p.Y) |> equal (4., 6.)
     p |> equal (SPoint(4, 6))
 
+let addStructxExpl (a: SPoint) (b: SPoint inref) = 
+    SPoint(a.X + b.X, a.Y + b.Y)
+
+[<Fact>]
+let ``Struct functions work`` () =
+    let a = SPoint(1, 2)
+    let b = SPoint(3, 4)
+    let p = addStructxExpl a &b
+    (p.X, p.Y) |> equal (4., 6.)
+    p |> equal (SPoint(4, 6))
+
 [<Fact>]
 let ``Class methods and props work`` () =
     let a = NTest(1, 2)

@@ -664,7 +664,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
         (kvs, Some []) ||> List.foldBack (fun m acc ->
             match acc, m with
             // Try to get the member key and value at compile time for unions and tuples
-            | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _),_)) ->
+            | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _, _),_)) ->
                 let uci = com.GetEntity(ent).UnionCases |> List.item uci
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some

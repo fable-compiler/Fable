@@ -1002,7 +1002,7 @@ module Util =
                 then libCall com ctx r "Option" "some" [|e|]
                 else e
             | None -> undefined r
-        | Fable.NewRecord(values, ent, genArgs) ->
+        | Fable.NewRecord(values, ent, genArgs, isStruct) ->
             let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
@@ -1014,7 +1014,7 @@ module Util =
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
-        | Fable.NewUnion(values, tag, ent, genArgs) ->
+        | Fable.NewUnion(values, tag, ent, genArgs, isStruct) ->
             let ent = com.GetEntity(ent)
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx

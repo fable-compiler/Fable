@@ -658,7 +658,7 @@ module Util =
                 let typ = transformType com ctx typ
                 Expression.invocationExpression(listIdent.Expr, "of", exprs, Type.reference(listIdent, [typ])))
 
-        | Fable.NewRecord(values, ref, genArgs) ->
+        | Fable.NewRecord(values, ref, genArgs, isStruct) ->
             transformExprsAndResolve com ctx returnStrategy values (fun args ->
                 let ent = com.GetEntity(ref)
                 let genArgs = transformGenArgs com ctx genArgs
@@ -674,7 +674,7 @@ module Util =
         | Fable.NewAnonymousRecord(exprs, _fieldNames, _genArgs, _isStruct) ->
             transformExprsAndResolve com ctx returnStrategy exprs (transformTuple com ctx)
 
-        | Fable.NewUnion(values, tag, ref, genArgs) ->
+        | Fable.NewUnion(values, tag, ref, genArgs, isStruct) ->
             transformExprsAndResolve com ctx returnStrategy values (fun fields ->
                 let ent = com.GetEntity(ref)
                 let genArgs = transformGenArgs com ctx genArgs

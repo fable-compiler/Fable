@@ -421,11 +421,10 @@ module TypeInfo =
             | HasEmitAttribute _ -> None
             // do not make custom types Rc-wrapped by default. This prevents inconsistency between type and implementation emit
             | HasReferenceTypeAttribute ptrType ->
-                if not (isCopyableType com Set.empty typ) then
-                    Some ptrType
-                else None
-            | _ ->
-                if not (isCopyableType com Set.empty typ) then Some Lrc else None
+                Some ptrType
+            | ent ->
+                if ent.IsValueType then None
+                elif not (isCopyableType com Set.empty typ) then Some Lrc else None
 
     let isCloneableType (com: IRustCompiler) typ =
         match typ with
@@ -824,12 +823,14 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
+        maybeWrapInPtrTy com ctx typ ty
+
+    let maybeWrapInPtrTy com ctx typ ty =
         match shouldBeRefCountWrapped com typ with
         | Some Lrc -> makeLrcTy com ctx ty
         | Some Rc -> makeRcTy com ctx ty
         | Some Arc -> makeArcTy com ctx ty
         | _ -> ty
-
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
         if ent.IsFSharpRecord then
@@ -1537,7 +1538,7 @@ module Util =
         then expr
         else expr |> makeLrcValue
 
-    let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
+    let makeRecord (com: IRustCompiler) ctx r isStruct values entRef genArgs =
         let ent = com.GetEntity(entRef)
         let fields =
             Seq.zip ent.FSharpFields values
@@ -1552,7 +1553,7 @@ module Util =
         let genArgs = transformGenArgs com ctx genArgs
         let path = makeFullNamePath ent.FullName genArgs
         let expr = mkStructExpr path fields // TODO: range
-        if isCopyableEntity com Set.empty ent
+        if isStruct || isCopyableEntity com Set.empty ent
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1566,7 +1567,7 @@ module Util =
             else
                 fullName
 
-    let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
+    let makeUnion (com: IRustCompiler) ctx r isStruct values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         // let genArgs = transformGenArgs com ctx genArgs
         let unionCase = ent.UnionCases |> List.item tag
@@ -1576,7 +1577,7 @@ module Util =
             if List.isEmpty values
             then callee
             else callFunction com ctx None callee values
-        if isCopyableEntity com Set.empty ent || ent.FullName = Types.result
+        if isStruct || isCopyableEntity com Set.empty ent || ent.FullName = Types.result
         then expr
         else expr |> maybeWrapSmartPtr ent
 
@@ -1630,9 +1631,10 @@ module Util =
         | Fable.NewTuple (values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList (headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption (value, typ, isStruct) -> makeOption com ctx r typ value isStruct
-        | Fable.NewRecord (values, entRef, genArgs) -> makeRecord com ctx r values entRef genArgs
+        | Fable.NewRecord (values, entRef, genArgs, isStruct) -> makeRecord com ctx r isStruct values entRef genArgs
         | Fable.NewAnonymousRecord (values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
-        | Fable.NewUnion (values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
+        | Fable.NewUnion (values, tag, entRef, genArgs, isStruct) ->
+            makeUnion com ctx r isStruct values tag entRef genArgs
 
     let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
         let t = e.Type
@@ -3331,7 +3333,7 @@ module Util =
         let idents = getEntityFieldsAsIdents com ent
         let fields = idents |> List.map Fable.IdentExpr
         let genArgs = getEntityGenArgs ent
-        let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
+        let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs, ent.IsValueType), None)
         let name = declName //TODO: is this always correct?
         let paramTypes = idents |> List.map (fun id -> id.Type)
         let memberRef = Fable.GeneratedMember.Function(name, paramTypes, body.Type, entRef = ent.Ref)
@@ -3350,7 +3352,7 @@ module Util =
                 let fieldIdents = idents |> List.map (fun id -> Map.find id.Name identMap)
                 let fields = fieldIdents |> List.map Fable.IdentExpr
                 let genArgs = getEntityGenArgs ent
-                let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
+                let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs, ent.IsValueType), None)
 
                 // add return value after the body
                 let body = Fable.Sequential (exprs @ [body])
@@ -3530,9 +3532,14 @@ module Util =
                     []
                 else
                     let ty =
-                        let genArgs = getEntityGenArgs ent |> transformGenArgs com ctx
+                        let genArgs = getEntityGenArgs ent
+                        let entRef = Fable.DeclaredType(entRef, getEntityGenArgs ent)
+                        let genArgs = genArgs |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgs
-                        mkTraitTy [bounds]
+                        let ty = mkTraitTy [bounds]
+                        // TODO : Wrapping the impl block in a Lrc breaks casting (see IEnumerable), because it no longer implements the interface for T but for Lrc<T>
+                        //maybeWrapInPtrTy com ctx entRef ty
+                        ty
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =
                         if isNonInterface then tEntRef.FullName + "Methods"

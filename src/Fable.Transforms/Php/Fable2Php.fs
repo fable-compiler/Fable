@@ -929,7 +929,7 @@ and convertFunction (com: IPhpCompiler)  body (args: Fable.Ident list) =
 
 and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
     match value with
-    | Fable.NewUnion(args,tag,ent,_) ->
+    | Fable.NewUnion(args,tag,ent,_, _) ->
         let ent = com.GetEntity(ent)
         let t =
             let name = caseNameOfTag com ent tag
@@ -953,7 +953,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
     | Fable.NewTuple(args,_) ->
 
         PhpNewArray([for arg in args do (PhpArrayNoIndex, convertExpr com arg)])
-    | Fable.NewRecord(args, e , _) ->
+    | Fable.NewRecord(args, e , _, _) ->
         let t =
             match com.TryFindType(e) with
             | Ok t ->
