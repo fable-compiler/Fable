@@ -65,10 +65,7 @@ type IRustCompiler =
     abstract ClearAllImports: Context -> unit
     abstract GetAllModules: unit -> (string * string) list
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
-    abstract TransformAsExpr: Context * Fable.Expr -> Rust.Expr
-    // abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Rust.Stmt array
-    // abstract TransformImport: Context * selector:string * path:string -> Rust.Expr
-    // abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
+    abstract TransformExpr: Context * Fable.Expr -> Rust.Expr
     abstract GetEntity: entRef: Fable.EntityRef -> Fable.Entity
 
 // TODO: Centralise and find a home for this
@@ -832,7 +829,7 @@ module TypeInfo =
                     //     genericEntity ent.FullName generics
                     // else
                     //     let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
-                    //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
+                    //     let callee = com.TransformExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
         match shouldBeRefCountWrapped com typ with
@@ -901,7 +898,7 @@ module Util =
     open TypeInfo
 
     let (|TransformExpr|) (com: IRustCompiler) ctx e =
-        com.TransformAsExpr(ctx, e)
+        com.TransformExpr(ctx, e)
 
     let (|Function|_|) = function
         | Fable.Lambda(arg, body, info) -> Some([arg], body, info)
@@ -977,7 +974,7 @@ module Util =
         | Fable.IdentExpr id -> //when id.IsThisArgument ->
             // avoids the extra Lrc wrapping for self that transformIdentGet does
             transformIdent com ctx None id
-        | _ -> com.TransformAsExpr(ctx, expr)
+        | _ -> com.TransformExpr(ctx, expr)
 
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
@@ -997,18 +994,6 @@ module Util =
         // assert(ident.IsMutable)
         mutableSet expr value
 
-(*
-    let thisExpr =
-        Expression.thisExpression()
-
-    let ofInt i =
-        mkIntLitExpr (uint64 (abs i))
-        // Expression.numericLiteral(float i)
-
-    let ofString s =
-        mkStrLitExpr s
-        // Expression.stringLiteral(s)
-*)
     let memberFromName (memberName: string): Rust.Expr * bool =
         match memberName with
         | "ToString" -> (mkGenericPathExpr ["ToString"] None), false
@@ -1016,102 +1001,22 @@ module Util =
         //     Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
         // | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
         | n -> (mkGenericPathExpr [n] None), false
-(*
-    let memberFromExpr (com: IRustCompiler) ctx memberExpr: Rust.Expr * bool =
-        match memberExpr with
-        | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
-        | e -> com.TransformAsExpr(ctx, e), true
-*)
+
     let getField r (expr: Rust.Expr) (fieldName: string) =
         mkFieldExpr expr fieldName // ?loc=r)
 
     let getExpr r (expr: Rust.Expr) (index: Rust.Expr) =
         mkIndexExpr expr index // ?loc=r)
-(*
-    let rec getParts (parts: string list) (expr: Rust.Expr) =
-        match parts with
-        | [] -> expr
-        | m::ms -> get None expr m |> getParts ms
 
-    let makeTypedArray (com: IRustCompiler) ctx t (args: Fable.Expr list) =
-        match t with
-        | Fable.Number kind when com.Options.TypedArrays ->
-            let jsName = getTypedArrayName com kind
-            let args = [|makeArray com ctx args|]
-            Expression.newExpression(Expression.identifier(jsName), args)
-        | _ -> makeArray com ctx args
-
-    let makeTypedAllocatedFrom (com: IRustCompiler) ctx typ (fableExpr: Fable.Expr) =
-        let getArrayCons t =
-            match t with
-            | Fable.Number kind when com.Options.TypedArrays ->
-                getTypedArrayName com kind |> Expression.identifier
-            | _ -> Expression.identifier("Array")
-
-        match fableExpr with
-        | ExprType(Fable.Number _) ->
-            let cons = getArrayCons typ
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            Expression.newExpression(cons, [|expr|])
-        | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-            makeTypedArray com ctx typ exprs
-        | _ ->
-            let cons = getArrayCons typ
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            Expression.callExpression(get None cons "from", [|expr|])
-
-    let makeStringArray strings =
-        strings
-        |> List.mapToArray (fun x -> Expression.stringLiteral(x))
-        |> Expression.arrayExpression
-
-    let makeJsObject pairs =
-        pairs |> Seq.map (fun (name, value) ->
-            let prop, computed = memberFromName name
-            ObjectMember.objectProperty(prop, value, computed_=computed))
-        |> Seq.toArray
-        |> Expression.objectExpression
-
-    let assign range left right =
-        Expression.assignmentExpression(AssignEqual, left, right, ?loc=range)
-
-    let multiVarDeclaration kind (variables: (Identifier * Expression option) list) =
-        let varDeclarators =
-            // TODO: Log error if there're duplicated non-empty var declarations
-            variables
-            |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
-            |> List.mapToArray (fun (id, value) ->
-                VariableDeclarator(id |> Pattern.Identifier, value))
-        Statement.variableDeclaration(kind, varDeclarators)
-
-    let varDeclaration (var: Pattern) (isMutable: bool) value =
-        let kind = if isMutable then Let else Const
-        VariableDeclaration.variableDeclaration(var, value, kind)
-
-    let restElement (var: Pattern) =
-        Pattern.restElement(var)
-
-    let callSuper (args: Rust.Expr list) =
-        Expression.callExpression(Super(None), List.toArray args)
-
-    let callSuperAsStatement (args: Rust.Expr list) =
-        ExpressionStatement(callSuper args)
-
-    let makeClassConstructor args body =
-        ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
-*)
     let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
         let trArgs = transformCallArgs com ctx args []
         mkCallExpr callee trArgs //?loc=range)
 
-    /// Immediately Invoked Function Expression
-    let iife (com: IRustCompiler) ctx (expr: Fable.Expr) =
-        let fnExpr = transformLambda com ctx None [] expr
-        let range = None // TODO:
-        callFunction com ctx range fnExpr []
-        // let _, body = com.TransformFunction(ctx, None, [], expr)
-        // // Use an arrow function in case we need to capture 'this'
-        // Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
+    // /// Immediately Invoked Function Expression
+    // let iife (com: IRustCompiler) ctx (expr: Fable.Expr) =
+    //     let fnExpr = transformLambda com ctx None [] expr
+    //     let range = None // TODO:
+    //     callFunction com ctx range fnExpr []
 
     let getGenericParams (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
@@ -1173,7 +1078,7 @@ module Util =
         uci.FullName
 
     let getUnionExprTag (com: IRustCompiler) ctx range (fableExpr: Fable.Expr) =
-        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let expr = com.TransformExpr(ctx, fableExpr)
         // getExpr range expr (Expression.stringLiteral("tag"))
         expr
 
@@ -1290,7 +1195,7 @@ module Util =
             | _ -> None
 
         match optimized, t with
-        | Some e, _ -> com.TransformAsExpr(ctx, e)
+        | Some e, _ -> com.TransformExpr(ctx, e)
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
@@ -1298,11 +1203,11 @@ module Util =
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
-            | _ -> com.TransformAsExpr(ctx, e)
-        | _ -> com.TransformAsExpr(ctx, e)
+            | _ -> com.TransformExpr(ctx, e)
+        | _ -> com.TransformExpr(ctx, e)
 *)
     let transformCurry (com: IRustCompiler) (ctx: Context) expr arity: Rust.Expr =
-        com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
+        com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     /// This guarantees a new owned Rc<T>
     let makeClone expr = mkMethodCallExprOnce "clone" None expr []
@@ -1360,11 +1265,11 @@ module Util =
         //     match List.rev args with
         //     | [] -> []
         //     | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
-        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-        //         rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
+        //         rest @ (List.map (fun e -> com.TransformExpr(ctx, e)) spreadArgs)
         //     | last::rest ->
-        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-        //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
+        //         rest @ [Expression.spreadElement(com.TransformExpr(ctx, last))]
         | args ->
             let argsWithTypes =
                 if argTypes.Length = args.Length
@@ -1374,11 +1279,11 @@ module Util =
                 transformLeaveContext com ctx argType arg)
 
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
-        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let expr = com.TransformExpr(ctx, fableExpr)
         expr
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
-        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let expr = com.TransformExpr(ctx, fableExpr)
         if shouldBeRefCountWrapped com typ |> Option.isSome
         then makeAsRef expr
         else
@@ -1468,7 +1373,7 @@ module Util =
             let expr = mkFloat64LitExpr (abs x)
             if x < 0.0 then expr |> mkNegExpr else expr
         | Decimal, (:? decimal as x) ->
-            Replacements.makeDecimal com r t x |> transformAsExpr com ctx
+            Replacements.makeDecimal com r t x |> transformExpr com ctx
         | kind, x ->
             $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
             |> addError com [] r
@@ -1698,7 +1603,7 @@ module Util =
         varAttrs, isOnlyReference
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
-        let expr = com.TransformAsExpr (ctx, e)
+        let expr = com.TransformExpr (ctx, e)
         if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
             expr |> mkAddrOfExpr
         else
@@ -1727,7 +1632,7 @@ module Util =
             let baseExpr =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
-                | _ -> transformAsExpr com ctx baseRef
+                | _ -> transformExpr com ctx baseRef
             let args = transformCallArgs com ctx info.Args
             Some(baseExpr, args)
         | Some(Fable.Value _), Some baseType ->
@@ -1760,7 +1665,7 @@ module Util =
         //         let prop, computed = memberFromName memb.Name
         //         [prop, computed]
         //         // if info.IsValue || (info.IsGetter) then
-        //         //     [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
+        //         //     [ObjectMember.objectProperty(prop, com.TransformExpr(ctx, memb.Body), computed_=computed)]
         //         // elif info.IsGetter then
         //         //     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
         //         // elif info.IsSetter then
@@ -1873,7 +1778,7 @@ module Util =
         if macro.EndsWith("!") then
             transformMacro com ctx range emitInfo
         else // otherwise it's an Emit
-            let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
+            let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformExpr(ctx, e)) |> Option.toList
             let args = transformCallArgs com ctx info.Args info.SignatureArgTypes
             let args = args |> List.append thisArg
             mkEmitExpr macro args
@@ -1938,7 +1843,7 @@ module Util =
             | _ ->
                 // normal instance call
                 let namesp, name = splitNameSpace info.Name
-                let callee = com.TransformAsExpr(ctx, calleeExpr)
+                let callee = com.TransformExpr(ctx, calleeExpr)
                 mkMethodCallExpr name None callee args
 
         | Fable.Import(info, t, r) ->
@@ -2048,11 +1953,11 @@ module Util =
                 else field
 
         | Fable.ListHead ->
-            // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
+            // get range (com.TransformExpr(ctx, fableExpr)) "head"
             libCall com ctx range [] "List" "head" [fableExpr]
 
         | Fable.ListTail ->
-            // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
+            // get range (com.TransformExpr(ctx, fableExpr)) "tail"
             libCall com ctx range [] "List" "tail" [fableExpr]
 
         | Fable.TupleIndex index ->
@@ -2070,7 +1975,7 @@ module Util =
                 libCall com ctx range [] "Option" "getValue" [fableExpr]
 
         | Fable.UnionTag ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
+            let expr = com.TransformExpr(ctx, fableExpr)
             // TODO: range
             expr
 
@@ -2154,7 +2059,7 @@ module Util =
 
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr =
-            // com.TransformAsExpr(ctx, e)
+            // com.TransformExpr(ctx, e)
             transformLeaveContext com ctx None e
         mkExprStmt expr
 
@@ -2264,14 +2169,14 @@ module Util =
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
         let guardExpr = transformExprMaybeUnwrapRef com ctx guard
-        let bodyExpr = com.TransformAsExpr(ctx, body)
+        let bodyExpr = com.TransformExpr(ctx, body)
         mkWhileExpr None guardExpr bodyExpr //?loc=range)
 
     let transformForLoop (com: IRustCompiler) ctx range isUp (var: Fable.Ident) start limit body =
         let startExpr = transformExprMaybeUnwrapRef com ctx start
         let limitExpr = transformExprMaybeUnwrapRef com ctx limit
         let ctx = { ctx with IsInPluralizedExpr = true }
-        let bodyExpr = com.TransformAsExpr(ctx, body)
+        let bodyExpr = com.TransformExpr(ctx, body)
         let varPat = makeFullNameIdentPat var.Name
         let rangeExpr =
             if isUp then
@@ -2299,7 +2204,7 @@ module Util =
             letExpr
         | _ ->
             body // no finalizer
-        |> transformAsExpr com ctx
+        |> transformExpr com ctx
         // |> mkTryBlockExpr // TODO: nightly only, enable when stable
 
     let transformCurriedApply (com: IRustCompiler) ctx range calleeExpr args =
@@ -2318,35 +2223,6 @@ module Util =
         // [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
         //     ?handler=handler, ?finalizer=finalizer, ?loc=r)|]
 
-(*
-    let transformBindingExprBody (com: IRustCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
-        match value with
-        | Function(args, body) ->
-            let name = Some var.Name
-            transformFunctionWithAnnotations com ctx name args body
-            |> makeArrowFunctionExpression name
-        | _ ->
-            if var.IsMutable then
-                com.TransformAsExpr(ctx, value)
-            else
-                com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
-
-    let transformBindingAsExpr (com: IRustCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        transformBindingExprBody com ctx var value
-        |> assign None (identAsExpr var)
-
-    let transformBindingAsStatements (com: IRustCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        if isJsStatement ctx false value then
-            let varPattern, varExpr = identAsPattern var, identAsExpr var
-            let decl = Statement.variableDeclaration(varPattern)
-            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
-            Array.append [|decl|] body
-        else
-            let value = transformBindingExprBody com ctx var value
-            let decl = varDeclaration (identAsPattern var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
-            [|decl|]
-*)
-
     let makeUnionCasePat unionCaseFullName fields =
         let unionCaseName = mapKnownUnionCaseNames unionCaseFullName
         if List.isEmpty fields then
@@ -2361,7 +2237,7 @@ module Util =
             transformTypeTest com ctx range fableExpr t
         | Fable.OptionTest isSome ->
             let test = if isSome then "is_some" else "is_none"
-            let expr = com.TransformAsExpr(ctx, fableExpr)
+            let expr = com.TransformExpr(ctx, fableExpr)
             mkMethodCallExpr test None expr []
         | Fable.ListTest nonEmpty ->
             let expr = libCall com ctx range [] "List" "isEmpty" [fableExpr]
@@ -2422,7 +2298,7 @@ module Util =
             let vars = idents |> List.map (fun (id: Fable.Ident) -> id.Name)
             // TODO: vars, boundValues
             let body =
-                //com.TransformAsExpr(ctx, bodyExpr)
+                //com.TransformExpr(ctx, bodyExpr)
                 let usages = calcIdentUsages bodyExpr
                 let getScope name =
                     name, { IsArm = true
@@ -2498,7 +2374,7 @@ module Util =
                 let pat =
                     match patOpt with
                     | Some pat -> pat
-                    | _ -> com.TransformAsExpr(ctx, caseExpr) |> mkLitPat
+                    | _ -> com.TransformExpr(ctx, caseExpr) |> mkLitPat
                 let extraVals = namesForIndex evalType evalName targetIndex
                 makeArm pat targetIndex (boundValues) extraVals
             )
@@ -2554,30 +2430,15 @@ module Util =
         else
             identsAndValues, target
 
-    let transformDecisionTreeSuccessAsExpr (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
+    let transformDecisionTreeSuccess (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
         let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
         match bindings with
         | [] ->
             transformExprMaybeUnwrapRef com ctx target
         | bindings ->
             let target = List.rev bindings |> List.fold (fun e (i,v) -> Fable.Let(i,v,e)) target
-            com.TransformAsExpr(ctx, target)
-(*
-    let transformDecisionTreeSuccessAsStatements (com: IRustCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Rust.Stmt[] =
-        match returnStrategy with
-        | Some(Target targetId) ->
-            let idents, _ = getDecisionTarget ctx targetIndex
-            let assignments =
-                matchTargetIdentAndValues idents boundValues
-                |> List.mapToArray (fun (id, TransformExpr com ctx value) ->
-                    assign None (identAsExpr id) value |> ExpressionStatement)
-            let targetAssignment = assign None (targetId |> Expression.Identifier) (ofInt targetIndex) |> ExpressionStatement
-            Array.append [|targetAssignment|] assignments
-        | ret ->
-            let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
-            let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
-            Array.append bindings (com.TransformAsStatements(ctx, ret, target))
-*)
+            com.TransformExpr(ctx, target)
+
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
             | Fable.Test(expr, Fable.OptionTest isSome, _) ->
@@ -2619,15 +2480,32 @@ module Util =
             checkInner cases evalExpr treeExpr
         | _ -> None
 
-    let transformDecisionTreeAsExpr (com: IRustCompiler) ctx targets (expr: Fable.Expr): Rust.Expr =
+    // let simplifyDecisionTree (treeExpr: Fable.Expr) =
+    //     treeExpr |> visitFromInsideOut (function
+    //         | Fable.IfThenElse(
+    //             guardExpr1,
+    //             Fable.IfThenElse(
+    //                 guardExpr2,
+    //                 thenExpr,
+    //                 Fable.DecisionTreeSuccess(index2,[],_),_),
+    //             Fable.DecisionTreeSuccess(index1,[],t),r)
+    //             when index1 = index2 ->
+    //             Fable.IfThenElse(
+    //                 makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
+    //                 thenExpr,
+    //                 Fable.DecisionTreeSuccess(index2,[],t),r)
+    //         | e -> e)
+
+    let transformDecisionTree (com: IRustCompiler) ctx targets (expr: Fable.Expr): Rust.Expr =
+        // let expr = simplifyDecisionTree expr
         match transformDecisionTreeAsSwitch expr with
         | Some(evalExpr, cases, defaultCase) ->
             transformSwitch com ctx evalExpr cases defaultCase targets
         | None ->
             let ctx = { ctx with DecisionTargets = targets }
-            com.TransformAsExpr(ctx, expr)
+            com.TransformExpr(ctx, expr)
 
-    let rec transformAsExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr): Rust.Expr =
+    let rec transformExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr): Rust.Expr =
         match fableExpr with
         | Fable.Unresolved(_,_,r) ->
             addError com [] r "Unexpected unresolved expression"
@@ -2670,10 +2548,10 @@ module Util =
             transformIfThenElse com ctx r guardExpr thenExpr elseExpr
 
         | Fable.DecisionTree(expr, targets) ->
-            transformDecisionTreeAsExpr com ctx targets expr
+            transformDecisionTree com ctx targets expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
-            transformDecisionTreeSuccessAsExpr com ctx idx boundValues
+            transformDecisionTreeSuccess com ctx idx boundValues
 
         | Fable.Set(expr, kind, typ, value, range) ->
             transformSet com ctx range expr typ value kind
@@ -2684,7 +2562,7 @@ module Util =
             transformLet com ctx bindings body
             // if ctx.HoistVars [ident] then
             //     let assignment = transformBindingAsExpr com ctx ident value
-            //     Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
+            //     Expression.sequenceExpression([|assignment; com.TransformExpr(ctx, body)|])
             // else iife com ctx expr
 
         | Fable.LetRec(bindings, body) ->
@@ -2693,7 +2571,7 @@ module Util =
         //     if ctx.HoistVars(idents) then
         //         let values = bindings |> List.mapToArray (fun (id, value) ->
         //             transformBindingAsExpr com ctx id value)
-        //         Expression.sequenceExpression(Array.append values [|com.TransformAsExpr(ctx, body)|])
+        //         Expression.sequenceExpression(Array.append values [|com.TransformExpr(ctx, body)|])
         //     else iife com ctx expr
 
         | Fable.Sequential exprs ->
@@ -2717,7 +2595,7 @@ module Util =
             match kind with
             | Fable.Curry(e, arity) ->
                 // transformCurry com ctx e arity //TODO: check arity, if curry is needed
-                transformAsExpr com ctx e
+                transformExpr com ctx e
             | Fable.Throw(expr, _) ->
                 match expr with
                 | None -> failwith "TODO: rethrow"
@@ -3022,7 +2900,7 @@ module Util =
         | _ ->
             transformLeaveContext com ctx None body
 
-    let transformFunction com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformFunc com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         //if name |> Option.exists (fun n -> n.Contains("byrefAttrIntFn")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
@@ -3054,7 +2932,7 @@ module Util =
                 mkStmtBlockExpr [
                     for name in closedOverCloneableNames do
                         let pat = makeFullNameIdentPat name
-                        let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
+                        let identExpr = com.TransformExpr(ctx, makeIdentExpr name)
                         let cloneExpr = makeClone identExpr
                         let letExpr = mkLetExpr pat cloneExpr
                         yield letExpr |> mkSemiStmt
@@ -3138,7 +3016,7 @@ module Util =
 
     let transformInnerFunction com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let fnDecl, fnBody, fnGenParams =
-            transformFunction com ctx (Some name) args body
+            transformFunc com ctx (Some name) args body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3185,7 +3063,7 @@ module Util =
 
     let transformModuleAction (com: IRustCompiler) ctx (body: Fable.Expr) =
         // uses startup::on_startup! for static execution (before main)
-        let expr = transformAsExpr com ctx body
+        let expr = transformExpr com ctx body
         let attrs = []
         let macroName = getLibraryImportName com ctx "Native" "on_startup"
         let macroItem = mkMacroItem attrs macroName [expr]
@@ -3198,7 +3076,7 @@ module Util =
             |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
         let fnDecl, fnBody, fnGenParams =
             let ctx = { ctx with Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
-            transformFunction com ctx (Some info.FullName) decl.Args decl.Body
+            transformFunc com ctx (Some info.FullName) decl.Args decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3218,7 +3096,7 @@ module Util =
         // uses std::thread_local! for static initialization
         let name = splitLast decl.Name
         let fableExpr = decl.Body
-        let value = transformAsExpr com ctx fableExpr
+        let value = transformExpr com ctx fableExpr
         let value =
             if info.IsMutable
             then value |> makeMutValue |> makeLrcValue
@@ -3268,7 +3146,7 @@ module Util =
     let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
-            transformFunction com ctx (Some membName) args body
+            transformFunc com ctx (Some membName) args body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3913,9 +3791,10 @@ module Compiler =
                         imports.Remove(import.Key) |> ignore
                         ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
 
-            member _.GetAllModules() = importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
+            member _.GetAllModules() =
+                importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
 
-            member self.TransformAsExpr(ctx, e) = transformAsExpr self ctx e
+            member com.TransformExpr(ctx, e) = transformExpr com ctx e
 
             member _.GetEntity(fullName) =
                 match com.TryGetEntity(fullName) with

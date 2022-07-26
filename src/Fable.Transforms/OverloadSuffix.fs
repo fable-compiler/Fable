@@ -65,7 +65,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
             Seq.zip fieldNames genArgs
             |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
             |> String.concat "; "
-        "{|" + fields + "|}"
+        (if isStruct then "struct " else "") + "{|" + fields + "|}"
     | Fable.DeclaredType(tdef, genArgs) ->
         let genArgs = genArgs |> Seq.mapToList (getTypeFastFullName genParams)
         // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
