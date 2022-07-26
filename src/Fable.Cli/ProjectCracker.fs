@@ -544,8 +544,9 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
     let packages =
         pkgRefs
         |> List.map (fun pkg ->
-            let name = Naming.applyCaseRule Core.CaseRules.KebabCase (pkg.Id.Replace(".", "-"))
-            $"-e ./fable_modules/{name}")
+            Naming.applyCaseRule Core.CaseRules.KebabCase (pkg.Id.Replace(".", "-")))
+        |> List.append ["fable-library"]
+        |> List.map (fun name -> $"-e ./fable_modules/{name}")
 
     // Store all packages used for easy installation using `pip install -r requirements.txt`
     IO.File.WriteAllLines(IO.Path.Combine(opts.FableModulesDir, "requirements.txt"), packages)
