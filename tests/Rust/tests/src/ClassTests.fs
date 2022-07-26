@@ -129,7 +129,7 @@ let ``Class fluent/builder should be sharing same reference and not cloning when
     let a = FluentA(1);
     let b = a.Add1().Add1();
     // Does not yet work - Requires this to be Lrc<T> and not T when implementing TypeMethods
-    //a.X |> equal 3
+    a.X |> equal 3
     b.X |> equal 3
 
 [<Fact>]
