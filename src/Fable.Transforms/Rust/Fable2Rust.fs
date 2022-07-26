@@ -828,9 +828,6 @@ module TypeInfo =
                     //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
-        maybeWrapInPtrTy com ctx typ ty
-
-    let maybeWrapInPtrTy com ctx typ ty =
         if ctx.Typegen.IsParamByRefPreferred
         then ty
         else
@@ -840,6 +837,17 @@ module TypeInfo =
             | Some Arc -> makeArcTy com ctx ty
             | Some Box -> makeBoxTy com ctx ty
             | _ -> ty
+
+    // let maybeWrapInPtrTy com ctx typ ty =
+    //     if ctx.Typegen.IsParamByRefPreferred
+    //     then ty
+    //     else
+    //         match shouldBeRefCountWrapped com typ with
+    //         | Some Lrc -> makeLrcTy com ctx ty
+    //         | Some Rc -> makeRcTy com ctx ty
+    //         | Some Arc -> makeArcTy com ctx ty
+    //         | Some Box -> makeBoxTy com ctx ty
+    //         | _ -> ty
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
         if ent.IsFSharpRecord then
