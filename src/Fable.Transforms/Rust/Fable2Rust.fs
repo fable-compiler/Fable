@@ -3599,7 +3599,6 @@ module Util =
                         let genArgTys = genArgs |> transformGenArgs com ctx
                         let bounds = mkTypeTraitGenericBound [entName] genArgTys
                         let ty = mkTraitTy [bounds]
-                        let ety = com.GetEntity(tEntRef)
                         ty
                     let genArgs = getEntityGenArgs tEnt
                     let nameParts =
