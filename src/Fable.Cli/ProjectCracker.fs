@@ -541,7 +541,14 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
                 IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
             copyDirIfDoesNotExist false sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
+    let packages =
+        pkgRefs
+        |> List.map (fun pkg ->
+            let name = Naming.applyCaseRule Core.CaseRules.KebabCase (pkg.Id.Replace(".", "-"))
+            $"-e ./fable_modules/{name}")
 
+    // Store all packages used for easy installation using `pip install -r requirements.txt`
+    IO.File.WriteAllLines(IO.Path.Combine(opts.FableModulesDir, "requirements.txt"), packages)
     getFableLibraryPath opts, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it

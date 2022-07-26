@@ -149,3 +149,25 @@ let ``test Decimal precision is kept`` () =
                   6.08M
                   -924.8M ]
     List.sum items |> equal 0M
+
+[<Fact>]
+let ``test Decimal max precision is kept`` () =
+    let pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286M
+    string pi |> equal "3.1415926535897932384626433833"
+
+//[<Fact>]
+//let ``test Decimal average precision is kept`` () =
+//    let items = [1M; 2M; 5M]
+//    List.average items |> equal 2.6666666666666666666666666667M
+
+[<Fact>]
+let ``test Decimal division precision is kept`` () =
+    string (8M / 3M) |> equal "2.6666666666666666666666666667"
+    
+
+//[<Fact>]
+//let ``test Decimal division works`` () =
+//    let a = decimal 0.00001
+//    let b = 1000.M
+//    let c = decimal 0.00000001
+//    a / b |> equal c
