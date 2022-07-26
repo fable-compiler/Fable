@@ -428,7 +428,7 @@ module TypeInfo =
             | ent ->
                 if ent.IsValueType then None else Some Lrc
 
-    let shouldBeDoubleWrapped (com: IRustCompiler) typ=
+    let shouldBeDyn (com: IRustCompiler) typ=
         match typ with
         | Fable.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
@@ -1265,8 +1265,8 @@ module Util =
             makeCall [name; "from"] None [expr] // e.g. T::from(value)
         // casts to interface
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ ->
-            expr |> makeClone |> mkCastExpr ty
-        | t1, t2 when not (shouldBeDoubleWrapped com t1) && shouldBeDoubleWrapped com t2 ->
+            expr
+        | t1, t2 when not (shouldBeDyn com t1) && shouldBeDyn com t2 ->
             expr |> makeClone |> makeNewLrcValue |> mkCastExpr ty
         | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
@@ -3553,21 +3553,6 @@ module Util =
             if Set.isEmpty nonInterfaceMembersSet then
                 []
             else
-                // let statics =
-                //     let assocItems = [
-                //         let membersNotDeclared =
-                //             decl.AttachedMembers |> List.filter (fun m ->
-                //                 let isStatic = m.Args |> List.exists (fun q -> q.IsThisArgument) |> not
-                //                 Set.contains m.Name nonInterfaceMembersSet && isStatic)
-                //         for m in membersNotDeclared ->
-                //             let isFluent = isFluentMemberBody m.Body
-                //             let fnDecl = transformFunctionDecl com ctx isFluent m.Args m.Body.Type
-                //             let generics = makeGenerics com ctx [] //TODO: add generics?
-                //             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                //             mkFnAssocItem [] m.Name fnKind
-                //     ]
-                //     let generics = getEntityGenArgs ent |> makeGenerics com ctx
-                //     mkTraitItem [] (entName) assocItems [] generics
                 let traitItem =
                     let assocItems = [
                         let membersNotDeclared =
