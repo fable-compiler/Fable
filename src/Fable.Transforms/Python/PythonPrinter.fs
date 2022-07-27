@@ -768,7 +768,7 @@ let run writer (program: Module) : Async<unit> =
 
         let imports, restDecls =
             program.Body
-            |> List.partition (function
+            |> List.splitWhile (function
                 | Import _
                 | ImportFrom _ -> true
                 | Expr ({Value=Expression.Emit(_)}) -> true
