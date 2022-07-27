@@ -7,7 +7,6 @@ open Fable
 open Fable.AST
 open Fable.AST.Python
 open Fable.PY
-open Fable.Core
 
 type ReturnStrategy =
     /// Return last expression
@@ -3789,11 +3788,18 @@ module Util =
 
         [ for moduleName, aliases in imports do
               match moduleName with
-              | Some name -> Statement.importFrom (Some(Identifier(name)), aliases)
+              | Some name ->
+                  Statement.importFrom (Some(Identifier(name)), aliases)
               | None ->
                   // Do not put multiple imports on a single line. flake8(E401)
                   for alias in aliases do
-                      Statement.import ([ alias ]) ]
+                      if alias.Name.Name = "sys" && com.OutputType = OutputType.Exe then
+                          yield! [
+                            Statement.import ([ alias ])
+                            Statement.expr (Expression.emit("sys.path.append(os.path.join(os.path.dirname(__file__), \"fable_modules\"))"))
+                          ]
+                      else
+                          Statement.import ([ alias ]) ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
@@ -3952,6 +3958,10 @@ module Compiler =
               OptimizeTailCall = fun () -> ()
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
+
+        if com.OutputType = OutputType.Exe then
+            com.GetImportExpr(ctx, "os") |> ignore
+            com.GetImportExpr(ctx, "sys") |> ignore
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 

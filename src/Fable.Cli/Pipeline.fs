@@ -185,13 +185,13 @@ module Python =
                             parts
                             |> Array.choose (fun part ->
                                 i <- i + 1
-                                if part = "." then None
-                                elif part = ".." then Some ""
-                                elif i = parts.Length - 1 then Some(normalizeFileName part)
-                                else Some part // TODO: normalize also dir names?
+                                if part = "." then if i = 0 && isLibrary then Some("") else None
+                                elif part = ".." then None
+                                elif part = Naming.fableModules then None
+                                else Some(normalizeFileName part)
                             )
                             |> String.concat "."
-                        if isLibrary then "." + path else path
+                        path
                 else path
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.
