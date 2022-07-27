@@ -1,3 +1,8 @@
+### 4.0.0-snake-island-alpha-017
+
+* Python, reverted back to using modues instead of packages, @dbrattli
+* Rust, Fixed overload suffix for anon records, @ncave
+
 ### 4.0.0-snake-island-alpha-016
 
 * Python, fixes for requirements.txt
