@@ -505,7 +505,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
     | None ->
         let buildDir, libDir =
             match opts.FableOptions.Language with
-            | Python -> "fable-library-py", "fable-library"
+            | Python -> "fable-library-py/fable_library", "fable_library"
             | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
@@ -537,19 +537,11 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir =
-                let name = Naming.applyCaseRule Core.CaseRules.KebabCase pkg.Id
-                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
+                let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
+                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_"))
             copyDirIfDoesNotExist false sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
-    let packages =
-        pkgRefs
-        |> List.map (fun pkg ->
-            Naming.applyCaseRule Core.CaseRules.KebabCase (pkg.Id.Replace(".", "-")))
-        |> List.append ["fable-library"]
-        |> List.map (fun name -> $"-e ./fable_modules/{name}")
 
-    // Store all packages used for easy installation using `pip install -r requirements.txt`
-    IO.File.WriteAllLines(IO.Path.Combine(opts.FableModulesDir, "requirements.txt"), packages)
     getFableLibraryPath opts, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
