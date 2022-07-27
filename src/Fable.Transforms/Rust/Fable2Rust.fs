@@ -460,7 +460,10 @@ module TypeInfo =
             | Fable.FieldGet _
             | Fable.ListHead _
             | Fable.ListTail _ -> true
-            | _ -> false
+            | Fable.TupleIndex _
+            | Fable.ExprGet _
+            | Fable.UnionTag _ -> false
+            // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
         | Fable.IdentExpr _
             -> true
         // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
