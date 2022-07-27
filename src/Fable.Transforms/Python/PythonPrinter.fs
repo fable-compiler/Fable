@@ -771,6 +771,7 @@ let run writer (program: Module) : Async<unit> =
             |> List.splitWhile (function
                 | Import _
                 | ImportFrom _ -> true
+                | Expr ({Value=Expression.Emit(_)}) -> true
                 | _ -> false)
 
         for decl in imports do
