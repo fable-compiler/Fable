@@ -1,6 +1,8 @@
-from decimal import MAX_EMAX, MIN_EMIN, Decimal
+from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
 from .types import FSharpRef
+
+getcontext().prec = 29
 
 get_zero = Decimal(0)
 
@@ -38,6 +40,10 @@ def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> D
 
 def op_addition(x: Decimal, y: Decimal) -> Decimal:
     return x + y
+
+
+def op_division(x: Decimal, y: Decimal) -> Decimal:
+    return x / y
 
 
 def to_string(x: Decimal) -> str:

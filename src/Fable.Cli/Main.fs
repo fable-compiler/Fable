@@ -133,7 +133,7 @@ module private Util =
                 let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
                 let fileName = IO.Path.GetFileName(file)
 
-                // Make sure all packages and modules (subdirs) we create within outDir is lower case (PEP8)
+                // Make sure all packages and modules (subdirs) we create within outDir are lower case (PEP8)
                 let modules =
                     absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length)
                         .Trim([|'/'|])

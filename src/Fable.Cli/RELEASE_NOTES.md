@@ -1,7 +1,13 @@
+### 4.0.0-snake-island-alpha-015
+
+* Python, generate requirements.txt within fable_modules, @dbrattli
+* Rust, represent self as a Lrc[T] for method calls using double pointer indirection, @alexswan10k
+* Rust, fixed build issue, @ncave
+
 ### 4.0.0-snake-island-alpha-014
 
 * Python, import fixes, @dbrattli
-* Rust, records and Unions now are correctly unwrapped when Struct attribute is used to tag as value, alexswan10k
+* Rust, records and Unions now are correctly unwrapped when Struct attribute is used to tag as value, @alexswan10k
 * Rust, support struct anonymous records, @ncave
 * Rust, added support for struct tuples, @ncave
 * Rust, fixed struct constructors, @ncave
