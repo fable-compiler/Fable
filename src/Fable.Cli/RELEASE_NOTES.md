@@ -1,3 +1,7 @@
+### 4.0.0-snake-island-alpha-016
+
+* Python, fixes for requirements.txt
+
 ### 4.0.0-snake-island-alpha-015
 
 * Python, generate requirements.txt within fable_modules, @dbrattli
