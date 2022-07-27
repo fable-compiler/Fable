@@ -1,6 +1,7 @@
 module Fable.Tests.ClassTests
 
 open Util.Testing
+open Common.Interfaces
 
 [<Struct>]
 type Point(x: float, y: float) =
@@ -136,8 +137,16 @@ let ``Class interface from another module works`` () =
     let a = WithCrossModuleInterface(1)
     let res = (a :> Common.Interfaces.IHasAdd).Add 2 1
     res |> equal 4
-    //let res2 = Fable.Tests.InterfaceTests.doAddWithInterface(a) // todo: this breaks because duplicate interface + module not imported
-    //res2 |> equal 8
+
+type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) = 
+    member this.AddThroughCaptured x y = adder.Add x y
+
+[<Fact>]
+let ``Class generic interface constraints work`` () =
+    let a = WithCrossModuleInterface(1)
+    let w = AdderWrapper(a)
+    let res = w.AddThroughCaptured 2 5
+    res |> equal 8
 
 #if FABLE_COMPILER
 open Fable.Core

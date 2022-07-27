@@ -3123,6 +3123,13 @@ module Util =
                 | IDisposable ->
                     let importName = getLibraryImportName com ctx "Interfaces" "IDisposable"
                     [ makeGenBound [importName] [] ]
+                | Fable.DeclaredType(entRef, _) ->
+                    let ent = com.GetEntity(entRef)
+                    if ent.IsInterface then
+                        let entNs, entName = splitNameSpace ent.FullName
+                        // todo - check with actual import ident, which may be aliased differently
+                        [ makeGenBound [entName] [] ]
+                    else []
                 | _ -> []
             | Fable.Constraint.IsNullable -> []
             | Fable.Constraint.IsValueType -> []
@@ -3301,6 +3308,10 @@ module Util =
         ent.GenericParameters
         |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
+    let getMemberGenArgs (ent: Fable.MemberFunctionOrValue) =
+        ent.GenericParameters
+        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
     let getInterfaceMemberNamesSet (com: IRustCompiler) (entRef: Fable.EntityRef) =
         let ent = com.GetEntity(entRef)
         assert(ent.IsInterface)
@@ -3476,7 +3487,8 @@ module Util =
                     let fnName = memb.DisplayName
                     let isFluent = isFluentMemberType ifaceEnt returnType //TODO: find and inspect the actual member body
                     let fnDecl = transformFunctionDecl com ctx isFluent (thisArg::memberArgs) returnType
-                    let generics = makeGenerics com ctx [] //TODO: add generics?
+                    let genArgs = getMemberGenArgs memb
+                    let generics = makeGenerics com ctx genArgs
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                     mkFnAssocItem [] fnName fnKind
                 )
@@ -3570,7 +3582,9 @@ module Util =
                         for m in membersNotDeclared ->
                             let isFluent = isFluentMemberBody m.Body
                             let fnDecl = transformFunctionDecl com ctx isFluent m.Args m.Body.Type
-                            let generics = makeGenerics com ctx [] //TODO: add generics?
+                            let memb = com.GetMember(m.MemberRef)
+                            let genArgs = getMemberGenArgs memb
+                            let generics = makeGenerics com ctx genArgs
                             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                             mkFnAssocItem [] m.Name fnKind
                     ]
