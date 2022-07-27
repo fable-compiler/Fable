@@ -885,6 +885,11 @@ module Exprs =
         mkStrLit ("TODO_EXPR_" + name)
         |> mkLitExpr
 
+    //for debugging purposes - decorate code
+    let BLOCK_COMMENT_SUFFIX comment expr : Expr =
+        ExprKind.EmitExpression(sprintf "$0 /* %A */" comment, mkVec [expr])
+        |> mkExpr
+
 [<AutoOpen>]
 module Stmts =
 

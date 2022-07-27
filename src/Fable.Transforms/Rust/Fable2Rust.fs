@@ -39,7 +39,7 @@ type ScopedVarAttrs = {
     IsArm: bool
     IsRef: bool
     IsBox: bool
-    HasMultipleUses: bool
+    mutable Usages: bool list // WARNING - these get subtracted as the compiler consumes the ident call sites
 }
 
 type Context = {
@@ -83,40 +83,118 @@ module Helpers =
 
 module UsageTracking =
 
+    type ConsumptionType =
+        | ConsByVal of string
+        | ConsByRef of string
+    let calcIdentConsumption (body: Fable.Expr) =
+        let rec loop consumingRef = function
+            | Fable.IdentExpr id ->
+                if consumingRef then [ConsByRef id.Name] else [ConsByVal id.Name]
+            | Fable.Sequential exprs ->
+                exprs |> List.collect (loop consumingRef)
+            | Fable.Let(_, value, body) -> loop false value @ loop false body
+            | Fable.LetRec(bindings, body) ->
+                let bindingUsages =
+                    bindings
+                    |> List.map snd
+                    |> List.collect (loop false)
+                bindingUsages @ loop false body
+            | Fable.IfThenElse(cond, thenExpr, elseExpr, _) ->
+                loop true cond @ loop consumingRef thenExpr @ loop consumingRef elseExpr
+            | Fable.DecisionTree(expr, targets) ->
+                loop true expr @ (List.map snd targets |> List.collect (loop consumingRef))
+            | Fable.DecisionTreeSuccess(_, exprs, _ ) ->
+                exprs |> List.collect (loop consumingRef)
+            | Fable.Get(expr, _, _, _) ->
+                loop true expr
+            | Fable.Set(expr, kind, _, value, _) ->
+                let kindOps =
+                    match kind with
+                    | Fable.ExprSet expr -> loop true expr
+                    | _ -> []
+                loop true expr @ kindOps @ loop false value
+            | Fable.Call(callee, info, c, d) ->
+                loop true callee
+                @ (info.ThisArg |> Option.map (loop true) |> Option.defaultValue [])
+                @ (info.Args |> List.collect (loop false))
+            | Fable.Value (kind, _) ->
+                match kind with
+                | Fable.ThisValue _ | Fable.BaseValue _ -> []
+                | Fable.TypeInfo _ | Fable.Null _ | Fable.UnitConstant | Fable.NumberConstant _
+                | Fable.BoolConstant _ | Fable.CharConstant _ | Fable.StringConstant _ | Fable.RegexConstant _  -> []
+                | Fable.NewList(None,_) | Fable.NewOption(None,_,_) -> []
+                | Fable.NewOption(Some e,_,_) -> loop false e
+                | Fable.NewList(Some(h,t),_) -> loop false h @ loop false t
+                | Fable.StringTemplate(_,_,exprs)
+                | Fable.NewTuple(exprs,_)
+                | Fable.NewUnion(exprs,_,_,_) -> exprs |> List.collect (loop consumingRef)
+                | Fable.NewArray(newKind, _, kind) ->
+                    match newKind with
+                    | Fable.ArrayFrom expr -> loop false expr
+                    | Fable.ArrayAlloc expr -> loop false expr
+                    | Fable.ArrayValues exprs -> exprs |> List.collect (loop consumingRef)
+                | Fable.NewRecord (exprs, _, _) | Fable.NewAnonymousRecord (exprs, _, _, _) ->
+                    exprs |> List.collect (loop consumingRef)
+            | Fable.Lambda (_, body, _)
+            | Fable.Delegate (_, body, _, _ ) ->
+                // this is not completely accurate. From here on out we only really want to count each ident maximum 1 time (by value) to simulate closed over ident cloning
+                loop false body
+            | Fable.Operation(kind, _, _) ->
+                match kind with
+                | Fable.Unary(_, expr) ->
+                    loop false expr
+                | Fable.Binary(_, l, r) ->
+                    loop false l @ loop false r
+                | Fable.Logical(_, l, r) -> loop true l @ loop true r
+            | Fable.WhileLoop (guard, body, _) ->
+                loop true guard @ loop true body
+            | Fable.ForLoop (ident, start, limit, body, _, _) ->
+                let identEv = if consumingRef then [ConsByRef ident.Name] else [ConsByVal ident.Name]
+                identEv @ loop true start @ loop true limit @ loop true body
+            | Fable.CurriedApply (applied, args, _, _) ->
+                loop false applied @ (args |> List.collect (loop false))
+            | Fable.TypeCast(e, t) ->
+                loop true e
+            | Fable.Test(expr, kind, range) ->
+                loop true expr
+            | Fable.TryCatch (body, catch, finalizer, _) ->
+                loop false body
+                @ (catch |> Option.map (snd >> loop true) |> Option.defaultValue [])
+                @ (finalizer |> Option.map (loop true) |> Option.defaultValue [])
+            | Fable.Emit (info, _, _) ->
+                (info.CallInfo.ThisArg |> Option.map (loop true) |> Option.defaultValue [])
+                @ (info.CallInfo.Args |> List.collect (loop false))
+            | _ -> []
+        loop false body
     let calcIdentUsages expr =
-        let mutable usages = Map.empty
-        let mutable shadowed = Set.empty
-        do FableTransforms.deepExists
-            (function
-                // Leaving this trivial nonshadowing impl here for debugging purposes!
-                // | Fable.IdentExpr ident ->
-                //         let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
-                //         usages <- usages |> Map.add ident.Name (count + 1)
-                //         false
-                | Fable.IdentExpr ident ->
-                    if not (shadowed |> Set.contains ident.Name) then //if something is shadowed, no longer track it
-                        let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
-                        usages <- usages |> Map.add ident.Name (count + 1)
-                    false
-                | Fable.Let(identPotentiallyShadowing, _, body) ->
-                    //need to also count a shadowed
-                    match body with
-                    | Fable.IdentExpr ident when ident.Name = identPotentiallyShadowing.Name ->
-                        //if an ident is shadowed by a self-binding (a = a), it will not be counted above, so need to explicitly handle here
-                        //Why ever would we do this? This is a Rust scoping trick to foce cloning when taking ownership within a scope
-                        let count = usages |> Map.tryFind ident.Name |> Option.defaultValue 0
-                        usages <- usages |> Map.add ident.Name (count + 1)
-                    | _ -> ()
-                    if usages |> Map.containsKey identPotentiallyShadowing.Name then
-                        shadowed <- shadowed |> Set.add identPotentiallyShadowing.Name
-                    false
-                | Fable.DecisionTree _
-                | Fable.IfThenElse _ ->
-                    shadowed <- Set.empty //for all conditional control flow, cannot reason about branches in shadow so just be conservative and assume no shadowing
-                    false
-                | _ -> false) expr
-            |> ignore
-        usages
+        let identsUsed = calcIdentConsumption expr
+        let uniqueIdentsPresent = identsUsed |> List.map (function | ConsByVal s -> s | ConsByRef s -> s) |> Set.ofList
+        let byVals =
+            identsUsed
+            |> List.choose (function | ConsByVal s -> Some s | _ -> None)
+            |> List.groupBy id
+            |> List.map (fun (name, lst) -> name, lst |> List.length)
+            |> Map.ofList
+        let byRefs =
+            identsUsed
+            |> List.choose (function | ConsByRef s -> Some s | _ -> None)
+            |> List.groupBy id
+            |> List.map (fun (name, lst) -> name, lst |> List.length)
+            |> Map.ofList
+        [
+            for ident in uniqueIdentsPresent ->
+                let byValCount = byVals |> Map.tryFind ident |> Option.defaultValue 0
+                let byRefCount = byRefs |> Map.tryFind ident |> Option.defaultValue 0
+                let usagesCount =
+                    //if byValCount = 1 && byRefCount > 0 then 2 else byValCount
+                    byValCount + byRefCount
+                //ident, usagesCount
+                ident, (identsUsed |> List.choose(function
+                                                    | ConsByVal s when s = ident -> Some false
+                                                    | ConsByRef s when s = ident -> Some true
+                                                    | _ -> None))
+        ]
+        |> Map.ofList
 
     let isArmScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsArm) |> Option.defaultValue false
@@ -1572,7 +1650,7 @@ module Util =
                 IsArm = false
                 IsRef = false
                 IsBox = false
-                HasMultipleUses = true }
+                Usages = [false; false;false;false;false] }
         let isOnlyReference =
             if varAttrs.IsRef then false
             else
@@ -1599,8 +1677,23 @@ module Util =
                         false
                         // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
                         // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
-                    else not varAttrs.HasMultipleUses
+                    else
+                        match varAttrs.Usages with
+                        | h::m::t -> false
+                        | h::t -> true
+                        | [] -> true //unreachable in theory
         varAttrs, isOnlyReference
+
+    let subtractUsageMut varAttrs expr =
+        match varAttrs.Usages with
+        | h::t -> varAttrs.Usages <- t
+        | _ -> ()
+        expr
+
+    let debugWrapInCounts varAttrs =
+        let valUsages = varAttrs.Usages |> List.filter (fun q -> q = false) |> List.length
+        let refUsages = varAttrs.Usages |> List.filter (fun q -> q = true) |> List.length
+        BLOCK_COMMENT_SUFFIX (sprintf "v: %i, r: %i" valUsages refUsages)
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformExpr (ctx, e)
@@ -1620,6 +1713,8 @@ module Util =
             elif varAttrs.IsRef then
                 expr |> makeClone
             else expr
+            //|> debugWrapInCounts varAttrs
+            |> subtractUsageMut varAttrs
         else expr
 (*
     let enumerator2iterator com ctx =
@@ -2114,7 +2209,7 @@ module Util =
             IsArm = false
             IsRef = false
             IsBox = false
-            HasMultipleUses = hasMultipleUses ident.Name usages
+            Usages = usages |> Map.tryFind ident.Name |> Option.defaultValue []
         }
         let scopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
@@ -2141,7 +2236,7 @@ module Util =
             let bodyUsages = calcIdentUsages body
             let bindingsUsages = bindings |> List.map (snd >> calcIdentUsages)
             (Map.empty, bodyUsages::bindingsUsages)
-            ||> List.fold (Helpers.Map.mergeAndAggregate (+))
+            ||> List.fold (Helpers.Map.mergeAndAggregate (@))
         let letStmts, ctx = makeLetStmts com ctx bindings usages
         let bodyStmts =
             match body with
@@ -2304,7 +2399,7 @@ module Util =
                     name, { IsArm = true
                             IsRef = true
                             IsBox = false
-                            HasMultipleUses = hasMultipleUses name usages }
+                            Usages = usages |> Map.tryFind name |> Option.defaultValue []}
                 let symbolsAndNames =
                     let fromIdents =
                         idents
@@ -2865,7 +2960,7 @@ module Util =
                     IsArm = false
                     IsRef = isByRefType com arg.Type || ctx.Typegen.IsParamByRefPreferred
                     IsBox = false
-                    HasMultipleUses = hasMultipleUses arg.Name usages
+                    Usages = usages |> Map.tryFind arg.Name |> Option.defaultValue []
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
         let tco =
@@ -3037,7 +3132,7 @@ module Util =
             IsArm = false
             IsRef = false
             IsBox = true
-            HasMultipleUses = true
+            Usages = [false; false;false;false;false] //clone everything (need better mechanism)
         }
         let scopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
