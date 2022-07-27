@@ -40,6 +40,7 @@ type ScopedVarAttrs = {
     IsRef: bool
     IsBox: bool
     HasMultipleUses: bool
+    mutable UsageCount: int
 }
 
 type Context = {
@@ -129,6 +130,9 @@ module UsageTracking =
 
     let isBoxScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsBox) |> Option.defaultValue false
+
+    let usageCount name usages=
+        Map.tryFind name usages |> Option.defaultValue 0
 
     let hasMultipleUses (name: string) =
         Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue true
@@ -449,7 +453,17 @@ module TypeInfo =
 
     let rec isCloneableExpr (com: IRustCompiler) typ e =
         match e with
-        | Fable.Get _
+        | Fable.Get(_, kind, _, _) ->
+            match kind with
+            | Fable.OptionValue _
+            | Fable.UnionField _
+            | Fable.FieldGet _
+            | Fable.ListHead _
+            | Fable.ListTail _ -> true
+            | Fable.TupleIndex _
+            | Fable.ExprGet _
+            | Fable.UnionTag _ -> false
+            // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
         | Fable.IdentExpr _
             -> true
         // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
@@ -965,6 +979,11 @@ module Util =
         | Some(idents, target) -> idents, target
 
     let transformIdent com ctx r (ident: Fable.Ident) =
+        match ctx.ScopedSymbols |> Map.tryFind ident.Name with
+        | Some varAttrs ->
+            //ident has been seen, subtract 1
+            varAttrs.UsageCount <- varAttrs.UsageCount - 1
+        | None -> ()
         if ident.IsThisArgument
         then mkGenericPathExpr [rawIdent "self"] None
         else mkGenericPathExpr (splitFullName ident.Name) None
@@ -1572,7 +1591,8 @@ module Util =
                 IsArm = false
                 IsRef = false
                 IsBox = false
-                HasMultipleUses = true }
+                HasMultipleUses = true
+                UsageCount = 9999 }
         let isOnlyReference =
             if varAttrs.IsRef then false
             else
@@ -1599,16 +1619,17 @@ module Util =
                         false
                         // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
                         // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
-                    else not varAttrs.HasMultipleUses
+                    else varAttrs.UsageCount < 2
         varAttrs, isOnlyReference
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+        let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
+        // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
         let expr = com.TransformExpr (ctx, e)
         if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
             expr |> mkAddrOfExpr
         else
         if isCloneableExpr com t e then
-            let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
             if ctx.Typegen.IsParamByRefPreferred && not varAttrs.IsRef then
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
@@ -2115,6 +2136,7 @@ module Util =
             IsRef = false
             IsBox = false
             HasMultipleUses = hasMultipleUses ident.Name usages
+            UsageCount = usageCount ident.Name usages
         }
         let scopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
@@ -2304,7 +2326,8 @@ module Util =
                     name, { IsArm = true
                             IsRef = true
                             IsBox = false
-                            HasMultipleUses = hasMultipleUses name usages }
+                            HasMultipleUses = hasMultipleUses name usages
+                            UsageCount = usageCount name usages }
                 let symbolsAndNames =
                     let fromIdents =
                         idents
@@ -2866,6 +2889,7 @@ module Util =
                     IsRef = isByRefType com arg.Type || ctx.Typegen.IsParamByRefPreferred
                     IsBox = false
                     HasMultipleUses = hasMultipleUses arg.Name usages
+                    UsageCount = usageCount arg.Name usages
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
         let tco =
@@ -3038,6 +3062,7 @@ module Util =
             IsRef = false
             IsBox = true
             HasMultipleUses = true
+            UsageCount = 9999
         }
         let scopedSymbols = ctx.ScopedSymbols |> Map.add name scopedVarAttrs
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
