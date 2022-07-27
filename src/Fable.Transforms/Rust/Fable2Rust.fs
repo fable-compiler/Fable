@@ -453,9 +453,14 @@ module TypeInfo =
 
     let rec isCloneableExpr (com: IRustCompiler) typ e =
         match e with
-        // | Fable.Get (_, Fable.OptionValue, _, _)
-        // | Fable.Get (_, Fable.UnionField _, _, _)
-        | Fable.Get(_)
+        | Fable.Get(_, kind, _, _) ->
+            match kind with
+            | Fable.OptionValue _
+            | Fable.UnionField _
+            | Fable.FieldGet _
+            | Fable.ListHead _
+            | Fable.ListTail _ -> true
+            | _ -> false
         | Fable.IdentExpr _
             -> true
         // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
@@ -1615,14 +1620,13 @@ module Util =
         varAttrs, isOnlyReference
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+        let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
+        // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
+        let expr = com.TransformExpr (ctx, e)
         if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
-            let expr = com.TransformExpr (ctx, e)
             expr |> mkAddrOfExpr
         else
         if isCloneableExpr com t e then
-            let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
-            // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
-            let expr = com.TransformExpr (ctx, e)
             if ctx.Typegen.IsParamByRefPreferred && not varAttrs.IsRef then
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
@@ -1634,7 +1638,7 @@ module Util =
             elif varAttrs.IsRef then
                 expr |> makeClone
             else expr
-        else com.TransformExpr (ctx, e)
+        else expr
 (*
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
