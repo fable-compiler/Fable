@@ -2984,6 +2984,13 @@ module Util =
                 | IDisposable ->
                     let importName = getLibraryImportName com ctx "Interfaces" "IDisposable"
                     [ makeGenBound [importName] [] ]
+                | Fable.DeclaredType(entRef, _) ->
+                    let ent = com.GetEntity(entRef)
+                    if ent.IsInterface then
+                        let entNs, entName = splitNameSpace ent.FullName
+                        // todo - check with actual import ident, which may be aliased differently
+                        [ makeGenBound [entName] [] ]
+                    else []
                 | _ -> []
             | Fable.Constraint.IsNullable -> []
             | Fable.Constraint.IsValueType -> []
@@ -3162,6 +3169,10 @@ module Util =
         ent.GenericParameters
         |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
+    let getMemberGenArgs (ent: Fable.MemberFunctionOrValue) =
+        ent.GenericParameters
+        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
     let getInterfaceMemberNamesSet (com: IRustCompiler) (entRef: Fable.EntityRef) =
         let ent = com.GetEntity(entRef)
         assert(ent.IsInterface)
@@ -3336,7 +3347,8 @@ module Util =
                     let returnType = memb.ReturnParameter.Type
                     let fnName = memb.DisplayName
                     let fnDecl = transformFunctionDecl com ctx (thisArg::memberArgs) returnType
-                    let generics = makeGenerics com ctx [] //TODO: add generics?
+                    let genArgs = getMemberGenArgs memb
+                    let generics = makeGenerics com ctx genArgs
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                     mkFnAssocItem [] fnName fnKind
                 )
@@ -3418,18 +3430,21 @@ module Util =
             Set.difference nonConstructorMembersSet allInterfaceMembersSet
 
         let nonInterfaceMembersTrait =
-            if Set.isEmpty nonInterfaceMembersSet then
+            let membersNotDeclared =
+                decl.AttachedMembers |> List.filter (fun m ->
+                    let isNotStatic = m.Args |> List.exists (fun q -> q.IsThisArgument)
+                    Set.contains m.Name nonInterfaceMembersSet && isNotStatic)
+            if Set.isEmpty nonInterfaceMembersSet || membersNotDeclared |> List.isEmpty then
                 []
             else
                 let traitItem =
                     let assocItems = [
-                        let membersNotDeclared =
-                            decl.AttachedMembers |> List.filter (fun m ->
-                                let isNotStatic = m.Args |> List.exists (fun q -> q.IsThisArgument)
-                                Set.contains m.Name nonInterfaceMembersSet && isNotStatic)
                         for m in membersNotDeclared ->
                             let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                            let generics = makeGenerics com ctx [] //TODO: add generics?
+                            let memb = com.GetMember(m.MemberRef)
+                            let generics =
+                                getMemberGenArgs memb
+                                |> makeGenerics com ctx
                             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                             mkFnAssocItem [] m.Name fnKind
                     ]
@@ -3447,27 +3462,21 @@ module Util =
             traitsToRender
             |> List.collect (fun (isNonInterface, tMethods, tEntRef) ->
                 let tEnt = com.GetEntity(tEntRef)
-                let memberItemsStatic =
+                let memberItems, memberItemsStatic =
                     decl.AttachedMembers
-                    |> List.filter (fun m ->
-                        let isDynamic = m.Args |> List.exists (fun q -> q.IsThisArgument)
-                        tMethods |> Set.contains m.Name && not isDynamic)
-                    |> List.map (makeMemberItem ctx)
-                let memberItems =
-                    decl.AttachedMembers
-                    |> List.filter (fun m ->
-                        let isDynamic = m.Args |> List.exists (fun q -> q.IsThisArgument)
-                        tMethods |> Set.contains m.Name && isDynamic)
-                    |> List.map (makeMemberItem ctx)
-
+                    |> List.filter (fun m ->tMethods |> Set.contains m.Name)
+                    |> List.partition (fun m -> m.Args |> List.exists (fun q -> q.IsThisArgument))
+                    |> fun (m, mStatic) -> m |> List.map (makeMemberItem ctx), mStatic |> List.map (makeMemberItem ctx)
+                let ty =
+                    let genArgTys =
+                        getEntityGenArgs ent
+                        |> transformGenArgs com ctx
+                    let bounds = mkTypeTraitGenericBound [entName] genArgTys
+                    let ty = mkTraitTy [bounds]
+                    ty
+                let genArgs = getEntityGenArgs tEnt
+                let generics = genArgs |> makeGenerics com ctx
                 let implItemStatic =
-                    let ty =
-                        let genArgs = getEntityGenArgs ent
-                        let genArgTys = genArgs |> transformGenArgs com ctx
-                        let bounds = mkTypeTraitGenericBound [entName] genArgTys
-                        let ty = mkTraitTy [bounds]
-                        ty
-                    let genArgs = getEntityGenArgs tEnt
                     let nameParts =
                         if isNonInterface then tEntRef.FullName
                         else getInterfaceEntityName com ctx tEntRef
@@ -3475,19 +3484,13 @@ module Util =
                     let path =
                         let genArgTys = genArgs |> List.map (transformType com ctx)
                         mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
-                    let generics = genArgs |> makeGenerics com ctx
                     mkImplItem [] "" ty generics memberItemsStatic None
                 let implItem =
                     let ty =
-                        let genArgs = getEntityGenArgs ent
-                        let genArgTys = genArgs |> transformGenArgs com ctx
-                        let bounds = mkTypeTraitGenericBound [entName] genArgTys
-                        let ty = mkTraitTy [bounds]
                         let ety = com.GetEntity(tEntRef)
                         if not ety.IsValueType then
                             makeLrcTy com ctx ty
                         else ty
-                    let genArgs = getEntityGenArgs tEnt
                     let nameParts =
                         if isNonInterface then tEntRef.FullName + "Methods"
                         else getInterfaceEntityName com ctx tEntRef
@@ -3495,10 +3498,14 @@ module Util =
                     let path =
                         let genArgTys = genArgs |> List.map (transformType com ctx)
                         mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
-                    let generics = genArgs |> makeGenerics com ctx
                     let ofTrait = mkTraitRef path |> Some
                     mkImplItem [] "" ty generics memberItems ofTrait
-                [implItemStatic; implItem] // todo only render if it has 1 or more item
+                [
+                    if memberItemsStatic |> List.isEmpty |> not then
+                        yield implItemStatic
+                    if memberItems |> List.isEmpty |> not then
+                        yield implItem
+                    ]
             )
 
         ctorImpls @ nonInterfaceMembersTrait @ memberTraitImpls

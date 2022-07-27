@@ -52,3 +52,19 @@ let ``Generic container works`` () =
     let res2 = (a :> ISomeContainer<_>).OnlyItem()
     res |> equal 1
     res2 |> equal 1
+
+type IConstrained<'a when 'a :> IHasAdd> =
+    abstract AddThroughCaptured: int -> int -> int
+
+type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) = 
+    interface IConstrained<'a> with
+        member this.AddThroughCaptured x y = adder.Add x y
+
+[<Fact>]
+let ``Interface generic interface constraints work`` () =
+    let a = Adder2(1)
+    let w = AdderWrapper(a)
+    let res = (w :> IConstrained<_>).AddThroughCaptured 2 5
+    res |> equal 6
+
+//todo parameterless constructors fail catastrophically - TODO_EXPR_ObjectExpr ([], Any, None)
