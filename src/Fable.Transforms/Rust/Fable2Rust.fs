@@ -483,7 +483,7 @@ module TypeInfo =
 
     let transformImport (com: IRustCompiler) ctx r t (info: Fable.ImportInfo) genArgs =
         let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
-        if info.Selector = "*"
+        if info.Selector.Contains("*") || info.Selector.Contains("{")
         then mkUnitExpr ()
         else makeFullNamePathExpr importName genArgs
 
