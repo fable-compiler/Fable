@@ -1109,6 +1109,7 @@ module Util =
         | "Equals" -> Expression.identifier ("__eq__")
         | "set" -> Expression.identifier ("__setitem__")
         | "get" -> Expression.identifier ("__getitem__")
+        | "has" -> Expression.identifier ("__contains__")
         | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"

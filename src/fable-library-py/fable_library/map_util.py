@@ -35,7 +35,6 @@ def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
 def try_get_value(
     map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]
 ) -> bool:
-    print([map], key)
     if key in map.keys():
 
         default_value.contents = map[key]
