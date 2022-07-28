@@ -903,27 +903,27 @@ let ``test List.tryLast works`` () =
     List.tryLast xs |> equal (Some 4.)
     List.tryLast [] |> equal None
 
-// [<Fact>]
-// let ``test List.countBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs |> List.countBy (fun x -> x % 2)
-//     |> List.length |> equal 2
+[<Fact>]
+let ``test List.countBy works`` () =
+     let xs = [1; 2; 3; 4]
+     xs |> List.countBy (fun x -> x % 2)
+     |> List.length |> equal 2
 
-// [<Fact>]
-// let ``test List.groupBy returns valid list`` () =
-//     let xs = [1; 2]
-//     let worked =
-//         match List.groupBy (fun _ -> true) xs with
-//         | [true, [1; 2]] -> true
-//         | _ -> false
-//     worked |> equal true
+[<Fact>]
+let ``test List.groupBy returns valid list`` () =
+     let xs = [1; 2]
+     let worked =
+         match List.groupBy (fun _ -> true) xs with
+         | [true, [1; 2]] -> true
+         | _ -> false
+     worked |> equal true
 
-// [<Fact>]
-// let ``test List.groupBy maintains order`` () =
-//     let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
-//     let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
-//     let grouped = xs |> List.groupBy fst
-//     grouped |> equal mapped
+[<Fact>]
+let ``test List.groupBy maintains order`` () =
+     let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+     let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+     let grouped = xs |> List.groupBy fst
+     grouped |> equal mapped
 
 [<Fact>]
 let ``test List.unfold works`` () =

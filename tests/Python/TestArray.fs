@@ -226,13 +226,13 @@ let ``test Array.distinctBy with tuples works`` () =
       ys |> Array.head |> fst >= 4 |> equal true
 
 // FIXME: this test currently hangs
-// [<Fact>]
-// let ``test Array distinctBy works on large array`` () =
-//     let xs = [| 0 .. 50000 |]
-//     let ys =
-//         Array.append xs xs
-//         |> Array.distinctBy(fun x -> x.ToString())
-//     ys |> equal xs
+[<Fact>]
+let ``test Array distinctBy works on not so large array`` () =
+     let xs = [| 0 .. 500 |]
+     let ys =
+         Array.append xs xs
+         |> Array.distinctBy(fun x -> x.ToString())
+     ys |> equal xs
 
 [<Fact>]
 let ``test Array.sub works`` () =
@@ -367,31 +367,31 @@ let ``test Array.findIndex works`` () =
     xs |> Array.findIndex ((=) 2.f)
     |> equal 1
 
-//[<Fact>]
-//let ``test Array.findBack works`` () =
-//    let xs = [|1.; 2.; 3.; 4.|]
-//    xs |> Array.find ((>) 4.) |> equal 1.
-//    xs |> Array.findBack ((>) 4.) |> equal 3.
+[<Fact>]
+let ``test Array.findBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.find ((>) 4.) |> equal 1.
+    xs |> Array.findBack ((>) 4.) |> equal 3.
 
-// [<Fact>]
-// let ``test Array.findIndexBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.findIndex ((>) 4.) |> equal 0
-//     xs |> Array.findIndexBack ((>) 4.) |> equal 2
+[<Fact>]
+let ``test Array.findIndexBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.findIndex ((>) 4.) |> equal 0
+     xs |> Array.findIndexBack ((>) 4.) |> equal 2
 
-// [<Fact>]
-// let ``test Array.tryFindBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
-//     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
-//     xs |> Array.tryFindBack ((=) 5.) |> equal None
+[<Fact>]
+let ``test Array.tryFindBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
+     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+     xs |> Array.tryFindBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``test Array.tryFindIndexBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
-//     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-//     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
+[<Fact>]
+let ``test Array.tryFindIndexBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
+     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Fact>]
 let ``test Array.fold works`` () =
@@ -488,11 +488,11 @@ let ``test Array.length works`` () =
     let xs = [|"a"; "a"; "a"; "a"|]
     Array.length xs |> equal 4
 
-// [<Fact>]
-// let ``test Array.countBy works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     xs |> Array.countBy (fun x -> x % 2)
-//     |> Array.length |> equal 2
+[<Fact>]
+let ``test Array.countBy works`` () =
+     let xs = [|1; 2; 3; 4|]
+     xs |> Array.countBy (fun x -> x % 2)
+     |> Array.length |> equal 2
 
 [<Fact>]
 let ``test Array.map works`` () =
@@ -943,7 +943,6 @@ let ``test Array.tail works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
-(*
 [<Fact>]
 let ``test Array.groupBy returns valid array`` () =
     let xs = [|1; 2|]
@@ -951,7 +950,6 @@ let ``test Array.groupBy returns valid array`` () =
     let actualKey, actualGroup = actual.[0]
     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
     worked |> equal true
-*)
 
 [<Fact>]
 let ``Array.windowed works`` () = // See #1716

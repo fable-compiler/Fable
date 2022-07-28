@@ -710,12 +710,11 @@ let ``test Seq.compareWith works`` () =
     Seq.compareWith (-) xs ys |> equal -1
     Seq.compareWith (-) xs zs |> equal 1
 
-// FIXME:
-// [<Fact>]
-// let ``test Seq.countBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.countBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
+[<Fact>]
+let ``test Seq.countBy works`` () =
+     let xs = [1; 2; 3; 4]
+     let ys = xs |> Seq.countBy (fun x -> x % 2)
+     ys |> Seq.length |> equal 2
 
 [<Fact>]
 let ``test Seq.distinct works`` () =
