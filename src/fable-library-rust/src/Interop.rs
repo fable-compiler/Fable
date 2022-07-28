@@ -55,24 +55,47 @@ pub mod List {
 }
 
 pub mod Array {
+    use std::ops::Deref;
+
     use crate::{
         Array_,
-        Native_::{Array, Lrc, MutCell},
+        Native_::{self, Lrc, MutCell},
     };
 
-    pub fn from_vec<T: Clone>(vec: &Vec<T>) -> Array<T> {
-        let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
-        Lrc::from(MutCell::from(vecNew))
+    #[derive(Clone, Debug, PartialEq, PartialOrd)]
+    pub struct Array<T: Clone + 'static>(Native_::Array<T>);
+
+    impl <T: Clone> Deref for Array<T> {
+        type Target = Native_::Array<T>;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
     }
 
-    pub fn from_vec_val<T: Clone>(vec: Vec<T>) -> Array<T> {
-        Lrc::from(MutCell::from(vec))
+    impl <T: Clone> From<Native_::Array<T>> for Array<T> {
+        fn from(arr: Native_::Array<T>) -> Self {
+            Array(arr)
+        }
     }
 
-    pub fn into_vec<T: Clone>(lst: Array<T>) -> Vec<T> {
-        // todo check if Rc has exactly 1 reference, if so skip this copying and move out
-        let vecNew: Vec<T> = lst.get().iter().map(|item| item.clone()).collect();
-        vecNew
+    impl <T: Clone> From<Vec<T>> for Array<T> {
+        fn from(vec: Vec<T>) -> Self {
+            Array(Lrc::from(MutCell::from(vec)))
+        }
+    }
+
+    impl <T: Clone> From<&Vec<T>> for Array<T> {
+        fn from(vec: &Vec<T>) -> Self {
+            let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
+            Array(Lrc::from(MutCell::from(vecNew)))
+        }
+    }
+
+    impl<T: Clone> Into<Vec<T>> for Array<T> {
+        fn into(self) -> Vec<T> {
+            self.get().iter().map(|item| item.clone()).collect()
+        }
     }
 }
 
