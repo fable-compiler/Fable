@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from asyncio import Future, ensure_future
 from threading import Timer
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -93,20 +92,18 @@ def ignore(computation: Async[_T]) -> Async[None]:
 
 def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
     def delayed() -> Async[List[_T]]:
-        if TYPE_CHECKING:
-            all: Future[List[_T]] = asyncio.gather(*map(start_as_task, computations))
-        else:
-            all: Future = asyncio.gather(*map(start_as_task, computations))
+        tasks: Iterable[Future[_T]] = map(start_as_task, computations)  # type: ignore
+        all: Future[List[_T]] = asyncio.gather(*tasks)
 
         return await_task(all)
 
     return delay(delayed)
 
 
-def sequential(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
-    def delayed() -> Async[List[_T]]:
-        async def sequence() -> List[_T]:
-            results: List[_T] = []
+def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
+    def delayed() -> Async[List[Optional[_T]]]:
+        async def sequence() -> List[Optional[_T]]:
+            results: List[Optional[_T]] = []
 
             for c in computations:
                 result = await start_as_task(c)
@@ -151,25 +148,13 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
     continuation: List[Callable[[Any], None]] = []
     task = ensure_future(task)
 
-    if TYPE_CHECKING:
-
-        def done(tsk: Future[_T]) -> None:
-            try:
-                value = tsk.result()
-            except Exception as ex:
-                continuation[1](ex)
-            else:
-                continuation[0](value)
-
-    else:
-
-        def done(tsk: Future) -> None:
-            try:
-                value = tsk.result()
-            except Exception as ex:
-                continuation[1](ex)
-            else:
-                continuation[0](value)
+    def done(tsk: Future[_T]) -> None:
+        try:
+            value = tsk.result()
+        except Exception as ex:
+            continuation[1](ex)
+        else:
+            continuation[0](value)
 
     def callback(conts: List[Callable[[Any], None]]) -> None:
         nonlocal continuation
@@ -211,13 +196,13 @@ def start_with_continuations(
 
 def start_as_task(
     computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
-) -> Awaitable[_T]:
+) -> Awaitable[Optional[_T]]:
     """Executes a computation in the thread pool.
 
     If no cancellation token is provided then the default cancellation
     token is used.
     """
-    tcs: TaskCompletionSource[_T] = TaskCompletionSource()
+    tcs: TaskCompletionSource[Optional[_T]] = TaskCompletionSource()
 
     def resolve(value: Optional[_T] = None) -> None:
         tcs.SetResult(value)
@@ -276,8 +261,9 @@ def start(
 
 
 def run_synchronously(
-    computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
-) -> _T:
+    computation: Async[Optional[_T]],
+    cancellation_token: Optional[CancellationToken] = None,
+) -> Optional[_T]:
     """Run computation synchronously.
 
     Runs an asynchronous computation and awaits its result on the
@@ -285,7 +271,7 @@ def run_synchronously(
     one. This call is blocking.
     """
 
-    async def runner() -> _T:
+    async def runner() -> Optional[_T]:
         return await start_as_task(computation, cancellation_token=cancellation_token)
 
     return asyncio.run(runner())

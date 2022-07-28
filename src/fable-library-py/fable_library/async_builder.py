@@ -12,7 +12,6 @@ from typing import (
     Optional,
     Protocol,
     TypeVar,
-    overload,
 )
 
 from .util import IDisposable
@@ -28,14 +27,6 @@ class OperationCanceledError(Exception):
 
 
 class _Listener(Protocol):
-    @overload
-    def __call__(self) -> None:
-        ...
-
-    @overload
-    def __call__(self, state: Any) -> None:
-        ...
-
     def __call__(self, __state: Optional[Any] = None) -> None:
         ...
 
@@ -248,10 +239,11 @@ def protected_cont(f: Async[_T]) -> Async[_T]:
 
 
 def protected_bind(
-    computation: Callable[[IAsyncContext[_T]], None], binder: Callable[[_T], Async[_U]]
+    computation: Callable[[IAsyncContext[_T]], None],
+    binder: Callable[[Optional[_T]], Async[_U]],
 ) -> Async[_U]:
     def cont(ctx: IAsyncContext[_T]):
-        def on_success(x: Optional[_T]) -> None:
+        def on_success(x: Optional[_T] = None) -> None:
             try:
                 binder(x)(ctx)
             except Exception as err:
@@ -273,7 +265,7 @@ def protected_return(value: Optional[_T] = None) -> Async[_T]:
 
 class AsyncBuilder:
     def Bind(
-        self, computation: Async[_T], binder: Callable[[_T], Async[_U]]
+        self, computation: Async[_T], binder: Callable[[Optional[_T]], Async[_U]]
     ) -> Async[_U]:
         return protected_bind(computation, binder)
 

@@ -35,7 +35,9 @@ def to_number(value: int) -> float:
     return float(value)
 
 
-def from_integer(value: int, unsigned: Optional[bool] = None, kind: Optional[int] = None) -> int:
+def from_integer(
+    value: int, unsigned: Optional[bool] = None, kind: Optional[int] = None
+) -> int:
     if unsigned and value < 0:
         return value + 0x10000000000000000
     elif not unsigned and value > 9223372036854775807:
@@ -60,13 +62,19 @@ def op_unary_negation(value: int) -> int:
 
 
 def get_range(unsigned: bool) -> Tuple[int, int]:
-    return (0, 18446744073709551615) if unsigned else (-9223372036854775808, 9223372036854775807)
+    return (
+        (0, 18446744073709551615)
+        if unsigned
+        else (-9223372036854775808, 9223372036854775807)
+    )
 
 
 AllowHexSpecifier = 0x00000200
 
 
-def parse(string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10) -> int:
+def parse(
+    string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10
+) -> int:
     # const res = isValid(str, style, radix);
     if style & AllowHexSpecifier or string.startswith("0x"):
         radix = 16
@@ -93,7 +101,9 @@ def parse(string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10
     raise ValueError("Input string was not in a correct format.")
 
 
-def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
+def try_parse(
+    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]
+) -> bool:
     try:
         defValue.contents = parse(string, style, unsigned, bitsize)
         return True

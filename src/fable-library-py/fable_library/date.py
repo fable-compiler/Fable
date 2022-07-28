@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Match, Optional
+from typing import Any, Match, Optional
 
 from .types import FSharpRef
 from .util import DateKind
@@ -149,7 +149,9 @@ def date_to_string_with_kind(date: datetime, format: Optional[str] = None) -> st
         return date_to_string_with_custom_format(date, format, utc)
 
 
-def to_string(date: datetime, format: Optional[str] = None, provider=None) -> str:
+def to_string(
+    date: datetime, format: Optional[str] = None, provider: Optional[Any] = None
+) -> str:
     if date.tzinfo:
         return date_to_string_with_offset(date, format)
 

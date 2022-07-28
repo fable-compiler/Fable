@@ -1,9 +1,9 @@
 import unicodedata
-from enum import Enum
+from enum import IntEnum
 from typing import Dict, Union
 
 
-class UnicodeCategory(Enum):
+class UnicodeCategory(IntEnum):
     """Defines the Unicode category of a character.
 
     https://docs.microsoft.com/en-us/dotnet/api/system.globalization.unicodecategory?view=net-6.0
@@ -41,7 +41,7 @@ class UnicodeCategory(Enum):
     OtherNotAssigned = 29
 
 
-unicodeCategory2Python: Dict[str, UnicodeCategory] = {
+unicode_category_2_python: Dict[str, UnicodeCategory] = {
     "Ll": UnicodeCategory.LowercaseLetter,
     "Lu": UnicodeCategory.UppercaseLetter,
     "Nd": UnicodeCategory.DecimalDigitNumber,
@@ -63,70 +63,71 @@ unicodeCategory2Python: Dict[str, UnicodeCategory] = {
 }
 
 
-def char_code_at(s: str, index: int):
+def char_code_at(s: str, index: int) -> int:
     if index >= 0 and index < len(s):
         return ord(s[index : index + 1])
     else:
         raise ValueError("Index out of range.")
 
 
-def get_unicode_category(s: str, index: int = 0):
-    ret = unicodeCategory2Python.get(unicodedata.category(s[index : index + 1]))
-    if ret:
-        return ret.value
-    raise ValueError("Fable error")
+def get_unicode_category(s: str, index: int = 0) -> UnicodeCategory:
+    category = unicodedata.category(s[index : index + 1])
+    ret = unicode_category_2_python.get(category)
+    if ret is not None:
+        return ret
+    raise ValueError(f"Fable error, unknown Unicode category: {category}")
 
 
 IS_LETTER_MASK = (
     0
-    | 1 << UnicodeCategory.UppercaseLetter.value
-    | 1 << UnicodeCategory.LowercaseLetter.value
-    | 1 << UnicodeCategory.TitlecaseLetter.value
-    | 1 << UnicodeCategory.ModifierLetter.value
-    | 1 << UnicodeCategory.OtherLetter.value
+    | 1 << UnicodeCategory.UppercaseLetter
+    | 1 << UnicodeCategory.LowercaseLetter
+    | 1 << UnicodeCategory.TitlecaseLetter
+    | 1 << UnicodeCategory.ModifierLetter
+    | 1 << UnicodeCategory.OtherLetter
 )
 IS_PUNCTUATION_MASK = (
     0
-    | 1 << UnicodeCategory.ConnectorPunctuation.value
-    | 1 << UnicodeCategory.DashPunctuation.value
-    | 1 << UnicodeCategory.OpenPunctuation.value
-    | 1 << UnicodeCategory.ClosePunctuation.value
-    | 1 << UnicodeCategory.InitialQuotePunctuation.value
-    | 1 << UnicodeCategory.FinalQuotePunctuation.value
-    | 1 << UnicodeCategory.OtherPunctuation.value
+    | 1 << UnicodeCategory.ConnectorPunctuation
+    | 1 << UnicodeCategory.DashPunctuation
+    | 1 << UnicodeCategory.OpenPunctuation
+    | 1 << UnicodeCategory.ClosePunctuation
+    | 1 << UnicodeCategory.InitialQuotePunctuation
+    | 1 << UnicodeCategory.FinalQuotePunctuation
+    | 1 << UnicodeCategory.OtherPunctuation
 )
 
 IS_SEPARATOR_MASK = (
     0
-    | 1 << UnicodeCategory.SpaceSeparator.value
-    | 1 << UnicodeCategory.LineSeparator.value
-    | 1 << UnicodeCategory.ParagraphSeparator.value
+    | 1 << UnicodeCategory.SpaceSeparator
+    | 1 << UnicodeCategory.LineSeparator
+    | 1 << UnicodeCategory.ParagraphSeparator
 )
 IS_NUMBER_MASK = (
     0
-    | 1 << UnicodeCategory.DecimalDigitNumber.value
-    | 1 << UnicodeCategory.LetterNumber.value
-    | 1 << UnicodeCategory.OtherNumber.value
+    | 1 << UnicodeCategory.DecimalDigitNumber
+    | 1 << UnicodeCategory.LetterNumber
+    | 1 << UnicodeCategory.OtherNumber
 )
 IS_SYMBOL_MASK = (
     0
-    | 1 << UnicodeCategory.MathSymbol.value
-    | 1 << UnicodeCategory.CurrencySymbol.value
-    | 1 << UnicodeCategory.ModifierSymbol.value
-    | 1 << UnicodeCategory.OtherSymbol.value
+    | 1 << UnicodeCategory.MathSymbol
+    | 1 << UnicodeCategory.CurrencySymbol
+    | 1 << UnicodeCategory.ModifierSymbol
+    | 1 << UnicodeCategory.OtherSymbol
 )
 IS_WHITESPACE_MASK = (
     0
-    | 1 << UnicodeCategory.SpaceSeparator.value
-    | 1 << UnicodeCategory.LineSeparator.value
-    | 1 << UnicodeCategory.ParagraphSeparator.value
+    | 1 << UnicodeCategory.SpaceSeparator
+    | 1 << UnicodeCategory.LineSeparator
+    | 1 << UnicodeCategory.ParagraphSeparator
 )
 
-IS_DIGIT_MASK = 1 << UnicodeCategory.DecimalDigitNumber.value
-IS_CONTROL_MASK = 1 << UnicodeCategory.Control.value
+IS_DIGIT_MASK = 1 << UnicodeCategory.DecimalDigitNumber
+IS_CONTROL_MASK = 1 << UnicodeCategory.Control
 IS_LETTER_OR_DIGIT_MASK = IS_LETTER_MASK | IS_DIGIT_MASK
-IS_UPPER_MASK = 1 << UnicodeCategory.UppercaseLetter.value
-IS_LOWER_MASK = 1 << UnicodeCategory.LowercaseLetter.value
+IS_UPPER_MASK = 1 << UnicodeCategory.UppercaseLetter
+IS_LOWER_MASK = 1 << UnicodeCategory.LowercaseLetter
 
 
 def is_digit(s: str, index: int = 0) -> bool:

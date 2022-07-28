@@ -3,7 +3,7 @@ import functools
 import math
 import re
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import IntEnum
 from threading import RLock
 from types import TracebackType
 from typing import (
@@ -149,7 +149,7 @@ class IEqualityComparer(Generic[_T]):
         raise NotImplementedError
 
 
-class DateKind(Enum):
+class DateKind(IntEnum):
     Unspecified = 0
     UTC = 1
     Local = 2
@@ -446,10 +446,10 @@ class Enumerator(IEnumerator[_T]):
         self.iter = iter
         self.current = None
 
-    def System_Collections_Generic_IEnumerator_00601_get_Current(self):
+    def System_Collections_Generic_IEnumerator_00601_get_Current(self) -> _T:
         if self.current is not None:
             return self.current
-        return None
+        return None  # type: ignore
 
     def System_Collections_IEnumerator_MoveNext(self) -> bool:
         try:
