@@ -9,3 +9,4 @@ let inline private importAll path = emitExpr (importAll path) "()"
 let imports(): unit =
     importAll "./Async.rs"
     importAll "./Func.rs"
+    importAll "./Interop.rs"

@@ -515,6 +515,10 @@ let testRust testMode =
     cleanDirs [buildDir </> "tests"]
     cleanDirs [buildDir </> ".fable"]
 
+    // copy rust only tests files (these must be present when running dotnet test as import expr tests for file presence)
+    makeDirRecursive (buildDir </> "tests" </> "src")
+    copyFiles (projectDir </> "tests/src") "*.rs" (buildDir </> "tests/src")
+
     // run .NET tests
     runInDir testAstDir "dotnet test"
     runInDir projectDir "dotnet test"

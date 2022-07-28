@@ -266,6 +266,8 @@ let copyFile (source: string) (target: string): unit =
         if IO.Directory.Exists target then
             target </> filename source
         else target
+    if not (IO.File.Exists(source)) then
+        failwith "Source file does not exist"
     IO.File.Copy(source, target, true)
 
 let writeFile (filePath: string) (txt: string): unit =
