@@ -4,7 +4,7 @@ from abc import ABC
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 from typing import (
     Any,
     Callable,
@@ -477,7 +477,7 @@ def substring(string: str, startIndex: int, length: Optional[int] = None) -> str
     return string[startIndex:]
 
 
-class StringComparison(Enum):
+class StringComparison(IntEnum):
     CurrentCulture = 0
     CurrentCultureIgnoreCase = 1
     InvariantCulture = 2
@@ -490,16 +490,13 @@ def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
     def is_ignore_case(i: Union[bool, StringComparison]) -> bool:
         return (
             i is True
-            or i == StringComparison.CurrentCultureIgnoreCase.value
-            or i == StringComparison.InvariantCultureIgnoreCase.value
-            or i == StringComparison.OrdinalIgnoreCase.value
+            or i == StringComparison.CurrentCultureIgnoreCase
+            or i == StringComparison.InvariantCultureIgnoreCase
+            or i == StringComparison.OrdinalIgnoreCase
         )
 
-    def is_ordinal(i: Union[bool, StringComparison]) -> bool:
-        return (
-            i == StringComparison.Ordinal.value
-            or i == StringComparison.OrdinalIgnoreCase.value
-        )
+    def is_ordinal(i: Union[bool, int]) -> bool:
+        return i == StringComparison.Ordinal or i == StringComparison.OrdinalIgnoreCase
 
     if not x:
         return 0 if not y else -1
@@ -520,7 +517,7 @@ def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
 
 
 @overload
-def compare(__string1: str, __string2: str) -> int:
+def compare(string1: str, string2: str, /) -> int:
     """Compares two specified String objects and returns an integer that
     indicates their relative position in the sort order."""
     ...
@@ -528,7 +525,7 @@ def compare(__string1: str, __string2: str) -> int:
 
 @overload
 def compare(
-    __string1: str, __string2: str, ignore_case: bool, culture: StringComparison
+    string1: str, string2: str, ignore_case: bool, culture: StringComparison, /
 ) -> int:
     ...
 

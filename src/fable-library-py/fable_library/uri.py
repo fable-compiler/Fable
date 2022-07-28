@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import IntEnum
 from typing import Optional
 from urllib.parse import urlparse
 
 
-class UriKind(Enum):
+class UriKind(IntEnum):
     RelativeOrAbsolute = 0
     Absolute = 1
     Relative = 2
