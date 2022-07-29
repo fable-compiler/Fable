@@ -1,23 +1,14 @@
 module Array_
 
+open Global_
+
 // For optimization, functions may return ResizeArray instead of Array.
 // That's fine, because they both have the same representation in Rust.
 
-// The inline keyword is used in some places to infer type constraints.
-
-module SR =
-    let indexOutOfBounds = "The index was outside the range of elements in the array."
-    let inputArrayWasEmpty = "The input array was empty"
-    let inputArrayWasTooLong = "The input array was too long"
-    let inputArrayWasTooShort = "The input array has not enough elements"
-    let inputMustBeNonNegative = "The input must be non-negative"
-    let inputMustBePositive = "The input must be positive"
-    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let differentLengths = "Arrays had different lengths"
-    let invalidPermutation = "Not a valid permutation"
+// The inline keyword is sometimes used just to infer type constraints.
 
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
-let inline differentLengths() = failwith SR.differentLengths
+let inline differentLengths() = failwith SR.arraysHadDifferentLengths
 
 // native implementations
 let inline empty (): 'T[] = Array.empty
@@ -61,8 +52,8 @@ let getSubArray (source: 'T[]) (startIndex: int) (count: int): 'T[] =
 let exactlyOne (source: 'T[]): 'T =
     if source.Length = 1 then source.[0]
     elif isEmpty source
-    then invalidArg "source" SR.inputArrayWasEmpty
-    else invalidArg "source" SR.inputArrayWasTooLong
+    then invalidArg "array" SR.inputSequenceEmpty
+    else invalidArg "array" SR.inputSequenceTooLong
 
 let tryExactlyOne (source: 'T[]): 'T option =
     if source.Length = 1
@@ -71,7 +62,7 @@ let tryExactlyOne (source: 'T[]): 'T option =
 
 let head (source: 'T[]): 'T =
     if isEmpty source
-    then invalidArg "source" SR.inputArrayWasEmpty
+    then invalidArg "array" SR.arrayWasEmpty
     else source.[0]
 
 let tryHead (source: 'T[]): 'T option =
@@ -81,7 +72,7 @@ let tryHead (source: 'T[]): 'T option =
 
 let last (source: 'T[]): 'T =
     if isEmpty source
-    then invalidArg "source" SR.inputArrayWasEmpty
+    then invalidArg "array" SR.arrayWasEmpty
     else source.[source.Length - 1]
 
 let tryLast (source: 'T[]): 'T option =
@@ -91,7 +82,7 @@ let tryLast (source: 'T[]): 'T option =
 
 let tail (source: 'T[]) =
     if isEmpty source then
-        invalidArg "source" SR.inputArrayWasTooShort
+        invalidArg "array" SR.notEnoughElements
     getSubArray source 1 (source.Length - 1)
 
 let append (source1: 'T[]) (source2: 'T[]): 'T[] =
@@ -288,7 +279,7 @@ let partition (predicate: 'T -> bool) (source: 'T[]): 'T[] * 'T[] =
     res1 |> asArray, res2 |> asArray
 
 let reduce reduction (source: 'T[]): 'T =
-    if isEmpty source then invalidOp SR.inputArrayWasEmpty
+    if isEmpty source then invalidOp SR.arrayWasEmpty
     let folder i acc x = if i = 0 then x else reduction acc x
     let mutable acc = source.[0]
     for i = 0 to source.Length - 1 do
@@ -296,7 +287,7 @@ let reduce reduction (source: 'T[]): 'T =
     acc
 
 let reduceBack reduction (source: 'T[]): 'T =
-    if isEmpty source then invalidOp SR.inputArrayWasEmpty
+    if isEmpty source then invalidOp SR.arrayWasEmpty
     let folder i x acc = if i = 0 then x else reduction acc x
     let len = source.Length
     let mutable acc = source.[len - 1]
@@ -325,7 +316,7 @@ let scanBack<'T, 'State> folder (source: 'T[]) (state: 'State): 'State[]=
 
 let skip count (source: 'T[]): 'T[] =
     if count > source.Length then
-        invalidArg "source" SR.inputArrayWasTooShort
+        invalidArg "count" SR.outOfRange
     let count = if count < 0 then 0 else count
     getSubArray source count (source.Length - count)
 
@@ -339,7 +330,7 @@ let take count (source: 'T[]): 'T[] =
     if count < 0 then
         invalidArg "count" SR.inputMustBeNonNegative
     if count > source.Length then
-        invalidArg "source" SR.inputArrayWasTooShort
+        invalidArg "array" SR.notEnoughElements
     getSubArray source 0 count
 
 let takeWhile (predicate: 'T -> bool) (source: 'T[]): 'T[] =
@@ -356,23 +347,23 @@ let truncate (count: int) (source: 'T[]): 'T[] =
     getSubArray source 0 count
 
 // let addInPlace (x: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "source" "Typed arrays not supported"
+//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
 //     pushImpl source x |> ignore
 
 // let addRangeInPlace (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "source" "Typed arrays not supported"
+//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
 //     for x in range do
 //         addInPlace x source
 
 // let insertRangeInPlace index (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "source" "Typed arrays not supported"
+//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
 //     let mutable i = index
 //     for x in range do
 //         insertImpl source i x |> ignore
 //         i <- i + 1
 
 // let removeInPlace (item: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "source" "Typed arrays not supported"
+//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
 //     let i = indexOfImpl source item 0
 //     if i > -1 then
 //         spliceImpl source i 1 |> ignore
@@ -539,12 +530,12 @@ let permute (indexMap: int -> int) (source: 'T[]): 'T[] =
     iterateIndexed (fun i x ->
         let j = indexMap i
         if j < 0 || j >= len then
-            invalidOp SR.invalidPermutation
+            invalidOp SR.notAPermutation
         res.[j] <- x
         checkFlags.[j] <- 1) source
     let isValid = checkFlags |> forAll ((=) 1)
     if not isValid then
-        invalidOp SR.invalidPermutation
+        invalidOp SR.notAPermutation
     res
 
 let inline private setSubArray (target: 'T[]) (start: int) (count: int) (source: 'T[]): unit =
@@ -696,7 +687,7 @@ let min (xs: 'T[]): 'T =
 
 let inline average (source: 'T[]): 'T =
     if isEmpty source then
-        invalidArg "source" SR.inputArrayWasEmpty
+        invalidArg "array" SR.arrayWasEmpty
     let mutable total = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         total <- total + source.[i]
@@ -704,7 +695,7 @@ let inline average (source: 'T[]): 'T =
 
 let inline averageBy (projection: 'T -> 'U) (source: 'T[]): 'U =
     if isEmpty source then
-        invalidArg "source" SR.inputArrayWasEmpty
+        invalidArg "array" SR.arrayWasEmpty
     let mutable total = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         total <- total + (projection source.[i])

@@ -158,12 +158,7 @@ pub mod MapExt {
     impl<K: Clone + PartialOrd, V: Clone> Map_2<K, V> {
         pub fn iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = Map_::toSeq(self.clone());
-            seq_as_iter(&s).map(|x| {
-                //todo - these tuples should probably internally be represented as struct tuples in Map, so they an easily be destructured + more efficient for keyvalue
-                let k = x.0.clone();
-                let v = x.1.clone();
-                (k, v)
-            })
+            seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
         }
     }
 

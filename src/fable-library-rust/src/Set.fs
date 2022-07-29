@@ -4,15 +4,9 @@
 
 module Set_
 
+open Global_
+
 // A functional language implementation of binary trees
-
-// [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-// module Set =
-
-module SR =
-    let setContainsNoElements = "Set contains no elements."
-    let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
-    let enumerationAlreadyFinished = "Enumeration already finished."
 
 [<NoEquality; NoComparison>]
 type SetTree<'T> = {
@@ -22,19 +16,19 @@ type SetTree<'T> = {
     Right: Set<'T>
 }
 
-and [<Struct>]Set<'T> = {
-    item: Option<SetTree<'T>>
+and [<Struct>] Set<'T> = {
+    root: Option<SetTree<'T>>
 }
-let mkSet item = { item = item }
-[<Fable.Core.Emit("$0.item")>] // otherwise Fable assumes conservatively the item must be cloned as owned.
-let getRaw lst = lst.item
-
 
 type 'T set = Set<'T>
 
-let empty: Set<'T> = { item = None }
+let inline private getRoot s = s.root
 
-let isEmpty (s: Set<'T>) = s.item.IsNone
+let mkSet root = { root = root }
+
+let empty: Set<'T> = { root = None }
+
+let isEmpty (s: Set<'T>) = s.root.IsNone
 
 let mkSetTreeLeaf (key: 'T): Set<'T> =
     Some { Key = key; Left = empty; Right = empty; Height = 1 } |> mkSet
@@ -45,7 +39,7 @@ let mkSetTreeNode (key: 'T, left: Set<'T>, right: Set<'T>, height: int): Set<'T>
 let singleton (value: 'T) = mkSetTreeLeaf value
 
 let rec countAux (s: Set<'T>) acc =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -56,7 +50,7 @@ let rec countAux (s: Set<'T>) acc =
 let count s = countAux s 0
 
 let inline height (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> 0
     | Some t -> t.Height
 
@@ -76,27 +70,27 @@ let rebalance (t1: Set<'T>) v (t2: Set<'T>) =
     let t1h = height t1
     let t2h = height t2
     if t2h > t1h + tolerance then // right is heavier than left
-        let t2' = t2.item.Value
+        let t2' = (getRoot t2).Value
         // one of the nodes must have height > height t1 + 1
         if height t2'.Left > t1h + 1 then  // balance left: combination
-            let t2l = t2'.Left.item.Value
+            let t2l = (getRoot t2'.Left).Value
             mk (mk t1 v t2l.Left) t2l.Key (mk t2l.Right t2'.Key t2'.Right)
         else // rotate left
             mk (mk t1 v t2'.Left) t2'.Key t2'.Right
     else
         if t1h > t2h + tolerance then // left is heavier than right
-            let t1' = t1.item.Value
+            let t1' = (getRoot t1).Value
             // one of the nodes must have height > height t2 + 1
             if height t1'.Right > t2h + 1 then
                 // balance right: combination
-                let t1r = t1'.Right.item.Value
+                let t1r = (getRoot t1'.Right).Value
                 mk (mk t1'.Left t1'.Key t1r.Left) t1r.Key (mk t1r.Right v t2)
             else
                 mk t1'.Left t1'.Key (mk t1'.Right v t2)
         else mk t1 v t2
 
 let rec add k (s: Set<'T>): Set<'T> =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> mkSetTreeLeaf k
     | Some t ->
         let c = compare k t.Key
@@ -114,10 +108,10 @@ let rec balance (s1: Set<'T>) k (s2: Set<'T>) =
     // Given t1 < k < t2 where t1 and t2 are "balanced",
     // return a balanced tree for <t1, k, t2>.
     // Recall: balance means subtrees heights differ by at most "tolerance"
-    match s1 |> getRaw with
+    match s1 |> getRoot with
     | None -> add k s2 // drop t1 = empty
     | Some t1 ->
-        match s2 |> getRaw with
+        match s2 |> getRoot with
         | None -> add k s1 // drop t2 = empty
         | Some t2 ->
             if t1.Height = 1 then add k (add t1.Key s2)
@@ -143,7 +137,7 @@ let rec balance (s1: Set<'T>) k (s2: Set<'T>) =
 let rec split pivot (s: Set<'T>) =
     // Given a pivot and a set t
     // Return { x in t s.t. x < pivot }, pivot in t?, { x in t s.t. x > pivot }
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> empty, false, empty
     | Some t ->
         if t.Height = 1 then
@@ -163,7 +157,7 @@ let rec split pivot (s: Set<'T>) =
                 balance t.Left t.Key t12Lo, havePivot, t12Hi
 
 let rec spliceOutSuccessor (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> failwith "internal error: Set.spliceOutSuccessor"
     | Some t ->
         if t.Height = 1 then t.Key, empty
@@ -172,7 +166,7 @@ let rec spliceOutSuccessor (s: Set<'T>) =
             else let k3, l' = spliceOutSuccessor t.Left in k3, mk l' t.Key t.Right
 
 let rec remove k (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> s
     | Some t ->
         let c = compare k t.Key
@@ -189,7 +183,7 @@ let rec remove k (s: Set<'T>) =
             else rebalance t.Left t.Key (remove k t.Right)
 
 let rec contains k (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> false
     | Some t ->
         let c = compare k t.Key
@@ -200,7 +194,7 @@ let rec contains k (s: Set<'T>) =
             else contains k t.Right
 
 let rec iterate f (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> ()
     | Some t ->
         if t.Height = 1 then f t.Key
@@ -208,7 +202,7 @@ let rec iterate f (s: Set<'T>) =
             iterate f t.Left; f t.Key; iterate f t.Right
 
 let rec foldBack f (s: Set<'T>) x =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> x
     | Some t ->
         if t.Height = 1 then f t.Key x
@@ -216,7 +210,7 @@ let rec foldBack f (s: Set<'T>) x =
             foldBack f t.Left (f t.Key (foldBack f t.Right x))
 
 let rec fold f x (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> x
     | Some t ->
         if t.Height = 1 then f x t.Key
@@ -229,7 +223,7 @@ let map mapping (s: Set<'T>) =
     fold (fun acc k -> add (mapping k) acc) empty s
 
 let rec forAll f (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> true
     | Some t ->
         if t.Height = 1 then f t.Key
@@ -237,7 +231,7 @@ let rec forAll f (s: Set<'T>) =
             f t.Key && forAll f t.Left && forAll f t.Right
 
 let rec exists f (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> false
     | Some t ->
         if t.Height = 1 then f t.Key
@@ -257,7 +251,7 @@ let isProperSuperset a b =
     isProperSubset b a
 
 let rec filterAux f (s: Set<'T>) acc =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -269,10 +263,10 @@ let rec filterAux f (s: Set<'T>) acc =
 let filter f s = filterAux f s empty
 
 let rec diffAux (s: Set<'T>) (acc: Set<'T>) =
-    match acc |> getRaw with
+    match acc |> getRoot with
     | None -> acc
     | Some _acc ->
-        match s |> getRaw with
+        match s |> getRoot with
         | None -> acc
         | Some t ->
             if t.Height = 1 then remove t.Key acc
@@ -283,10 +277,10 @@ let difference a b = diffAux b a
 
 let rec union (s1: Set<'T>) (s2: Set<'T>) =
     // Perf: tried bruteForce for low heights, but nothing significant
-    match s1 |> getRaw with
+    match s1 |> getRoot with
     | None -> s2
     | Some t1 ->
-        match s2 |> getRaw with
+        match s2 |> getRoot with
         | None -> s1
         | Some t2 ->
             if t1.Height = 1 then add t1.Key s2
@@ -308,7 +302,7 @@ let unionMany (sets: seq<Set<'T>>) =
     Seq.fold union empty sets
 
 let rec intersectionAux b (s: Set<'T>) acc =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -330,7 +324,7 @@ let partition1 f k (acc1, acc2) =
     else (acc1, add k acc2)
 
 let rec partitionAux f (s: Set<'T>) acc =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> acc
     | Some t ->
         if t.Height = 1 then partition1 f t.Key acc
@@ -342,7 +336,7 @@ let rec partitionAux f (s: Set<'T>) acc =
 let partition f s = partitionAux f s (empty, empty)
 
 let rec minimumElementAux (s: Set<'T>) n =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> n
     | Some t ->
         if t.Height = 1 then t.Key
@@ -350,7 +344,7 @@ let rec minimumElementAux (s: Set<'T>) n =
             minimumElementAux t.Left t.Key
 
 and minimumElementOpt (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> None
     | Some t ->
         if t.Height = 1 then Some t.Key
@@ -358,7 +352,7 @@ and minimumElementOpt (s: Set<'T>) =
             Some(minimumElementAux t.Left t.Key)
 
 and maximumElementAux (s: Set<'T>) n =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> n
     | Some t ->
         if t.Height = 1 then t.Key
@@ -366,7 +360,7 @@ and maximumElementAux (s: Set<'T>) n =
             maximumElementAux t.Right t.Key
 
 and maximumElementOpt (s: Set<'T>) =
-    match s |> getRaw with
+    match s |> getRoot with
     | None -> None
     | Some t ->
         if t.Height = 1 then Some t.Key
@@ -397,7 +391,7 @@ let rec collapseLHS (stack: Set<'T> list) =
     match stack with
     | [] -> []
     | s :: rest ->
-        match s |> getRaw with
+        match s |> getRoot with
         | None -> collapseLHS rest
         | Some t ->
             if t.Height = 1 then stack
@@ -412,7 +406,7 @@ let alreadyFinished() = failwith SR.enumerationAlreadyFinished
 let current (i: SetIterator<'T>) =
     if i.started then
         match i.stack with
-        | { item = Some k } :: _ -> k.Key
+        | { root = Some k } :: _ -> k.Key
         | _ -> alreadyFinished()
     else
         notStarted()
@@ -423,7 +417,7 @@ let unexpectedstateInSetTreeCompareStacks() = failwith "unexpected state in SetT
 let rec moveNext (i: SetIterator<'T>) =
     if i.started then
         match i.stack with
-        | { item = Some t } :: rest ->
+        | { root = Some t } :: rest ->
             if t.Height = 1 then
                 i.stack <- collapseLHS rest
                 not i.stack.IsEmpty
