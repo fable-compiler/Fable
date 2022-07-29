@@ -3619,7 +3619,37 @@ module Util =
         ]
 *)
 
-    let rec transformDecl (com: IRustCompiler) ctx decl =
+    let transformModuleDecl (com: IRustCompiler) ctx (decl: Fable.ModuleDecl) =
+        let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
+        let memberDecls =
+            // Instead of transforming declarations depth-first, i.e.
+            // (decl.Members |> List.collect (transformDecl com ctx)),
+            // prioritize non-module declaration transforms first,
+            // so module imports can be properly deduped top to bottom.
+            decl.Members
+            |> List.map (fun decl ->
+                let lazyDecl = lazy(transformDecl com ctx decl)
+                match decl with
+                | Fable.ModuleDeclaration _ -> () // delay module decl transform
+                | _ -> lazyDecl.Force() |> ignore // transform other decls first
+                lazyDecl)
+            |> List.collect (fun lazyDecl -> lazyDecl.Force())
+        if List.isEmpty memberDecls then
+            [] // don't output empty modules
+        else
+            let ent = com.GetEntity(decl.Entity)
+            // if ent.IsNamespace then // maybe do something different
+            let useDecls =
+                let useItem = mkGlobUseItem [] ["super"]
+                let importItems = com.GetAllImports(ctx) |> transformImports com ctx
+                com.ClearAllImports(ctx)
+                useItem :: importItems
+            let attrs = transformAttributes com ctx ent.Attributes
+            let modDecls = useDecls @ memberDecls
+            let modItem = modDecls |> mkModItem attrs decl.Name
+            [modItem |> mkPublicItem]
+
+    let transformDecl (com: IRustCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -3628,23 +3658,8 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
-            let memberDecls = decl.Members |> List.collect (transformDecl com ctx)
-            if List.isEmpty memberDecls then
-                [] // don't output empty modules
-            else
-                withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
-                    let ent = com.GetEntity(decl.Entity)
-                    // if ent.IsNamespace then // maybe do something different
-                    let useDecls =
-                        let useItem = mkGlobUseItem [] ["super"]
-                        let importItems = com.GetAllImports(ctx) |> transformImports com ctx
-                        com.ClearAllImports(ctx)
-                        useItem :: importItems
-                    let attrs = transformAttributes com ctx ent.Attributes
-                    let modDecls = useDecls @ memberDecls
-                    let modItem = modDecls |> mkModItem attrs decl.Name
-                    [modItem |> mkPublicItem]
+            withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
+                transformModuleDecl (com: IRustCompiler) ctx decl
 
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
