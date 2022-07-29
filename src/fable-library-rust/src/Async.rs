@@ -12,13 +12,13 @@ pub mod Async_ {
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
 
-    use super::Task_::Task_1;
+    use super::Task_::Task;
 
-    pub struct Async_1<T: Sized + Send + Sync> {
+    pub struct Async<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>
     }
 
-    impl <T: Clone + Send + Sync> Future for &Async_1<T> {
+    impl <T: Clone + Send + Sync> Future for &Async<T> {
         type Output = T;
 
         fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
@@ -35,18 +35,18 @@ pub mod Async_ {
         }
     }
 
-    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> Arc<Task_1<T>> {
+    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> Arc<Task<T>> {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;
             res
         };
-        let task = Arc::from(Task_1::new(unitFut));
-        Task_1::start(task.clone());
+        let task = Arc::from(Task::new(unitFut));
+        Task::start(task.clone());
         task
     }
 
-    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(a: Arc<Async_1<T>>) -> T {
+    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> T {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;
@@ -55,10 +55,10 @@ pub mod Async_ {
         executor::block_on(unitFut)
     }
 
-    pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task_1<T>>) -> Arc<Async_1<T>> {
+    pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task<T>>) -> Arc<Async<T>> {
         let fut = async move { (&*a).await };
         let a: Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(fut);
-        Arc::from(Async_1{ future: Arc::from(Mutex::from(a)) })
+        Arc::from(Async{ future: Arc::from(Mutex::from(a)) })
     }
 }
 
@@ -68,17 +68,17 @@ pub mod AsyncBuilder_ {
 
     use futures::lock::Mutex;
 
-    use super::Async_::Async_1;
+    use super::Async_::Async;
 
-    pub fn delay<T: Send + Sync>(binder: Arc<impl Fn() -> Arc<Async_1<T>> + 'static>) -> Arc<Async_1<T>> {
+    pub fn delay<T: Send + Sync>(binder: Arc<impl Fn() -> Arc<Async<T>> + 'static>) -> Arc<Async<T>> {
         let pr = binder();
-        Arc::from(Async_1 {future: pr.future.clone()})
+        Arc::from(Async {future: pr.future.clone()})
     }
 
     pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
-        opt: Arc<Async_1<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Async_1<U>> + Send + Sync + 'static>
-                         ) -> Arc<Async_1<U>>
+        opt: Arc<Async<T>>,
+        binder: Arc<impl Fn(T) -> Arc<Async<U>> + Send + Sync + 'static>
+    ) -> Arc<Async<U>>
     {
         let next =
             async move {
@@ -90,13 +90,13 @@ pub mod AsyncBuilder_ {
             };
 
         let b :Pin<Box<dyn Future<Output=U> + Send + Sync + 'static>> = Box::pin(next);
-        Arc::from(Async_1 { future: Arc::from(Mutex::from(b)) })
+        Arc::from(Async { future: Arc::from(Mutex::from(b)) })
     }
 
-    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async_1<T>>{
+    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async<T>>{
         let r = ready(item);
         let b :Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(r);
-        Arc::from(Async_1 { future: Arc::from(Mutex::from(b)) })
+        Arc::from(Async { future: Arc::from(Mutex::from(b)) })
     }
 }
 
@@ -169,11 +169,11 @@ pub mod Task_ {
     }
 
     #[derive(Clone)]
-    pub struct Task_1<T: Sized + Clone + Send> {
+    pub struct Task<T: Sized + Clone + Send> {
         result: Arc<RwLock<TaskState<T>>>,
     }
 
-    impl <T: Clone + Send + Sync> Future for &Task_1<T> {
+    impl <T: Clone + Send + Sync> Future for &Task<T> {
         type Output = T;
 
         fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
@@ -204,13 +204,13 @@ pub mod Task_ {
         }
     }
 
-    impl <T: Clone + Send + Sync + 'static> Task_1<T>{
-        pub fn new(fut: impl Future<Output = T> + Send + Sync + 'static) -> Task_1<T> {
-            Task_1 { result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))) }
+    impl <T: Clone + Send + Sync + 'static> Task<T>{
+        pub fn new(fut: impl Future<Output = T> + Send + Sync + 'static) -> Task<T> {
+            Task { result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))) }
         }
 
-        pub fn from_result(value: T) -> Task_1<T> {
-            Task_1 { result: Arc::from(RwLock::from(TaskState::Complete(value))) }
+        pub fn from_result(value: T) -> Task<T> {
+            Task { result: Arc::from(RwLock::from(TaskState::Complete(value))) }
         }
 
         pub fn set_result(&self, value: T){
@@ -238,7 +238,7 @@ pub mod Task_ {
             t
         }
 
-        pub fn start(t: Arc<Task_1<T>>) {
+        pub fn start(t: Arc<Task<T>>) {
             if !t.result.read().unwrap().is_new() {
                 return
             }
@@ -259,9 +259,9 @@ pub mod Task_ {
     }
 
     pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
-        opt: Arc<Task_1<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Task_1<U>> + Send + Sync + 'static>
-                         ) -> Arc<Task_1<U>> {
+        opt: Arc<Task<T>>,
+        binder: Arc<impl Fn(T) -> Arc<Task<U>> + Send + Sync + 'static>
+                         ) -> Arc<Task<U>> {
         let next =
             async move {
                 //eprintln!("{:?} begin await source fut", thread::current().id());
@@ -269,29 +269,29 @@ pub mod Task_ {
                 //eprintln!("{:?} awaiting source future success", thread::current().id());
                 let nextAsync = binder(m);
                 if nextAsync.is_new() {
-                    Task_1::start(nextAsync.clone());
+                    Task::start(nextAsync.clone());
                 }
                 let next = nextAsync.as_ref().await;
                 //eprintln!("{:?} setting result", thread::current().id());
                 next
             };
 
-        let task = Task_1::new(next);
+        let task = Task::new(next);
         Arc::from(task)
     }
 
-    pub fn delay<T: Clone + Send + Sync>(binder: Arc<impl Fn() -> Arc<Task_1<T>> + 'static>) -> Arc<Task_1<T>> {
+    pub fn delay<T: Clone + Send + Sync>(binder: Arc<impl Fn() -> Arc<Task<T>> + 'static>) -> Arc<Task<T>> {
         let pr = binder();
         pr
     }
 
-    pub fn r_return<T: Clone + Send + Sync + 'static>(item: T) -> Arc<Task_1<T>> {
-        let t = Task_1::from_result(item);
+    pub fn r_return<T: Clone + Send + Sync + 'static>(item: T) -> Arc<Task<T>> {
+        let t = Task::from_result(item);
         Arc::from(t)
     }
 
-    pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task_1<T>> {
-        let t = Task_1 { result: Arc::from(RwLock::from(TaskState::Complete(t))) };
+    pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task<T>> {
+        let t = Task { result: Arc::from(RwLock::from(TaskState::Complete(t))) };
         Arc::from(t)
     }
 }
@@ -300,14 +300,14 @@ pub mod Task_ {
 pub mod TaskBuilder_ {
     use std::{sync::Arc, rc::Rc};
 
-    use super::Task_::Task_1;
+    use super::Task_::Task;
     use super::super::Native_::Lrc;
 
     pub struct TaskBuilder {}
 
     impl TaskBuilder {
-        pub fn run<T: Clone + Send + Sync + 'static>(&self, task: Arc<Task_1<T>>) -> Arc<Task_1<T>> {
-            Task_1::start(task.clone());
+        pub fn run<T: Clone + Send + Sync + 'static>(&self, task: Arc<Task<T>>) -> Arc<Task<T>> {
+            Task::start(task.clone());
             task
         }
     }

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 pub mod String_ {
-    use crate::Native_::*;
+    use crate::Native_::{Array, Lrc, array, string};
 
     // -----------------------------------------------------------
     // Strings

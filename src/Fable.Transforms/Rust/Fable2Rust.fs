@@ -498,7 +498,7 @@ module TypeInfo =
 
     let libCall com ctx r types moduleName memberName (args: Fable.Expr list) =
         let path = getLibPath com moduleName
-        let selector = moduleName + "::" + memberName
+        let selector = moduleName + "_::" + memberName
         let info: Fable.ImportInfo =
             { Selector = selector; Path = path; Kind = Fable.LibraryImport }
         let genArgs = transformGenArgs com ctx types
@@ -519,37 +519,29 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
-    let transformArrayType com ctx genArg: Rust.Ty =
-        let ty = transformType com ctx genArg
-        [ty]
-        |> mkGenericTy [rawIdent "Vec"]
-        |> makeMutTy com ctx
-        // transformImportType com ctx [genArg] "Native" "Array`1"
-
     let transformListType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "List`1"
+        transformImportType com ctx [genArg] "List" "List"
 
     let transformSetType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "Set`1"
+        transformImportType com ctx [genArg] "Set" "Set"
 
     let transformMapType com ctx genArgs: Rust.Ty =
-        transformImportType com ctx genArgs "Native" "Map`2"
+        transformImportType com ctx genArgs "Map" "Map"
+
+    let transformArrayType com ctx genArg: Rust.Ty =
+        transformImportType com ctx [genArg] "Native" "MutArray"
 
     let transformHashSetType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "HashSet"
-        |> makeMutTy com ctx
-        // transformImportType com ctx [genArg] "Native" "HashSet`1"
+        transformImportType com ctx [genArg] "Native" "MutHashSet"
 
     let transformHashMapType com ctx genArgs: Rust.Ty =
-        transformImportType com ctx genArgs "Native" "HashMap"
-        |> makeMutTy com ctx
-        // transformImportType com ctx genArgs "Native" "HashMap`2"
+        transformImportType com ctx genArgs "Native" "MutHashMap"
 
     let transformAsyncType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Async" "Async`1"
+        transformImportType com ctx [genArg] "Async" "Async"
 
     let transformTaskType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Task" "Task`1"
+        transformImportType com ctx [genArg] "Task" "Task"
 
     let transformTaskBuilderType com ctx: Rust.Ty =
         transformImportType com ctx [] "TaskBuilder" "TaskBuilder"

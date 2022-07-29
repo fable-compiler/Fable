@@ -5,21 +5,11 @@
 
 module Seq_
 
+open Global_
+open Interfaces_
 // open System.Collections.Generic
 
-open Interfaces_
-
 type 'T seq = IEnumerable<'T>
-
-module SR =
-    let indexOutOfBounds = "The index was outside the range of elements in the array."
-    let enumerationAlreadyFinished = "Enumeration already finished."
-    let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
-    let inputSequenceEmpty = "The input sequence was empty."
-    let inputSequenceTooLong = "The input sequence contains more than one element."
-    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let notEnoughElements = "The input sequence has an insufficient number of elements."
-    let resetNotSupported = "Reset is not supported on this enumerator."
 
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
 
@@ -30,7 +20,7 @@ module Enumerable =
     let inline alreadyFinished() = failwith SR.enumerationAlreadyFinished
 
     // [<Sealed>]
-    // [<CompiledName("Seq")>]
+    [<CompiledName("Seq")>]
     type Enumerable<'T>(f) =
         interface IEnumerable<'T> with
             member _.GetEnumerator() = f()

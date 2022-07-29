@@ -4036,13 +4036,13 @@ let private replacedModules =
            "System.Environment", systemEnv
            "System.Globalization.CultureInfo", globalization
            "System.Random", random
-           "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
            "System.Threading.CancellationToken", cancels
            "System.Threading.CancellationTokenSource", cancels
            "System.Threading.Monitor", monitor
-           "System.Threading.Tasks.Task`1", tasks
-           "System.Threading.Tasks.Task", tasks
+           Types.task, tasks
+           Types.taskGeneric, tasks
            "System.Threading.Tasks.TaskCompletionSource`1", tasks
+           "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
            "System.Activator", activator
            "System.Text.Encoding", encoding
            "System.Text.UnicodeEncoding", encoding
