@@ -597,7 +597,7 @@ let ``test Type testing in pattern matching`` () =
 //     |> equal false
 
 [<Fact>]
-let ``test Type testing with JS primitive types works`` () =
+let ``test Type testing with PY primitive types works`` () =
     let test (o: obj) =
         match o with
         | :? string -> "string"

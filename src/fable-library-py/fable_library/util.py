@@ -2,6 +2,7 @@ import builtins
 import functools
 import math
 import re
+from array import array
 from abc import ABC, abstractmethod
 from enum import IntEnum
 from threading import RLock
@@ -17,6 +18,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Sequence,
     Sized,
     Tuple,
     Type,
@@ -156,6 +158,12 @@ class DateKind(IntEnum):
 
 
 def equals(a: Any, b: Any) -> bool:
+    if a is b:
+        return True
+
+    if is_array_like(a):
+        return equal_arrays(a, b)
+
     return a == b
 
 
@@ -238,7 +246,7 @@ def compare(a: Any, b: Any) -> int:
 
 
 def equal_arrays_with(
-    xs: Optional[List[_T]], ys: Optional[List[_T]], eq: Callable[[_T, _T], bool]
+    xs: Optional[Sequence[_T]], ys: Optional[Sequence[_T]], eq: Callable[[_T, _T], bool]
 ) -> bool:
     if xs is None:
         return ys is None
@@ -256,7 +264,7 @@ def equal_arrays_with(
     return True
 
 
-def equal_arrays(x: List[_T], y: List[_T]) -> bool:
+def equal_arrays(x: Sequence[_T], y: Sequence[_T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
@@ -284,12 +292,12 @@ def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
 
 
 def assert_equal(actual: Any, expected: Any, msg: Optional[str] = None) -> None:
-    if actual != expected:
+    if not equals(actual, expected):
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
 def assert_not_equal(actual: _T, expected: _T, msg: Optional[str] = None) -> None:
-    if actual == expected:
+    if equals(actual, expected):
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
@@ -581,7 +589,7 @@ def partial_apply(
 
 
 def is_array_like(x: Any) -> bool:
-    return hasattr(x, "__len__") and callable(x.__len__)
+    return isinstance(x, (list, tuple, set, frozenset, array))
 
 
 def is_disposable(x: Any) -> bool:
