@@ -24,7 +24,7 @@ pub mod Native_ {
 
     pub type List_1<T> = crate::List_::List_1<T>;
     pub type Set_1<T> = crate::Set_::Set_1<T>;
-    pub type Map_2<K, V> = Option<Lrc<crate::Map_::MapTree_2<K, V>>>;
+    pub type Map_2<K, V> = crate::Map_::Map_2<K, V>;
 
     // TODO: use these types in generated code
     pub type string = Lrc<str>;
