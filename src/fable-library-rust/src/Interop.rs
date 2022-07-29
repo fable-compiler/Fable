@@ -6,18 +6,26 @@ pub mod ListExt {
     use super::super::List_;
     use crate::{
         List_::{cons, iterate, mkList, singleton},
-        Native_::{List_1, Lrc, MutCell},
+        Native_::{List_1, Lrc, MutCell, seq_as_iter}, Seq_,
     };
 
     type List<T> = List_1<T>;
 
-    impl<T: Clone> Deref for List<T> {
-        type Target = Option<Lrc<crate::List_::Node_1<T>>>;
-
-        fn deref(&self) -> &Self::Target {
-            &self.item
+    impl <T: Clone> List<T>{
+        pub fn iter(&self) -> impl Iterator<Item = T> {
+            let s = Seq_::ofList(self.clone());
+            seq_as_iter(&s)
         }
     }
+
+    // on second thought not sure deref is ideal because it exposes the option api (iter, map etc) which is misleading
+    // impl<T: Clone> Deref for List<T> {
+    //     type Target = Option<Lrc<crate::List_::Node_1<T>>>;
+
+    //     fn deref(&self) -> &Self::Target {
+    //         &self.item
+    //     }
+    // }
 
     impl<T: Clone> From<&Vec<T>> for List<T> {
         fn from(vec: &Vec<T>) -> Self {
@@ -58,13 +66,13 @@ pub mod ArrayExt {
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct Array<T: Clone + 'static>(Native_::Array<T>);
 
-    impl<T: Clone> Deref for Array<T> {
-        type Target = Native_::Array<T>;
+    // impl<T: Clone> Deref for Array<T> {
+    //     type Target = Native_::Array<T>;
 
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
+    //     fn deref(&self) -> &Self::Target {
+    //         &self.0
+    //     }
+    // }
 
     impl<T: Clone> From<Native_::Array<T>> for Array<T> {
         fn from(arr: Native_::Array<T>) -> Self {
@@ -87,7 +95,7 @@ pub mod ArrayExt {
 
     impl<T: Clone> Into<Vec<T>> for Array<T> {
         fn into(self) -> Vec<T> {
-            self.get().iter().map(|item| item.clone()).collect()
+            self.0.get().iter().map(|item| item.clone()).collect()
         }
     }
 }
@@ -104,6 +112,10 @@ pub mod SetExt {
     };
 
     type Set<T> = Set_::Set_1<T>;
+
+    impl <T: Clone> Set<T>{
+
+    }
 
     impl<T: Clone + PartialOrd> From<Vec<T>> for Set<T> {
         fn from(vec: Vec<T>) -> Self {
@@ -149,12 +161,24 @@ pub mod MapExt {
     use super::super::Map_;
     use crate::{
         Map_::{empty, iterate},
-        Native_::{List_1, Lrc, MutCell},
+        Native_::{List_1, Lrc, MutCell, seq_as_iter}, Seq_,
     };
 
     type Map_2<K, V> = Map_::Map_2<K, V>;
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> From<&Vec<(K, V)>> for Map_2<K, V> {
+    impl <K: Clone + PartialOrd, V: Clone> Map_2<K, V>{
+        pub fn iter(&self) -> impl Iterator<Item = (K, V)> {
+            let s = Map_::toSeq(self.clone());
+            seq_as_iter(&s).map(|x|{
+                 //todo - these tuples should probably internally be represented as struct tuples in Map, so they an easily be destructured + more efficient for keyvalue
+                let k = x.0.clone();
+                let v = x.1.clone();
+                (k, v)
+            })
+        }
+    }
+
+    impl<K: Clone + PartialOrd, V: Clone> From<&Vec<(K, V)>> for Map_2<K, V> {
         fn from(vec: &Vec<(K, V)>) -> Self {
             let mut map: Map_2<K, V> = empty();
             for (i, (k, v)) in vec.iter().rev().enumerate() {
@@ -164,7 +188,7 @@ pub mod MapExt {
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> Into<Vec<(K, V)>> for Map_2<K, V> {
+    impl<K: Clone + PartialOrd, V: Clone> Into<Vec<(K, V)>> for Map_2<K, V> {
         fn into(self) -> Vec<(K, V)> {
             let vec = Lrc::from(MutCell::from(Vec::new()));
             iterate(

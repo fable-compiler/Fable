@@ -15,6 +15,15 @@ pub mod ExtInteropTests {
             assert_eq!(lst, expectedLst);
             assert_eq!(raw, tgt);
         }
+
+        #[test]
+        pub fn can_iter() {
+            let lst = List_1::from(&vec![1, 2, 3]);
+
+            let res: Vec<i32> = lst.iter().map(|x|x+1).collect();
+
+            assert_eq!(res, vec![2, 3, 4]);
+        }
     }
 
     pub mod ArrayTests {
@@ -32,7 +41,7 @@ pub mod ExtInteropTests {
     }
 
     pub mod SetTests {
-        use fable_library_rust::{Set_::Set_1};
+        use fable_library_rust::Set_::Set_1;
         #[test]
         pub fn can_interop_between_set_and_vec() {
             //todo
@@ -45,7 +54,10 @@ pub mod ExtInteropTests {
     }
 
     pub mod MapTests {
-        use fable_library_rust::{Native_::{Map_2, Lrc}, String_::string};
+        use fable_library_rust::{
+            Native_::{Lrc, Map_2},
+            String_::string,
+        };
         #[test]
         pub fn can_interop_between_map_and_vec() {
             //todo
@@ -54,6 +66,15 @@ pub mod ExtInteropTests {
             let tgt: Vec<(Lrc<str>, i32)> = map.clone().into();
 
             assert_eq!(raw, tgt);
+        }
+
+        #[test]
+        pub fn can_iter() {
+            let raw = vec![(string("a"), 1), (string("b"), 2), (string("c"), 3)];
+            let map = Map_2::from(&raw);
+
+            let res: Vec<i32> = map.iter().map(|(a, b)|b + 1).collect();
+            assert_eq!(res, vec![2, 3, 4]);
         }
     }
 }
