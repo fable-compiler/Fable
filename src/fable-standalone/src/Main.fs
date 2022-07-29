@@ -108,6 +108,8 @@ let convertGlyph glyph =
         Glyph.Error
     | FSharpGlyph.Event ->
         Glyph.Event
+    | FSharpGlyph.TypeParameter ->
+        Glyph.TypeParameter
 
 let makeProjOptions projectFileName fileNames otherFSharpOptions =
     let projOptions: FSharpProjectOptions =

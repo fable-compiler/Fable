@@ -312,6 +312,8 @@ let buildWorker (opts: {| minify: bool; watch: bool |}) =
     copyDirRecursive libraryDir libraryTarget
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
+    buildLibraryJs()
+
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
     let projectDir = "src/fable-standalone/src"

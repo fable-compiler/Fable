@@ -16,6 +16,7 @@ type Glyph =
     | Function
     | Error
     | Event
+    | TypeParameter
 
 type Error =
     { FileName: string
