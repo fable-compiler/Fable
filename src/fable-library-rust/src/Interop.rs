@@ -6,12 +6,13 @@ pub mod ListExt {
     use super::super::List_;
     use crate::{
         List_::{cons, iterate, mkList, singleton},
-        Native_::{List_1, Lrc, MutCell, seq_as_iter}, Seq_,
+        Native_::{seq_as_iter, List_1, Lrc, MutCell},
+        Seq_,
     };
 
     type List<T> = List_1<T>;
 
-    impl <T: Clone> List<T>{
+    impl<T: Clone> List<T> {
         pub fn iter(&self) -> impl Iterator<Item = T> {
             let s = Seq_::ofList(self.clone());
             seq_as_iter(&s)
@@ -39,18 +40,7 @@ pub mod ListExt {
 
     impl<T: Clone> Into<Vec<T>> for List<T> {
         fn into(self) -> Vec<T> {
-            let vec = Lrc::from(MutCell::from(Vec::new()));
-            iterate(
-                Lrc::from({
-                    let vec = vec.clone();
-                    move |item: T| {
-                        let rawVec = vec.get_mut();
-                        rawVec.push(item.clone());
-                    }
-                }),
-                self,
-            );
-            vec.get()
+            self.iter().collect()
         }
     }
 }
@@ -113,9 +103,7 @@ pub mod SetExt {
 
     type Set<T> = Set_::Set_1<T>;
 
-    impl <T: Clone> Set<T>{
-
-    }
+    impl<T: Clone> Set<T> {}
 
     impl<T: Clone + PartialOrd> From<Vec<T>> for Set<T> {
         fn from(vec: Vec<T>) -> Self {
@@ -161,16 +149,17 @@ pub mod MapExt {
     use super::super::Map_;
     use crate::{
         Map_::{empty, iterate},
-        Native_::{List_1, Lrc, MutCell, seq_as_iter}, Seq_,
+        Native_::{seq_as_iter, List_1, Lrc, MutCell},
+        Seq_,
     };
 
     type Map_2<K, V> = Map_::Map_2<K, V>;
 
-    impl <K: Clone + PartialOrd, V: Clone> Map_2<K, V>{
+    impl<K: Clone + PartialOrd, V: Clone> Map_2<K, V> {
         pub fn iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = Map_::toSeq(self.clone());
-            seq_as_iter(&s).map(|x|{
-                 //todo - these tuples should probably internally be represented as struct tuples in Map, so they an easily be destructured + more efficient for keyvalue
+            seq_as_iter(&s).map(|x| {
+                //todo - these tuples should probably internally be represented as struct tuples in Map, so they an easily be destructured + more efficient for keyvalue
                 let k = x.0.clone();
                 let v = x.1.clone();
                 (k, v)
@@ -190,18 +179,7 @@ pub mod MapExt {
 
     impl<K: Clone + PartialOrd, V: Clone> Into<Vec<(K, V)>> for Map_2<K, V> {
         fn into(self) -> Vec<(K, V)> {
-            let vec = Lrc::from(MutCell::from(Vec::new()));
-            iterate(
-                Lrc::from({
-                    let vec = vec.clone();
-                    move |k: K, v: V| {
-                        let rawVec = vec.get_mut();
-                        rawVec.push((k.clone(), v.clone()));
-                    }
-                }),
-                self,
-            );
-            vec.get()
+            self.iter().collect()
         }
     }
 }
