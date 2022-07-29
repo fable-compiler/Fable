@@ -1,38 +1,31 @@
 use crate::Native_::List_1;
 
-pub mod List {
+pub mod ListExt {
     use std::ops::Deref;
 
     use super::super::List_;
     use crate::{
-        List_::{cons, iterate, singleton},
+        List_::{cons, iterate, singleton, mkList},
         Native_::{List_1, Lrc, MutCell},
     };
 
-    #[derive(Clone, Debug, PartialEq, PartialOrd)]
-    pub struct List<T: Clone + 'static>(List_1<T>);
+    type List<T> = List_1<T>;
 
-    impl <T: Clone> Deref for List<T> {
-        type Target = List_1<T>;
+    impl<T: Clone> Deref for List<T> {
+        type Target = Option<Lrc<crate::List_::Node_1<T>>>;
 
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.item
         }
     }
 
-    impl <T: Clone> From<List_1<T>> for List<T> {
-        fn from(lst: List_1<T>) -> Self {
-            List(lst)
-        }
-    }
-
-    impl <T: Clone> From<&Vec<T>> for List<T> {
+    impl<T: Clone> From<&Vec<T>> for List<T> {
         fn from(vec: &Vec<T>) -> Self {
-            let mut lst: List_1<T> = None;
+            let mut lst: List<T> = mkList(None);
             for (i, item) in vec.iter().rev().enumerate() {
                 lst = cons(item.clone(), lst);
             }
-            List(lst)
+            lst
         }
     }
 
@@ -47,7 +40,7 @@ pub mod List {
                         rawVec.push(item.clone());
                     }
                 }),
-                self.0,
+                self,
             );
             vec.get()
         }
@@ -65,7 +58,7 @@ pub mod Array {
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct Array<T: Clone + 'static>(Native_::Array<T>);
 
-    impl <T: Clone> Deref for Array<T> {
+    impl<T: Clone> Deref for Array<T> {
         type Target = Native_::Array<T>;
 
         fn deref(&self) -> &Self::Target {
@@ -73,19 +66,19 @@ pub mod Array {
         }
     }
 
-    impl <T: Clone> From<Native_::Array<T>> for Array<T> {
+    impl<T: Clone> From<Native_::Array<T>> for Array<T> {
         fn from(arr: Native_::Array<T>) -> Self {
             Array(arr)
         }
     }
 
-    impl <T: Clone> From<Vec<T>> for Array<T> {
+    impl<T: Clone> From<Vec<T>> for Array<T> {
         fn from(vec: Vec<T>) -> Self {
             Array(Lrc::from(MutCell::from(vec)))
         }
     }
 
-    impl <T: Clone> From<&Vec<T>> for Array<T> {
+    impl<T: Clone> From<&Vec<T>> for Array<T> {
         fn from(vec: &Vec<T>) -> Self {
             let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
             Array(Lrc::from(MutCell::from(vecNew)))
