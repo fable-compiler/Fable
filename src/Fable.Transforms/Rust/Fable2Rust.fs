@@ -520,13 +520,13 @@ module TypeInfo =
         transformGenericType com ctx genArgs importName
 
     let transformListType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "List"
+        transformImportType com ctx [genArg] "List" "List"
 
     let transformSetType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "Set"
+        transformImportType com ctx [genArg] "Set" "Set"
 
     let transformMapType com ctx genArgs: Rust.Ty =
-        transformImportType com ctx genArgs "Native" "Map"
+        transformImportType com ctx genArgs "Map" "Map"
 
     let transformArrayType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Native" "MutArray"
@@ -538,10 +538,10 @@ module TypeInfo =
         transformImportType com ctx genArgs "Native" "MutHashMap"
 
     let transformAsyncType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Async" "Async`1"
+        transformImportType com ctx [genArg] "Async" "Async"
 
     let transformTaskType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Task" "Task`1"
+        transformImportType com ctx [genArg] "Task" "Task"
 
     let transformTaskBuilderType com ctx: Rust.Ty =
         transformImportType com ctx [] "TaskBuilder" "TaskBuilder"

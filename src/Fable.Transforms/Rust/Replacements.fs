@@ -2415,17 +2415,14 @@ let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Enter" | "Exit" -> Null Type.Unit |> makeValue r |> Some
     | _ -> None
 
-let task (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, i.GenericArgs with
     | _, "Task", [tType] ->
         Helper.LibCall(com, "Task", "new", tType, args, ?loc=r) |> Some
-    | Some x, "get_Result", _ ->
-        Helper.InstanceCall(x, "get_result", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _ -> None
-let taskNG (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, i.GenericArgs with
     | _, "FromResult", [tType] ->
         Helper.LibCall(com, "Task", "from_result", tType, args, ?loc=r) |> Some
+    | Some x, "get_Result", _ ->
+        Helper.InstanceCall(x, "get_result", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2614,11 +2611,6 @@ let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "task", _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-
-let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    // TODO: Throw error for RunSynchronously
-    | _, _, _ -> None
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseGuid (literalGuid: string) =
@@ -2916,8 +2908,10 @@ let private replacedModules =
     "System.Threading.CancellationToken", cancels
     "System.Threading.CancellationTokenSource", cancels
     "System.Threading.Monitor", monitor
-    "System.Threading.Tasks.Task`1", task
-    "System.Threading.Tasks.Task", taskNG
+    Types.task, tasks
+    Types.taskGeneric, tasks
+    "System.Threading.Tasks.TaskCompletionSource`1", tasks
+    "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
     "System.Activator", activator
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding

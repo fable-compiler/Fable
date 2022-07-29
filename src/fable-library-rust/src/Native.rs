@@ -21,10 +21,6 @@ pub mod Native_ {
     #[cfg(feature = "futures")]
     pub type Lrc<T> = Arc<T>;
 
-    pub type List<T> = crate::List_::List<T>;
-    pub type Set<T> = crate::Set_::Set<T>;
-    pub type Map<K, V> = crate::Map_::Map<K, V>;
-
     pub type MutArray<T> = MutCell<Vec<T>>;
     pub type MutHashSet<T> = MutCell<std::collections::HashSet<T>>;
     pub type MutHashMap<K, V> = MutCell<std::collections::HashMap<K, V>>;
