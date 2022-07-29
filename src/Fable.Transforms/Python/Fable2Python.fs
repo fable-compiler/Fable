@@ -1564,7 +1564,7 @@ module Util =
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (newKind, typ, kind) ->
             match newKind with
-            | Fable.ArrayValues values -> makeTypedArray com ctx typ kind values
+            | Fable.ArrayValues values -> makeArray com ctx values kind typ
             | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
             | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
 
