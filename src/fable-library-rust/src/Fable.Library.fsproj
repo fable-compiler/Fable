@@ -34,6 +34,7 @@
     <!-- <Compile Include="AsyncBuilder.fs" /> -->
     <!-- <Compile Include="Async.fs" /> -->
 
+    <Compile Include="Global.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />

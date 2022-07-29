@@ -1,5 +1,7 @@
 module List_
 
+open Global_
+
 type Node<'T> = {
     head: 'T
     mutable tail: Node<'T> option
@@ -7,31 +9,23 @@ type Node<'T> = {
 
 [<Struct>]
 type List<'t> = {
-    item: Node<'t> option
+    root: Node<'t> option
 }
-type 'T list = List<'T>
-let mkList item = { item = item }
-[<Fable.Core.Emit("$0.item")>] // otherwise Fable assumes conservatively the item must be cloned as owned.
-let getRaw lst = lst.item
 
-module SR =
-    let indexOutOfBounds = "The index was outside the range of elements in the list."
-    let inputListWasEmpty = "List was empty"
-    let inputMustBeNonNegative = "The input must be non-negative."
-    let inputSequenceEmpty = "The input sequence was empty."
-    let inputSequenceTooLong = "The input sequence contains more than one element."
-    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let differentLengths = "The lists had different lengths."
-    let notEnoughElements = "The input sequence has an insufficient number of elements."
+type 'T list = List<'T>
 
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
+
+let inline private getRoot xs = xs.root
+
+let mkList root = { root = root }
 
 let inline private consNoTail (x: 'T): 'T list =
     Some { head = x; tail = None } |> mkList
 
 let private setConsTail (t: 'T list) (xs: 'T list) =
-    match xs |> getRaw with
-    | Some node -> node.tail <- (getRaw t)
+    match getRoot xs with
+    | Some node -> node.tail <- (getRoot t)
     | None -> ()
 
 let private appendConsNoTail (x: 'T) (xs: 'T list) =
@@ -46,32 +40,32 @@ let empty (): 'T list = //List.Empty
     None |> mkList
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
-    Some { head = x; tail = xs |> getRaw } |> mkList
+    Some { head = x; tail = xs |> getRoot } |> mkList
 
 let singleton (x: 'T) = //List.Cons(x, List.Empty)
     cons x (empty())
 
 let isEmpty (xs: 'T list) = //xs.IsEmpty
-    xs |> getRaw |> Option.isNone
+    xs |> getRoot |> Option.isNone
 
 let head (xs: 'T list) = //xs.Head
-    match xs |> getRaw with
+    match xs |> getRoot with
     | Some node -> node.head
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let tryHead (xs: 'T list) = //xs.TryHead
-    match xs |> getRaw with
+    match xs |> getRoot with
     | Some node -> Some (node.head)
     | None -> None
 
 let tail (xs: 'T list) = //xs.Tail
-    match xs |> getRaw with
+    match xs |> getRoot with
     | Some node -> node.tail
     | None -> invalidArg "list" SR.inputListWasEmpty
     |> mkList
 
 let length (xs: 'T list) = //xs.Length
-    let xs = getRaw xs
+    let xs = getRoot xs
     let rec inner_loop i xs =
         match xs with
         | None -> i
@@ -79,7 +73,7 @@ let length (xs: 'T list) = //xs.Length
     inner_loop 0 xs
 
 let rec tryLast (xs: 'T list) =
-    let xs = getRaw xs
+    let xs = getRoot xs
     match xs with
     | None -> None
     | Some node ->
@@ -165,7 +159,7 @@ let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
         if predicate (head xs) (head ys)
         then forAll2 predicate (tail xs) (tail ys)
         else false
-    | _ -> invalidArg "list2" SR.differentLengths
+    | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
 let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
     let mutable root = empty()
@@ -267,7 +261,7 @@ let rec exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     | false, false ->
         if predicate (head xs) (head ys) then true
         else exists2 predicate (tail xs) (tail ys)
-    | _ -> invalidArg "list2" SR.differentLengths
+    | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
 let contains (value: 'T) (xs: 'T list) =
     exists (fun x -> x = value) xs
@@ -406,7 +400,7 @@ let tryItem index (xs: 'T list) =
             else inner_loop (i - 1) (tail xs)
     inner_loop index xs
 
-let item index (xs: 'T list) = // xs.Item(n)
+let item index (xs: 'T list) = // xs.root(n)
     match tryItem index xs with
     | None -> invalidArg "index" SR.indexOutOfBounds
     | Some x -> x
@@ -643,7 +637,7 @@ let transpose (lists: 'T list list): 'T list list =
         tail lists |> iterate (fun xs ->
             xs |> iterateIndexed (fun i x ->
                 if i >= nodes.Length then
-                    invalidArg "lists" SR.differentLengths
+                    invalidArg "lists" SR.listsHadDifferentLengths
                 nodes.[i] <- nodes.[i] |> appendConsNoTail x))
         roots
 
