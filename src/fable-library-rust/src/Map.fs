@@ -17,7 +17,9 @@ type MapTree<'K, 'V> = {
     Right: Map<'K, 'V>
 }
 
-and [<Struct>] Map<'K, 'V> = {
+and [<Struct>]
+    [<CompiledName("Map")>]
+    Map<'K, 'V> = {
     root: Option<MapTree<'K, 'V>>
 }
 

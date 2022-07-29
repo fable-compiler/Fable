@@ -8,8 +8,9 @@ type Node<'T> = {
 }
 
 [<Struct>]
-type List<'t> = {
-    root: Node<'t> option
+[<CompiledName("List")>]
+type List<'T> = {
+    root: Node<'T> option
 }
 
 type 'T list = List<'T>

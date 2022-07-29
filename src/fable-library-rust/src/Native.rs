@@ -7,7 +7,6 @@ mod Lazy;
 pub mod Native_ {
 
     // re-export at module level
-    pub use std::collections::{HashMap, HashSet};
     pub use std::boxed::Box as Box_;
     pub use std::rc::Rc;
     pub use std::sync::Arc;
@@ -22,17 +21,23 @@ pub mod Native_ {
     #[cfg(feature = "futures")]
     pub type Lrc<T> = Arc<T>;
 
-    pub type List_1<T> = crate::List_::List_1<T>;
-    pub type Set_1<T> = crate::Set_::Set_1<T>;
-    pub type Map_2<K, V> = crate::Map_::Map_2<K, V>;
+    pub type List<T> = crate::List_::List<T>;
+    pub type Set<T> = crate::Set_::Set<T>;
+    pub type Map<K, V> = crate::Map_::Map<K, V>;
+
+    pub type MutArray<T> = MutCell<Vec<T>>;
+    pub type MutHashSet<T> = MutCell<std::collections::HashSet<T>>;
+    pub type MutHashMap<K, V> = MutCell<std::collections::HashMap<K, V>>;
+
+    pub type Array<T> = Lrc<MutArray<T>>;
+    pub type HashSet<T> = Lrc<MutHashSet<T>>;
+    pub type HashMap<K, V> = Lrc<MutHashMap<K, V>>;
 
     // TODO: use these types in generated code
     pub type string = Lrc<str>;
     pub type seq<T> = Lrc<dyn crate::Interfaces_::IEnumerable_1<T>>;
+    pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
     pub type RefCell<T> = Lrc<MutCell<T>>;
-    pub type Array<T> = Lrc<MutCell<Vec<T>>>;
-    pub type HashSet_1<T> = Lrc<MutCell<HashSet<T>>>;
-    pub type HashMap_2<K, V> = Lrc<MutCell<HashMap<K, V>>>;
 
     use core::cmp::Ordering;
     use core::fmt::Debug;
@@ -139,19 +144,19 @@ pub mod Native_ {
     // HashSets
     // -----------------------------------------------------------
 
-    pub fn hashSetEmpty<T: Clone>() -> HashSet_1<T> {
-        mkRefMut(HashSet::new())
+    pub fn hashSetEmpty<T: Clone>() -> HashSet<T> {
+        mkRefMut(std::collections::HashSet::new())
     }
 
-    pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet_1<T> {
-        mkRefMut(HashSet::with_capacity(capacity as usize))
+    pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet<T> {
+        mkRefMut(std::collections::HashSet::with_capacity(capacity as usize))
     }
 
-    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet_1<T> {
-        mkRefMut(HashSet::from_iter(a.iter().cloned()))
+    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet<T> {
+        mkRefMut(std::collections::HashSet::from_iter(a.iter().cloned()))
     }
 
-    pub fn hashSetEntries<T: Clone>(set: HashSet_1<T>) -> Array<T> {
+    pub fn hashSetEntries<T: Clone>(set: HashSet<T>) -> Array<T> {
         array(Vec::from_iter(set.iter().cloned()))
     }
 
@@ -159,21 +164,21 @@ pub mod Native_ {
     // HashMaps
     // -----------------------------------------------------------
 
-    pub fn hashMapEmpty<K: Clone, V: Clone>() -> HashMap_2<K, V> {
-        mkRefMut(HashMap::new())
+    pub fn hashMapEmpty<K: Clone, V: Clone>() -> HashMap<K, V> {
+        mkRefMut(std::collections::HashMap::new())
     }
 
-    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap_2<K, V> {
-        mkRefMut(HashMap::with_capacity(capacity as usize))
+    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
+        mkRefMut(std::collections::HashMap::with_capacity(capacity as usize))
     }
 
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap_2<K, V> {
+    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap<K, V> {
         let it = a.iter().map(|pair| pair.as_ref().clone());
-        mkRefMut(HashMap::from_iter(it))
+        mkRefMut(std::collections::HashMap::from_iter(it))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
-        dict: HashMap_2<K, V>,
+        dict: HashMap<K, V>,
         k: K,
         v: V,
     ) -> bool {
@@ -185,7 +190,7 @@ pub mod Native_ {
         }
     }
 
-    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K, v: V) {
+    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
         match dict.get_mut().insert(k.clone(), v.clone()) {
             Some(v) => {
                 panic!("An item with the same key has already been added.")
@@ -194,7 +199,7 @@ pub mod Native_ {
         }
     }
 
-    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K) -> V {
+    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K) -> V {
         match dict.get_mut().get(&k) {
             Some(v) => v.clone(),
             None => {
@@ -203,12 +208,12 @@ pub mod Native_ {
         }
     }
 
-    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap_2<K, V>, k: K, v: V) {
+    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
         dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
     }
 
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
-        dict: HashMap_2<K, V>,
+        dict: HashMap<K, V>,
         k: K,
         res: &RefCell<V>,
     ) -> bool {
@@ -221,15 +226,15 @@ pub mod Native_ {
         }
     }
 
-    pub fn hashMapKeys<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<K> {
+    pub fn hashMapKeys<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<K> {
         array(Vec::from_iter(dict.keys().cloned()))
     }
 
-    pub fn hashMapValues<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<V> {
+    pub fn hashMapValues<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<V> {
         array(Vec::from_iter(dict.values().cloned()))
     }
 
-    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap_2<K, V>) -> Array<(K, V)> {
+    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<(K, V)> {
         array(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
