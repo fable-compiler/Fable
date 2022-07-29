@@ -3231,7 +3231,7 @@ module Util =
 
     let transformAbbrev (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // TODO: this is unfinished and untested
-        let entNamesp, entName = splitNameSpace ent.FullName
+        let entNameSpace, entName = splitNameSpace ent.FullName
         let genArgs = getEntityGenArgs ent
         let ty =
             let genArgs = genArgs |> transformGenArgs com ctx
@@ -3246,7 +3246,7 @@ module Util =
         [tyItem]
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
-        let entNamesp, entName = splitNameSpace ent.FullName
+        let entNameSpace, entName = splitNameSpace ent.FullName
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
@@ -3267,7 +3267,7 @@ module Util =
         [enumItem |> mkPublicItem] // TODO: add traits for attached members
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
-        let entNamesp, entName = splitNameSpace ent.FullName
+        let entNameSpace, entName = splitNameSpace ent.FullName
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let fields =
@@ -3379,7 +3379,7 @@ module Util =
                 )
             )
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
-        let entNamesp, entName = splitNameSpace ent.FullName
+        let entNameSpace, entName = splitNameSpace ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
 
@@ -3390,9 +3390,9 @@ module Util =
             ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
             result
 
-        let isConstructor (m: Fable.MemberDecl) =
+        let isConstructorOrStatic (m: Fable.MemberDecl) =
             let info = com.GetMember(m.MemberRef)
-            info.IsConstructor
+            info.IsConstructor || not (info.IsInstance)
 
         let makeMemberItem ctx (m: Fable.MemberDecl) =
             withCurrentScope ctx m.UsedNames <| fun ctx ->
@@ -3401,35 +3401,36 @@ module Util =
 
         let entRef = decl.Entity
         let ent = com.GetEntity(entRef)
-        let entNamesp, entName = splitNameSpace ent.FullName
+        let entNameSpace, entName = splitNameSpace ent.FullName
 
         let ctx = { ctx with ScopedTypeParams =
                                 ent.GenericParameters
                                 |> List.map (fun g -> g.Name)
                                 |> Set.ofList }
 
-        let ctorImpls =
-            if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                []
-            else
-                let primaryCtorItem =
-                    match decl.Constructor with
-                    | Some ctor ->
-                        withCurrentScope ctx ctor.UsedNames <| fun ctx ->
-                            transformImplicitConstructor com ctx ent ctor
-                    | _ ->
-                        transformCompilerGeneratedConstructor com ctx ent decl.Name
-                    |> mkPublicAssocItem
-                let ctorItems =
-                    decl.AttachedMembers
-                    |> List.filter isConstructor
-                    |> List.map (makeMemberItem ctx)
-                let ctorItems = primaryCtorItem :: ctorItems
-                let genArgs = getEntityGenArgs ent
-                let ty = transformDeclaredType com ctx entRef genArgs
-                let generics = genArgs |> makeGenerics com ctx
-                let implItem = mkImplItem [] "" ty generics ctorItems None
-                [implItem]
+        let ctorOrStaticImpls =
+            let ctorItems =
+                if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                    []
+                else
+                    let ctorItem =
+                        match decl.Constructor with
+                        | Some ctor ->
+                            withCurrentScope ctx ctor.UsedNames <| fun ctx ->
+                                transformImplicitConstructor com ctx ent ctor
+                        | _ ->
+                            transformCompilerGeneratedConstructor com ctx ent decl.Name
+                    [ctorItem |> mkPublicAssocItem]
+            let ctorOrStaticItems =
+                decl.AttachedMembers
+                |> List.filter isConstructorOrStatic
+                |> List.map (makeMemberItem ctx)
+                |> List.append ctorItems
+            let genArgs = getEntityGenArgs ent
+            let ty = transformDeclaredType com ctx entRef genArgs
+            let generics = genArgs |> makeGenerics com ctx
+            let implItem = mkImplItem [] "" ty generics ctorOrStaticItems None
+            [implItem]
 
         let interfaces =
             ent.AllInterfaces
@@ -3445,34 +3446,30 @@ module Util =
             |> Seq.map (fun (_, members, _) -> members)
             |> Seq.fold Set.union Set.empty
 
-        let nonConstructorMembersSet =
+        let allNonConstructorOrStaticMembersSet =
             decl.AttachedMembers
-            |> List.filter (fun m -> not (isConstructor m))
+            |> List.filter (fun m -> not (isConstructorOrStatic m))
             |> List.map (fun m -> m.Name)
             |> Set.ofList
 
         let nonInterfaceMembersSet =
-            Set.difference nonConstructorMembersSet allInterfaceMembersSet
+            Set.difference allNonConstructorOrStaticMembersSet allInterfaceMembersSet
 
         let nonInterfaceMembersTrait =
-            let membersNotDeclared =
-                decl.AttachedMembers |> List.filter (fun m ->
-                    let isNotStatic = m.Args |> List.exists (fun q -> q.IsThisArgument)
-                    Set.contains m.Name nonInterfaceMembersSet && isNotStatic)
-            if Set.isEmpty nonInterfaceMembersSet || membersNotDeclared |> List.isEmpty then
+            if Set.isEmpty nonInterfaceMembersSet then
                 []
             else
+                let assocItems =
+                    decl.AttachedMembers
+                    |> List.filter (fun m -> Set.contains m.Name nonInterfaceMembersSet)
+                    |> List.map (fun m ->
+                        let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                        let memb = com.GetMember(m.MemberRef)
+                        let generics = getMemberGenArgs memb |> makeGenerics com ctx
+                        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                        mkFnAssocItem [] m.Name fnKind
+                    )
                 let traitItem =
-                    let assocItems = [
-                        for m in membersNotDeclared ->
-                            let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                            let memb = com.GetMember(m.MemberRef)
-                            let generics =
-                                getMemberGenArgs memb
-                                |> makeGenerics com ctx
-                            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                            mkFnAssocItem [] m.Name fnKind
-                    ]
                     let generics = getEntityGenArgs ent |> makeGenerics com ctx
                     mkTraitItem [] (entName + "Methods") assocItems [] generics
                 [traitItem |> mkPublicItem]
@@ -3487,35 +3484,22 @@ module Util =
             traitsToRender
             |> List.collect (fun (isNonInterface, tMethods, tEntRef) ->
                 let tEnt = com.GetEntity(tEntRef)
-                let memberItems, memberItemsStatic =
+                let memberItems =
                     decl.AttachedMembers
-                    |> List.filter (fun m ->tMethods |> Set.contains m.Name)
-                    |> List.partition (fun m -> m.Args |> List.exists (fun q -> q.IsThisArgument))
-                    |> fun (m, mStatic) -> m |> List.map (makeMemberItem ctx), mStatic |> List.map (makeMemberItem ctx)
+                    |> List.filter (fun m -> Set.contains m.Name tMethods)
+                    |> List.map (makeMemberItem ctx)
                 let ty =
-                    let genArgTys =
-                        getEntityGenArgs ent
-                        |> transformGenArgs com ctx
+                    let genArgTys = getEntityGenArgs ent |> transformGenArgs com ctx
                     let bounds = mkTypeTraitGenericBound [entName] genArgTys
                     let ty = mkTraitTy [bounds]
                     ty
                 let genArgs = getEntityGenArgs tEnt
                 let generics = genArgs |> makeGenerics com ctx
-                let implItemStatic =
-                    let nameParts =
-                        if isNonInterface then tEntRef.FullName
-                        else getInterfaceEntityName com ctx tEntRef
-                        |> splitFullName
-                    let path =
-                        let genArgTys = genArgs |> List.map (transformType com ctx)
-                        mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
-                    mkImplItem [] "" ty generics memberItemsStatic None
                 let implItem =
                     let ty =
-                        let ety = com.GetEntity(tEntRef)
-                        if not ety.IsValueType then
-                            makeLrcTy com ctx ty
-                        else ty
+                        if tEnt.IsValueType
+                        then ty
+                        else ty |> makeLrcTy com ctx
                     let nameParts =
                         if isNonInterface then tEntRef.FullName + "Methods"
                         else getInterfaceEntityName com ctx tEntRef
@@ -3525,15 +3509,10 @@ module Util =
                         mkGenericPath nameParts (mkGenericTypeArgs genArgTys)
                     let ofTrait = mkTraitRef path |> Some
                     mkImplItem [] "" ty generics memberItems ofTrait
-                [
-                    if memberItemsStatic |> List.isEmpty |> not then
-                        yield implItemStatic
-                    if memberItems |> List.isEmpty |> not then
-                        yield implItem
-                    ]
+                [implItem]
             )
 
-        ctorImpls @ nonInterfaceMembersTrait @ memberTraitImpls
+        ctorOrStaticImpls @ nonInterfaceMembersTrait @ memberTraitImpls
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)
