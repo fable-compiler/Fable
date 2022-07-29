@@ -5,8 +5,14 @@ type Node<'T> = {
     mutable tail: Node<'T> option
 }
 
-type List<'T> = Node<'T> option
+[<Struct>]
+type List<'t> = {
+    item: Node<'t> option
+}
 type 'T list = List<'T>
+let mkList item = { item = item }
+[<Fable.Core.Emit("$0.item")>] // otherwise Fable assumes conservatively the item must be cloned as owned.
+let getRaw lst = lst.item
 
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the list."
@@ -21,11 +27,11 @@ module SR =
 let inline indexNotFound() = failwith SR.keyNotFoundAlt
 
 let inline private consNoTail (x: 'T): 'T list =
-    Some { head = x; tail = None }
+    Some { head = x; tail = None } |> mkList
 
 let private setConsTail (t: 'T list) (xs: 'T list) =
-    match xs with
-    | Some node -> node.tail <- t
+    match xs |> getRaw with
+    | Some node -> node.tail <- (getRaw t)
     | None -> ()
 
 let private appendConsNoTail (x: 'T) (xs: 'T list) =
@@ -37,33 +43,35 @@ let private appendConsNoTail (x: 'T) (xs: 'T list) =
 // TODO: there may be some class members here when those are supported
 
 let empty (): 'T list = //List.Empty
-    None
+    None |> mkList
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
-    Some { head = x; tail = xs }
+    Some { head = x; tail = xs |> getRaw } |> mkList
 
 let singleton (x: 'T) = //List.Cons(x, List.Empty)
     cons x (empty())
 
 let isEmpty (xs: 'T list) = //xs.IsEmpty
-    xs |> Option.isNone
+    xs |> getRaw |> Option.isNone
 
 let head (xs: 'T list) = //xs.Head
-    match xs with
+    match xs |> getRaw with
     | Some node -> node.head
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let tryHead (xs: 'T list) = //xs.TryHead
-    match xs with
+    match xs |> getRaw with
     | Some node -> Some (node.head)
     | None -> None
 
 let tail (xs: 'T list) = //xs.Tail
-    match xs with
+    match xs |> getRaw with
     | Some node -> node.tail
     | None -> invalidArg "list" SR.inputListWasEmpty
+    |> mkList
 
 let length (xs: 'T list) = //xs.Length
+    let xs = getRaw xs
     let rec inner_loop i xs =
         match xs with
         | None -> i
@@ -71,12 +79,13 @@ let length (xs: 'T list) = //xs.Length
     inner_loop 0 xs
 
 let rec tryLast (xs: 'T list) =
+    let xs = getRaw xs
     match xs with
     | None -> None
     | Some node ->
-        if (isEmpty node.tail)
+        if (isEmpty (mkList node.tail))
         then Some (node.head)
-        else tryLast node.tail
+        else tryLast (mkList node.tail)
 
 let last (xs: 'T list) =
     match tryLast xs with
@@ -121,6 +130,7 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     acc
 
 let reverse (xs: 'T list) =
+    let xs = xs
     fold (fun acc x -> cons x acc) (empty()) xs
 
 let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
