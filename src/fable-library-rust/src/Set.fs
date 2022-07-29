@@ -25,7 +25,6 @@ type SetTree<'T> = {
 and [<Struct>]Set<'T> = {
     item: Option<SetTree<'T>>
 }
-type 'T list = List<'T>
 let mkSet item = { item = item }
 [<Fable.Core.Emit("$0.item")>] // otherwise Fable assumes conservatively the item must be cloned as owned.
 let getRaw lst = lst.item

@@ -11,7 +11,7 @@ pub mod ExtInteropTests {
             let lst = List_1::from(&vec![1, 2, 3]);
             let tgt: Vec<i32> = lst.clone().into();
 
-            let expectedLst = List_1::from(cons(1, cons(2, singleton(3))));
+            let expectedLst = cons(1, cons(2, singleton(3)));
             assert_eq!(lst, expectedLst);
             assert_eq!(raw, tgt);
         }

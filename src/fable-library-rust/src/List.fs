@@ -5,7 +5,6 @@ type Node<'T> = {
     mutable tail: Node<'T> option
 }
 
-//type List<'T> = Node<'T> option
 [<Struct>]
 type List<'t> = {
     item: Node<'t> option
@@ -53,7 +52,7 @@ let singleton (x: 'T) = //List.Cons(x, List.Empty)
     cons x (empty())
 
 let isEmpty (xs: 'T list) = //xs.IsEmpty
-    xs |> getRaw |> Option.isNone 
+    xs |> getRaw |> Option.isNone
 
 let head (xs: 'T list) = //xs.Head
     match xs |> getRaw with
