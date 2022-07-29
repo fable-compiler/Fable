@@ -36,7 +36,6 @@ let ``test Queue implements IEnumerable<'T>`` () =
 
     q |> List.ofSeq |> equal [1;2;3;4;5]
 
-(* TODO
 [<Fact>]
 let ``test Queue can be converted to array`` () =
     let q = Queue<int>()
@@ -45,10 +44,9 @@ let ``test Queue can be converted to array`` () =
     q.ToArray() |> equal [| |]
     q2.ToArray() |> equal [| |]
 
-    [1..5] |> List.iter (q.Enqueue)
+    [1..5] |> List.iter q.Enqueue
 
     q.ToArray() |> equal [|1;2;3;4;5|]
-*)
 
 [<Fact>]
 let ``test Queue constructed with list works`` () =
