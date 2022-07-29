@@ -8,7 +8,7 @@ pub mod ExtInteropTests {
         pub fn can_interop_between_list_and_vec() {
             //todo
             let raw = vec![1, 2, 3];
-            let lst = List_1::from(&vec![1, 2, 3]);
+            let lst = List_1::from(&raw);
             let tgt: Vec<i32> = lst.clone().into();
 
             let expectedLst = cons(1, cons(2, singleton(3)));
@@ -24,7 +24,7 @@ pub mod ExtInteropTests {
         pub fn can_interop_between_array_and_vec() {
             //todo
             let raw = vec![1, 2, 3];
-            let arr = Array::from(&vec![1, 2, 3]);
+            let arr = Array::from(&raw);
             let tgt: Vec<i32> = arr.clone().into();
 
             assert_eq!(raw, tgt);
@@ -32,16 +32,26 @@ pub mod ExtInteropTests {
     }
 
     pub mod SetTests {
-        use fable_library_rust::{
-            Set_::{Set_1},
-            Native_::List_1,
-        };
+        use fable_library_rust::{Set_::Set_1};
         #[test]
         pub fn can_interop_between_set_and_vec() {
             //todo
             let raw = vec![1, 2, 3];
-            let arr = Set_1::from(&vec![1, 2, 3]);
-            let tgt: Vec<i32> = arr.clone().into();
+            let set = Set_1::from(&raw);
+            let tgt: Vec<i32> = set.clone().into();
+
+            assert_eq!(raw, tgt);
+        }
+    }
+
+    pub mod MapTests {
+        use fable_library_rust::{Native_::{Map_2, Lrc}, String_::string};
+        #[test]
+        pub fn can_interop_between_map_and_vec() {
+            //todo
+            let raw = vec![(string("a"), 1), (string("b"), 2), (string("c"), 3)];
+            let map = Map_2::from(&raw);
+            let tgt: Vec<(Lrc<str>, i32)> = map.clone().into();
 
             assert_eq!(raw, tgt);
         }

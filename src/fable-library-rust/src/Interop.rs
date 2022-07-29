@@ -99,8 +99,8 @@ pub mod SetExt {
 
     use super::super::Set_;
     use crate::{
-        Native_::{Lrc, MutCell, self},
-        Set_::{iterate, empty}
+        Native_::{self, Lrc, MutCell},
+        Set_::{empty, iterate},
     };
 
     type Set<T> = Set_::Set_1<T>;
@@ -143,4 +143,41 @@ pub mod SetExt {
     }
 }
 
-pub mod MapExt {}
+pub mod MapExt {
+    use std::ops::Deref;
+
+    use super::super::Map_;
+    use crate::{
+        Map_::{empty, iterate},
+        Native_::{List_1, Lrc, MutCell},
+    };
+
+    type Map_2<K, V> = Map_::Map_2<K, V>;
+
+    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> From<&Vec<(K, V)>> for Map_2<K, V> {
+        fn from(vec: &Vec<(K, V)>) -> Self {
+            let mut map: Map_2<K, V> = empty();
+            for (i, (k, v)) in vec.iter().rev().enumerate() {
+                map = Map_::add(k.clone(), v.clone(), map);
+            }
+            map
+        }
+    }
+
+    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> Into<Vec<(K, V)>> for Map_2<K, V> {
+        fn into(self) -> Vec<(K, V)> {
+            let vec = Lrc::from(MutCell::from(Vec::new()));
+            iterate(
+                Lrc::from({
+                    let vec = vec.clone();
+                    move |k: K, v: V| {
+                        let rawVec = vec.get_mut();
+                        rawVec.push((k.clone(), v.clone()));
+                    }
+                }),
+                self,
+            );
+            vec.get()
+        }
+    }
+}
