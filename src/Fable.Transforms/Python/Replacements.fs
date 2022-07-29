@@ -973,6 +973,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             Some(Naming.unknown, -1))
         |> Option.map (fun (s, i) -> makeTuple r false [ makeStrConst s; makeIntConst i ])
 
+    // Extensions
     | _, "Async.AwaitPromise.Static" ->
         Helper.LibCall(com, "async_", "awaitPromise", t, args, ?loc = r)
         |> Some

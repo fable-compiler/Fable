@@ -187,7 +187,7 @@ module Python =
                                 i <- i + 1
                                 if part = "." then if i = 0 && isLibrary then Some("") else None
                                 elif part = ".." then None
-                                elif part = Naming.fableModules then None
+                                elif part = Naming.fableModules && (not isLibrary) then None
                                 else Some(normalizeFileName part)
                             )
                             |> String.concat "."

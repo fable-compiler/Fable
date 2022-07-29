@@ -952,9 +952,195 @@ let ``test Array.groupBy returns valid array`` () =
     worked |> equal true
 
 [<Fact>]
-let ``Array.windowed works`` () = // See #1716
+let ``test Array.windowed works`` () = // See #1716
     let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
     Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
     Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
     Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
     Array.windowed 7 nums |> Array.isEmpty |> equal true
+
+[<Fact>]
+let ``test Array.allPairs works`` () =
+    let xs = [|1;2;3;4|]
+    let ys = [|'a';'b';'c';'d';'e';'f'|]
+    Array.allPairs xs ys
+    |> equal
+        [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+          (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+          (4, 'd'); (4, 'e'); (4, 'f')|]
+
+[<Fact>]
+let ``test Casting to System.Array works`` () =
+    let xs = [|1;2;3;4|] :> System.Array // Numeric array
+    let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
+    [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
+    |> equal
+        [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+          (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+          (4, 'd'); (4, 'e'); (4, 'f') ]
+
+[<Fact>]
+let ``test Testing against System.Array works`` () =
+    let xs = box [|1;2;3;4|]
+    let ys = box [|'a';'b';'c';'d';'e';'f'|]
+    let zs = box [1;2;3;4]
+    xs :? System.Array |> equal true
+    ys :? System.Array |> equal true
+    zs :? System.Array |> equal false
+
+[<Fact>]
+let ``test Array.Copy works with numeric arrays`` () =
+    let source = [| 99 |]
+    let destination = [| 1; 2; 3 |]
+    Array.Copy(source, 0, destination, 0, 1)
+    equal [| 99; 2; 3 |] destination
+
+[<Fact>]
+let ``test Array.Copy works with non-numeric arrays`` () =
+    let source = [| "xy"; "xx"; "xyz" |]
+    let destination = [| "a"; "b"; "c" |]
+    Array.Copy(source, 1, destination, 1, 2)
+    equal [| "a"; "xx"; "xyz" |] destination
+
+[<Fact>]
+let ``test Array.splitInto works`` () =
+   [|1..10|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
+   [|1..11|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
+   [|1..12|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
+   [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
+   [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
+
+[<Fact>]
+let ``test Array.exactlyOne works`` () =
+    [|1.|] |> Array.exactlyOne |> equal 1.
+    (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+    (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Array.tryExactlyOne works`` () =
+    [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
+    [|1.;2.|] |> Array.tryExactlyOne |> equal None
+    [||] |> Array.tryExactlyOne |> equal None
+
+[<Fact>]
+let ``test Array.pairwise works`` () =
+    Array.pairwise<int> [||] |> equal [||]
+    Array.pairwise [|1|] |> equal [||]
+    Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
+    let xs = [|1; 2; 3; 4|]
+    let xs2 = xs |> Array.pairwise
+    equal [|(1, 2); (2, 3); (3, 4)|] xs2
+    xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
+
+[<Fact>]
+let ``test Array.transpose works`` () =
+    // integer array
+    Array.transpose (seq [[|1..3|]; [|4..6|]])
+    |> equal [|[|1;4|]; [|2;5|]; [|3;6|]|]
+    Array.transpose [|[|1..3|]|]
+    |> equal [|[|1|]; [|2|]; [|3|]|]
+    Array.transpose [|[|1|]; [|2|]|]
+    |> equal [|[|1..2|]|]
+    // string array
+    Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
+    |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
+    // empty array
+    Array.transpose [| |]
+    |> equal [| |]
+    // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
+    Array.transpose [| [||] |]
+    |> equal [| |]
+    Array.transpose [| [||]; [||] |]
+    |> equal [| |]
+    // jagged arrays
+    throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+    throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+
+[<Fact>]
+let ``test Array.udpateAt works`` () =
+    // integer list
+    equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
+
+    //string list
+    equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.insertAt works`` () =
+    // integer list
+    equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
+
+    //string list
+    equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    equal [|0|] (Array.insertAt 0 0 [||])
+    throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.insertManyAt works`` () =
+    // integer list
+    equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
+    equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
+    equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
+
+    //string list
+    equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
+    throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.removeAt works`` () =
+    // integer list
+    equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
+    equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
+    equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
+
+    //string list
+    equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.removeManyAt works`` () =
+    // integer list
+    equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
+    equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
+    equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
+
+    //string list
+    equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)

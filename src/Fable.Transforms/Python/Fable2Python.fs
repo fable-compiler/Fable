@@ -1147,7 +1147,8 @@ module Util =
             get com ctx None expr m false
             |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs kind typ =
+    let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
+        //printfn "makeArray: %A" (exprs, kind, typ)
         let expr, stmts =
             exprs
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
@@ -1182,6 +1183,22 @@ module Util =
             ),
             stmts
         | _ -> expr |> Expression.list, stmts
+
+
+    let makeArrayAllocated (com: IPythonCompiler) ctx typ kind (size: Fable.Expr) =
+        //printfn "makeArrayAllocated"
+        let size, stmts = com.TransformAsExpr(ctx, size)
+        let array = Expression.list [ Expression.constant (0) ]
+        Expression.binOp (array, Mult, size), stmts
+
+    let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
+        match fableExpr with
+        | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
+            makeArray com ctx exprs kind typ
+        | _ ->
+            let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
+            let name = Expression.name ("list")
+            Expression.call (name, [ expr ]), stmts
 
     let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts =
@@ -1545,21 +1562,11 @@ module Util =
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (Fable.ArrayValues values, typ, kind) -> makeArray com ctx values kind typ
-        | Fable.NewArray ((Fable.ArrayAlloc expr | Fable.ArrayFrom expr), _typ, _kind) ->
-            // printfn "NewArrayFrom: %A" (size, size.Type, typ)
-            let arg, stmts = com.TransformAsExpr(ctx, expr)
-
-            match expr with
-            | Fable.Value(kind = Fable.ValueKind.NumberConstant(value = :? int as size)) when size = 0 -> Expression.list [], []
-            | _ ->
-                match expr.Type with
-                | Fable.Type.Number _ ->
-                    let array = Expression.list [ Expression.constant (0) ]
-                    Expression.binOp (array, Mult, arg), stmts
-                | _ ->
-                    let name = Expression.name ("list")
-                    Expression.call (name, [ arg ]), stmts
+        | Fable.NewArray (newKind, typ, kind) ->
+            match newKind with
+            | Fable.ArrayValues values -> makeTypedArray com ctx typ kind values
+            | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
+            | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
 
         | Fable.NewTuple (vals, _) -> makeTuple com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
@@ -3964,8 +3971,8 @@ module Compiler =
             com.GetImportExpr(ctx, "os") |> ignore
             com.GetImportExpr(ctx, "sys") |> ignore
 
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
         let body = importDecls @ typeVars @ rootDecls

@@ -19,7 +19,7 @@ module Helpers =
     [<Emit("[None]*$0")>]
     let allocateArray (len: int) : 'T [] = nativeOnly
 
-    [<Emit("[x for i, x in enumerate($0) if i < $1]")>]
+    [<Emit("[x for i, x in enumerate(list($0)+[0]*($1-len($0))) if i < $1]")>]
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
@@ -111,5 +111,7 @@ module Helpers =
     [<Emit("$1.sort()")>]
     let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T []) : unit = nativeOnly //!!array?sort(comparer)
 
-    [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
-    let copyToTypedArray (src: 'T []) (srci: int) (trg: 'T []) (trgi: int) (cnt: int) : unit = nativeOnly
+    let copyToTypedArray (src: 'T []) (srci: int) (trg: 'T []) (trgi: int) (cnt: int) : unit =
+        let diff = trgi - srci
+        for i = srci to srci + cnt - 1 do
+            trg.[i + diff] <- src.[i]

@@ -36,7 +36,6 @@ def try_get_value(
     map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]
 ) -> bool:
     if key in map.keys():
-
         default_value.contents = map[key]
         return True
 
