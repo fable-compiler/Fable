@@ -5,7 +5,7 @@ pub mod ListExt {
 
     use super::super::List_;
     use crate::{
-        List_::{cons, iterate, singleton, mkList},
+        List_::{cons, iterate, mkList, singleton},
         Native_::{List_1, Lrc, MutCell},
     };
 
@@ -47,7 +47,7 @@ pub mod ListExt {
     }
 }
 
-pub mod Array {
+pub mod ArrayExt {
     use std::ops::Deref;
 
     use crate::{
@@ -92,8 +92,55 @@ pub mod Array {
     }
 }
 
-pub mod Seq {}
+pub mod SeqExt {}
 
-pub mod Set {}
+pub mod SetExt {
+    use std::ops::Deref;
 
-pub mod Map {}
+    use super::super::Set_;
+    use crate::{
+        Native_::{Lrc, MutCell, self},
+        Set_::{iterate, empty}
+    };
+
+    type Set<T> = Set_::Set_1<T>;
+
+    impl<T: Clone + PartialOrd> From<Vec<T>> for Set<T> {
+        fn from(vec: Vec<T>) -> Self {
+            let mut set = empty();
+            for v in vec.iter() {
+                set = Set_::add(v.clone(), set);
+            }
+            set
+        }
+    }
+
+    impl<T: Clone + PartialOrd> From<&Vec<T>> for Set<T> {
+        fn from(vec: &Vec<T>) -> Self {
+            let mut set = empty();
+            for v in vec.iter() {
+                set = Set_::add(v.clone(), set);
+            }
+            set
+        }
+    }
+
+    impl<T: Clone> Into<Vec<T>> for Set<T> {
+        fn into(self) -> Vec<T> {
+            let vec = Lrc::from(MutCell::from(Vec::new()));
+            iterate(
+                Lrc::from({
+                    let vec = vec.clone();
+                    move |item: T| {
+                        let rawVec = vec.get_mut();
+                        rawVec.push(item.clone());
+                    }
+                }),
+                self,
+            );
+            vec.get()
+        }
+    }
+}
+
+pub mod MapExt {}
