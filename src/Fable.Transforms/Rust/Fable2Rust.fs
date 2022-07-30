@@ -3624,11 +3624,11 @@ module Util =
         let memberDecls =
             // Instead of transforming declarations depth-first, i.e.
             // (decl.Members |> List.collect (transformDecl com ctx)),
-            // prioritize non-module declaration transforms first,
+            // this prioritizes non-module declaration transforms first,
             // so module imports can be properly deduped top to bottom.
             decl.Members
             |> List.map (fun decl ->
-                let lazyDecl = lazy(transformDecl com ctx decl)
+                let lazyDecl = lazy (transformDecl com ctx decl)
                 match decl with
                 | Fable.ModuleDeclaration _ -> () // delay module decl transform
                 | _ -> lazyDecl.Force() |> ignore // transform other decls first

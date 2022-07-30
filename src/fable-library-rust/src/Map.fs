@@ -20,16 +20,16 @@ type MapTree<'K, 'V> = {
 and [<Struct>]
     [<CompiledName("Map")>]
     Map<'K, 'V> = {
-    root: Option<MapTree<'K, 'V>>
-}
+        root: Option<MapTree<'K, 'V>>
+    }
 
 let inline private getRoot m = m.root
 
-let mkMap root = { root = root }
+let private mkMap root = { root = root }
 
 let empty: Map<'K, 'V> = { root = None }
 
-let isEmpty (m: Map<'K, 'V>) = m.root.IsNone
+let isEmpty (m: Map<'K, 'V>) = (getRoot m).IsNone
 
 let mkMapTreeLeaf (k: 'K, v: 'V) =
     Some { Key = k; Value = v; Left = empty; Right = empty; Height = 1 } |> mkMap
@@ -40,7 +40,7 @@ let mkMapTreeNode (k: 'K, v: 'V, left: Map<'K, 'V>, right: Map<'K, 'V>, h: int) 
 let singleton (k: 'K, v: 'V) = mkMapTreeLeaf (k, v)
 
 let rec sizeAux acc (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -51,7 +51,7 @@ let rec sizeAux acc (m: Map<'K, 'V>) =
 let count x = sizeAux 0 x
 
 let inline height (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> 0
     | Some t -> t.Height
 
@@ -91,7 +91,7 @@ let rebalance t1 (k: 'K) (v: 'V) t2 : Map<'K, 'V> =
         else mk t1 k v t2
 
 let rec add k (v: 'V) (m: Map<'K, 'V>) : Map<'K, 'V> =
-    match m |> getRoot with
+    match getRoot m with
     | None -> mkMapTreeLeaf (k,v)
     | Some t ->
         let c = compare k t.Key
@@ -105,7 +105,7 @@ let rec add k (v: 'V) (m: Map<'K, 'V>) : Map<'K, 'V> =
             else rebalance t.Left t.Key t.Value (add k v t.Right)
 
 let rec tryGetValue k (v: byref<'V>) (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> false
     | Some t ->
         let c = compare k t.Key
@@ -140,7 +140,7 @@ let partition1 f k v (acc1, acc2) =
     if f k v then (add k v acc1, acc2) else (acc1, add k v acc2)
 
 let rec partitionAux f (m: Map<'K, 'V>) acc =
-    match m |> getRoot with
+    match getRoot m with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -157,7 +157,7 @@ let filter1 f k v acc =
     if f k v then add k v acc else acc
 
 let rec filterAux f (m: Map<'K, 'V>) acc =
-    match m |> getRoot with
+    match getRoot m with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
@@ -171,7 +171,7 @@ let filter f m =
     filterAux f m empty
 
 let rec spliceOutSuccessor (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> failwith "internal error: Map.spliceOutSuccessor"
     | Some t ->
         if t.Height = 1 then
@@ -181,7 +181,7 @@ let rec spliceOutSuccessor (m: Map<'K, 'V>) =
             else let k3, v3, l' = spliceOutSuccessor t.Left in k3, v3, mk l' t.Key t.Value t.Right
 
 let rec remove k (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> empty
     | Some t ->
         let c = compare k t.Key
@@ -198,7 +198,7 @@ let rec remove k (m: Map<'K, 'V>) =
             else rebalance t.Left t.Key t.Value (remove k t.Right)
 
 let rec change k (u: 'V option -> 'V option) (m: Map<'K, 'V>) : Map<'K,'V> =
-    match m |> getRoot with
+    match getRoot m with
     | None ->
         match u None with
         | None -> m
@@ -235,7 +235,7 @@ let rec change k (u: 'V option -> 'V option) (m: Map<'K, 'V>) : Map<'K,'V> =
                 rebalance t.Left t.Key t.Value (change k u t.Right)
 
 let rec containsKey k (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> false
     | Some t ->
         let c = compare k t.Key
@@ -246,7 +246,7 @@ let rec containsKey k (m: Map<'K, 'V>) =
             else (c = 0 || containsKey k t.Right)
 
 let rec iterate f (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> ()
     | Some t ->
         if t.Height = 1 then
@@ -255,7 +255,7 @@ let rec iterate f (m: Map<'K, 'V>) =
             iterate f t.Left; f t.Key t.Value; iterate f t.Right
 
 let rec tryPick f (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> None
     | Some t ->
         if t.Height = 1 then
@@ -283,7 +283,7 @@ let tryFindKey predicate (m: Map<'K, 'V>) =
         if predicate k v then Some k else None)
 
 let rec exists f (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> false
     | Some t ->
         if t.Height = 1 then
@@ -292,7 +292,7 @@ let rec exists f (m: Map<'K, 'V>) =
             exists f t.Left || f t.Key t.Value || exists f t.Right
 
 let rec forAll f (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> true
     | Some t ->
         if t.Height = 1 then
@@ -301,7 +301,7 @@ let rec forAll f (m: Map<'K, 'V>) =
             forAll f t.Left && f t.Key t.Value && forAll f t.Right
 
 let rec mapRange (f: 'V -> 'R) (m: Map<'K, 'V>) : Map<'K, 'R> =
-    match m |> getRoot with
+    match getRoot m with
     | None -> empty
     | Some t ->
         if t.Height = 1 then
@@ -313,7 +313,7 @@ let rec mapRange (f: 'V -> 'R) (m: Map<'K, 'V>) : Map<'K, 'R> =
             mkMapTreeNode (t.Key, v2, l2, r2, t.Height)
 
 let rec map (f: 'K -> 'V -> 'R) (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> empty
     | Some t ->
         if t.Height = 1 then
@@ -325,7 +325,7 @@ let rec map (f: 'K -> 'V -> 'R) (m: Map<'K, 'V>) =
             mkMapTreeNode (t.Key, v2, l2, r2, t.Height)
 
 let rec foldBack f (m: Map<'K, 'V>) x =
-    match m |> getRoot with
+    match getRoot m with
     | None -> x
     | Some t ->
         if t.Height = 1 then
@@ -336,7 +336,7 @@ let rec foldBack f (m: Map<'K, 'V>) x =
             foldBack f t.Left x
 
 let rec fold f x (m: Map<'K, 'V>) =
-    match m |> getRoot with
+    match getRoot m with
     | None -> x
     | Some t ->
         if t.Height = 1 then
@@ -347,7 +347,7 @@ let rec fold f x (m: Map<'K, 'V>) =
             fold f x t.Right
 
 let rec foldFromTo lo hi f (m: Map<'K, 'V>) x =
-    match m |> getRoot with
+    match getRoot m with
     | None -> x
     | Some t ->
         if t.Height = 1 then
@@ -421,7 +421,7 @@ let rec collapseLHS (stack: Map<'K, 'V> list) =
     match stack with
     | [] -> []
     | m :: rest ->
-        match m |> getRoot with
+        match getRoot m with
         | None -> collapseLHS rest
         | Some t ->
             if t.Height = 1 then

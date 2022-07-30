@@ -4,14 +4,14 @@ open Global_
 
 type Node<'T> = {
     head: 'T
-    mutable tail: Node<'T> option
+    mutable tail: List<'T>
 }
 
-[<Struct>]
-[<CompiledName("List")>]
-type List<'T> = {
-    root: Node<'T> option
-}
+and [<Struct>]
+    [<CompiledName("List")>]
+    List<'T> = {
+        root: Node<'T> option
+    }
 
 type 'T list = List<'T>
 
@@ -19,20 +19,20 @@ let inline indexNotFound() = failwith SR.keyNotFoundAlt
 
 let inline private getRoot xs = xs.root
 
-let mkList root = { root = root }
+let private mkList root = { root = root }
 
-let inline private consNoTail (x: 'T): 'T list =
-    Some { head = x; tail = None } |> mkList
+let inline private consNoTail (x: 'T) =
+    Some { head = x; tail = None |> mkList }
 
-let private setConsTail (t: 'T list) (xs: 'T list) =
-    match getRoot xs with
-    | Some node -> node.tail <- (getRoot t)
+let inline private setConsTail tail node =
+    match node with
+    | Some node -> node.tail <- tail |> mkList
     | None -> ()
 
-let private appendConsNoTail (x: 'T) (xs: 'T list) =
-    let t = consNoTail x
-    setConsTail t xs
-    t
+let private appendConsNoTail (x: 'T) (node: Node<'T> option) =
+    let tail = consNoTail x
+    setConsTail tail node
+    tail
 
 // type List<'T> with
 // TODO: there may be some class members here when those are supported
@@ -41,46 +41,43 @@ let empty (): 'T list = //List.Empty
     None |> mkList
 
 let cons (x: 'T) (xs: 'T list) = //List.Cons(x, xs)
-    Some { head = x; tail = xs |> getRoot } |> mkList
+    Some { head = x; tail = xs } |> mkList
 
 let singleton (x: 'T) = //List.Cons(x, List.Empty)
     cons x (empty())
 
 let isEmpty (xs: 'T list) = //xs.IsEmpty
-    xs |> getRoot |> Option.isNone
+    getRoot xs |> Option.isNone
 
 let head (xs: 'T list) = //xs.Head
-    match xs |> getRoot with
+    match getRoot xs with
     | Some node -> node.head
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let tryHead (xs: 'T list) = //xs.TryHead
-    match xs |> getRoot with
+    match getRoot xs with
     | Some node -> Some (node.head)
     | None -> None
 
 let tail (xs: 'T list) = //xs.Tail
-    match xs |> getRoot with
+    match getRoot xs with
     | Some node -> node.tail
     | None -> invalidArg "list" SR.inputListWasEmpty
-    |> mkList
 
 let length (xs: 'T list) = //xs.Length
-    let xs = getRoot xs
     let rec inner_loop i xs =
-        match xs with
+        match getRoot xs with
         | None -> i
         | Some node -> inner_loop (i + 1) node.tail
     inner_loop 0 xs
 
 let rec tryLast (xs: 'T list) =
-    let xs = getRoot xs
-    match xs with
+    match getRoot xs with
     | None -> None
     | Some node ->
-        if (isEmpty (mkList node.tail))
+        if (isEmpty (node.tail))
         then Some (node.head)
-        else tryLast (mkList node.tail)
+        else tryLast (node.tail)
 
 let last (xs: 'T list) =
     match tryLast xs with
@@ -94,12 +91,12 @@ let ofOption<'T> (opt: 'T option): 'T list =
     | None -> empty()
 
 let ofSeq (xs: 'T seq) =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     for x in xs do
         node <- node |> appendConsNoTail x
-        if isEmpty root then root <- node
-    root
+        if root.IsNone then root <- node
+    root |> mkList
 
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
@@ -163,15 +160,15 @@ let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
 let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     let mutable acc = gen state
     while acc.IsSome do
         let (x, st) = acc.Value
         node <- node |> appendConsNoTail x
-        if isEmpty root then root <- node
+        if root.IsNone then root <- node
         acc <- gen st
-    root
+    root |> mkList
 
 let iterate action (xs: 'T list) =
     fold (fun () x -> action x) () xs
@@ -199,21 +196,21 @@ let append (xs: 'T list) (ys: 'T list) =
     fold (fun acc x -> cons x acc) ys (reverse xs)
 
 let choose (chooser: 'T -> 'U option) (xs: 'T list) =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     let mutable xs = xs
     while not (isEmpty xs) do
         match chooser (head xs) with
         | Some x ->
             node <- node |> appendConsNoTail x
-            if isEmpty root then root <- node
+            if root.IsNone then root <- node
         | None -> ()
         xs <- tail xs
-    root
+    root |> mkList
 
 // List.concat will first call Seq.toList if needed, see Replacements
 let concat<'T> (sources: 'T list list) =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     let mutable xs = sources
     let mutable ys = empty()
@@ -221,10 +218,10 @@ let concat<'T> (sources: 'T list list) =
         ys <- head xs
         while not (isEmpty ys) do
             node <- node |> appendConsNoTail (head ys)
-            if isEmpty root then root <- node
+            if root.IsNone then root <- node
             ys <- tail ys
         xs <- tail xs
-    root
+    root |> mkList
 
 let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
     match (isEmpty xs), (isEmpty ys) with
@@ -283,7 +280,7 @@ let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
     unfold gen (0, xs)
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     let mutable xs = xs
     let mutable ys = empty()
@@ -291,12 +288,12 @@ let collect (mapping: 'T -> 'U list) (xs: 'T list) =
         ys <- mapping (head xs)
         while not (isEmpty ys) do
             node <- node |> appendConsNoTail (head ys)
-            if isEmpty root then root <- node
+            if root.IsNone then root <- node
             ys <- tail ys
         xs <- tail xs
-    root
+    root |> mkList
 
-let indexed xs =
+let indexed (xs: 'T list) =
     mapIndexed (fun i x -> (i, x)) xs
 
 let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
@@ -420,8 +417,8 @@ let pairwise (xs: 'T list) =
     |> ofArray
 
 let partition (predicate: 'T -> bool) (xs: 'T list) =
-    let mutable root1 = empty()
-    let mutable root2 = empty()
+    let mutable root1 = None
+    let mutable root2 = None
     let mutable node1 = root1
     let mutable node2 = root2
     let mutable xs = xs
@@ -429,12 +426,12 @@ let partition (predicate: 'T -> bool) (xs: 'T list) =
         let x = head xs
         if predicate x then
             node1 <- node1 |> appendConsNoTail x
-            if isEmpty root1 then root1 <- node1
+            if root1.IsNone then root1 <- node1
         else
             node2 <- node2 |> appendConsNoTail x
-            if isEmpty root2 then root2 <- node2
+            if root2.IsNone then root2 <- node2
         xs <- tail xs
-    root1, root2
+    root1 |> mkList, root2 |> mkList
 
 let reduce reduction (xs: 'T list) =
     if isEmpty xs then invalidOp SR.inputListWasEmpty
@@ -444,7 +441,7 @@ let reduceBack reduction (xs: 'T list) =
     if isEmpty xs then invalidOp SR.inputListWasEmpty
     foldBack reduction (tail xs) (head xs)
 
-let replicate count initial =
+let replicate count (initial: 'T) =
     initialize count (fun _ -> initial)
 
 let unzip xs =
@@ -526,14 +523,14 @@ let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
     |> ofArray
 
 let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
-    let mutable root = empty()
+    let mutable root = None
     let mutable node = root
     iterate (fun x ->
         iterate (fun y ->
             node <- node |> appendConsNoTail (x, y)
-            if isEmpty root then root <- node
+            if root.IsNone then root <- node
         ) ys) xs
-    root
+    root |> mkList
 
 let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     xs
@@ -633,14 +630,14 @@ let transpose (lists: 'T list list): 'T list list =
     if isEmpty lists then
         empty()
     else
-        let roots = head lists |> map singleton
-        let nodes = roots |> toArray
+        let trans = head lists |> map singleton
+        let nodes = trans |> map getRoot |> toArray
         tail lists |> iterate (fun xs ->
             xs |> iterateIndexed (fun i x ->
                 if i >= nodes.Length then
                     invalidArg "lists" SR.listsHadDifferentLengths
                 nodes.[i] <- nodes.[i] |> appendConsNoTail x))
-        roots
+        trans
 
 let distinct<'T when 'T: equality> (xs: 'T list): 'T list =
     let hashSet = System.Collections.Generic.HashSet<'T>()
