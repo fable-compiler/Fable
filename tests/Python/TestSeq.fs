@@ -764,10 +764,10 @@ let ``test Seq.distinctBy works on infinite sequences`` () =
         |> Seq.take 5
     xs |> Seq.toList |> equal [1; 5; 10; 15; 20]
 
-// [<Fact>]
-// let ``test Seq.groupBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.groupBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.iter (fun (k,v) ->
-//         v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
+[<Fact>]
+let ``test Seq.groupBy works`` () =
+     let xs = [1; 2; 3; 4]
+     let ys = xs |> Seq.groupBy (fun x -> x % 2)
+     ys |> Seq.length |> equal 2
+     ys |> Seq.iter (fun (k,v) ->
+         v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)

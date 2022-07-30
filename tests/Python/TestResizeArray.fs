@@ -211,17 +211,14 @@ let ``test ResizeArray.RemoveAll works`` () =
     System.Predicate<_> (fun x -> x = "ab") |> li.RemoveAll |> equal 0
     li.[0] |> equal "ch"
 
-
-(*
-
 [<Fact>]
 let ``test ResizeArray.RemoveRange works`` () =
     let xs = ResizeArray<int>()
     for x in [1 .. 5] do xs.Add(x)
     xs.RemoveRange(1, 2) // [1;2;3;4;5] -> [1;4;5]
-    equal 1 xs.[0]
-    equal 4 xs.[1]
-    equal 5 xs.[2]
+    equal 1 xs[0]
+    equal 4 xs[1]
+    equal 5 xs[2]
 
 [<Fact>]
 let ``test ResizeArray.Exists works`` () =
@@ -234,7 +231,6 @@ let ``test ResizeArray.Exists works`` () =
     xs.Exists (fun a -> a < 1) |> equal false
     xs.Exists (fun a -> a = 3) |> equal true
 
-*)
 [<Fact>]
 let ``test ResizeArray.RemoveAt works`` () =
     let li = ResizeArray<_>()
@@ -247,7 +243,6 @@ let ``test ResizeArray.Insert works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Insert(2, 8.)
     equal 8. li.[2]
-(*
 [<Fact>]
 let ``test ResizeArray.ReverseInPlace works`` () =
     let li = ResizeArray<_>()
@@ -265,6 +260,7 @@ let ``test ResizeArray.SortInPlace works`` () =
     li2.Sort()
     equal 2 li2.[1]
 
+(*
 [<Fact>]
 let ``test ResizeArray.SortInPlaceWith works`` () =
     let li = ResizeArray<_>()

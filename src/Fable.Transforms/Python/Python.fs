@@ -1,5 +1,5 @@
-/// Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to better match
-/// with the Python AST docs.
+// Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to
+// better match with the Python AST docs.
 namespace rec Fable.AST.Python
 
 // fsharplint:disable MemberNames InterfaceNames
