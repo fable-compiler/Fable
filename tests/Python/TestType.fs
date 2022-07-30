@@ -971,7 +971,6 @@ let ``test Custom F# exceptions work`` () =
     | ex -> (false, "unknown")
     |> equal (true, "ERROR!!")
 
-(* TODO
 [<Fact>]
 let ``test Custom exceptions work`` () =
     try
@@ -980,7 +979,7 @@ let ``test Custom exceptions work`` () =
     | :? MyEx2 as ex -> (box ex :? Exception, ex.Message, ex.Code)
     | ex -> (false, "unknown", 0.)
     |> equal (true, "Code: 5", 5.5)
-*)
+
 [<Fact>]
 let ``test reraise works`` () =
     try

@@ -240,21 +240,21 @@ let ``test System.Int64.ToString works`` () =
 
 [<Fact>]
 let ``test System.Int64.ToString 'd' works`` () =
-    (5592405L).ToString("d") |> equal "5592405"
-    (5592405L).ToString("d10") |> equal "0005592405"
+    5592405L.ToString("d") |> equal "5592405"
+    5592405L.ToString("d10") |> equal "0005592405"
 
 [<Fact>]
 let ``test System.Int64.ToString 'x' works`` () =
-    (5592405L).ToString("x") |> equal "555555"
-    (5592405L).ToString("x10") |> equal "0000555555"
+    5592405L.ToString("x") |> equal "555555"
+    5592405L.ToString("x10") |> equal "0000555555"
 
 [<Fact>]
 let ``test System.BigInt.ToString works`` () =
-    (5592405I).ToString() |> equal "5592405"
+    5592405I.ToString() |> equal "5592405"
 
 [<Fact>]
 let ``test System.Decimal.ToString works`` () =
-    (5592405M).ToString() |> equal "5592405"
+    5592405M.ToString() |> equal "5592405"
 
 [<Fact>]
 let ``test System.Convert.ToSByte works`` () =

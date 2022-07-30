@@ -233,7 +233,7 @@ def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
 
 
 class Exception(Exception):
-    def __init__(self, msg: Optional[str] = None):
+    def __init__(self, msg: str = "") -> None:
         self.msg = msg
 
     def __eq__(self, other: Any) -> bool:
@@ -245,9 +245,12 @@ class Exception(Exception):
 
         return self.msg == other.msg
 
+    def __str__(self) -> str:
+        return self.msg
+
 
 class FSharpException(Exception, IComparable):
-    def __init__(self):
+    def __init__(self) -> None:
         self.Data0: Any = None
 
     def __str__(self) -> str:

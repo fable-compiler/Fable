@@ -1898,7 +1898,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "array", "removeAllInPlace", t, [ arg; ar ], ?loc = r)
         |> Some
     | "FindIndex", Some ar, [ arg ] ->
-        Helper.LibCall(com, "array", "find_index", t, [ arg; ar ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "find_index", t, [ arg; ar ], ?loc = r)
         |> Some
     | "FindLastIndex", Some ar, [ arg ] ->
         Helper.LibCall(com, "array", "findLastIndex", t, [ arg; ar ], ?loc = r)
@@ -1925,9 +1925,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx t ], ?loc = r)
         |> Some
     | "Exists", Some ar, [ arg ] ->
-        let left = Helper.InstanceCall(ar, "index", Number(Int32, NumberInfo.Empty), [ arg ], ?loc = r)
-
-        makeEqOp r left (makeIntConst -1) BinaryGreater
+        Helper.LibCall(com, "resize_array", "exists", t, [ arg; ar ], ?loc = r)
         |> Some
     | "FindLast", Some ar, [ arg ] ->
         let opt = Helper.LibCall(com, "array", "tryFindBack", t, [ arg; ar ], ?loc = r)
@@ -1958,10 +1956,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.InstanceCall(ar, "insert", t, [ idx; arg ], ?loc = r)
         |> Some
     | "InsertRange", Some ar, [ idx; arg ] ->
-        Helper.LibCall(com, "array", "insertRangeInPlace", t, [ idx; arg; ar ], ?loc = r)
+        Helper.LibCall(com, "array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
         |> Some
     | "RemoveRange", Some ar, args ->
-        Helper.LibCall(com, "array", "remove_many_at", t, args @ [ ar ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "remove_range", t, args @ [ar], ?loc = r)
         |> Some
     | "RemoveAt", Some ar, [ idx ] ->
         Helper.InstanceCall(ar, "pop", t, [ idx ], ?loc = r)

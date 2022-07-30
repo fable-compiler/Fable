@@ -51,7 +51,6 @@ let ``test Dictionary creation from IDictionary works`` () =
     equal 10 idic.Count
     equal 11 dic.Count
 
-(*
 [<Fact>]
 let ``test Dictionaries with IEqualityComparer work`` () =
     let x = MyRefType(4)
@@ -71,7 +70,6 @@ let ``test Dictionaries with IEqualityComparer work`` () =
     dic2.ContainsKey(x) |> equal true
     dic2.ContainsKey(y) |> equal true
     dic2.ContainsKey(z) |> equal false
-*)
 
 [<Fact>]
 let ``test Interface IDictionary iteration works`` () =

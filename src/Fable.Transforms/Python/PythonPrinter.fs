@@ -1,7 +1,6 @@
 // fsharplint:disable InterfaceNames
 module Fable.Transforms.PythonPrinter
 
-open System
 open Fable
 open Fable.AST
 open Fable.AST.Python
@@ -78,7 +77,7 @@ module PrinterExtensions =
 
                 if i >= args.Length - defaults.Length then
                     printer.Print("=")
-                    printer.Print(defaults.[i - (args.Length - defaults.Length)])
+                    printer.Print(defaults[i - (args.Length - defaults.Length)])
 
                 if i < args.Length - 1 then
                     printer.Print(", ")
@@ -161,7 +160,7 @@ module PrinterExtensions =
             | [] -> ()
             | xs ->
                 printer.Print("(")
-                printer.PrintCommaSeparatedList(cd.Bases)
+                printer.PrintCommaSeparatedList(xs)
                 printer.Print(")")
 
             printer.Print(":")
@@ -258,7 +257,7 @@ module PrinterExtensions =
             printer.Print("[")
 
             match node.Slice with
-            | Tuple ({ Elements = elems }) -> printer.PrintCommaSeparatedList(elems)
+            | Tuple { Elements = elems } -> printer.PrintCommaSeparatedList(elems)
             | _ -> printer.Print(node.Slice)
 
             printer.Print("]")
@@ -324,9 +323,9 @@ module PrinterExtensions =
                             // Remove whitespace in front of new lines,
                             // indent will be automatically applied
                             if printer.Column = 0 then
-                                subSegments.[i - 1].TrimStart()
+                                subSegments[ i - 1 ].TrimStart()
                             else
-                                subSegments.[i - 1]
+                                subSegments[i - 1]
 
                         if subSegment.Length > 0 then
                             printer.Print(subSegment)
@@ -351,14 +350,14 @@ module PrinterExtensions =
                     let i = int m.Groups.[1].Value
 
                     match node.Args.[i] with
-                    | Constant(value = :? bool as value) when value -> m.Groups.[2].Value
+                    | Constant(value = :? bool as value) when value -> m.Groups[2].Value
                     | _ -> m.Groups.[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                    let i = int m.Groups.[2].Value
+                    let i = int m.Groups[2].Value
 
                     match List.tryItem i node.Args with
-                    | Some _ -> m.Groups.[1].Value
+                    | Some _ -> m.Groups[1].Value
                     | None -> "")
 
                 // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
@@ -373,7 +372,7 @@ module PrinterExtensions =
 
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
-                    let m = matches.[i]
+                    let m = matches[i]
 
                     let isSurroundedWithParens =
                         m.Index > 0
@@ -383,13 +382,13 @@ module PrinterExtensions =
 
                     let segmentStart =
                         if i > 0 then
-                            matches.[i - 1].Index + matches.[i - 1].Length
+                            matches[i - 1].Index + matches.[i - 1].Length
                         else
                             0
 
                     printSegment printer value segmentStart m.Index
 
-                    let argIndex = int m.Value.[1..]
+                    let argIndex = int m.Value[1..]
 
                     match List.tryItem argIndex node.Args with
                     | Some e when isSurroundedWithParens -> printer.Print(e)
@@ -552,8 +551,7 @@ module PrinterExtensions =
                     printer.Print("\"")
                     printer.Print(Naming.escapeString (fun _ -> false) value)
                     printer.Print("\"")
-                | :? bool as value ->
-                    printer.Print(if value then "True" else "False")
+                | :? bool as value -> printer.Print(if value then "True" else "False")
                 | _ -> printer.Print(string value)
 
             | IfExp ex -> printer.Print(ex)
@@ -669,7 +667,7 @@ module PrinterExtensions =
 
         member printer.PrintList(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
             for i = 0 to nodes.Length - 1 do
-                printNode printer nodes.[i]
+                printNode printer nodes[i]
 
                 if i < nodes.Length - 1 then
                     printSeparator printer
@@ -758,8 +756,7 @@ let printLine (printer: Printer) (line: string) =
     printer.Print(line)
     printer.PrintNewLine()
 
-let isEmpty (program: Module): bool =
-    false //TODO: determine if printer will not print anything
+let isEmpty (program: Module) : bool = false //TODO: determine if printer will not print anything
 
 let run writer (program: Module) : Async<unit> =
     async {
@@ -771,12 +768,12 @@ let run writer (program: Module) : Async<unit> =
             |> List.splitWhile (function
                 | Import _
                 | ImportFrom _ -> true
-                | Expr ({Value=Expression.Emit(_)}) -> true
+                | Expr { Value = Expression.Emit _ } -> true
                 | _ -> false)
 
         for decl in imports do
             match decl with
-            | ImportFrom ({ Module = Some(Identifier path) } as info) ->
+            | ImportFrom ({ Module = Some (Identifier path) } as info) ->
                 let path = printer.MakeImportPath(path)
                 ImportFrom { info with Module = Some(Identifier path) }
             | decl -> decl

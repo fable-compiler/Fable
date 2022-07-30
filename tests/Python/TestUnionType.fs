@@ -198,7 +198,6 @@ let ``test Erased union type testing works`` () =
     "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
 #endif
 
-// FIXME:
 [<Fact>]
 let ``test Equality works in filter`` () =
     let original = [| { Name = "1"; Case = MyUnion3.Case1 } ; { Name = "2"; Case = MyUnion3.Case1 }; { Name = "3"; Case = MyUnion3.Case2 }; { Name = "4"; Case = MyUnion3.Case3 } |]
