@@ -71,9 +71,6 @@ pub mod ExtInteropTests {
             let expected = Set::from(&raw);
             let res: Set<i32> = raw.into_iter().collect();
             // todo - equality not working, so have to convert back to vec to check. Perhaps because of SetTree [<NoEquality; NoComparison>] ?
-            //assert_eq!(res, expected);
-            let res: Vec<i32> = res.into();
-            let expected: Vec<i32> = expected.into();
             assert_eq!(res, expected);
         }
     }
@@ -106,10 +103,7 @@ pub mod ExtInteropTests {
             let expected: Map<string, i32> = Map::from(&raw);
             let res: Map<string, i32> = raw.into_iter().collect();
             // todo - equality not working, so have to convert back to vec to check. Perhaps because of MapTree [<NoEquality; NoComparison>] ?
-            //assert_eq!(res, expected);
-            let expected: Vec<(string, i32)> = expected.into();
-            let res: Vec<(string, i32)> = res.into();
-            assert_eq!(res, expected)
+            assert_eq!(res, expected);
         }
     }
 }
