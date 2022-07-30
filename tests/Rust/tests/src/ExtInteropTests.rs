@@ -1,6 +1,7 @@
 pub mod ExtInteropTests {
     pub mod ListTests {
-        use fable_library_rust::List_::{List, cons, singleton};
+        use fable_library_rust::List_::{cons, singleton, List};
+        use fable_library_rust::String_::string;
 
         #[test]
         pub fn can_interop_between_list_and_vec() {
@@ -17,8 +18,24 @@ pub mod ExtInteropTests {
         #[test]
         pub fn can_iter() {
             let lst = List::from(&vec![1, 2, 3]);
-            let res: Vec<i32> = lst.iter().map(|x|x+1).collect();
+            let res: Vec<i32> = lst.into_iter().map(|x| x + 1).collect();
             assert_eq!(res, vec![2, 3, 4]);
+        }
+
+        #[test]
+        pub fn can_collect_while_consuming() {
+            let raw = vec![1, 2, 3];
+            let expected = List::from(&raw);
+            let res: List<i32> = raw.into_iter().collect();
+            assert_eq!(res, expected);
+        }
+
+        #[test]
+        pub fn can_collect() {
+            let raw = vec![1, 2, 3];
+            let expected = List::from(&raw);
+            let res: List<i32> = raw.iter().collect();
+            assert_eq!(res, expected);
         }
     }
 
@@ -47,11 +64,23 @@ pub mod ExtInteropTests {
             let tgt: Vec<i32> = set.clone().into();
             assert_eq!(raw, tgt);
         }
+
+        #[test]
+        pub fn can_collect_while_consuming() {
+            let raw = vec![1, 2, 3];
+            let expected = Set::from(&raw);
+            let res: Set<i32> = raw.into_iter().collect();
+            // todo - equality not working, so have to convert back to vec to check. Perhaps because of SetTree [<NoEquality; NoComparison>] ?
+            //assert_eq!(res, expected);
+            let res: Vec<i32> = res.into();
+            let expected: Vec<i32> = expected.into();
+            assert_eq!(res, expected);
+        }
     }
 
     pub mod MapTests {
         use fable_library_rust::Map_::Map;
-        use fable_library_rust::Native_::Lrc;
+        use fable_library_rust::Native_::{string, Lrc};
         use fable_library_rust::String_::string;
 
         #[test]
@@ -67,8 +96,20 @@ pub mod ExtInteropTests {
         pub fn can_iter() {
             let raw = vec![(string("a"), 1), (string("b"), 2), (string("c"), 3)];
             let map = Map::from(&raw);
-            let res: Vec<i32> = map.iter().map(|(a, b)|b + 1).collect();
+            let res: Vec<i32> = map.into_iter().map(|(a, b)| b + 1).collect();
             assert_eq!(res, vec![2, 3, 4]);
+        }
+
+        #[test]
+        pub fn can_collect_while_consuming() {
+            let raw = vec![(string("a"), 1), (string("b"), 2), (string("c"), 3)];
+            let expected: Map<string, i32> = Map::from(&raw);
+            let res: Map<string, i32> = raw.into_iter().collect();
+            // todo - equality not working, so have to convert back to vec to check. Perhaps because of MapTree [<NoEquality; NoComparison>] ?
+            //assert_eq!(res, expected);
+            let expected: Vec<(string, i32)> = expected.into();
+            let res: Vec<(string, i32)> = res.into();
+            assert_eq!(res, expected)
         }
     }
 }

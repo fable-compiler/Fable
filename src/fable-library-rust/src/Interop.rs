@@ -1,11 +1,17 @@
 pub mod ListExt {
     // use std::ops::Deref;
-    use crate::List_::{List, cons, mkList};
-    use crate::Native_::{seq_as_iter};
-    use crate::Seq_::{ofList};
+    use crate::List_::{cons, mkList, reverse, List};
+    use crate::Native_::seq_as_iter;
+    use crate::Seq_::ofList;
 
     impl<T: Clone> List<T> {
-        pub fn iter(&self) -> impl Iterator<Item = T> {
+        //todo - non-consuming iter by ref
+        // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
+        //     let s = ofList(self.clone());
+        //     seq_as_iter(&s)
+        // }
+
+        pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = ofList(self.clone());
             seq_as_iter(&s)
         }
@@ -29,9 +35,29 @@ pub mod ListExt {
         }
     }
 
+    impl<T: Clone> FromIterator<T> for List<T> {
+        fn from_iter<U: IntoIterator<Item = T>>(iter: U) -> Self {
+            let mut lst: List<T> = mkList(None);
+            for (i, item) in iter.into_iter().enumerate() {
+                lst = cons(item, lst);
+            }
+            reverse(lst)
+        }
+    }
+
+    impl<'a, T: Clone> FromIterator<&'a T> for List<T> {
+        fn from_iter<U: IntoIterator<Item = &'a T>>(iter: U) -> Self {
+            let mut lst: List<T> = mkList(None);
+            for (i, item) in iter.into_iter().enumerate() {
+                lst = cons(item.clone(), lst);
+            }
+            reverse(lst)
+        }
+    }
+
     impl<T: Clone> Into<Vec<T>> for List<T> {
         fn into(self) -> Vec<T> {
-            self.iter().collect()
+            self.into_iter().collect()
         }
     }
 }
@@ -79,11 +105,17 @@ pub mod ArrayExt {
 
 pub mod SetExt {
     // use std::ops::Deref;
-    use crate::Native_::{seq_as_iter};
-    use crate::Set_::{Set, add, empty, toSeq};
+    use crate::Native_::seq_as_iter;
+    use crate::Set_::{add, empty, toSeq, Set};
 
     impl<T: Clone + PartialOrd> Set<T> {
-        pub fn iter(&self) -> impl Iterator<Item = T> {
+        //todo - non-consuming iter by ref
+        // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
+        //     let s = toSeq(self.clone());
+        //     seq_as_iter(&s)
+        // }
+
+        pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = toSeq(self.clone());
             seq_as_iter(&s)
         }
@@ -109,20 +141,36 @@ pub mod SetExt {
         }
     }
 
+    impl<T: Clone + PartialOrd> FromIterator<T> for Set<T> {
+        fn from_iter<U: IntoIterator<Item = T>>(iter: U) -> Self {
+            let mut set = empty();
+            for v in iter.into_iter() {
+                set = add(v, set);
+            }
+            set
+        }
+    }
+
     impl<T: Clone + PartialOrd> Into<Vec<T>> for Set<T> {
         fn into(self) -> Vec<T> {
-            self.iter().collect()
+            self.into_iter().collect()
         }
     }
 }
 
 pub mod MapExt {
     // use std::ops::Deref;
-    use crate::Map_::{Map, add, empty, iterate, toSeq};
-    use crate::Native_::{seq_as_iter};
+    use crate::Map_::{add, empty, iterate, toSeq, Map};
+    use crate::Native_::seq_as_iter;
 
     impl<K: Clone + PartialOrd, V: Clone> Map<K, V> {
-        pub fn iter(&self) -> impl Iterator<Item = (K, V)> {
+        //todo - non-consuming iter by ref
+        // pub fn iter<'a>(&self) -> impl Iterator<Item = (& 'a K, & 'a V)> {
+        //     let s = toSeq(self.clone());
+        //     seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
+        // }
+
+        pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = toSeq(self.clone());
             seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
         }
@@ -138,9 +186,19 @@ pub mod MapExt {
         }
     }
 
+    impl<K: Clone + PartialOrd, V: Clone> FromIterator<(K, V)> for Map<K, V> {
+        fn from_iter<U: IntoIterator<Item = (K, V)>>(iter: U) -> Self {
+            let mut map: Map<K, V> = empty();
+            for (k, v) in iter.into_iter() {
+                map = add(k, v.clone(), map);
+            }
+            map
+        }
+    }
+
     impl<K: Clone + PartialOrd, V: Clone> Into<Vec<(K, V)>> for Map<K, V> {
         fn into(self) -> Vec<(K, V)> {
-            self.iter().collect()
+            self.into_iter().collect()
         }
     }
 }
