@@ -5,9 +5,14 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-017</PackageVersion>
-    <PackageReleaseNotes>* Python, reverted back to using modues instead of packages, @dbrattli
-* Rust, Fixed overload suffix for anon records, @ncave</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-018</PackageVersion>
+    <PackageReleaseNotes>* Python, array, list and resize-array fixes, @dbrattli
+* Rust, fable-library-rust cleanup, @ncave
+* Rust, Renamed List, Map, Set, @ncave
+* Rust, Merged ctor and static impl,@ncave
+* Rust, import deduping, @ncave
+* Rust, - More work on collection interop (Set, List, Map), @alexswan10k
+* Rust, - First pass at getting the interop experience with built in collections a little better, @alexswan10k</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

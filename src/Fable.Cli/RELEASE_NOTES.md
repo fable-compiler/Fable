@@ -1,6 +1,16 @@
+### 4.0.0-snake-island-alpha-018
+
+* Python, array, list and resize-array fixes, @dbrattli
+* Rust, fable-library-rust cleanup, @ncave
+* Rust, Renamed List, Map, Set, @ncave
+* Rust, Merged ctor and static impl,@ncave
+* Rust, import deduping, @ncave
+* Rust, - More work on collection interop (Set, List, Map), @alexswan10k
+* Rust, - First pass at getting the interop experience with built in collections a little better, @alexswan10k
+
 ### 4.0.0-snake-island-alpha-017
 
-* Python, reverted back to using modues instead of packages, @dbrattli
+* Python, reverted back to using modules instead of packages, @dbrattli
 * Rust, Fixed overload suffix for anon records, @ncave
 
 ### 4.0.0-snake-island-alpha-016
