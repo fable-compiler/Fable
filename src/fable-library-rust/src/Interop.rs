@@ -106,7 +106,7 @@ pub mod ArrayExt {
 pub mod SetExt {
     // use std::ops::Deref;
     use crate::Native_::seq_as_iter;
-    use crate::Set_::{add, empty, toSeq, Set};
+    use crate::Set_::{add, empty, equals, toSeq, Set};
 
     impl<T: Clone + PartialOrd> Set<T> {
         //todo - non-consuming iter by ref
@@ -118,6 +118,12 @@ pub mod SetExt {
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = toSeq(self.clone());
             seq_as_iter(&s)
+        }
+    }
+
+    impl<T: Clone + PartialOrd> PartialEq for Set<T> {
+        fn eq(&self, other: &Self) -> bool {
+            equals(self.clone(), other.clone())
         }
     }
 
@@ -160,7 +166,7 @@ pub mod SetExt {
 
 pub mod MapExt {
     // use std::ops::Deref;
-    use crate::Map_::{add, empty, iterate, toSeq, Map};
+    use crate::Map_::{add, empty, equals, iterate, toSeq, Map};
     use crate::Native_::seq_as_iter;
 
     impl<K: Clone + PartialOrd, V: Clone> Map<K, V> {
@@ -173,6 +179,12 @@ pub mod MapExt {
         pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = toSeq(self.clone());
             seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
+        }
+    }
+
+    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> PartialEq for Map<K, V> {
+        fn eq(&self, other: &Self) -> bool {
+            equals(self.clone(), other.clone())
         }
     }
 
