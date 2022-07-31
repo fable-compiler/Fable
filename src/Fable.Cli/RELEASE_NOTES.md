@@ -1,3 +1,10 @@
+### 4.0.0-snake-island-alpha-019
+
+* Python, use --fableLib to choose between embedded or site-packages, @dbrattli
+* Rust - Make Map and Set support PartialEq, @alexswan10k
+* Rust, List/Map/Set cleanup, @ncave
+* Rust - more collection interop improvements, @alexswan10k
+
 ### 4.0.0-snake-island-alpha-018
 
 * Python, array, list and resize-array fixes, @dbrattli
