@@ -1,17 +1,8 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from asyncio import Future, ensure_future
+from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Iterable,
-    List,
-    Optional,
-    TypeVar,
-    Union,
-)
+from typing import Any, Awaitable, Callable, Iterable, List, Optional, TypeVar, Union
 
 from .async_builder import (
     Async,
@@ -26,7 +17,8 @@ from .async_builder import (
 )
 
 # F# generated code (from Choice.fs)
-from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore
+from .choice import Choice_makeChoice1Of2  # type: ignore
+from .choice import Choice_makeChoice2Of2
 from .task import TaskCompletionSource
 
 _T = TypeVar("_T")
