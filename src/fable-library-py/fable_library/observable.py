@@ -1,11 +1,9 @@
 from abc import abstractmethod
 from typing import Any, Callable, Generic, Optional, Protocol, Tuple, TypeVar
 
-from .choice import (  # type: ignore
-    Choice_tryValueIfChoice1Of2,  # type: ignore
-    Choice_tryValueIfChoice2Of2,  # type: ignore
-    FSharpChoice_2,  # type: ignore
-)
+from .choice import Choice_tryValueIfChoice1Of2
+from .choice import Choice_tryValueIfChoice2Of2
+from .choice import FSharpChoice_2
 from .option import value
 from .util import IDisposable
 

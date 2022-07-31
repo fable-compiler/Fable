@@ -225,7 +225,6 @@ let ``test Array.distinctBy with tuples works`` () =
       ys |> Array.length |> equal 2
       ys |> Array.head |> fst >= 4 |> equal true
 
-// FIXME: this test currently hangs
 [<Fact>]
 let ``test Array distinctBy works on not so large array`` () =
      let xs = [| 0 .. 500 |]

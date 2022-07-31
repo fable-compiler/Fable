@@ -73,7 +73,7 @@ def to_console_error(arg: Union[IPrintfFormat, str]):
 
 # Set return to `Any` since `Union[str, Callable]` will make type
 # checkers really unhappy.
-def to_text(arg: Union[IPrintfFormat, str]) -> Any:
+def to_text(arg: Union[IPrintfFormat, str]) -> Union[str, Callable[..., Any]]:
     cont: Callable[[str], Any] = lambda x: x
     return continue_print(cont, arg)
 
@@ -104,9 +104,9 @@ def format_replacement(
                     sign = "+"
 
         elif format == "x":
-            rep = to_hex(rep)
+            rep = to_hex(int(rep))
         elif format == "X":
-            rep = to_hex(rep).upper()
+            rep = to_hex(int(rep)).upper()
 
         precision = None if precision is None else int(precision)
         if format in ("f", "F"):

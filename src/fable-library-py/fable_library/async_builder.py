@@ -3,16 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections import deque
 from threading import Lock, RLock, Timer
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Optional,
-    Protocol,
-    TypeVar,
-)
+from typing import Any, Callable, Dict, Generic, Iterable, Optional, Protocol, TypeVar
 
 from .util import IDisposable
 
