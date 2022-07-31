@@ -148,6 +148,11 @@ module Python =
         let stream = new IO.StreamWriter(targetPath)
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let sourcePath = com.CurrentFile
+        let buildPackages =
+            match cliArgs.FableLibraryPath with
+            | Some PY.Naming.sitePackages -> true
+            | _ -> false
+
 
         let isLibrary = com.OutputType = OutputType.Library || Naming.isInFableModules com.CurrentFile
         let isFableLibrary = isLibrary && List.contains "FABLE_LIBRARY" com.Options.Define
@@ -168,8 +173,32 @@ module Python =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
 
             member _.MakeImportPath(path) =
+                let relativePath parts =
+                    let path =
+                        parts
+                        |> Array.choose (fun part ->
+                            if part = "." then None
+                            elif part = ".." then Some ""
+                            else Some(normalizeFileName part)
+                        )
+                        |> String.concat "."
+                    if isLibrary then "." + path else path
+
+                let packagePath parts =
+                    let mutable i = -1
+                    parts
+                    |> Array.choose (fun part ->
+                        i <- i + 1
+                        if part = "." then if i = 0 && isLibrary then Some("") else None
+                        elif part = ".." then None
+                        elif part = PY.Naming.sitePackages then Some("fable_library")
+                        elif part = Naming.fableModules && (not isLibrary) then None
+                        else Some(normalizeFileName part)
+                    )
+                    |> String.concat "."
+
                 if path.Contains('/') then
-                    // HACK for fable-library as we want to flatten the structure
+                    // If inside fable-library then use relative path
                     if isFableLibrary then "." + normalizeFileName path
                     else
                         let outDir =
@@ -180,18 +209,10 @@ module Python =
                             | None -> None
                         let resolvedPath = Imports.getImportPath pathResolver sourcePath targetPathForResolution projDir outDir path
                         let parts = resolvedPath.Split('/')
-                        let path =
-                            let mutable i = -1
-                            parts
-                            |> Array.choose (fun part ->
-                                i <- i + 1
-                                if part = "." then if i = 0 && isLibrary then Some("") else None
-                                elif part = ".." then None
-                                elif part = Naming.fableModules && (not isLibrary) then None
-                                else Some(normalizeFileName part)
-                            )
-                            |> String.concat "."
-                        path
+
+                        match buildPackages with
+                        | true -> packagePath parts
+                        | _ -> relativePath parts
                 else path
 
     // Writes __init__ files to all directories. This mailbox serializes and dedups.

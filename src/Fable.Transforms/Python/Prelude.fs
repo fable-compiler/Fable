@@ -7,6 +7,8 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
+    let [<Literal>] sitePackages = "site-packages"
+
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant()
         + s.Substring(1)

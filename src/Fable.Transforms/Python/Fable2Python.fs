@@ -178,7 +178,6 @@ module Reflection =
                 |> List.map (fun fi ->
                     Expression.tuple [ fi.Name |> Expression.constant
                                        let expr, _stmts = transformTypeInfo com ctx r genMap fi.FieldType
-
                                        expr ])
                 |> Expression.list)
             |> Seq.toList
@@ -3783,15 +3782,7 @@ module Util =
               | None ->
                   // Do not put multiple imports on a single line. flake8(E401)
                   for alias in aliases do
-                      if alias.Name.Name = "sys"
-                         && com.OutputType = OutputType.Exe then
-                          yield!
-                              [ Statement.import [ alias ]
-                                Statement.expr (
-                                    Expression.emit "sys.path.append(os.path.join(os.path.dirname(__file__), \"fable_modules\"))"
-                                ) ]
-                      else
-                          Statement.import [ alias ] ]
+                        Statement.import [ alias ] ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
@@ -3950,10 +3941,6 @@ module Compiler =
               OptimizeTailCall = fun () -> ()
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
-
-        if com.OutputType = OutputType.Exe then
-            com.GetImportExpr(ctx, "os") |> ignore
-            com.GetImportExpr(ctx, "sys") |> ignore
 
         //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations

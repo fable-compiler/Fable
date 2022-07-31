@@ -138,6 +138,15 @@ module private Util =
                         .Trim([|'/'|])
                         .ToLowerInvariant()
                         .Split([|'/'|])
+
+                // When building packages we generate Python snake_case module within the kebab-case package
+                let modules =
+                    match Array.toList modules, cliArgs.FableLibraryPath with
+                    | Naming.fableModules :: package :: modules, Some PY.Naming.sitePackages ->
+                        let packageModule = package.Replace("-", "_")
+                        Naming.fableModules :: package :: packageModule :: modules
+                    | modules, _ -> modules
+                    |> List.toArray
                     |> IO.Path.Join
 
                 IO.Path.Join(outDir, modules, fileName)
