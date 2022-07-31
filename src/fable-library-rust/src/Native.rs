@@ -34,6 +34,7 @@ pub mod Native_ {
     pub type seq<T> = Lrc<dyn crate::Interfaces_::IEnumerable_1<T>>;
     pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
     pub type RefCell<T> = Lrc<MutCell<T>>;
+    pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
     use core::fmt::Debug;
