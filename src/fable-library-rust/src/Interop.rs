@@ -1,19 +1,19 @@
 pub mod ListExt {
     // use std::ops::Deref;
     use crate::List_::{cons, mkList, reverse, List};
-    use crate::Native_::seq_as_iter;
+    use crate::Native_::seq_to_iter;
     use crate::Seq_::ofList;
 
     impl<T: Clone> List<T> {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
         //     let s = ofList(self.clone());
-        //     seq_as_iter(&s)
+        //     seq_to_iter(&s)
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = ofList(self.clone());
-            seq_as_iter(&s)
+            seq_to_iter(&s)
         }
     }
 
@@ -105,19 +105,19 @@ pub mod ArrayExt {
 
 pub mod SetExt {
     // use std::ops::Deref;
-    use crate::Native_::seq_as_iter;
+    use crate::Native_::seq_to_iter;
     use crate::Set_::{add, empty, equals, toSeq, Set};
 
     impl<T: Clone + PartialOrd> Set<T> {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
         //     let s = toSeq(self.clone());
-        //     seq_as_iter(&s)
+        //     seq_to_iter(&s)
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = toSeq(self.clone());
-            seq_as_iter(&s)
+            seq_to_iter(&s)
         }
     }
 
@@ -167,18 +167,18 @@ pub mod SetExt {
 pub mod MapExt {
     // use std::ops::Deref;
     use crate::Map_::{add, empty, equals, iterate, toSeq, Map};
-    use crate::Native_::seq_as_iter;
+    use crate::Native_::seq_to_iter;
 
     impl<K: Clone + PartialOrd, V: Clone> Map<K, V> {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = (& 'a K, & 'a V)> {
         //     let s = toSeq(self.clone());
-        //     seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
+        //     seq_to_iter(&s).map(|kvp| kvp.as_ref().clone())
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = toSeq(self.clone());
-            seq_as_iter(&s).map(|kvp| kvp.as_ref().clone())
+            seq_to_iter(&s).map(|kvp| kvp.as_ref().clone())
         }
     }
 
