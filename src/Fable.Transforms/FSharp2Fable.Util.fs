@@ -1139,15 +1139,20 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | _ ->
-                // Special attributes
-                tdef.Attributes |> tryPickAttribute [
-                    Atts.stringEnum, Fable.String
-                    Atts.erase, Fable.Any
-                    Atts.tsTaggedUnion, Fable.Any
-                ]
-                // Rest of declared types
-                |> Option.defaultWith (fun () ->
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs))
+                let mkDeclType () =
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs)
+                // Emit attribute
+                if tdef.Attributes |> hasAttribute Atts.emitAttr then
+                    mkDeclType ()
+                else
+                    // other special attributes
+                    tdef.Attributes |> tryPickAttribute [
+                        Atts.stringEnum, Fable.String
+                        Atts.erase, Fable.Any
+                        Atts.tsTaggedUnion, Fable.Any
+                    ]
+                    // Rest of declared types
+                    |> Option.defaultWith mkDeclType
 
     let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
