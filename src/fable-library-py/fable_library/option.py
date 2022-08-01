@@ -7,6 +7,8 @@ _W = TypeVar("_W")
 
 
 class Some(Generic[_T]):
+    ___slots__ = "value"
+
     def __init__(self, value: _T):
         self.value = value
 

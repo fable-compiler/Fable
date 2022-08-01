@@ -44,7 +44,9 @@ class ObjectDisposedException(Exception):
         super().__init__("Cannot access a disposed object")
 
 
-class IDisposable:
+class IDisposable(ABC):
+    __slots__ = ()
+
     @abstractmethod
     def Dispose(self) -> None:
         ...
@@ -75,6 +77,8 @@ Disposable = TypeVar("Disposable", bound=IDisposable)
 
 
 class AnonymousDisposable(IDisposable):
+    __slots__ = "_is_disposed", "_action", "_lock"
+
     def __init__(self, action: Callable[[], None]):
         self._is_disposed = False
         self._action = action
@@ -99,6 +103,8 @@ class AnonymousDisposable(IDisposable):
 
 
 class IEquatable(ABC):
+    __slots__ = ()
+
     def GetHashCode(self):
         return hash(self)
 
@@ -112,6 +118,8 @@ class IEquatable(ABC):
 
 
 class IComparable(IEquatable):
+    __slots__ = ()
+
     def CompareTo(self, other: Any) -> int:
         if self < other:
             return -1
@@ -130,12 +138,16 @@ class IComparer(Generic[_T]):
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
+    __slots__ = ()
+
     @abstractmethod
     def Compare(self, y: _T) -> int:
         ...
 
 
 class IEqualityComparer(Generic[_T]):
+    __slots__ = ()
+
     def Equals(self, y: _T) -> bool:
         return self == y
 
@@ -326,6 +338,8 @@ def lazy_from_value(v: _T) -> Lazy[_T]:
 
 
 class Atom(Generic[_T], Protocol):
+    __slots__ = ()
+
     def __call__(
         self,
         value: Optional[_T] = None,
@@ -406,6 +420,8 @@ def clear(col: Optional[Union[Dict[Any, Any], List[Any]]]) -> None:
 
 
 class IEnumerator(Iterator[_T], IDisposable):
+    __slots__ = ()
+
     def Current(self) -> _T:
         return self.System_Collections_Generic_IEnumerator_00601_get_Current()
 
@@ -437,6 +453,8 @@ class IEnumerator(Iterator[_T], IDisposable):
 
 
 class IEnumerable(Iterable[_T]):
+    __slots__ = ()
+
     @abstractmethod
     def GetEnumerator(self) -> IEnumerator[_T]:
         ...
@@ -450,6 +468,8 @@ class ICollection(IEnumerable[_T]):
 
 
 class Enumerator(IEnumerator[_T]):
+    __slots__ = "iter", "current"
+
     def __init__(self, iter: Iterator[_T]) -> None:
         self.iter = iter
         self.current = None

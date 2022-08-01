@@ -1,6 +1,5 @@
 import locale
 import re
-from abc import ABC
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from datetime import datetime
@@ -42,13 +41,12 @@ IPrintfFormatContinuation = Callable[[Callable[[str], Any]], Callable[[str], Any
 
 
 @dataclass
-class IPrintfFormat(ABC):
+class IPrintfFormat:
     input: str
     cont: IPrintfFormatContinuation
 
 
 def printf(input: str) -> IPrintfFormat:
-    # print("printf: ", input)
     format: IPrintfFormatContinuation = fs_format(input)
     return IPrintfFormat(input=input, cont=format)
 
@@ -174,8 +172,8 @@ def interpolate(string: str, values: List[Any]) -> str:
 
 def format_once(str2: str, rep: Any):
     def match(m: Match[str]):
-        prefix, flags, padLength, precision, format = m.groups()
-        once: str = format_replacement(rep, flags, padLength, precision, format)
+        prefix, flags, pad_length, precision, format = m.groups()
+        once: str = format_replacement(rep, flags, pad_length, precision, format)
         return prefix + once.replace("%", "%%")
 
     ret = _fs_format_regexp.sub(match, str2, count=1)
@@ -184,18 +182,18 @@ def format_once(str2: str, rep: Any):
 
 def create_printer(string: str, cont: Callable[..., Any]):
     def _(*args: Any):
-        strCopy: str = string
+        str_copy: str = string
         for arg in args:
-            strCopy = format_once(strCopy, arg)
+            str_copy = format_once(str_copy, arg)
 
-        if _fs_format_regexp.search(strCopy):
-            return create_printer(strCopy, cont)
-        return cont(strCopy.replace("%%", "%"))
+        if _fs_format_regexp.search(str_copy):
+            return create_printer(str_copy, cont)
+        return cont(str_copy.replace("%%", "%"))
 
     return _
 
 
-def fs_format(str: str):
+def fs_format(str: str) -> Callable[[Callable[..., Any]], Any]:
     def _(cont: Callable[..., Any]):
         if _fs_format_regexp.search(str):
             return create_printer(str, cont)
@@ -251,9 +249,9 @@ def format(string: str, *args: Any) -> str:
 
             elif format in ["x", "X"]:
                 rep = (
-                    pad_left(to_hex(rep), precision, "0")
+                    pad_left(to_hex(int(rep)), precision, "0")
                     if precision is not None
-                    else to_hex(rep)
+                    else to_hex(int(rep))
                 )
                 if format == "X":
                     rep = rep.upper()

@@ -12,6 +12,8 @@ _T = TypeVar("_T")
 
 
 class TaskCompletionSource(Generic[_T]):
+    __slots__ = "loop", "future"
+
     def __init__(self) -> None:
         self.loop: AbstractEventLoop = asyncio.get_event_loop()
         if TYPE_CHECKING:

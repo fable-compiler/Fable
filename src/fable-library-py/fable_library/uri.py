@@ -10,6 +10,8 @@ class UriKind(IntEnum):
 
 
 class Uri:
+    __slots__ = "res", "kind"
+
     def __init__(self, uri: str, uri_kind: Optional[int] = None) -> None:
         self.res = urlparse(uri)
         self.kind = UriKind(uri_kind) if uri_kind else UriKind.Absolute

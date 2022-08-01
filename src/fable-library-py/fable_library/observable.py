@@ -14,6 +14,8 @@ _U = TypeVar("_U")
 
 
 class IObserver(Protocol, Generic[_T_contra]):
+    __slots__ = ()
+
     @abstractmethod
     def OnNext(self, __value: _T_contra) -> None:
         ...
@@ -32,6 +34,8 @@ def _noop(__arg: Any = None) -> None:
 
 
 class Observer(IObserver[_T]):
+    __slots__ = "_on_error", "_on_next", "_on_completed"
+
     def __init__(
         self,
         on_next: Callable[[_T], None],
@@ -53,12 +57,16 @@ class Observer(IObserver[_T]):
 
 
 class IObservable(Protocol, Generic[_T_co]):
+    __slots__ = ()
+
     @abstractmethod
     def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable:
         ...
 
 
 class Observable(IObservable[_T]):
+    __slots__ = "subscribe"
+
     def __init__(self, subscribe: Callable[[IObserver[_T]], IDisposable]) -> None:
         self.subscribe = subscribe
 
