@@ -131,12 +131,11 @@ module UsageTracking =
     let isBoxScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsBox) |> Option.defaultValue false
 
-    let usageCount name usages=
+    let usageCount name usages =
         Map.tryFind name usages |> Option.defaultValue 0
 
     let hasMultipleUses (name: string) =
         Map.tryFind name >> Option.map (fun x -> x > 1) >> Option.defaultValue true
-        //fun _ -> true
 
 module TypeInfo =
 
@@ -229,6 +228,14 @@ module TypeInfo =
             let ent = com.GetEntity(entRef)
             not (ent |> hasStructuralEquality)
         | _ -> false
+
+    let hasMutableFields (com: IRustCompiler) (ent: Fable.Entity) =
+        if ent.IsFSharpUnion then
+            ent.UnionCases |> Seq.exists (fun uci ->
+                uci.UnionCaseFields |> List.exists (fun fi -> fi.IsMutable)
+            )
+        else
+            ent.FSharpFields |> Seq.exists (fun fi -> fi.IsMutable)
 
     let isEntityOfType (com: IRustCompiler) isTypeOf entNames (ent: Fable.Entity) =
         if Set.contains ent.FullName entNames then
@@ -330,6 +337,7 @@ module TypeInfo =
     let isCopyableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
         && ent.IsValueType
+        && not (hasMutableFields com ent)
         && (isEntityOfType com isCopyableType entNames ent)
 
     let isEquatableType (com: IRustCompiler) entNames typ =
@@ -448,6 +456,7 @@ module TypeInfo =
         | Fable.DelegateType _
         | Fable.Option _
         | Fable.List _
+        | Fable.Array _
             -> true
 
         | Fable.AnonymousRecordType _ -> true
@@ -463,10 +472,13 @@ module TypeInfo =
             | Fable.UnionField _
             | Fable.FieldGet _
             | Fable.ListHead _
-            | Fable.ListTail _ -> true
+            | Fable.ListTail _
+                -> true
+
             | Fable.TupleIndex _
             | Fable.ExprGet _
-            | Fable.UnionTag _ -> false
+            | Fable.UnionTag _
+                -> false
             // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
         | Fable.IdentExpr _
             -> true
@@ -1292,7 +1304,7 @@ module Util =
         if shouldBeRefCountWrapped com ctx typ |> Option.isSome
         then makeAsRef expr
         else
-            if isRefScoped ctx name
+            if isRefScoped ctx name || (isInRefType com typ)
             then expr
             else expr |> mkAddrOfExpr
 
@@ -1620,8 +1632,8 @@ module Util =
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
                 expr |> mkAddrOfExpr
-            elif shouldBeRefCountWrapped com ctx e.Type |> Option.isSome && not isOnlyReference then
-                expr |> makeClone
+            // elif shouldBeRefCountWrapped com ctx e.Type |> Option.isSome && not isOnlyReference then
+            //     expr |> makeClone
             elif isCloneableType com e.Type && not isOnlyReference then
                 expr |> makeClone // TODO: can this clone be removed somehow?
             elif varAttrs.IsRef then
