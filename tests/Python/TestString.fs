@@ -125,7 +125,7 @@ let ``test sprintf \"%X\" works`` () =
 
     sprintf "255: %X" 255 |> equal "255: FF"
     sprintf "255: %x" 255 |> equal "255: ff"
-//    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
 //    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
 //    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"

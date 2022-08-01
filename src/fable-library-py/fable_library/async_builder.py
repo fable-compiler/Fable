@@ -23,6 +23,8 @@ class _Listener(Protocol):
 
 
 class CancellationToken:
+    __slots__ = "cancelled", "listeners", "idx", "lock"
+
     def __init__(self, cancelled: bool = False):
         self.cancelled = cancelled
         self.listeners: Dict[int, Callable[[], None]] = {}
@@ -71,6 +73,8 @@ class CancellationToken:
 
 
 class IAsyncContext(Generic[_T]):
+    __slots__ = ()
+
     @abstractmethod
     def on_success(self, value: Optional[_T] = None) -> None:
         ...
@@ -125,6 +129,8 @@ def empty_continuation(x: Any = None) -> None:
 
 
 class AnonymousAsyncContext(IAsyncContext[_T]):
+    __slots__ = "_on_success", "_on_error", "_on_cancel", "_trampoline", "_cancel_token"
+
     def __init__(
         self,
         on_success: Optional[Callable[[Optional[_T]], None]] = None,
@@ -175,6 +181,8 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
 
 
 class Trampoline:
+    __slots__ = "queue", "lock", "running", "call_count"
+
     MaxTrampolineCallCount = 150  # Max recursion depth: 1000
 
     def __init__(self):
@@ -255,6 +263,8 @@ def protected_return(value: Optional[_T] = None) -> Async[_T]:
 
 
 class AsyncBuilder:
+    __slots__ = ()
+
     def Bind(
         self, computation: Async[_T], binder: Callable[[Optional[_T]], Async[_U]]
     ) -> Async[_U]:

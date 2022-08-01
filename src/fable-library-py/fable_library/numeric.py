@@ -26,7 +26,11 @@ def to_exponential(x: float, dp: Optional[int] = None) -> str:
 
 
 def to_hex(x: int) -> str:
-    return "{0:x}".format(x)
+    def rshift(val, n):
+        sign = 0x100000000 if x < 0x100000000 else 0x10000000000000000
+        return val >> n if val >= 0 else (val + sign) >> n
+
+    return "{0:x}".format(rshift(x, 0))
 
 
 def multiply(x: float, y: float) -> float:

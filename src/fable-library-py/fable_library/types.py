@@ -22,6 +22,8 @@ _T = TypeVar("_T")
 
 
 class FSharpRef(Generic[_T]):
+    __slots__ = "getter", "setter"
+
     def __init__(
         self,
         contents_or_getter: Union_[None, _T, Callable[[], _T]],
@@ -50,6 +52,8 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
+    __slots__ = "tag", "fields"
+
     def __init__(self):
         self.tag: int
         self.fields: List[Any] = []
