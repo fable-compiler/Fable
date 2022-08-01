@@ -375,7 +375,7 @@ module TypeInfo =
 
     // Checks whether the type needs a ref counted wrapper
     // such as Rc<T> (or Arc<T> in a multithreaded context)
-    let shouldBeRefCountWrapped (com: IRustCompiler) typ =
+    let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
         match typ with
         // passed by reference, no need to Rc-wrap
         | Replacements.Util.IsInRefType com _
@@ -388,10 +388,7 @@ module TypeInfo =
         | Fable.Char
         | Fable.Number _
         | Fable.GenericParam _
-        // already RC-wrapped
-        | Fable.LambdaType _
-        | Fable.DelegateType _
-        // containers, no need to Rc-wrap
+        // struct containers, no need to Rc-wrap
         | Fable.List _
         | Fable.Option _
         | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
@@ -399,17 +396,24 @@ module TypeInfo =
         | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
             -> None
 
-        // always Rc-wrapped
+        // should be Rc or Arc-wrapped
+        | Fable.LambdaType _
+        | Fable.DelegateType _
+            -> if ctx.RequiresSendSync then Some Arc else Some Lrc
+
+        // should be Rc-wrapped
         | Fable.String
         | Fable.Regex
         | Fable.Array _
+        | Replacements.Util.Builtin (Replacements.Util.BclHashSet _)
+        | Replacements.Util.Builtin (Replacements.Util.BclDictionary _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
         | Replacements.Util.IsEntity (Types.keyCollection) _
         | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEnumerator _
-        | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
             -> Some Lrc
 
-        // always Arc-wrapped
+        // should be Arc-wrapped
         | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) _
         | Replacements.Util.IsEntity (Types.task) _
         | Replacements.Util.IsEntity (Types.taskGeneric) _ ->
@@ -575,9 +579,7 @@ module TypeInfo =
         let inputs =
             match argTypes with
             | [Fable.Unit] -> []
-            | _ ->
-                argTypes
-                |> List.map (transformParamType com ctx)
+            | _ -> argTypes |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
@@ -587,14 +589,9 @@ module TypeInfo =
             mkFnTraitGenericBound inputs output
             mkLifetimeGenericBound "'static"
         ]
-        let underlyingTy =
-            if ctx.Typegen.IsParamType
-            then mkImplTraitTy bounds
-            else mkDynTraitTy bounds
-        if ctx.RequiresSendSync then
-            underlyingTy |> makeArcTy com ctx
-        else
-            underlyingTy |> makeLrcTy com ctx
+        if ctx.Typegen.IsParamType
+        then mkImplTraitTy bounds
+        else mkDynTraitTy bounds
 
     let numberType kind: Rust.Ty =
         match kind with
@@ -763,9 +760,6 @@ module TypeInfo =
             | Fable.LambdaType(argType, returnType) ->
                 let argTypes, returnType = FableTransforms.uncurryLambdaType [argType] returnType
                 transformClosureType com ctx argTypes returnType
-                // if true //ctx.Typegen.FavourClosureTraitOverFunctionPointer
-                // then transformClosureType com ctx argTypes returnType
-                // else transformLambdaType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) ->
                 transformClosureType com ctx argTypes returnType
             | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
@@ -838,7 +832,7 @@ module TypeInfo =
                     //     let callee = com.TransformExpr(ctx, reflectionMethodExpr)
                     //     Expression.callExpression(callee, generics)
 
-        match shouldBeRefCountWrapped com typ with
+        match shouldBeRefCountWrapped com ctx typ with
         | Some Lrc -> ty |> makeLrcTy com ctx
         | Some Rc ->  ty |> makeRcTy com ctx
         | Some Arc -> ty |> makeArcTy com ctx
@@ -1295,7 +1289,7 @@ module Util =
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
         let expr = com.TransformExpr(ctx, fableExpr)
-        if shouldBeRefCountWrapped com typ |> Option.isSome
+        if shouldBeRefCountWrapped com ctx typ |> Option.isSome
         then makeAsRef expr
         else
             if isRefScoped ctx name
@@ -1626,7 +1620,7 @@ module Util =
                 expr |> mkAddrOfExpr
             elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
                 expr |> mkAddrOfExpr
-            elif shouldBeRefCountWrapped com e.Type |> Option.isSome && not isOnlyReference then
+            elif shouldBeRefCountWrapped com ctx e.Type |> Option.isSome && not isOnlyReference then
                 expr |> makeClone
             elif isCloneableType com e.Type && not isOnlyReference then
                 expr |> makeClone // TODO: can this clone be removed somehow?
@@ -2810,13 +2804,9 @@ module Util =
                 && (ident.IsMutable ||
                     (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
-                    (shouldBeRefCountWrapped com ident.Type |> Option.isSome) ||
                     // Closures may capture Ref counted vars, so by cloning
                     // the actual closure, all attached ref counted var are cloned too
-                    (match ident.Type with
-                        | Fable.LambdaType _
-                        | Fable.DelegateType _ -> true
-                        | _ -> false)
+                    (shouldBeRefCountWrapped com ctx ident.Type |> Option.isSome)
                 )
             then Some ident
             else None

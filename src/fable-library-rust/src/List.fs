@@ -630,14 +630,14 @@ let transpose (lists: 'T list list): 'T list list =
     if isEmpty lists then
         empty()
     else
-        let trans = head lists |> map singleton
-        let nodes = trans |> map getRoot |> toArray
+        let tRows = head lists |> map singleton
+        let nodes = tRows |> map getRoot |> toArray
         tail lists |> iterate (fun xs ->
             xs |> iterateIndexed (fun i x ->
                 if i >= nodes.Length then
                     invalidArg "lists" SR.listsHadDifferentLengths
                 nodes.[i] <- nodes.[i] |> appendConsNoTail x))
-        trans
+        tRows
 
 let distinct<'T when 'T: equality> (xs: 'T list): 'T list =
     let hashSet = System.Collections.Generic.HashSet<'T>()

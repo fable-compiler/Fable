@@ -34,6 +34,7 @@ pub mod Native_ {
     pub type seq<T> = Lrc<dyn crate::Interfaces_::IEnumerable_1<T>>;
     pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
     pub type RefCell<T> = Lrc<MutCell<T>>;
+    pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
     use core::fmt::Debug;
@@ -67,17 +68,17 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn mkMut<T: Clone>(x: T) -> MutCell<T> {
+    pub fn mkMut<T>(x: T) -> MutCell<T> {
         MutCell::from(x)
     }
 
     #[inline]
-    pub fn mkRefMut<T: Clone>(x: T) -> Lrc<MutCell<T>> {
+    pub fn mkRefMut<T>(x: T) -> Lrc<MutCell<T>> {
         mkRef(mkMut(x))
     }
 
     #[inline]
-    pub fn refCell<T: Clone>(x: T) -> RefCell<T> {
+    pub fn refCell<T>(x: T) -> RefCell<T> {
         mkRefMut(x)
     }
 
@@ -113,7 +114,7 @@ pub mod Native_ {
     // Sequences
     // -----------------------------------------------------------
 
-    pub fn seq_as_iter<T: Clone + 'static>(seq: &seq<T>) -> impl Iterator<Item = T> {
+    pub fn seq_to_iter<T: Clone + 'static>(seq: &seq<T>) -> impl Iterator<Item = T> {
         let en = seq.GetEnumerator();
         let next = move || {
             if en.MoveNext() {
@@ -125,10 +126,10 @@ pub mod Native_ {
         std::iter::from_fn(next)
     }
 
-    pub fn iter_as_seq<T, I>(iter: I) -> seq<T>
+    pub fn iter_to_seq<T, I>(iter: I) -> seq<T>
     where
         T: Clone + 'static,
-        I: Clone + Iterator<Item = T> + 'static,
+        I: Iterator<Item = T> + 'static,
     {
         let iter = mkMut(iter);
         let f = mkRef(move || iter.get_mut().next());
