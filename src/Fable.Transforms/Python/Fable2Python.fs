@@ -419,8 +419,20 @@ module Reflection =
         | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
         | Fable.Char
         | Fable.String _ -> pyTypeof "<class 'str'>" expr
-        // TODO: Testing against bigints and decimals
-        | Fable.Number _ -> pyTypeof "<class 'int'>" expr
+        | Fable.Number (kind, b) ->
+            match kind, typ with
+            | _, Fable.Type.Number (UInt8, _) -> pyTypeof "<fable_modules.fable_library.types.uint8'>>" expr
+            | _, Fable.Type.Number (Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
+            | _, Fable.Type.Number (Int16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int16'>" expr
+            | _, Fable.Type.Number (UInt16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint16'>" expr
+            | _, Fable.Type.Number (Int32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int32'>" expr
+            | _, Fable.Type.Number (UInt32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32>" expr
+            | _, Fable.Type.Number (Int64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int64'>" expr
+            | _, Fable.Type.Number (UInt64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32'>" expr
+            | _, Fable.Type.Number (Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
+            | _, Fable.Type.Number (Float64, _) -> pyTypeof "<class 'float'>" expr
+            | _ -> pyTypeof "<class 'int'>" expr
+
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
         | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
@@ -1527,6 +1539,12 @@ module Util =
     let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
+
+    let makeNumber (com: IPythonCompiler) (ctx: Context) r t intName x =
+        let cons = libValue com ctx "types" intName
+        let value = Expression.constant (x, ?loc = r)
+        Expression.call (cons, [ value ], ?loc = r), []
+
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
         | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
@@ -1540,11 +1558,20 @@ module Util =
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
-            | Decimal, (:? decimal as x) ->
-                PY.Replacements.makeDecimal com r value.Type x
-                |> transformAsExpr com ctx
+            | Decimal, (:? decimal as x) -> PY.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | Int64, (:? int64 as x) -> makeNumber com ctx r value.Type "int64" x
+            | UInt64, (:? uint64 as x) -> makeNumber com ctx r value.Type "uint64" x
+            | _, (:? int8 as x) -> makeNumber com ctx r value.Type "int8" x
+            | _, (:? uint8 as x) -> makeNumber com ctx r value.Type "uint8" x
+            | _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
+            | _, (:? int16 as x) -> makeNumber com ctx r value.Type "int16" x
+            | _, (:? uint16 as x) -> makeNumber com ctx r value.Type "uint16" x
+            | _, (:? int32 as x) -> makeNumber com ctx r value.Type "int32" x
+            | _, (:? uint32 as x) -> makeNumber com ctx r value.Type "uint32" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
+            | _, (:? float32 as x) -> makeNumber com ctx r value.Type "float32" x
+            | _, (:? float as x) -> makeNumber com ctx r value.Type "float" x
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (newKind, typ, kind) ->
@@ -3487,7 +3514,7 @@ module Util =
 
             Statement.functionDef (name, Arguments.arguments (), body = body, returns = returnType, decoratorList = decorators)
 
-        let baseExpr = libValue com ctx "Types" "Union" |> Some
+        let baseExpr = libValue com ctx "types" "Union" |> Some
         let classMembers = List.append [ cases ] classMembers
         declareType com ctx ent entName args isOptional body baseExpr classMembers
 
@@ -3506,9 +3533,9 @@ module Util =
 
         let baseExpr =
             if ent.IsFSharpExceptionDeclaration then
-                libValue com ctx "Types" "FSharpException" |> Some
+                libValue com ctx "types" "FSharpException" |> Some
             elif ent.IsFSharpRecord || ent.IsValueType then
-                libValue com ctx "Types" "Record" |> Some
+                libValue com ctx "types" "Record" |> Some
             else
                 None
 

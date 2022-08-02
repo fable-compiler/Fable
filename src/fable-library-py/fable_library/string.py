@@ -90,8 +90,8 @@ def format_replacement(
     flags = flags or ""
     format = format or ""
 
-    if isinstance(rep, (int, float)):
-        if format.lower() != "x":
+    if isinstance(rep, int):
+        if format not in ["x", "X"]:
             if rep < 0:
                 rep = rep * -1
                 sign = "-"
@@ -101,10 +101,22 @@ def format_replacement(
                 elif flags.find("+") >= 0:
                     sign = "+"
 
-        elif format == "x":
-            rep = to_hex(int(rep))
+        if format == "x":
+            rep = to_hex(rep)
         elif format == "X":
-            rep = to_hex(int(rep)).upper()
+            rep = to_hex(rep).upper()
+        else:  # AOid
+            rep = to_string(rep)
+
+    elif isinstance(rep, float):
+        if rep < 0:
+            rep = rep * -1
+            sign = "-"
+        else:
+            if flags.find(" ") >= 0:
+                sign = " "
+            elif flags.find("+") >= 0:
+                sign = "+"
 
         precision = None if precision is None else int(precision)
         if format in ("f", "F"):
@@ -247,11 +259,11 @@ def format(string: str, *args: Any) -> str:
                     else str(rep)
                 )
 
-            elif format in ["x", "X"]:
+            elif format in ["x", "X"] and isinstance(rep, int):
                 rep = (
-                    pad_left(to_hex(int(rep)), precision, "0")
+                    pad_left(to_hex(rep), precision, "0")
                     if precision is not None
-                    else to_hex(int(rep))
+                    else to_hex(rep)
                 )
                 if format == "X":
                     rep = rep.upper()
