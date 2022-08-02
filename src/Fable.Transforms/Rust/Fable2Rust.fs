@@ -1495,7 +1495,6 @@ module Util =
                     else expr
                 mkExprField attrs fi.Name expr false false)
         let genArgs = transformGenArgs com ctx genArgs
-
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgs
         let expr = mkStructExpr path fields // TODO: range
@@ -3008,7 +3007,6 @@ module Util =
                     let ent = com.GetEntity(entRef)
                     if ent.IsInterface then
                         let entName = getEntityFullName com ctx entRef
-                        // todo - check with actual import ident, which may be aliased differently
                         [ makeGenBound [entName] [] ]
                     else []
                 | _ -> []
