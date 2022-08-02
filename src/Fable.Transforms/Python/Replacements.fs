@@ -58,7 +58,6 @@ let coreModFor =
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
-
     Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
@@ -1700,7 +1699,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 "rfind",
                 t,
                 [ str
-                  Value(NumberConstant(0.0, Int32, NumberInfo.Empty), None)
+                  Value(NumberConstant(0, Int32, NumberInfo.Empty), None)
                   start ],
                 i.SignatureArgTypes,
                 ?loc = r

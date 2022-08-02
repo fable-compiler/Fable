@@ -58,7 +58,8 @@ def op_multiply(a: int, b: int) -> int:
 
 
 def op_unary_negation(value: int) -> int:
-    return -value
+    # Note that we cannot negate the smallest negative number
+    return -value if value != -0x8000000000000000 else -0x8000000000000000
 
 
 def get_range(unsigned: bool) -> Tuple[int, int]:

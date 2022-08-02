@@ -29,17 +29,16 @@ let ``test Int32 literal addition is optimized`` () =
     aLiteral + 7 |> equal 12
     notALiteral + 7 |> equal 12
 
-// FIXME
-// [<Fact>]
-// let ``test Unary negation with negative literal values works`` () =
-//     -literalNegativeValue |> equal 345
+[<Fact>]
+let ``test Unary negation with negative literal values works`` () =
+     -literalNegativeValue |> equal 345
 
 [<Fact>]
 let ``test Unary negation with integer MinValue works`` () =
     -(-128y) |> equal System.SByte.MinValue
     -(-32768s) |> equal System.Int16.MinValue
     -(-2147483648) |> equal System.Int32.MinValue
-    // FIXME -(-9223372036854775808L) |> equal System.Int64.MinValue
+    -(-9223372036854775808L) |> equal System.Int64.MinValue
 
 [<Fact>]
 let ``test Infix subtract can be generated`` () =

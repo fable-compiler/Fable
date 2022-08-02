@@ -228,6 +228,9 @@ def seq_to_string(self: Iterable[Any]) -> str:
 
 def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     if x is not None:
+        if isinstance(x, float) and int(x) == x:
+            return str(int(x))
+
         if isinstance(x, bool):
             return str(x).lower()
 
@@ -302,6 +305,49 @@ class FSharpException(Exception, IComparable):
 
     def CompareTo(self, other: FSharpException):
         return compare(self.Data0, other.Data0)
+
+
+class char(int):
+    __slots__ = ()
+
+
+class int8(int):
+    __slots__ = ()
+
+
+class int16(int):
+    __slots__ = ()
+
+
+class int32(int):
+    __slots__ = ()
+
+
+class int64(int):
+    __slots__ = ()
+
+
+class uint8(int):
+    __slots__ = ()
+
+
+class uint16(int):
+    __slots__ = ()
+
+
+class uint32(int):
+    __slots__ = ()
+
+
+class uint64(int):
+    __slots__ = ()
+
+
+class float32(float):
+    __slots__ = ()
+
+
+float = float
 
 
 def Int8Array(lst: List[int]):

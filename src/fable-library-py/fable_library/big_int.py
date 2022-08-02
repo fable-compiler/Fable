@@ -13,11 +13,11 @@ def from_one() -> int:
 
 
 def from_int32(x: int) -> int:
-    return x
+    return int(x)
 
 
 def from_int64(x: int) -> int:
-    return x
+    return int(x)
 
 
 def from_string(x: str) -> int:
