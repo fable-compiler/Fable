@@ -180,8 +180,8 @@ let ``Box record fields works`` () =
 
 [<Fact>]
 let ``Should correctly import record in other file and allow creation`` = 
-    let r = { Common.Records.ImportTestRecord.a = 1}
-    let expected = Common.Records.ImportTestRecord.create 1
+    let r = { Common.Records.MyRecord.a = 1}
+    let expected = Common.Records.MyRecord.create 1
     r |> equal expected
 
 #if FABLE_COMPILER

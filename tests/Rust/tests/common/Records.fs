@@ -1,8 +1,9 @@
 module Common.Records
 
-type ImportTestRecord = {
+//This deliberately has the same name as in RecordsTests to ensure a collision
+type MyRecord = {
     a: int
 }
 
-module ImportTestRecord = 
+module MyRecord = 
     let create a = { a = a }
