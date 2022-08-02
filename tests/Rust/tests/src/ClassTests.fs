@@ -55,6 +55,29 @@ type WithCrossModuleInterface(m: int) =
     interface Common.Interfaces.IHasAdd with
       member this.Add x y = x + y + m
 
+type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) =
+    member this.AddThroughCaptured x y = adder.Add x y
+
+type TestClass(name: string) =
+    member _.Name = name
+    abstract Print: unit -> string
+    default _.Print() = "abc"
+
+type IPrintable =
+    abstract Print: unit -> string
+
+[<Fact>]
+let ``Object expressions work`` () =
+    let a = { new IPrintable with member x.Print() = "Hello" }
+    a.Print() |> equal "Hello"
+    let b = { new IHasAdd with member _.Add x y = x + y }
+    b.Add 2 3 |> equal 5
+
+// [<Fact>]
+// let ``Object expressions with type constructors work`` () =
+//     let a = { new TestClass("Hello") with member x.Print() = x.Name }
+//     a.Print() |> equal "Hello"
+
 [<Fact>]
 let ``Struct constructors work`` () =
     let a = Point(1, 2)
@@ -137,9 +160,6 @@ let ``Class interface from another module works`` () =
     let a = WithCrossModuleInterface(1)
     let res = (a :> Common.Interfaces.IHasAdd).Add 2 1
     res |> equal 4
-
-type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) = 
-    member this.AddThroughCaptured x y = adder.Add x y
 
 [<Fact>]
 let ``Class generic interface constraints work`` () =
