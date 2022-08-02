@@ -1672,43 +1672,59 @@ module Util =
         | None, _ ->
             None
 *)
-    let transformObjectExpr (com: IRustCompiler) ctx (members: Fable.ObjectExprMember list) baseCall: Rust.Expr =
-        // let makeMethod kind prop computed hasSpread args body =
-        //     let args, body, returnType, typeParamDecl =
-        //         getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
-        //     ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
-        //         ?returnType=returnType, ?typeParameters=typeParamDecl)
-
-        // let members =
-        //     members |> List.collect (fun memb ->
-        //         let info = info
-        //         let prop, computed = memberFromName memb.Name
-        //         [prop, computed]
-        //         // if info.IsValue || (info.IsGetter) then
-        //         //     [ObjectMember.objectProperty(prop, com.TransformExpr(ctx, memb.Body), computed_=computed)]
-        //         // elif info.IsGetter then
-        //         //     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
-        //         // elif info.IsSetter then
-        //         //     [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
-        //         // elif info.FullName = "System.Collections.Generic.IEnumerable`1.GetEnumerator" then
-        //         //     let method = makeMethod ObjectMeth prop computed memb.Args memb.Body
-        //         //     let iterator =
-        //         //         let prop, computed = memberFromName "Symbol.iterator"
-        //         //         let body = enumerator2iterator com ctx
-        //         //         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
-        //         //     [method; iterator]
-        //         // else
-        //         //     [makeMethod ObjectMeth prop computed memb.Args memb.Body]
-        //     )
-        //Expression.objectExpression(List.toArray  members)
-
-        // TODO:
+    let transformObjectExpr (com: IRustCompiler) ctx typ (members: Fable.ObjectExprMember list) baseCall: Rust.Expr =
         if members |> List.isEmpty then
-            mkUnitExpr () // object constructors may be adding this?
+            mkUnitExpr () // object constructors sometimes generate this
         else
-            "Object expressions are not implemented yet"
-            |> addWarning com [] None
-            TODO_EXPR $"%A{members}"
+            let makeEntRef fullName assemblyName: Fable.EntityRef =
+                { FullName = fullName; Path = Fable.CoreAssemblyName assemblyName }
+            let entRef, genArgs =
+                match typ with
+                | Fable.DeclaredType(entRef, genArgs) -> entRef, genArgs
+                | Fable.Any ->
+                    makeEntRef "System.Object" "System.Runtime", []
+                | _ ->
+                    "Unsupported object expression" |> addWarning com [] None
+                    makeEntRef "System.Object" "System.Runtime", []
+            //TODO: properly handle non-interface types with constructors
+            let entName = "ObjectExpr"
+            let members: Fable.MemberDecl list =
+                members |> List.map (fun memb -> {
+                    Name = memb.Name
+                    Args = memb.Args
+                    Body = memb.Body
+                    MemberRef = memb.MemberRef
+                    IsMangled = memb.IsMangled
+                    ImplementedSignatureRef = None
+                    UsedNames = Set.empty
+                    XmlDoc = None
+                    Tags = []
+                })
+            let decl: Fable.ClassDecl = {
+                Name = entName
+                Entity = entRef
+                Constructor = None
+                BaseCall = baseCall
+                AttachedMembers = members
+                XmlDoc = None
+                Tags = []
+            }
+            let attrs = []
+            let fields = []
+            let generics = genArgs |> makeGenerics com ctx
+            let structItems =
+                if baseCall.IsSome then [] // if base type is not an interface
+                else [mkStructItem attrs entName fields generics]
+            let memberItems = transformClassMembers com ctx decl
+            let genArgs = transformGenArgs com ctx genArgs
+            let path = makeFullNamePath entName genArgs
+            let objExpr =
+                match baseCall with
+                | Some fableExpr -> com.TransformExpr(ctx, fableExpr)
+                | None -> mkStructExpr path fields |> makeLrcValue |> makeNewLrcValue
+            let objStmt = objExpr |> mkExprStmt
+            let declStmts = structItems @ memberItems |> List.map mkItemStmt
+            declStmts @ [objStmt] |> mkBlock |> mkBlockExpr
 
     let maybeAddParens fableExpr expr: Rust.Expr =
         match fableExpr with
@@ -2551,8 +2567,8 @@ module Util =
         | Fable.Delegate(args, body, name, _) ->
             transformLambda com ctx name args body
 
-        | Fable.ObjectExpr (members, _, baseCall) ->
-            transformObjectExpr com ctx members baseCall
+        | Fable.ObjectExpr(members, typ, baseCall) ->
+            transformObjectExpr com ctx typ members baseCall
 
         | Fable.Call(callee, info, typ, range) ->
             transformCall com ctx range typ callee info
@@ -3278,18 +3294,18 @@ module Util =
         let structItem = mkStructItem attrs entName fields generics
         [structItem |> mkPublicItem] // TODO: add traits for attached members
 
-    let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (declName: string) =
+    let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
         let idents = getEntityFieldsAsIdents com ent
         let fields = idents |> List.map Fable.IdentExpr
         let genArgs = getEntityGenArgs ent
         let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
-        let name = declName //TODO: is this always correct?
+        let entName = getEntityFullName com ctx ent.Ref
         let paramTypes = idents |> List.map (fun id -> id.Type)
-        let memberRef = Fable.GeneratedMember.Function(name, paramTypes, body.Type, entRef = ent.Ref)
+        let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)
         let info = com.GetMember(memberRef)
-        transformAssocMemberFunction com ctx info name idents body
+        transformAssocMemberFunction com ctx info entName idents body
 
     let transformImplicitConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
         let body =
@@ -3395,7 +3411,10 @@ module Util =
 
         let entRef = decl.Entity
         let ent = com.GetEntity(entRef)
-        let entNameSpace, entName = splitNameSpace ent.FullName
+        let _entNs, entName =
+            if ent.IsInterface
+            then splitNameSpace decl.Name
+            else splitNameSpace (getEntityFullName com ctx entRef)
 
         let ctx = { ctx with ScopedTypeParams =
                                 ent.GenericParameters
@@ -3404,7 +3423,7 @@ module Util =
 
         let ctorOrStaticImpls =
             let ctorItems =
-                if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsInterface then
                     []
                 else
                     let ctorItem =
@@ -3413,18 +3432,21 @@ module Util =
                             withCurrentScope ctx ctor.UsedNames <| fun ctx ->
                                 transformImplicitConstructor com ctx ent ctor
                         | _ ->
-                            transformCompilerGeneratedConstructor com ctx ent decl.Name
+                            transformCompilerGeneratedConstructor com ctx ent
                     [ctorItem |> mkPublicAssocItem]
             let ctorOrStaticItems =
                 decl.AttachedMembers
                 |> List.filter isConstructorOrStatic
                 |> List.map (makeMemberItem ctx)
                 |> List.append ctorItems
-            let genArgs = getEntityGenArgs ent
-            let ty = transformDeclaredType com ctx entRef genArgs
-            let generics = genArgs |> makeGenerics com ctx
-            let implItem = mkImplItem [] "" ty generics ctorOrStaticItems None
-            [implItem]
+            if List.isEmpty ctorOrStaticItems then
+                []
+            else
+                let genArgs = getEntityGenArgs ent
+                let ty = transformDeclaredType com ctx entRef genArgs
+                let generics = genArgs |> makeGenerics com ctx
+                let implItem = mkImplItem [] "" ty generics ctorOrStaticItems None
+                [implItem]
 
         let interfaces =
             ent.AllInterfaces
@@ -3450,19 +3472,19 @@ module Util =
             Set.difference allNonConstructorOrStaticMembersSet allInterfaceMembersSet
 
         let nonInterfaceMembersTrait =
-            if Set.isEmpty nonInterfaceMembersSet then
+            let assocItems =
+                decl.AttachedMembers
+                |> List.filter (fun m -> Set.contains m.Name nonInterfaceMembersSet)
+                |> List.map (fun m ->
+                    let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
+                    let memb = com.GetMember(m.MemberRef)
+                    let generics = getMemberGenArgs memb |> makeGenerics com ctx
+                    let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
+                    mkFnAssocItem [] m.Name fnKind
+                )
+            if List.isEmpty assocItems then
                 []
             else
-                let assocItems =
-                    decl.AttachedMembers
-                    |> List.filter (fun m -> Set.contains m.Name nonInterfaceMembersSet)
-                    |> List.map (fun m ->
-                        let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
-                        let memb = com.GetMember(m.MemberRef)
-                        let generics = getMemberGenArgs memb |> makeGenerics com ctx
-                        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
-                        mkFnAssocItem [] m.Name fnKind
-                    )
                 let traitItem =
                     let generics = getEntityGenArgs ent |> makeGenerics com ctx
                     mkTraitItem [] (entName + "Methods") assocItems [] generics
@@ -3495,7 +3517,7 @@ module Util =
                         then ty
                         else ty |> makeLrcTy com ctx
                     let nameParts =
-                        if isNonInterface then tEntRef.FullName + "Methods"
+                        if isNonInterface then entName + "Methods"
                         else getInterfaceEntityName com ctx tEntRef
                         |> splitFullName
                     let path =
