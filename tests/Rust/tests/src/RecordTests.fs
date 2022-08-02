@@ -178,6 +178,12 @@ let ``Box record fields works`` () =
     let y = x |> add1Box
     y.a |> equal 2
 
+[<Fact>]
+let ``Should correctly import record in other file and allow creation`` = 
+    let r = { Common.Records.ImportTestRecord.a = 1}
+    let expected = Common.Records.ImportTestRecord.create 1
+    r |> equal expected
+
 #if FABLE_COMPILER
 open Fable.Core
 
