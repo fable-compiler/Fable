@@ -1495,7 +1495,8 @@ module Util =
                     else expr
                 mkExprField attrs fi.Name expr false false)
         let genArgs = transformGenArgs com ctx genArgs
-        let path = makeFullNamePath ent.FullName genArgs
+        let entNs, entName = splitNameSpace ent.FullName
+        let path = makeFullNamePath entName genArgs
         let expr = mkStructExpr path fields // TODO: range
         if ent.IsValueType
         then expr
