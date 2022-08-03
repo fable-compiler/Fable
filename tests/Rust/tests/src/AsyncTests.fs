@@ -93,30 +93,53 @@ let shouldExecuteMutationOnTask () =
     do comp.Result
     x |> equal 1
 
+// open System.Threading
 // [<Fact>]
 // let ``should execute mutation on thread unsafe`` () =
 //     let mutable x = 1
-//     let t = new System.Threading.Thread(fun () -> x <- x + 1)
+//     let t = Thread(fun () -> x <- x + 1)
 //     t.Start()
 //     t.Join()
 //     x |> equal 2
 
-// module Monitor =
-//     [<Fact>]
-//     let monitorShouldWorkWithSystemObj () =
-//         let o = new System.Object()
-//         System.Threading.Monitor.Enter(o)
-//         System.Threading.Monitor.Exit(o)
+module Monitor =
+    // [<Fact>]
+    // let monitorShouldWorkWithSystemObj () =
+    //     let o = new System.Object() // todo - this doesn't work, and outputs unit
+    //     System.Threading.Monitor.Enter(o)
+    //     System.Threading.Monitor.Exit(o)
 
-//     type Data = {
-//         x: string //deliberately use reference type to confirm nested Lrc
-//     }
+    type Data = {
+        x: string //deliberately use reference type to confirm nested Lrc
+    }
 
-//     [<Fact>]
-//     let monitorShouldWorkWithT () =
-//         let o = { x = "test" }
-//         System.Threading.Monitor.Enter(o)
-//         System.Threading.Monitor.Exit(o)
+    [<Fact>]
+    let ``Monitor should enter and exit correctly with Lrc`` () =
+        let o = { x = "test" }
+        System.Threading.Monitor.Enter(o)
+        System.Threading.Monitor.Exit(o)
+
+    [<Fact>]
+    let ``Monitor Should block on thread until lock has been released with Lrc`` () =
+        let mutable events = []
+        let o = { x = "test" }
+        System.Threading.Monitor.Enter(o)
+        let z = async { return 3 }
+        let a1 = async {
+            let! _ = z //ensuring subsequent lines are continuation, or you get a deadlock as same thread - may not be consistent with .NET, need to investigate
+            System.Threading.Monitor.Enter(o)
+            events <- 1::events
+            System.Threading.Monitor.Exit(o)
+        }
+        let t = a1 |> Async.StartAsTask
+        //System.Threading.Thread.Sleep(100); //todo - problem with Thread: (error FSHARP: The value, constructor, namespace or type 'Thread' is not defined. Maybe you want one of the following:)
+        for i in 0..1000000 do () //thread.sleep!
+
+        events <- 2::events
+        System.Threading.Monitor.Exit(o)
+
+        do t.Result
+        events |> equal [1; 2]
 //     [<Fact>]
 //     let ``For monitor - Should block on thread until lock has been released`` () =
 //         let mutable events = []
