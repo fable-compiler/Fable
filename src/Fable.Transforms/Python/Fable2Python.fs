@@ -866,12 +866,16 @@ module Annotation =
         | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
         | Types.iobserverGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "observable" "IObserver" resolved, stmts
         | Types.iobservableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
+        | Types.idictionary, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
+        | Types.ievent, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
         | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []
         | _ ->
             let ent = com.GetEntity(entRef)
@@ -3166,7 +3170,9 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], _ -> Arguments.arguments (args = Arg.arg (Identifier("__unit")) :: tcArgs, defaults = Expression.none :: tcDefaults)
+            | [], _ ->
+                let ta = stdlibModuleAnnotation com ctx "typing" "Literal" [ Expression.name "None" ]
+                Arguments.arguments (args = Arg.arg(Identifier("__unit"), annotation=ta) :: tcArgs, defaults = Expression.none :: tcDefaults)
             // So we can also receive unit
             | [ arg ], true ->
                 let optional =

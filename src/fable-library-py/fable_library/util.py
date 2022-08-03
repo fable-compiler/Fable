@@ -37,6 +37,8 @@ class SupportsLessThan(Protocol):
 
 
 _T = TypeVar("_T")
+_Key = TypeVar("_Key")
+_Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
 
@@ -453,7 +455,7 @@ class IEnumerator(Iterator[_T], IDisposable):
         return self.Current()
 
 
-class IEnumerable(Iterable[_T]):
+class IEnumerable(Iterable[_T], Protocol):
     __slots__ = ()
 
     @abstractmethod
@@ -464,8 +466,17 @@ class IEnumerable(Iterable[_T]):
         return self.GetEnumerator()
 
 
-class ICollection(IEnumerable[_T]):
-    pass
+class ICollection(IEnumerable[_T], Protocol):
+    ...
+
+
+class IDictionary(ICollection[Tuple[_Key, _Value]], Protocol):
+    @abstractmethod
+    def keys(self) -> IEnumerable[_Key]:
+        ...
+
+    def values(self) -> IEnumerable[_Value]:
+        ...
 
 
 class Enumerator(IEnumerator[_T]):

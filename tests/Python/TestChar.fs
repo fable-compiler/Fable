@@ -2,9 +2,6 @@
 
 open System
 open Util.Testing
-open Fable.Tests.Util
-open Fable.Core.PyInterop
-open System.Collections.Generic
 open System.Globalization
 
 [<Fact>]
