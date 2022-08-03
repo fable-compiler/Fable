@@ -40,22 +40,27 @@ type UsedNames =
 /// Python specific, used for keeping track of existing variable bindings to
 /// know if we need to declare an identifier as nonlocal or global.
 type BoundVars =
-    { GlobalScope: HashSet<string>
-      EnclosingScope: HashSet<string>
-      LocalScope: HashSet<string> }
+    { EnclosingScope: HashSet<string>
+      LocalScope: HashSet<string>
+      Inceptions: int }
 
     member this.EnterScope() =
+        // printfn "Entering scope"
         let enclosingScope = HashSet<string>()
         enclosingScope.UnionWith(this.EnclosingScope)
         enclosingScope.UnionWith(this.LocalScope)
 
         { this with
             LocalScope = HashSet()
-            EnclosingScope = enclosingScope }
+            EnclosingScope = enclosingScope
+            Inceptions = this.Inceptions + 1 }
 
-    member this.Bind(name: string) = this.LocalScope.Add name |> ignore
+    member this.Bind(name: string) =
+        // printfn "Binding variable %s" name
+        this.LocalScope.Add name |> ignore
 
     member this.Bind(ids: Identifier list) =
+        // printfn "Binding variable %A" ids
         for (Identifier name) in ids do
             this.LocalScope.Add name |> ignore
 
@@ -492,16 +497,6 @@ module Reflection =
                     | None -> warnAndEvalToFalse ent.FullName, []
 
 module Helpers =
-    let (|PythonModule|_|) (modulePath: string) =
-        match modulePath with
-        | name when
-            (name.Contains("/")
-             || name.EndsWith(".fs")
-             || name.EndsWith(".py"))
-            ->
-            None
-        | name -> Some(name)
-
     /// Returns true if type can be None in Python
     let isOptional (fields: Fable.Ident []) =
         if fields.Length < 1 then
@@ -1117,14 +1112,12 @@ module Util =
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name name
-        | n -> //when Naming.hasIdentForbiddenChars n ->
+        | n ->
             let n = Naming.toSnakeCase n
 
             (n, Naming.NoMemberPart)
             ||> Naming.sanitizeIdent (fun _ -> false)
             |> Expression.name
-    //        | n ->
-//            com.GetIdentifierAsExpr(ctx, n)
 
     let get (com: IPythonCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)
@@ -2009,20 +2002,25 @@ module Util =
 
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
-    let getNonLocals (body: Statement list) =
+    let getNonLocals ctx (body: Statement list) =
         let body, nonLocals =
             body
             |> List.partition (function
-                | Statement.NonLocal _ -> false
+                | Statement.NonLocal _ | Statement.Global _ -> false
                 | _ -> true)
 
         let nonLocal =
             nonLocals
             |> List.collect (function
                 | Statement.NonLocal nl -> nl.Names
+                | Statement.Global gl -> gl.Names
                 | _ -> [])
             |> List.distinct
-            |> Statement.nonLocal
+            |> (fun names ->
+                match ctx.BoundVars.Inceptions with
+                | 1 -> Statement.global' names
+                | _ ->
+                    Statement.nonLocal names)
 
         [ nonLocal ], body
 
@@ -2030,7 +2028,7 @@ module Util =
         match body with
         | [] -> [ Pass ]
         | _ ->
-            let nonLocals, body = getNonLocals body
+            let nonLocals, body = getNonLocals ctx body
             nonLocals @ body
 
     // When expecting a block, it's usually not necessary to wrap it
@@ -2062,7 +2060,7 @@ module Util =
                 finalizer
                 |> transformBlock com ctx None
                 |> List.partition (function
-                    | Statement.NonLocal _ -> false
+                    | Statement.NonLocal _ | Statement.Global _ -> false
                     | _ -> true)
             | None -> [], []
 
@@ -2086,16 +2084,15 @@ module Util =
             let thenStmnt, stmts' =
                 transformBlock com ctx ret thenStmnt
                 |> List.partition (function
-                    | Statement.NonLocal _ -> false
+                    | Statement.NonLocal _ | Statement.Global _ -> false
                     | _ -> true)
 
             let ifStatement, stmts'' =
                 let block, stmts =
                     com.TransformAsStatements(ctx, ret, elseStmnt)
                     |> List.partition (function
-                        | Statement.NonLocal _ -> false
+                        | Statement.NonLocal _ | Statement.Global _ -> false
                         | _ -> true)
-
                 match block with
                 | [] -> Statement.if' (guardExpr, thenStmnt, ?loc = r), stmts
                 | [ elseStmnt ] -> Statement.if' (guardExpr, thenStmnt, [ elseStmnt ], ?loc = r), stmts
@@ -2329,12 +2326,12 @@ module Util =
                                 | [] -> [ Statement.Pass ]
                                 | body -> body
 
-                        let nonLocals, body = getNonLocals body
+                        let nonLocals, body = getNonLocals ctx body
 
                         let nonLocals, orElse =
                             ifThenElse None cases
                             |> List.append nonLocals
-                            |> getNonLocals
+                            |> getNonLocals ctx
 
                         nonLocals
                         @ [ Statement.if' (test = test, body = body, orelse = orElse) ]
@@ -2396,8 +2393,9 @@ module Util =
             let nonLocals =
                 match target with
                 | Expression.Name { Id = id } ->
-                    [ ctx.BoundVars.NonLocals([ id ])
-                      |> Statement.nonLocal ]
+                    ctx.BoundVars.NonLocals([ id ])
+                    |> Statement.nonLocal
+                    |> List.singleton
                 | _ -> []
 
             // printfn "Nonlocals: %A" nonLocals
@@ -2574,6 +2572,7 @@ module Util =
                 |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
 
             transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
+
         // Transform decision tree
         let targetAssign = Target(ident com ctx targetId)
         let ctx = { ctx with DecisionTargets = targets }
@@ -2797,7 +2796,7 @@ module Util =
 
         | Fable.Set (expr, kind, typ, value, range) ->
             let expr', stmts = transformSet com ctx range expr typ value kind
-            //printfn "Fable.Set: %A" expr
+            // printfn "transformAsExpr: Fable.Set: %A" expr
             match expr' with
             | Expression.NamedExpr { Target = target; Value = _; Loc = _ } ->
                 let nonLocals =
@@ -2976,14 +2975,14 @@ module Util =
 
         | Fable.Set (expr, kind, typ, value, range) ->
             let expr', stmts = transformSet com ctx range expr typ value kind
-            // printfn "Fable.Set: %A" (expr', value)
+            // printfn "transformAsStatements: Fable.Set: %A" (expr', value)
             match expr' with
             | Expression.NamedExpr ({ Target = target
                                       Value = value
                                       Loc = _ }) ->
                 let nonLocals =
                     match target with
-                    | Expression.Name ({ Id = id }) ->
+                    | Expression.Name { Id = id } ->
                         [ ctx.BoundVars.NonLocals([ id ])
                           |> Statement.nonLocal ]
                     | _ -> []
@@ -3167,7 +3166,7 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], true -> Arguments.arguments (args = Arg.arg (Identifier("__unit")) :: tcArgs, defaults = Expression.none :: tcDefaults)
+            | [], _ -> Arguments.arguments (args = Arg.arg (Identifier("__unit")) :: tcArgs, defaults = Expression.none :: tcDefaults)
             // So we can also receive unit
             | [ arg ], true ->
                 let optional =
@@ -3959,9 +3958,10 @@ module Compiler =
                   DeclarationScopes = declScopes
                   CurrentDeclarationScope = Unchecked.defaultof<_> }
               BoundVars =
-                { GlobalScope = HashSet()
+                { //GlobalScope = HashSet()
                   EnclosingScope = HashSet()
-                  LocalScope = HashSet() }
+                  LocalScope = HashSet()
+                  Inceptions = 0 }
               DecisionTargets = []
               HoistVars = fun _ -> false
               TailCallOpportunity = None
