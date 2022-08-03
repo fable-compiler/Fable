@@ -562,6 +562,9 @@ module TypeInfo =
     let transformTaskBuilderType com ctx: Rust.Ty =
         transformImportType com ctx [] "TaskBuilder" "TaskBuilder"
 
+    let transformThreadType com ctx: Rust.Ty = //todo - compiler does not seem to recognise System.Threading.Thread
+        transformImportType com ctx [] "Thread" "Thread"
+
     let transformTupleType com ctx isStruct genArgs: Rust.Ty =
         genArgs
         |> List.map (transformType com ctx)
@@ -798,6 +801,7 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.taskGeneric) (_, [t]) -> transformTaskType com ctx t
             | Replacements.Util.IsEntity (Types.taskBuilder) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.taskBuilderModule) (_, []) -> transformTaskBuilderType com ctx
+            | Replacements.Util.IsEntity (Types.thread) (_, []) -> transformThreadType com ctx
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with

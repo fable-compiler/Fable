@@ -2412,7 +2412,8 @@ let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Enter" | "Exit" -> Null Type.Unit |> makeValue r |> Some
+    | "Enter" -> Helper.LibCall(com, "Monitor", "enter", t, args, ?loc=r) |> Some
+    | "Exit" -> Helper.LibCall(com, "Monitor", "exit", t, args, ?loc=r) |> Some
     | _ -> None
 
 let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2423,6 +2424,16 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "Task", "from_result", tType, args, ?loc=r) |> Some
     | Some x, "get_Result", _ ->
         Helper.InstanceCall(x, "get_result", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+
+let threads com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, i.GenericArgs with
+    | _, "Thread", [tType] ->
+        Helper.LibCall(com, "Thread", "new", tType, args, ?loc=r) |> Some
+    | Some x, "Start", [] ->
+        Helper.InstanceCall(x, "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | Some x, "Join", [] ->
+        Helper.InstanceCall(x, "join", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2559,13 +2570,16 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
-    | _, "Singleton", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
+    | _, "Singleton", _ ->
+        Some (Value (UnitConstant, r))
+        //makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [arg; f] ->
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Delay", _ -> Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Bind", _ -> Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Return", _ -> Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Zero", _ -> Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2598,11 +2612,13 @@ let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Return", _ -> Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Delay", _ -> Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
     | _, "TaskBuilderBase.Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "TaskBuilderBase.Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2910,6 +2926,7 @@ let private replacedModules =
     "System.Threading.Monitor", monitor
     Types.task, tasks
     Types.taskGeneric, tasks
+    Types.thread, threads
     "System.Threading.Tasks.TaskCompletionSource`1", tasks
     "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
     "System.Activator", activator

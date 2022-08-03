@@ -2,29 +2,34 @@
 
 #[cfg(feature = "futures")]
 pub mod Async_ {
-    use std::future::{self, Future, ready};
+    use std::future::{self, ready, Future};
     use std::pin::Pin;
-    use std::sync::{Arc};
+    use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
 
-    use futures::FutureExt;
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
+    use futures::FutureExt;
 
     use super::Task_::Task;
 
     pub struct Async<T: Sized + Send + Sync> {
-        pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>
+        pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>,
     }
 
-    impl <T: Clone + Send + Sync> Future for &Async<T> {
+    impl<T: Clone + Send + Sync> Future for &Async<T> {
         type Output = T;
 
-        fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
-            let p = self.future.try_lock()
-                .map(|mut f|f.poll_unpin(cx))
-                .unwrap_or_else(||{
+        fn poll(
+            self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
+            let p = self
+                .future
+                .try_lock()
+                .map(|mut f| f.poll_unpin(cx))
+                .unwrap_or_else(|| {
                     //Again blocking wait, not good
                     thread::sleep(Duration::from_millis(10));
                     cx.waker().wake_by_ref();
@@ -57,46 +62,62 @@ pub mod Async_ {
 
     pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task<T>>) -> Arc<Async<T>> {
         let fut = async move { (&*a).await };
-        let a: Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(fut);
-        Arc::from(Async{ future: Arc::from(Mutex::from(a)) })
+        let a: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> = Box::pin(fut);
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(a)),
+        })
     }
 }
 
 #[cfg(feature = "futures")]
 pub mod AsyncBuilder_ {
-    use std::{sync::Arc, pin::Pin, future::{Future, ready}};
+    use std::{
+        future::{ready, Future},
+        pin::Pin,
+        sync::Arc,
+    };
 
     use futures::lock::Mutex;
 
     use super::Async_::Async;
 
-    pub fn delay<T: Send + Sync>(binder: Arc<impl Fn() -> Arc<Async<T>> + 'static>) -> Arc<Async<T>> {
+    pub fn delay<T: Send + Sync>(
+        binder: Arc<impl Fn() -> Arc<Async<T>> + 'static>,
+    ) -> Arc<Async<T>> {
         let pr = binder();
-        Arc::from(Async {future: pr.future.clone()})
+        Arc::from(Async {
+            future: pr.future.clone(),
+        })
     }
 
-    pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
+    pub fn bind<T: Clone + Send + Sync + 'static, U: Clone + Send + Sync + 'static>(
         opt: Arc<Async<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Async<U>> + Send + Sync + 'static>
-    ) -> Arc<Async<U>>
-    {
-        let next =
-            async move {
-                let mut m = opt.future.lock().await;
-                let m = m.as_mut().await;
-                let nextAsync = binder(m);
-                let mut next = nextAsync.future.lock().await;
-                next.as_mut().await
-            };
+        binder: Arc<impl Fn(T) -> Arc<Async<U>> + Send + Sync + 'static>,
+    ) -> Arc<Async<U>> {
+        let next = async move {
+            let mut m = opt.future.lock().await;
+            let m = m.as_mut().await;
+            let nextAsync = binder(m);
+            let mut next = nextAsync.future.lock().await;
+            next.as_mut().await
+        };
 
-        let b :Pin<Box<dyn Future<Output=U> + Send + Sync + 'static>> = Box::pin(next);
-        Arc::from(Async { future: Arc::from(Mutex::from(b)) })
+        let b: Pin<Box<dyn Future<Output = U> + Send + Sync + 'static>> = Box::pin(next);
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(b)),
+        })
     }
 
-    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async<T>>{
+    pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async<T>> {
         let r = ready(item);
-        let b :Pin<Box<dyn Future<Output=T> + Send + Sync + 'static>> = Box::pin(r);
-        Arc::from(Async { future: Arc::from(Mutex::from(b)) })
+        let b: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> = Box::pin(r);
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(b)),
+        })
+    }
+
+    pub fn zero() -> Arc<Async<()>> {
+        r_return(())
     }
 }
 
@@ -107,7 +128,7 @@ pub mod ThreadPool {
     use futures::executor::ThreadPool;
 
     static mut POOL: Option<RwLock<ThreadPool>> = None;
-    pub fn try_init_and_get_pool() -> & 'static RwLock<ThreadPool> {
+    pub fn try_init_and_get_pool() -> &'static RwLock<ThreadPool> {
         unsafe {
             if POOL.is_none() {
                 let pool = ThreadPool::new().unwrap();
@@ -120,21 +141,72 @@ pub mod ThreadPool {
 }
 
 #[cfg(feature = "futures")]
-pub mod Task_ {
-    use std::{sync::{Arc, RwLock}, thread::{self, JoinHandle}, time::Duration, task::Poll, pin::Pin};
+pub mod Monitor_ {
+    use std::{
+        any::Any,
+        collections::HashSet,
+        sync::{Arc, Mutex, RwLock, Weak},
+        thread,
+        time::Duration,
+    };
 
-    use futures::{FutureExt, Future};
+    use crate::Native_::Lrc;
+
+    static mut LOCKS: Option<RwLock<HashSet<usize>>> = None;
+    fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
+        unsafe {
+            let hs = HashSet::new();
+            if LOCKS.is_none() {
+                LOCKS = Some(RwLock::new(hs));
+            }
+
+            LOCKS.as_ref().unwrap()
+        }
+    }
+
+    pub fn enter<T>(o: Lrc<T>) {
+        let p = Arc::<T>::as_ptr(&o) as usize;
+        loop {
+            let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
+            if otherHasLock {
+                thread::sleep(Duration::from_millis(10));
+            } else {
+                try_init_and_get_locks().write().unwrap().insert(p);
+                return;
+            }
+        }
+    }
+
+    pub fn exit<T>(o: Lrc<T>) {
+        let p = Arc::<T>::as_ptr(&o) as usize;
+        let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
+        if (!hasRemoved) {
+            panic!("Not removed {}", p)
+        }
+    }
+}
+
+#[cfg(feature = "futures")]
+pub mod Task_ {
+    use std::{
+        pin::Pin,
+        sync::{Arc, RwLock},
+        task::Poll,
+        thread::{self, JoinHandle},
+        time::Duration,
+    };
+
+    use futures::{Future, FutureExt};
 
     use super::ThreadPool::try_init_and_get_pool;
 
     pub enum TaskState<T: Sized + Clone + Send> {
         New(Pin<Box<dyn Future<Output = T> + Send + Sync>>),
         Running,
-        Complete(T)
+        Complete(T),
     }
 
-    impl <T: Sized + Clone + Send + 'static> TaskState<T> {
-
+    impl<T: Sized + Clone + Send + 'static> TaskState<T> {
         pub fn is_new(&self) -> bool {
             match self {
                 TaskState::New(_) => true,
@@ -173,10 +245,13 @@ pub mod Task_ {
         result: Arc<RwLock<TaskState<T>>>,
     }
 
-    impl <T: Clone + Send + Sync> Future for &Task<T> {
+    impl<T: Clone + Send + Sync> Future for &Task<T> {
         type Output = T;
 
-        fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        fn poll(
+            self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
             //eprintln!("{:?} Polling task for result", thread::current().id());
             let m = self.result.read().unwrap();
 
@@ -186,8 +261,8 @@ pub mod Task_ {
                     //eprintln!("{:?} poll: task is new, waking up", thread::current().id());
                     cx.waker().wake_by_ref();
                     Poll::Pending
-                },
-                TaskState::Running  => {
+                }
+                TaskState::Running => {
                     //eprintln!("{:?} poll: pending, nothing to do", thread::current().id());
 
                     //todo - this is no good as it blocks the thread. It needs to be non-blocking and delegate out
@@ -195,25 +270,29 @@ pub mod Task_ {
                     cx.waker().wake_by_ref();
 
                     Poll::Pending
-                },
+                }
                 TaskState::Complete(res) => {
                     //eprintln!("{:?} Poll succeeded", thread::current().id());
                     Poll::Ready(res.clone())
-                },
+                }
             }
         }
     }
 
-    impl <T: Clone + Send + Sync + 'static> Task<T>{
+    impl<T: Clone + Send + Sync + 'static> Task<T> {
         pub fn new(fut: impl Future<Output = T> + Send + Sync + 'static) -> Task<T> {
-            Task { result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))) }
+            Task {
+                result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))),
+            }
         }
 
         pub fn from_result(value: T) -> Task<T> {
-            Task { result: Arc::from(RwLock::from(TaskState::Complete(value))) }
+            Task {
+                result: Arc::from(RwLock::from(TaskState::Complete(value))),
+            }
         }
 
-        pub fn set_result(&self, value: T){
+        pub fn set_result(&self, value: T) {
             let mut m = self.result.write().unwrap();
             //eprintln!("{:?} set task result", thread::current().id());
             (*m) = TaskState::Complete(value);
@@ -240,7 +319,7 @@ pub mod Task_ {
 
         pub fn start(t: Arc<Task<T>>) {
             if !t.result.read().unwrap().is_new() {
-                return
+                return;
             }
             let ts = t.result.write().unwrap().replace(TaskState::Running);
             match ts {
@@ -258,29 +337,30 @@ pub mod Task_ {
         }
     }
 
-    pub fn bind<T: Clone  + Send + Sync + 'static, U: Clone  + Send + Sync + 'static>(
+    pub fn bind<T: Clone + Send + Sync + 'static, U: Clone + Send + Sync + 'static>(
         opt: Arc<Task<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Task<U>> + Send + Sync + 'static>
-                         ) -> Arc<Task<U>> {
-        let next =
-            async move {
-                //eprintln!("{:?} begin await source fut", thread::current().id());
-                let m = opt.as_ref().await;
-                //eprintln!("{:?} awaiting source future success", thread::current().id());
-                let nextAsync = binder(m);
-                if nextAsync.is_new() {
-                    Task::start(nextAsync.clone());
-                }
-                let next = nextAsync.as_ref().await;
-                //eprintln!("{:?} setting result", thread::current().id());
-                next
-            };
+        binder: Arc<impl Fn(T) -> Arc<Task<U>> + Send + Sync + 'static>,
+    ) -> Arc<Task<U>> {
+        let next = async move {
+            //eprintln!("{:?} begin await source fut", thread::current().id());
+            let m = opt.as_ref().await;
+            //eprintln!("{:?} awaiting source future success", thread::current().id());
+            let nextAsync = binder(m);
+            if nextAsync.is_new() {
+                Task::start(nextAsync.clone());
+            }
+            let next = nextAsync.as_ref().await;
+            //eprintln!("{:?} setting result", thread::current().id());
+            next
+        };
 
         let task = Task::new(next);
         Arc::from(task)
     }
 
-    pub fn delay<T: Clone + Send + Sync>(binder: Arc<impl Fn() -> Arc<Task<T>> + 'static>) -> Arc<Task<T>> {
+    pub fn delay<T: Clone + Send + Sync>(
+        binder: Arc<impl Fn() -> Arc<Task<T>> + 'static>,
+    ) -> Arc<Task<T>> {
         let pr = binder();
         pr
     }
@@ -290,18 +370,24 @@ pub mod Task_ {
         Arc::from(t)
     }
 
+    pub fn zero() -> Arc<Task<()>> {
+        r_return(())
+    }
+
     pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task<T>> {
-        let t = Task { result: Arc::from(RwLock::from(TaskState::Complete(t))) };
+        let t = Task {
+            result: Arc::from(RwLock::from(TaskState::Complete(t))),
+        };
         Arc::from(t)
     }
 }
 
 #[cfg(feature = "futures")]
 pub mod TaskBuilder_ {
-    use std::{sync::Arc, rc::Rc};
+    use std::{rc::Rc, sync::Arc};
 
-    use super::Task_::Task;
     use super::super::Native_::Lrc;
+    use super::Task_::Task;
 
     pub struct TaskBuilder {}
 

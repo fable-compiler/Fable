@@ -106,6 +106,7 @@ module Types =
     let [<Literal>] taskBuilderModule = "Microsoft.FSharp.Control.TaskBuilderModule"
     let [<Literal>] task = "System.Threading.Tasks.Task"
     let [<Literal>] taskGeneric = "System.Threading.Tasks.Task`1"
+    let [<Literal>] thread = "System.Threading.Thread.Thread"
     let [<Literal>] cancellationToken = "System.Threading.CancellationToken"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
