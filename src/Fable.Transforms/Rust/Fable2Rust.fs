@@ -3785,7 +3785,11 @@ module Compiler =
                 if selector = Fable.Naming.placeholder then
                     "`importMember` must be assigned to a variable"
                     |> addError com [] r
-                let path = path |> Fable.Naming.replaceSuffix ".fs" ".rs"
+                let path =
+                    if path.EndsWith(".fs") then
+                        let fileExt = (self :> Compiler).Options.FileExtension
+                        Fable.Path.ChangeExtension(path, fileExt)
+                    else path
                 let cacheKey =
                     if (isFableLibraryPath self path)
                     then "fable_library_rust::" + selector
