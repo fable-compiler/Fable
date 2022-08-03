@@ -589,7 +589,7 @@ def partial_apply(
 
 
 def is_array_like(x: Any) -> bool:
-    return hasattr(x, "__iter__")
+    return isinstance(x, (list, tuple, set, array))
 
 
 def is_disposable(x: Any) -> bool:
