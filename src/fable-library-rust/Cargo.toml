@@ -3,6 +3,10 @@ name = "fable_library_rust"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+futures = ["dep:futures"]
+unsafe-cells = []
+
 [dependencies]
 futures = { version = "0.3.21", features = ["executor", "thread-pool"], optional = true }
 startup = { version = "0.1.1" }

@@ -80,3 +80,67 @@ let shouldExecuteTask () =
         return a + b
     }
     comp.Result |> equal 3
+
+
+[<Fact>]
+let shouldExecuteMutationOnTask () =
+    let a = Task.FromResult 0
+    let mutable x = 0
+    let comp = task {
+        let! _ = a
+        x <- x + 1
+    }
+    do comp.Result
+    x |> equal 1
+
+// [<Fact>]
+// let ``should execute mutation on thread unsafe`` () =
+//     let mutable x = 1
+//     let t = new System.Threading.Thread(fun () -> x <- x + 1)
+//     t.Start()
+//     t.Join()
+//     x |> equal 2
+
+// module Monitor =
+//     [<Fact>]
+//     let monitorShouldWorkWithSystemObj () =
+//         let o = new System.Object()
+//         System.Threading.Monitor.Enter(o)
+//         System.Threading.Monitor.Exit(o)
+
+//     type Data = {
+//         x: string //deliberately use reference type to confirm nested Lrc
+//     }
+
+//     [<Fact>]
+//     let monitorShouldWorkWithT () =
+//         let o = { x = "test" }
+//         System.Threading.Monitor.Enter(o)
+//         System.Threading.Monitor.Exit(o)
+//     [<Fact>]
+//     let ``For monitor - Should block on thread until lock has been released`` () =
+//         let mutable events = []
+//         let o = new System.Object()
+//         System.Threading.Monitor.Enter(o)
+//         let t1 = new System.Threading.Thread(fun () -> lock o (fun () -> events <- 1::events))
+//         t1.Start()
+//         System.Threading.Thread.Sleep(100);
+
+//         events <- 2::events
+//         System.Threading.Monitor.Exit(o)
+
+//         t1.Join()
+//         events |> equal [1; 2]
+
+//[<Fact>]
+// let testShouldMutateAndLock () =
+//     let o = new System.Object()
+//     let mutable x = 1
+//     let lazyGet = async { return 1 }
+//     let comp = async {
+//         let! _ = lazyGet
+//         lock o (fun () -> x <- x + 1)
+//     }
+//     let t = Async.StartAsTask comp
+//     do t.Result
+//     x |> equal 2

@@ -2598,11 +2598,13 @@ let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Return", _ -> Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _, "Delay", _ -> Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
     | _, "TaskBuilderBase.Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _, "TaskBuilderBase.Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 

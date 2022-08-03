@@ -290,6 +290,10 @@ pub mod Task_ {
         Arc::from(t)
     }
 
+    pub fn zero() -> Arc<Task<()>> {
+        r_return(())
+    }
+
     pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task<T>> {
         let t = Task { result: Arc::from(RwLock::from(TaskState::Complete(t))) };
         Arc::from(t)
