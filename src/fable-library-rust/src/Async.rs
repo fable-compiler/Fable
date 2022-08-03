@@ -152,12 +152,12 @@ pub mod Monitor_ {
 
     use crate::Native_::Lrc;
 
-    static mut LOCKS: Option<Mutex<HashSet<usize>>> = None;
-    fn try_init_and_get_locks() -> &'static Mutex<HashSet<usize>> {
+    static mut LOCKS: Option<RwLock<HashSet<usize>>> = None;
+    fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
         unsafe {
             let hs = HashSet::new();
             if LOCKS.is_none() {
-                LOCKS = Some(Mutex::new(hs));
+                LOCKS = Some(RwLock::new(hs));
             }
 
             LOCKS.as_ref().unwrap()
@@ -167,20 +167,20 @@ pub mod Monitor_ {
     pub fn enter<T>(o: Lrc<T>) {
         let p = Arc::<T>::as_ptr(&o) as usize;
         loop {
-            let otherHasLock = try_init_and_get_locks().lock().unwrap().get(&p).is_some();
+            let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
             if otherHasLock {
                 thread::sleep(Duration::from_millis(10));
             } else {
-                try_init_and_get_locks().lock().unwrap().insert(p);
-                return
+                try_init_and_get_locks().write().unwrap().insert(p);
+                return;
             }
         }
     }
 
     pub fn exit<T>(o: Lrc<T>) {
         let p = Arc::<T>::as_ptr(&o) as usize;
-        let hasRemoved = try_init_and_get_locks().lock().unwrap().remove(&p);
-        if(!hasRemoved){
+        let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
+        if (!hasRemoved) {
             panic!("Not removed {}", p)
         }
     }
