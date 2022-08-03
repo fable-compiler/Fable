@@ -45,4 +45,8 @@ def op_subtraction(
     return x - y
 
 
+def min_value() -> datetime:
+    return datetime.min
+
+
 __all__ = ["now", "op_addition", "op_subtraction", "parse", "try_parse", "utc_now"]

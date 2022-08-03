@@ -834,6 +834,9 @@ module PythonExtensions =
         static member nonLocal(ids) =
             NonLocal.Create ids |> Statement.NonLocal
 
+        static member global'(ids) =
+            Global.Create ids |> Statement.Global
+
     type Expression with
 
         static member name(identifier, ?ctx, ?loc) : Expression =

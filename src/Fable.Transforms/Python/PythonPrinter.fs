@@ -200,8 +200,9 @@ module PrinterExtensions =
             printer.PrintNewLine()
 
         member printer.Print(gl: Global) =
-            printer.Print("global ")
-            printer.PrintCommaSeparatedList(gl.Names)
+            if not (List.isEmpty gl.Names) then
+                printer.Print("global ")
+                printer.PrintCommaSeparatedList(gl.Names)
 
         member printer.Print(nl: NonLocal) =
             if not (List.isEmpty nl.Names) then

@@ -5,6 +5,7 @@ import re
 from abc import ABC, abstractmethod
 from array import array
 from enum import IntEnum
+from inspect import Parameter, signature
 from threading import RLock
 from types import TracebackType
 from typing import (
@@ -508,67 +509,73 @@ def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
 CURRIED_KEY = "__CURRIED__"
 
 
-def uncurry(arity: int, f: Callable[..., Callable[..., Any]]) -> Callable[..., Any]:
-    # f may be a function option with None value
-    if f is None:
-        return f
+def num_args(fn: Callable[..., Any]) -> int:
+    return len(
+        [
+            param
+            for param in signature(fn).parameters.values()
+            if param.kind == Parameter.POSITIONAL_ONLY
+        ]
+    )
 
-    fns = {
-        2: lambda a1, a2: f(a1)(a2),
-        3: lambda a1, a2, a3: f(a1)(a2)(a3),
-        4: lambda a1, a2, a3, a4: f(a1)(a2)(a3)(a4),
-        5: lambda a1, a2, a3, a4, a5: f(a1)(a2)(a3)(a4)(a5),
-        6: lambda a1, a2, a3, a4, a5, a6: f(a1)(a2)(a3)(a4)(a5)(a6),
-        7: lambda a1, a2, a3, a4, a5, a6, a7: f(a1)(a2)(a3)(a4)(a5)(a6)(a7),
-        8: lambda a1, a2, a3, a4, a5, a6, a7, a8: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8),
-    }
 
-    try:
-        uncurried_fn = cast(Callable[..., Any], fns[arity])
-    except Exception:
-        raise Exception(f"Uncurrying to more than 8-arity is not supported: {arity}")
+def uncurry(arity: int, fn: Callable[..., Callable[..., Any]]) -> Callable[..., Any]:
+    # Check if function is option with None value
+    if fn is None or num_args(fn) == 1:
+        return fn
 
-    setattr(f, CURRIED_KEY, f)
-    return uncurried_fn
+    def uncurried(*args: Any):
+        res = fn
+        for i in range(arity):
+            res = res(args[i])
+
+        return res
+
+    setattr(uncurried, CURRIED_KEY, fn)
+    return uncurried
+
+
+def _curry(*args: Any, arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
+    def curried(arg: Any) -> Callable[..., Any]:
+        if arity == 1:
+            return fn(*args, arg)
+
+        # Note it's important to generate a new args array every time
+        # because a partially applied function can be run multiple times
+        return _curry(*args, arg, arity=arity - 1, fn=fn)
+
+    return curried
 
 
 def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any]]:
-    if fn is None or arity == 1:
+    if fn is None or num_args(fn) == 1:
         return fn
 
     if hasattr(fn, CURRIED_KEY):
         return getattr(fn, CURRIED_KEY)
 
-    if arity == 2:
-        return lambda a1: lambda a2: fn(a1, a2)
-    elif arity == 3:
-        return lambda a1: lambda a2: lambda a3: fn(a1, a2, a3)
-    elif arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: fn(a1, a2, a3, a4)
-    elif arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
-            a1, a2, a3, a4, a5
-        )
-    elif arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
-            a1, a2, a3, a4, a5, a6
-        )
-    elif arity == 7:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
-            a1, a2, a3, a4, a5, a6, a7
-        )
-    elif arity == 8:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
-            a1, a2, a3, a4, a5, a6, a7, a8
-        )
-    else:
-        raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
+    return _curry(arity=arity, fn=fn)
+
+
+def check_arity(arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
+    sig = signature(fn)
+    num_args = len(sig.parameters)
+
+    def gn(*args1: Any) -> Callable[..., Any]:
+        def hn(*args2: Any) -> Any:
+            return fn(*args1, *args2)
+
+        return hn
+
+    if num_args > arity:
+        return gn
+    return fn
 
 
 def partial_apply(
     arity: int, fn: Callable[..., Any], args: List[Any]
 ) -> Callable[..., Any]:
-    if not fn:
+    if fn is None:
         raise ValueError("partially_apply: Missing function")
 
     if hasattr(fn, CURRIED_KEY):
@@ -576,40 +583,13 @@ def partial_apply(
 
         for arg in args:
             fn = fn(arg)
-
         return fn
-
-    if arity == 1:
-        return lambda a1: fn(*args, a1)
-    if arity == 2:
-        return lambda a1: lambda a2: fn(*args, a1, a2)
-    if arity == 3:
-        return lambda a1: lambda a2: lambda a3: fn(*args, a1, a2, a3)
-    if arity == 4:
-        return lambda a1: lambda a2: lambda a3: lambda a4: fn(*args, a1, a2, a3, a4)
-    if arity == 5:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: fn(
-            *args, a1, a2, a3, a4, a5
-        )
-    if arity == 6:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: fn(
-            *args, a1, a2, a3, a4, a5, a6
-        )
-    if arity == 7:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: fn(
-            *args, a1, a2, a3, a4, a5, a6, a7
-        )
-    if arity == 8:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: fn(
-            *args, a1, a2, a3, a4, a5, a6, a7, a8
-        )
-    raise ValueError(
-        f"Partially applying to more than 8-arity is not supported: {arity}"
-    )
+    else:
+        return _curry(*args, arity=arity, fn=fn)
 
 
 def is_array_like(x: Any) -> bool:
-    return isinstance(x, (list, tuple, set, frozenset, array))
+    return hasattr(x, "__iter__")
 
 
 def is_disposable(x: Any) -> bool:
