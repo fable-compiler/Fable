@@ -35,5 +35,6 @@ let coreAssemblies = [|
     "System.Text.RegularExpressions"
     "System.Threading"
     "System.Threading.Tasks"
+    "System.Threading.Thread"
     "System.ValueTuple"
     |]
