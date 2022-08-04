@@ -186,6 +186,10 @@ def is_comparable(x: Any) -> bool:
     return hasattr(x, "CompareTo") and callable(x.CompareTo)
 
 
+def is_iterable(x: Any) -> bool:
+    return isinstance(x, Iterable)
+
+
 def compare_dicts(x: Dict[str, Any], y: Dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 

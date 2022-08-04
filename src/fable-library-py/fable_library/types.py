@@ -92,7 +92,7 @@ class Union(IComparable):
 
     def __hash__(self) -> int:
         hashes = map(hash, self.fields)
-        return hash([hash(self.tag), *hashes])
+        return hash((hash(self.tag), *hashes))
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
