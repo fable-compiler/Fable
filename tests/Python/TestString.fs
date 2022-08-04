@@ -836,3 +836,16 @@ let ``test Can create FormattableString`` () =
     s.ArgumentCount |> equal 3
     s.GetArgument(2) |> equal (box true)
     s.GetArguments() |> equal [|100; 3; true|]
+
+#if FABLE_COMPILER
+//[<Fact>]
+//let ``test Can use FormattableString.GetStrings() extension`` () =
+//    let orderAmount = 100
+//    let convert (s: FormattableString) = s
+//    let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+//    s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+//    let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+//    s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+//    let s3: FormattableString = $"""I have no holes"""
+//    s3.GetStrings() |> equal [|"I have no holes"|]
+#endif
