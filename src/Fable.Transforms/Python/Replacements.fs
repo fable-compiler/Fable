@@ -3460,14 +3460,14 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
+        Helper.LibCall(com, "event", "Event", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
         |> Some
     | "get_Publish", Some x -> getFieldWith r t x "Publish" |> Some
     | meth, Some x ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | meth, None ->
-        Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
 let observable (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =

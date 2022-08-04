@@ -42,6 +42,7 @@
     <Compile Include="TestDictionary.fs" />
     <Compile Include="TestEnum.fs" />
     <Compile Include="TestEnumerable.fs" />
+    <Compile Include="TestEvent.fs" />
     <Compile Include="TestFn.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestLoops.fs" />
