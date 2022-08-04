@@ -106,7 +106,6 @@ let ``test ResizeArray.FindLast with option works`` () =
     System.Predicate<_> (fun _ -> false)  |> li.FindLast |> equal None
     System.Predicate<_> Option.isSome  |> li.FindLast |> equal (Some 1)
 
-(*
 [<Fact>]
 let ``test ResizeArray.FindIndex works`` () =
     let li = ResizeArray<_>()
@@ -120,7 +119,7 @@ let ``test ResizeArray.FindLastIndex works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(2.); li.Add(5.)
     System.Predicate<_> (fun x -> x = 2.) |> li.FindLastIndex |> equal 3
     System.Predicate<_> (fun x -> x = 0.) |> li.FindLastIndex |> equal -1
-*)
+
 [<Fact>]
 let ``test ResizeArray.ForEach works`` () =
     let li = ResizeArray<_>()
