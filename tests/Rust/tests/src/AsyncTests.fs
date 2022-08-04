@@ -132,7 +132,7 @@ module Monitor =
             System.Threading.Monitor.Exit(o)
         }
         let t = a1 |> Async.StartAsTask
-        System.Threading.Thread.Sleep(100); //todo - problem with Thread: (error FSHARP: The value, constructor, namespace or type 'Thread' is not defined. Maybe you want one of the following:)
+        System.Threading.Thread.Sleep(100);
 
         events <- 2::events
         System.Threading.Monitor.Exit(o)
