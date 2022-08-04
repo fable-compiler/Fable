@@ -225,23 +225,23 @@ let ``test Classes can trigger CLI events on interfaces`` () =
     equal 5 result
     equal (box classWithEvent) sender
 
-[<Fact>]
-let ``test Generic interface expression can have CLI events`` () =
-    let mutable actualSender = ""
-    let mutable result = false
-    let event = Event<_,_>()
-    let ifaceWIthEvent =
-        { new InterfaceWithCLIEvent<_> with
-            [<CLIEvent>]
-            member __.Event = event.Publish }
-    ifaceWIthEvent.Event.AddHandler(fun sender arg ->
-        actualSender <- string sender
-        result <- arg)
-    let expectedSender = "SENDER"
-    let expectedResult = true
-    event.Trigger(expectedSender, expectedResult)
-    equal expectedSender actualSender
-    equal expectedResult result
+// [<Fact>]
+// let ``test Generic interface expression can have CLI events`` () =
+//     let mutable actualSender = ""
+//     let mutable result = false
+//     let event = Event<_,_>()
+//     let ifaceWIthEvent =
+//         { new InterfaceWithCLIEvent<_> with
+//             [<CLIEvent>]
+//             member __.Event = event.Publish }
+//     ifaceWIthEvent.Event.AddHandler(fun sender arg ->
+//         actualSender <- string sender
+//         result <- arg)
+//     let expectedSender = "SENDER"
+//     let expectedResult = true
+//     event.Trigger(expectedSender, expectedResult)
+//     equal expectedSender actualSender
+//     equal expectedResult result
 
 [<Fact>]
 let ``test Events are unsubscribed correctly`` () = // See #609
