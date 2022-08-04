@@ -344,6 +344,22 @@ def lazy_from_value(v: _T) -> Lazy[_T]:
     return Lazy(lambda: v)
 
 
+def pad_with_zeros(i: int, length: int) -> str:
+    string = str(i)
+    while len(string) < length:
+        string = "0" + string
+    return string
+
+
+def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -> str:
+    string = str(i)
+    while len(string) < length_left:
+        string = "0" + string
+    while len(string) < length_right:
+        string = string + "0"
+    return string
+
+
 class Atom(Generic[_T], Protocol):
     __slots__ = ()
 

@@ -979,6 +979,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "Async.StartAsPromise.Static" ->
         Helper.LibCall(com, "async_", "startAsPromise", t, args, ?loc = r)
         |> Some
+    | _, "FormattableString.GetStrings" -> getFieldWith r t thisArg.Value "strs" |> Some
+
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
         | "AreEqual" ->
@@ -3927,7 +3929,7 @@ let tryField com returnTyp ownerTyp fieldName =
         |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> emptyGuid () |> Some
-    | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
+    | Builtin BclTimeSpan, "Zero" -> Helper.LibCall(com, "time_span", "create", returnTyp, [ makeIntConst 0 ]) |> Some
     | Builtin BclDateTime,
       ("MaxValue"
       | "MinValue") ->

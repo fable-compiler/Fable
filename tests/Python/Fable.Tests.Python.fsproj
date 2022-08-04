@@ -65,6 +65,7 @@
     <Compile Include="TestString.fs" />
     <Compile Include="TestSudoku.fs" />
     <Compile Include="TestTailCall.fs" />
+    <Compile Include="TestTimeSpan.fs" />
     <Compile Include="TestTask.fs" />
     <Compile Include="TestType.fs" />
     <Compile Include="TestTupleType.fs" />
