@@ -2430,6 +2430,8 @@ let threads com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: E
     match thisArg, i.CompiledName, i.GenericArgs with
     | _, "Thread", [tType] ->
         Helper.LibCall(com, "Thread", "new", tType, args, ?loc=r) |> Some
+    | _, "Sleep", _ ->
+        Helper.LibCall(com, "Thread", "sleep", t, args, ?loc=r) |> Some
     | Some x, "Start", [] ->
         Helper.InstanceCall(x, "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, "Join", [] ->
