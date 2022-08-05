@@ -605,8 +605,6 @@ module Annotation =
         let expr = com.TransformImport(ctx, memberName, moduleName)
 
         match memberName, args with
-        | _, [] -> expr
-        | _, [ arg ] -> Expression.subscript (expr, arg)
         | "Callable", args ->
             let returnType = List.last args
 
@@ -619,6 +617,8 @@ module Annotation =
                 |> Expression.list
 
             Expression.subscript (expr, Expression.tuple ([ args; returnType ]))
+        | _, [] -> expr
+        | _, [ arg ] -> Expression.subscript (expr, arg)
         | _, args -> Expression.subscript (expr, Expression.tuple (args))
 
     let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
