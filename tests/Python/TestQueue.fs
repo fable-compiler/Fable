@@ -162,7 +162,6 @@ let ``test Dequeue throws on empty queue`` () =
         | _ -> true
     ) |> equal true
 
-(* TODO
 [<Fact>]
 let ``test Clear queue removes all entries`` () =
     let q = Queue([1;2;3;4])
@@ -172,7 +171,7 @@ let ``test Clear queue removes all entries`` () =
     q.Clear()
 
     q.Count |> equal(0)
-*)
+
 [<Fact>]
 let ``test Contains finds entries in queue`` () =
     let q = Queue([1;2;3;4])

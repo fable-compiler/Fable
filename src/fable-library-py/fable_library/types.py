@@ -4,7 +4,6 @@ import array
 from abc import abstractmethod
 from typing import (
     Any,
-    ByteString,
     Callable,
     Generic,
     Iterable,
@@ -347,7 +346,7 @@ class float32(float):
     __slots__ = ()
 
 
-float = float
+float = float  # use native float for float64
 
 
 def Int8Array(lst: List[int]):
@@ -382,7 +381,7 @@ def Float64Array(lst: List[float]) -> MutableSequence[float]:
     return array.array("d", lst)
 
 
-Array = Union_[List[_T], MutableSequence[_T], ByteString]
+Array = MutableSequence[_T]
 
 
 def is_exception(x: Any):
