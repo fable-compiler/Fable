@@ -535,6 +535,9 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
+    let transformDecimalType com ctx: Rust.Ty =
+        transformImportType com ctx [] "Decimal" "decimal"
+
     let transformListType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "List" "List"
 
@@ -608,7 +611,7 @@ module TypeInfo =
         then mkImplTraitTy bounds
         else mkDynTraitTy bounds
 
-    let numberType kind: Rust.Ty =
+    let numberType com ctx kind: Rust.Ty =
         match kind with
         | Int8 -> "i8" |> primitiveType
         | UInt8 -> "u8" |> primitiveType
@@ -622,7 +625,7 @@ module TypeInfo =
         | UNativeInt -> "usize" |> primitiveType
         | Float32 -> "f32" |> primitiveType
         | Float64 -> "f64" |> primitiveType
-        | Decimal -> makeFullNamePathTy Types.decimal None
+        | Decimal -> transformDecimalType com ctx
         | BigInt -> makeFullNamePathTy Types.bigint None
 
     let getEntityFullName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
@@ -771,7 +774,7 @@ module TypeInfo =
             | Fable.Boolean -> primitiveType "bool"
             | Fable.Char    -> primitiveType "char"
             | Fable.String  -> primitiveType "str"
-            | Fable.Number(kind, _) -> numberType kind
+            | Fable.Number(kind, _) -> numberType com ctx kind
             | Fable.LambdaType(argType, returnType) ->
                 let argTypes, returnType = FableTransforms.uncurryLambdaType [argType] returnType
                 transformClosureType com ctx argTypes returnType

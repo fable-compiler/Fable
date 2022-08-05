@@ -8,5 +8,6 @@ futures = ["dep:futures"]
 unsafe-cells = []
 
 [dependencies]
-futures = { version = "0.3.21", features = ["executor", "thread-pool"], optional = true }
 startup = { version = "0.1.1" }
+rust_decimal = { version = "1.25.0", features = ["maths"] }
+futures = { version = "0.3.21", features = ["executor", "thread-pool"], optional = true }

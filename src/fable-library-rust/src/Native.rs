@@ -30,7 +30,6 @@ pub mod Native_ {
     pub type HashMap<K, V> = Lrc<MutHashMap<K, V>>;
 
     // TODO: use these types in generated code
-    pub type string = Lrc<str>;
     pub type seq<T> = Lrc<dyn crate::Interfaces_::IEnumerable_1<T>>;
     pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
     pub type RefCell<T> = Lrc<MutCell<T>>;

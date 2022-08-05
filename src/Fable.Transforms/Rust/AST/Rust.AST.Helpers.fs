@@ -301,7 +301,9 @@ module Literals =
     let mkFloat64Lit (value: float): Lit =
         let strValueWithDot =
             let s = string value
-            if s.Contains(".") then s else s + ".0"
+            if s.Contains(".") || s.Contains("e") || s.Contains("E")
+            then s
+            else s + ".0"
         { token = mkFloatTokenLit strValueWithDot (Some "f64")
           kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F64))
           span = DUMMY_SP }
