@@ -2193,10 +2193,14 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
     | "FoldBack", [folder; opt; state] ->
         Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("DefaultValue" | "OrElse"), _ ->
+    | "DefaultValue", _ ->
         Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
-    | ("DefaultWith" | "OrElseWith"), _ ->
+    | "DefaultWith", _ ->
         Helper.LibCall(com, "Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
+    | "OrElse", _ ->
+        Helper.LibCall(com, "Option", "orElse", t, List.rev args, ?loc=r) |> Some
+    | "OrElseWith", _ ->
+        Helper.LibCall(com, "Option", "orElseWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
     | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
         let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
