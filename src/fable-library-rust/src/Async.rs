@@ -402,3 +402,12 @@ pub mod TaskBuilder_ {
         Lrc::from(TaskBuilder {})
     }
 }
+
+#[cfg(feature = "futures")]
+pub mod Thread_ {
+    use std::{thread, time::Duration};
+
+    pub fn sleep(millis: i32) {
+        thread::sleep(Duration::from_millis(millis as u64));
+    }
+}
