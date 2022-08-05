@@ -567,7 +567,7 @@ def uncurry(arity: int, fn: Callable[..., Callable[..., Any]]) -> Callable[..., 
 
 
 def _curry(*args: Any, arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
-    def curried(arg: Any) -> Callable[..., Any]:
+    def curried(arg: Any = None) -> Callable[..., Any]:
         if arity == 1:
             return fn(*args, arg)
 
