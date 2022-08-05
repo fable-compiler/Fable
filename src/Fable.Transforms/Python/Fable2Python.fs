@@ -605,8 +605,6 @@ module Annotation =
         let expr = com.TransformImport(ctx, memberName, moduleName)
 
         match memberName, args with
-        | _, [] -> expr
-        | _, [ arg ] -> Expression.subscript (expr, arg)
         | "Callable", args ->
             let returnType = List.last args
 
@@ -619,6 +617,8 @@ module Annotation =
                 |> Expression.list
 
             Expression.subscript (expr, Expression.tuple ([ args; returnType ]))
+        | _, [] -> expr
+        | _, [ arg ] -> Expression.subscript (expr, arg)
         | _, args -> Expression.subscript (expr, Expression.tuple (args))
 
     let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
@@ -692,27 +692,6 @@ module Annotation =
         |> Helpers.unzipArgs
 
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
-        let numberInfo kind =
-            let name =
-                match kind with
-                | Int8
-                | UInt8
-                | Int16
-                | UInt16
-                | Int32
-                | UInt32
-                | Int64
-                | UInt64
-                | BigInt
-                | NativeInt
-                | UNativeInt -> "int"
-                | Float32
-                | Float64 -> "float"
-                // TODO: review, though we're dealing with Decimal as special case (see below)
-                | Decimal -> "complex"
-
-            Expression.name name
-
         // printfn "typeAnnotation: %A" t
         match t with
         | Fable.Measure _
@@ -736,38 +715,11 @@ module Annotation =
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char -> Expression.name "str", []
         | Fable.String -> Expression.name "str", []
-        | Fable.Number (kind, info) ->
-            match kind, info with
-            | _, Fable.NumberInfo.IsEnum entRef ->
-                let ent = com.GetEntity(entRef)
-
-                let cases =
-                    ent.FSharpFields
-                    |> Seq.choose (fun fi ->
-                        match fi.Name with
-                        | "value__" -> None
-                        | name ->
-                            let value =
-                                match fi.LiteralValue with
-                                | Some v -> Convert.ToDouble v
-                                | None -> 0.
-
-                            Expression.tuple [ Expression.constant name
-                                               Expression.constant value ]
-                            |> Some)
-                    |> Seq.toList
-                    |> Expression.list
-
-                [ Expression.constant entRef.FullName
-                  numberInfo kind
-                  cases ]
-                |> libReflectionCall com ctx None "enum",
-                []
-            | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
-            | _ -> numberInfo kind, []
+        | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
+        | Fable.DelegateType(argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array (genArg, _) ->
@@ -789,6 +741,53 @@ module Annotation =
             Expression.subscript (value, Expression.tuple ([ Expression.name "str"; any ])), stmts
         | Fable.DeclaredType (entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+
+    let makeNumberTypeAnnotation com ctx kind info =
+        let numberInfo kind =
+            let name =
+                match kind with
+                | Int8
+                | UInt8
+                | Int16
+                | UInt16
+                | Int32
+                | UInt32
+                | Int64
+                | UInt64
+                | BigInt
+                | NativeInt
+                | UNativeInt -> "int"
+                | Float32
+                | Float64 -> "float"
+                // TODO: review, though we're dealing with Decimal as special case (see below)
+                | Decimal -> "complex"
+            Expression.name name
+
+        match kind, info with
+        | _, Fable.NumberInfo.IsEnum entRef ->
+            let ent = com.GetEntity(entRef)
+
+            let cases =
+                ent.FSharpFields
+                |> Seq.choose (fun fi ->
+                    match fi.Name with
+                    | "value__" -> None
+                    | name ->
+                        let value =
+                            match fi.LiteralValue with
+                            | Some v -> Convert.ToDouble v
+                            | None -> 0.
+
+                        Expression.tuple [ Expression.constant name; Expression.constant value ]
+                        |> Some)
+                |> Seq.toList
+                |> Expression.list
+
+            [ Expression.constant entRef.FullName; numberInfo kind; cases ]
+            |> libReflectionCall com ctx None "enum",
+            []
+        | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
+        | _ -> numberInfo kind, []
 
     let makeImportTypeId (com: IPythonCompiler) ctx moduleName typeName =
         let expr = com.GetImportExpr(ctx, getLibPath com moduleName, typeName)
@@ -939,19 +938,11 @@ module Annotation =
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
 
-        let genTypeParams = Util.getGenericTypeParams (argTypes @ [ body.Type ])
-
-        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
-
-        let ctx =
-            { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
-
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
-        let repeatedGenerics =
-            Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
+        let repeatedGenerics = Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
+        // printfn "repeatedGenerics: %A" (repeatedGenerics, argTypes, body.Type)
 
         let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
-
         let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
 
         args', stmts @ body', returnType
@@ -3097,6 +3088,10 @@ module Util =
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
 
+        let argTypes = args |> List.map (fun id -> id.Type)
+        let genTypeParams = Util.getGenericTypeParams (argTypes @ [ body.Type ])
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+
         let ctx =
             { ctx with
                 TailCallOpportunity = tailcallChance
@@ -3105,7 +3100,8 @@ module Util =
                         declaredVars.AddRange(ids)
                         true
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
-                BoundVars = ctx.BoundVars.EnterScope() }
+                BoundVars = ctx.BoundVars.EnterScope()
+                ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
 
         // printfn "Args: %A" args
         let body =

@@ -568,6 +568,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | DeclaredType _ -> Helper.LibCall(com, "util", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
     | Array(t,_) ->
         let f = makeComparerFunction com ctx t
+        // TODO: change to compareTo after main sync. See #2961
         Helper.LibCall(com, "array", "compareWith", Number(Int32, NumberInfo.Empty), [ f; left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "util", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
     | Tuple _ -> Helper.LibCall(com, "util", "compareArrays", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
