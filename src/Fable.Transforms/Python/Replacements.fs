@@ -1371,10 +1371,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("Failure"
       | "FailurePattern" // (|Failure|_|)
       | "LazyPattern" // (|Lazy|_|)
-      | "Lock" // lock
       | "NullArg" // nullArg
       | "Using"),
       _ -> fsharpModule com ctx r t i thisArg args
+    | "Lock", _ -> // lock
+        Helper.LibCall(com, "util", "lock", t, args, i.SignatureArgTypes, ?loc = r) |> Some
     // Exceptions
     | "FailWith", [ msg ]
     | "InvalidOp", [ msg ] -> makeThrow r t (error msg) |> Some

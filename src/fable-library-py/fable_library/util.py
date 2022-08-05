@@ -320,6 +320,19 @@ def assert_not_equal(actual: _T, expected: _T, msg: Optional[str] = None) -> Non
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
+MAX_LOCKS = 1024
+
+
+def lock(lock_obj: Any, fn: Callable[[], _T]) -> _T:
+    @functools.lru_cache(maxsize=MAX_LOCKS)
+    def get_lock(n: int) -> RLock:
+        return RLock()
+
+    lock = get_lock(id(lock_obj))
+    with lock:
+        return fn()
+
+
 class Lazy(Generic[_T]):
     def __init__(self, factory: Callable[[], _T]):
         self.factory = factory
@@ -567,7 +580,7 @@ def uncurry(arity: int, fn: Callable[..., Callable[..., Any]]) -> Callable[..., 
 
 
 def _curry(*args: Any, arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
-    def curried(arg: Any) -> Callable[..., Any]:
+    def curried(arg: Any = None) -> Callable[..., Any]:
         if arity == 1:
             return fn(*args, arg)
 

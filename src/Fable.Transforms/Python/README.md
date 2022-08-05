@@ -20,7 +20,7 @@ Python source code.
 | DateTime     |    `datetime`    |                                                                                   |
 | string       |     `string`     |                                                                                   |
 | char         |     `string`     |                                                                                   |
-| `[]<byte>`   |   `bytearray`    | Python mutable str                                                                |
+| `[]<byte>`   |   `bytearray`    | Python mutable byte string                                                        |
 | `[]<sbyte>`  | `array("b", [])` | Python array module                                                               |
 | `[]<int16>`  | `array("h", [])` | Python array module                                                               |
 | `[]<uint16>` | `array("H", [])` | Python array module                                                               |

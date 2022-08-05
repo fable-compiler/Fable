@@ -205,7 +205,7 @@ class Record(IComparable):
 
 
 class Attribute:
-    pass
+    ...
 
 
 def seq_to_string(self: Iterable[Any]) -> str:
@@ -349,23 +349,23 @@ class float32(float):
 float = float  # use native float for float64
 
 
-def Int8Array(lst: List[int]):
+def Int8Array(lst: List[int]) -> MutableSequence[int]:
     return array.array("b", lst)
 
 
-def Uint8Array(lst: List[int]):
+def Uint8Array(lst: List[int]) -> MutableSequence[int]:
     return bytearray(lst)
 
 
-def Int16Array(lst: List[int]):
+def Int16Array(lst: List[int]) -> MutableSequence[int]:
     return array.array("h", lst)
 
 
-def Uint16Array(lst: List[int]):
+def Uint16Array(lst: List[int]) -> MutableSequence[int]:
     return array.array("H", lst)
 
 
-def Int32Array(lst: List[int]):
+def Int32Array(lst: List[int]) -> MutableSequence[int]:
     return array.array("i", lst)
 
 
@@ -393,6 +393,15 @@ __all__ = [
     "Array",
     "Exception",
     "is_exception",
+    "char",
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
     "Int8Array",
     "Uint8Array",
     "Int16Array",

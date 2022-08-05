@@ -130,6 +130,13 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 #         return dateToStringWithCustomFormat(d, format, True)
 
 
+def date_to_string_with_offset(date: datetime, format: Optional[str] = None) -> str:
+    if format and len(format) == 1:
+        return date_to_string_with_custom_format(date, format, True)
+
+    raise NotImplementedError("date_to_string_with_offset")
+
+
 def date_to_string_with_kind(date: datetime, format: Optional[str] = None) -> str:
     utc = date.tzinfo == timezone.utc
     if not format:

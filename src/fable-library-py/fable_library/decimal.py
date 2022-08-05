@@ -5,13 +5,10 @@ from .types import FSharpRef
 getcontext().prec = 29
 
 get_zero = Decimal(0)
-
 get_one = Decimal(1)
 
 get_minus_one = Decimal(-1)
-
 get_max_value = MAX_EMAX
-
 get_min_value = MIN_EMIN
 
 
