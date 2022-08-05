@@ -10,6 +10,7 @@ homepage = "https://fable.io"
 [tool.poetry.dependencies]
 python = ">= 3.9, < 4.0"
 fable-library = ""
+python-dateutil = "^2.8.2"
 
 [tool.poetry.dev-dependencies]
 fable-library = {path = "./build/fable-library-py", develop = true}
@@ -33,7 +34,7 @@ reportOverlappingOverload = true
 reportInconsistentConstructor = true
 reportImplicitStringConcatenation = true
 pythonVersion = "3.10"
-typeCheckingMode = "basic"
+typeCheckingMode = "strict"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
