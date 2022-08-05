@@ -5,3 +5,4 @@ open Fable.Core.Rust
 importAll "./Async.rs"
 importAll "./Func.rs"
 importAll "./Interop.rs"
+importAll "./Decimal.rs"

@@ -1,11 +1,13 @@
 #![allow(non_snake_case)]
 
 pub mod String_ {
-    use crate::Native_::{Array, Lrc, array, string};
+    use crate::Native_::{Array, Lrc, array};
 
     // -----------------------------------------------------------
     // Strings
     // -----------------------------------------------------------
+
+    pub type string = Lrc<str>;
 
     pub fn string(s: &str) -> string {
         Lrc::from(s)

@@ -75,7 +75,7 @@ pub mod ExtInteropTests {
 
     pub mod MapTests {
         use fable_library_rust::Map_::Map;
-        use fable_library_rust::Native_::{string, Lrc};
+        use fable_library_rust::Native_::Lrc;
         use fable_library_rust::String_::string;
 
         #[test]
