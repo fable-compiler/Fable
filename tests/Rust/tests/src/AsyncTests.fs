@@ -139,20 +139,30 @@ module Monitor =
 
         do t.Result
         events |> equal [1; 2]
-//     [<Fact>]
-//     let ``For monitor - Should block on thread until lock has been released`` () =
-//         let mutable events = []
-//         let o = new System.Object()
-//         System.Threading.Monitor.Enter(o)
-//         let t1 = new System.Threading.Thread(fun () -> lock o (fun () -> events <- 1::events))
-//         t1.Start()
-//         System.Threading.Thread.Sleep(100);
 
-//         events <- 2::events
-//         System.Threading.Monitor.Exit(o)
+    [<Fact>]
+    let ``For monitor - Should block on thread until lock has been released`` () =
+        let mutable events = []
+        //let o = new System.Object()
+        let o = { x = "test" }
+        System.Threading.Monitor.Enter(o)
+        let t1 = new System.Threading.Thread(fun () -> lock o (fun () -> events <- 1::events))
+        t1.Start()
+        System.Threading.Thread.Sleep(100);
 
-//         t1.Join()
-//         events |> equal [1; 2]
+        events <- 2::events
+        System.Threading.Monitor.Exit(o)
+
+        t1.Join()
+        events |> equal [1; 2]
+
+
+    [<Fact>]
+    let ``Lock should return result`` () =
+        let o = { x = "test" }
+        let res = lock o (fun () -> { x = "42"})
+        res.x |> equal "42"
+
 
 //[<Fact>]
 // let testShouldMutateAndLock () =

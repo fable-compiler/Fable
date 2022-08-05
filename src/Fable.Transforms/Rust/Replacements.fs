@@ -986,10 +986,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("Failure"
     |  "FailurePattern"  // (|Failure|_|)
     |  "LazyPattern"     // (|Lazy|_|)
-    |  "Lock"            // lock
     |  "NullArg"         // nullArg
     |  "Using"           // using
        ), _ -> fsharpModule com ctx r t i thisArg args
+    |  "Lock", _ ->
+        Helper.LibCall(com, "Monitor", "lock", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
         makeThrow r t (error msg) |> Some
@@ -2426,14 +2427,14 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | _ -> None
 
 let threads com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, i.GenericArgs with
-    | _, "Thread", [tType] ->
-        Helper.LibCall(com, "Thread", "new", tType, args, ?loc=r) |> Some
-    | None, "Sleep", _ ->
+    match thisArg, i.CompiledName, i.GenericArgs, args with
+    | _, ".ctor", [], _ ->
+        Helper.LibCall(com, "Thread", "new", t, args, ?loc=r) |> Some
+    | None, "Sleep", _, [ExprType(Number(Int32,_))] ->
         Helper.LibCall(com, "Thread", "sleep", t, args, ?loc=r) |> Some
-    | Some x, "Start", [] ->
+    | Some x, "Start", [], [] ->
         Helper.InstanceCall(x, "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, "Join", [] ->
+    | Some x, "Join", [], [] ->
         Helper.InstanceCall(x, "join", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 

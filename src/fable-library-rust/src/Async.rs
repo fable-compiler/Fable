@@ -184,6 +184,15 @@ pub mod Monitor_ {
             panic!("Not removed {}", p)
         }
     }
+
+    // Not technically part of monitor, but it needs to be behind a feature switch, so cannot just dump this in Native
+    pub fn lock<T: Clone + Send + Sync, U>(toLock: Arc<T>, f: Lrc<impl Fn() -> U>) -> U {
+        enter(toLock.clone());
+        let returnVal = f();
+        // panics will bypass this - need some finally mechanism
+        exit(toLock);
+        returnVal
+    }
 }
 
 #[cfg(feature = "futures")]
@@ -406,6 +415,46 @@ pub mod TaskBuilder_ {
 #[cfg(feature = "futures")]
 pub mod Thread_ {
     use std::{thread, time::Duration};
+
+    use crate::Native_::{Lrc, MutCell};
+
+    enum ThreadInt {
+        New(Lrc<dyn Fn() -> () + Send + Sync + 'static>),
+        //Building(thread::Builder),
+        Running(thread::JoinHandle<()>),
+        Empty
+    }
+    impl Default for ThreadInt {
+        fn default() -> Self {
+            ThreadInt::Empty
+        }
+    }
+    pub struct Thread (MutCell<ThreadInt>);
+
+    pub fn new(f: Lrc<impl Fn() -> () + Send + Sync + 'static>) -> Lrc<Thread> {
+        Lrc::from(Thread (MutCell::from(ThreadInt::New(f))))
+    }
+
+    impl Thread {
+        pub fn start(&self) {
+            match self.0.take() {
+                ThreadInt::New(f) => {
+                    let t = std::thread::spawn(move || f());
+                    self.0.set(ThreadInt::Running(t));
+                },
+                _ => {}
+            }
+        }
+
+        pub fn join(&self){
+            match self.0.take() {
+                ThreadInt::Running(jh) => {
+                    jh.join().expect("Couldn't join on the associated thread");
+                },
+                _ => {}
+            }
+        }
+    }
 
     pub fn sleep(millis: i32) {
         thread::sleep(Duration::from_millis(millis as u64));
