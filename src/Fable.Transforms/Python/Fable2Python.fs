@@ -3657,7 +3657,7 @@ module Util =
 
                   let returnType, _ = typeAnnotation com ctx None memb.ReturnParameter.Type
 
-                  let body = [ Statement.expr (Expression.name "...") ]
+                  let body = [ Statement.ellipsis ]
                   Statement.functionDef (name, args, body, returns = returnType, decoratorList = decorators)
 
               if members.IsEmpty then Statement.Pass ]

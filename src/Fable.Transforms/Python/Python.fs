@@ -756,12 +756,15 @@ type AST =
 
 [<AutoOpen>]
 module PythonExtensions =
+    let [<Literal>] Ellipsis = "..."
+
     type Statement with
 
         static member break'() : Statement = Break
         static member continue' ?loc : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
+        static member ellipsis : Statement = Statement.expr(Expression.ellipsis)
 
         static member raise(value) : Statement =
             { Exception = value; Cause = None } |> Raise
@@ -890,8 +893,8 @@ module PythonExtensions =
             |> Compare
 
         static member none = Expression.name (Identifier(name = "None"))
-
         static member any = Expression.name (Identifier(name = "Any"))
+        static member ellipsis = Expression.name (Identifier(name = Ellipsis))
 
         static member attribute(value, attr, ?ctx) : Expression =
             { Value = value

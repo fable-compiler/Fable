@@ -166,7 +166,10 @@ module PrinterExtensions =
             printer.Print(":")
             printer.PrintNewLine()
             printer.PushIndentation()
-            printer.PrintStatements(cd.Body)
+            match cd.Body with
+            | [] -> printer.PrintStatements([ Statement.ellipsis ])
+            | body ->
+                printer.PrintStatements(body)
             printer.PopIndentation()
 
         member printer.Print(ifElse: If) =
