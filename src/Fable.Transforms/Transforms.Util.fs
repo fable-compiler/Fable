@@ -103,6 +103,7 @@ module Types =
     let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] fsharpAsyncGeneric = "Microsoft.FSharp.Control.FSharpAsync`1"
+    let [<Literal>] mailboxProcessor = "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
     let [<Literal>] taskBuilder = "Microsoft.FSharp.Control.TaskBuilder"
     let [<Literal>] taskBuilderModule = "Microsoft.FSharp.Control.TaskBuilderModule"
     let [<Literal>] task = "System.Threading.Tasks.Task"
