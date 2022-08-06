@@ -139,9 +139,6 @@ module UsageTracking =
 
 module TypeInfo =
 
-    let cleanNameAsRustIdentifier (name: string) =
-        FSharp2Fable.Helpers.cleanNameAsRustIdentifier name
-
     let splitNameSpace (fullName: string) =
         let i = fullName.LastIndexOf('.')
         if i < 0 then "", fullName
@@ -664,8 +661,8 @@ module TypeInfo =
     let transformInterfaceType (com: IRustCompiler) ctx (entRef: Fable.EntityRef) genArgs: Rust.Ty =
         let nameParts = getInterfaceEntityName com ctx entRef |> splitFullName
         let genArgs = transformGenArgs com ctx genArgs
-        let bounds = [mkTypeTraitGenericBound nameParts genArgs]
-        mkDynTraitTy bounds
+        let traitBound = mkTypeTraitGenericBound nameParts genArgs
+        mkDynTraitTy [traitBound]
 
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes |> Seq.tryPick (fun att ->
@@ -952,6 +949,11 @@ module Util =
         | [thisArg; unitArg] when thisArg.IsThisArgument && unitArg.Type = Fable.Unit -> [thisArg]
         | args -> args
 
+    /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
+    /// Should this be done in FSharp2Fable step?
+    let sanitizeMember (name: string) =
+        FSharp2Fable.Helpers.cleanNameAsRustIdentifier name
+
     let makeUniqueName name (usedNames: Set<string>) =
         name |> Fable.Naming.preventConflicts (usedNames.Contains)
 
@@ -1027,7 +1029,7 @@ module Util =
         | n -> (mkGenericPathExpr [n] None), false
 
     let getField r (expr: Rust.Expr) (fieldName: string) =
-        mkFieldExpr expr fieldName // ?loc=r)
+        mkFieldExpr expr (fieldName |> sanitizeMember) // ?loc=r)
 
     let getExpr r (expr: Rust.Expr) (index: Rust.Expr) =
         mkIndexExpr expr index // ?loc=r)
@@ -1165,6 +1167,10 @@ module Util =
             expr |> mkCastExpr ty
         | Fable.Char, Fable.Number(UInt32, Fable.NumberInfo.Empty) ->
             expr |> mkCastExpr ty
+        | Fable.Tuple(ga1, false), Fable.Tuple(ga2, true) when ga1 = ga2 ->
+            expr |> makeAsRef |> makeClone  //.ToValueTuple()
+        | Fable.Tuple(ga1, true), Fable.Tuple(ga2, false) when ga1 = ga2 ->
+            expr |> makeLrcValue            //.ToTuple()
 
         // casts to IEnumerable
         | Replacements.Util.IsEntity (Types.keyCollection) _, IEnumerable _
@@ -1493,14 +1499,16 @@ module Util =
         let ent = com.GetEntity(entRef)
         let fields =
             Seq.zip ent.FSharpFields values
-            |> Seq.map (fun (fi, value) ->
+            |> Seq.map (fun (field, value) ->
                 let attrs = []
                 let expr =
                     let expr = transformLeaveContext com ctx None value
-                    if fi.IsMutable
+                    if field.IsMutable
                     then expr |> makeMutValue
                     else expr
-                mkExprField attrs fi.Name expr false false)
+                let fieldName = field.Name |> sanitizeMember
+                mkExprField attrs fieldName expr false false
+            )
         let genArgs = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgs
@@ -2747,7 +2755,7 @@ module Util =
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name |> cleanNameAsRustIdentifier
+            let name = field.Name |> sanitizeMember
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
@@ -2986,7 +2994,7 @@ module Util =
         else
             closureExpr |> makeLrcValue
 
-    let makeTypeBounds com ctx argName (constraints: Fable.Constraint list) =
+    let makeTypeBounds (com: IRustCompiler) ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
             // makes gen type bound, e.g. T: From(i32), or T: Default
             let tys = tyNames |> List.map (fun tyName ->
@@ -3023,14 +3031,13 @@ module Util =
                 | IEquatable _ ->
                     [ makeRawBound "Eq"
                     ; makeGenBound ["core";"hash";"Hash"] [] ]
-                | IDisposable ->
-                    let importName = getLibraryImportName com ctx "Interfaces" "IDisposable"
-                    [ makeGenBound [importName] [] ]
-                | Fable.DeclaredType(entRef, _) ->
+                | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
                     if ent.IsInterface then
-                        let entName = getEntityFullName com ctx entRef
-                        [ makeGenBound [entName] [] ]
+                        let nameParts = getInterfaceEntityName com ctx entRef |> splitFullName
+                        let genArgs = transformGenArgs com ctx genArgs
+                        let traitBound = mkTypeTraitGenericBound nameParts genArgs
+                        [traitBound]
                     else []
                 | _ -> []
             | Fable.Constraint.IsNullable -> []
@@ -3251,9 +3258,9 @@ module Util =
         let entNameSpace, entName = splitNameSpace ent.FullName
         let genArgs = getEntityGenArgs ent
         let ty =
-            let genArgs = genArgs |> transformGenArgs com ctx
-            let bounds = mkTypeTraitGenericBound [entName] genArgs
-            mkTraitTy [bounds]
+            let genArgs = transformGenArgs com ctx genArgs
+            let traitBound = mkTypeTraitGenericBound [entName] genArgs
+            mkTraitTy [traitBound]
         let path =
             let genArgTys = genArgs |> List.map (transformType com ctx)
             mkGenericPath (splitFullName ent.FullName) (mkGenericTypeArgs genArgTys)
@@ -3272,7 +3279,8 @@ module Util =
                 let fields =
                     uci.UnionCaseFields |> List.map (fun field ->
                         let ty = transformType com ctx field.FieldType
-                        mkField [] field.Name ty isPublic
+                        let fieldName = field.Name |> sanitizeMember
+                        mkField [] fieldName ty isPublic
                     )
                 if List.isEmpty uci.UnionCaseFields
                 then mkUnitVariant [] name
@@ -3288,13 +3296,14 @@ module Util =
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let fields =
-            ent.FSharpFields |> Seq.map (fun fi ->
-                let ty = transformType com ctx fi.FieldType
+            ent.FSharpFields |> Seq.map (fun field ->
+                let ty = transformType com ctx field.FieldType
                 let ty =
-                    if fi.IsMutable
+                    if field.IsMutable
                     then ty |> makeMutTy com ctx
                     else ty
-                mkField [] fi.Name ty isPublic
+                let fieldName = field.Name |> sanitizeMember
+                mkField [] fieldName ty isPublic
             )
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]

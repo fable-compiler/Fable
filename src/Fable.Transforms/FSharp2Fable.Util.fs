@@ -463,9 +463,10 @@ module Helpers =
         else name.Replace('.','_').Replace('`','$')
 
     let cleanNameAsRustIdentifier (name: string) =
+        // name |> Naming.sanitizeIdentForbiddenChars
         let name = Regex.Replace(name, @"[\s`'"".]", "_")
         let name = Regex.Replace(name, @"[^\w]",
-            fun c -> String.Format(@"{0:x4}", int c.Value[0]))
+            fun c -> String.Format(@"_{0:x4}", int c.Value[0]))
         name
 
     let memberNameAsRustIdentifier (name: string) part =

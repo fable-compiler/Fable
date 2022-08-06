@@ -172,14 +172,17 @@ let ``Class generic interface constraints work`` () =
 open Fable.Core
 
 [<Emit("$0 as Lrc<NTest>")>]
-let ensureMyUnionWrapped s = Fable.Core.Util.nativeOnly
+let ensureMyUnionWrapped s = nativeOnly
+
+[<Emit("$0 as Point")>]
+let ensureIsClassUnionUnwrapped s = nativeOnly
+
 [<Fact>]
 let ``Normal class should be wrapped in a Lrc`` () =
     NTest(1, 1) |> ensureMyUnionWrapped |> ignore
 
-[<Emit("$0 as Point")>]
-let ensureIsClassUnionUnwrapped s = Fable.Core.Util.nativeOnly
 [<Fact>]
 let ``Struct class should not be wrapped in a Lrc`` () =
     Point(1, 1) |> ensureIsClassUnionUnwrapped |> ignore
+
 #endif
