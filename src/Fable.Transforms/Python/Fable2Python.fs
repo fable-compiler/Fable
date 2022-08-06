@@ -1419,7 +1419,7 @@ module Util =
             let ident =
                 name
                 |> Option.map Identifier
-                |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "arrow")
+                |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
             let func =
                 Statement.functionDef (name = ident, args = args, body = body, returns = returnType)
@@ -1442,7 +1442,7 @@ module Util =
         let name =
             name
             |> Option.map (fun name -> com.GetIdentifier(ctx, name))
-            |> Option.defaultValue (Helpers.getUniqueIdentifier "expr")
+            |> Option.defaultValue (Helpers.getUniqueIdentifier "_expr")
 
         let func = makeFunction name (args, body, decoratorList, returnType)
 
@@ -2660,7 +2660,7 @@ module Util =
                     stmts @ exprAsStatement ctx expr)
             |> transformBody com ctx None
 
-        let name = Helpers.getUniqueIdentifier "expr"
+        let name = Helpers.getUniqueIdentifier "_expr"
 
         let func =
             Statement.functionDef (name = name, args = Arguments.arguments [], body = body)
@@ -2682,7 +2682,7 @@ module Util =
                 else
                     exprAsStatement ctx expr)
 
-        let name = Helpers.getUniqueIdentifier "expr"
+        let name = Helpers.getUniqueIdentifier "_expr"
 
         let func =
             Statement.functionDef (name = name, args = Arguments.arguments [], body = body)
