@@ -20,7 +20,6 @@ let ``Record structural equality works`` () =
     let x = { a=1; b="2"; c=3.0 }
     let y = { a=1; b="2"; c=3.0 }
     let z = { a=3; b="4"; c=5.0 }
-
     x |> equal y
     (x = y) |> equal true
     (y = z) |> equal false
@@ -179,7 +178,7 @@ let ``Box record fields works`` () =
     y.a |> equal 2
 
 [<Fact>]
-let ``Should correctly import record in other file and allow creation`` = 
+let ``Should correctly import record in other file and allow creation`` =
     let r = { Common.Records.MyRecord.a = 1}
     let expected = Common.Records.MyRecord.create 1
     r |> equal expected
@@ -188,26 +187,159 @@ let ``Should correctly import record in other file and allow creation`` =
 open Fable.Core
 
 [<Emit("$0 as Lrc<MyRecord>")>]
-let ensureMyRecordWrapped s = Fable.Core.Util.nativeOnly
+let ensureMyRecordWrapped s = nativeOnly
+
+[<Emit("$0 as Arc<ArcRecord>")>]
+let ensureArcRecordWrappedInArc s = nativeOnly
+
+[<Emit("$0 as Box<BoxRecord>")>]
+let ensureBoxRecordWrappedInBox s = nativeOnly
+
+[<Emit("$0 as StructRecord")>]
+let ensureIsStructRecordUnwrapped s = nativeOnly
+
 [<Fact>]
 let ``Normal record should be wrapped in a Lrc`` () =
     { MyRecord.a=1; b="2"; c=3.0 } |> ensureMyRecordWrapped |> ignore
 
-[<Emit("$0 as Arc<ArcRecord>")>]
-let ensureArcRecordWrappedInArc s = Fable.Core.Util.nativeOnly
 [<Fact>]
 let ``ArcRecord should always be wrapped in Arc`` () =
     { ArcRecord.a=1; b="2"; c=3.0 } |> ensureArcRecordWrappedInArc |> ignore
 
-[<Emit("$0 as Box<BoxRecord>")>]
-let ensureBoxRecordWrappedInBox s = Fable.Core.Util.nativeOnly
 [<Fact>]
 let ``BoxRecord should always be wrapped in Box`` () =
     { BoxRecord.a=1 } |> ensureBoxRecordWrappedInBox |> ignore
 
-[<Emit("$0 as StructRecord")>]
-let ensureIsStructRecordUnwrapped s = Fable.Core.Util.nativeOnly
 [<Fact>]
 let ``Struct record should not be wrapped in a Lrc`` () =
     { i=1; s="world" } |> ensureIsStructRecordUnwrapped |> ignore
+
 #endif
+
+type RecursiveRecord =
+    { things : RecursiveRecord list }
+
+type Person =
+    { name: string; mutable luckyNumber: int }
+    member x.LuckyDay = x.luckyNumber % 30
+    member x.SignDoc str = str + " by " + x.name
+
+type JSKiller =
+   { ``for`` : float; ``class`` : float }
+
+type JSKiller2 =
+   { ``s p a c e`` : float; ``s*y*m*b*o*l`` : float }
+
+type Child =
+    { a: string; b: int }
+    member x.Sum() = (int x.a) + x.b
+
+type Parent =
+    { children: Child[] }
+    member x.Sum() = x.children |> Seq.sumBy (fun c -> c.Sum())
+
+type MutatingRecord =
+    { uniqueA: int; uniqueB: int }
+
+type Id = Id of string
+
+//TODO:
+// let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
+//     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+
+// let inline makeAnonRec() =
+//     {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
+
+// [<Fact>]
+// let ``Anonymous records with funcs work`` () =
+//     let r = makeAnonRec()
+//     $"Tell me {r.Y} {r.F r.X 3} times"
+//     |> equal "Tell me Foo 8 times"
+
+// [<Fact>]
+// let ``SRTP works with anonymous records`` () =
+//     let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
+//     replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+//     replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+type Time =
+    static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
+    static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
+
+[<Fact>]
+let ``Anonymous records work`` () =
+    let x = {| Foo = "baz"; Bar = 23 |}
+    let y = {| Foo = "baz" |}
+    x = {| y with Bar = 23 |} |> equal true
+    // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
+    x = {| y with Bar = 14 |} |> equal false
+
+[<Fact>]
+let ``Overloads with anonymous record arguments don't have same mangled name`` () =
+    Time.duration {| from = 1 |} |> equal 9
+    Time.duration {| from = 1; until = 5 |} |> equal 4
+
+[<Fact>]
+let ``Anonymous record execution order`` () =
+    let mutable x = 2
+    let record =
+        {|
+            C = (x <- x * 3; x)
+            B = (x <- x + 5; x)
+            A = (x <- x / 2; x)
+        |}
+    record.A |> equal 5
+    record.B |> equal 11
+    record.C |> equal 6
+
+[<Fact>]
+let ``Recursive record does not cause issues`` () =
+    let r = { things = [ { things = [] } ] }
+    equal r.things.Length 1
+
+[<Fact>]
+let ``Record property access can be generated`` () =
+    let x = { name = "Alfonso"; luckyNumber = 7 }
+    equal "Alfonso" x.name
+    equal 7 x.luckyNumber
+    x.luckyNumber <- 14
+    equal 14 x.luckyNumber
+
+[<Fact>]
+let ``Record methods can be generated`` () =
+    let x = { name = "Alfonso"; luckyNumber = 54 }
+    equal 24 x.LuckyDay
+    x.SignDoc "Hello World!"
+    |> equal "Hello World! by Alfonso"
+
+[<Fact>]
+let ``Record expression constructors can be generated`` () =
+    let x = { name = "Alfonso"; luckyNumber = 7 }
+    let y = { x with luckyNumber = 14 }
+    equal "Alfonso" y.name
+    equal 14 y.luckyNumber
+
+[<Fact>]
+let ``Records with key/reserved words are mapped correctly`` () =
+    let x = { ``for`` = 1.0; ``class`` = 2.0 }
+    equal 2. x.``class``
+
+[<Fact>]
+let ``Records with special characters are mapped correctly`` () =
+    let x = { ``s p a c e`` = 1.0; ``s*y*m*b*o*l`` = 2.0 }
+    equal 1. x.``s p a c e``
+    equal 2. x.``s*y*m*b*o*l``
+
+[<Fact>]
+let ``Mutating records work`` () =
+    let x = { uniqueA = 10; uniqueB = 20 }
+    equal 10 x.uniqueA
+    equal 20 x.uniqueB
+    let uniqueB' = -x.uniqueB
+    let x' = { x with uniqueB = uniqueB' }
+    equal 10 x.uniqueA
+    equal 10 x'.uniqueA
+    equal -20 x'.uniqueB
+    let x'' = { x' with uniqueA = -10 }
+    equal -10 x''.uniqueA
+    equal -20 x''.uniqueB

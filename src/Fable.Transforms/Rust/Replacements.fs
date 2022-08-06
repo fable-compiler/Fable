@@ -128,17 +128,18 @@ let castBigIntMethod typeTo =
     | Number(kind,_) ->
         match kind with
         | Int8 -> "toSByte"
-        | Int16 -> "toInt16"
-        | Int32 -> "toInt32"
-        | Int64 -> "toInt64"
         | UInt8 -> "toByte"
+        | Int16 -> "toInt16"
         | UInt16 -> "toUInt16"
+        | Int32 -> "toInt32"
         | UInt32 -> "toUInt32"
+        | Int64 -> "toInt64"
         | UInt64 -> "toUInt64"
         | Float32 -> "toSingle"
         | Float64 -> "toDouble"
         | Decimal -> "toDecimal"
-        | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
+        | BigInt | NativeInt | UNativeInt ->
+            FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
 let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
@@ -168,12 +169,11 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     | Char ->
         let code = TypeCast(args.Head, Number(UInt32, NumberInfo.Empty))
         TypeCast(code, targetType)
-    | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
+    | String -> Helper.LibCall(com, "String", "toFloat64", targetType, args)
     | Number(kind,_) ->
         match kind with
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
-        | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-        | Int64 | UInt64 -> TypeCast(args.Head, targetType)
+        | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
         | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -213,8 +213,10 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
     let style = int System.Globalization.NumberStyles.Any
     let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
     let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
-    Helper.LibCall(com, numberModule, "parse", targetType,
-        [args.Head] @ parseArgs @ args.Tail, ?loc=r)
+    //TODO: NumberStyles
+    let meth = "to" + kind.ToString()
+    Helper.LibCall(com, "String", meth, targetType, [args.Head], ?loc=r)
+        // [args.Head] @ parseArgs @ args.Tail, ?loc=r)
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): Expr =
     let sourceType = args.Head.Type

@@ -29,7 +29,8 @@ let boxes (sudoku:Sudoku) =
     list
       |> Seq.map Seq.toArray
 
-let toSudoku x : Sudoku =
+// let toSudoku x : Sudoku = //TODO: nested IEnumerables
+let toSudoku (x: int list list) : Sudoku =
     x
     |> Seq.map Seq.toArray
     |> Seq.toArray
@@ -64,37 +65,39 @@ let rec substitute row col (x:Sudoku) =
 
 let getFirstSolution = substitute 0 0 >> Seq.head
 
-module tests =
+[<Fact>]
+let ``creating a solution`` () =
+    let solution =
+        [
+            [0; 0; 8;  3; 0; 0;  6; 0; 0]
+            [0; 0; 4;  0; 0; 0;  0; 1; 0]
+            [6; 7; 0;  0; 8; 0;  0; 0; 0]
 
-    [<Fact>]
-    let ``creating a solution`` () =
-        let solution =
-            [[0; 0; 8;  3; 0; 0;  6; 0; 0]
-             [0; 0; 4;  0; 0; 0;  0; 1; 0]
-             [6; 7; 0;  0; 8; 0;  0; 0; 0]
+            [0; 1; 6;  4; 3; 0;  0; 0; 0]
+            [0; 0; 0;  7; 9; 0;  0; 2; 0]
+            [0; 9; 0;  0; 0; 0;  4; 0; 1]
 
-             [0; 1; 6;  4; 3; 0;  0; 0; 0]
-             [0; 0; 0;  7; 9; 0;  0; 2; 0]
-             [0; 9; 0;  0; 0; 0;  4; 0; 1]
+            [0; 0; 0;  9; 1; 0;  0; 0; 5]
+            [0; 0; 3;  0; 5; 0;  0; 0; 2]
+            [0; 5; 0;  0; 0; 0;  0; 7; 4]
+        ]
+        |> toSudoku
+        |> getFirstSolution
 
-             [0; 0; 0;  9; 1; 0;  0; 0; 5]
-             [0; 0; 3;  0; 5; 0;  0; 0; 2]
-             [0; 5; 0;  0; 0; 0;  0; 7; 4]]
-                |> toSudoku
-                |> getFirstSolution
+    let expectedSolution =
+        [
+            [1; 2; 8;  3; 4; 5;  6; 9; 7]
+            [5; 3; 4;  6; 7; 9;  2; 1; 8]
+            [6; 7; 9;  1; 8; 2;  5; 4; 3]
 
-        let expectedSolution =
-            [[1; 2; 8;  3; 4; 5;  6; 9; 7]
-             [5; 3; 4;  6; 7; 9;  2; 1; 8]
-             [6; 7; 9;  1; 8; 2;  5; 4; 3]
+            [2; 1; 6;  4; 3; 8;  7; 5; 9]
+            [4; 8; 5;  7; 9; 1;  3; 2; 6]
+            [3; 9; 7;  5; 2; 6;  4; 8; 1]
 
-             [2; 1; 6;  4; 3; 8;  7; 5; 9]
-             [4; 8; 5;  7; 9; 1;  3; 2; 6]
-             [3; 9; 7;  5; 2; 6;  4; 8; 1]
+            [7; 6; 2;  9; 1; 4;  8; 3; 5]
+            [9; 4; 3;  8; 5; 7;  1; 6; 2]
+            [8; 5; 1;  2; 6; 3;  9; 7; 4]
+        ]
+        |> toSudoku
 
-             [7; 6; 2;  9; 1; 4;  8; 3; 5]
-             [9; 4; 3;  8; 5; 7;  1; 6; 2]
-             [8; 5; 1;  2; 6; 3;  9; 7; 4]]
-                |> toSudoku
-
-        solution = expectedSolution |> equal true
+    solution = expectedSolution |> equal true

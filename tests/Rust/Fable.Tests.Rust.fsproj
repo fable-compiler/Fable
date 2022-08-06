@@ -53,7 +53,6 @@
     <Compile Include="tests/src/OptionTests.fs" />
     <!-- <Compile Include="tests/src/QueueTests.fs" /> -->
     <Compile Include="tests/src/RecordTests.fs" />
-    <!-- <Compile Include="tests/src/RecordTests2.fs" /> -->
     <!-- <Compile Include="tests/src/ReflectionTests.fs" /> -->
     <!-- <Compile Include="tests/src/RegexTests.fs" /> -->
     <Compile Include="tests/src/ResizeArrayTests.fs" />
@@ -63,15 +62,13 @@
     <Compile Include="tests/src/SetTests.fs" />
     <!-- <Compile Include="tests/src/StackTests.fs" /> -->
     <Compile Include="tests/src/StringTests.fs" />
-    <!-- <Compile Include="tests/src/SudokuTest.fs" /> -->
+    <Compile Include="tests/src/SudokuTest.fs" />
     <Compile Include="tests/src/TailCallTests.fs" />
     <!-- <Compile Include="tests/src/TimeOnlyTests.fs" /> -->
     <!-- <Compile Include="tests/src/TimeSpanTests.fs" /> -->
     <Compile Include="tests/src/TupleTests.fs" />
-    <!-- <Compile Include="tests/src/TupleTests2.fs" /> -->
     <!-- <Compile Include="tests/src/TypeTests.fs" /> -->
     <Compile Include="tests/src/UnionTests.fs" />
-    <!-- <Compile Include="tests/src/UnionTests2.fs" /> -->
     <!-- <Compile Include="tests/src/UriTests.fs" /> -->
     <Compile Include="tests/src/main.fs" />
   </ItemGroup>

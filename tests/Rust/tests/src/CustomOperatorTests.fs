@@ -20,69 +20,61 @@ type CustomPow =
     { Ok: bool }
     static member Pow(x: CustomPow, n: int) = { Ok = true }
 
-module typeOperators =
-    [<Fact>]
-    let ``Custom operators with types work`` () =
-        let p1 = { x=5.; y=10. }
-        let p2 = { x=2.; y=1. }
-        equal 7. (p1 + p2).x
-        equal 9. (p1 - p2).y
+[<Fact>]
+let ``Custom operators with types work`` () =
+    let p1 = { x=5.; y=10. }
+    let p2 = { x=2.; y=1. }
+    equal 7. (p1 + p2).x
+    equal 9. (p1 - p2).y
 
-    [<Fact>]
-    let ``Inline custom operators with types work`` () = // See #230
-        let p1 = { x=5.; y=10. }
-        let p2 = { x=2.; y=1. }
-        equal 10. (p1 * p2).x
+[<Fact>]
+let ``Inline custom operators with types work`` () = // See #230
+    let p1 = { x=5.; y=10. }
+    let p2 = { x=2.; y=1. }
+    equal 10. (p1 * p2).x
 
-    [<Fact>]
-    let ``Overloads of a custom operators work`` () =
-        let x = { value = 5 }
-        x + 2 |> equal { value = 7 }
-        3 + x |> equal 10
+[<Fact>]
+let ``Overloads of a custom operators work`` () =
+    let x = { value = 5 }
+    x + 2 |> equal { value = 7 }
+    3 + x |> equal 10
 
-    [<Fact>]
-    let ``Custom Pow works`` () = // See #2496
-        let x = { Ok = false }
-        x ** 2 |> equal { Ok = true }
-]
+[<Fact>]
+let ``Custom Pow works`` () = // See #2496
+    let x = { Ok = false }
+    x ** 2 |> equal { Ok = true }
 
 let (+) (x: int) (y: int) = x * y
-
 let (-) (x: int) (y: int) = x / y
-
 let (||||) x y = x + y
-
 let inline (>>) x y = x * y * 2
 
-module moduleOperators =
-    [<Fact>]
-    let ``Overloads of a custom operators can be inlined`` () =
-        let x = { value = 5 }
-        genericAdd 4 5 |> equal 9
-        genericAdd x 2 |> equal { value = 7 }
-        genericAdd 3 x |> equal 10
+[<Fact>]
+let ``Overloads of a custom operators can be inlined`` () =
+    let x = { value = 5 }
+    genericAdd 4 5 |> equal 9
+    genericAdd x 2 |> equal { value = 7 }
+    genericAdd 3 x |> equal 10
 
-    [<Fact>]
-    let ``Custom operators work`` () =
-        5 + 5 |> equal 25
-        10 - 2 |> equal 5
-        2 |||| 2 |> equal 4
+[<Fact>]
+let ``Custom operators work`` () =
+    5 + 5 |> equal 25
+    10 - 2 |> equal 5
+    2 |||| 2 |> equal 4
 
-    [<Fact>]
-    let ``Inline custom operators work`` () =
-        5 >> 5 |> equal 50
+[<Fact>]
+let ``Inline custom operators work`` () =
+    5 >> 5 |> equal 50
 
+[<Fact>]
+let ``logical or`` () =
+    let x = [true] |> List.fold (||) false
+    x |> equal true
 
-module operatorsAsFunctions =
-    [<Fact>]
-    let ``logical or`` () =
-        let x = [true] |> List.fold (||) false
-        x |> equal true
-    [<Fact>]
-    let ``logical and`` () =
-        let x = [true] |> List.fold (&&) false
-        x |> equal false
-
+[<Fact>]
+let ``logical and`` () =
+    let x = [true] |> List.fold (&&) false
+    x |> equal false
 
 type [<Measure>] px
 type [<Measure>] em
@@ -97,12 +89,12 @@ type ToLength = ToLength with
 
 let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
 
-module operatorsForOverloads =
-    [<Fact>]
-    let ``first overload`` () =
-        toLen 1<px>
-        |> equal "1px"
-    [<Fact>]
-    let ``second overload`` () =
-        toLen 1<em>
-        |> equal "1em"
+[<Fact>]
+let ``first overload`` () =
+    toLen 1<px>
+    |> equal "1px"
+
+[<Fact>]
+let ``second overload`` () =
+    toLen 1<em>
+    |> equal "1em"
