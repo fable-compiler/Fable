@@ -1275,7 +1275,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.GlobalCall("math", t, args, argTypes, memb=meth, ?loc = r)
+        Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [opt; defValue] ->
@@ -1437,7 +1437,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
                 | _ -> "long"
             Helper.LibCall(com, modName, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
-            math r t args i.SignatureArgTypes i.CompiledName
+            Helper.GlobalCall("abs", t, args, [ t ], ?loc = r)
             |> Some
     | "Acos", _
     | "Asin", _

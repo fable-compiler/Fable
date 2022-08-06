@@ -953,15 +953,7 @@ module Util =
     open Annotation
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
-        let name =
-            match name with
-            //| "this" -> "self"
-            | "math"
-            | "Math" ->
-                com.GetImportExpr(ctx, "math") |> ignore
-                "math"
-            | _ -> Helpers.clean name
-
+        let name = Helpers.clean name
         Identifier name
 
     let (|TransformExpr|) (com: IPythonCompiler) ctx e : Expression * Statement list = com.TransformAsExpr(ctx, e)
