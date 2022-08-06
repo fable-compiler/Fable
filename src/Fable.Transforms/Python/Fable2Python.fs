@@ -876,6 +876,9 @@ module Annotation =
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
         | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []
+        | Types.mailboxProcessor, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
         | _ ->
             let ent = com.GetEntity(entRef)
 
