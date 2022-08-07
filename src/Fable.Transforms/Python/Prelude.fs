@@ -7,7 +7,8 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
-    let [<Literal>] sitePackages = "site-packages"
+    [<Literal>]
+    let sitePackages = "site-packages"
 
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant()
@@ -134,13 +135,10 @@ module Naming =
         check originalName 0
 
     let isIdentChar index (c: char) =
-        let code = int c
-
-        c = '_'
-        || (65 <= code && code <= 90) // a-z
-        || (97 <= code && code <= 122) // A-Z
         // Digits are not allowed in first position, see #1397
-        || (index > 0 && 48 <= code && code <= 57) // 0-9
+        c = '_'
+        || Char.IsLetter(c)
+        || Char.IsDigit(c) && index > 0
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable found = false

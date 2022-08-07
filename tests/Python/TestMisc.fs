@@ -1306,6 +1306,7 @@ let ``test Accessing union tags `` () =
 
 type Type1 = { t1: string }
 
+[<Fact>]
 let ``test conditional expressions`` () = // See #2782
     let test (u2: U2<string, Type1>) =       
         match u2 with
@@ -1314,3 +1315,11 @@ let ``test conditional expressions`` () = // See #2782
         | _ -> ""
 
     equal(test (U2.Case1 "x"), "x")
+
+type Æøå =
+    | Union1 of string
+    
+[<Fact>]
+let ``test unicode chars in identifiers are preserved`` () =
+    let x = typeof<Æøå>.FullName
+    x.Replace("+", ".") |> equal "Fable.Tests.Misc.Æøå"
