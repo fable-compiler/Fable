@@ -1,30 +1,35 @@
 module Interfaces_
 
-type IDisposable =
-    inherit System.IDisposable
+module System =
+    type IDisposable =
+        abstract Dispose: unit -> unit
 
-type IEnumerator<'T> =
-    inherit System.IDisposable
-    abstract Current: 'T
-    abstract MoveNext: unit -> bool
+    module Collections =
 
-type IEnumerable<'T> =
-    abstract GetEnumerator: unit -> IEnumerator<'T>
+        module Generic =
+            type IEnumerator<'T> =
+                inherit System.IDisposable
+                abstract Current: 'T
+                abstract MoveNext: unit -> bool
+                abstract Reset: unit -> unit
 
-type ICollection<'T> =
-    abstract Count: int
-    abstract IsReadOnly: bool
-    abstract Contains: 'T -> bool
-    abstract Add: 'T -> unit
-    abstract Remove: 'T -> bool
-    abstract Clear: unit -> unit
-    abstract CopyTo: 'T[] * int -> unit
+            type IEnumerable<'T> =
+                abstract GetEnumerator: unit -> IEnumerator<'T>
 
-type IDictionary<'K, 'V> =
-    abstract Item: 'K -> 'V with get //, set //TODO: support property setters
-    abstract Keys: ICollection<'K>
-    abstract Values: ICollection<'V>
-    abstract Add: 'K * 'V -> unit
-    abstract ContainsKey: 'K -> bool
-    abstract TryGetValue: 'K * byref<'V> -> bool
-    abstract Remove: 'K -> bool
+            type ICollection<'T> =
+                abstract Count: int
+                abstract IsReadOnly: bool
+                abstract Contains: 'T -> bool
+                abstract Add: 'T -> unit
+                abstract Remove: 'T -> bool
+                abstract Clear: unit -> unit
+                abstract CopyTo: 'T[] * int -> unit
+
+            type IDictionary<'K, 'V> =
+                abstract Item: 'K -> 'V with get //, set //TODO: support property setters
+                abstract Keys: ICollection<'K>
+                abstract Values: ICollection<'V>
+                abstract Add: 'K * 'V -> unit
+                abstract ContainsKey: 'K -> bool
+                abstract TryGetValue: 'K * byref<'V> -> bool
+                abstract Remove: 'K -> bool

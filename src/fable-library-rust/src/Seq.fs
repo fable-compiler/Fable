@@ -7,7 +7,10 @@ module Seq_
 
 open Global_
 open Interfaces_
-// open System.Collections.Generic
+//open System.Collections.Generic
+
+type IEnumerable<'T> = System.Collections.Generic.IEnumerable<'T>
+type IEnumerator<'T> = System.Collections.Generic.IEnumerator<'T>
 
 type 'T seq = IEnumerable<'T>
 
@@ -48,8 +51,20 @@ module Enumerable =
             member _.MoveNext() =
                 curr <- next()
                 curr.IsSome
+            member _.Reset() = ()
             member _.Dispose() =
                 dispose()
+        // interface System.Collections.IEnumerator with
+        //     member _.Current =
+        //         curr.Value
+        //     member _.MoveNext() =
+        //         curr <- next()
+        //         curr.IsSome
+        //     member _.Reset() =
+        //         ()
+        // interface System.IDisposable with
+        //     member _.Dispose() =
+        //         dispose()
 
     let fromFunction next: IEnumerator<'T> =
         let dispose() = ()
@@ -968,15 +983,16 @@ let windowed windowSize (xs: 'T seq): 'T[] seq =
         |> ofArray
     )
 
-// let transpose (xss: seq<#'T seq>) =
-//     delay (fun () ->
-//         xss
-//         |> toArray
-//         |> Array.map toArray
-//         |> Array.transpose
-//         |> Array.map ofArray
-//         |> ofArray
-//     )
+// let transpose (xss: seq<#'T seq>) = //TODO:
+let transpose (xss: 'T seq seq) =
+    delay (fun () ->
+        xss
+        |> toArray
+        |> Array.map toArray
+        |> Array.transpose
+        |> Array.map ofArray
+        |> ofArray
+    )
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T seq) =
     delay (fun () ->
