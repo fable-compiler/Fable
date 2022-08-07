@@ -252,7 +252,9 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity |> Some
         member _.DeclaringEntity = m.DeclaringEntity |> Option.map FsEnt.Ref
 
-type FsEnt(ent: FSharpEntity) =
+type FsEnt(maybeAbbrevEnt: FSharpEntity) =
+    let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
+
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
@@ -265,11 +267,9 @@ type FsEnt(ent: FSharpEntity) =
     member _.FSharpEntity = ent
 
     static member SourcePath (ent: FSharpEntity) =
+        let ent = Helpers.nonAbbreviatedDefinition ent
         ent.DeclarationLocation.FileName
         |> Path.normalizePathAndEnsureFsExtension
-
-    static member IsPublic (ent: FSharpEntity) =
-        not ent.Accessibility.IsPrivate
 
     static member FullName (ent: FSharpEntity): string =
         let ent = Helpers.nonAbbreviatedDefinition ent
@@ -354,13 +354,13 @@ type FsEnt(ent: FSharpEntity) =
         member _.UnionCases =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
-        member _.IsPublic = FsEnt.IsPublic ent
+        member _.IsPublic = not ent.Accessibility.IsPrivate
         member _.IsAbstractClass = ent.IsAbstractClass
         member _.IsNamespace = ent.IsNamespace
         member _.IsFSharpModule = ent.IsFSharpModule
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
-        member _.IsFSharpAbbreviation = ent.IsFSharpAbbreviation
+        member _.IsFSharpAbbreviation = maybeAbbrevEnt.IsFSharpAbbreviation
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface

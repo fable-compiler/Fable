@@ -749,6 +749,7 @@ let splitInto (chunks: int) (source: 'T[]): 'T[][] =
             res.Add (slice)
         res |> asArray
 
+// let transpose (arrays: seq<'T[]>): 'T[][] = //TODO:
 // Array.transpose will first call Seq.toArray if needed, see Replacements
 let transpose (arrays: 'T[][]): 'T[][] =
     if isEmpty arrays then

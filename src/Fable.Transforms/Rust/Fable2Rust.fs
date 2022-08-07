@@ -635,24 +635,31 @@ module TypeInfo =
         | _ ->
             entRef.FullName
 
+    let declaredInterfaces =
+        Set.ofList [
+            Types.icollection
+            Types.icollectionGeneric
+            Types.idictionary
+            Types.ireadonlydictionary
+            Types.idisposable
+            Types.ienumerable
+            Types.ienumerableGeneric
+            Types.ienumerator
+            Types.ienumeratorGeneric
+            Types.iequatableGeneric
+            Types.icomparable
+            Types.icomparableGeneric
+            Types.iStructuralEquatable
+            Types.iStructuralComparable
+        ]
+
+    let isDeclaredInterface fullName =
+        Set.contains fullName declaredInterfaces
+
     let getInterfaceEntityName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
-        match entRef.FullName with
-        | Types.idisposable
-            -> getLibraryImportName com ctx "Interfaces" "IDisposable"
-        | Types.icollection
-        | Types.icollectionGeneric
-            -> getLibraryImportName com ctx "Interfaces" "ICollection`1"
-        | Types.ienumerable
-        | Types.ienumerableGeneric
-            -> getLibraryImportName com ctx "Interfaces" "IEnumerable`1"
-        | Types.ienumerator
-        | Types.ienumeratorGeneric
-            -> getLibraryImportName com ctx "Interfaces" "IEnumerator`1"
-        | Types.idictionary
-        | Types.ireadonlydictionary
-            -> getLibraryImportName com ctx "Interfaces" "IDictionary`2"
-        | _ ->
-            getEntityFullName com ctx entRef
+        if isDeclaredInterface entRef.FullName
+        then getLibraryImportName com ctx "Interfaces" entRef.FullName
+        else getEntityFullName com ctx entRef
 
     let tryFindInterface (com: IRustCompiler) fullName (entRef: Fable.EntityRef): Fable.DeclaredType option =
         let ent = com.GetEntity(entRef)
@@ -3360,24 +3367,10 @@ module Util =
         let ctor = { ctor with Body = body }
         let ctx = { ctx with ScopedTypeParams =
                                 ent.GenericParameters
-                                |> List.map (fun g -> g.Name)
+                                |> List.map (fun p -> p.Name)
                                 |> Set.ofList }
         let info = com.GetMember(ctor.MemberRef)
         transformAssocMemberFunction com ctx info ctor.Name ctor.Args ctor.Body
-
-    let interfacesToIgnore =
-        Set.ofList [
-            Types.ienumerable
-            Types.ienumerableGeneric
-            Types.ienumerator
-            Types.ienumeratorGeneric
-            Types.iequatableGeneric
-            Types.icomparable
-            Types.icomparableGeneric
-            Types.iStructuralEquatable
-            Types.iStructuralComparable
-            Types.idisposable
-        ]
 
     let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let assocItems =
@@ -3428,13 +3421,13 @@ module Util =
         let entRef = decl.Entity
         let ent = com.GetEntity(entRef)
         let _entNs, entName =
-            if ent.IsInterface
-            then splitNameSpace decl.Name
-            else splitNameSpace (getEntityFullName com ctx entRef)
+            if ent.IsInterface then decl.Name // for interface object expressions
+            else getEntityFullName com ctx entRef
+            |> splitNameSpace
 
         let ctx = { ctx with ScopedTypeParams =
                                 ent.GenericParameters
-                                |> List.map (fun g -> g.Name)
+                                |> List.map (fun p -> p.Name)
                                 |> Set.ofList }
 
         let ctorOrStaticImpls =
@@ -3466,16 +3459,14 @@ module Util =
 
         let interfaces =
             ent.AllInterfaces
-            |> Seq.map (fun i ->
-                let members = i.Entity |> getInterfaceMemberNamesSet com
-                false, members, i.Entity)
-            // throw out anything on the interfacesToIgnore list such as IComparable etc.
-            |> Seq.filter (fun (_, _, entRef) -> not (interfacesToIgnore |> Set.contains entRef.FullName))
+            |> Seq.map (fun i -> i.Entity, i.Entity |> getInterfaceMemberNamesSet com)
+            // throw out anything on the declaredInterfaces list such as IComparable etc.
+            |> Seq.filter (fun (entRef, _) -> not (isDeclaredInterface entRef.FullName))
             |> Seq.toList
 
         let allInterfaceMembersSet =
             interfaces
-            |> Seq.map (fun (_, members, _) -> members)
+            |> Seq.map (fun (_, members) -> members)
             |> Seq.fold Set.union Set.empty
 
         let allNonConstructorOrStaticMembersSet =
@@ -3509,12 +3500,12 @@ module Util =
         let traitsToRender =
             let complTraits =
                 if Set.isEmpty nonInterfaceMembersSet then []
-                else [true, nonInterfaceMembersSet, entRef]
+                else [entRef, nonInterfaceMembersSet]
             interfaces @ complTraits
 
         let memberTraitImpls =
             traitsToRender
-            |> List.collect (fun (isNonInterface, tMethods, tEntRef) ->
+            |> List.collect (fun (tEntRef, tMethods) ->
                 let tEnt = com.GetEntity(tEntRef)
                 let memberItems =
                     decl.AttachedMembers
@@ -3533,8 +3524,9 @@ module Util =
                         then ty
                         else ty |> makeLrcTy com ctx
                     let nameParts =
-                        if isNonInterface then entName + "Methods"
-                        else getInterfaceEntityName com ctx tEntRef
+                        if tEnt.IsInterface
+                        then getInterfaceEntityName com ctx tEntRef
+                        else entName + "Methods"
                         |> splitFullName
                     let path =
                         let genArgTys = genArgs |> List.map (transformType com ctx)
@@ -3551,7 +3543,7 @@ module Util =
         if ent.IsFSharpAbbreviation then
             transformAbbrev com ctx ent
         elif ent.IsInterface then
-            if interfacesToIgnore |> Set.contains ent.FullName
+            if isDeclaredInterface ent.FullName
             then []
             else transformInterface com ctx ent
         else
