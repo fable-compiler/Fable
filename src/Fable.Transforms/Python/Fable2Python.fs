@@ -3275,7 +3275,11 @@ module Util =
             | _ -> body
 
         let dataClass = com.GetImportExpr(ctx, "dataclasses", "dataclass")
-        Statement.classDef (name, body = classBody, decoratorList = [ dataClass ], bases=bases @ generics)
+        let decorators = [
+            Expression.call(dataClass, kw=[Keyword.keyword(Identifier "eq", Expression.constant false)
+                                           Keyword.keyword(Identifier "repr", Expression.constant false)])
+        ]
+        Statement.classDef (name, body = classBody, decoratorList = decorators, bases=bases @ generics)
 
     let declareClassType
         (com: IPythonCompiler)
@@ -3356,7 +3360,7 @@ module Util =
         let slotMembers = createSlotsForRecordType com ctx ent
 
         let typeDeclaration =
-            match ent.IsFSharpRecord || Helpers.hasAttribute Atts.pyDataClassAttr ent with
+            match ent.IsFSharpRecord with
             | true -> declareDataClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
             | false -> declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
 

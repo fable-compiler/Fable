@@ -249,7 +249,7 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if callable(o):
         return is_function(t)
 
-    return t.construct is not None
+    return t.construct is not None and isinstance(o, t.construct)
 
 
 def is_record(t: Any) -> bool:
