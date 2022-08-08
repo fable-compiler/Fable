@@ -957,7 +957,7 @@ module Annotation =
             | [ {Type=Fable.GenericParam(name=x)} ], Fable.GenericParam(name=y) when x = y && Set.contains x repeatedGenerics ->
                 stdlibModuleAnnotation com ctx "typing" "Optional" [ returnType ]
             | _ -> returnType
-        
+
         args', stmts @ body', returnType'
 
 module Util =
@@ -1639,7 +1639,7 @@ module Util =
         let enumerator =
             Expression.call (get com ctx None (Expression.identifier "self") "GetEnumerator" false, [])
 
-        [ Statement.return' (libCall com ctx None "util" "toIterator" [ enumerator ]) ]
+        [ Statement.return' (libCall com ctx None "util" "to_iterator" [ enumerator ]) ]
 
     let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
         // printfn "extractBaseExprFromBaseCall: %A" (baseCall, baseType)
@@ -2956,7 +2956,9 @@ module Util =
                               _) when valueName = disposeName ->
                 let id = Identifier valueName
 
-                let body = com.TransformAsStatements(ctx, Some ResourceManager, body)
+                let body =
+                    com.TransformAsStatements(ctx, Some ResourceManager, body)
+                    |> List.choose Helpers.isProductiveStatement
 
                 let value, stmts = com.TransformAsExpr(ctx, value)
                 let items = [ WithItem.withItem (value, Expression.name id) ]

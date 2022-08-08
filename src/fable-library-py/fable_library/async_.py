@@ -18,7 +18,7 @@ from .async_builder import (
 
 # F# generated code (from Choice.fs)
 from .choice import Choice_makeChoice1Of2  # type: ignore
-from .choice import Choice_makeChoice2Of2
+from .choice import Choice_makeChoice2Of2  # type: ignore
 from .task import TaskCompletionSource
 
 _T = TypeVar("_T")
@@ -253,7 +253,7 @@ def start(
 
 
 def run_synchronously(
-    computation: Async[Optional[_T]],
+    computation: Async[_T],
     cancellation_token: Optional[CancellationToken] = None,
 ) -> Optional[_T]:
     """Run computation synchronously.
