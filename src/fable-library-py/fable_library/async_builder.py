@@ -3,7 +3,17 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections import deque
 from threading import Lock, RLock, Timer
-from typing import Any, Callable, Dict, Generic, Iterable, Optional, Protocol, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    Optional,
+    Protocol,
+    TypeVar,
+    cast,
+)
 
 from .util import IDisposable
 
@@ -239,12 +249,12 @@ def protected_cont(f: Async[_T]) -> Async[_T]:
 
 def protected_bind(
     computation: Callable[[IAsyncContext[_T]], None],
-    binder: Callable[[Optional[_T]], Async[_U]],
+    binder: Callable[[_T], Async[_U]],
 ) -> Async[_U]:
     def cont(ctx: IAsyncContext[_T]):
         def on_success(x: Optional[_T] = None) -> None:
             try:
-                binder(x)(ctx)
+                binder(cast(_T, x))(ctx)
             except Exception as err:
                 # print("Exception: ", err)
                 ctx.on_error(err)
@@ -266,7 +276,7 @@ class AsyncBuilder:
     __slots__ = ()
 
     def Bind(
-        self, computation: Async[_T], binder: Callable[[Optional[_T]], Async[_U]]
+        self, computation: Async[_T], binder: Callable[[_T], Async[_U]]
     ) -> Async[_U]:
         return protected_bind(computation, binder)
 

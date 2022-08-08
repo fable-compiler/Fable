@@ -482,6 +482,9 @@ class IEnumerator(Iterator[_T], IDisposable):
     def System_Collections_IEnumerator_Reset(self) -> None:
         ...
 
+    def __iter__(self):
+        return self
+
     def __next__(self) -> _T:
         if not self.MoveNext():
             raise StopIteration
@@ -663,7 +666,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator(en: IEnumerator[_T]) -> Iterator[_T]:
+def to_iterator(en: IEnumerator[_T]) -> IEnumerator[_T]:
     class Iterator:
         def __iter__(self):
             return self
@@ -674,7 +677,7 @@ def to_iterator(en: IEnumerator[_T]) -> Iterator[_T]:
                 raise StopIteration
             return getattr(en, "System_Collections_IEnumerator_get_Current")()
 
-    return Iterator()
+    return Enumerator(Iterator())
 
 
 class ObjectRef:
