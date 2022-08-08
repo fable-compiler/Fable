@@ -136,7 +136,7 @@ let ``test Picks the right witness`` () =
 let ``test Picks the right witness II`` () =
     getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
     |> equal "Alfonso Horigome"
-    
+
 [<Fact>]
 let ``test Infix applicative can be generated`` () =
     let r = Ok 1
@@ -797,7 +797,7 @@ module CurriedApplicative =
         module Operators =
             let inline (<*>) m x = apply x m
             let inline (<**>) m x = apply2 x m
-    
+
     let apply3 (f: 'a->'a->'b->'c) (a: 'a) =
         f a a
 
@@ -960,7 +960,7 @@ type User =
           Email = email
           Followers = followers }
 
-type ImplicitConstructorUncurrying(f) =
+type PrimaryConstructorUncurrying(f) =
     member val Value = f "a" "b"
 
 type Fun = Fun of (int -> int -> int list)
@@ -1192,7 +1192,7 @@ let ``test Uncurried functions in record fields can be partially applied`` () =
 
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
 [<Fact>]
-let ``test Applicative operators work with three-argument functions``() = 
+let ``test Applicative operators work with three-argument functions``() =
     Results.testOperatorsWith3Args
 
 [<Fact>]
@@ -1208,8 +1208,8 @@ let ``test partialApply works with tuples`` () =
 let ``test Arguments of implicit constructors are uncurried too`` () = // See #1441
     let f1 x y = if x = y then 0 else 1
     let f2 x y = if x = y then 1 else 0
-    ImplicitConstructorUncurrying(f1).Value |> equal 1
-    ImplicitConstructorUncurrying(f2).Value |> equal 0
+    PrimaryConstructorUncurrying(f1).Value |> equal 1
+    PrimaryConstructorUncurrying(f2).Value |> equal 0
 
 [<Fact>]
 let ``test Union case function fields are properly uncurried/curried`` () = // See #1445

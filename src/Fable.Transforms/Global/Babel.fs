@@ -399,7 +399,7 @@ type ClassMember =
         loc: SourceLocation option
 
 type ClassMethodKind =
-    | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
+    | ClassPrimaryConstructor | ClassFunction | ClassGetter | ClassSetter
 
     // This appears in astexplorer.net but it's not documented
     // member _.Expression: bool = false
@@ -731,7 +731,7 @@ module Helpers =
         static member classMethod(kind_, key, parameters, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
             let kind =
                 match kind_ with
-                | ClassImplicitConstructor -> "constructor"
+                | ClassPrimaryConstructor -> "constructor"
                 | ClassGetter -> "get"
                 | ClassSetter -> "set"
                 | ClassFunction -> "method"
