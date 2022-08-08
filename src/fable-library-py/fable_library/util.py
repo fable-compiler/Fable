@@ -544,7 +544,7 @@ def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
     if attr:
         return attr()
     elif isinstance(o, dict):
-        # Dictionaries should return produce tuples
+        # Dictionaries should produce tuples
         return Enumerator(iter(cast(Any, o.items())))
     else:
         return Enumerator(iter(o))

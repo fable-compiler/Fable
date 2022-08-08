@@ -179,12 +179,6 @@ def record_get_hashcode(self: Record) -> int:
 class Record(IComparable):
     __slots__: List[str]
 
-    def __str__(self) -> str:
-        return record_to_string(self)
-
-    def __repr__(self) -> str:
-        return str(self)
-
     def GetHashCode(self) -> int:
         return record_get_hashcode(self)
 
@@ -193,6 +187,12 @@ class Record(IComparable):
 
     def CompareTo(self, other: Record) -> int:
         return record_compare_to(self, other)
+
+    def __str__(self) -> str:
+        return record_to_string(self)
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def __lt__(self, other: Any) -> bool:
         return True if self.CompareTo(other) == -1 else False

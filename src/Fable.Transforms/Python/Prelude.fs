@@ -194,7 +194,12 @@ module Naming =
            | Naming.StaticMemberPart (s, i) -> printPart sanitize "_" s i
            | Naming.NoMemberPart -> "")
 
-    let sanitizeIdent conflicts name part =
+    let sanitizeIdent conflicts (name: string) part =
+        let name =
+            if name.EndsWith("@") then
+                $"_{name.Substring(0, name.Length - 1)}"
+            else
+                name
         // Replace Forbidden Chars
         buildName sanitizeIdentForbiddenChars name part
         |> checkPyKeywords
