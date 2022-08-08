@@ -53,7 +53,6 @@ type Context = {
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
-    IsCallingFunction: bool
     RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
     Typegen: TypegenContext
     ModuleDepth: int
@@ -445,7 +444,7 @@ module TypeInfo =
             ent.IsInterface && not ent.IsValueType
         | _ -> false
 
-    let isCloneableType (com: IRustCompiler) typ =
+    let TypeImplementsCloneTrait (com: IRustCompiler) typ =
         match typ with
         | Fable.String
         | Fable.GenericParam _
@@ -460,28 +459,12 @@ module TypeInfo =
         | Fable.DeclaredType(entRef, _) -> true
 
         | _ -> false
-
-    let rec isCloneableExpr (com: IRustCompiler) typ e =
-        match e with
-        | Fable.Get(_, kind, _, _) ->
-            match kind with
-            | Fable.OptionValue _
-            | Fable.UnionField _
-            | Fable.FieldGet _
-            | Fable.ListHead _
-            | Fable.ListTail _
-                -> true
-
-            | Fable.TupleIndex _
-            | Fable.ExprGet _
-            | Fable.UnionTag _
-                -> false
-            // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
-        | Fable.IdentExpr _
-            -> true
-        // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
-        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _) ->
-            isCloneableExpr com typ e
+    let TypeImplementsCopyTrait (com: IRustCompiler) typ =
+        match typ with
+        | Fable.Unit
+        | Fable.Boolean
+        | Fable.Char _
+        | Fable.Number _ -> true
         | _ -> false
 
     let rec tryGetIdent = function
@@ -1615,54 +1598,65 @@ module Util =
                 HasMultipleUses = true
                 UsageCount = 9999 }
         let isOnlyReference =
-            if varAttrs.IsRef then false
-            else
-                match e with
-                | Fable.Call _ ->
-                    //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-                    true
-                | Fable.CurriedApply _ -> true
-                | Fable.Value(kind, r) ->
-                    //an inline value kind is also never bound, so can assume this is the only reference also
-                    true
-                | Fable.Operation(Fable.Binary _, _, _) ->
-                    true //Anything coming out of an operation is as good as being returned from a function
-                | Fable.Lambda _
-                | Fable.Delegate _ ->
-                    true
-                | Fable.IfThenElse _
-                | Fable.DecisionTree _
-                | Fable.DecisionTreeSuccess _ ->
-                    true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
-                //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
-                | _ ->
-                    if ctx.IsInPluralizedExpr then
-                        false
-                        // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
-                        // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
-                    else varAttrs.UsageCount < 2
+            // if varAttrs.IsRef then false
+            // else
+            match e with
+            | Fable.Let _ -> true
+            | Fable.Call _ ->
+                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
+                true
+            | Fable.CurriedApply _ -> true
+            | Fable.Value(kind, r) ->
+                //an inline value kind is also never bound, so can assume this is the only reference also
+                true
+            | Fable.Operation(Fable.Binary _, _, _) ->
+                true //Anything coming out of an operation is as good as being returned from a function
+            | Fable.Lambda _
+            | Fable.Delegate _ ->
+                true
+            | Fable.IfThenElse _
+            | Fable.DecisionTree _
+            | Fable.DecisionTreeSuccess _
+            | Fable.Sequential _
+            | Fable.ForLoop _ ->
+                true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
+            //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
+            | _ ->
+                if ctx.IsInPluralizedExpr then
+                    false
+                    // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                    // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
+                else varAttrs.UsageCount < 2
         varAttrs, isOnlyReference
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
         // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
         let expr = com.TransformExpr (ctx, e)
-        if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
-            expr |> mkAddrOfExpr
-        else
-        if isCloneableExpr com t e then
-            if ctx.Typegen.IsParamByRefPreferred && not varAttrs.IsRef then
-                expr |> mkAddrOfExpr
-            elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
-                expr |> mkAddrOfExpr
-            // elif shouldBeRefCountWrapped com ctx e.Type |> Option.isSome && not isOnlyReference then
-            //     expr |> makeClone
-            elif isCloneableType com e.Type && not isOnlyReference then
-                expr |> makeClone // TODO: can this clone be removed somehow?
-            elif varAttrs.IsRef then
-                expr |> makeClone
-            else expr
-        else expr
+
+        let targetExpectsRef =
+            ctx.Typegen.IsParamByRefPreferred
+            || Option.exists (isByRefType com) t
+            || isAddrOfExpr e
+        let sourceIsRef =
+            varAttrs.IsRef
+        let implClone = TypeImplementsCloneTrait com e.Type
+        let implCopy = TypeImplementsCopyTrait com e.Type
+        let exprResultIsUnreachable =
+            match e with
+            | Fable.Extended(Fable.Throw(_, _), _) -> true
+            | _ -> false
+
+        match implClone,    implCopy,   sourceIsRef,    targetExpectsRef,   isOnlyReference,    exprResultIsUnreachable with
+        | _,                _,          true,           true,               _,                  false ->                    expr
+        | _,                true,       false,          false,              _,                  false ->                    expr
+        | _,                _,          true,           false,              _,                  false ->                    expr |> makeClone
+        //| _,                _,          true,           false,              true,               false ->                    expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
+        | _,                _,          false,          true,               _,                  false ->                    expr |> mkAddrOfExpr
+        | true,             false,      _,              false,              false,              false ->                    expr |> makeClone
+        | _ ->                                                                                                              expr
+        //|> BLOCK_COMMENT_SUFFIX (sprintf "implClone: %b, implCopy: %b, sourceIsRef; %b, targetExpRef: %b, isOnlyRef: %b, unreachable: %b" implClone implCopy sourceIsRef targetExpectsRef isOnlyReference exprResultIsUnreachable)
+
 (*
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1880,8 +1874,7 @@ module Util =
                     | "TaskBuilder_::delay" -> true
                     | _ -> false
                 | _ -> false
-            { ctx with IsCallingFunction = true
-                       RequiresSendSync = isSendSync
+            { ctx with RequiresSendSync = isSendSync
                        Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
 
         let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
@@ -3896,7 +3889,6 @@ module Compiler =
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
             IsInPluralizedExpr = false
-            IsCallingFunction = true
             RequiresSendSync = false
             Typegen = { IsParamType = false
                         IsParamByRefPreferred = false }

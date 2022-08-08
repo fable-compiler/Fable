@@ -887,7 +887,7 @@ module Exprs =
 
     //for debugging purposes - decorate any expr with some metadata
     let BLOCK_COMMENT_SUFFIX comment expr : Expr =
-        ExprKind.EmitExpression(sprintf "$0 /* %A */" comment, mkVec [expr])
+        ExprKind.EmitExpression(sprintf "($0 /* %A */)" comment, mkVec [expr])
         |> mkExpr
 
 [<AutoOpen>]
