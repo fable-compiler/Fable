@@ -1607,8 +1607,6 @@ module Util =
                 HasMultipleUses = true
                 UsageCount = 9999 }
         let isOnlyReference =
-            // if varAttrs.IsRef then false
-            // else
             match e with
             | Fable.Let _ -> true
             | Fable.Call _ ->
