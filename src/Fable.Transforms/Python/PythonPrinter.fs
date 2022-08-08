@@ -118,7 +118,7 @@ module PrinterExtensions =
 
         member printer.Print(assign: AnnAssign) =
             printer.Print(assign.Target)
-            printer.Print(" : ")
+            printer.Print(": ")
             printer.Print(assign.Annotation)
 
             match assign.Value with
@@ -152,6 +152,11 @@ module PrinterExtensions =
             printer.PopIndentation()
 
         member printer.Print(cd: ClassDef) =
+            for deco in cd.DecoratorList do
+                printer.Print("@")
+                printer.Print(deco)
+                printer.PrintNewLine()
+
             let (Identifier name) = cd.Name
             printer.Print("class ", ?loc = cd.Loc)
             printer.Print(name)
@@ -168,8 +173,7 @@ module PrinterExtensions =
             printer.PushIndentation()
             match cd.Body with
             | [] -> printer.PrintStatements([ Statement.ellipsis ])
-            | body ->
-                printer.PrintStatements(body)
+            | body -> printer.PrintStatements(body)
             printer.PopIndentation()
 
         member printer.Print(ifElse: If) =
