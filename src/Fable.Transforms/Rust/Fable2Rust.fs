@@ -53,7 +53,6 @@ type Context = {
     ScopedTypeParams: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
     IsInPluralizedExpr: bool //this could be a closure in a map, or or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
-    IsCallingFunction: bool
     RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
     Typegen: TypegenContext
     ModuleDepth: int
@@ -445,7 +444,7 @@ module TypeInfo =
             ent.IsInterface && not ent.IsValueType
         | _ -> false
 
-    let isCloneableType (com: IRustCompiler) typ =
+    let TypeImplementsCloneTrait (com: IRustCompiler) typ =
         match typ with
         | Fable.String
         | Fable.GenericParam _
@@ -460,28 +459,12 @@ module TypeInfo =
         | Fable.DeclaredType(entRef, _) -> true
 
         | _ -> false
-
-    let rec isCloneableExpr (com: IRustCompiler) typ e =
-        match e with
-        | Fable.Get(_, kind, _, _) ->
-            match kind with
-            | Fable.OptionValue _
-            | Fable.UnionField _
-            | Fable.FieldGet _
-            | Fable.ListHead _
-            | Fable.ListTail _
-                -> true
-
-            | Fable.TupleIndex _
-            | Fable.ExprGet _
-            | Fable.UnionTag _
-                -> false
-            // TODO: Add isForced flag to distinguish between value accessed in pattern matching or not
-        | Fable.IdentExpr _
-            -> true
-        // | Fable.TypeCast(e, t) -> isCloneableExpr com t e
-        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _) ->
-            isCloneableExpr com typ e
+    let TypeImplementsCopyTrait (com: IRustCompiler) typ =
+        match typ with
+        | Fable.Unit
+        | Fable.Boolean
+        | Fable.Char _
+        | Fable.Number _ -> true
         | _ -> false
 
     let rec tryGetIdent = function
@@ -1042,7 +1025,7 @@ module Util =
         mkIndexExpr expr index // ?loc=r)
 
     let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
-        let trArgs = transformCallArgs com ctx args []
+        let trArgs = transformCallArgs com ctx args [] []
         mkCallExpr callee trArgs //?loc=range)
 
     // /// Immediately Invoked Function Expression
@@ -1294,7 +1277,13 @@ module Util =
     let makeLazyValue (value: Rust.Expr) =
         makeCall ["Lazy";"new"] None [value]
 
-    let transformCallArgs (com: IRustCompiler) ctx (args: Fable.Expr list) (argTypes: Fable.Type list) =
+    let parameterIsByRefPreferred idx (parameters: Fable.Parameter list) =
+        parameters
+        |> List.tryItem idx
+        |> Option.map (fun p -> p.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
+        |> Option.defaultValue false
+
+    let transformCallArgs (com: IRustCompiler) ctx (args: Fable.Expr list) (argTypes: Fable.Type list) (parameters: Fable.Parameter list) =
         match args with
         | []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
@@ -1312,7 +1301,10 @@ module Util =
                 if argTypes.Length = args.Length
                 then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
                 else args |> List.map (fun a -> None, a)
-            argsWithTypes |> List.map (fun (argType, arg) ->
+            argsWithTypes |> List.mapi (fun i (argType, arg) ->
+                let isByRefPreferred =
+                    parameterIsByRefPreferred i parameters
+                let ctx = { ctx with Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred || ctx.Typegen.IsParamByRefPreferred } }
                 transformLeaveContext com ctx argType arg)
 
     let transformExprMaybeUnwrapRef (com: IRustCompiler) ctx fableExpr =
@@ -1561,7 +1553,7 @@ module Util =
 
     let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
         let fmt = makeFormat parts
-        let args = transformCallArgs com ctx values []
+        let args = transformCallArgs com ctx values [] []
         let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
         makeString com ctx expr
 
@@ -1615,54 +1607,63 @@ module Util =
                 HasMultipleUses = true
                 UsageCount = 9999 }
         let isOnlyReference =
-            if varAttrs.IsRef then false
-            else
-                match e with
-                | Fable.Call _ ->
-                    //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-                    true
-                | Fable.CurriedApply _ -> true
-                | Fable.Value(kind, r) ->
-                    //an inline value kind is also never bound, so can assume this is the only reference also
-                    true
-                | Fable.Operation(Fable.Binary _, _, _) ->
-                    true //Anything coming out of an operation is as good as being returned from a function
-                | Fable.Lambda _
-                | Fable.Delegate _ ->
-                    true
-                | Fable.IfThenElse _
-                | Fable.DecisionTree _
-                | Fable.DecisionTreeSuccess _ ->
-                    true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
-                //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
-                | _ ->
-                    if ctx.IsInPluralizedExpr then
-                        false
-                        // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
-                        // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
-                    else varAttrs.UsageCount < 2
+            match e with
+            | Fable.Let _ -> true
+            | Fable.Call _ ->
+                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
+                true
+            | Fable.CurriedApply _ -> true
+            | Fable.Value(kind, r) ->
+                //an inline value kind is also never bound, so can assume this is the only reference also
+                true
+            | Fable.Operation(Fable.Binary _, _, _) ->
+                true //Anything coming out of an operation is as good as being returned from a function
+            | Fable.Lambda _
+            | Fable.Delegate _ ->
+                true
+            | Fable.IfThenElse _
+            | Fable.DecisionTree _
+            | Fable.DecisionTreeSuccess _
+            | Fable.Sequential _
+            | Fable.ForLoop _ ->
+                true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
+            //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
+            | _ ->
+                if ctx.IsInPluralizedExpr then
+                    false
+                    // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+                    // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
+                else varAttrs.UsageCount < 2
         varAttrs, isOnlyReference
 
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
         // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
         let expr = com.TransformExpr (ctx, e)
-        if ctx.IsCallingFunction && isAddrOfExpr e then //explicit syntax. Only functions supply types, so if & is used with a function, we skip checks
-            expr |> mkAddrOfExpr
-        else
-        if isCloneableExpr com t e then
-            if ctx.Typegen.IsParamByRefPreferred && not varAttrs.IsRef then
-                expr |> mkAddrOfExpr
-            elif Option.exists (isByRefType com) t && not varAttrs.IsRef then //implicit syntax
-                expr |> mkAddrOfExpr
-            // elif shouldBeRefCountWrapped com ctx e.Type |> Option.isSome && not isOnlyReference then
-            //     expr |> makeClone
-            elif isCloneableType com e.Type && not isOnlyReference then
-                expr |> makeClone // TODO: can this clone be removed somehow?
-            elif varAttrs.IsRef then
-                expr |> makeClone
-            else expr
-        else expr
+
+        let targetExpectsRef =
+            ctx.Typegen.IsParamByRefPreferred
+            || Option.exists (isByRefType com) t
+            || isAddrOfExpr e
+        let sourceIsRef =
+            varAttrs.IsRef
+        let implClone = TypeImplementsCloneTrait com e.Type
+        let implCopy = TypeImplementsCopyTrait com e.Type
+        let exprResultIsUnreachable =
+            match e with
+            | Fable.Extended(Fable.Throw(_, _), _) -> true
+            | _ -> false
+
+        match implClone,    implCopy,   sourceIsRef,    targetExpectsRef,   isOnlyReference,    exprResultIsUnreachable with
+        | _,                _,          true,           true,               _,                  false ->                    expr
+        | _,                true,       false,          false,              _,                  false ->                    expr
+        | _,                _,          true,           false,              _,                  false ->                    expr |> makeClone
+        //| _,                _,          true,           false,              true,               false ->                    expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
+        | _,                _,          false,          true,               _,                  false ->                    expr |> mkAddrOfExpr
+        | true,             false,      _,              false,              false,              false ->                    expr |> makeClone
+        | _ ->                                                                                                              expr
+        //|> BLOCK_COMMENT_SUFFIX (sprintf "implClone: %b, implCopy: %b, sourceIsRef; %b, targetExpRef: %b, isOnlyRef: %b, unreachable: %b" implClone implCopy sourceIsRef targetExpectsRef isOnlyReference exprResultIsUnreachable)
+
 (*
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1816,7 +1817,7 @@ module Util =
     let transformMacro (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
         let info = emitInfo.CallInfo
         let macro = emitInfo.Macro |> Fable.Naming.replaceSuffix "!" ""
-        let args = transformCallArgs com ctx info.Args info.SignatureArgTypes
+        let args = transformCallArgs com ctx info.Args info.SignatureArgTypes []
         let args =
             // for certain macros, use unwrapped format string as first argument
             match macro, info.Args with
@@ -1837,7 +1838,7 @@ module Util =
             transformMacro com ctx range emitInfo
         else // otherwise it's an Emit
             let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformExpr(ctx, e)) |> Option.toList
-            let args = transformCallArgs com ctx info.Args info.SignatureArgTypes
+            let args = transformCallArgs com ctx info.Args info.SignatureArgTypes []
             let args = args |> List.append thisArg
             mkEmitExpr macro args
 
@@ -1866,6 +1867,12 @@ module Util =
                 memberInfo.Attributes
                 |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
+        let argParams =
+            callInfo.MemberRef
+            |> Option.bind com.TryGetMember
+            |> Option.map (fun memberInfo ->
+                memberInfo.CurriedParameterGroups |> List.concat
+            ) |> Option.defaultValue []
 
         let ctx =
             let isSendSync =
@@ -1880,11 +1887,10 @@ module Util =
                     | "TaskBuilder_::delay" -> true
                     | _ -> false
                 | _ -> false
-            { ctx with IsCallingFunction = true
-                       RequiresSendSync = isSendSync
+            { ctx with RequiresSendSync = isSendSync
                        Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
 
-        let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes
+        let args = transformCallArgs com ctx callInfo.Args callInfo.SignatureArgTypes argParams
         match calleeExpr with
         // mutable module values (transformed as function calls)
         | Fable.IdentExpr id when id.IsMutable && isModuleMember com callInfo ->
@@ -2835,11 +2841,14 @@ module Util =
         let isMut = false
         mkInferredParam ident.Name isRef isMut //?loc=id.Range)
 
-    let transformFunctionDecl (com: IRustCompiler) ctx args returnType =
+    let transformFunctionDecl (com: IRustCompiler) ctx args (parameters: Fable.Parameter list) returnType =
         let inputs =
             args
             |> discardUnitArg
-            |> List.map (typedParam com ctx)
+            |> List.mapi (fun idx ident ->
+                            let isByRefPreferred = parameterIsByRefPreferred idx parameters
+                            let ctx = { ctx with Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred || ctx.Typegen.IsParamByRefPreferred }}
+                            typedParam com ctx ident)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
@@ -2957,12 +2966,12 @@ module Util =
         | _ ->
             transformLeaveContext com ctx None body
 
-    let transformFunc com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformFunc com ctx (name: string option) (args: Fable.Ident list) (parameters: Fable.Parameter list) (body: Fable.Expr) =
         //if name |> Option.exists (fun n -> n.Contains("byrefAttrIntFn")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
         let genParams = getGenericParams ctx (argTypes @ [body.Type])
-        let fnDecl = transformFunctionDecl com ctx args body.Type
+        let fnDecl = transformFunctionDecl com ctx args parameters body.Type
         let ctx = getFunctionCtx com ctx name args body isTailRec
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genParams
@@ -2970,7 +2979,7 @@ module Util =
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let isRecursive, isTailRec = isTailRecursive name body
         let fixedArgs = if isRecursive && not isTailRec then (makeIdent name.Value) :: args else args
-        let fnDecl = transformFunctionDecl com ctx fixedArgs Fable.Unit
+        let fnDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
         let ctx = getFunctionCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
@@ -3078,7 +3087,7 @@ module Util =
 
     let transformInnerFunction com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let fnDecl, fnBody, fnGenParams =
-            transformFunc com ctx (Some name) args body
+            transformFunc com ctx (Some name) args [] body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3139,7 +3148,8 @@ module Util =
             |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
         let fnDecl, fnBody, fnGenParams =
             let ctx = { ctx with Typegen = { ctx.Typegen with IsParamByRefPreferred = isByRefPreferred } }
-            transformFunc com ctx (Some info.FullName) decl.Args decl.Body
+            let parameters = info.CurriedParameterGroups |> List.concat
+            transformFunc com ctx (Some info.FullName) decl.Args parameters decl.Body
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3209,7 +3219,7 @@ module Util =
     let transformAssocMemberFunction (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
-            transformFunc com ctx (Some membName) args body
+            transformFunc com ctx (Some membName) args [] body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -3390,7 +3400,8 @@ module Util =
                         |> Seq.toList
                     let returnType = memb.ReturnParameter.Type
                     let fnName = memb.DisplayName
-                    let fnDecl = transformFunctionDecl com ctx (thisArg::memberArgs) returnType
+                    let parameters = memb.CurriedParameterGroups |> List.concat
+                    let fnDecl = transformFunctionDecl com ctx (thisArg::memberArgs) parameters returnType
                     let genArgs = getMemberGenArgs memb
                     let generics = makeGenerics com ctx genArgs
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
@@ -3483,8 +3494,10 @@ module Util =
                 decl.AttachedMembers
                 |> List.filter (fun m -> Set.contains m.Name nonInterfaceMembersSet)
                 |> List.map (fun m ->
-                    let fnDecl = transformFunctionDecl com ctx m.Args m.Body.Type
                     let memb = com.GetMember(m.MemberRef)
+                    let parameters = memb.CurriedParameterGroups |> List.concat
+                    let fnDecl = transformFunctionDecl com ctx m.Args parameters m.Body.Type
+
                     let generics = getMemberGenArgs memb |> makeGenerics com ctx
                     let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
                     mkFnAssocItem [] m.Name fnKind
@@ -3896,7 +3909,6 @@ module Compiler =
             ScopedTypeParams = Set.empty
             ScopedSymbols = Map.empty
             IsInPluralizedExpr = false
-            IsCallingFunction = true
             RequiresSendSync = false
             Typegen = { IsParamType = false
                         IsParamByRefPreferred = false }
