@@ -161,7 +161,8 @@ module Naming =
                              || c = '_'
                              || c = ' '
                              || c = '*'
-                             || c = '.' then
+                             || c = '.'
+                             || c = '`' then
                             "_"
                         else
                             "_"

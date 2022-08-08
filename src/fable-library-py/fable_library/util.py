@@ -459,7 +459,7 @@ class IEnumerator(Iterator[_T], IDisposable):
     __slots__ = ()
 
     def Current(self) -> _T:
-        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
+        return self.System_Collections_Generic_IEnumerator_1_get_Current()
 
     def MoveNext(self) -> bool:
         return self.System_Collections_IEnumerator_MoveNext()
@@ -468,11 +468,11 @@ class IEnumerator(Iterator[_T], IDisposable):
         return self.System_Collections_IEnumerator_Reset()
 
     @abstractmethod
-    def System_Collections_Generic_IEnumerator_00601_get_Current(self) -> _T:
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T:
         ...
 
     def System_Collections_IEnumerator_get_Current(self) -> Any:
-        return self.System_Collections_Generic_IEnumerator_00601_get_Current()
+        return self.System_Collections_Generic_IEnumerator_1_get_Current()
 
     @abstractmethod
     def System_Collections_IEnumerator_MoveNext(self) -> bool:
@@ -522,7 +522,7 @@ class Enumerator(IEnumerator[_T]):
         self.iter = iter
         self.current = None
 
-    def System_Collections_Generic_IEnumerator_00601_get_Current(self) -> _T:
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T:
         if self.current is not None:
             return self.current
         return None  # type: ignore
@@ -672,10 +672,10 @@ def to_iterator(en: IEnumerator[_T]) -> IEnumerator[_T]:
             return self
 
         def __next__(self):
-            has_next = getattr(en, "System_Collections_IEnumerator_MoveNext")()
+            has_next = en.System_Collections_IEnumerator_MoveNext()
             if not has_next:
                 raise StopIteration
-            return getattr(en, "System_Collections_IEnumerator_get_Current")()
+            return en.System_Collections_IEnumerator_get_Current()
 
     return Enumerator(Iterator())
 
