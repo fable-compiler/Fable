@@ -3608,14 +3608,14 @@ module Util =
 
         declareType com ctx ent entName args isOptional body baseExpr classMembers
 
-    let transformClassWithImplicitConstructor
+    let transformClassWithExplicitConstructor
         (com: IPythonCompiler)
         ctx
         (classDecl: Fable.ClassDecl)
         (classMembers: Statement list)
         (cons: Fable.MemberDecl)
         =
-        // printfn "transformClassWithImplicitConstructor: %A" classDecl
+        // printfn "transformClassWithExplicitConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
@@ -3804,7 +3804,7 @@ module Util =
             | ent, _ when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name classMembers
             | _, Some cons ->
                 withCurrentScope ctx cons.UsedNames
-                <| fun ctx -> transformClassWithImplicitConstructor com ctx decl classMembers cons
+                <| fun ctx -> transformClassWithExplicitConstructor com ctx decl classMembers cons
             | _, None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
