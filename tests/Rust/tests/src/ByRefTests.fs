@@ -41,25 +41,25 @@ let ``pass obj by ref using attr on fn works`` () =
 
 // // TODO: Use ByRef attr as Param not yet working
 
-// let byrefAttrIntFn ([<ByRef>] x: int) =
-//     x + 1
+let byrefAttrIntFn ([<ByRef>] x: int) =
+    x + 1
 
-// [<Fact>]
-// let ``pass int by ref using ByRef attr works`` () =
-//     let a = 1
-//     byrefAttrIntFn a |> equal 2
-//     a |> equal 1 // a is not modified & prevent inlining
+[<Fact>]
+let ``pass int by ref using ByRef attr works`` () =
+    let a = 1
+    byrefAttrIntFn a |> equal 2
+    a |> equal 1 // a is not modified & prevent inlining
 
-// let byrefAttrObjFn ([<ByRef>] x: Obj) =
-//     x.X + 1
+let byrefAttrObjFn ([<ByRef>] x: Obj) =
+    x.X + 1
 
-// [<Fact>]
-// let ``pass obj by ref using ByRef attr works`` () =
-//     let a = { X = 1 }
-//     let b = { X = 2 }
-//     byrefAttrObjFn a |> equal 2
-//     byrefAttrObjFn b |> equal 3
-//     a |> equal a //prevent inlining
+[<Fact>]
+let ``pass obj by ref using ByRef attr works`` () =
+    let a = { X = 1 }
+    let b = { X = 2 }
+    byrefAttrObjFn a |> equal 2
+    byrefAttrObjFn b |> equal 3
+    a |> equal a //prevent inlining
 
 
 // // TODO: passing byref into inref not working yet
