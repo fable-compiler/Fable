@@ -772,7 +772,7 @@ module Util =
         ExpressionStatement(callSuper args)
 
     let makeClassConstructor args body =
-        ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
+        ClassMember.classMethod(ClassPrimaryConstructor, Expression.identifier("constructor"), args, body)
 
     let callFunction r funcExpr (args: Expression list) =
         Expression.callExpression(funcExpr, List.toArray args, ?loc=r)
@@ -2164,7 +2164,7 @@ module Util =
         let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
         declareType com ctx ent entName args body baseExpr classMembers
 
-    let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
+    let transformClassWithPrimaryConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
         let consInfo = com.GetMember(cons.MemberRef)
         let classIdent = Expression.identifier(classDecl.Name)
         let consArgs, consBody, returnType, typeParamDecl =
@@ -2258,7 +2258,7 @@ module Util =
                 match decl.Constructor with
                 | Some cons ->
                     withCurrentScope ctx cons.UsedNames <| fun ctx ->
-                        transformClassWithImplicitConstructor com ctx ent decl classMembers cons
+                        transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
                 | None ->
                     if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
                     else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers

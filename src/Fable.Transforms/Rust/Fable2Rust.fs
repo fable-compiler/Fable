@@ -3330,7 +3330,7 @@ module Util =
         let info = com.GetMember(memberRef)
         transformAssocMemberFunction com ctx info entName idents body
 
-    let transformImplicitConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
+    let transformPrimaryConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
         let body =
             match ctor.Body with
             | Fable.Sequential exprs ->
@@ -3439,7 +3439,7 @@ module Util =
                         match decl.Constructor with
                         | Some ctor ->
                             withCurrentScope ctx ctor.UsedNames <| fun ctx ->
-                                transformImplicitConstructor com ctx ent ctor
+                                transformPrimaryConstructor com ctx ent ctor
                         | _ ->
                             transformCompilerGeneratedConstructor com ctx ent
                     [ctorItem |> mkPublicAssocItem]
@@ -3610,7 +3610,7 @@ module Util =
         let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
         declareType com ctx ent entName args body baseExpr classMembers
 
-    let transformClassWithImplicitConstructor (com: IRustCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
+    let transformClassWithPrimaryConstructor (com: IRustCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.identifier(classDecl.Name)
         let consArgs, consBody, returnType, typeParamDecl =

@@ -930,7 +930,7 @@ type User =
           Email = email
           Followers = followers }
 
-type ImplicitConstructorUncurrying(f) =
+type PrimaryConstructorUncurrying(f) =
     member val Value = f "a" "b"
 
 type Fun = Fun of (int -> int -> int list)
@@ -1161,8 +1161,8 @@ let tests7 = [
     testCase "Arguments of implicit constructors are uncurried too" <| fun () -> // See #1441
         let f1 x y = if x = y then 0 else 1
         let f2 x y = if x = y then 1 else 0
-        ImplicitConstructorUncurrying(f1).Value |> equal 1
-        ImplicitConstructorUncurrying(f2).Value |> equal 0
+        PrimaryConstructorUncurrying(f1).Value |> equal 1
+        PrimaryConstructorUncurrying(f2).Value |> equal 0
 
     testCase "Union case function fields are properly uncurried/curried" <| fun () -> // See #1445
         let (Fun f) = Fun (fun x y -> [x; y])
