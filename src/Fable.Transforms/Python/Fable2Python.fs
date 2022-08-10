@@ -392,7 +392,7 @@ module Reflection =
             exprs |> libReflectionCall com ctx r "class", stmts
 
     let private ofString s = Expression.constant s
-    let private ofArray babelExprs = Expression.list (babelExprs)
+    let private ofArray exprs = Expression.list (exprs)
 
     let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : Expression * Statement list =
         let warnAndEvalToFalse msg =
@@ -562,7 +562,8 @@ module Helpers =
         | _ -> Some stmt
 
     let hasAttribute fullName (ent: Fable.Entity) =
-        ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+        ent.Attributes
+        |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
     let hasInterface fullName (ent: Fable.Entity) =
         ent |> FSharp2Fable.Util.hasInterface fullName
@@ -725,7 +726,7 @@ module Annotation =
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
-        | Fable.DelegateType(argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
+        | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array (genArg, _) ->
@@ -744,7 +745,13 @@ module Annotation =
         | Fable.AnonymousRecordType (_, genArgs, _) ->
             let value = Expression.name "dict"
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-            Expression.subscript (value, Expression.tuple [ Expression.name "str"; any ]), stmts
+
+            Expression.subscript (
+                value,
+                Expression.tuple [ Expression.name "str"
+                                   any ]
+            ),
+            stmts
         | Fable.DeclaredType (entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
 
@@ -767,6 +774,7 @@ module Annotation =
                 | Float64 -> "float"
                 // TODO: review, though we're dealing with Decimal as special case (see below)
                 | Decimal -> "complex"
+
             Expression.name name
 
         match kind, info with
@@ -784,12 +792,15 @@ module Annotation =
                             | Some v -> Convert.ToDouble v
                             | None -> 0.
 
-                        Expression.tuple [ Expression.constant name; Expression.constant value ]
+                        Expression.tuple [ Expression.constant name
+                                           Expression.constant value ]
                         |> Some)
                 |> Seq.toList
                 |> Expression.list
 
-            [ Expression.constant entRef.FullName; numberInfo kind; cases ]
+            [ Expression.constant entRef.FullName
+              numberInfo kind
+              cases ]
             |> libReflectionCall com ctx None "enum",
             []
         | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
@@ -945,7 +956,8 @@ module Annotation =
         let argTypes = args |> List.map (fun id -> id.Type)
 
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
-        let repeatedGenerics = Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
+        let repeatedGenerics =
+            Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
         // printfn "repeatedGenerics: %A" (repeatedGenerics, argTypes, body.Type)
 
         let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
@@ -954,7 +966,7 @@ module Annotation =
         // If the only argument is generic, then we make the return type optional as well
         let returnType' =
             match args, body.Type with
-            | [ {Type=Fable.GenericParam(name=x)} ], Fable.GenericParam(name=y) when x = y && Set.contains x repeatedGenerics ->
+            | [ { Type = Fable.GenericParam (name = x) } ], Fable.GenericParam (name = y) when x = y && Set.contains x repeatedGenerics ->
                 stdlibModuleAnnotation com ctx "typing" "Optional" [ returnType ]
             | _ -> returnType
 
@@ -1225,9 +1237,6 @@ module Util =
 
     /// Immediately Invoked Function Expression
     let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
-        // Use an arrow function in case we need to capture `this`
-        let args = Arguments.arguments ()
-
         let afe, stmts =
             transformFunctionWithAnnotations com ctx None [] expr
             |||> makeArrowFunctionExpression com ctx None
@@ -1551,7 +1560,9 @@ module Util =
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
-            | Decimal, (:? decimal as x) -> PY.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | Decimal, (:? decimal as x) ->
+                PY.Replacements.makeDecimal com r value.Type x
+                |> transformAsExpr com ctx
             | Int64, (:? int64 as x) -> makeNumber com ctx r value.Type "int64" x
             | UInt64, (:? uint64 as x) -> makeNumber com ctx r value.Type "uint64" x
             | _, (:? int8 as x) -> makeNumber com ctx r value.Type "int8" x
@@ -1944,7 +1955,6 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
 
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
-
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
 
             Expression.none,
@@ -2006,7 +2016,8 @@ module Util =
         let body, nonLocals =
             body
             |> List.partition (function
-                | Statement.NonLocal _ | Statement.Global _ -> false
+                | Statement.NonLocal _
+                | Statement.Global _ -> false
                 | _ -> true)
 
         let nonLocal =
@@ -2019,8 +2030,7 @@ module Util =
             |> (fun names ->
                 match ctx.BoundVars.Inceptions with
                 | 1 -> Statement.global' names
-                | _ ->
-                    Statement.nonLocal names)
+                | _ -> Statement.nonLocal names)
 
         [ nonLocal ], body
 
@@ -2060,7 +2070,8 @@ module Util =
                 finalizer
                 |> transformBlock com ctx None
                 |> List.partition (function
-                    | Statement.NonLocal _ | Statement.Global _ -> false
+                    | Statement.NonLocal _
+                    | Statement.Global _ -> false
                     | _ -> true)
             | None -> [], []
 
@@ -2084,15 +2095,18 @@ module Util =
             let thenStmnt, stmts' =
                 transformBlock com ctx ret thenStmnt
                 |> List.partition (function
-                    | Statement.NonLocal _ | Statement.Global _ -> false
+                    | Statement.NonLocal _
+                    | Statement.Global _ -> false
                     | _ -> true)
 
             let ifStatement, stmts'' =
                 let block, stmts =
-                    com.TransformAsStatements(ctx, ret, elseStmnt)
+                    transformBlock com ctx ret elseStmnt
                     |> List.partition (function
-                        | Statement.NonLocal _ | Statement.Global _ -> false
+                        | Statement.NonLocal _
+                        | Statement.Global _ -> false
                         | _ -> true)
+
                 match block with
                 | [] -> Statement.if' (guardExpr, thenStmnt, ?loc = r), stmts
                 | [ elseStmnt ] -> Statement.if' (guardExpr, thenStmnt, [ elseStmnt ], ?loc = r), stmts
@@ -3174,8 +3188,15 @@ module Util =
         let arguments =
             match args, isUnit with
             | [], _ ->
-                let ta = stdlibModuleAnnotation com ctx "typing" "Literal" [ Expression.name "None" ]
-                Arguments.arguments (args = Arg.arg(Identifier("__unit"), annotation=ta) :: tcArgs, defaults = Expression.none :: tcDefaults)
+                let ta =
+                    stdlibModuleAnnotation com ctx "typing" "Literal" [ Expression.name "None" ]
+
+                Arguments.arguments (
+                    args =
+                        Arg.arg (Identifier("__unit"), annotation = ta)
+                        :: tcArgs,
+                    defaults = Expression.none :: tcDefaults
+                )
             // So we can also receive unit
             | [ arg ], true ->
                 let optional =
@@ -3858,7 +3879,7 @@ module Util =
               | None ->
                   // Do not put multiple imports on a single line. flake8(E401)
                   for alias in aliases do
-                        Statement.import [ alias ] ]
+                      Statement.import [ alias ] ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)

@@ -37,6 +37,8 @@ class SupportsLessThan(Protocol):
 
 
 _T = TypeVar("_T")
+_T_in = TypeVar("_T_in", contravariant=True)
+_T_out = TypeVar("_T_out", covariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
@@ -105,11 +107,11 @@ class AnonymousDisposable(IDisposable):
         return self
 
 
-class IEquatable(ABC):
-    __slots__ = ()
+class IEquatable(Protocol):
+    # __slots__ = ()
 
-    def GetHashCode(self):
-        return hash(self)
+    # def GetHashCode(self):
+    #     return hash(self)
 
     @abstractmethod
     def __eq__(self, other: Any) -> bool:
@@ -120,50 +122,31 @@ class IEquatable(ABC):
         raise NotImplementedError
 
 
-class IComparable(IEquatable):
-    __slots__ = ()
-
-    def CompareTo(self, other: Any) -> int:
-        if self < other:
-            return -1
-        elif self == other:
-            return 0
-        return 1
+class IComparable(IEquatable, Protocol):
+    # __slots__ = ()
 
     @abstractmethod
     def __lt__(self, other: Any) -> bool:
         raise NotImplementedError
 
 
-class IComparer(Generic[_T]):
+class IComparer(Generic[_T_in], Protocol):
     """Defines a method that a type implements to compare two objects.
 
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
-    __slots__ = ()
-
     @abstractmethod
-    def Compare(self, y: _T) -> int:
+    def Compare(self, y: _T_in) -> int:
         ...
 
 
-class IEqualityComparer(Generic[_T]):
-    __slots__ = ()
-
-    def Equals(self, y: _T) -> bool:
+class IEqualityComparer(Generic[_T_in]):
+    def Equals(self, y: _T_in) -> bool:
         return self == y
 
     def GetHashCode(self) -> int:
         return hash(self)
-
-    @abstractmethod
-    def __eq__(self, other: Any) -> bool:
-        return NotImplemented
-
-    @abstractmethod
-    def __hash__(self) -> int:
-        raise NotImplementedError
 
 
 class DateKind(IntEnum):
