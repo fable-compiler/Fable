@@ -37,6 +37,7 @@ class SupportsLessThan(Protocol):
 
 
 _T = TypeVar("_T")
+_T_in = TypeVar("_T_in", contravariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
@@ -105,12 +106,7 @@ class AnonymousDisposable(IDisposable):
         return self
 
 
-class IEquatable(ABC):
-    __slots__ = ()
-
-    def GetHashCode(self):
-        return hash(self)
-
+class IEquatable(Protocol):
     @abstractmethod
     def __eq__(self, other: Any) -> bool:
         return NotImplemented
@@ -120,50 +116,35 @@ class IEquatable(ABC):
         raise NotImplementedError
 
 
-class IComparable(IEquatable):
-    __slots__ = ()
-
-    def CompareTo(self, other: Any) -> int:
-        if self < other:
-            return -1
-        elif self == other:
-            return 0
-        return 1
+class IComparable(IEquatable, Protocol):
+    @abstractmethod
+    def __cmp__(self, __other: Any) -> int:
+        raise NotImplementedError
 
     @abstractmethod
     def __lt__(self, other: Any) -> bool:
         raise NotImplementedError
 
 
-class IComparer(Generic[_T]):
+class IComparer(Generic[_T_in], Protocol):
     """Defines a method that a type implements to compare two objects.
 
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
-    __slots__ = ()
-
     @abstractmethod
-    def Compare(self, y: _T) -> int:
+    def Compare(self, y: _T_in) -> int:
         ...
 
 
 class IEqualityComparer(Generic[_T]):
     __slots__ = ()
 
-    def Equals(self, y: _T) -> bool:
-        return self == y
+    def Equals(self, __y: _T) -> bool:
+        return self == __y
 
     def GetHashCode(self) -> int:
         return hash(self)
-
-    @abstractmethod
-    def __eq__(self, other: Any) -> bool:
-        return NotImplemented
-
-    @abstractmethod
-    def __hash__(self) -> int:
-        raise NotImplementedError
 
 
 class DateKind(IntEnum):
@@ -183,7 +164,11 @@ def equals(a: Any, b: Any) -> bool:
 
 
 def is_comparable(x: Any) -> bool:
-    return hasattr(x, "CompareTo") and callable(x.CompareTo)
+    return hasattr(x, "__cmp__") and callable(x.__cmp__)
+
+
+def is_equatable(x: Any) -> bool:
+    return hasattr(x, "__eq__") and callable(x.__eq__)
 
 
 def is_iterable(x: Any) -> bool:
@@ -246,7 +231,7 @@ def compare(a: Any, b: Any) -> int:
         return 1 if a else 0
 
     if is_comparable(a):
-        return a.CompareTo(b)
+        return a.__cmp__(b)
 
     if isinstance(a, dict):
         return compare_dicts(cast(Dict[str, Any], a), b)
@@ -254,8 +239,7 @@ def compare(a: Any, b: Any) -> int:
     if isinstance(a, List):
         return compare_arrays(cast(List[Any], a), b)
 
-    # TODO: the last tests here are not reliable since the methods may rise NotImplementedError
-    if hasattr(a, "__eq__") and callable(a.__eq__) and a == b:
+    if is_equatable(a) and a == b:
         return 0
 
     if hasattr(a, "__lt__") and callable(a.__lt__) and a < b:
@@ -374,8 +358,6 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 
 
 class Atom(Generic[_T], Protocol):
-    __slots__ = ()
-
     def __call__(
         self,
         value: Optional[_T] = None,
@@ -387,7 +369,7 @@ class Atom(Generic[_T], Protocol):
 def create_atom(value: Optional[_T] = None) -> Atom[_T]:
     atom = value
 
-    def _(
+    def wrapper(
         value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None
     ) -> Optional[_T]:
         nonlocal atom
@@ -398,7 +380,7 @@ def create_atom(value: Optional[_T] = None) -> Atom[_T]:
         atom = value
         return None
 
-    return _
+    return wrapper
 
 
 def create_obj(fields: List[Tuple[Any, Any]]):
