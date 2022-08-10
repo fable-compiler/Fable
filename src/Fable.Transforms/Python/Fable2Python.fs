@@ -1117,6 +1117,7 @@ module Util =
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
         | "Equals" -> Expression.identifier "__eq__"
+        | "CompareTo" -> Expression.identifier "__cmp__"
         | "set" -> Expression.identifier "__setitem__"
         | "get" -> Expression.identifier "__getitem__"
         | "has" -> Expression.identifier "__contains__"
@@ -1244,6 +1245,7 @@ module Util =
         Expression.call (afe, []), stmts
 
     let multiVarDeclaration (ctx: Context) (variables: (Identifier * Expression option) list) =
+        // printfn "multiVarDeclaration: %A" (variables)
         let ids, values =
             variables
             |> List.distinctBy (fun (Identifier (name = name), _value) -> name)
@@ -2996,15 +2998,24 @@ module Util =
             | Expression.NamedExpr ({ Target = target
                                       Value = value
                                       Loc = _ }) ->
-                let nonLocals =
+                let nonLocals, ta =
                     match target with
                     | Expression.Name { Id = id } ->
-                        [ ctx.BoundVars.NonLocals([ id ])
-                          |> Statement.nonLocal ]
-                    | _ -> []
-
+                        let nonLocals = [ ctx.BoundVars.NonLocals([ id ]) |> Statement.nonLocal ]
+                        nonLocals, None
+                    | Expression.Attribute { Value = Expression.Name { Id=Identifier "self"} } ->
+                        let ta, stmts = typeAnnotation com ctx None typ
+                        stmts, Some ta
+                    | _ ->
+                        [], None
+                        
+                let assignment =
+                    match ta with
+                    | Some ta -> [ Statement.assign(target, ta, value) ]
+                    | _ -> [ Statement.assign([target], value) ]
+                   
                 nonLocals
-                @ stmts @ [ Statement.assign ([ target ], value) ]
+                @ stmts @ assignment
             | _ ->
                 stmts
                 @ (expr' |> resolveExpr ctx expr.Type returnStrategy)

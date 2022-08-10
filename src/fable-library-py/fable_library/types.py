@@ -55,7 +55,7 @@ class Union(IComparable):
 
     def __init__(self):
         self.tag: int
-        self.fields: List[Any] = []
+        self.fields: Array[Any] = []
 
     @staticmethod
     @abstractmethod
@@ -108,6 +108,13 @@ class Union(IComparable):
             return self.fields == other.fields
 
         return False
+
+    def __cmp__(self, __other: Any) -> int:
+        if self < __other:
+            return -1
+        elif self == __other:
+            return 0
+        return 1
 
     def __lt__(self, other: Any) -> bool:
         if self.tag == other.tag:
@@ -185,7 +192,7 @@ class Record(IComparable):
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
 
-    def CompareTo(self, other: Record) -> int:
+    def __cmp__(self, other: Record) -> int:
         return record_compare_to(self, other)
 
     def __str__(self) -> str:
@@ -195,7 +202,7 @@ class Record(IComparable):
         return str(self)
 
     def __lt__(self, other: Any) -> bool:
-        return True if self.CompareTo(other) == -1 else False
+        return True if self.__cmp__(other) == -1 else False
 
     def __eq__(self, other: Any) -> bool:
         return self.Equals(other)
