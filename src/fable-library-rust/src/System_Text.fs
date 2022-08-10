@@ -1,5 +1,4 @@
-namespace System.Text
-open System
+namespace System_Text_
 
 type StringBuilder(value: string, capacity: int) =
     let buf = ResizeArray<string>(capacity)
@@ -17,10 +16,10 @@ type StringBuilder(value: string, capacity: int) =
     member x.Append(cs: char[]) = buf.Add(System.String(cs)); x
     member x.Append(s: StringBuilder) = buf.Add(s.ToString()); x
     member x.AppendFormat(fmt: string, o: obj) = buf.Add(System.String.Format(fmt, o)); x
-    member x.AppendFormat(provider: IFormatProvider, fmt: string, o: obj) = buf.Add(System.String.Format(provider, fmt, o)); x
+    // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o: obj) = buf.Add(System.String.Format(provider, fmt, o)); x
     member x.AppendLine() = buf.Add(System.Environment.NewLine); x
     member x.AppendLine(s: string) = buf.Add(s); buf.Add(System.Environment.NewLine); x
-    override __.ToString() = System.String.Concat(buf)
+    // override __.ToString() = System.String.Concat(buf)
     member x.Length =
         let mutable len = 0
         for i = buf.Count - 1 downto 0 do
