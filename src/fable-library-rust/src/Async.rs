@@ -164,8 +164,8 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn enter<T>(o: Lrc<T>) {
-        let p = Arc::<T>::as_ptr(&o) as usize;
+    pub fn enter<T>(o: &Lrc<T>) {
+        let p = Arc::<T>::as_ptr(o) as usize;
         loop {
             let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
             if otherHasLock {
@@ -177,8 +177,8 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn exit<T>(o: Lrc<T>) {
-        let p = Arc::<T>::as_ptr(&o) as usize;
+    pub fn exit<T>(o: &Lrc<T>) {
+        let p = Arc::<T>::as_ptr(o) as usize;
         let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
         if (!hasRemoved) {
             panic!("Not removed {}", p)
@@ -187,10 +187,10 @@ pub mod Monitor_ {
 
     // Not technically part of monitor, but it needs to be behind a feature switch, so cannot just dump this in Native
     pub fn lock<T: Clone + Send + Sync, U>(toLock: Arc<T>, f: Lrc<impl Fn() -> U>) -> U {
-        enter(toLock.clone());
+        enter(&toLock);
         let returnVal = f();
         // panics will bypass this - need some finally mechanism
-        exit(toLock);
+        exit(&toLock);
         returnVal
     }
 }
