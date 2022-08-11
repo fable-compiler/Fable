@@ -1,6 +1,7 @@
-namespace System.Collections.Generic
+namespace System_Collections_Generic_
 
-open System
+open Interfaces_
+open System.Collections.Generic
 
 type Comparer<'T when 'T : comparison>() =
     static member Default =
@@ -22,11 +23,11 @@ type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
     let mutable count = initialCount
 
-    new(initialCapacity : int) = Stack<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
+    new (initialCapacity: int) = Stack<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
-    new() = Stack<'T>(4)
+    new () = Stack<'T>(4)
 
-    new(xs : IEnumerable<'T>) =
+    new (xs: IEnumerable<'T>) =
         let arr = Array.ofSeq xs
         Stack<'T>(arr, arr.Length)
 
@@ -135,13 +136,13 @@ type Queue<'T> private (initialContents, initialCount) =
                 yield contents.[i |> toIndex]
                 i <- i + 1 }
 
-    new(initialCapacity : int) =
+    new (initialCapacity: int) =
         if initialCapacity < 0 then raise (ArgumentOutOfRangeException("capacity is less than 0"))
         Queue<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
-    new() = Queue<'T>(4)
+    new () = Queue<'T>(4)
 
-    new(xs : IEnumerable<'T>) =
+    new (xs: IEnumerable<'T>) =
         let arr = Array.ofSeq xs
         Queue<'T>(arr, arr.Length)
 
@@ -184,13 +185,11 @@ type Queue<'T> private (initialContents, initialCount) =
     member _.Contains(x : 'T) =
         let mutable found = false
         let mutable i = 0
-
         while i < count && not found do
             if Object.Equals(x, contents.[i |> toIndex]) then
                 found <- true
             else
                 i <- i + 1
-
         found
 
     member _.Clear() =
@@ -218,4 +217,4 @@ type Queue<'T> private (initialContents, initialCount) =
 
         member this.GetEnumerator() =
             (this :> IEnumerable<'T>).GetEnumerator()
-            :> Collections.IEnumerator
+            :> System.Collections.IEnumerator

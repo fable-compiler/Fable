@@ -67,7 +67,7 @@
     <!-- <Compile Include="tests/src/TimeOnlyTests.fs" /> -->
     <!-- <Compile Include="tests/src/TimeSpanTests.fs" /> -->
     <Compile Include="tests/src/TupleTests.fs" />
-    <!-- <Compile Include="tests/src/TypeTests.fs" /> -->
+    <Compile Include="tests/src/TypeTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
     <!-- <Compile Include="tests/src/UriTests.fs" /> -->
     <Compile Include="tests/src/main.fs" />

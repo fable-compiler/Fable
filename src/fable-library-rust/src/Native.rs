@@ -7,6 +7,7 @@ mod Lazy;
 pub mod Native_ {
 
     // re-export at module level
+    pub use std::any::{Any, TypeId};
     pub use std::boxed::Box as Box_;
     pub use std::rc::Rc;
     pub use std::sync::Arc;

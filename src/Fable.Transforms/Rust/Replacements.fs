@@ -301,7 +301,7 @@ let toSeq com t (expr: Expr) =
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
         match args with
-        | (StringConst _)::restArgs -> args
+        | (ExprType String)::restArgs -> args
         | [] -> (makeStrConst "") :: args
         | _ -> (makeStrConst "{0}") :: args
     macro |> emitExpr r t args
@@ -444,6 +444,13 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | _ ->
         // Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r)
         makeEqOp r left right BinaryEqual
+
+let objectEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    // TODO: reference equality
+    TypeCast(right, left.Type) |> equals com ctx r left
+
+let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    TypeCast(right, left.Type) |> equals com ctx r left
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -2148,7 +2155,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
     | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
     | "Equals", Some arg1, [arg2]
-    | "Equals", None, [arg1; arg2] -> equals com ctx r arg1 arg2 |> Some
+    | "Equals", None, [arg1; arg2] -> objectEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
@@ -2162,7 +2169,7 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
     | "Equals", Some arg1, [arg2]
-    | "Equals", None, [arg1; arg2] -> equals com ctx r arg1 arg2 |> Some
+    | "Equals", None, [arg1; arg2] -> structEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> structuralHash com r arg |> Some
     | "CompareTo", Some arg1, [arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None

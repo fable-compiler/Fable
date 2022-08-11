@@ -1,82 +1,101 @@
 module Fable.Tests.ByRefTests
 
 open Util.Testing
+open Fable.Core
 open Fable.Core.Rust
 
 type Obj = {
     X: int
 }
 
-let byrefIntFn (x: int inref) =
-    x + 1
-let byrefObjFn (x: Obj inref) =
-    x.X + 1
+[<ByRef>]
+let byRefArgsIntFn (x: int) (y: int) = x + y
 
 [<ByRef>]
-let byrefAttrRootObjDecFn (x: Obj) =
-    x.X + 1
-[<ByRef>]
-let byrefAttrRootIntFn (x: int) =
-    x + 1
+let byRefArgsObjFn (x: Obj) (y: int) = x.X + y
 
-let byrefAttrIntFn ([<ByRef>] x: int) =
-    x + 1
-let byrefAttrObjFn ([<ByRef>] x: Obj) =
-    x.X + 1
+let byRefTypeIntFn (x: int inref) (y: int) = x + y
+let byRefTypeObjFn (x: Obj inref) (y: int) = x.X + y
 
-[<Fable.Core.Emit("byrefAttrRootIntFn(&$0)")>]
-let callByRefAttrRootIntFn i = i
-[<Fable.Core.Emit("byrefAttrIntFn(&$0)")>]
-let callByRefAttrIntFn i = i
+let byRefAttrIntFn ([<ByRef>] x: int) (y: int) = x + y
+let byRefAttrObjFn ([<ByRef>] x: Obj) (y: int) = x.X + y
 
-// the intent of doing this is that this will break if there is some regression that the parameters no longer are passed by ref
+let byValArgsIntFn (x: int) (y: int) = x + y
+let byValArgsObjFn (x: Obj) (y: int) = x.X + y
+
+[<Emit("byRefArgsIntFn(&$0, &$1)")>]
+let callByRefArgsIntFn x y = nativeOnly
+
+[<Emit("byRefTypeIntFn(&$0, $1)")>]
+let callByRefTypeIntFn x y = nativeOnly
+
+[<Emit("byRefAttrIntFn(&$0, $1)")>]
+let callByRefAttrIntFn x y = nativeOnly
+
+[<Emit("byValArgsIntFn($0, $1)")>]
+let callByValArgsIntFn x y = nativeOnly
+
+// this should break if parameters are no longer passed properly
 let ensureIntRefsAreActuallyExpectedTypecheck () =
-    callByRefAttrRootIntFn 1 |> ignore
-    callByRefAttrIntFn 1 |> ignore
+    callByRefArgsIntFn 1 2 |> ignore
+    callByRefTypeIntFn 1 2 |> ignore
+    callByRefAttrIntFn 1 2 |> ignore
+    callByValArgsIntFn 1 2 |> ignore
+
+[<Fact>]
+let ``pass int by value works`` () =
+    let a = 1
+    byValArgsIntFn a 2 |> equal 3
+    a |> equal 1
+
+[<Fact>]
+let ``pass obj by value works`` () =
+    let a = { X = 1 }
+    let b = { X = 2 }
+    let c = 1
+    byValArgsObjFn a c |> equal 2
+    byValArgsObjFn b c |> equal 3
+    a.X |> equal 1
 
 [<Fact>]
 let ``pass int by ref works`` () =
     let a = 1
-    byrefIntFn &a |> equal 2
-    a |> equal 1 // a is not modified & prevent inlining
-
-
-
-
+    byRefTypeIntFn &a 2 |> equal 3
+    a |> equal 1
 
 [<Fact>]
 let ``pass obj by ref works`` () =
     let a = { X = 1 }
     let b = { X = 2 }
-    byrefObjFn &a |> equal 2
-    byrefObjFn &b |> equal 3
-    a |> equal a //prevent inlining
+    let c = 1
+    byRefTypeObjFn &a c |> equal 2
+    byRefTypeObjFn &b c |> equal 3
+    a.X |> equal 1
 
 [<Fact>]
 let ``pass obj by ref using attr on fn works`` () =
     let a = { X = 1 }
     let b = { X = 2 }
-    byrefAttrRootObjDecFn a |> equal 2
-    byrefAttrRootObjDecFn b |> equal 3
-    a |> equal a //prevent inlining
-
-
+    let c = 1
+    byRefArgsObjFn a c |> equal 2
+    byRefArgsObjFn b c |> equal 3
+    a.X |> equal 1
 
 [<Fact>]
 let ``pass int by ref using ByRef attr works`` () =
     let a = 1
-    byrefAttrIntFn a |> equal 2
-    a |> equal 1 // a is not modified & prevent inlining
-
-
+    let b = 2
+    byRefAttrIntFn a b |> equal 3
+    a |> equal 1
 
 [<Fact>]
 let ``pass obj by ref using ByRef attr works`` () =
     let a = { X = 1 }
     let b = { X = 2 }
-    byrefAttrObjFn a |> equal 2
-    byrefAttrObjFn b |> equal 3
-    a |> equal a //prevent inlining
+    let c = 1
+    byRefAttrObjFn a c |> equal 2
+    byRefAttrObjFn b c |> equal 3
+    a.X |> equal 1
 
 
 // // TODO: passing byref into inref not working yet
