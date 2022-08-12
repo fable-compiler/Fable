@@ -2641,7 +2641,7 @@ let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
-    | None, ".ctor", [] -> Helper.LibCall(com, "Guid", "new", t, [], ?loc=r) |> Some
+    | _, ".ctor", _ -> Helper.LibCall(com, "Guid", "new", t, [], ?loc=r) |> Some
     | None, "Empty", [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
     | None, "NewGuid", [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc=r) |> Some
     | None, "Parse", [a] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
