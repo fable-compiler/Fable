@@ -40,6 +40,7 @@
     <!-- <Compile Include="tests/src/EnumerableTests.fs" /> -->
     <Compile Include="tests/src/EnumTests.fs" />
     <!-- <Compile Include="tests/src/EventTests.fs" /> -->
+    <Compile Include="tests/src/GuidTests.fs" />
     <Compile Include="tests/src/HashSetTests.fs" />
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/InteropTests.fs" />

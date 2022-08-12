@@ -539,6 +539,9 @@ module TypeInfo =
     let transformHashMapType com ctx genArgs: Rust.Ty =
         transformImportType com ctx genArgs "Native" "MutHashMap"
 
+    let transformGuidType com ctx: Rust.Ty =
+        transformImportType com ctx [] "Guid" "Guid"
+
     let transformAsyncType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Async" "Async"
 
@@ -794,7 +797,6 @@ module TypeInfo =
                 match entRef.FullName, genArgs with
                 | Replacements.Util.BuiltinEntity kind ->
                     match kind with
-                    | Replacements.Util.BclGuid
                     | Replacements.Util.BclTimeSpan
                     | Replacements.Util.BclDateTime
                     | Replacements.Util.BclDateTimeOffset
@@ -802,7 +804,7 @@ module TypeInfo =
                     | Replacements.Util.BclTimeOnly
                     | Replacements.Util.BclTimer
                         -> transformDeclaredType com ctx entRef genArgs
-
+                    | Replacements.Util.BclGuid -> transformGuidType com ctx
                     | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
                     | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
                     | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg

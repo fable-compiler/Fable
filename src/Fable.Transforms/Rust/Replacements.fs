@@ -2640,41 +2640,15 @@ let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let parseGuid (literalGuid: string) =
-        try
-            System.Guid.Parse(literalGuid) |> string |> makeStrConst
-        with e ->
-            e.Message |> addErrorAndReturnNull com ctx.InlinePath r
-        |> Some
-
-    match i.CompiledName with
-    | "NewGuid"     -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
-    | "Parse"       ->
-        match args with
-        | [StringConst literalGuid] -> parseGuid literalGuid
-        | _-> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
-    | "TryParse"    -> Helper.LibCall(com, "Guid", "tryParse", t, args, i.SignatureArgTypes) |> Some
-    | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
-    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
-    | "ToString" when (args.Length = 1) ->
-        match args with
-        | [StringConst literalFormat] ->
-            match literalFormat with
-            | "N" | "D" | "B" | "P" | "X" ->
-                Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-            | _ ->
-                "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
-                |> addError com ctx.InlinePath r
-                None
-        | _ -> Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | ".ctor" ->
-        match args with
-        | [] -> emptyGuid() |> Some
-        | [ExprType(Array _)] -> Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [StringConst literalGuid] -> parseGuid literalGuid
-        | [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
-        | _ -> None
-    | _ -> None
+    match thisArg, i.CompiledName, args with
+    | None, ".ctor", [] -> Helper.LibCall(com, "Guid", "new", t, [], ?loc=r) |> Some
+    | None, "Empty", [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
+    | None, "NewGuid", [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc=r) |> Some
+    | None, "Parse", [a] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
+    | None, "TryParse", [a] -> Helper.LibCall(com, "Guid", "try_parse", t, args, ?loc=r) |> Some
+    | Some x, "ToByteArray", _ -> Helper.LibCall(com, "Guid", "to_byte_array", t, args, ?loc=r) |> Some
+    | Some x, "ToString", _ -> Helper.LibCall(com, "Guid", "to_string", t, args, ?loc=r) |> Some
+    | _, _, _ -> Helper.LibCall(com, "Guid", i.CompiledName, t, args, ?loc=r) |> Some
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
