@@ -1,5 +1,3 @@
-// [Y combinator](https://en.wikipedia.org/wiki/Fixed-point_combinator#Fixed-point_combinators_in_lambda_calculus)
-
 pub mod Guid_ {
     use crate::{Native_::Lrc, String_::string};
     use uuid::{Uuid};
@@ -21,9 +19,8 @@ pub mod Guid_ {
         Guid(Uuid::new_v4())
     }
 
-    // .NET only needs V4
     pub fn parse(s: Lrc<str>) -> Guid {
-        let copiedInput = s.to_string(); //
+        let copiedInput = s.to_string();
         match Uuid::parse_str(&s) {
             Ok(res) => Guid(res),
             Err(x) => panic!("{}", x)
