@@ -11,12 +11,11 @@ open System
 //     let g = new Guid()
 //     equal g g
 
-// Todo - not yet implemented. Should we use rand crate?
-// [<Fact>]
-// let ``Should create different guids when using NewGuid`` () =
-//     let g = Guid.NewGuid()
-//     let g2 = Guid.NewGuid()
-//     notEqual g g2
+[<Fact>]
+let ``Should create different guids when using NewGuid`` () =
+    let g = Guid.NewGuid()
+    let g2 = Guid.NewGuid()
+    notEqual g g2
 
 [<Fact>]
 let ``Should parse guids`` () =
