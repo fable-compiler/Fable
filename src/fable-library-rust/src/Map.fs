@@ -370,9 +370,6 @@ let copyToArray m (arr: _[]) i =
     let mutable j = i
     iterate (fun k v -> arr.[j] <- (k, v); j <- j + 1) m
 
-let inline private asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
-
 let keys (m: Map<'K, 'V>) =
     // KeyCollection(m) :> ICollection<'K>
     let len = count m

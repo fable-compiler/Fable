@@ -522,9 +522,6 @@ let copyToArray s (arr: _[]) i =
     let mutable j = i
     iterate (fun x -> arr.[j] <- x; j <- j + 1) s
 
-let inline private asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
-
 let toArray (s: Set<'T>) =
     let len = count s
     let res = ResizeArray<_>(len)

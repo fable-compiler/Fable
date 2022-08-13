@@ -22,3 +22,8 @@ module SR =
     let outOfRange = "The index is outside the legal range."
     let resetNotSupported = "Reset is not supported on this enumerator."
     let setContainsNoElements = "Set contains no elements."
+
+// ResizeArray<T> intentionally has same representation as Array<T> in Rust
+// so can be casted to array instead of using .ToArray() which makes a copy
+let inline internal asArray (a: ResizeArray<'T>): 'T[] =
+    (a :> obj) :?> 'T[] // cast will go away

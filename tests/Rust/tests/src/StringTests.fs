@@ -62,16 +62,14 @@ let ``String literal addition is optimized`` () =
 // [<Fact>]
 // let ``StringBuilder works`` () =
 //     let sb = System.Text.StringBuilder()
-//     sb.Append "Hello" |> ignore
-//     sb.AppendLine () |> ignore
-//     sb.AppendLine "World!" |> ignore
-//     let expected = System.Text.StringBuilder()
-//                 .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
-//                 .ToString()
+//     sb.Append("Hello") |> ignore
+//     sb.AppendLine() |> ignore
+//     sb.AppendLine("World!") |> ignore
+//     let expected = System.String.Format("Hello{0}World!{0}", System.Environment.NewLine)
 //     sb.ToString() |> equal expected
 
 // [<Fact>]
-// let ``StringBuilder.Lengh works`` () =
+// let ``StringBuilder.Length works`` () =
 //     let sb = System.Text.StringBuilder()
 //     sb.Append("Hello") |> ignore
 //     // We don't test the AppendLine for Length because depending on the OS
@@ -95,14 +93,21 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``StringBuilder.Append works with various overloads`` () =
-//     let builder = Text.StringBuilder()
-//                 .Append(Text.StringBuilder "aaa")
-//                 .Append("bcd".ToCharArray())
-//                 .Append('/')
-//                 .Append(true)
-//                 .Append(5.2)
-//                 .Append(34)
-//     equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
+//     let sb = System.Text.StringBuilder()
+//                         .Append(System.Text.StringBuilder("aaa"))
+//                         .Append("bcd".ToCharArray())
+//                         .Append('/')
+//                         .Append(true)
+//                         .Append(5.2)
+//                         .Append(34)
+//     let actual = sb.ToString().Replace(",", ".").ToLower()
+//     actual |> equal "aaabcd/true5.234"
+
+// [<Fact>]
+// let ``StringBuilder.AppendFormat works`` () =
+//     let sb = System.Text.StringBuilder()
+//     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
+//     sb.ToString() |> equal "Hello World!"
 
 // [<Fact>]
 // let ``kprintf works`` () =

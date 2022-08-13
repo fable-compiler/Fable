@@ -853,34 +853,49 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "set_Value", Some callee, [value] -> setRefCell com r callee value |> Some
     | _ -> None
 
+let getMemberName (i: CallInfo) =
+    let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
+    if i.OverloadSuffix = ""
+    then memberName
+    else memberName + "_" + i.OverloadSuffix
+
 let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
-    let pos = i.DeclaringEntityFullName.LastIndexOf('.')
-    let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
-    let entityName = i.DeclaringEntityFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
-    let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
-    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
+    let entFullName = i.DeclaringEntityFullName
+    let pos = entFullName.LastIndexOf('.')
+    let entityNs = entFullName.Substring(0, pos).Replace("Microsoft.", "")
+    let moduleName = entityNs.Replace(".", "_")
+    let entityName = entFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
+    let memberName = getMemberName i
+    let mangledName =
+        if isStatic
+        then $"{entityNs}::{entityName}::{memberName}"
+        else $"{memberName}"
     moduleName, mangledName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
-    let args = match thisArg with Some callee -> callee::args | _ -> args
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match thisArg with
+    | Some callee ->
+        let memberName = getMemberName i
+        Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None ->
+        let moduleName, mangledName = getMangledNames i thisArg
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName, mangledName = getMangledNames i thisArg
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-// TODO: This is likely broken
-let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
-    let memberName = Naming.sanitizeIdentForbiddenChars memberName
-    let entityName = Naming.sanitizeIdentForbiddenChars entityName
-    let name, memberPart =
-        match entityName, isStatic with
-        | "", _ -> memberName, Naming.NoMemberPart
-        | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
-        | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-    Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
+// // TODO: This is likely broken
+// let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
+//     let memberName = Naming.sanitizeIdentForbiddenChars memberName
+//     let entityName = Naming.sanitizeIdentForbiddenChars entityName
+//     let name, memberPart =
+//         match entityName, isStatic with
+//         | "", _ -> memberName, Naming.NoMemberPart
+//         | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
+//         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
+//     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with

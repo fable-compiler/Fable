@@ -593,9 +593,6 @@ let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T seq) =
         acc <- folder acc x
     acc
 
-let inline private asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
-
 // Redirected from Array.ofSeq (see Replacements)
 let toArray (xs: 'T seq): 'T[] =
     let res = ResizeArray<_>()
