@@ -10,7 +10,7 @@ Python source code.
 | List (F#)    |     List.fs      | F# immutable list                                                                 |
 | ResizeArray  |      `list`      | Python [list](https://docs.python.org/3/library/stdtypes.html#typesseq-list)      |
 | Map          |      Map.fs      | F# immutable map                                                                  |
-| Record       |     types.py     | dataclasses.dataclass                                                             |
+| Record       |     types.py     | dataclasses.dataclass decorated Record type                                       |
 | Option       |      Erased      | F# `None` will be translated to Python `None`                                     |
 | An. Record   |      `dict`      | Python [dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) |
 | dict         |      `dict`      |                                                                                   |

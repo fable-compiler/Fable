@@ -15,6 +15,7 @@ from typing import (
     Pattern,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -90,7 +91,7 @@ def format_replacement(
     flags = flags or ""
     format = format or ""
 
-    if isinstance(rep, int):
+    if isinstance(rep, (int, float)):
         if format not in ["x", "X"]:
             if rep < 0:
                 rep = rep * -1
@@ -102,25 +103,11 @@ def format_replacement(
                     sign = "+"
 
         if format == "x":
-            rep = to_hex(rep)
+            rep = to_hex(cast(int, rep))
         elif format == "X":
-            rep = to_hex(rep).upper()
-        else:  # AOid
-            rep = to_string(rep)
-
-    elif isinstance(rep, float):
-        if rep < 0:
-            rep = rep * -1
-            sign = "-"
-        else:
-            if flags.find(" ") >= 0:
-                sign = " "
-            elif flags.find("+") >= 0:
-                sign = "+"
-
-        precision = None if precision is None else int(precision)
+            rep = to_hex(cast(int, rep)).upper()
         if format in ("f", "F"):
-            precision = precision if precision is not None else 6
+            precision = int(precision) if precision is not None else 6
             rep = to_fixed(rep, precision)
         elif format in ("g", "G"):
             rep = (

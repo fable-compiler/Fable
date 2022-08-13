@@ -32,7 +32,7 @@ def to_exponential(x: float, dp: Optional[int] = None) -> str:
 
 
 def to_hex(x: int) -> str:
-    def rshift(val, n):
+    def rshift(val: int, n: int) -> int:
         sign = 0x10000000000000000 if isinstance(val, int64) else 0x100000000
         return val >> n if val >= 0 else (val + sign) >> n
 
