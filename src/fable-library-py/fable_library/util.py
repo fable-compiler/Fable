@@ -132,8 +132,9 @@ class IComparer(Generic[_T_in], Protocol):
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
+    @property
     @abstractmethod
-    def Compare(self, y: _T_in) -> int:
+    def Compare(self) -> Callable[[_T_in, _T_in], int]:
         ...
 
 

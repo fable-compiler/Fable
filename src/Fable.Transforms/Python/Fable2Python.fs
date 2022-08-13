@@ -430,7 +430,7 @@ module Reflection =
             | _, Fable.Type.Number (Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
             | _, Fable.Type.Number (Int16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int16'>" expr
             | _, Fable.Type.Number (UInt16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint16'>" expr
-            | _, Fable.Type.Number (Int32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int32'>" expr
+            | _, Fable.Type.Number (Int32, _) -> pyTypeof "<class 'int'>" expr
             | _, Fable.Type.Number (UInt32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32>" expr
             | _, Fable.Type.Number (Int64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int64'>" expr
             | _, Fable.Type.Number (UInt64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32'>" expr
@@ -759,23 +759,26 @@ module Annotation =
         let numberInfo kind =
             let name =
                 match kind with
-                | Int8
-                | UInt8
-                | Int16
-                | UInt16
+                | Int8 -> "int8"
+                | UInt8 -> "uint8"
+                | Int16 -> "int16"
+                | UInt16 -> "uint16"
+                | UInt32 -> "uint32"
+                | Int64 -> "int64"
+                | UInt64 -> "uint64"
                 | Int32
-                | UInt32
-                | Int64
-                | UInt64
                 | BigInt
                 | NativeInt
                 | UNativeInt -> "int"
-                | Float32
+                | Float32 -> "float32"
                 | Float64 -> "float"
-                // TODO: review, though we're dealing with Decimal as special case (see below)
-                | Decimal -> "complex"
+                | _ -> failwith $"Unsupported number type: {kind}"
 
-            Expression.name name
+            match name with
+            | "int"
+            | "float" -> Expression.name name
+            | _ -> fableModuleAnnotation com ctx "types" name []
+
 
         match kind, info with
         | _, Fable.NumberInfo.IsEnum entRef ->
@@ -1108,7 +1111,7 @@ module Util =
 
     let thisExpr = Expression.name "self"
 
-    let ofInt (i: int) = Expression.constant (float i)
+    let ofInt (i: int) = Expression.constant (int i)
 
     let ofString (s: string) = Expression.constant s
 
@@ -1572,12 +1575,12 @@ module Util =
             | _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
             | _, (:? int16 as x) -> makeNumber com ctx r value.Type "int16" x
             | _, (:? uint16 as x) -> makeNumber com ctx r value.Type "uint16" x
-            | _, (:? int32 as x) -> makeNumber com ctx r value.Type "int32" x
+            | _, (:? int32 as x) -> Expression.constant (x, ?loc = r), []
             | _, (:? uint32 as x) -> makeNumber com ctx r value.Type "uint32" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _, (:? float32 as x) -> makeNumber com ctx r value.Type "float32" x
-            | _, (:? float as x) -> makeNumber com ctx r value.Type "float" x
+            | _, (:? float as x) -> Expression.constant (x, ?loc = r), []
             | _ -> Expression.constant (x, ?loc = r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (newKind, typ, kind) ->
@@ -3008,12 +3011,12 @@ module Util =
                         stmts, Some ta
                     | _ ->
                         [], None
-                        
+
                 let assignment =
                     match ta with
                     | Some ta -> [ Statement.assign(target, ta, value) ]
                     | _ -> [ Statement.assign([target], value) ]
-                   
+
                 nonLocals
                 @ stmts @ assignment
             | _ ->
@@ -4051,7 +4054,7 @@ module Compiler =
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
 
-        //printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com

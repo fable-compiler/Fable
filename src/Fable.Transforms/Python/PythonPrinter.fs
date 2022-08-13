@@ -559,6 +559,12 @@ module PrinterExtensions =
                     printer.Print("\"")
                     printer.Print(Naming.escapeString (fun _ -> false) value)
                     printer.Print("\"")
+                | :? float as value ->
+                    let value = string value
+                    printer.Print(value)
+                    // Print with at least one decimal place
+                    if value.IndexOf(".") = -1 && not (value.Contains("E")) then
+                        printer.Print(".0")
                 | :? bool as value -> printer.Print(if value then "True" else "False")
                 | _ -> printer.Print(string value)
 
