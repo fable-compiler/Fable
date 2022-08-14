@@ -101,9 +101,6 @@ let ofSeq (xs: 'T seq) =
 // Redirected to Seq.ofList to avoid dependency (see Replacements)
 // let toSeq (xs: 'T list): 'T seq = Seq.ofList xs
 
-let inline private asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
-
 let toArray (xs: 'T list): 'T[] =
     let len = length xs
     let res = ResizeArray<_>(len)

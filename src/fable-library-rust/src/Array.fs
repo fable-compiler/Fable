@@ -22,9 +22,6 @@ let inline get (source: 'T[]) (index: int): 'T = Array.get source index
 let inline set (source: 'T[]) (index: int) (value: 'T): unit = Array.set source index value
 let inline copy (source: 'T[]): 'T[] = Array.copy source
 
-let inline private asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away, same representation in Rust
-
 let tryItem (index: int) (source: 'T[]): 'T option =
     if index < 0 || index >= source.Length then None
     else Some source.[index]
