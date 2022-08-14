@@ -45,8 +45,8 @@ def from_integer(
     return value
 
 
-def op_left_shift(self: int, numBits: int):
-    return self << numBits
+def op_left_shift(self: int, num_bits: int):
+    return self << num_bits
 
 
 def op_addition(a: int, b: int) -> int:

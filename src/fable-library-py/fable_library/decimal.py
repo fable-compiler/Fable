@@ -1,6 +1,9 @@
+import builtins
+
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
 from .types import FSharpRef
+
 
 getcontext().prec = 29
 
@@ -65,6 +68,10 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
 
 def equals(a: Decimal, b: Decimal) -> bool:
     return a == b
+
+
+def abs(a: Decimal) -> Decimal:
+    return builtins.abs(a)
 
 
 __all__ = [

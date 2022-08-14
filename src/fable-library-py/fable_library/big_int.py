@@ -84,12 +84,20 @@ def equals(a: int, b: int) -> bool:
     return a == b
 
 
-def try_parse(string: str, defValue: FSharpRef[int]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[int]) -> bool:
     try:
-        defValue.contents = parse(string)
+        def_value.contents = parse(string)
         return True
     except Exception:
         return False
+
+
+def op_right_shift(a: int, num_bits: int) -> int:
+    return a >> num_bits
+
+
+def of_left_shift(a: int, num_bits: int) -> int:
+    return a << num_bits
 
 
 BigInteger = int

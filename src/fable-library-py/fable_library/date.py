@@ -1,9 +1,11 @@
 import re
+
 from datetime import datetime, timedelta, timezone
 from typing import Any, Match, Optional
 
 from .types import FSharpRef
 from .util import DateKind
+
 
 formatRegExp = re.compile(r"(\w)\1*")
 

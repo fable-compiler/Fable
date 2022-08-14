@@ -1,4 +1,5 @@
 import unicodedata
+
 from enum import IntEnum
 from typing import Dict, Union
 

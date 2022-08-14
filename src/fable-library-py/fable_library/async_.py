@@ -1,4 +1,5 @@
 import asyncio
+
 from asyncio import Future, ensure_future
 from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
@@ -20,6 +21,7 @@ from .async_builder import (
 from .choice import Choice_makeChoice1Of2  # type: ignore
 from .choice import Choice_makeChoice2Of2  # type: ignore
 from .task import TaskCompletionSource
+
 
 _T = TypeVar("_T")
 

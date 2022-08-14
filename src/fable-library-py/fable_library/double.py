@@ -1,5 +1,6 @@
-from math import copysign
 import math
+
+from math import copysign
 from typing import Any
 
 from .types import FSharpRef
@@ -16,6 +17,14 @@ def divide(x: float, y: float) -> float:
         return float("inf") if copysign(1, x) == copysign(1, y) else float("-inf")
 
     return x / y
+
+
+def log(x: float) -> float:
+    if x == 0:
+        return float("-inf")
+    elif x < 0:
+        return float("nan")
+    return math.log(x)
 
 
 def sqrt(x: float) -> float:

@@ -374,7 +374,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
           [ left; right ] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
-            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt),_) :: _ -> binOp BinaryDivide left right |> fastIntFloor
+            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt),_) :: _ ->
+                binOp BinaryDivide left right |> fastIntFloor
             | _ ->  Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc=r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] ->
@@ -1446,7 +1447,6 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Cos", _
     | "Cosh", _
     | "Exp", _
-    | "Log", _
     | "Log10", _
     | "Sin", _
     | "Sinh", _
@@ -1454,8 +1454,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Tanh", _ ->
         math r t args i.SignatureArgTypes i.CompiledName
         |> Some
+    | "Log", _
     | "Sqrt", _ ->
-        Helper.LibCall(com, "double", "sqrt", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, "double", i.CompiledName.ToLower(), t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "Round", _ ->
         match args with
@@ -1471,7 +1472,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.LibCall(com, "decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
         | _ ->
-            Helper.ImportedCall("math", "truc", t, args, i.SignatureArgTypes, ?loc = r)
+            Helper.ImportedCall("math", "trunc", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
@@ -3279,7 +3280,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [ min; max ] -> min, max
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
-        Helper.LibCall(com, "util", "randomNext", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
+        Helper.ImportedCall("random", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
         |> Some
     | "NextDouble" ->
         Helper.ImportedCall("random", "random", t, [], [])

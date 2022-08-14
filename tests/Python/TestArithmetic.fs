@@ -1,6 +1,7 @@
 module Fable.Tests.Arithmetic
 
 open System
+open Fable.Tests.Util
 open Util.Testing
 
 let [<Literal>] aLiteral = 5
@@ -172,6 +173,18 @@ let ``test Decimal division precision is kept`` () =
 //    a / b |> equal c
 
 [<Fact>]
+let ``test Decimal abs works`` () =
+    abs -4M |> equal 4M
+
+[<Fact>]
+let ``test BigInt Bitwise shift right can be generated`` () =
+        4I >>> 2 |> equal 1I
+
+[<Fact>]
+let ``test BigInt abs works`` () =
+    abs -4I |> equal 4I
+
+[<Fact>]
 let ``test abs works`` () =
     abs -4 |> equal 4
 
@@ -202,6 +215,12 @@ let ``test pown works``() =
 let ``test sqrt works`` () =
     sqrt 4.5 |> checkTo3dp 2121.
 
+[<Fact>]
+let ``test power works`` () =
+    let x = 10.0 ** 2.
+    x |> equal 100.0
+
+
 // As per https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
 [<Fact>]
 let ``test sqrt matches .net core implementation`` () =
@@ -213,9 +232,199 @@ let ``test sqrt matches .net core implementation`` () =
     sqrt positiveInfinity |> equal positiveInfinity
 
 [<Fact>]
-let ``test power works`` () =
-    let x = 10.0 ** 2.
-    x |> equal 100.0
+let ``test acos works`` () =
+    acos 0.25 |> checkTo3dp 1318.
+
+[<Fact>]
+let ``test asin works`` () =
+    asin 0.25 |> checkTo3dp 252.
+
+[<Fact>]
+let ``test atan works`` () =
+    atan 0.25 |> checkTo3dp 244.
+
+[<Fact>]
+let ``test atan2 works`` () =
+    atan2 90. 15. |> checkTo3dp 1405.
+
+[<Fact>]
+let ``test cos works`` () =
+    cos 0.25 |> checkTo3dp 968.
+
+[<Fact>]
+let ``test sin works`` () =
+    sin 0.25 |> checkTo3dp 247.
+
+[<Fact>]
+let ``test tan works`` () =
+    tan 0.25 |> checkTo3dp 255.
+
+[<Fact>]
+let ``test cosh works`` () =
+    cosh 0.25 |> checkTo3dp 1031.
+
+[<Fact>]
+let ``test sinh works`` () =
+    sinh 0.25 |> checkTo3dp 252.
+
+[<Fact>]
+let ``test tanh works`` () =
+    tanh 0.25 |> checkTo3dp 244.
+
+[<Fact>]
+let ``test exp works`` () =
+    exp 8.0 |> checkTo3dp 2980957.
+
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L228
+[<Fact>]
+let ``test log works`` () =
+    log 232.12 |> checkTo3dp 5447.
+    checkTo3dp 1098. (log 3.0)
+    log 0.0 |> equal negativeInfinity
+    isNaN (log -2.0) |> equal true
+    isNaN (log System.Double.NaN) |> equal true
+    isNaN (log negativeInfinity) |> equal true
+    log positiveInfinity |> equal positiveInfinity
+
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
+[<Fact>]
+let ``test Math.Log(double, double) works`` () =
+    Math.Log(8.0, 2.0) |> equal 3.0
+    Math.Log(3.0, 3.0) |> equal 1.0
+    Math.Log(14., 3.0) |> checkTo3dp 2402.
+    // FIXME: Math.Log(0.0, 3.0) |> equal negativeInfinity
+    Math.Log(positiveInfinity, 3.0) |> equal positiveInfinity
+    // FIXME: isNaN (Math.Log(-3.0, 3.0)) |> equal true
+    isNaN (Math.Log(System.Double.NaN, 3.0)) |> equal true
+    // FIXME: isNaN (Math.Log(negativeInfinity, 3.0)) |> equal true
+
+[<Fact>]
+let ``test log10 works`` () =
+    log10 232.12 |> checkTo3dp 2365.
+
+[<Fact>]
+let ``test PI works`` () =
+    checkTo3dp 3141. Math.PI
+
+[<Fact>]
+let ``test E works`` () =
+    checkTo3dp 2718. Math.E
+
+[<Fact>]
+let ``test Math.abs works`` () =
+    Math.Abs -4 |> equal 4
+
+[<Fact>]
+let ``test Math.pown works`` () =
+    Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
+
+[<Fact>]
+let ``test Math.sqrt works`` () =
+    Math.Sqrt 4.5 |> checkTo3dp 2121.
+
+[<Fact>]
+let ``test Math.round works`` () =
+    Math.Round -12.5 |> equal -12.
+    Math.Round 1.425 |> equal 1.
+    Math.Round -1.425 |> equal -1.
+    Math.Round 1.546 |> equal 2.
+    Math.Round -1.546 |> equal -2.
+
+[<Fact>]
+let ``test Math.round with digits works`` () =
+    Math.Round(1.426, 2) |> equal 1.43
+    Math.Round(1.426, 1) |> equal 1.4
+    Math.Round(-1.426, 2) |> equal -1.43
+    Math.Round(-1.426, 1) |> equal -1.4
+
+[<Fact>]
+let ``test Math.truncate works`` () =
+    Math.Truncate -12.5 |> equal -12.
+    Math.Truncate 1.425 |> equal 1.
+    Math.Truncate -1.425 |> equal -1.
+    Math.Truncate 1.546 |> equal 1.
+    Math.Truncate -1.546 |> equal -1.
+
+[<Fact>]
+let ``test Math.ceil works`` () =
+    Math.Ceiling 11.25 |> equal 12.
+
+[<Fact>]
+let ``test Math.floor works`` () =
+    Math.Floor 11.75 |> equal 11.
+
+[<Fact>]
+let ``test Math.acos works`` () =
+    Math.Acos 0.25 |> checkTo3dp 1318.
+
+[<Fact>]
+let ``test Math.asin works`` () =
+    Math.Asin 0.25 |> checkTo3dp 252.
+
+[<Fact>]
+let ``test Math.atan works`` () =
+    Math.Atan 0.25 |> checkTo3dp 244.
+
+[<Fact>]
+let ``test Math.atan2 works`` () =
+    Math.Atan2(90., 15.) |> checkTo3dp 1405.
+
+[<Fact>]
+let ``test Math.cos works`` () =
+    Math.Cos(0.1 * Math.PI) |> checkTo3dp 951.
+
+[<Fact>]
+let ``test Math.sin works`` () =
+    Math.Sin(0.25 * Math.PI) |> checkTo3dp 707.
+
+[<Fact>]
+let ``test Math.tan works`` () =
+    Math.Tan(0.5) |> checkTo3dp 546.
+
+[<Fact>]
+let ``test Math.exp works`` () =
+    Math.Exp 8.0 |> checkTo3dp 2980957.
+
+[<Fact>]
+let ``test Math.log works`` () =
+    Math.Log 232.12 |> checkTo3dp 5447.
+
+[<Fact>]
+let ``test Math.log10 works`` () =
+    Math.Log10 232.12 |> checkTo3dp 2365.
+
+[<Fact>]
+let ``test incr works`` () =
+    let i = ref 5
+    incr i
+    !i |> equal 6
+
+[<Fact>]
+let ``test decr works`` () =
+    let i = ref 5
+    decr i
+    !i |> equal 4
+
+[<Fact>]
+let ``test System.Random works`` () =
+    let rnd = System.Random()
+    let x = rnd.Next()
+    x >= 0 |> equal true
+
+    let x = rnd.Next(5)
+    (x >= 0 && x < 5) |> equal true
+
+    let x = rnd.Next(14, 20)
+    (x >= 14 && x < 20) |> equal true
+
+    let x = rnd.Next(-14, -10)
+    (x >= -14 && x < -10) |> equal true
+
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true
+
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
 [<Fact>]
 let ``test extreme values work`` () =

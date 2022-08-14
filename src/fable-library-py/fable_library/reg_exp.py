@@ -1,5 +1,7 @@
 import re
+
 from typing import Any, Callable, List, Match, Optional, Pattern, Union
+
 
 MatchEvaluator = Callable[[Any], str]
 
