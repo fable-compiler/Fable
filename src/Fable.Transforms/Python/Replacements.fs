@@ -374,8 +374,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
           [ left; right ] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
-            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt),_) :: _ -> binOp BinaryDivide left right |> fastIntFloor
-            | _ -> binOp BinaryDivide left right
+            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt),_) :: _ ->
+                binOp BinaryDivide left right |> fastIntFloor
+            | _ ->  Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc=r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] ->
             binOp BinaryShiftLeft left right
@@ -1446,14 +1447,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Cos", _
     | "Cosh", _
     | "Exp", _
-    | "Log", _
     | "Log10", _
     | "Sin", _
     | "Sinh", _
-    | "Sqrt", _
     | "Tan", _
     | "Tanh", _ ->
         math r t args i.SignatureArgTypes i.CompiledName
+        |> Some
+    | "Log", _
+    | "Sqrt", _ ->
+        Helper.LibCall(com, "double", i.CompiledName.ToLower(), t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "Round", _ ->
         match args with
@@ -1469,7 +1472,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.LibCall(com, "decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
         | _ ->
-            Helper.GlobalCall("math", t, args, i.SignatureArgTypes, memb = "trunc", ?loc = r)
+            Helper.ImportedCall("math", "trunc", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
@@ -1480,12 +1483,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("Infinity"
       | "InfinitySingle"),
       _ ->
-        Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc = r)
+        Helper.ImportedValue(com, "math", "inf", t)
         |> Some
     | ("NaN"
       | "NaNSingle"),
       _ ->
-        Helper.GlobalIdent("Number", "NaN", t, ?loc = r)
+        Helper.ImportedValue(com, "math", "nan", t)
         |> Some
     | "Fst", [ tup ] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [ tup ] -> Get(tup, TupleIndex 1, t, r) |> Some
@@ -2402,10 +2405,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
     match i.CompiledName, args with
     | "IsNaN", [ _ ] when isFloat ->
-        Helper.GlobalCall("Number", t, args, memb = "isNaN", ?loc = r)
+        Helper.ImportedCall("math", "isnan", t, args, ?loc = r)
         |> Some
     | "IsInfinity", [ _ ] when isFloat ->
-        Helper.LibCall(com, "double", "isInfinity", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.ImportedCall("math", "isinf", t, args, ?loc = r)
+        |> Some
+    | "IsNegativeInfinity" , [ _ ] when isFloat ->
+         Helper.LibCall(com, "double", "is_negative_inf", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Parse"
       | "TryParse") as meth,
@@ -2726,7 +2732,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Type: PowDouble : float -> int -> float
     // Usage: PowDouble x n
     | "PowDouble", None, _ ->
-        Helper.GlobalCall("math", t, args, i.SignatureArgTypes, memb = "pow", ?loc = r)
+        Helper.ImportedCall("math", "pow", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "PowDecimal", None, _ ->
         Helper.LibCall(com, "decimal", "pow", t, args, i.SignatureArgTypes, ?loc = r)
@@ -3274,10 +3280,10 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [ min; max ] -> min, max
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
-        Helper.LibCall(com, "util", "randomNext", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
+        Helper.LibCall(com, "util", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
         |> Some
     | "NextDouble" ->
-        Helper.GlobalCall("math", t, [], [], memb = "random")
+        Helper.ImportedCall("random", "random", t, [], [])
         |> Some
     | "NextBytes" ->
         let byteArray =

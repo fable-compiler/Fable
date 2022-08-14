@@ -1,7 +1,9 @@
 import builtins
 import functools
 import math
+import random
 import re
+
 from abc import ABC, abstractmethod
 from array import array
 from enum import IntEnum
@@ -750,6 +752,10 @@ def round(value: float, digits: int = 0):
         else builtins.round(n)
     )
     return r / m if digits else r
+
+
+def randint(a: int, b: int) -> int:
+    return random.randint(a, b - 1)
 
 
 def unescape_data_string(s: str) -> str:

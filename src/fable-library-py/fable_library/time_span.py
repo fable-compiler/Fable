@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Any, Optional
 
-from .util import pad_with_zeros, pad_left_and_right_with_zeros
+from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
 def total_seconds(ts: timedelta) -> float:

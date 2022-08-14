@@ -1,5 +1,6 @@
 import locale
 import re
+
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from datetime import datetime
@@ -23,6 +24,7 @@ from .date import to_string as date_to_string
 from .numeric import multiply, to_exponential, to_fixed, to_hex, to_precision
 from .reg_exp import escape
 from .types import to_string
+
 
 T = TypeVar("T")
 

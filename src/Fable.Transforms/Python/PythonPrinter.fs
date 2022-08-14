@@ -1,6 +1,8 @@
 // fsharplint:disable InterfaceNames
 module Fable.Transforms.PythonPrinter
 
+open System
+
 open Fable
 open Fable.AST
 open Fable.AST.Python
@@ -562,8 +564,9 @@ module PrinterExtensions =
                 | :? float as value ->
                     let value = string value
                     printer.Print(value)
-                    // Print with at least one decimal place
-                    if value.IndexOf(".") = -1 && not (value.Contains("E")) then
+
+                    // Make sure it's a valid Python float (not int)
+                    if String.forall (fun char -> char = '-' || Char.IsDigit char) value then
                         printer.Print(".0")
                 | :? bool as value -> printer.Print(if value then "True" else "False")
                 | _ -> printer.Print(string value)

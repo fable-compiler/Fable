@@ -527,11 +527,8 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
-        match name with
-        | "Infinity" -> "float('inf')"
-        | _ ->
-            (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
+        (name, Naming.NoMemberPart)
+        ||> Naming.sanitizeIdent (fun _ -> false)
 
     let unzipArgs (args: (Expression * Statement list) list) : Expression list * Statement list =
         let stmts = args |> List.map snd |> List.collect id
@@ -1579,6 +1576,8 @@ module Util =
             | _, (:? uint32 as x) -> makeNumber com ctx r value.Type "uint32" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
+            | _, (:? float as x) when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | _, (:? float32 as x) when Single.IsNaN(x) -> libCall com ctx r "types" "float32" [ Expression.constant "nan"], []
             | _, (:? float32 as x) -> makeNumber com ctx r value.Type "float32" x
             | _, (:? float as x) -> Expression.constant (x, ?loc = r), []
             | _ -> Expression.constant (x, ?loc = r), []

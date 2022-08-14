@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import array
+
 from abc import abstractmethod
 from typing import (
     Any,
@@ -16,6 +17,7 @@ from typing import Union as Union_
 from typing import cast
 
 from .util import IComparable, compare
+
 
 _T = TypeVar("_T")
 

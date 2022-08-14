@@ -1,4 +1,5 @@
 import re
+
 from enum import IntEnum
 from typing import (
     TYPE_CHECKING,
@@ -15,6 +16,7 @@ from typing import (
 )
 
 from .types import FSharpRef, Union
+
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")

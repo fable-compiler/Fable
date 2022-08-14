@@ -45,6 +45,9 @@ type Helper =
         let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)
 
+    static member ImportedValue(com, coreModule: string, coreMember: string, returnType: Type) =
+        makeImportUserGenerated None Any coreMember coreModule
+
     static member ImportedCall(path: string, selector: string, returnType: Type, args: Expr list,
                                 ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
         let callee = makeImportUserGenerated None Any selector path

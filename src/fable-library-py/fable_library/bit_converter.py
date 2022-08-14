@@ -1,5 +1,6 @@
 import struct
 import sys
+
 from typing import Optional
 
 

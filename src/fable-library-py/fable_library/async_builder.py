@@ -17,6 +17,7 @@ from typing import (
 
 from .util import IDisposable
 
+
 _T = TypeVar("_T")
 _U = TypeVar("_U")
 _D = TypeVar("_D", bound=IDisposable)

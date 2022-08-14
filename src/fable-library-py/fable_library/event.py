@@ -1,25 +1,27 @@
-from abc import abstractmethod
 import inspect
+
+from abc import abstractmethod
 from typing import (
     Any,
     Callable,
+    Generic,
     List,
     Optional,
     Protocol,
     TypeVar,
     Union,
-    Generic,
     overload,
 )
 
-from .observable import IObservable, IObserver, Observer
-from .option import Option, some, value
 from .choice import (
-    FSharpChoice_2,
     Choice_tryValueIfChoice1Of2,
     Choice_tryValueIfChoice2Of2,
+    FSharpChoice_2,
 )
+from .observable import IObservable, IObserver, Observer
+from .option import Option, some, value
 from .util import IDisposable
+
 
 _T = TypeVar("_T")
 _U = TypeVar("_U")
