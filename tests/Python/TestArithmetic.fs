@@ -170,3 +170,68 @@ let ``test Decimal division precision is kept`` () =
 //    let b = 1000.M
 //    let c = decimal 0.00000001
 //    a / b |> equal c
+
+[<Fact>]
+let ``test abs works`` () =
+    abs -4 |> equal 4
+
+[<Fact>]
+let ``test round works`` () =
+    round -12.5 |> equal -12.
+    round 1.5 |> equal 2.
+    round 1.535 |> equal 2.
+    round 1.525 |> equal 2.
+
+[<Fact>]
+let ``test ceil works`` () =
+    ceil 11.25 |> equal 12.
+    ceil -11.25 |> equal -11.
+    Math.Ceiling 11.25 |> equal 12.
+
+[<Fact>]
+let ``test floor works`` () =
+    floor 11.75 |> equal 11.
+    floor -11.75 |> equal -12.
+    Math.Floor 11.25 |> equal 11.
+
+[<Fact>]
+let ``test pown works``() =
+    pown 2.2 3 |> checkTo3dp 10648.
+
+[<Fact>]
+let ``test sqrt works`` () =
+    sqrt 4.5 |> checkTo3dp 2121.
+
+// As per https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
+[<Fact>]
+let ``test sqrt matches .net core implementation`` () =
+    checkTo3dp 1732. (sqrt 3.0)
+    sqrt 0.0  |> equal 0.0
+    isNaN (sqrt -3.0) |> equal true
+    isNaN (sqrt System.Double.NaN) |> equal true
+    isNaN (sqrt negativeInfinity) |> equal true
+    sqrt positiveInfinity |> equal positiveInfinity
+
+[<Fact>]
+let ``test power works`` () =
+    let x = 10.0 ** 2.
+    x |> equal 100.0
+
+[<Fact>]
+let ``test extreme values work`` () =
+    0.0 / 0.0 |> isNaN |> equal true
+    0.0 / (-0.0) |> isNaN |> equal true
+    1.0 / infinity |> equal 0
+    1.0 / (-infinity) |> equal 0
+    1.0 / 0.0 |> Double.IsInfinity |> equal true
+
+    1.0 / (-0.0)
+    |> Double.IsNegativeInfinity
+    |> equal true
+
+    -1.0 / (-0.0)
+    |> Double.IsNegativeInfinity
+    |> equal false
+
+    -infinity < infinity |> equal true
+    (-0.0) < 0.0 |> equal false

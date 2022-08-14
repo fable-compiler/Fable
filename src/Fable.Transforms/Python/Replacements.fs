@@ -1450,10 +1450,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Log10", _
     | "Sin", _
     | "Sinh", _
-    | "Sqrt", _
     | "Tan", _
     | "Tanh", _ ->
         math r t args i.SignatureArgTypes i.CompiledName
+        |> Some
+    | "Sqrt", _ ->
+        Helper.LibCall(com, "double", "sqrt", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "Round", _ ->
         match args with

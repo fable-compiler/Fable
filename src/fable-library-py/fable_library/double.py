@@ -18,6 +18,13 @@ def divide(x: float, y: float) -> float:
     return x / y
 
 
+def sqrt(x: float) -> float:
+    try:
+        return math.sqrt(x)
+    except ValueError:
+        return float("nan")
+
+
 def is_negative_inf(value: float) -> bool:
     return math.isinf(value) and value < 0
 
