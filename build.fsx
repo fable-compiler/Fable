@@ -499,8 +499,8 @@ let testPython() =
     // runInDir buildDir "python -m pytest -x"
 
 type RustTestMode =
-    | NoFutures
-    | WithFutures
+    | SingleThreaded
+    | MultiThreaded
     | Everything
 
 let testRust testMode =
@@ -542,13 +542,13 @@ let testRust testMode =
 
     // run Fable Rust tests
     match testMode with
-    | NoFutures ->
+    | SingleThreaded ->
         runInDir buildDir "cargo test"
-    | WithFutures ->
-        runInDir buildDir "cargo test --features futures"
+    | MultiThreaded ->
+        runInDir buildDir "cargo test --features threaded"
     | Everything ->
         runInDir buildDir "cargo test"
-        runInDir buildDir "cargo test --features futures"
+        runInDir buildDir "cargo test --features threaded"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
@@ -722,9 +722,9 @@ match BUILD_ARGS_LOWER with
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
-| "test-rust"::_ -> testRust NoFutures
-| "test-rust-nofutures"::_ -> testRust NoFutures
-| "test-rust-futures"::_ -> testRust WithFutures
+| "test-rust"::_ -> testRust SingleThreaded
+| "test-rust-default"::_ -> testRust SingleThreaded
+| "test-rust-threaded"::_ -> testRust MultiThreaded
 | "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)

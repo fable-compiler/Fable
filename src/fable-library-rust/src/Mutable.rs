@@ -149,13 +149,12 @@ impl<T> Index<i32> for MutCell<Vec<T>> {
     }
 }
 
-
-// In .NET, thread safety is not guaranteed, and it is expected that a user handles this themselves via constructs such as
-// System.Threading.Monitor or lock.
-// In order to allow this pattern, Send and Sync guards must be removed, which is why it is behind an "unsafe" feature switch.
-// Use at your own risk!
-#[cfg(feature = "unsafe-cells")]
+// In .NET, thread safety is not guaranteed, and it is expected that the users handle
+// thread safety themselves via constructs such as System.Threading.Monitor or lock.
+// In order to allow this pattern, Send and Sync guards must be conditional, which is
+// why they are hidden behind the "atomic" feature switch. Use at your own risk!
+#[cfg(feature = "atomic")]
 unsafe impl <T> Send for MutCell<T> {}
 
-#[cfg(feature = "unsafe-cells")]
+#[cfg(feature = "atomic")]
 unsafe impl <T> Sync for MutCell<T> {}
