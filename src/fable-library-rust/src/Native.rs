@@ -17,9 +17,9 @@ pub mod Native_ {
     pub use super::Lazy::*;
     pub use crate::Choice_::*;
 
-    #[cfg(not(feature = "futures"))]
+    #[cfg(not(feature = "atomic"))]
     pub type Lrc<T> = Rc<T>;
-    #[cfg(feature = "futures")]
+    #[cfg(feature = "atomic")]
     pub type Lrc<T> = Arc<T>;
 
     pub type MutArray<T> = MutCell<Vec<T>>;

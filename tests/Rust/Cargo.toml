@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-futures = ["fable_library_rust/futures", "fable_library_rust/unsafe-cells"]
-# default = ["futures"] # Uncomment when attempting to debug/use rust analyzer to switch to futures mode
+threaded = ["fable_library_rust/threaded"]
+# default = ["threaded"] # Uncomment when attempting to debug/use rust analyzer to switch to threaded mode
 
 [dependencies]
 fable_library_rust = { path = "../../fable-library-rust" }

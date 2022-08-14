@@ -1,4 +1,4 @@
-[<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"futures\""|])>]
+[<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"threaded\""|])>]
 module Fable.Tests.AsyncTests
 
 open Util.Testing

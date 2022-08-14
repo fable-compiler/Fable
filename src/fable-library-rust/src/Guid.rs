@@ -20,8 +20,7 @@ pub mod Guid_ {
     }
 
     pub fn parse(s: Lrc<str>) -> Guid {
-        let copiedInput = s.to_string();
-        match Uuid::parse_str(&s) {
+        match Uuid::parse_str(s.as_ref()) {
             Ok(res) => Guid(res),
             Err(x) => panic!("{}", x)
         }

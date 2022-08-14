@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ["nofutures", "futures"]
+        test: ["default", "threaded"]
 
     steps:
     - uses: actions/checkout@v2
