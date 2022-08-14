@@ -573,9 +573,6 @@ let makeMap (com: ICompiler) ctx r t args genArg =
 //         |> makeHashSetWithComparer com r t sourceSeq
 //     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
-let emptyGuid () =
-    makeStrConst "00000000-0000-0000-0000-000000000000"
-
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
@@ -589,7 +586,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateTime -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
-    | Builtin BclGuid -> emptyGuid()
+    | Builtin BclGuid -> Helper.LibCall(com, "Guid", "empty", t, [])
     | Builtin (BclKeyValuePair(k,v)) ->
         makeTuple None true [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
@@ -1880,8 +1877,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | _ -> None
 
 let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName with
-    | None, ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", None ->
         match i.SignatureArgTypes with
         | [Array _] ->
             Helper.LibCall(com, "BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1889,7 +1886,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             Helper.LibCall(com, "BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             Helper.LibCall(com, "BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, "op_Explicit" ->
+    | "op_Explicit", None ->
         match t with
         | Number(kind,_) ->
             match kind with
@@ -1900,16 +1897,14 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | Decimal -> toDecimal com ctx r t args |> Some
             | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
-    | None, "DivRem" ->
+    | "DivRem", None ->
         Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth when meth.StartsWith("get_") ->
+    | meth, None when meth.StartsWith("get_") ->
         Helper.LibValue(com, "BigInt", meth, t) |> Some
-    | callee, meth ->
-        let args =
-            match callee, meth with
-            | None, _ -> args
-            | Some c, _ -> c::args
+    | meth, None ->
         Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, Some c ->
+        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, c::args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
@@ -2198,19 +2193,20 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | Some this, "HasFlag", [arg] ->
+    match i.CompiledName, thisArg, args with
+    | "HasFlag", Some this, [arg] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
         makeBinOp r (Number(Int32, NumberInfo.Empty)) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
-    | None, Patterns.DicContains (dict ["Parse", "parseEnum"
-                                        "TryParse", "tryParseEnum"
-                                        "IsDefined", "isEnumDefined"
-                                        "GetName", "getEnumName"
-                                        "GetNames", "getEnumNames"
-                                        "GetValues", "getEnumValues"
-                                        "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
+    | Patterns.DicContains(dict [
+            "Parse", "parseEnum"
+            "TryParse", "tryParseEnum"
+            "IsDefined", "isEnumDefined"
+            "GetName", "getEnumName"
+            "GetNames", "getEnumNames"
+            "GetValues", "getEnumValues"
+            "GetUnderlyingType", "getEnumUnderlyingType"]) meth, None, args ->
         let args =
             match meth, args with
             // TODO: Parse at compile time if we know the type
@@ -2441,24 +2437,24 @@ let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | _ -> None
 
 let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, i.GenericArgs with
-    | _, "Task", [tType] ->
+    match i.CompiledName, thisArg, i.GenericArgs with
+    | ".ctor", None, [tType] ->
         Helper.LibCall(com, "Task", "new", tType, args, ?loc=r) |> Some
-    | _, "FromResult", [tType] ->
+    | "FromResult", None, [tType] ->
         Helper.LibCall(com, "Task", "from_result", tType, args, ?loc=r) |> Some
-    | Some x, "get_Result", _ ->
+    | "get_Result", Some x, _ ->
         Helper.InstanceCall(x, "get_result", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let threads com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, i.GenericArgs, args with
-    | _, ".ctor", [], _ ->
+    match i.CompiledName, thisArg, i.GenericArgs, args with
+    | ".ctor", None, [], _ ->
         Helper.LibCall(com, "Thread", "new", t, args, ?loc=r) |> Some
-    | None, "Sleep", _, [ExprType(Number(Int32,_))] ->
+    | "Sleep", None, _, [ExprType(Number(Int32,_))] ->
         Helper.LibCall(com, "Thread", "sleep", t, args, ?loc=r) |> Some
-    | Some x, "Start", [], [] ->
+    | "Start", Some x, [], [] ->
         Helper.InstanceCall(x, "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, "Join", [], [] ->
+    | "Join", Some x, [], [] ->
         Helper.InstanceCall(x, "join", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
@@ -2549,8 +2545,8 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | _ -> None
 
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName with
-    | Some callee, meth ->
+    match i.CompiledName, thisArg with
+    | meth, Some callee ->
         // // Enumerators are mangled, use the fully qualified name
         // let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
         // let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
@@ -2559,10 +2555,10 @@ let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
-    match thisArg, i.CompiledName with
+    match i.CompiledName, thisArg with
     // This property only belongs to Key and Value Collections
-    | Some callee, "get_Count" -> Helper.LibCall(com, "Seq", "length", t, [callee], ?loc=r) |> Some
-    | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
+    | "get_Count", Some callee -> Helper.LibCall(com, "Seq", "length", t, [callee], ?loc=r) |> Some
+    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | _ -> None
 
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2595,19 +2591,19 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | _, "Singleton", _ ->
+    match i.CompiledName, thisArg, args with
+    | "Singleton", _, _ ->
         Some (Value (UnitConstant, r))
         //makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
-    | Some x, "Using", [arg; f] ->
+    | "Using", Some x, [arg; f] ->
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Delay", _ -> Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Bind", _ -> Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Return", _ -> Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Zero", _ -> Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth, _ -> Helper.LibCall(com, "AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Delay", _, _ -> Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Bind", _, _ -> Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Return", _, _ -> Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Zero", _, _ -> Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, Some x, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None, _ -> Helper.LibCall(com, "AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2623,47 +2619,53 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | meth -> Helper.LibCall(com, "Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    // | _, "Run", _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
-    // | _, "Singleton", _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
-    | None, ".ctor", _ ->
+    match i.CompiledName, thisArg, args with
+    // | "Run", _, _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
+    // | "Singleton", _, _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
+    | ".ctor", None, _ ->
         makeImportLib com t "new" "TaskBuilder" |> Some
-    | Some x, "Run", _ ->
+    | "Run", Some x, _ ->
         Helper.InstanceCall(x, "run", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, Some x, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | _, "Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Return", _ -> Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Delay", _ -> Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | "Bind", _, _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Return", _, _ -> Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Delay", _, _ -> Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Zero", _, _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | _, "TaskBuilderBase.Bind", _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _, "TaskBuilderBase.Zero", _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | "TaskBuilderBase.Bind", _, _ -> Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "TaskBuilderBase.Zero", _, _ -> Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, Some x, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | _, "task", _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc=r) |> Some
-    | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | "task", _, _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc=r) |> Some
+    | meth, Some x, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None, _ -> Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, i.CompiledName, args with
-    | _, ".ctor", _ -> Helper.LibCall(com, "Guid", "new", t, [], ?loc=r) |> Some
-    | None, "Empty", [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
-    | None, "NewGuid", [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc=r) |> Some
-    | None, "Parse", [a] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
-    | None, "TryParse", [a] -> Helper.LibCall(com, "Guid", "try_parse", t, args, ?loc=r) |> Some
-    | Some x, "ToByteArray", _ -> Helper.LibCall(com, "Guid", "to_byte_array", t, args, ?loc=r) |> Some
-    | Some x, "ToString", _ -> Helper.LibCall(com, "Guid", "to_string", t, args, ?loc=r) |> Some
-    | _, _, _ -> Helper.LibCall(com, "Guid", i.CompiledName, t, args, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | ".ctor", None, _ ->
+        match args with
+        | [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
+        | [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
+        // TODO: other constructor overrides
+        | _ -> None
+    // | "Empty", None, [] -> // it's a static field, see tryField
+    | "NewGuid", None, [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc=r) |> Some
+    | "Parse", None, [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
+    // | None, "TryParse", _ -> Helper.LibCall(com, "Guid", "try_parse", t, args, ?loc=r) |> Some
+    // | Some x, "ToByteArray", [] -> Helper.LibCall(com, "Guid", "to_byte_array", t, args, ?loc=r) |> Some
+    | "ToString", Some x, [] -> toString com ctx r [x] |> Some
+    // TODO: other methods and overrides
+    | _ -> None
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2817,7 +2819,8 @@ let tryField com returnTyp ownerTyp fieldName =
     | Number(Decimal,_), _ ->
         Helper.LibValue(com, "Decimal", fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
-    | Builtin BclGuid, "Empty" -> emptyGuid() |> Some
+    | Builtin BclGuid, "Empty" ->
+        Helper.LibCall(com, "Guid", "empty", returnTyp, []) |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, []) |> Some

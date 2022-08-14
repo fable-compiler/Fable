@@ -5,9 +5,9 @@ pub mod Guid_ {
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct Guid(Uuid);
 
-    impl Guid {
-        pub fn to_string(&self) -> string {
-            string(self.0.to_string().as_str())
+    impl core::fmt::Display for Guid {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.0.to_string())
         }
     }
 
