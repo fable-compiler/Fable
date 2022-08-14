@@ -10,7 +10,7 @@ let ``test power works`` () =
     x |> equal 100.0
 
 [<Fact>]
-let ``test extremas work`` () =
+let ``test extreme values work`` () =
     0.0 / 0.0 |> Double.IsNaN |> equal true
     0.0 / (-0.0) |> Double.IsNaN |> equal true
     1.0 / infinity |> equal 0
