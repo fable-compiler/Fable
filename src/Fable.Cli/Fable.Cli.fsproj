@@ -5,11 +5,18 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-019</PackageVersion>
-    <PackageReleaseNotes>* Python, use --fableLib to choose between embedded or site-packages, @dbrattli
-* Rust - Make Map and Set support PartialEq, @alexswan10k
-* Rust, List/Map/Set cleanup, @ncave
-* Rust - more collection interop improvements, @alexswan10k</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-020</PackageVersion>
+    <PackageReleaseNotes>* Rust, added Display trait, @ncave
+* Rust, Initial type testing support, @ncave
+* Python, typing fixes, @dbrattli
+* Python, Relax identifier checking to accept unicode chars, @dbrattli
+* Python, Generate Python data classes for records, @dbrattli
+* Rust, implement Thread ctor, start, and join. Implement lock fn. @alexswan10k
+* Rust, added decimals, @ncave
+* Python, better timespan handling, @dbrattli
+* Rust, added core assembly, @ncave
+* Rust, implement unsafe-cells feature switch + Monitor, @alexswan10k
+* Rust, initial support for object expressions, @ncave</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

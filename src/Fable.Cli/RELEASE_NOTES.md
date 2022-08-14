@@ -1,3 +1,17 @@
+### 4.0.0-snake-island-alpha-020
+
+* Rust, added Display trait, @ncave
+* Rust, Initial type testing support, @ncave
+* Python, typing fixes, @dbrattli
+* Python, Relax identifier checking to accept unicode chars, @dbrattli
+* Python, Generate Python data classes for records, @dbrattli
+* Rust, implement Thread ctor, start, and join. Implement lock fn. @alexswan10k
+* Rust, added decimals, @ncave
+* Python, better timespan handling, @dbrattli
+* Rust, added core assembly, @ncave
+* Rust, implement unsafe-cells feature switch + Monitor, @alexswan10k
+* Rust, initial support for object expressions, @ncave
+
 ### 4.0.0-snake-island-alpha-019
 
 * Python, use --fableLib to choose between embedded or site-packages, @dbrattli
