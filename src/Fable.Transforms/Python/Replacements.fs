@@ -3280,7 +3280,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [ min; max ] -> min, max
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
-        Helper.ImportedCall("random", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
+        Helper.LibCall(com, "util", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
         |> Some
     | "NextDouble" ->
         Helper.ImportedCall("random", "random", t, [], [])

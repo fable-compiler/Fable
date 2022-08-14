@@ -754,6 +754,10 @@ def round(value: float, digits: int = 0):
     return r / m if digits else r
 
 
+def randint(a: int, b: int) -> int:
+    return random.randint(a, b - 1)
+
+
 def unescape_data_string(s: str) -> str:
     # https://stackoverflow.com/a/4458580/524236
     return unquote(re.sub(r"\+", "%20", s))
