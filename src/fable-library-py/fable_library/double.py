@@ -1,6 +1,25 @@
+from math import copysign
+import math
 from typing import Any
 
 from .types import FSharpRef
+
+
+def divide(x: float, y: float) -> float:
+    """Divide two numbers.
+
+    Returns nan if y is 0.
+    """
+    if y == 0:
+        if x == 0:
+            return float("nan")
+        return float("inf") if copysign(1, x) == copysign(1, y) else float("-inf")
+
+    return x / y
+
+
+def is_negative_inf(value: float) -> bool:
+    return math.isinf(value) and value < 0
 
 
 def parse(value: Any) -> float:
