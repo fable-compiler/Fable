@@ -126,6 +126,13 @@ let ``Multi-case Union with wrapped type works`` () =
     let res = match b with DeepWrappedB s -> s + " world" | _ -> ""
     res |> equal "hello world"
 
+[<Fact>]
+let ``Should correctly import union in other file and allow creation`` =
+    let r = Common.Unions.MyUnion.A 1
+    let expected = Common.Unions.MyUnion.createA 1
+    r |> equal expected
+
+
 let matchStringWhenStringNotHello = function
     | DeepWrappedB s when s <> "hello" -> "not hello"
     | _ -> "hello"
