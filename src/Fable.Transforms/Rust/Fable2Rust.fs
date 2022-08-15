@@ -1491,21 +1491,28 @@ module Util =
         then expr
         else expr |> maybeWrapSmartPtr ent
 
-    let mapKnownUnionCaseNames fullName =
+    let tryUseKnownUnionCaseNames fullName =
         match fullName with
-        | "FSharp.Core.FSharpResult`2.Ok" -> rawIdent "Ok"
-        | "FSharp.Core.FSharpResult`2.Error" -> rawIdent "Err"
+        | "FSharp.Core.FSharpResult`2.Ok" -> rawIdent "Ok" |> Some
+        | "FSharp.Core.FSharpResult`2.Error" -> rawIdent "Err" |> Some
         | _ ->
             if fullName.StartsWith("FSharp.Core.FSharpChoice`") then
-                fullName |> Fable.Naming.replacePrefix "FSharp.Core.FSharp" ""
+                fullName |> Fable.Naming.replacePrefix "FSharp.Core.FSharp" "" |> Some
             else
-                fullName
+                None
 
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         // let genArgs = transformGenArgs com ctx genArgs
+
         let unionCase = ent.UnionCases |> List.item tag
-        let unionCaseName = mapKnownUnionCaseNames unionCase.FullName
+        let unionCaseName =
+            tryUseKnownUnionCaseNames unionCase.FullName
+            |> Option.defaultWith(fun () ->
+                let entName = getEntityFullName com ctx entRef
+                entName + "::" + unionCase.Name
+            )
+
         let callee = makeFullNamePathExpr unionCaseName None //genArgs
         let expr =
             if List.isEmpty values
@@ -2040,7 +2047,13 @@ module Util =
                         then makeFullNameIdentPat fieldName
                         else WILD_PAT
                     )
-                let pat = makeUnionCasePat unionCase.FullName fields
+                let unionCaseName =
+                    tryUseKnownUnionCaseNames unionCase.FullName
+                    |> Option.defaultWith(fun () ->
+                        let entName = getEntityFullName com ctx info.Entity
+                        entName + "::" + unionCase.Name
+                    )
+                let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type ""
@@ -2266,8 +2279,7 @@ module Util =
         // [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
         //     ?handler=handler, ?finalizer=finalizer, ?loc=r)|]
 
-    let makeUnionCasePat unionCaseFullName fields =
-        let unionCaseName = mapKnownUnionCaseNames unionCaseFullName
+    let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then
             makeFullNameIdentPat unionCaseName
         else
@@ -2330,7 +2342,13 @@ module Util =
                         if List.isEmpty unionCase.UnionCaseFields
                         then []
                         else [WILD_PAT]
-                let pat = makeUnionCasePat unionCase.FullName fields
+                let unionCaseName =
+                    tryUseKnownUnionCaseNames unionCase.FullName
+                    |> Option.defaultWith(fun () ->
+                        let entName = getEntityFullName com ctx entRef
+                        entName + "::" + unionCase.Name
+                    )
+                let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type (getIdentName fableExpr)
@@ -2406,7 +2424,8 @@ module Util =
                         | _ -> []
                     | _ ->
                         [WILD_PAT]
-                Some(makeUnionCasePat unionCaseFullName fields)
+                let unionCaseName = tryUseKnownUnionCaseNames unionCaseFullName |> Option.defaultValue unionCaseFullName
+                Some(makeUnionCasePat unionCaseName fields)
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
                 if ent.IsFSharpUnion then
@@ -2423,7 +2442,13 @@ module Util =
                             if List.isEmpty unionCase.UnionCaseFields
                             then []
                             else [WILD_PAT]
-                    Some(makeUnionCasePat unionCase.FullName fields)
+                    let unionCaseName =
+                        tryUseKnownUnionCaseNames unionCase.FullName
+                        |> Option.defaultWith(fun () ->
+                            let entName = getEntityFullName com ctx entRef
+                            entName + "::" + unionCase.Name
+                        )
+                    Some(makeUnionCasePat unionCaseName fields)
                 else
                     None
             | _ ->
