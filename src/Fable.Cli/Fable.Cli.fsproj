@@ -4,13 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.7.17</Version>
-    <PackageVersion>3.7.17</PackageVersion>
-    <PackageReleaseNotes>* Fix #2961: Make Array.compareWith behaviour consistent with dotnet F#
-* Fix #2955: units of mesure with unsigned ints
-* Fix #2950: String formatting: trim trailing zeroes when using # placeholder
-* Fix #2879: Make CancellationTokenSource implement IDisposable
-* Don't print multiple sourceMappingURL comments</PackageReleaseNotes>
+    <Version>3.7.18</Version>
+    <PackageVersion>3.7.18</PackageVersion>
+    <PackageReleaseNotes>* Fix #3052: Nested options with Option.orElse #3052 @IanManske
+* Fix Fix #3078: Nested interpolation</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -32,6 +29,7 @@
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
+    <Content Include="RELEASE_NOTES.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />

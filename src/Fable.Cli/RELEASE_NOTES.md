@@ -1,3 +1,8 @@
+### 3.7.18
+
+* Fix #3052: Nested options with Option.orElse #3052 @IanManske
+* Fix Fix #3078: Nested interpolation
+
 ### 3.7.17
 
 * Fix #2961: Make Array.compareWith behaviour consistent with dotnet F#
