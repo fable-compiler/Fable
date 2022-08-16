@@ -542,6 +542,15 @@ module TypeInfo =
     let transformGuidType com ctx: Rust.Ty =
         transformImportType com ctx [] "Guid" "Guid"
 
+    let transformDateTimeType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTime" "DateTime"
+
+    let transformTimeSpanType com ctx: Rust.Ty =
+        transformImportType com ctx [] "TimeSpan" "TimeSpan"
+
+    let transformDateTimeOffsetType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTimeOffset" "DateTimeOffset"
+
     let transformAsyncType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Async" "Async"
 
@@ -797,14 +806,14 @@ module TypeInfo =
                 match entRef.FullName, genArgs with
                 | Replacements.Util.BuiltinEntity kind ->
                     match kind with
-                    | Replacements.Util.BclTimeSpan
-                    | Replacements.Util.BclDateTime
-                    | Replacements.Util.BclDateTimeOffset
                     | Replacements.Util.BclDateOnly
                     | Replacements.Util.BclTimeOnly
                     | Replacements.Util.BclTimer
                         -> transformDeclaredType com ctx entRef genArgs
                     | Replacements.Util.BclGuid -> transformGuidType com ctx
+                    | Replacements.Util.BclDateTime -> transformDateTimeType com ctx
+                    | Replacements.Util.BclTimeSpan -> transformTimeSpanType com ctx
+                    | Replacements.Util.BclDateTimeOffset -> transformDateTimeOffsetType com ctx
                     | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
                     | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
                     | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg

@@ -1,0 +1,76 @@
+
+#[cfg(feature = "date")]
+pub mod DateTime_ {
+    use crate::{Native_::Lrc, String_::{string, self}};
+    use chrono::{DateTime as CDT, TimeZone, Utc, Local};
+
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    enum LocalUtcWrap {
+        CLocal(CDT<Local>),
+        CUtc(CDT<Utc>),
+    }
+
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    pub struct DateTime(LocalUtcWrap);
+
+    // impl core::fmt::Display for DateTime {
+    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    //         write!(f, "{}", self.0.to_string())
+    //     }
+    // }
+
+    pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
+        let l = Local.ymd(y, m as u32, d as u32).and_hms(0, 0, 0);
+        DateTime(LocalUtcWrap::CLocal(l))
+    }
+
+    pub fn to_string(d: DateTime, stringFormat: string) -> string {
+        let chronoFriendlyStringFormat = stringFormat
+            .replace("yyyy", "%Y")
+            .replace("MM", "%m")
+            .replace("dd", "%d");
+        let s =
+            match d.0 {
+                LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
+                LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
+            };
+        string(s.to_string().as_str())
+    }
+
+    impl DateTime {
+        // pub fn to_string(&self, ) {
+        // }
+    }
+
+    pub fn year() {}
+}
+
+#[cfg(feature = "date")]
+pub mod DateTimeOffset_ {
+    use crate::{Native_::Lrc, String_::string};
+    use chrono::{DateTime as CDT, TimeZone, Utc};
+
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    pub struct DateTimeOffset;
+
+    // impl core::fmt::Display for DateTimeOffset {
+    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    //         write!(f, "{}", self.0.to_string())
+    //     }
+    // }
+}
+
+#[cfg(feature = "date")]
+pub mod TimeSpan_ {
+    use crate::{Native_::Lrc, String_::string};
+    use chrono::{DateTime as CDT, TimeZone, Utc};
+
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    pub struct TimeSpan;
+
+    // impl core::fmt::Display for TimeSpan {
+    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    //         write!(f, "{}", self.0.to_string())
+    //     }
+    // }
+}

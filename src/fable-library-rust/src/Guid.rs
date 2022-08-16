@@ -1,3 +1,4 @@
+#[cfg(feature = "guid")]
 pub mod Guid_ {
     use crate::{Native_::Lrc, String_::string};
     use uuid::{Uuid};
