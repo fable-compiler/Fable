@@ -2295,10 +2295,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, moduleName, "from_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.LibCall(com, "DateTimeOffset", "from_date", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::_ ->
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::_ ->
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            Helper.LibCall(com, "DateTime", "new_ymdhmsms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             let last = List.last args
             match args.Length, last.Type with

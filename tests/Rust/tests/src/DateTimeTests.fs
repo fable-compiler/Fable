@@ -30,10 +30,10 @@ module tests =
         DateTime(2017, 9, 5).ToString("yyyyMM")
         |> equal "201709"
 
-//     [<Fact>]
-//     let ``DateTime.ToString with milliseconds`` () = // See #1726
-//         DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
-//         |> equal "11.345"
+    [<Fact>]
+    let ``DateTime.ToString with milliseconds`` () = // See #1726
+        DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
+        |> equal "11.345"
 
 //     [<Fact>]
 //     let ``DateTime.ToString with Round-trip format works for Utc`` () =

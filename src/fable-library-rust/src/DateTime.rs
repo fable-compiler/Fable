@@ -24,11 +24,23 @@ pub mod DateTime_ {
         DateTime(LocalUtcWrap::CLocal(l))
     }
 
+    pub fn new_ymdhms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32) -> DateTime {
+        let l = Local.ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
+        DateTime(LocalUtcWrap::CLocal(l))
+    }
+
+    pub fn new_ymdhmsms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32, ms: i32) -> DateTime {
+        let l = Local.ymd(y, m as u32, d as u32).and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
+        DateTime(LocalUtcWrap::CLocal(l))
+    }
+
     pub fn to_string(d: DateTime, stringFormat: string) -> string {
         let chronoFriendlyStringFormat = stringFormat
             .replace("yyyy", "%Y")
             .replace("MM", "%m")
-            .replace("dd", "%d");
+            .replace("dd", "%d")
+            .replace("ss", "%S")
+            .replace("fff", "%3f");
         let s =
             match d.0 {
                 LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
