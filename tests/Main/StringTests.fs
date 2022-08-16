@@ -24,6 +24,12 @@ type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 type Test(i: int) =
       override __.ToString() = string(i + i)
 
+type B() =
+      let mutable a = 5
+      override x.ToString() =
+            a <- a + 1
+            $"a=%O{a}"
+
 let spr fmt =
     let fmt = Printf.StringFormat<_>(fmt)
     sprintf fmt
@@ -277,6 +283,11 @@ let tests =
             $@"\{4}".Length |> equal 2
             @$"\{4}" |> equal @"\4"
             @$"\{4}".Length |> equal 2
+
+      testCase "%O in interpolated strings works recursively" <| fun () -> // See #3078
+            let b = B()
+            $"b=(%O{b})" |> equal "b=(a=6)"
+            $"%O{b}%O{b}" |> equal "a=7a=8"
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->
             let xs = ["Hi"; "Hello"; "Hola"]

@@ -122,10 +122,12 @@ export function interpolate(str: string, values: any[]): string {
     const matchIndex = match.index + (match[1] || "").length;
     result += str.substring(strIdx, matchIndex).replace(/%%/g, "%");
     const [, , flags, padLength, precision, format] = match;
-    result += formatReplacement(values[valIdx++], flags, padLength, precision, format);
+    // Save interpolateRegExp.lastIndex before running formatReplacement because the values
+    // may also involve interpolation and make use of interpolateRegExp (see #3078)
     strIdx = interpolateRegExp.lastIndex;
-    // Likewise we need to move interpolateRegExp.lastIndex one char behind to make sure we match the no-escape char next time
-    interpolateRegExp.lastIndex -= 1;
+    result += formatReplacement(values[valIdx++], flags, padLength, precision, format);
+    // Move interpolateRegExp.lastIndex one char behind to make sure we match the no-escape char next time
+    interpolateRegExp.lastIndex = strIdx - 1;
     match = interpolateRegExp.exec(str);
   }
   result += str.substring(strIdx).replace(/%%/g, "%");
