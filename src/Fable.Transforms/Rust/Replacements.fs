@@ -2311,8 +2311,11 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | _ ->
                 Helper.LibCall(com, moduleName, "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" ->
-        // don't understand why thisArg will not be rendered correctly
-        Helper.LibCall(com, "DateTime", "to_string", t, (thisArg |> Option.toList) @ args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.InstanceCall(thisArg, "to_string", t, args, i.SignatureArgTypes, i.GenericArgs) |> Some
+        | None -> None
+        //Helper.LibCall(com, "DateTime", "to_string", t, (thisArg |> Option.toList) @ args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Kind" | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     // DateTimeOffset
@@ -2350,13 +2353,11 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             let ms = Helper.LibCall(com, "Long", "to_number", Number(Float64, NumberInfo.Empty), [ms], [ms.Type])
             Helper.LibCall(com, moduleName, "add_milliseconds", Number(Float64, NumberInfo.Empty), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
-    // | "op_Subtraction" ->
-    //     Helper.LibCall(com, "DateTime", "op_subtraction", t, thisArg.Value::args, [thisArg.Value.Type], ?loc=r) |> Some
-    | "year" ->
-        Helper.LibCall(com, "DateTime", "year", t, thisArg |> Option.toList, [thisArg.Value.Type], ?loc=r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        match thisArg with
+        | Some thisArg -> Helper.InstanceCall(thisArg, "year", t, args, i.SignatureArgTypes, i.GenericArgs) |> Some
+        | None -> Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head

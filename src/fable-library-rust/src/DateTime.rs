@@ -2,7 +2,7 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
     use crate::{Native_::Lrc, String_::{string, self}};
-    use chrono::{DateTime as CDT, TimeZone, Utc, Local};
+    use chrono::{DateTime as CDT, TimeZone, Utc, Local, Datelike};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     enum LocalUtcWrap {
@@ -34,24 +34,28 @@ pub mod DateTime_ {
         DateTime(LocalUtcWrap::CLocal(l))
     }
 
-    pub fn to_string(d: DateTime, stringFormat: string) -> string {
-        let chronoFriendlyStringFormat = stringFormat
-            .replace("yyyy", "%Y")
-            .replace("MM", "%m")
-            .replace("dd", "%d")
-            .replace("ss", "%S")
-            .replace("fff", "%3f");
-        let s =
-            match d.0 {
-                LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
-                LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
-            };
-        string(s.to_string().as_str())
-    }
-
     impl DateTime {
-        // pub fn to_string(&self, ) {
-        // }
+        pub fn to_string(&self, stringFormat: string) -> string {
+            let chronoFriendlyStringFormat = stringFormat
+                .replace("yyyy", "%Y")
+                .replace("MM", "%m")
+                .replace("dd", "%d")
+                .replace("ss", "%S")
+                .replace("fff", "%3f");
+            let s =
+                match self.0 {
+                    LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
+                    LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
+                };
+            string(s.to_string().as_str())
+        }
+
+        pub fn year(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CLocal(dt) => dt.year(),
+                LocalUtcWrap::CUtc(dt) => dt.year()
+            }
+        }
     }
 
     pub fn year() {}

@@ -50,12 +50,13 @@ module tests =
 //     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
 //     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
-//     [<Fact>]
-//     let ``DateTime from Year 1 to 99 works`` () =
-//         let date = DateTime(1, 1, 2)
-//         date.Year |> equal 1
-//         let date = DateTime(99, 1, 2)
-//         date.Year |> equal 99
+// api plugged in but exploding on windows api with https://github.com/chronotope/chrono/issues/651 - perhaps windows 11 problem?
+    // [<Fact>]
+    // let ``DateTime from Year 1 to 99 works`` () =
+    //     let date = DateTime(1, 1, 2)
+    //     date.Year |> equal 1
+    //     let date = DateTime(99, 1, 2)
+    //     date.Year |> equal 99
 
 //     [<Fact>]
 //     let ``DateTime UTC from Year 1 to 99 works`` () =
