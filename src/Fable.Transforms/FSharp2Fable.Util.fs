@@ -1053,12 +1053,17 @@ module TypeHelpers =
     let numbersWithMeasure =
         dict [
             "Microsoft.FSharp.Core.sbyte`1", Int8
+            "Microsoft.FSharp.Core.byte`1", UInt8
             "FSharp.UMX.byte`1", UInt8
             "Microsoft.FSharp.Core.int16`1", Int16
+            "Microsoft.FSharp.Core.uint16`1", UInt16
             "Microsoft.FSharp.Core.int`1", Int32
+            "Microsoft.FSharp.Core.uint`1", UInt32
             "Microsoft.FSharp.Core.int64`1", Int64
+            "Microsoft.FSharp.Core.uint64`1", UInt64
             "FSharp.UMX.uint64`1", UInt64
             "Microsoft.FSharp.Core.nativeint`1", NativeInt
+            "Microsoft.FSharp.Core.unativeint`1", UNativeInt
             "Microsoft.FSharp.Core.float32`1", Float32
             "Microsoft.FSharp.Core.float`1", Float64
             "Microsoft.FSharp.Core.decimal`1", Decimal
@@ -1559,11 +1564,13 @@ module Identifiers =
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let part = Naming.NoMemberPart
+
         let name =
             // The F# compiler sometimes adds a numeric suffix. Remove it because it's not deterministic.
             // See https://github.com/fable-compiler/Fable/issues/2869#issuecomment-1169574962
             if fsRef.IsCompilerGenerated then Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
             else fsRef.CompiledName
+
         let sanitizedName =
             match com.Options.Language with
             | Python ->

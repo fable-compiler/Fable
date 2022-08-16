@@ -613,23 +613,44 @@ let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
         invalidArg "index" SR.indexOutOfBounds
     subArrayImpl array 0 index, skipImpl array index
 
-let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    if isNull array1 then
-        if isNull array2 then 0 else -1
-    elif isNull array2 then
+// Note that, though it's not consistent with `compare` operator,
+// Array.compareWith doesn't compare first the length, see #2961
+let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    if isNull source1 then
+        if isNull source2 then 0 else -1
+    elif isNull source2 then
         1
     else
+        let len1 = source1.Length
+        let len2 = source2.Length
+        let len = if len1 < len2 then len1 else len2
         let mutable i = 0
-        let mutable result = 0
-        let length1 = array1.Length
-        let length2 = array2.Length
-        if length1 > length2 then 1
-        elif length1 < length2 then -1
+        let mutable res = 0
+        while res = 0 && i < len do
+            res <- comparer source1.[i] source2.[i]
+            i <- i + 1
+        if res <> 0 then res
+        elif len1 > len2 then 1
+        elif len1 < len2 then -1
+        else 0
+
+let compareTo (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    if isNull source1 then
+        if isNull source2 then 0 else -1
+    elif isNull source2 then
+        1
+    else
+        let len1 = source1.Length
+        let len2 = source2.Length
+        if len1 > len2 then 1
+        elif len1 < len2 then -1
         else
-            while i < length1 && result = 0 do
-                result <- comparer array1.[i] array2.[i]
+            let mutable i = 0
+            let mutable res = 0
+            while res = 0 && i < len1 do
+                res <- comparer source1.[i] source2.[i]
                 i <- i + 1
-            result
+            res
 
 let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
     if isNull array1 then

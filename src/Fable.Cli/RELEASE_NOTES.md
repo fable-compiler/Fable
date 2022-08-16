@@ -110,6 +110,14 @@
 
 * Snake Island alpha release
 
+### 3.7.17
+
+* Fix #2961: Make Array.compareWith behaviour consistent with dotnet F#
+* Fix #2955: units of mesure with unsigned ints
+* Fix #2950: String formatting: trim trailing zeroes when using # placeholder
+* Fix #2879: Make CancellationTokenSource implement IDisposable
+* Don't print multiple sourceMappingURL comments
+
 ### 3.7.16
 
 * Fix #2869: Don't update maps @hensou
