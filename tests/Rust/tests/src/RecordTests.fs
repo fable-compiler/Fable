@@ -178,6 +178,14 @@ let ``Box record fields works`` () =
     y.a |> equal 2
 
 [<Fact>]
+let ``Box record multiple owner should clone and fork`` () =
+    let x = { a=1 }
+    let y = x |> add1Box
+    let y2 = x |> add1Box
+    y.a |> equal 2
+    y2.a |> equal 2
+
+[<Fact>]
 let ``Should correctly import record in other file and allow creation`` =
     let r = { Common.Records.MyRecord.a = 1}
     let expected = Common.Records.MyRecord.create 1
