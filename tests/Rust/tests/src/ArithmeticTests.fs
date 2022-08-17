@@ -855,3 +855,39 @@ let ``Long integers comparison works`` () =
 //     formatEuro 0.020M |> equal "0,02 €"
 //     formatEuro 0.20M |> equal "0,20 €"
 //     formatEuro 2.0M |> equal "2,00 €"
+
+module UnitTests =
+    type [<Measure>] m
+    type [<Measure>] s
+    type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u> with
+
+        static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
+        static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
+
+    [<Struct>]
+    type Vector2R<[<Measure>] 'u> = {
+        x: float32<'u>
+        y: float32<'u>
+    } with
+        static member inline ( + ) (a, b) = { x = a.x + b.x; y = a.y + b.y }
+
+    let square (x: float<'a>) = x * x
+    [<Fact>]
+    let ``can square a unit`` () =
+        let d = 3.<m>
+        let dSquared = square d
+        dSquared |> equal 9.<m^2>
+
+    [<Fact>]
+    let ``Can add two union vectors with same units but remove generics in output`` () =
+        let a = Vector2(2.<m>, 1.<m>)
+        let b = Vector2(3.<m>, 2.<m>)
+        let res = a + b
+        equal (Vector2(5.<m> ,3.<m>)) res
+
+    [<Fact>]
+    let ``Can add two record vectors with same units but remove generics in output`` () =
+        let a = { x = 2f<m>; y = 1f<m> }
+        let b = { x = 3f<m>; y = 1f<m> }
+        let res = a + b
+        equal { x = 5f<m>; y = 2f<m> } res

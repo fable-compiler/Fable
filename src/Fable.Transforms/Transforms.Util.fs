@@ -129,6 +129,7 @@ module Types =
     let [<Literal>] printfModule = "Microsoft.FSharp.Core.PrintfModule"
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
+    let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"

@@ -503,13 +503,20 @@ module TypeInfo =
         let callee = transformImport com ctx r Fable.Any info genArgs
         Util.callFunction com ctx r callee args
 
+    let genArgsUnitsFilter = function
+        | Fable.Measure _ | Fable.GenericParam(_, true, _)
+        | Replacements.Util.IsEntity (Types.measureProduct2) _ -> false
+        | _ -> true
+
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
         genArgs
+        |> List.filter genArgsUnitsFilter
         |> List.map (transformType com ctx)
         |> mkGenericTypeArgs
 
     let transformGenericType com ctx genArgs typeName: Rust.Ty =
         genArgs
+        |> List.filter genArgsUnitsFilter
         |> List.map (transformType com ctx)
         |> mkGenericTy (splitFullName typeName)
 
@@ -591,7 +598,7 @@ module TypeInfo =
         let inputs =
             match argTypes with
             | [Fable.Unit] -> []
-            | _ -> argTypes |> List.map (transformParamType com ctx)
+            | _ -> argTypes |> List.filter genArgsUnitsFilter |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
@@ -704,6 +711,10 @@ module TypeInfo =
         | ent when ent.IsInterface ->
             transformInterfaceType com ctx entRef genArgs
         | ent ->
+            let genArgs =
+                genArgs
+                |> List.zip ent.GenericParameters
+                |> List.choose (fun (p, a) -> if not p.IsMeasure then Some a else None)
             let genArgs = transformGenArgs com ctx genArgs
             let entName = getEntityFullName com ctx entRef
             makeFullNamePathTy entName genArgs
@@ -1018,7 +1029,7 @@ module Util =
 
     let getGenericParams (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
-            | Fable.GenericParam _ as p -> [p]
+            | Fable.GenericParam (_, false, _) as p -> [p]
             | t -> t.Generics |> List.collect getGenParams
         let mutable dedupSet = ctx.ScopedTypeParams
         types
@@ -1495,6 +1506,10 @@ module Util =
                 let fieldName = field.Name |> sanitizeMember
                 mkExprField attrs fieldName expr false false
             )
+        let genArgs =
+            genArgs
+            |> List.zip ent.GenericParameters
+            |> List.choose (fun (p, a) -> if not p.IsMeasure then Some a else None)
         let genArgs = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgs
@@ -3271,7 +3286,7 @@ module Util =
 
     let getMemberGenArgs (ent: Fable.MemberFunctionOrValue) =
         ent.GenericParameters
-        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+        |> List.choose (fun p -> if not p.IsMeasure then Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints) |> Some else None)
 
     let getInterfaceMemberNamesSet (com: IRustCompiler) (entRef: Fable.EntityRef) =
         let ent = com.GetEntity(entRef)
@@ -3322,7 +3337,9 @@ module Util =
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entNameSpace, entName = splitNameSpace ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent
+                        |> List.filter genArgsUnitsFilter
+                        |> makeGenerics com ctx
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
@@ -3344,7 +3361,9 @@ module Util =
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entNameSpace, entName = splitNameSpace ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent
+                        |> List.filter genArgsUnitsFilter
+                        |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let fields =
             ent.FSharpFields |> Seq.map (fun field ->
@@ -3442,7 +3461,9 @@ module Util =
                     mkFnAssocItem [] fnName fnKind
                 )
             )
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent
+                        |> List.filter genArgsUnitsFilter
+                        |> makeGenerics com ctx
         let entNameSpace, entName = splitNameSpace ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
@@ -3535,7 +3556,7 @@ module Util =
             if List.isEmpty ctorOrStaticOrObjectItems then
                 []
             else
-                let generics = genArgs |> makeGenerics com ctx
+                let generics = genArgs |> List.filter genArgsUnitsFilter |> makeGenerics com ctx
                 let implItem =
                     mkImplItem [] "" self_ty generics ctorOrStaticOrObjectItems None
                 [implItem]
