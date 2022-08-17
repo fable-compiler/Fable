@@ -510,7 +510,7 @@ module tests =
 #if FABLE_COMPILER
 #if !FABLE_COMPILER_JAVASCRIPT
     [<Fact>]
-    let ``Fable.JsonProvider works" <| fun _ ->
+    let ``Fable.JsonProvider works`` () =
         let parsed = LiteralJson(ANOTHER_JSON)
         parsed.widget.debug |> equal false
         parsed.widget.text.data |> equal "lots of"
@@ -524,7 +524,7 @@ module tests =
         x() |> equal 1
 
     [<Fact>]
-    let ``Can check compiler version with constant" <| fun _ ->
+    let ``Can check compiler version with constant`` () =
         let mutable x = 0
         #if FABLE_COMPILER
         x <- x + 1
@@ -544,12 +544,12 @@ module tests =
         equal 13 x
 
     [<Fact>]
-    let ``Can check compiler version at runtime" <| fun _ ->
+    let ``Can check compiler version at runtime`` () =
         Compiler.majorMinorVersion >=  4.0 |> equal true
         Text.RegularExpressions.Regex.IsMatch(Compiler.version, @"^\d+\.\d+") |> equal true
 
     [<Fact>]
-    let ``Can access compiler options" <| fun _ ->
+    let ``Can access compiler options`` () =
         let canAccessOpts =
             match box Compiler.debugMode, box Compiler.typedArrays with
             | :? bool, :? bool -> true
@@ -557,7 +557,7 @@ module tests =
         equal true canAccessOpts
 
     [<Fact>]
-    let ``Can access extension for generated files" <| fun _ ->
+    let ``Can access extension for generated files`` () =
         Compiler.extension.EndsWith(".js") |> equal true
 #endif
 

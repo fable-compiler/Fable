@@ -3412,10 +3412,12 @@ module Util =
                 // replace 'this.field' with just 'field' in body
                 let body =
                     body |> visitFromInsideOut (function
-                        | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet(fieldName), t, value, r) ->
+                        | Fable.Set(Fable.Value(Fable.ThisValue _, _), Fable.SetKind.FieldSet(fieldName), t, value, r)
+                                when not (fieldName.Contains("@")) ->
                             let identExpr = identMap |> Map.find fieldName |> Fable.IdentExpr
                             Fable.Set(identExpr, Fable.ValueSet, t, value, r)
-                        | Fable.Get(Fable.Value(Fable.ThisValue _, _), Fable.GetKind.FieldGet info, t, r) ->
+                        | Fable.Get(Fable.Value(Fable.ThisValue _, _), Fable.GetKind.FieldGet info, t, r)
+                                when not (info.Name.Contains("@")) ->
                             let identExpr = identMap |> Map.find info.Name |> Fable.IdentExpr
                             identExpr
                         | e -> e)

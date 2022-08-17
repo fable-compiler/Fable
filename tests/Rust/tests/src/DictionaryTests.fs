@@ -321,7 +321,7 @@ let ``conversion from array works with duplicates`` () =
     |> equal 2
 
 // [<Fact>]
-// let ``Dictionary with type as key works" <| fun _ -> // See #2202
+// let ``Dictionary with type as key works`` () = // See #2202
 //     let cache = Dictionary<Type, int>()
 //     cache.Add(typeof<int>, 1)
 //     cache.Add(typeof<string>, 2)

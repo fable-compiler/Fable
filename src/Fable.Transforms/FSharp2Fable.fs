@@ -1077,7 +1077,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             if memb.IsMutable || isByRefValue memb then
                 match memb.DeclaringEntity with
                 // TODO: check if it works for mutable module let bindings
-                | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                | Some ent when ent.IsFSharpModule && isNotPrivate memb ->
                     return Replacements.Api.makeRefFromMutableFunc com ctx r value.Type value
                 | _ ->
                     return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
@@ -1171,7 +1171,7 @@ let private transformImport _com r typ name args memberRef selector path =
           XmlDoc = None }]
 
 let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrValue) selector path =
-    if memb.IsMutable && isPublicMember memb then // See #1314
+    if memb.IsMutable && isNotPrivate memb then // See #1314
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
     let memberRef = Fable.GeneratedMember.Value(name, typ)
@@ -1195,7 +1195,7 @@ let private transformMemberValue (com: IFableCompiler) ctx name (memb: FSharpMem
         // Mutable public values must be compiled as functions (see #986)
         // because values imported from ES2015 modules cannot be modified
         let fableValue =
-            if memb.IsMutable && isPublicMember memb
+            if memb.IsMutable && isNotPrivate memb
             then Replacements.Api.createMutablePublicValue com fableValue
             else fableValue
         [Fable.MemberDeclaration
@@ -1365,11 +1365,12 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb
                          UsedNamesInDeclarationScope = HashSet() }
     if isIgnoredNonAttachedMember memb then
-        if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
+        if memb.IsMutable && isNotPrivate memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
         []
-    elif isInline memb && (Compiler.Language <> Rust || isNonPublicMember memb) then
+    // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
+    elif isInline memb && (Compiler.Language <> Rust || not (hasAttribute Atts.compiledName memb.Attributes)) then
         []
     elif memb.IsImplicitConstructor then
         transformPrimaryConstructor com ctx memb args body

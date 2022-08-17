@@ -6,14 +6,14 @@ open System.Text.RegularExpressions
 module tests =
 
     [<Fact>]
-    let ``Regex literals work with forward slashes" <| fun _ ->
+    let ``Regex literals work with forward slashes`` () =
         let str = "<a>foo</a><b>bar</b>"
         let reg = Regex(@"(<a>)\w+(</a>)")
         reg.Replace(str, "$1bar$2")
         |> equal "<a>bar</a><b>bar</b>"
 
     [<Fact>]
-    let ``Regex literals work with new lines" <| fun _ ->
+    let ``Regex literals work with new lines`` () =
         let str = """<a>`   foo `</a>
 <b>bar</b>"""
         let reg = Regex("""(<a>)`   \w+ `(</a>)
@@ -22,7 +22,7 @@ module tests =
         |> equal "<a>bar</a><b>ham</b>"
 
     [<Fact>]
-    let ``Literal regex works with whitespace characters" <| fun _ -> // See #2635
+    let ``Literal regex works with whitespace characters`` () = // See #2635
         Regex("\r\n|\n").IsMatch("foo\r\nbar") |> equal true
         Regex(@"\r\n|\n").IsMatch("foo\r\nbar") |> equal true
         Regex("\\r\\n|\\n").IsMatch("foo\r\nbar") |> equal true
@@ -34,7 +34,7 @@ module tests =
         Regex(@"\\t").IsMatch("foo\tbar") |> equal false
 
     [<Fact>]
-    let ``Regex.Options works" <| fun _ ->
+    let ``Regex.Options works`` () =
         let option1 = RegexOptions.IgnoreCase
         let option2 = RegexOptions.ECMAScript
         let options = option1 ||| option2
@@ -42,7 +42,7 @@ module tests =
         int r.Options |> equal 257
 
     [<Fact>]
-    let ``Regex.IsMatch with IgnoreCase and Multiline works" <| fun _ ->
+    let ``Regex.IsMatch with IgnoreCase and Multiline works`` () =
         let str = "ab\ncd"
         let option1 = RegexOptions.IgnoreCase
         let option2 = RegexOptions.Multiline
@@ -56,31 +56,31 @@ module tests =
         test "^bc" false
 
     [<Fact>]
-    let ``Regex.Escape works" <| fun _ ->
+    let ``Regex.Escape works`` () =
         // TODO: a few chars are not escaped (e.g. # and white space)
         Regex.Escape(@"\*+?|{[()^$") |> equal @"\\\*\+\?\|\{\[\(\)\^\$"
         Regex.Escape(@"C:\Temp") |> equal @"C:\\Temp"
 
     [<Fact>]
-    let ``Regex.Unescape works" <| fun _ ->
+    let ``Regex.Unescape works`` () =
         Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
         Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
 
     [<Fact>]
-    let ``Regex instance IsMatch works" <| fun _ ->
+    let ``Regex instance IsMatch works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         Regex("Chapter \d+(\.\d)*").IsMatch(str) |> equal true
         Regex("chapter \d+(\.\d)*").IsMatch(str) |> equal false
 
     [<Fact>]
-    let ``Regex instance IsMatch with offset works" <| fun _ ->
+    let ``Regex instance IsMatch with offset works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let re = Regex("Chapter \d+(\.\d)*")
         re.IsMatch(str, 10) |> equal true
         re.IsMatch(str, 40) |> equal false
 
     [<Fact>]
-    let ``Regex instance Match and Matches work" <| fun _ ->
+    let ``Regex instance Match and Matches work`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let test pattern expected =
             let re = Regex(pattern, RegexOptions.IgnoreCase)
@@ -91,7 +91,7 @@ module tests =
         test "(ZZ)+" -1
 
     [<Fact>]
-    let ``Regex instance Match and Matches with offset work" <| fun _ ->
+    let ``Regex instance Match and Matches with offset work`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let test offset expected =
             let re = Regex("[A-E]", RegexOptions.IgnoreCase)
@@ -102,26 +102,26 @@ module tests =
         test 40 -1
 
     [<Fact>]
-    let ``Regex.IsMatch works" <| fun _ ->
+    let ``Regex.IsMatch works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         Regex.IsMatch(str, "Chapter \d+(\.\d)*") |> equal true
         Regex.IsMatch(str, "chapter \d+(\.\d)*") |> equal false
 
     [<Fact>]
-    let ``Regex.IsMatch with IgnoreCase works" <| fun _ ->
+    let ``Regex.IsMatch with IgnoreCase works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         Regex.IsMatch(str, "Chapter \d+(\.\d)*", RegexOptions.IgnoreCase) |> equal true
         Regex.IsMatch(str, "chapter \d+(\.\d)*", RegexOptions.IgnoreCase) |> equal true
 
     [<Fact>]
-    let ``Regex.IsMatch with Multiline works" <| fun _ ->
+    let ``Regex.IsMatch with Multiline works`` () =
         let str = "ab\ncd"
         Regex.IsMatch(str, "^ab", RegexOptions.Multiline) |> equal true
         Regex.IsMatch(str, "^cd", RegexOptions.Multiline) |> equal true
         Regex.IsMatch(str, "^AB", RegexOptions.Multiline) |> equal false
 
     [<Fact>]
-    let ``RegexOptions.Singleline works" <| fun _ ->
+    let ``RegexOptions.Singleline works`` () =
         let str = "ab\ncd"
         let m1 = Regex.Match(str, ".+")
         let m2 = Regex.Match(str, ".+", RegexOptions.Singleline)
@@ -129,20 +129,20 @@ module tests =
         m2.Length |> equal 5
 
     [<Fact>]
-    let ``Regex.Match works" <| fun _ ->
+    let ``Regex.Match works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         Regex.Match(str, "Chapter \d+(\.\d)*").Success |> equal true
         Regex.Match(str, "chapter \d+(\.\d)*").Success |> equal false
 
     [<Fact>]
-    let ``Match.Groups indexer getter works" <| fun _ ->
+    let ``Match.Groups indexer getter works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         let g = m.Groups.[1]
         g.Value |> equal ".1"
 
     [<Fact>]
-    let ``Match.Groups iteration works" <| fun _ ->
+    let ``Match.Groups iteration works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         let count = ref 0
@@ -157,37 +157,37 @@ module tests =
         equal "foobaz" x
 
     [<Fact>]
-    let ``Match.Groups.Count works" <| fun _ ->
+    let ``Match.Groups.Count works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         m.Groups.Count |> equal 2
 
     [<Fact>]
-    let ``Match.Index works" <| fun _ ->
+    let ``Match.Index works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         m.Index |> equal 26
 
     [<Fact>]
-    let ``Match.Length works" <| fun _ ->
+    let ``Match.Length works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         m.Length |> equal 15
 
     [<Fact>]
-    let ``Match.Value works" <| fun _ ->
+    let ``Match.Value works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         m.Value |> equal "Chapter 3.4.5.1"
 
     [<Fact>]
-    let ``Regex.Matches indexer getter works" <| fun _ ->
+    let ``Regex.Matches indexer getter works`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
         ms.[8].Index |> equal 29
 
     [<Fact>]
-    let ``Regex.Matches iteration works" <| fun _ ->
+    let ``Regex.Matches iteration works`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
         let count = ref 0
@@ -195,7 +195,7 @@ module tests =
         equal 10 !count
 
     [<Fact>]
-    let ``Regex.Matches iteration with casting works" <| fun _ ->
+    let ``Regex.Matches iteration with casting works`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
         let count =
@@ -203,7 +203,7 @@ module tests =
         equal 10 count
 
     [<Fact>]
-    let ``MatchCollection.Count works" <| fun _ ->
+    let ``MatchCollection.Count works`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let test pattern expected =
             let ms = Regex.Matches(str, pattern, RegexOptions.IgnoreCase)
@@ -233,7 +233,7 @@ module tests =
         test "a\" \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
 
     [<Fact>]
-    let ``Regex.Split works" <| fun _ ->
+    let ``Regex.Split works`` () =
         let test str expected =
             let splits = Regex.Split(str, "[;,]")
             splits.Length |> equal expected
@@ -241,21 +241,21 @@ module tests =
         test "" 1
 
     [<Fact>]
-    let ``Regex.Split with limit works" <| fun _ ->
+    let ``Regex.Split with limit works`` () =
         let s = "blah blah blah, blah blah blah"
         let r = Regex(" ")
         r.Split(s, 1).Length |> equal 1
         r.Split(s, 3).Length |> equal 3
 
     [<Fact>]
-    let ``Regex.Split with limit and offset works" <| fun _ ->
+    let ``Regex.Split with limit and offset works`` () =
         let s = "blah blah blah, blah blah blah"
         let r = Regex(" ")
         r.Split(s, 10, 0).Length |> equal 6
         r.Split(s, 10, 20).Length |> equal 3
 
     [<Fact>]
-    let ``Regex.Replace works" <| fun _ ->
+    let ``Regex.Replace works`` () =
         let str = "Too   much   space"
         Regex.Replace(str, "\\s+", " ")
         |> equal "Too much space"
@@ -263,13 +263,13 @@ module tests =
         |> equal " T o o       m u c h       s p a c e "
 
     [<Fact>]
-    let ``Regex.Replace with macros works" <| fun _ ->
+    let ``Regex.Replace with macros works`` () =
         let str = "Alfonso Garcia-Caro"
         Regex.Replace(str, "([A-Za-z]+) ([A-Za-z\-]+)", "$2 $1") |> equal "Garcia-Caro Alfonso"
         Regex.Replace(str, "(fon)(so)", "$2 $1") |> equal "Also fon Garcia-Caro"
 
     [<Fact>]
-    let ``Regex.Replace with limit works" <| fun _ ->
+    let ``Regex.Replace with limit works`` () =
         let str = "Too   much   space"
         let r = Regex("\\s+")
         r.Replace(str, " ", count=1)
@@ -278,7 +278,7 @@ module tests =
         |> equal "Too much space"
 
     [<Fact>]
-    let ``Regex.Replace with limit and offset works" <| fun _ ->
+    let ``Regex.Replace with limit and offset works`` () =
         let str = "Too   much   space"
         let r = Regex("\\s+")
         r.Replace(str, " ", count=20, startat=0)
@@ -287,14 +287,14 @@ module tests =
         |> equal "Too   much space"
 
     [<Fact>]
-    let ``Regex.Replace with limit, offset and macros works" <| fun _ ->
+    let ``Regex.Replace with limit, offset and macros works`` () =
         let str = "Alfonso Garcia-Caro"
         let re = Regex("([A-Za-z]+) ([A-Za-z\-]+)")
         re.Replace(str, "$2 $1", 1) |> equal "Garcia-Caro Alfonso"
         re.Replace(str, "$2 $1", 10, 5) |> equal "AlfonGarcia-Caro so"
 
     [<Fact>]
-    let ``Regex.Replace with evaluator works" <| fun _ ->
+    let ``Regex.Replace with evaluator works`` () =
         let str = "Alfonso García-Caro"
         let test pattern expected =
             Regex.Replace(str, pattern, fun (m: Match) ->
@@ -304,7 +304,7 @@ module tests =
         test "(fon)(so)" "Also fon García-Caro"
 
     [<Fact>]
-    let ``Regex.Replace with evaluator and limit works" <| fun _ ->
+    let ``Regex.Replace with evaluator and limit works`` () =
         let str = "abcabcabcabcabcabcabcabc"
         let r = Regex("c")
         let test count expected =
@@ -314,7 +314,7 @@ module tests =
         test 3 "ab2ab5ab8abcabcabcabcabc"
 
     [<Fact>]
-    let ``Regex.Replace with evaluator, limit and offset works" <| fun _ ->
+    let ``Regex.Replace with evaluator, limit and offset works`` () =
         let str = "abcCcabCCabcccabcabcabCCCcabcabc"
         let r = Regex("c+", RegexOptions.IgnoreCase)
         let test startat expected =
@@ -324,13 +324,13 @@ module tests =
         test 10 "abcCcabCCab3ab1ab1abCCCcabcabc"
 
     [<Fact>]
-    let ``Replacing with $0 works" <| fun _ -> // See #1155
+    let ``Replacing with $0 works`` () = // See #1155
         let s = Regex.Replace("1234567890", ".{2}", "$0-")
         equal "12-34-56-78-90-" s
 
     // See #838
     [<Fact>]
-    let ``Group values are correct and empty when not being matched" <| fun _ ->
+    let ``Group values are correct and empty when not being matched`` () =
         Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
         |> Seq.cast<Match>
         |> Seq.map (fun m -> m.Groups.[1].Value)
@@ -338,14 +338,14 @@ module tests =
         |> equal true
 
     [<Fact>]
-    let ``Group values can be converted to int" <| fun _ -> // See #1753
+    let ``Group values can be converted to int`` () = // See #1753
         let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
         let group = m.Groups.[2]
         int (group.Value) |> equal 123
 
     // see #2359
     [<Fact>]
-    let ``Regex.Replace with elevator works when regex has named capture group" <| fun _ ->
+    let ``Regex.Replace with elevator works when regex has named capture group`` () =
         let r = Regex "0(?<number>\\d+)"
         let text = "Number 012345!"
 
@@ -370,26 +370,26 @@ module tests =
     module tests =
         module Match =
             [<Fact>]
-            let ``succeeds when match" <| fun _ ->
+            let ``succeeds when match`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
                 m.Success |> equal true
 
             [<Fact>]
-            let ``doesn't succeed when unmatched" <| fun _ ->
+            let ``doesn't succeed when unmatched`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Hello World"
                 m.Success |> equal false
 
             [<Fact>]
-            let ``can get value of existing group" <| fun _ ->
+            let ``can get value of existing group`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["number"].Value |> equal "12345"
 
             [<Fact>]
-            let ``can get values of multiple existing groups" <| fun _ ->
+            let ``can get values of multiple existing groups`` () =
                 let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                 let m = r.Match "Number: +49 1234!"
 
@@ -397,35 +397,35 @@ module tests =
                 m.Groups.["num"].Value |> equal "1234"
 
             [<Fact>]
-            let ``doesn't succeed for not existing named group" <| fun _ ->
+            let ``doesn't succeed for not existing named group`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["nothing"].Success |> equal false
 
             [<Fact>]
-            let ``doesn't succeed for not existing named group in regex without named group" <| fun _ ->
+            let ``doesn't succeed for not existing named group in regex without named group`` () =
                 let r = Regex "\\d+"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["nothing"].Success |> equal false
 
             [<Fact>]
-            let ``doesn't succeed for existing unmatched group" <| fun _ ->
+            let ``doesn't succeed for existing unmatched group`` () =
                 let r = Regex "(?<exact>42)|(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["exact"].Success |> equal false
 
             [<Fact>]
-            let ``group name from string" <| fun _ ->
+            let ``group name from string`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["number"].Value |> equal "12345"
 
             [<Fact>]
-            let ``group name from variable" <| fun _ ->
+            let ``group name from variable`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
@@ -433,14 +433,14 @@ module tests =
                 m.Groups.[g].Value |> equal "12345"
 
             [<Fact>]
-            let ``group name from addition" <| fun _ ->
+            let ``group name from addition`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["num" + "ber"].Value |> equal "12345"
 
             [<Fact>]
-            let ``group name from string in function" <| fun _ ->
+            let ``group name from string in function`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
@@ -450,7 +450,7 @@ module tests =
                 m |> namedGroup "number" |> equal "12345"
 
             [<Fact>]
-            let ``group name from variable in function" <| fun _ ->
+            let ``group name from variable in function`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
@@ -461,7 +461,7 @@ module tests =
                 m |> namedGroup g |> equal "12345"
 
             [<Fact>]
-            let ``group name from function call" <| fun _ ->
+            let ``group name from function call`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
@@ -469,7 +469,7 @@ module tests =
                 m.Groups.[getName ()].Value |> equal "12345"
 
             [<Fact>]
-            let ``group name from if expression" <| fun _ ->
+            let ``group name from if expression`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
@@ -483,7 +483,7 @@ module tests =
                 let equalUndefined (x: obj) = isUndefined x |> equal true
 
                 [<Fact>]
-                let ``not existing indexed group" <| fun _ ->
+                let ``not existing indexed group`` () =
                     let r = Regex "\\d+"
                     let m = r.Match "Number 12345 is positive"
 
@@ -491,7 +491,7 @@ module tests =
                     g |> equalUndefined
 
                 [<Fact>]
-                let ``not existing named grouped with other named groups" <| fun _ ->
+                let ``not existing named grouped with other named groups`` () =
                     let r = Regex "(?<number>\\d+)"
                     let m = r.Match "Number 12345 is positive"
                     // in JS: `m.groups` exists
@@ -500,7 +500,7 @@ module tests =
                     g |> equalUndefined
 
                 [<Fact>]
-                let ``not existing named grouped without named groups" <| fun _ ->
+                let ``not existing named grouped without named groups`` () =
                     let r = Regex "\\d+"
                     let m = r.Match "Number 12345 is positive"
                     // in JS: no `m.groups`
@@ -509,7 +509,7 @@ module tests =
                     g |> equalUndefined
 
                 [<Fact>]
-                let ``unmatched existing named group" <| fun _ ->
+                let ``unmatched existing named group`` () =
                     let r = Regex "(?<exact>42)|(?<number>\\d+)"
                     let m = r.Match "Number 12345 is positive"
                     // in JS: `m.groups` exists, `m.groups.["exact"]` is `undefined`
@@ -521,7 +521,7 @@ module tests =
 
         module Matches =
             [<Fact>]
-            let ``gets all matches with all named groups" <| fun _ ->
+            let ``gets all matches with all named groups`` () =
                 let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                 let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -539,7 +539,7 @@ module tests =
                 actual |> equal expected
 
             [<Fact>]
-            let ``group name from string" <| fun _ ->
+            let ``group name from string`` () =
                 let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                 let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -557,7 +557,7 @@ module tests =
                 actual |> equal expected
 
             [<Fact>]
-            let ``group name from variable" <| fun _ ->
+            let ``group name from variable`` () =
                 let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                 let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -587,7 +587,7 @@ module tests =
 
                 // "replacement: string"
                 [<Fact>]
-                let ``.Net named group gets replaced" <| fun _ ->
+                let ``.Net named group gets replaced`` () =
                     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -602,7 +602,7 @@ module tests =
 
                 //"evaluator: Match -> string"
                 [<Fact>]
-                let ``can access named groups" <| fun _ ->
+                let ``can access named groups`` () =
                     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -615,7 +615,7 @@ module tests =
                     actual |> equal expected
 
                 [<Fact>]
-                let ``doesn't succeed when not existing group" <| fun _ ->
+                let ``doesn't succeed when not existing group`` () =
                     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
@@ -631,7 +631,7 @@ module tests =
                     actual |> equal expected
 
                 [<Fact>]
-                let ``doesn't succeed when not existing group without any named groups" <| fun _ ->
+                let ``doesn't succeed when not existing group without any named groups`` () =
                     let r = Regex "\\+(\\d{1,3}) (\\d+)"
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 

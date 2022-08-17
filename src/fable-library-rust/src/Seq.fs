@@ -1010,10 +1010,12 @@ let sortDescending (xs: 'T seq) =
 let sortByDescending (projection: 'T -> 'U) (xs: 'T seq) =
     sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
+[<CompiledName("sum")>]
 let inline sum (xs: 'T seq): 'T =
     let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + x) zero xs
 
+[<CompiledName("sumBy")>]
 let inline sumBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
     let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + (projection x)) zero xs
@@ -1030,6 +1032,7 @@ let minBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
 let min (xs: 'T seq): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
+[<CompiledName("average")>]
 let inline average (xs: 'T seq): 'T =
     let mutable count = 0
     let zero = LanguagePrimitives.GenericZero
@@ -1038,6 +1041,7 @@ let inline average (xs: 'T seq): 'T =
     if count = 0 then invalidOp SR.inputSequenceEmpty
     LanguagePrimitives.DivideByInt total count
 
+[<CompiledName("averageBy")>]
 let inline averageBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
     let mutable count = 0
     let zero = LanguagePrimitives.GenericZero

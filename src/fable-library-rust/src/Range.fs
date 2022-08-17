@@ -1,5 +1,6 @@
 module Range_
 
+[<CompiledName("rangeNumeric")>]
 let inline rangeNumeric (start: 'T) (step: 'T) (stop: 'T) =
     let zero = LanguagePrimitives.GenericZero
     let stepComparedWithZero = compare step zero

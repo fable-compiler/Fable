@@ -7,7 +7,7 @@ open Fable.Tests
 module tests =
 
     [<Fact>]
-    let ``Uri from absolute uri string works" <| fun _ ->
+    let ``Uri from absolute uri string works`` () =
         let uri = Uri("http://www.test0.com/hello?a=b#c")
         equal true uri.IsAbsoluteUri
         equal "http" uri.Scheme
@@ -19,7 +19,7 @@ module tests =
         equal "http://www.test0.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``Uri from absolute uri string with RelativeOrAbsolute works" <| fun _ ->
+    let ``Uri from absolute uri string with RelativeOrAbsolute works`` () =
         let uri = Uri("http://www.test1.com/hello?a=b#c", UriKind.RelativeOrAbsolute)
         equal true uri.IsAbsoluteUri
         equal "http" uri.Scheme
@@ -31,32 +31,32 @@ module tests =
         equal "http://www.test1.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``Uri from relative uri string works" <| fun _ ->
+    let ``Uri from relative uri string works`` () =
         let uri = Uri("/hello.html", UriKind.Relative)
         equal false uri.IsAbsoluteUri
         equal "/hello.html" (uri.ToString())
 
     [<Fact>]
-    let ``AbsoluteUri from relative uri should throw" <| fun _ ->
+    let ``AbsoluteUri from relative uri should throw`` () =
         let uri = Uri("/hello.html", UriKind.Relative)
         Util.throwsError "This operation is not supported for a relative URI." (fun () -> uri.AbsoluteUri)
 
     [<Fact>]
-    let ``Uri from relative uri string without uri kind should throws" <| fun _ ->
+    let ``Uri from relative uri string without uri kind should throws`` () =
         let createInvalidUri () =
             Uri("hello.html")
 
         Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
     [<Fact>]
-    let ``Uri from relative uri with kind Absolute fails" <| fun _ ->
+    let ``Uri from relative uri with kind Absolute fails`` () =
         let createInvalidUri () =
             Uri("hello.html")
 
         Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
     [<Fact>]
-    let ``Uri from baseUri with relative string works" <| fun _ ->
+    let ``Uri from baseUri with relative string works`` () =
         let uri = Uri(Uri("http://www.test2.com/"), "/hello?a=b#c")
         equal true uri.IsAbsoluteUri
         equal "http" uri.Scheme
@@ -68,7 +68,7 @@ module tests =
         equal "http://www.test2.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``Uri from baseUri with relativeUri works" <| fun _ ->
+    let ``Uri from baseUri with relativeUri works`` () =
         let uri = Uri(Uri("http://www.test3.com/"), Uri("/hello?a=b#c", UriKind.Relative))
         equal true uri.IsAbsoluteUri
         equal "http" uri.Scheme
@@ -80,7 +80,7 @@ module tests =
         equal "http://www.test3.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``Uri from baseUri with absolute Uri works" <| fun _ ->
+    let ``Uri from baseUri with absolute Uri works`` () =
         let absUri = Uri("http://www.example.com/", UriKind.Absolute)
         let uri = Uri(absUri, absUri)
         equal true uri.IsAbsoluteUri
@@ -89,7 +89,7 @@ module tests =
         equal "http://www.example.com/" uri.AbsoluteUri
 
     [<Fact>]
-    let ``TryCreate from absolute string with kind Absolute works" <| fun _ ->
+    let ``TryCreate from absolute string with kind Absolute works`` () =
         let (valid, uri) = Uri.TryCreate("http://www.test0.com/hello?a=b#c", UriKind.Absolute)
         equal true valid
         equal true uri.IsAbsoluteUri
@@ -102,7 +102,7 @@ module tests =
         equal "http://www.test0.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``TryCreate from absolute string with kind RelativeOrAbsolute works" <| fun _ ->
+    let ``TryCreate from absolute string with kind RelativeOrAbsolute works`` () =
         let (valid, uri) = Uri.TryCreate("http://www.test1.com/hello?a=b#c", UriKind.RelativeOrAbsolute)
         equal true valid
         equal true uri.IsAbsoluteUri
@@ -115,59 +115,59 @@ module tests =
         equal "http://www.test1.com/hello?a=b#c" uri.AbsoluteUri
 
     [<Fact>]
-    let ``TryCreate from absolute string with kind Relative fails" <| fun _ ->
+    let ``TryCreate from absolute string with kind Relative fails`` () =
         let (valid, _) = Uri.TryCreate("http://www.test1.com/hello?a=b#c", UriKind.Relative)
         equal false valid
 
     [<Fact>]
-    let ``TryCreate from relative string with kind Absolute fails" <| fun _ ->
+    let ``TryCreate from relative string with kind Absolute fails`` () =
         let (valid, uri) = Uri.TryCreate("hello?a=b#c", UriKind.Absolute)
         equal false valid
 
     [<Fact>]
-    let ``TryCreate from relative string with kind RelativeOrAbsolute works" <| fun _ ->
+    let ``TryCreate from relative string with kind RelativeOrAbsolute works`` () =
         let (valid, uri) = Uri.TryCreate("hello?a=b#c", UriKind.RelativeOrAbsolute)
         equal true valid
         equal "hello?a=b#c" (uri.ToString())
 
     [<Fact>]
-    let ``TryCreate from relative string with kind Relative works" <| fun _ ->
+    let ``TryCreate from relative string with kind Relative works`` () =
         let (valid, uri) = Uri.TryCreate("hello?a=b#c", UriKind.Relative)
         equal true valid
         equal "hello?a=b#c" (uri.ToString())
 
     [<Fact>]
-    let ``TryCreate from absolute uri and absolute uri should work" <| fun _ ->
+    let ``TryCreate from absolute uri and absolute uri should work`` () =
         let absUri = Uri("https://example.com", UriKind.Absolute)
         let (valid, uri) = Uri.TryCreate(absUri, absUri)
         equal true valid
         equal absUri uri
 
     [<Fact>]
-    let ``TryCreate from absolute uri and relative uri should work" <| fun _ ->
+    let ``TryCreate from absolute uri and relative uri should work`` () =
         let (valid, uri) = Uri.TryCreate(Uri("https://example.com", UriKind.Absolute), Uri("test", UriKind.Relative))
         equal true valid
         equal "https://example.com/test" (uri.ToString())
 
     [<Fact>]
-    let ``TryCreate from relative uri and relative uri should fail" <| fun _ ->
+    let ``TryCreate from relative uri and relative uri should fail`` () =
         let relativeUri = Uri("test", UriKind.Relative)
         let (valid, _) = Uri.TryCreate(relativeUri, relativeUri)
         equal false valid
 
     [<Fact>]
-    let ``TryCreate from relative uri and absolute uri should fail" <| fun _ ->
+    let ``TryCreate from relative uri and absolute uri should fail`` () =
         let (valid, _) = Uri.TryCreate(Uri("test", UriKind.Relative), Uri("https://example.com", UriKind.Absolute))
         equal false valid
 
     [<Fact>]
-    let ``Uri.ToString works" <| fun _ ->
+    let ``Uri.ToString works`` () =
         let uri = Uri("HTTP://www.test4.com:80/a%20b%20c.html")
         uri.ToString() |> equal "http://www.test4.com/a b c.html"
         sprintf "%A" uri |> equal "http://www.test4.com/a b c.html"
 
     [<Fact>]
-    let ``Uri.OriginalString works" <| fun _ ->
+    let ``Uri.OriginalString works`` () =
         let cases = [
             "http://example.org"
             "http://example.org/"

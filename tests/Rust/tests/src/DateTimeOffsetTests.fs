@@ -675,22 +675,22 @@ module tests =
 
         module ``(DateTime)`` =
             [<Fact>]
-            let ``Default (= unspecified)" <| fun _ ->
+            let ``Default (= unspecified)`` () =
                 let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second)
                 let dto = DateTimeOffset(dt)
                 equal dto.Offset localOffset
             [<Fact>]
-            let ``Unspecified" <| fun _ ->
+            let ``Unspecified`` () =
                 let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Unspecified)
                 let dto = DateTimeOffset(dt)    // no custom offset -> local offset
                 equal dto.Offset localOffset
             [<Fact>]
-            let ``UTC" <| fun _ ->
+            let ``UTC`` () =
                 let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Utc)
                 let dto = DateTimeOffset(dt)
                 equal dto.Offset TimeSpan.Zero
             [<Fact>]
-            let ``Local" <| fun _ ->
+            let ``Local`` () =
                 let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Local)
                 let dto = DateTimeOffset(dt)
                 equal dto.Offset localOffset
@@ -729,7 +729,7 @@ module tests =
 
 
         [<Fact>]
-        let ``offset = localOffset succeeds" <| fun _ ->
+        let ``offset = localOffset succeeds`` () =
             localOffset
             |> testSucceeds fromLocalDateTime
 
