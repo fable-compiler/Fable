@@ -1503,6 +1503,10 @@ module Util =
                 let fieldName = field.Name |> sanitizeMember
                 mkExprField attrs fieldName expr false false
             )
+        let genArgs =
+            genArgs
+            |> List.zip ent.GenericParameters
+            |> List.choose (fun (p, a) -> if not p.IsMeasure then Some a else None)
         let genArgs = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgs
