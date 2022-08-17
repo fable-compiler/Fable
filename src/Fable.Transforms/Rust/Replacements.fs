@@ -1080,6 +1080,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.InstanceCall(arg, "trunc", t, [], ?loc=r) |> Some
     | "Sign", [arg] ->
         Helper.InstanceCall(arg, "signum", t, [], ?loc=r) |> Some
+    | "DivRem", _ ->
+        match args with
+        | [x; y] ->
+            Helper.LibCall(com, "Util", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [x; y; rem] ->
+            Helper.LibCall(com, "Util", "divRemOut", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> None
     // Numbers
     | "Infinity", _ ->
         makeGlobalIdent("f64", "INFINITY", t) |> Some
