@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::vec::Vec;
+
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
@@ -108,7 +111,7 @@ impl<T> MutCell<T> {
     pub fn replace(&self, val: T) -> T {
         // SAFETY: This can cause data races if called from a separate thread,
         // but `UnsafeCell` is `!Sync` so this won't happen.
-        std::mem::replace(unsafe { &mut *self.value.get() }, val)
+        core::mem::replace(unsafe { &mut *self.value.get() }, val)
     }
 
     #[inline]
@@ -149,12 +152,30 @@ impl<T> Index<i32> for MutCell<Vec<T>> {
     }
 }
 
+impl<T: Clone> MutCell<Option<T>> {
+    pub fn get_or_init<F>(&self, f: F) -> T
+    where F: FnOnce() -> T {
+        match self.get() {
+            Some(v) => v,
+            None => {
+                self.set(Some(f()));
+                self.get().unwrap()
+            }
+        }
+    }
+}
+
 // In .NET, thread safety is not guaranteed, and it is expected that the users handle
 // thread safety themselves via constructs such as System.Threading.Monitor or lock.
+
 // In order to allow this pattern, Send and Sync guards must be conditional, which is
 // why they are hidden behind the "atomic" feature switch. Use at your own risk!
-#[cfg(feature = "atomic")]
+
+// Currently it is always marked as Send + Sync so it can be used in static variables.
+// TODO: a proper Send + Sync (atomic) implementation.
+
+// #[cfg(feature = "atomic")]
 unsafe impl <T> Send for MutCell<T> {}
 
-#[cfg(feature = "atomic")]
+// #[cfg(feature = "atomic")]
 unsafe impl <T> Sync for MutCell<T> {}

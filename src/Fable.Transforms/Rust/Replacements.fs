@@ -103,8 +103,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ ->
-            let s = Helper.InstanceCall(head, "to_string", String, [])
-            Helper.LibCall(com, "String", "string", String, [makeRef s])
+            Helper.LibCall(com, "String", "toString", String, [makeRef head])
 
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -446,7 +445,7 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         makeEqOp r left right BinaryEqual
 
 let objectEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    // TODO: reference equality
+    // reference equality actually happens in Fable2Rust.transformOperation
     TypeCast(right, left.Type) |> equals com ctx r left
 
 let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -2163,7 +2162,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqual |> Some
+    | "ReferenceEquals", None, [arg1; arg2]
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> objectEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some

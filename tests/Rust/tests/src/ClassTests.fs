@@ -121,12 +121,12 @@ let ``Class methods and props work`` () =
     b.A |> equal 7
     a.B |> equal 1
 
-// [<Fact>]
-// let ``Class reference equality works`` () =
-//     let a = NTest(1, 2)
-//     let b = NTest(3, 4)
-//     (a = a) |> equal true
-//     (a = b) |> equal false
+[<Fact>]
+let ``Class reference equality works`` () =
+    let a = NTest(1, 2)
+    let b = NTest(1, 2)
+    (a = a) |> equal true
+    (a = b) |> equal false
 
 [<Fact>]
 let ``Class methods and props work II`` () =

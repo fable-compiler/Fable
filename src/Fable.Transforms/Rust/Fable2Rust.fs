@@ -196,6 +196,9 @@ module TypeInfo =
     let makeMutTy com ctx (ty: Rust.Ty): Rust.Ty =
         [ty] |> makeImportType com ctx "Native" "MutCell"
 
+    let makeOptionTy (ty: Rust.Ty): Rust.Ty =
+        [ty] |> mkGenericTy [rawIdent "Option"]
+
     let hasAttribute fullName (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
@@ -486,14 +489,10 @@ module TypeInfo =
         then mkUnitExpr ()
         else makeFullNamePathExpr importName genArgs
 
-    let makeNativeCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
+    let makeLibCall com ctx genArgs moduleName memberName (args: Rust.Expr list) =
         let importName = getLibraryImportName com ctx moduleName memberName
         let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
-
-    let makeLibCall com ctx genArgs moduleName memberName passByRef (args: Rust.Expr list) =
-        let args = if passByRef then args |> List.map mkAddrOfExpr else args
-        makeNativeCall com ctx genArgs moduleName memberName args
 
     let libCall com ctx r types moduleName memberName (args: Fable.Expr list) =
         let path = getLibPath com moduleName
@@ -1150,18 +1149,18 @@ module Util =
         | Replacements.Util.IsEntity (Types.valueCollection) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.icollectionGeneric) _, IEnumerable _
         | Fable.Array _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofArray" false [expr]
+            makeLibCall com ctx None "Seq" "ofArray" [expr]
         | Fable.List _, IEnumerable _ ->
-            makeLibCall com ctx None "Seq" "ofList" false [expr]
+            makeLibCall com ctx None "Seq" "ofList" [expr]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashSetEntries" false [expr]
-            makeLibCall com ctx None "Seq" "ofArray" false [ar]
+            let ar = makeLibCall com ctx None "Native" "hashSetEntries" [expr]
+            makeLibCall com ctx None "Seq" "ofArray" [ar]
         | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashMapEntries" false [expr]
-            makeLibCall com ctx None "Seq" "ofArray" false [ar]
+            let ar = makeLibCall com ctx None "Native" "hashMapEntries" [expr]
+            makeLibCall com ctx None "Seq" "ofArray" [ar]
 
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
@@ -1170,7 +1169,7 @@ module Util =
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ ->
             expr
         | t1, t2 when not (shouldBeDyn com t1) && shouldBeDyn com t2 ->
-            expr |> makeClone |> makeNewLrcValue |> mkCastExpr ty
+            expr |> makeClone |> makeLrcNewValue |> mkCastExpr ty
         | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
         // // casts to object
@@ -1227,7 +1226,7 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
-    let makeNewLrcValue (value: Rust.Expr) =
+    let makeLrcNewValue (value: Rust.Expr) =
         makeCall ["Lrc";"new"] None [value]
 
     let makeLrcValue (value: Rust.Expr) =
@@ -1261,6 +1260,9 @@ module Util =
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"from"] None [value]
+
+    let makeMutNewValue (value: Rust.Expr) =
+        makeCall ["MutCell";"new"] None [value]
 
     let makeLazyValue (value: Rust.Expr) =
         makeCall ["Lazy";"new"] None [value]
@@ -1393,11 +1395,11 @@ module Util =
             mkFloat64LitExpr 0.
 
     let makeString com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "String" "string" false [value]
+        makeLibCall com ctx None "String" "string" [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
-        makeLibCall com ctx genArgs "Native" "defaultOf" true []
+        makeLibCall com ctx genArgs "Native" "defaultOf" []
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
         let expr =
@@ -1418,25 +1420,26 @@ module Util =
         match exprs with
         | [] ->
             let genArgs = transformGenArgs com ctx [typ]
-            makeLibCall com ctx genArgs "Native" "arrayEmpty" true []
+            makeLibCall com ctx genArgs "Native" "arrayEmpty" []
         | _ ->
             let arrayExpr =
                 exprs
                 |> List.map (transformExpr com ctx)
                 |> mkArrayExpr
-            makeLibCall com ctx None "Native" "arrayFrom" true [arrayExpr]
+                |> mkAddrOfExpr
+            makeLibCall com ctx None "Native" "arrayFrom" [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
-            let size = transformExpr com ctx sizeExpr
-            let value = transformExpr com ctx valueExpr
-            makeLibCall com ctx None "Native" "arrayCreate" true [size; value]
+            let size = transformExpr com ctx sizeExpr |> mkAddrOfExpr
+            let value = transformExpr com ctx valueExpr |> mkAddrOfExpr
+            makeLibCall com ctx None "Native" "arrayCreate" [size; value]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
-            let sequence = transformExpr com ctx expr
-            makeLibCall com ctx None "Native" "arrayFrom" true [sequence]
+            let sequence = transformExpr com ctx expr |> mkAddrOfExpr
+            makeLibCall com ctx None "Native" "arrayFrom" [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         // list contruction with cons
@@ -1510,17 +1513,19 @@ module Util =
             else
                 None
 
+    let getUnionCaseName com ctx entRef (unionCase: Fable.UnionCase) =
+        tryUseKnownUnionCaseNames unionCase.FullName
+        |> Option.defaultWith (fun () ->
+            let entName = getEntityFullName com ctx entRef
+            entName + "::" + unionCase.Name
+        )
+
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         // let genArgs = transformGenArgs com ctx genArgs
 
         let unionCase = ent.UnionCases |> List.item tag
-        let unionCaseName =
-            tryUseKnownUnionCaseNames unionCase.FullName
-            |> Option.defaultWith(fun () ->
-                let entName = getEntityFullName com ctx entRef
-                entName + "::" + unionCase.Name
-            )
+        let unionCaseName = getUnionCaseName com ctx entRef unionCase
 
         let callee = makeFullNamePathExpr unionCaseName None //genArgs
         let expr =
@@ -1738,7 +1743,7 @@ module Util =
             let objExpr =
                 match baseCall with
                 | Some fableExpr -> com.TransformExpr(ctx, fableExpr)
-                | None -> mkStructExpr path fields |> makeLrcValue |> makeNewLrcValue
+                | None -> mkStructExpr path fields |> makeLrcValue |> makeLrcNewValue
             let objStmt = objExpr |> mkExprStmt
             let declStmts = structItems @ memberItems |> List.map mkItemStmt
             declStmts @ [objStmt] |> mkBlock |> mkBlockExpr
@@ -1761,7 +1766,7 @@ module Util =
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryAddressOf -> expr // |> mkAddrOfExpr// already handled above
 
-        | Fable.Binary(op, left, right) ->
+        | Fable.Binary(op, leftExpr, rightExpr) ->
             let kind =
                 match op with
                 | BinaryOperator.BinaryEqual -> Rust.BinOpKind.Eq
@@ -1783,21 +1788,14 @@ module Util =
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
 
-            let left = transformLeaveContext com ctx None left |> maybeAddParens left
-            let right = transformLeaveContext com ctx None right |> maybeAddParens right
+            let left = transformLeaveContext com ctx None leftExpr |> maybeAddParens leftExpr
+            let right = transformLeaveContext com ctx None rightExpr |> maybeAddParens rightExpr
 
-            match typ, kind with
+            match leftExpr.Type, kind with
             | Fable.String, Rust.BinOpKind.Add ->
-                //proprietary string concatenation - String + &String = String
-                let left = mkMethodCallExprOnce "to_string" None left []
-                let strTy = primitiveType "str" |> makeLrcTy com ctx
-                mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
-                |> makeLrcValue
-                |> mkCastExpr strTy
-            // | _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
-            //         // reference equality
-            //         //TODO: implement
-            //         // mkBinaryExpr (mkBinOp kind) (mkAddrOfExpr left) (mkAddrOfExpr right)
+                makeLibCall com ctx None "String" "append" [left; right]
+            | typ, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
+                makeLibCall com ctx None "Native" "referenceEquals" [makeAsRef left; makeAsRef right]
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -2056,12 +2054,7 @@ module Util =
                         then makeFullNameIdentPat fieldName
                         else WILD_PAT
                     )
-                let unionCaseName =
-                    tryUseKnownUnionCaseNames unionCase.FullName
-                    |> Option.defaultWith(fun () ->
-                        let entName = getEntityFullName com ctx info.Entity
-                        entName + "::" + unionCase.Name
-                    )
+                let unionCaseName = getUnionCaseName com ctx info.Entity unionCase
                 let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
@@ -2122,9 +2115,7 @@ module Util =
             mutableSet field value
 
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
-        let expr =
-            // com.TransformExpr(ctx, e)
-            transformLeaveContext com ctx None e
+        let expr = transformLeaveContext com ctx None e
         mkExprStmt expr
 
     // flatten nested Let binding expressions
@@ -2351,12 +2342,7 @@ module Util =
                         if List.isEmpty unionCase.UnionCaseFields
                         then []
                         else [WILD_PAT]
-                let unionCaseName =
-                    tryUseKnownUnionCaseNames unionCase.FullName
-                    |> Option.defaultWith(fun () ->
-                        let entName = getEntityFullName com ctx entRef
-                        entName + "::" + unionCase.Name
-                    )
+                let unionCaseName = getUnionCaseName com ctx entRef unionCase
                 let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
@@ -2433,7 +2419,9 @@ module Util =
                         | _ -> []
                     | _ ->
                         [WILD_PAT]
-                let unionCaseName = tryUseKnownUnionCaseNames unionCaseFullName |> Option.defaultValue unionCaseFullName
+                let unionCaseName =
+                    tryUseKnownUnionCaseNames unionCaseFullName
+                    |> Option.defaultValue unionCaseFullName
                 Some(makeUnionCasePat unionCaseName fields)
             | Fable.DeclaredType(entRef, genArgs) ->
                 let ent = com.GetEntity(entRef)
@@ -2451,12 +2439,7 @@ module Util =
                             if List.isEmpty unionCase.UnionCaseFields
                             then []
                             else [WILD_PAT]
-                    let unionCaseName =
-                        tryUseKnownUnionCaseNames unionCase.FullName
-                        |> Option.defaultWith(fun () ->
-                            let entName = getEntityFullName com ctx entRef
-                            entName + "::" + unionCase.Name
-                        )
+                    let unionCaseName = getUnionCaseName com ctx entRef unionCase
                     Some(makeUnionCasePat unionCaseName fields)
                 else
                     None
@@ -2725,10 +2708,11 @@ module Util =
         | Fable.ActionDeclaration decl -> None
         | Fable.ClassDeclaration decl -> None
 
+    let isLastFileInProject (com: IRustCompiler) =
+        (Array.last com.SourceFiles) = com.CurrentFile
+
     let getModuleItems (com: IRustCompiler) ctx =
-        let isLastFileInProject =
-            (Array.last com.SourceFiles) = com.CurrentFile
-        if isLastFileInProject then
+        if isLastFileInProject com then
             // add all other project files as module imports
             com.SourceFiles |> Array.iter (fun filePath ->
                 if filePath <> com.CurrentFile then
@@ -3030,7 +3014,7 @@ module Util =
             if isRecursive && not isTailRec then
                 // make it recursive with fixed-point combinator
                 let fixName = "fix" + string (List.length args)
-                makeNativeCall com ctx None "Func" fixName [closureExpr]
+                makeLibCall com ctx None "Func" fixName [closureExpr]
             else closureExpr
         let closureExpr =
             if not (Set.isEmpty closedOverCloneableNames) then
@@ -3044,10 +3028,9 @@ module Util =
                     yield closureExpr |> mkExprStmt
                 ]
             else closureExpr
-        if ctx.RequiresSendSync then
-            closureExpr |> makeArcValue
-        else
-            closureExpr |> makeLrcValue
+        if ctx.RequiresSendSync
+        then closureExpr |> makeArcValue
+        else closureExpr |> makeLrcValue
 
     let makeTypeBounds (com: IRustCompiler) ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3205,28 +3188,40 @@ module Util =
         [fnItem |> mkPublicItem]
 
     let transformModuleMember (com: IRustCompiler) ctx (info: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
-        // uses std::thread_local! for static initialization
+        // Module let bindings look like this:
+        // pub fn value() -> T {
+        //     static value: MutCell<Option<T>> = MutCell::new(None);
+        //     value.get_or_init(|| initValue)
+        // }
         let name = splitLast decl.Name
-        let fableExpr = decl.Body
-        let value = transformExpr com ctx fableExpr
+        let typ = decl.Body.Type
+        let initNone =
+            mkGenericPathExpr [rawIdent "None"] None
+            |> makeMutNewValue
+        let value = transformLeaveContext com ctx None decl.Body
         let value =
             if info.IsMutable
             then value |> makeMutValue |> makeLrcValue
             else value
-        let attrs = []
-        let ty = transformType com ctx fableExpr.Type
+        let ty = transformType com ctx typ
         let ty =
             if info.IsMutable
             then ty |> makeMutTy com ctx |> makeLrcTy com ctx
             else ty
-
-        let macroName = getLibraryImportName com ctx "Native" "thread_local"
-        let staticItem = mkStaticItem attrs name ty (Some value)
-        let macroStmt = mkMacroStmt macroName [mkItemToken staticItem]
-        let valueStmt = mkEmitExprStmt $"{name}.with(|value| value.clone())"
+        let staticTy = ty |> makeOptionTy |> makeMutTy com ctx
+        let staticStmt =
+            mkStaticItem [] name staticTy (Some initNone)
+            |> mkItemStmt
+        let callee = com.TransformExpr(ctx, makeIdentExpr name)
+        let closureExpr =
+            let fnDecl = mkFnDecl [] VOID_RETURN_TY
+            mkClosureExpr fnDecl value
+        let valueStmt =
+            mkMethodCallExpr "get_or_init" None callee [closureExpr]
+            |> mkExprStmt
 
         let attrs = transformAttributes com ctx info.Attributes
-        let fnBody = [macroStmt; valueStmt] |> mkBlock |> Some
+        let fnBody = [staticStmt; valueStmt] |> mkBlock |> Some
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnItem attrs name fnKind
@@ -3454,8 +3449,8 @@ module Util =
 
     let makeDisplayTraitImpl com ctx self_ty genArgs =
         // expected output:
-        // impl std::fmt::Display for {self_ty} {
-        //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        // impl core::fmt::Display for {self_ty} {
+        //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         //         write!(f, "{}", self.ToString_())
         //     }
         // }
@@ -3465,19 +3460,19 @@ module Util =
         let fnBody = [bodyStmt] |> mkBlock |> Some
         let fnDecl =
             let inputs =
-                let ty = mkGenericPathTy ["std";"fmt";"Formatter"] None
+                let ty = mkGenericPathTy ["core";"fmt";"Formatter"] None
                 let p1 = mkImplSelfParam false false
                 let p2 = mkParamFromType "f" (ty |> mkMutRefTy) false false
                 [p1; p2]
             let output =
-                let ty = mkGenericPathTy ["std";"fmt";rawIdent "Result"] None
+                let ty = mkGenericPathTy ["core";"fmt";rawIdent "Result"] None
                 ty |> mkFnRetTy
             mkFnDecl inputs output
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnAssocItem [] "fmt" fnKind
         let implItem =
             let generics = genArgs |> makeGenerics com ctx
-            let path = mkGenericPath ["std";"fmt";"Display"] None
+            let path = mkGenericPath ["core";"fmt";"Display"] None
             let ofTrait = mkTraitRef path |> Some
             mkImplItem [] "" self_ty generics [fnItem] ofTrait
         [implItem]
@@ -4005,6 +4000,10 @@ module Compiler =
             ModuleDepth = 0 }
 
         let topAttrs = [
+            // adds "no_std" for fable library crate if feature is enabled
+            if isFableLibrary com && isLastFileInProject com then
+                mkInnerAttr "cfg_attr" ["feature = \"no_std\""; "no_std"]
+
             // TODO: make some of those conditional on compiler options
             mkInnerAttr "allow" ["dead_code"]
             mkInnerAttr "allow" ["non_snake_case"]
