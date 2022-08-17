@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 pub mod Decimal_ {
-    use crate::Native_::{array, Array, Lrc, RefCell};
-    use crate::String_::{string};
+    use crate::Native_::{array, Array, Lrc, RefCell, Vec};
+    use crate::String_::{string, toString as toString_1};
 
     use rust_decimal::prelude::*;
     pub use rust_decimal::Decimal as decimal;
@@ -55,11 +55,11 @@ pub mod Decimal_ {
     pub fn toBoolean (x: Decimal) -> bool { !x.is_zero() }
 
     pub fn toChar (x: Decimal) -> char {
-        std::char::from_u32(x.to_u32().unwrap()).unwrap()
+        core::char::from_u32(x.to_u32().unwrap()).unwrap()
     }
 
     pub fn toString (x: Decimal) -> string {
-        string(&x.to_string())
+        toString_1(&x)
     }
 
     pub fn tryParse(s: string, res: &RefCell<Decimal>) -> bool {
@@ -115,7 +115,7 @@ pub mod Decimal_ {
         let scale = du.scale as i32;
         let signExp =
             if du.negative { -(scale << 16) } else { scale << 16 };
-        array(vec![low, mid, high, signExp])
+        array(Vec::from([low, mid, high, signExp]))
     }
 
     pub fn round(x: Decimal) -> Decimal { x.round() }

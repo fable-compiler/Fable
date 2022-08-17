@@ -71,11 +71,9 @@ pub mod Async_ {
 
 #[cfg(feature = "threaded")]
 pub mod AsyncBuilder_ {
-    use std::{
-        future::{ready, Future},
-        pin::Pin,
-        sync::Arc,
-    };
+    use std::future::{ready, Future};
+    use std::pin::Pin;
+    use std::sync::Arc;
 
     use futures::lock::Mutex;
 
@@ -142,13 +140,11 @@ pub mod ThreadPool {
 
 #[cfg(feature = "threaded")]
 pub mod Monitor_ {
-    use std::{
-        any::Any,
-        collections::HashSet,
-        sync::{Arc, Mutex, RwLock, Weak},
-        thread,
-        time::Duration,
-    };
+    use std::any::Any;
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex, RwLock, Weak};
+    use std::thread;
+    use std::time::Duration;
 
     use crate::Native_::Lrc;
 
@@ -197,13 +193,11 @@ pub mod Monitor_ {
 
 #[cfg(feature = "threaded")]
 pub mod Task_ {
-    use std::{
-        pin::Pin,
-        sync::{Arc, RwLock},
-        task::Poll,
-        thread::{self, JoinHandle},
-        time::Duration,
-    };
+    use std::pin::Pin;
+    use std::sync::{Arc, RwLock};
+    use std::task::Poll;
+    use std::thread::{self, JoinHandle};
+    use std::time::Duration;
 
     use futures::{Future, FutureExt};
 
@@ -245,7 +239,7 @@ pub mod Task_ {
         }
 
         pub fn replace(&mut self, next: TaskState<T>) -> TaskState<T> {
-            std::mem::replace(self, next)
+            core::mem::replace(self, next)
         }
     }
 
@@ -393,8 +387,7 @@ pub mod Task_ {
 
 #[cfg(feature = "threaded")]
 pub mod TaskBuilder_ {
-    use std::{rc::Rc, sync::Arc};
-
+    use std::sync::Arc;
     use super::super::Native_::Lrc;
     use super::Task_::Task;
 
@@ -414,7 +407,8 @@ pub mod TaskBuilder_ {
 
 #[cfg(feature = "threaded")]
 pub mod Thread_ {
-    use std::{thread, time::Duration};
+    use std::thread;
+    use std::time::Duration;
 
     use crate::Native_::{Lrc, MutCell};
 

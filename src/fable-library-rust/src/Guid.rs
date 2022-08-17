@@ -1,6 +1,7 @@
 #[cfg(feature = "guid")]
 pub mod Guid_ {
-    use crate::{Native_::Lrc, String_::string};
+    use crate::Native_::{Lrc};
+    use crate::String_::{string, toString};
     use uuid::{Uuid};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -8,7 +9,7 @@ pub mod Guid_ {
 
     impl core::fmt::Display for Guid {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.0.to_string())
+            write!(f, "{}", toString(&self.0))
         }
     }
 
