@@ -260,7 +260,7 @@ module tests =
         add 3 2 |> equal 8
 
     [<Fact>]
-    let ``Inline import expressions can absorb arguments" <| fun _ -> // See #2284
+    let ``Inline import expressions can absorb arguments`` () = // See #2284
         let stylesheet = Stylesheet.load "./js/1foo.js"
         stylesheet.["myKey"] |> equal "a secret"
     #endif

@@ -929,7 +929,7 @@ let ``Type testing with primitive types works`` () =
 
 // // // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
 // // [<Fact>]
-// // let ``default value attributes works" <| fun _ ->
+// // let ``default value attributes works`` () =
 // //     let withDefaultValue = TestTypeWithDefaultValue()
 
 // //     withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
@@ -942,7 +942,7 @@ let ``Type testing with primitive types works`` () =
 // //     withDefaultValue.ObjValue |> equal null
 
 // [<Fact>]
-// let ``Private fields don't conflict with parent classes" <| fun _ -> // See #2070
+// let ``Private fields don't conflict with parent classes`` () = // See #2070
 //     let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
 //     let a2 = a1.WithFoo("foo2")
 //     a1.Foo |> equal "foo"
@@ -950,7 +950,7 @@ let ``Type testing with primitive types works`` () =
 
 // // See #2084
 // [<Fact>]
-// let ``Non-mangled interfaces work with object expressions" <| fun _ ->
+// let ``Non-mangled interfaces work with object expressions`` () =
 //     let mutable foo = "Foo"
 //     let foo = { new FooInterface with
 //                     member _.Foo with get() = foo and set x = foo <- x
@@ -969,7 +969,7 @@ let ``Type testing with primitive types works`` () =
 
 // // See #2084
 // [<Fact>]
-// let ``Mangled interfaces work with object expressions" <| fun _ ->
+// let ``Mangled interfaces work with object expressions`` () =
 //     let mutable bar = "Bar"
 //     let bar = { new BarInterface with
 //                     member _.Bar with get() = bar and set x = bar <- x
@@ -989,7 +989,7 @@ let ``Type testing with primitive types works`` () =
 
 // // See #2084
 // [<Fact>]
-// let ``Non-mangled interfaces work with classes" <| fun _ ->
+// let ``Non-mangled interfaces work with classes`` () =
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 //     let foo2 = FooClass("Foo") :> FooInterface
@@ -1000,7 +1000,7 @@ let ``Type testing with primitive types works`` () =
 
 // // See #2084
 // [<Fact>]
-// let ``Mangled interfaces work with classes" <| fun _ ->
+// let ``Mangled interfaces work with classes`` () =
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 //     let bar2 = BarClass("Bar") :> BarInterface
@@ -1010,7 +1010,7 @@ let ``Type testing with primitive types works`` () =
 //     bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
 
 // [<Fact>]
-// let ``Multiple `this` references work in nested attached members" <| fun _ ->
+// let ``Multiple `this` references work in nested attached members`` () =
 //     (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
 
 // [<Fact>]

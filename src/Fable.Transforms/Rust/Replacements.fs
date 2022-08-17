@@ -3029,7 +3029,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | _ -> None
     | _ -> None
 
-let tryType = function
+let tryType typ =
+    match typ with
     | Boolean -> Some(Types.bool, parseBool, [])
     | Number(kind, info) ->
         let f =
@@ -3061,6 +3062,6 @@ let tryType = function
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [genArg])
-        | BclDateOnly
+        | BclDateOnly -> None
         | BclTimeOnly -> None
     | _ -> None

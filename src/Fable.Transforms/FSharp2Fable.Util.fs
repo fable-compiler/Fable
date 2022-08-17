@@ -229,7 +229,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 
         member _.HasSpread = Helpers.hasParamArray m
         member _.IsInline = Helpers.isInline m
-        member _.IsPublic = Helpers.isPublicMember m
+        member _.IsPublic = Helpers.isNotPrivate m
         // Using memb.IsValue doesn't work for function values
         // (e.g. `let ADD = adder()` when adder returns a function)
         member _.IsValue = Helpers.isModuleValueForDeclarations m
@@ -631,15 +631,13 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
-    let isPublicMember (memb: FSharpMemberOrFunctionOrValue) =
-        if memb.IsCompilerGenerated
-        then false
+    let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsCompilerGenerated then false
         else not memb.Accessibility.IsPrivate
 
-    let isNonPublicMember (memb: FSharpMemberOrFunctionOrValue) =
-        if memb.IsCompilerGenerated
-        then true
-        else not memb.Accessibility.IsPublic
+    let isPublic (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsCompilerGenerated then false
+        else memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
         { start = { line = r.StartLine; column = r.StartColumn }
@@ -678,7 +676,7 @@ module Helpers =
     // Mutable public values must be called as functions in JS (see #986)
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
-        | Python | JavaScript | TypeScript -> memb.IsMutable && isPublicMember memb
+        | Python | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
         | Rust | Php | Dart -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
