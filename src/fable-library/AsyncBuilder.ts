@@ -9,7 +9,7 @@ export type Continuations<T> = [
   Continuation<OperationCanceledError>
 ];
 
-export class CancellationToken {
+export class CancellationToken implements IDisposable {
   private _id: number;
   private _cancelled: boolean;
   private _listeners: Map<number, () => void>;
@@ -41,6 +41,11 @@ export class CancellationToken {
     const $ = this;
     const id = this.addListener(state == null ? f : () => f(state));
     return { Dispose() { $.removeListener(id); } };
+  }
+  public Dispose() {
+    // Implement IDisposable for compatibility but do nothing
+    // According to docs, calling Dispose does not trigger cancellation
+    // https://docs.microsoft.com/en-us/dotnet/api/system.threading.cancellationtokensource.dispose?view=net-6.0
   }
 }
 

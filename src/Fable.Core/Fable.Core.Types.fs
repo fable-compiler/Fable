@@ -218,7 +218,7 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'h) = Case8 x
 
 /// Erased union type to represent one of nine or more possible values.
-/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     | Case1 of 'a
     | Case2 of 'b

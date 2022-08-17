@@ -1053,12 +1053,17 @@ module TypeHelpers =
     let numbersWithMeasure =
         dict [
             "Microsoft.FSharp.Core.sbyte`1", Int8
+            "Microsoft.FSharp.Core.byte`1", UInt8
             "FSharp.UMX.byte`1", UInt8
             "Microsoft.FSharp.Core.int16`1", Int16
+            "Microsoft.FSharp.Core.uint16`1", UInt16
             "Microsoft.FSharp.Core.int`1", Int32
+            "Microsoft.FSharp.Core.uint`1", UInt32
             "Microsoft.FSharp.Core.int64`1", Int64
+            "Microsoft.FSharp.Core.uint64`1", UInt64
             "FSharp.UMX.uint64`1", UInt64
             "Microsoft.FSharp.Core.nativeint`1", NativeInt
+            "Microsoft.FSharp.Core.unativeint`1", UNativeInt
             "Microsoft.FSharp.Core.float32`1", Float32
             "Microsoft.FSharp.Core.float`1", Float64
             "Microsoft.FSharp.Core.decimal`1", Decimal
@@ -1559,11 +1564,13 @@ module Identifiers =
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let part = Naming.NoMemberPart
+
         let name =
             // The F# compiler sometimes adds a numeric suffix. Remove it because it's not deterministic.
             // See https://github.com/fable-compiler/Fable/issues/2869#issuecomment-1169574962
             if fsRef.IsCompilerGenerated then Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
             else fsRef.CompiledName
+
         let sanitizedName =
             match com.Options.Language with
             | Python ->
@@ -2037,13 +2044,13 @@ module Util =
                 else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
             getField callee info.name |> makeCall r typ callInfo
 
-    let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) =
+    let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =
             if info.DeclaringEntityFullName.StartsWith("Fable.Core.") then
                 $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
             else
                 com.WarnOnlyOnce("Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs.")
-                $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported by Fable"
+                $"""{info.DeclaringEntityFullName}.{info.CompiledName}{if Option.isSome thisArg then "" else " (static)"} is not supported by Fable"""
         msg |> addErrorAndReturnNull com ctx.InlinePath r
 
     let (|Replaced|_|) (com: IFableCompiler) (ctx: Context) r typ (callInfo: Fable.CallInfo)
@@ -2078,7 +2085,7 @@ module Util =
                 match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
                 | Some e -> Some e
                 | None when info.IsInterface -> callAttachedMember com r typ callInfo ent memb |> Some
-                | None -> failReplace com ctx r info |> Some
+                | None -> failReplace com ctx r info callInfo.ThisArg |> Some
         | _ -> None
 
     let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =

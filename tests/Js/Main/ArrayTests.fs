@@ -1157,4 +1157,15 @@ let tests =
         throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
         throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
 
+    testCase "Array.compareWith works" <| fun () -> // See #2961
+        let a = [|1;3|]
+        let b = [|1;2;3|]
+        // compares lengths first, then elements
+        let c1 = a < b
+        let c2 = compare a b
+        // should compare elements first, then lengths
+        let c3 = Array.compareWith compare a b
+        equal c1 true
+        equal c2 -1
+        equal c3 1
   ]

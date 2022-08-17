@@ -487,7 +487,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
     | Array(t,_) ->
         let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number(Int32, NumberInfo.Empty), [f; left; right], ?loc=r)
+        // Note Array.compareWith doesn't check the length first, see #2961
+        Helper.LibCall(com, "Array", "compareTo", Number(Int32, NumberInfo.Empty), [f; left; right], ?loc=r)
     | List _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
     | Tuple _ ->
@@ -1725,8 +1726,10 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
-let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
+    | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
+    | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
@@ -1754,10 +1757,14 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
     | "FoldBack", [folder; opt; state] ->
         Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("DefaultValue" | "OrElse"), _ ->
+    | "DefaultValue", _ ->
         Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
-    | ("DefaultWith" | "OrElseWith"), _ ->
+    | "DefaultWith", _ ->
         Helper.LibCall(com, "Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
+    | "OrElse", _ ->
+        Helper.LibCall(com, "Option", "orElse", t, List.rev args, ?loc=r) |> Some
+    | "OrElseWith", _ ->
+        Helper.LibCall(com, "Option", "orElseWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
     | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
         let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
@@ -2934,8 +2941,8 @@ let private replacedModules =
     Types.queue, bclType
     Types.iset, hashSets
     Types.idisposable, disposables
-    Types.option, options
-    Types.valueOption, options
+    Types.option, options false
+    Types.valueOption, options true
     "System.Nullable`1", nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
@@ -3118,7 +3125,7 @@ let tryType = function
         Some(getNumberFullName false kind info, f, [])
     | String -> Some(Types.string, strings, [])
     | Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option(genArg, _) -> Some(Types.option, options, [genArg])
+    | Option(genArg, isStruct) -> Some(Types.option, options isStruct, [genArg])
     | Array(genArg,_) -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->

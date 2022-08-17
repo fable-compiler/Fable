@@ -24,6 +24,12 @@ type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 type Test(i: int) =
       override __.ToString() = string(i + i)
 
+type B() =
+      let mutable a = 5
+      override x.ToString() =
+            a <- a + 1
+            $"a=%O{a}"
+
 let spr fmt =
     let fmt = Printf.StringFormat<_>(fmt)
     sprintf fmt
@@ -278,6 +284,11 @@ let tests =
             @$"\{4}" |> equal @"\4"
             @$"\{4}".Length |> equal 2
 
+      testCase "%O in interpolated strings works recursively" <| fun () -> // See #3078
+            let b = B()
+            $"b=(%O{b})" |> equal "b=(a=6)"
+            $"%O{b}%O{b}" |> equal "a=7a=8"
+
       testCase "sprintf \"%A\" with lists works" <| fun () ->
             let xs = ["Hi"; "Hello"; "Hola"]
             (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
@@ -381,6 +392,12 @@ let tests =
             String.Format(CultureInfo.InvariantCulture, "{0:0,0}", 343235354M) |> equal "343,235,354"
             String.Format(CultureInfo.InvariantCulture, "{0:#}", 12343235354M) |> equal "12343235354"
             String.Format(CultureInfo.InvariantCulture, "{0:0}", 12343235354M) |> equal "12343235354"
+
+      testCase "String.Format trims trailing zeroes when using # placeholder" <| fun () -> // Fix #2950
+            String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", -6789.5688) |> equal "-6,789.5688"
+            String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", 6789.5688) |> equal "6,789.5688"
+            String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", -6789.5688) |> equal "-0,000,006,789.56880000"
+            String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", 6789.5688) |> equal "0,000,006,789.56880000"
 
       testCase "ToString formatted works with decimals" <| fun () -> // See #2276
           let decimal = 78.6M

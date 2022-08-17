@@ -1755,7 +1755,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
                 | None ->
                     "Unexpected, missing attached call in unresolved replace call"
                     |> addErrorAndReturnNull com ctx.InlinePath r
-            | None -> failReplace com ctx r callInfo
+            | None -> failReplace com ctx r callInfo thisArg
 
 type private AttachedMembers = {|
     NonMangledNames: HashSet<string>

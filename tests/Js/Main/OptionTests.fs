@@ -59,6 +59,8 @@ let tests =
     testCase "Option.orElse works" <| fun () ->
         Some 5 |> Option.orElse (Some 4) |> equal (Some 5)
         None |> Option.orElse (Some "foo") |> equal (Some "foo")
+        Some None |> Option.orElse (Some (Some "foo")) |> equal (Some None)
+        Some (Some "foo") |> Option.orElse (Some (Some "bar")) |> equal (Some (Some "foo"))
 
     testCase "Option.defaultWith works" <| fun () ->
         Some 5 |> Option.defaultWith (fun () -> 4) |> equal 5
@@ -67,6 +69,8 @@ let tests =
     testCase "Option.orElseWith works" <| fun () ->
         Some 5 |> Option.orElseWith (fun () -> Some 4) |> equal (Some 5)
         None |> Option.orElseWith (fun () -> Some "foo") |> equal (Some "foo")
+        Some None |> Option.orElseWith (fun () -> Some (Some "foo")) |> equal (Some None)
+        Some (Some "foo") |> Option.orElseWith (fun () -> Some (Some "bar")) |> equal (Some (Some "foo"))
 
     testCase "Option.isSome/isNone works" <| fun () ->
         let o1 = None

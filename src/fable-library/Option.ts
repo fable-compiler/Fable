@@ -90,6 +90,14 @@ export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T): T {
   return (opt != null) ? value(opt) : defThunk();
 }
 
+export function orElse<T>(opt: Option<T>, ifNone: Option<T>): Option<T> {
+  return opt == null ? ifNone : opt;
+}
+
+export function orElseWith<T>(opt: Option<T>, ifNoneThunk: () => Option<T>): Option<T> {
+  return opt == null ? ifNoneThunk() : opt;
+}
+
 export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>): Option<T> {
   return (opt != null) ? (predicate(value(opt)) ? opt : undefined) : opt;
 }
