@@ -1579,7 +1579,9 @@ module Identifiers =
 
         let isMutable =
             match com.Options.Language with
-            | Rust -> fsRef.IsMutable || isByRefValue fsRef
+            | Rust -> (fsRef.IsMutable || isByRefValue fsRef) &&
+                        // for Rust, make the compiler generated copies of structs non-mutable
+                        not (fsRef.IsCompilerGenerated && fsRef.CompiledName = "copyOfStruct")
             | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
