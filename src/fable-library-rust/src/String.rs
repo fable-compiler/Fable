@@ -30,8 +30,8 @@ pub mod String_ {
     pub fn toNativeInt (s: string) -> isize { s.parse::<isize>().unwrap() }
     pub fn toUNativeInt (s: string) -> usize { s.parse::<usize>().unwrap() }
 
-    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
     pub fn toBoolean (s: string) -> bool { s.parse::<bool>().unwrap() }
+    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
 
     pub fn fromCharCode(code: u32) -> char {
         unsafe { core::char::from_u32_unchecked(code) }
