@@ -40,6 +40,7 @@ class SupportsLessThan(Protocol):
 
 _T = TypeVar("_T")
 _T_in = TypeVar("_T_in", contravariant=True)
+_T_out = TypeVar("_T_out", covariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
@@ -51,6 +52,12 @@ class ObjectDisposedException(Exception):
 
 
 class IDisposable(ABC):
+    """IDisposable interface.
+
+    Note currently not a protocol since it also impmelents resource
+    management and needs to be inherited from.
+    """
+
     __slots__ = ()
 
     @abstractmethod
@@ -108,10 +115,10 @@ class AnonymousDisposable(IDisposable):
         return self
 
 
-class IEquatable(Protocol):
+class IEquatable(Generic[_T_in], Protocol):
     @abstractmethod
-    def __eq__(self, other: Any) -> bool:
-        return NotImplemented
+    def __eq__(self, other: _T_in) -> bool:
+        raise NotImplementedError
 
     @abstractmethod
     def __hash__(self) -> int:
@@ -128,7 +135,17 @@ class IComparable(IEquatable, Protocol):
         raise NotImplementedError
 
 
-class IComparer(Generic[_T_in], Protocol):
+class IComparable_1(Generic[_T_in], IEquatable, Protocol):
+    @abstractmethod
+    def __cmp__(self, __other: _T_in) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __lt__(self, other: Any) -> bool:
+        raise NotImplementedError
+
+
+class IComparer(Protocol):
     """Defines a method that a type implements to compare two objects.
 
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
@@ -140,14 +157,60 @@ class IComparer(Generic[_T_in], Protocol):
         ...
 
 
-class IEqualityComparer(Generic[_T]):
-    __slots__ = ()
+class IComparer_1(Generic[_T_in], Protocol):
+    """Defines a method that a type implements to compare two objects.
 
-    def Equals(self, __y: _T) -> bool:
-        return self == __y
+    https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
+    """
+
+    @property
+    @abstractmethod
+    def Compare(self) -> Callable[[_T_in, _T_in], int]:
+        ...
+
+
+class IEqualityComparer(Protocol):
+    def Equals(self, __x: _T_in, __y: _T_in) -> bool:
+        return self.System_Collections_IEqualityComparer_Equals541DA560(__x, __y)
 
     def GetHashCode(self) -> int:
-        return hash(self)
+        return self.System_Collections_IEqualityComparer_GetHashCode4E60E31B()
+
+    @abstractmethod
+    def System_Collections_IEqualityComparer_Equals541DA560(
+        self, x: Any = None, y: Any = None
+    ) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(
+        self, x_1: Any = None
+    ) -> int:
+        raise NotImplementedError
+
+
+class IEqualityComparer_1(Generic[_T_in], Protocol):
+    def Equals(self, __x: _T_in, __y: _T_in) -> bool:
+        raise NotImplementedError
+
+    def GetHashCode(self) -> int:
+        raise NotImplementedError
+
+
+class IStructuralEquatable(Protocol):
+    @abstractmethod
+    def Equals(self, other: Any, comparer: IEqualityComparer) -> bool:
+        return NotImplemented
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        raise NotImplementedError
+
+
+class IStructuralComparable(Protocol):
+    @abstractmethod
+    def __cmp__(self, other: Any, comparer: IComparer) -> int:
+        raise NotImplementedError
 
 
 class DateKind(IntEnum):

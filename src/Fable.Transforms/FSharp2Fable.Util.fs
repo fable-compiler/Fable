@@ -1979,7 +1979,7 @@ module Util =
             | Types.ienumerableGeneric
             // These are used for injections
             | Types.comparer
-            | Types.equalityComparer -> false
+            | Types.equalityComparerGeneric -> false
             | Types.icomparable -> false
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true

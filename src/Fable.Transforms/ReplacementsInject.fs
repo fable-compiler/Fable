@@ -14,13 +14,13 @@ let fableReplacementsModules =
       "mapFold", (Types.arrayCons, 2)
       "mapFoldBack", (Types.arrayCons, 2)
       "concat", (Types.arrayCons, 0)
-      "contains", (Types.equalityComparer, 0)
+      "contains", (Types.equalityComparerGeneric, 0)
       "collect", (Types.arrayCons, 1)
-      "contains", (Types.equalityComparer, 0)
+      "contains", (Types.equalityComparerGeneric, 0)
       "singleton", (Types.arrayCons, 0)
-      "indexOf", (Types.equalityComparer, 0)
+      "indexOf", (Types.equalityComparerGeneric, 0)
       "initialize", (Types.arrayCons, 0)
-      "removeInPlace", (Types.equalityComparer, 0)
+      "removeInPlace", (Types.equalityComparerGeneric, 0)
       "replicate", (Types.arrayCons, 0)
       "scan", (Types.arrayCons, 1)
       "scanBack", (Types.arrayCons, 1)
@@ -47,7 +47,7 @@ let fableReplacementsModules =
       "transpose", (Types.arrayCons, 0)
     ]
     "List", Map [
-      "contains", (Types.equalityComparer, 0)
+      "contains", (Types.equalityComparerGeneric, 0)
       "sort", (Types.comparer, 0)
       "sortBy", (Types.comparer, 1)
       "sortDescending", (Types.comparer, 0)
@@ -62,7 +62,7 @@ let fableReplacementsModules =
       "averageBy", ("Fable.Core.IGenericAverager`1", 1)
     ]
     "Seq", Map [
-      "contains", (Types.equalityComparer, 0)
+      "contains", (Types.equalityComparerGeneric, 0)
       "sort", (Types.comparer, 0)
       "sortBy", (Types.comparer, 1)
       "sortDescending", (Types.comparer, 0)
@@ -77,11 +77,11 @@ let fableReplacementsModules =
       "averageBy", ("Fable.Core.IGenericAverager`1", 1)
     ]
     "Seq2", Map [
-      "distinct", (Types.equalityComparer, 0)
-      "distinctBy", (Types.equalityComparer, 1)
-      "except", (Types.equalityComparer, 0)
-      "countBy", (Types.equalityComparer, 1)
-      "groupBy", (Types.equalityComparer, 1)
+      "distinct", (Types.equalityComparerGeneric, 0)
+      "distinctBy", (Types.equalityComparerGeneric, 1)
+      "except", (Types.equalityComparerGeneric, 0)
+      "countBy", (Types.equalityComparerGeneric, 1)
+      "groupBy", (Types.equalityComparerGeneric, 1)
     ]
     "Set", Map [
       "FSharpSet__Map", (Types.comparer, 1)

@@ -846,32 +846,35 @@ module Annotation =
 
             fableModuleAnnotation com ctx "async_builder" "Async" resolved, stmts
         | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs
-        | Types.icomparable, _ ->
-            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
-            fableModuleAnnotation com ctx "util" "IComparable" [ resolved ], stmts
+        | Types.icomparable, _ -> libValue com ctx "util" "IComparable", []
+        | Types.iStructuralEquatable, _ -> libValue com ctx "util" "IStructuralEquatable", []
+        | Types.iStructuralComparable, _ -> libValue com ctx "util" "IStructuralComparable", []
         | Types.comparer, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-            fableModuleAnnotation com ctx "util" "IComparer" resolved, stmts
+            fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
         | Types.equalityComparer, _ ->
+            libValue com ctx "util" "IEqualityComparer", []
+        | Types.equalityComparerGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
-            fableModuleAnnotation com ctx "util" "IEqualityComparer" [ resolved ], stmts
+            fableModuleAnnotation com ctx "util" "IEqualityComparer_1" [ resolved ], stmts
         | Types.ienumerator, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEnumerator" [ resolved ], stmts
         | Types.ienumeratorGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IEnumerator" resolved, stmts
         | Types.ienumerable, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEnumerable" [ resolved ], stmts
         | Types.ienumerableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IEnumerable" resolved, stmts
+        | Types.iequatableGeneric, _ ->
+            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            fableModuleAnnotation com ctx "util" "IEquatable" [ resolved ], stmts
+        | Types.icomparableGeneric, _ ->
+            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            fableModuleAnnotation com ctx "util" "IComparable_1" resolved, stmts
         | Types.icollection, _
         | Types.icollectionGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
@@ -1733,12 +1736,12 @@ module Util =
 
             Statement.functionDef (name, args, body, decorators, returns = returnType)
 
-        let interfaces =
+        let interfaces, stmts =
             match typ with
-            | Fable.Any -> [] // Don't inherit from Any
+            | Fable.Any -> [], [] // Don't inherit from Any
             | _ ->
-                let ta, _ = typeAnnotation com ctx None typ
-                [ ta ]
+                let ta, stmts = typeAnnotation com ctx None typ
+                [ ta ], stmts
 
         let members =
             members
@@ -1783,9 +1786,9 @@ module Util =
 
         let name = Helpers.getUniqueIdentifier "ObjectExpr"
 
-        let stmt = Statement.classDef (name, body = classBody, bases = interfaces @ [])
+        let stmt = Statement.classDef (name, body = classBody, bases = interfaces)
 
-        Expression.call (Expression.name name), [ stmt ]
+        Expression.call (Expression.name name), [ stmt ] @ stmts
 
     let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo) : Expression list * Keyword list * Statement list =
         let paramsInfo, args =
@@ -3315,7 +3318,7 @@ module Util =
             Expression.call(dataClass, kw=[Keyword.keyword(Identifier "eq", Expression.constant false)
                                            Keyword.keyword(Identifier "repr", Expression.constant false)])
         ]
-        Statement.classDef (name, body = classBody, decoratorList = decorators, bases=bases @ generics)
+        [ Statement.classDef (name, body = classBody, decoratorList = decorators, bases=bases @ generics) ]
 
     let declareClassType
         (com: IPythonCompiler)
@@ -3345,24 +3348,35 @@ module Util =
             | [] -> [ Statement.ellipsis ]
             | _ -> body
 
-        let interfaces =
+
+        let interfaces, stmts =
+            // We only use a few interfaces as base classes. The rest is handled as Python protocols (PEP 544) to avoid a massive
+            // inheritance tree that will prevent Python of finding a consistent method resolution order.
+            let allowedInterfaces = ["IDisposable"]
+
             ent.AllInterfaces
             |> List.ofSeq
-            |> List.map (fun int -> int.Entity.FullName)
+            |> List.filter (fun int ->
+                let name = Helpers.removeNamespace(int.Entity.FullName)
+                allowedInterfaces |> List.contains name)
+            |> List.map (fun int ->
+                let genericArgs =
+                    match int.GenericArgs with
+                    | [ Fable.DeclaredType({FullName=fullName}, genericArgs)] when Helpers.removeNamespace(fullName) = entName ->
+                        [Fable.Type.Any]
+                    | args -> args
+                let expr, stmts = makeEntityTypeAnnotation com ctx int.Entity genericArgs None
+                expr, stmts)
+            |> Helpers.unzipArgs
+
+        // printfn "infterfaces: %A" interfaces
 
         let bases =
             baseExpr
             |> Option.toList
-            |> (fun bases ->
-                match interfaces with
-                // Add IDisposable as ABC.
-                | xs when List.contains "System.IDisposable" xs ->
-                    let iDisposable = libValue com ctx "util" "IDisposable"
-                    iDisposable :: bases
-                | _ -> bases)
 
         let name = com.GetIdentifier(ctx, entName)
-        Statement.classDef (name, body = classBody, bases = bases @ generics)
+        stmts @ [Statement.classDef (name, body = classBody, bases = bases @ interfaces @ generics)]
 
     let createSlotsForRecordType (com: IPythonCompiler) ctx (classEnt: Fable.Entity) =
         let strFromIdent (ident: Identifier) = ident.Name
@@ -3422,7 +3436,7 @@ module Util =
             stmts @ stmts'
 
         stmts
-        @ [ typeDeclaration ] @ reflectionDeclaration
+        @ typeDeclaration @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body =
         let args, body', returnType =
@@ -3926,7 +3940,7 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
-                //printfn "GetImportExpr: %A" (moduleName, name)
+                // printfn "GetImportExpr: %A" (moduleName, name)
                 let cachedName = moduleName + "::" + defaultArg name "module"
 
                 match imports.TryGetValue(cachedName) with
