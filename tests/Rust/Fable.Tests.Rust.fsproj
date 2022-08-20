@@ -16,6 +16,7 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- <Compile Include="tests/common/Aether.fs" /> -->
     <Compile Include="tests/common/Util.fs" />
     <Compile Include="tests/common/Interfaces.fs" />
     <Compile Include="tests/common/Records.fs" />
@@ -31,7 +32,7 @@
     <Compile Include="tests/src/ClosureTests.fs" />
     <!-- <Compile Include="tests/src/ComparisonTests.fs" /> -->
     <Compile Include="tests/src/ControlFlowTests.fs" />
-    <!-- <Compile Include="tests/src/ConvertTests.fs" /> -->
+    <Compile Include="tests/src/ConvertTests.fs" />
     <!-- <Compile Include="tests/src/CustomOperatorTests.fs" /> -->
     <!-- <Compile Include="tests/src/DateTimeOffsetTests.fs" /> -->
     <Compile Include="tests/src/DateTimeTests.fs" />

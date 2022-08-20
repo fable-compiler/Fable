@@ -57,31 +57,36 @@ let ``Integer division doesn't produce floats`` () =
 let ``Infix modulo can be generated`` () =
     4 % 3 |> equal 1
 
-// [<Fact>]
-// let ``Math.DivRem works with ints`` () =
-//     Math.DivRem(5, 2) |> equal (2, 1)
-//     Math.DivRem(4, 2) |> equal (2, 0)
+[<Fact>]
+let ``Math.DivRem works with bytes`` () =
+    Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
+    Math.DivRem(4y, 2y) |> equal struct (2y, 0y)
 
-// [<Fact>]
-// let ``Math.DivRem works with ints and ref`` () =
-//     let rem = ref -1
-//     Math.DivRem(5, 2, rem) |> equal 2
-//     rem.Value |> equal 1
-//     Math.DivRem(4, 2, rem) |> equal 2
-//     rem.Value |> equal 0
+[<Fact>]
+let ``Math.DivRem works with ints`` () =
+    Math.DivRem(5, 2) |> equal struct (2, 1)
+    Math.DivRem(4, 2) |> equal struct (2, 0)
 
-// [<Fact>]
-// let ``Math.DivRem works with longs`` () =
-//     Math.DivRem(5L, 2L) |> equal (2L, 1L)
-//     Math.DivRem(4L, 2L) |> equal (2L, 0L)
+[<Fact>]
+let ``Math.DivRem works with longs`` () =
+    Math.DivRem(5L, 2L) |> equal struct (2L, 1L)
+    Math.DivRem(4L, 2L) |> equal struct (2L, 0L)
 
-// [<Fact>]
-// let ``Math.DivRem works with longs and ref`` () =
-//     let rem = ref -1L
-//     Math.DivRem(5L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 1L
-//     Math.DivRem(4L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 0L
+[<Fact>]
+let ``Math.DivRem works with ints and outref`` () =
+    let mutable rem = -1
+    Math.DivRem(5, 2, &rem) |> equal 2
+    rem |> equal 1
+    Math.DivRem(4, 2, &rem) |> equal 2
+    rem |> equal 0
+
+[<Fact>]
+let ``Math.DivRem works with longs and outref`` () =
+    let mutable rem = -1L
+    Math.DivRem(5L, 2L, &rem) |> equal 2L
+    rem |> equal 1L
+    Math.DivRem(4L, 2L, &rem) |> equal 2L
+    rem |> equal 0L
 
 [<Fact>]
 let ``Evaluation order is preserved by generated code`` () =
@@ -855,3 +860,39 @@ let ``Long integers comparison works`` () =
 //     formatEuro 0.020M |> equal "0,02 €"
 //     formatEuro 0.20M |> equal "0,20 €"
 //     formatEuro 2.0M |> equal "2,00 €"
+
+module UnitTests =
+    type [<Measure>] m
+    type [<Measure>] s
+    type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u> with
+
+        static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
+        static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
+
+    [<Struct>]
+    type Vector2R<[<Measure>] 'u> = {
+        x: float32<'u>
+        y: float32<'u>
+    } with
+        static member inline ( + ) (a, b) = { x = a.x + b.x; y = a.y + b.y }
+
+    let square (x: float<'a>) = x * x
+    [<Fact>]
+    let ``can square a unit`` () =
+        let d = 3.<m>
+        let dSquared = square d
+        dSquared |> equal 9.<m^2>
+
+    [<Fact>]
+    let ``Can add two union vectors with same units but remove generics in output`` () =
+        let a = Vector2(2.<m>, 1.<m>)
+        let b = Vector2(3.<m>, 2.<m>)
+        let res = a + b
+        equal (Vector2(5.<m> ,3.<m>)) res
+
+    [<Fact>]
+    let ``Can add two record vectors with same units but remove generics in output`` () =
+        let a = { x = 2f<m>; y = 1f<m> }
+        let b = { x = 3f<m>; y = 1f<m> }
+        let res = a + b
+        equal { x = 5f<m>; y = 2f<m> } res

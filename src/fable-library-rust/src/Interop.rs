@@ -1,7 +1,7 @@
 pub mod ListExt {
-    // use std::ops::Deref;
+    // use core::ops::Deref;
     use crate::List_::{cons, mkList, reverse, List};
-    use crate::Native_::seq_to_iter;
+    use crate::Native_::{seq_to_iter, Vec};
     use crate::Seq_::ofList;
 
     impl<T: Clone> List<T> {
@@ -63,8 +63,8 @@ pub mod ListExt {
 }
 
 pub mod ArrayExt {
-    // use std::ops::Deref;
-    use crate::Native_::{self, array};
+    // use core::ops::Deref;
+    use crate::Native_::{self, array, Vec};
 
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct Array<T: Clone + 'static>(Native_::Array<T>);
@@ -104,8 +104,8 @@ pub mod ArrayExt {
 }
 
 pub mod SetExt {
-    // use std::ops::Deref;
-    use crate::Native_::seq_to_iter;
+    // use core::ops::Deref;
+    use crate::Native_::{seq_to_iter, Vec};
     use crate::Set_::{add, empty, equals, toSeq, Set};
 
     impl<T: Clone + PartialOrd> Set<T> {
@@ -165,9 +165,9 @@ pub mod SetExt {
 }
 
 pub mod MapExt {
-    // use std::ops::Deref;
+    // use core::ops::Deref;
     use crate::Map_::{add, empty, equals, iterate, toSeq, Map};
-    use crate::Native_::seq_to_iter;
+    use crate::Native_::{seq_to_iter, Vec};
 
     impl<K: Clone + PartialOrd, V: Clone> Map<K, V> {
         //todo - non-consuming iter by ref

@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
 
+#[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{array, Array, Lrc, RefCell};
-    use crate::String_::{string};
+    use crate::Native_::{array, Array, Lrc, RefCell, Vec};
+    use crate::String_::{string, toString as toString_1};
 
     use rust_decimal::prelude::*;
     pub use rust_decimal::Decimal as decimal;
@@ -41,25 +42,25 @@ pub mod Decimal_ {
     // pub fn isEvenInteger(x: Decimal) -> bool { false } //TODO:
     // pub fn isCanonical(x: Decimal) -> bool { false } //TODO:
 
-    pub fn toSByte (x: Decimal) -> i8 { x.to_i8().unwrap() }
-    pub fn toByte (x: Decimal) -> u8 { x.to_u8().unwrap() }
+    pub fn toInt8 (x: Decimal) -> i8 { x.to_i8().unwrap() }
+    pub fn toUInt8 (x: Decimal) -> u8 { x.to_u8().unwrap() }
     pub fn toInt16 (x: Decimal) -> i16 { x.to_i16().unwrap() }
     pub fn toUInt16 (x: Decimal) -> u16 { x.to_u16().unwrap() }
     pub fn toInt32 (x: Decimal) -> i32 { x.to_i32().unwrap() }
     pub fn toUInt32 (x: Decimal) -> u32 { x.to_u32().unwrap() }
     pub fn toInt64 (x: Decimal) -> i64 { x.to_i64().unwrap() }
     pub fn toUInt64 (x :Decimal) -> u64 { x.to_u64().unwrap() }
-    pub fn toSingle (x: Decimal) -> f32 { x.to_f32().unwrap() }
-    pub fn toDouble (x: Decimal) -> f64 { x.to_f64().unwrap() }
+    pub fn toFloat32 (x: Decimal) -> f32 { x.to_f32().unwrap() }
+    pub fn toFloat64 (x: Decimal) -> f64 { x.to_f64().unwrap() }
 
     pub fn toBoolean (x: Decimal) -> bool { !x.is_zero() }
 
     pub fn toChar (x: Decimal) -> char {
-        std::char::from_u32(x.to_u32().unwrap()).unwrap()
+        core::char::from_u32(x.to_u32().unwrap()).unwrap()
     }
 
     pub fn toString (x: Decimal) -> string {
-        string(&x.to_string())
+        toString_1(&x)
     }
 
     pub fn tryParse(s: string, res: &RefCell<Decimal>) -> bool {
@@ -115,7 +116,7 @@ pub mod Decimal_ {
         let scale = du.scale as i32;
         let signExp =
             if du.negative { -(scale << 16) } else { scale << 16 };
-        array(vec![low, mid, high, signExp])
+        array(Vec::from([low, mid, high, signExp]))
     }
 
     pub fn round(x: Decimal) -> Decimal { x.round() }

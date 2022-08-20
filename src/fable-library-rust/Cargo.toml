@@ -5,14 +5,17 @@ edition = "2021"
 
 [features]
 atomic = []
+no_std = ["dep:hashbrown"]
 threaded = ["atomic", "dep:futures"]
 guid = ["dep:uuid"]
 date = ["dep:chrono"]
-default = ["guid", "date"]
+decimal = ["dep:rust_decimal"]
+default = ["guid", "date", "decimal"]
 
 [dependencies]
 startup = { version = "0.1.1" }
-rust_decimal = { version = "1.25.0", features = ["maths"], default-features = false }
+hashbrown = { version = "0.12", optional = true }
+rust_decimal = { version = "1.25.0", features = ["maths"], default-features = false, optional = true }
 futures = { version = "0.3.21", features = ["executor", "thread-pool"], optional = true }
 uuid = { version = "1.1.2", features = ["v4"], default-features = false, optional = true }
 chrono = { version = "0.4.22", optional = true}

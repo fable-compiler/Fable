@@ -658,12 +658,14 @@ let splitAt (index: int) (source: 'T[]): 'T[] * 'T[] =
         invalidArg "index" SR.indexOutOfBounds
     getSubArray source 0 index, getSubArray source index (source.Length - index)
 
+[<CompiledName("sum")>]
 let inline sum (source: 'T[]): 'T =
     let mutable acc = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
         acc <- acc + source.[i]
     acc
 
+[<CompiledName("sumBy")>]
 let inline sumBy (projection: 'T -> 'U) (source: 'T[]): 'U =
     let mutable acc = LanguagePrimitives.GenericZero
     for i = 0 to source.Length - 1 do
@@ -682,6 +684,7 @@ let minBy (projection: 'T -> 'U) (xs: 'T[]): 'T =
 let min (xs: 'T[]): 'T =
     reduce (fun x y -> if x < y then x else y) xs
 
+[<CompiledName("average")>]
 let inline average (source: 'T[]): 'T =
     if isEmpty source then
         invalidArg "array" SR.arrayWasEmpty
@@ -690,6 +693,7 @@ let inline average (source: 'T[]): 'T =
         total <- total + source.[i]
     LanguagePrimitives.DivideByInt total source.Length
 
+[<CompiledName("averageBy")>]
 let inline averageBy (projection: 'T -> 'U) (source: 'T[]): 'U =
     if isEmpty source then
         invalidArg "array" SR.arrayWasEmpty

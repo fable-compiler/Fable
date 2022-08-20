@@ -5,13 +5,17 @@ mod Mutable;
 mod Lazy;
 
 pub mod Native_ {
+    extern crate alloc;
 
     // re-export at module level
-    pub use std::any::{Any, TypeId};
-    pub use std::boxed::Box as Box_;
-    pub use std::rc::Rc;
-    pub use std::sync::Arc;
-    pub use std::thread_local;
+    pub use alloc::boxed::Box as Box_;
+    pub use alloc::rc::Rc;
+    pub use alloc::sync::Arc;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec::Vec;
+
+    pub use core::any::{Any, TypeId};
+
     pub use startup::on_startup;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
@@ -22,9 +26,14 @@ pub mod Native_ {
     #[cfg(feature = "atomic")]
     pub type Lrc<T> = Arc<T>;
 
+    #[cfg(not(feature = "no_std"))]
+    use std::collections;
+    #[cfg(feature = "no_std")]
+    use hashbrown as collections;
+
     pub type MutArray<T> = MutCell<Vec<T>>;
-    pub type MutHashSet<T> = MutCell<std::collections::HashSet<T>>;
-    pub type MutHashMap<K, V> = MutCell<std::collections::HashMap<K, V>>;
+    pub type MutHashSet<T> = MutCell<collections::HashSet<T>>;
+    pub type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
     pub type Array<T> = Lrc<MutArray<T>>;
     pub type HashSet<T> = Lrc<MutHashSet<T>>;
@@ -43,11 +52,15 @@ pub mod Native_ {
     pub fn ignore<T>(arg: &T) -> () {}
 
     pub fn defaultOf<T>() -> T {
-        unsafe { std::mem::zeroed() } // will panic on Rc/Arc/Box
+        unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
     pub fn getZero<T: Default>() -> T {
         Default::default()
+    }
+
+    pub fn referenceEquals<T>(left: &T, right: &T) -> bool {
+        core::ptr::eq(left, right)
     }
 
     pub fn comparer<T: Clone>(comp: Lrc<impl Fn(T, T) -> i32>) -> impl Fn(&T, &T) -> Ordering {
@@ -103,7 +116,7 @@ pub mod Native_ {
     }
 
     pub fn arrayCreate<T: Clone>(count: &i32, value: &T) -> Array<T> {
-        array(vec![value.clone(); *count as usize])
+        array(alloc::vec![value.clone(); *count as usize])
     }
 
     pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {
@@ -123,7 +136,7 @@ pub mod Native_ {
                 None
             }
         };
-        std::iter::from_fn(next)
+        core::iter::from_fn(next)
     }
 
     pub fn iter_to_seq<T, I>(iter: I) -> seq<T>
@@ -142,15 +155,15 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     pub fn hashSetEmpty<T: Clone>() -> HashSet<T> {
-        mkRefMut(std::collections::HashSet::new())
+        mkRefMut(collections::HashSet::new())
     }
 
     pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet<T> {
-        mkRefMut(std::collections::HashSet::with_capacity(capacity as usize))
+        mkRefMut(collections::HashSet::with_capacity(capacity as usize))
     }
 
     pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet<T> {
-        mkRefMut(std::collections::HashSet::from_iter(a.iter().cloned()))
+        mkRefMut(collections::HashSet::from_iter(a.iter().cloned()))
     }
 
     pub fn hashSetEntries<T: Clone>(set: HashSet<T>) -> Array<T> {
@@ -162,16 +175,16 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     pub fn hashMapEmpty<K: Clone, V: Clone>() -> HashMap<K, V> {
-        mkRefMut(std::collections::HashMap::new())
+        mkRefMut(collections::HashMap::new())
     }
 
     pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
-        mkRefMut(std::collections::HashMap::with_capacity(capacity as usize))
+        mkRefMut(collections::HashMap::with_capacity(capacity as usize))
     }
 
     pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap<K, V> {
         let it = a.iter().map(|pair| pair.as_ref().clone());
-        mkRefMut(std::collections::HashMap::from_iter(it))
+        mkRefMut(collections::HashMap::from_iter(it))
     }
 
     pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 pub mod String_ {
-    use crate::Native_::{Array, Lrc, array};
+    use crate::Native_::{Array, Lrc, String, ToString, Vec, array};
 
     // -----------------------------------------------------------
     // Strings
@@ -11,6 +11,10 @@ pub mod String_ {
 
     pub fn string(s: &str) -> string {
         Lrc::from(s)
+    }
+
+    pub fn toString<T: ToString>(o: &T) -> string {
+        string(&o.to_string())
     }
 
     pub fn toInt8 (s: string) -> i8 { s.parse::<i8>().unwrap() }
@@ -26,8 +30,8 @@ pub mod String_ {
     pub fn toNativeInt (s: string) -> isize { s.parse::<isize>().unwrap() }
     pub fn toUNativeInt (s: string) -> usize { s.parse::<usize>().unwrap() }
 
-    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
     pub fn toBoolean (s: string) -> bool { s.parse::<bool>().unwrap() }
+    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
 
     pub fn fromCharCode(code: u32) -> char {
         unsafe { core::char::from_u32_unchecked(code) }
@@ -187,6 +191,10 @@ pub mod String_ {
                 substring2(s, start, count)
             },
         }
+    }
+
+    pub fn append(s1: string, s2: string) -> string {
+        string(&[s1.as_ref(), s2.as_ref()].concat())
     }
 
     pub fn insert(s: string, i: i32, v: string) -> string {
