@@ -175,11 +175,14 @@ module Python =
             member _.MakeImportPath(path) =
                 let relativePath parts =
                     let path =
+                        let mutable i = -1
                         parts
                         |> Array.choose (fun part ->
+                            i <- i + 1
                             if part = "." then None
                             elif part = ".." then Some ""
-                            else Some(normalizeFileName part)
+                            elif i = parts.Length - 1 then Some(normalizeFileName part)
+                            else Some part // Do not normalize dir names. See #3079
                         )
                         |> String.concat "."
                     if isLibrary then "." + path else path

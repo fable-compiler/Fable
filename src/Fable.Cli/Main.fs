@@ -132,11 +132,9 @@ module private Util =
                 let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
                 let fileName = IO.Path.GetFileName(file)
 
-                // Make sure all packages and modules (subdirs) we create within outDir are lower case (PEP8)
                 let modules =
                     absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length)
                         .Trim([|'/'|])
-                        .ToLowerInvariant()
                         .Split([|'/'|])
 
                 let modules =
@@ -144,6 +142,8 @@ module private Util =
                     | Naming.fableModules :: package :: modules, Some PY.Naming.sitePackages ->
                         // When building packages we generate Python snake_case module within the kebab-case package
                         let packageModule = package.Replace("-", "_")
+                        // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
+                        let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
                         Naming.fableModules :: package :: packageModule :: modules
                     | modules, _ -> modules
                     |> List.toArray
