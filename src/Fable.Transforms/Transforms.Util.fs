@@ -133,8 +133,8 @@ module Types =
     let [<Literal>] equalityComparer = "System.Collections.IEqualityComparer"
 
     // Types compatible with Inject attribute (fable library)
-    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"    
-    let [<Literal>] equalityComparerGeneric = "System.Collections.Generic.IEqualityComparer`1"                                       
+    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
+    let [<Literal>] equalityComparerGeneric = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.Cons`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
