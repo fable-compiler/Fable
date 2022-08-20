@@ -394,7 +394,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    let projOpts, projRefs, _msbuildProps =
+    let projOpts, sourceFiles, projRefs =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     // let targetFramework =
@@ -402,20 +402,20 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
-    let sourceFiles, otherOpts =
-        (projOpts.OtherOptions, ([], []))
-        ||> Array.foldBack (fun line (src, otherOpts) ->
+    let otherOpts =
+        (projOpts.OtherOptions, [])
+        ||> Array.foldBack (fun line otherOpts ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
-                src, otherOpts
+                otherOpts
             elif isUsefulOption line then
-                src, line::otherOpts
+                line::otherOpts
             elif line.StartsWith("-") then
-                src, otherOpts
+                otherOpts
             else
-                (Path.normalizeFullPath line)::src, otherOpts)
+                otherOpts) //(Path.normalizeFullPath line)::src, otherOpts)
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -437,18 +437,18 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projOpts, projRefs, _msbuildProps =
+    let projOpts, sourceFiles, projRefs =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
-    let sourceFiles, otherOpts =
-        (projOpts.OtherOptions, ([], []))
-        ||> Array.foldBack (fun line (src, otherOpts) ->
+    let otherOpts =
+        (projOpts.OtherOptions, [])
+        ||> Array.foldBack (fun line otherOpts ->
             if isUsefulOption line then
-                src, line::otherOpts
+                line::otherOpts
             elif line.StartsWith("-") then
-                src, otherOpts
+                otherOpts
             else
-                (Path.normalizeFullPath line)::src, otherOpts)
+                otherOpts) // (Path.normalizeFullPath line)::src, otherOpts)
 
     { ProjectFile = projFile
       SourceFiles = sourceFiles
