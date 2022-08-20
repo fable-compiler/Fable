@@ -176,9 +176,10 @@ module Optics =
         (fun x -> x),
         (fun x _ -> x)
 
-    /// Isomorphism between a boxed and unboxed type.
-    let box_<'a> : Isomorphism<obj,'a> =
-        unbox<'a>, box
+    // TODO: enable when obj support is better
+    // /// Isomorphism between a boxed and unboxed type.
+    // let box_<'a> : Isomorphism<obj,'a> =
+    //     unbox<'a>, box
 
     /// Lens to the first item of a tuple.
     let fst_ : Lens<('a * 'b),'a> =

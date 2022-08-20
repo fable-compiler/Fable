@@ -1957,11 +1957,6 @@ module Util =
                     mkCallExpr callee args
 
 (*
-    let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx false args with
-        | [] -> callFunction range applied []
-        | args -> (applied, args) ||> List.fold (fun e arg -> callFunction range e [arg])
-
     let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
@@ -2276,14 +2271,9 @@ module Util =
             optimizeTailCall com ctx range tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
-            callFunction com ctx range callee args
-        // let handler =
-        //     catch |> Option.map (fun (param, body) ->
-        //         CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
-        // let finalizer =
-        //     finalizer |> Option.map (transformBlock com ctx None)
-        // [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
-        //     ?handler=handler, ?finalizer=finalizer, ?loc=r)|]
+            match args with
+            | [] -> callFunction com ctx range callee args
+            | args -> (callee, args) ||> List.fold (fun c arg -> callFunction com ctx range c [arg])
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then
