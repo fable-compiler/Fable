@@ -193,7 +193,8 @@ module Python =
                         elif part = ".." then None
                         elif part = PY.Naming.sitePackages then Some("fable_library")
                         elif part = Naming.fableModules && (not isLibrary) then None
-                        else Some(normalizeFileName part)
+                        elif i = parts.Length - 1 then Some(normalizeFileName part)
+                        else Some part // Do not normalize dir names. See #3079
                     )
                     |> String.concat "."
 

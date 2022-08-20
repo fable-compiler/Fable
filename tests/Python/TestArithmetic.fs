@@ -397,13 +397,13 @@ let ``test Math.log10 works`` () =
 let ``test incr works`` () =
     let i = ref 5
     incr i
-    !i |> equal 6
+    i.Value |> equal 6
 
 [<Fact>]
 let ``test decr works`` () =
     let i = ref 5
     decr i
-    !i |> equal 4
+    i.Value |> equal 4
 
 [<Fact>]
 let ``test System.Random works`` () =

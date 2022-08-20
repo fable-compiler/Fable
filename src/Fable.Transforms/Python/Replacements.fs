@@ -770,7 +770,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | Some genArg ->
             match injectType with
             | Types.comparer -> args @ [ makeComparer com ctx genArg ]
-            | Types.equalityComparer -> args @ [ makeEqualityComparer com ctx genArg ]
+            | Types.equalityComparerGeneric -> args @ [ makeEqualityComparer com ctx genArg ]
             | Types.arrayCons ->
                 match genArg with
                 // We don't have a module for ResizeArray so let's assume the kind is MutableArray
