@@ -1,5 +1,4 @@
-﻿/// Adapted from https://github.com/fsharp/FsAutoComplete/blob/45bf4a7255f8856b0164f722a82a17108ae64981/src/FsAutoComplete.Core/ProjectCoreCracker.fs
-module Fable.Cli.ProjectCoreCracker
+﻿module Fable.Cli.ProjectCoreCracker
 
 open System
 open System.IO
@@ -11,7 +10,7 @@ let private projInfo additionalMSBuildProps (file: string) =
     let projDir = Path.GetDirectoryName file
 
     // The following 3 calls may? throw, any need to reformat/reraise errors?
-    // - Errors here are caught by retryGetCrackedProjects and the msg/error is lost.
+    // - IO errors from here are caught by retryGetCrackedProjects and the msg/error is lost.
     let toolsPath = Init.init (DirectoryInfo projDir) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
     let proj = loader.LoadProjects ([file], ["IsCrossTargetingBuild"], BinaryLogGeneration.Off) |> Seq.head
@@ -21,7 +20,7 @@ let private projInfo additionalMSBuildProps (file: string) =
             if p.Name = "IsCrossTargetingBuild"
             then Some (System.Boolean.Parse p.Value)
             else None)
-        |> Option.defaultValue false // property may not be present even if requested?
+        |> Option.defaultValue false // property is never present even if requested?
 
     let proj =
         if isCrossTargeting then
