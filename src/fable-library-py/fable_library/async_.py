@@ -3,7 +3,17 @@ import asyncio
 from asyncio import Future, ensure_future
 from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
-from typing import Any, Awaitable, Callable, Iterable, List, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from .async_builder import (
     Async,
@@ -15,6 +25,7 @@ from .async_builder import (
     protected_bind,
     protected_cont,
     protected_return,
+    singleton,
 )
 
 # F# generated code (from Choice.fs)
@@ -96,16 +107,24 @@ def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
 
 def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
     def delayed() -> Async[List[Optional[_T]]]:
-        async def sequence() -> List[Optional[_T]]:
-            results: List[Optional[_T]] = []
+        results: List[_T] = []
 
-            for c in computations:
-                result = await start_as_task(c)
-                results.append(result)
+        def _arrow20(_arg: Async[_T]) -> Async[None]:
+            cmp: Async[_T] = _arg
 
-            return results
+            def _arrow19(_arg_1: Optional[_T] = None) -> Async[None]:
+                result: _T = _arg_1
+                (results.append(result))
+                return singleton.Zero()
 
-        return await_task(sequence())
+            return singleton.Bind(cmp, _arrow19)
+
+        def _arrow21(__unit: Literal[None] = None) -> Async[List[_T]]:
+            return singleton.Return(results)
+
+        return singleton.Combine(
+            singleton.For(computations, _arrow20), singleton.Delay(_arrow21)
+        )
 
     return delay(delayed)
 
