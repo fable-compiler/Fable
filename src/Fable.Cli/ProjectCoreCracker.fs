@@ -1,16 +1,21 @@
 ﻿module Fable.Cli.ProjectCoreCracker
 
-open System
 open System.IO
 
-open FSharp.Compiler.CodeAnalysis
 open Ionide.ProjInfo
+
+// This gets the job done -- more data/fields can be added as needed.
+// Otherwise Ionide.ProjInfo.FCS could be useful, as this directly gives a FSharpProjectOptions
+type ProjectInfo =
+    { OtherOptions: string list
+      ReferencedProjects: string list
+      SourceFiles: string list }
 
 let private projInfo additionalMSBuildProps (file: string) =
     let projDir = Path.GetDirectoryName file
 
     // The following 3 calls may? throw, any need to reformat/reraise errors?
-    // - IO errors from here are caught by retryGetCrackedProjects and the msg/error is lost.
+    // - IO errors from here are caught by retryGetCrackedProjects and the msg/error is lost (until the retry limit is reached).
     let toolsPath = Init.init (DirectoryInfo projDir) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
     let proj = loader.LoadProjects ([file], ["IsCrossTargetingBuild"], BinaryLogGeneration.Off) |> Seq.head
@@ -41,24 +46,13 @@ let private projInfo additionalMSBuildProps (file: string) =
     //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
     //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
 
-    let projOptions: FSharpProjectOptions =
-        {
-            ProjectId = None
-            ProjectFileName = file
-            SourceFiles = [||]
-            OtherOptions = proj.OtherOptions |> Array.ofList
-            ReferencedProjects = [||] //p2pProjects |> Array.ofList
-            IsIncompleteTypeCheckEnvironment = false
-            UseScriptResolutionRules = false
-            LoadTime = DateTime.Now
-            UnresolvedReferences = None;
-            OriginalLoadReferences = []
-            Stamp = None
-        }
-
+    // p2p.ProjectFileName is absolute, p2p.RelativePath is relative
     let projRefs = proj.ReferencedProjects |> List.map (fun p2p -> p2p.ProjectFileName)
 
-    projOptions, proj.SourceFiles, projRefs
+    // All paths including ones in OtherOptions are absolute but not normalized?
+    { OtherOptions = proj.OtherOptions
+      ReferencedProjects = projRefs
+      SourceFiles = proj.SourceFiles }
 
 let GetProjectOptionsFromProjectFile configuration (file : string) =
     projInfo ["Configuration", configuration] file
