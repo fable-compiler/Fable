@@ -1,3 +1,13 @@
+### 4.0.0-snake-island-alpha-021
+
+* Rust, fixed curried apply, @ncave
+* Python, allow modules with uppercase letters, @dbrattli
+* Rust, added Math.DivRem support, @ncave
+* Rust, retain inlined funcs with CompiledName attr, @ncave
+* Python, fixes for extreme math values, @dbrattli
+* Rust, union fix for import prefixes, @alexswan10k
+* Rust, fixed build dependency for wasm32, @ncave
+
 ### 4.0.0-snake-island-alpha-020
 
 * Rust, added Display trait, @ncave
