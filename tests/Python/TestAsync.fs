@@ -262,7 +262,6 @@ let ``test Async.Sequential works`` () =
         result |> Seq.sum |> equal _aggregate
     } |> Async.RunSynchronously
 
-(*
 [<Fact>]
 let ``test Async.Sequential is lazy`` () =
     async {
@@ -281,7 +280,7 @@ let ``test Async.Sequential is lazy`` () =
 
         equal 3 x
     } |> Async.RunSynchronously
-*)
+
 [<Fact>]
 let ``test Interaction between Async and Task works`` () =
     async {
