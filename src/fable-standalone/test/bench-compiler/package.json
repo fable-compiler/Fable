@@ -27,7 +27,7 @@
     "benchmark-es": "node out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
 
     "compile-native": "dotnet publish -c Release -r win-x64",
-    "native": "cd . && \"bin/Release/net5.0/win-x64/native/bench-compiler\"",
+    "native": "cd . && \"bin/Release/net6.0/win-x64/native/bench-compiler\"",
     "build-native": "npm run native bench-compiler.fsproj out-node",
     "build-test-native": "npm run native ../../../../../fable-test/fable-test.fsproj out-test",
     "build-tests-native": "npm run native ../../../../tests/Js/Main/Fable.Tests.fsproj out-tests",
