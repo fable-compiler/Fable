@@ -38,6 +38,7 @@
     <Compile Include="Pipeline.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
+    <Content Include="RELEASE_NOTES.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
@@ -48,7 +49,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Framework" Version="17.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="NuGet.Frameworks" Version="6.2.1" ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Ionide.ProjInfo" Version="0.59.2" />
+    <PackageReference Include="Ionide.ProjInfo" Version="0.60.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
