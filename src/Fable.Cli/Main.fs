@@ -316,7 +316,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
             // compiled as part of the main project which might be a program (Exe) or library (Library).
             if common.EndsWith(Naming.fableModules) then
-                Some "Library"
+                Some OutputType.Library
             else
                 crackerResponse.OutputType
 
@@ -341,7 +341,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
         ProjectCracked(cliArgs, result, sourceFiles)
 
 type FableCompileResult = Result<
-    {| File: string; OutPath: string;  Logs: Log[]; InlineExprs: (string * InlineExpr)[]; WatchDependencies: string[] |},
+    {| File: string; OutPath: string; Logs: Log[]; InlineExprs: (string * InlineExpr)[]; WatchDependencies: string[] |},
     {| File: string; Exception: exn |}
 >
 
