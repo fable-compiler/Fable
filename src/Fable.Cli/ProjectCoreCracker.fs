@@ -1,10 +1,12 @@
-﻿module Fable.Cli.ProjectCoreCracker
+module Fable.Cli.ProjectCoreCracker
 
 open System.IO
 
 open Fable
+open Fable.AST
 
 open Ionide.ProjInfo
+open Ionide.ProjInfo.Types
 
 // This gets the job done -- more data/fields can be added as needed.
 // Otherwise Ionide.ProjInfo.FCS could be useful, as this directly gives a FSharpProjectOptions
@@ -14,11 +16,31 @@ type ProjectInfo =
       SourceFiles: string list
       OutputType: OutputType option }
 
+let private failWithFailedToLoadMessage = function
+    | WorkspaceProjectState.Failed (_project, reason) ->
+        let projFile, message =
+            match reason with
+            | GenericError (projFile, msg) -> projFile, msg
+            // these two cases are checked beforehand by Fable (except when --noRestore is given)
+            | ProjectNotRestored projFile -> projFile, "the project is not restored."
+            | ProjectNotFound projFile -> projFile, "the project file was not found."
+            // it seems like the following cases are currently unused by Ionide.ProjInfo
+            | LanguageNotSupported projFile -> projFile, "the project language is not supported."
+            | ProjectNotLoaded projFile -> projFile, "the project is not loaded."
+            | MissingExtraProjectInfos projFile -> projFile, "there is missing extra info."
+            | InvalidExtraProjectInfos (projFile, error) -> projFile, $"there is invalid extra info: '{error}'."
+            | ReferencesNotLoaded (projFile, referenceErrors) ->
+                let refs = referenceErrors |> Seq.map fst |> String.concat ", "
+                projFile, $"the following references are not loaded/have errors: {refs}"
+        Fable.FableError $"Failed to load project '{projFile}' because {message}" |> raise
+    | _ -> ()
+
 let private projInfo additionalMSBuildProps (projFile: string) =
     // The following 3 calls may? throw, any need to reformat/reraise errors?
     // - IO errors from here are caught by retryGetCrackedProjects and the msg/error is lost (until the retry limit is reached).
     let toolsPath = Init.init (DirectoryInfo <| Path.GetDirectoryName projFile) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
+    loader.Notifications.Add failWithFailedToLoadMessage
     let proj = loader.LoadProjects ([projFile], ["IsCrossTargetingBuild"], BinaryLogGeneration.Off) |> Seq.head
 
     let isCrossTargeting =
@@ -52,9 +74,9 @@ let private projInfo additionalMSBuildProps (projFile: string) =
 
     let outputType =
         match proj.ProjectOutputType with
-        | Types.Library -> Some OutputType.Library
-        | Types.Exe -> Some OutputType.Exe
-        | Types.Custom _ -> None // what to do here? defaults to library later
+        | Library -> Some OutputType.Library
+        | Exe -> Some OutputType.Exe
+        | Custom _ -> None // what to do here? defaults to library later
 
     // All paths including ones in OtherOptions are absolute but not normalized?
     { OtherOptions = proj.OtherOptions
