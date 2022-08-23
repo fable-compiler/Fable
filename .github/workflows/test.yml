@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ main, snake_island ]
+    branches: [ main, snake_island, Ionide-ProjInfo-Testing ]
   pull_request:
     branches: [ main, snake_island ]
 
@@ -17,7 +17,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
@@ -35,7 +35,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
@@ -56,7 +56,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '6.0.300'
 
       - name: Setup dotnet tools
         run: dotnet tool restore
@@ -93,7 +93,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
@@ -115,7 +115,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '6.0.300'
 
     - name: Setup Dart SDK
       uses: dart-lang/setup-dart@v1.3
