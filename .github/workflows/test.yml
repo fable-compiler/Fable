@@ -12,15 +12,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v2
       with:
         dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      uses: actions/setup-node@v3
 
     - name: Fable Tests
       run: dotnet fsi build.fsx test-js
@@ -30,15 +30,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v2
       with:
         dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      uses: actions/setup-node@v3
 
     - name: Fable Tests
       run: dotnet fsi build.fsx test-integration
@@ -51,10 +51,10 @@ jobs:
         python-version: [3.9, "3.10"]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: '6.0.300'
 
@@ -65,7 +65,7 @@ jobs:
       #   run: dotnet fantomas src/Fable.Transforms/Python --check
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -88,15 +88,15 @@ jobs:
         test: ["default", "threaded"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v2
       with:
         dotnet-version: '6.0.300'
 
     - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      uses: actions/setup-node@v3
 
     - name: Setup Rust toolchain
       uses: actions-rs/toolchain@v1
@@ -110,10 +110,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v2
       with:
         dotnet-version: '6.0.300'
 
