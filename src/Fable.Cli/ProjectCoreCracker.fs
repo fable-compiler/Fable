@@ -1,4 +1,4 @@
-module Fable.Cli.ProjectCoreCracker
+﻿module Fable.Cli.ProjectCoreCracker
 
 open System.IO
 
@@ -18,9 +18,11 @@ type ProjectInfo =
 
 let private failWithFailedToLoadMessage = function
     | WorkspaceProjectState.Failed (_project, reason) ->
+        // TODO see if the error was due to a locked file and
+        // raise a different exception to be caught by retryGetCrackedProjects
         let projFile, message =
             match reason with
-            | GenericError (projFile, msg) -> projFile, msg
+            | GenericError (projFile, msg) -> projFile, $"'{msg}'"
             // these two cases are checked beforehand by Fable (except when --noRestore is given)
             | ProjectNotRestored projFile -> projFile, "the project is not restored."
             | ProjectNotFound projFile -> projFile, "the project file was not found."
@@ -36,31 +38,10 @@ let private failWithFailedToLoadMessage = function
     | _ -> ()
 
 let private projInfo additionalMSBuildProps (projFile: string) =
-    // The following 3 calls may? throw, any need to reformat/reraise errors?
-    // - IO errors from here are caught by retryGetCrackedProjects and the msg/error is lost (until the retry limit is reached).
     let toolsPath = Init.init (DirectoryInfo <| Path.GetDirectoryName projFile) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
     loader.Notifications.Add failWithFailedToLoadMessage
-    let proj = loader.LoadProjects ([projFile], ["IsCrossTargetingBuild"], BinaryLogGeneration.Off) |> Seq.head
-
-    let isCrossTargeting =
-        proj.CustomProperties |> List.tryPick (fun p ->
-            if p.Name = "IsCrossTargetingBuild"
-            then Some (System.Boolean.Parse p.Value)
-            else None)
-        |> Option.defaultValue false // property is never present even if requested?
-
-    let proj =
-        if isCrossTargeting then
-            match proj.ProjectSdkInfo.TargetFrameworks with
-            | [] -> failwithf "Unexpected, found cross targeting but empty target frameworks list"
-            | (first :: _) ->
-                // Atm setting a preferenece is not supported in FSAC
-                // As workaround, lets choose the first of the target frameworks and use that
-                let loader = WorkspaceLoader.Create(toolsPath, ("TargetFramework", first) :: additionalMSBuildProps)
-                loader.LoadProjects ([projFile], [], BinaryLogGeneration.Off) |> Seq.head
-        else
-            proj
+    let proj = loader.LoadProjects [projFile] |> Seq.head
 
     // TODO cache projects info of p2p ref
     //   let p2pProjects =

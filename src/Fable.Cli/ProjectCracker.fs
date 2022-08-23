@@ -393,7 +393,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
         []
         (Some OutputType.Exe)
 
-/// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
+/// Use Ionide.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
 /// checking if some .dlls correspond to Fable libraries
@@ -404,6 +404,8 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
+        // fail here if restore failed?
+        // Ionide.ProjInfo will throw otherwise, but the error message is long.
 
     let projInfo = ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
