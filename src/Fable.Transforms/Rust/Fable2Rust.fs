@@ -1645,7 +1645,11 @@ module Util =
     let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
         let varAttrs, isOnlyReference = calcVarAttrsAndOnlyRef com ctx e
         // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
-        let expr = com.TransformExpr (ctx, e)
+
+        let expr =
+            //only valid for this level, so must reset for nested expressions
+            let ctx = { ctx with Typegen = {ctx.Typegen with IsParamByRefPreferred = false} }
+            com.TransformExpr (ctx, e)
 
         let targetExpectsRef =
             ctx.Typegen.IsParamByRefPreferred

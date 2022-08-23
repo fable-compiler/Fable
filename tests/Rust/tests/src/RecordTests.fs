@@ -351,3 +351,28 @@ let ``Mutating records work`` () =
     let x'' = { x' with uniqueA = -10 }
     equal -10 x''.uniqueA
     equal -20 x''.uniqueB
+
+module ComplexEdgeCases =
+    open Fable.Core.Rust
+    [<Measure>] type m
+    [<Measure>] type Rad
+
+    //TODO - When this is turned into a struct, the F# compiler seems to do an optimization which seems to break everything
+    //[<Struct>]
+    type Spatial = {
+        Rotation: float32<Rad>
+        Position: ArithmeticTests.UnitTests.Vector2R<m>
+    }
+    type Entity = {
+        Name: string
+        Spatial: Spatial
+    }
+
+    let rotate r ([<ByRef>]ent) =
+        {ent with Spatial = {ent.Spatial with Rotation = ent.Spatial.Rotation + r}}
+    [<Fact>]
+    let ``Nested struct record reconstruction should not break compiler`` () =
+        let res =
+            { Name = "A"; Spatial = { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> }} }
+            |> rotate (1.2f<Rad>)
+        equal (1.1f<Rad> + 1.2f<Rad>) res.Spatial.Rotation
