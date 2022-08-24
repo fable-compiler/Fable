@@ -14,15 +14,6 @@ open Globbing.Operators
 open Ionide.ProjInfo
 open Ionide.ProjInfo.Types
 
-// This gets the job done -- more data/fields can be added as needed.
-// Otherwise Ionide.ProjInfo.FCS could be useful, as this directly gives a FSharpProjectOptions
-type RawProjectInfo =
-    { ProjectFile: string
-      OtherOptions: string list
-      ReferencedProjects: string list
-      SourceFiles: string list
-      OutputType: OutputType }
-
 let private logProjectLoad = function
     | WorkspaceProjectState.Loading projFile -> Log.verbose (lazy $"Loading project '{projFile}'.")
     | WorkspaceProjectState.Loaded (projFile, _, fromCache) ->
@@ -49,7 +40,9 @@ let private rawProjInfo additionalMSBuildProps (projFile: string) =
     let toolsPath = Init.init (IO.DirectoryInfo <| Path.GetDirectoryName projFile) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
     loader.Notifications.Add logProjectLoad
-    let proj = loader.LoadProjects [projFile] |> Seq.find (fun p -> p.ProjectFileName = projFile)
+    let loadedProjects = loader.LoadProjects [projFile] |> List.ofSeq
+
+    let mainProj, refProjs = loadedProjects |> List.partition (fun p -> p.ProjectFileName = projFile)
 
     // TODO cache projects info of p2p ref
     //   let p2pProjects =
@@ -58,23 +51,7 @@ let private rawProjInfo additionalMSBuildProps (projFile: string) =
     //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
     //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
 
-    // p2p.ProjectFileName is absolute, p2p.RelativePath is relative
-    let projRefs = proj.ReferencedProjects |> List.map (fun p2p -> p2p.ProjectFileName)
-
-    let outputType =
-        match proj.ProjectOutputType with
-        | Library -> OutputType.Library
-        | Exe -> OutputType.Exe
-        | Custom output ->
-            Log.warning $"Unknown output type '{output}' for '{projFile}'. Defaulting to output type 'Library'."
-            OutputType.Library
-
-    // All paths including ones in OtherOptions are absolute but unnormalized (except ProjectFile which is normalized)
-    { ProjectFile = projFile
-      OtherOptions = proj.OtherOptions
-      ReferencedProjects = projRefs
-      SourceFiles = proj.SourceFiles
-      OutputType = outputType }
+    List.exactlyOne mainProj, refProjs
 
 let getRawProjectOptionsFromProjectFile configuration (projFile : string) =
     rawProjInfo ["Configuration", configuration] projFile
@@ -203,8 +180,7 @@ type CrackedFsproj =
       ProjectReferences: string list
       DllReferences: IDictionary<string, string>
       PackageReferences: FablePackage list
-      OtherCompilerOptions: string list
-      OutputType: OutputType }
+      OtherCompilerOptions: string list }
 
 let makeProjectOptions (opts: CrackerOptions) otherOptions sources: FSharpProjectOptions =
     let otherOptions = [|
@@ -386,7 +362,8 @@ let private isUsefulOption (opt : string) =
     ]
     |> List.exists opt.StartsWith
 
-let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
+let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (refProj: ProjectReference) =
+    let projRef = refProj.ProjectFileName
     let projName = Path.GetFileNameWithoutExtension(projRef)
     match opts.Exclude with
     | Some e when projRef.Contains(e) ->
@@ -401,7 +378,16 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-let getCrackedFsproj (opts: CrackerOptions) (projInfo: RawProjectInfo) =
+/// For project references of main project, ignore dll and package references
+let crackRefProject (opts: CrackerOptions) dllRefs (proj: ProjectOptions): CrackedFsproj =
+    { ProjectFile = proj.ProjectFileName
+      SourceFiles = proj.SourceFiles |> List.map Path.normalizePath
+      ProjectReferences = proj.ReferencedProjects |> List.choose (excludeProjRef opts dllRefs)
+      DllReferences = Dictionary()
+      PackageReferences = []
+      OtherCompilerOptions = proj.OtherOptions |> List.filter isUsefulOption }
+
+let private crackMainProjFrom (opts: CrackerOptions) projFile sourceFiles refProjs otherOptions =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
@@ -411,10 +397,10 @@ let getCrackedFsproj (opts: CrackerOptions) (projInfo: RawProjectInfo) =
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
-    let sourceFiles = projInfo.SourceFiles |> List.map Path.normalizePath
+    let sourceFiles = sourceFiles |> List.map Path.normalizePath
 
     let otherOpts =
-        projInfo.OtherOptions |> List.choose (fun (line: string) ->
+        otherOptions |> List.choose (fun (line: string) ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
                 let dllName = getDllName line
@@ -436,13 +422,41 @@ let getCrackedFsproj (opts: CrackerOptions) (projInfo: RawProjectInfo) =
         |> Seq.toList
         |> sortFablePackages
 
-    { ProjectFile = projInfo.ProjectFile
+    { ProjectFile = projFile
       SourceFiles = sourceFiles
-      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projInfo.ReferencedProjects
+      ProjectReferences = refProjs |> List.choose (excludeProjRef opts dllRefs)
       DllReferences = dllRefs
       PackageReferences = fablePkgs
-      OtherCompilerOptions = otherOpts
-      OutputType = projInfo.OutputType }
+      OtherCompilerOptions = otherOpts }
+
+let crackMainProj (opts: CrackerOptions) (proj: ProjectOptions) =
+    crackMainProjFrom
+        opts
+        proj.ProjectFileName
+        proj.SourceFiles
+        proj.ReferencedProjects
+        proj.OtherOptions
+
+let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
+    if not opts.NoRestore then
+        let projDir = IO.Path.GetDirectoryName opts.ProjFile
+        let projName = IO.Path.GetFileName opts.ProjFile
+        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
+
+    // does this preserve compilation order?
+    let mainProj, refProjs = getRawProjectOptionsFromProjectFile opts.Configuration opts.ProjFile
+
+    let outputType =
+        match mainProj.ProjectOutputType with
+        | Library -> OutputType.Library
+        | Exe -> OutputType.Exe
+        | Custom output ->
+            Log.warning $"Unknown output type '{output}' for '{mainProj.ProjectFileName}'. Defaulting to output type 'Library'."
+            OutputType.Library
+
+    let mainProj = crackMainProj opts mainProj
+
+    mainProj, refProjs |> List.map (crackRefProject opts mainProj.DllReferences), outputType
 
 let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
     let projectFilePath = opts.ProjFile
@@ -453,66 +467,17 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
         checker.GetProjectOptionsFromScript(projectFilePath, text, useSdkRefs=true, assumeDotNetFramework=false)
         |> Async.RunSynchronously
 
-    getCrackedFsproj
+    crackMainProjFrom
         opts
-        { ProjectFile = projectFilePath
-          OtherOptions = List.ofArray projOpts.OtherOptions
-          ReferencedProjects = []
-          SourceFiles = List.ofArray projOpts.SourceFiles
-          OutputType = OutputType.Exe }
-
-/// Use Ionide.ProjInfo to invoke MSBuild
-/// and get F# compiler args from an .fsproj file. As we'll merge this
-/// later with other projects we'll only take the sources and the references,
-/// checking if some .dlls correspond to Fable libraries.
-let fullCrack (opts: CrackerOptions): CrackedFsproj =
-    let projFile = opts.ProjFile
-    let projDir = IO.Path.GetDirectoryName projFile
-    let projName = IO.Path.GetFileName projFile
-
-    if not opts.NoRestore then
-        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
-
-    // let targetFramework =
-    //     match Map.tryFind "TargetFramework" msbuildProps with
-    //     | Some targetFramework -> targetFramework
-    //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
-
-    getRawProjectOptionsFromProjectFile opts.Configuration projFile |> getCrackedFsproj opts
-
-/// For project references of main project, ignore dll and package references
-let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projInfo = getRawProjectOptionsFromProjectFile opts.Configuration projFile
-
-    { ProjectFile = projFile
-      SourceFiles = projInfo.SourceFiles |> List.map Path.normalizePath
-      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projInfo.ReferencedProjects
-      DllReferences = Dictionary()
-      PackageReferences = []
-      OtherCompilerOptions = projInfo.OtherOptions |> List.filter isUsefulOption
-      OutputType = projInfo.OutputType }
-
-let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
-    let mainProj = fullCrack opts
-    let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
-        let crackedFsproj =
-            match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
-            | None -> easyCrack opts mainProj.DllReferences projFile
-            | Some crackedFsproj -> crackedFsproj
-        // Add always a reference to the front to preserve compilation order
-        // Duplicated items will be removed later
-        List.fold crackProjects (crackedFsproj::acc) crackedFsproj.ProjectReferences
-    let refProjs =
-        List.fold crackProjects [] mainProj.ProjectReferences
-        |> List.distinctBy (fun x -> x.ProjectFile)
-    refProjs, mainProj
+        projOpts.ProjectFileName
+        (List.ofArray projOpts.SourceFiles)
+        []
+        (List.ofArray projOpts.OtherOptions)
 
 let getCrackedProjects (opts: CrackerOptions) =
     match (Path.GetExtension opts.ProjFile).ToLower() with
-    | ".fsx" ->
-        [], getProjectOptionsFromScript opts
-    | ".fsproj" ->
-        getCrackedProjectsFromMainFsproj opts
+    | ".fsx" -> getProjectOptionsFromScript opts, [], OutputType.Exe
+    | ".fsproj" -> getCrackedProjectsFromMainFsproj opts
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
@@ -736,7 +701,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
           CanReuseCompiledFiles = canReuseCompiledFiles }
 
     | None ->
-        let projRefs, mainProj = retryGetCrackedProjects opts
+        let mainProj, projRefs, outputType = retryGetCrackedProjects opts
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
@@ -787,7 +752,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 else Some("-r:" + r))
             |> Seq.toArray
 
-        let outputType = mainProj.OutputType
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
         let otherOptions = Array.append otherOptions dllRefs
 
