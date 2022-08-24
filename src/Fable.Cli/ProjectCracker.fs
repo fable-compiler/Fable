@@ -11,6 +11,74 @@ open Fable
 open Fable.AST
 open Globbing.Operators
 
+open Ionide.ProjInfo
+open Ionide.ProjInfo.Types
+
+// This gets the job done -- more data/fields can be added as needed.
+// Otherwise Ionide.ProjInfo.FCS could be useful, as this directly gives a FSharpProjectOptions
+type RawProjectInfo =
+    { ProjectFile: string
+      OtherOptions: string list
+      ReferencedProjects: string list
+      SourceFiles: string list
+      OutputType: OutputType }
+
+let private logProjectLoad = function
+    | WorkspaceProjectState.Loading projFile -> Log.verbose (lazy $"Loading project '{projFile}'.")
+    | WorkspaceProjectState.Loaded (projFile, _, fromCache) ->
+        Log.verbose (lazy sprintf "Successfully loaded project '%s'%s." projFile.ProjectFileName (if fromCache then " from cache" else ""))
+    | WorkspaceProjectState.Failed (_project, reason) ->
+        // TODO see if the error was due to a locked file and
+        // raise a different exception to be caught by retryGetCrackedProjects
+        let projFile, message =
+            match reason with
+            | GenericError (projFile, msg) -> projFile, $"'{msg}'"
+            | ProjectNotRestored projFile -> projFile, "the project is not restored."
+            | ProjectNotFound projFile -> projFile, "the project file was not found."
+            // it seems like the following cases are currently unused by Ionide.ProjInfo
+            | LanguageNotSupported projFile -> projFile, "the project language is not supported."
+            | ProjectNotLoaded projFile -> projFile, "the project is not loaded."
+            | MissingExtraProjectInfos projFile -> projFile, "there is missing extra info."
+            | InvalidExtraProjectInfos (projFile, error) -> projFile, $"there is invalid extra info: '{error}'."
+            | ReferencesNotLoaded (projFile, referenceErrors) ->
+                let refs = referenceErrors |> Seq.map fst |> String.concat "\n  "
+                projFile, $"the following references are not loaded/have errors:\n  {refs}"
+        Fable.FableError $"Failed to load project '{projFile}' because {message}" |> raise
+
+let private rawProjInfo additionalMSBuildProps (projFile: string) =
+    let toolsPath = Init.init (IO.DirectoryInfo <| Path.GetDirectoryName projFile) None
+    let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
+    loader.Notifications.Add logProjectLoad
+    let proj = loader.LoadProjects [projFile] |> Seq.find (fun p -> p.ProjectFileName = projFile)
+
+    // TODO cache projects info of p2p ref
+    //   let p2pProjects =
+    //       p2ps
+    //       // do not follow others lang project, is not supported by FCS anyway
+    //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
+    //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+
+    // p2p.ProjectFileName is absolute, p2p.RelativePath is relative
+    let projRefs = proj.ReferencedProjects |> List.map (fun p2p -> p2p.ProjectFileName)
+
+    let outputType =
+        match proj.ProjectOutputType with
+        | Library -> OutputType.Library
+        | Exe -> OutputType.Exe
+        | Custom output ->
+            Log.warning $"Unknown output type '{output}' for '{projFile}'. Defaulting to output type 'Library'."
+            OutputType.Library
+
+    // All paths including ones in OtherOptions are absolute but unnormalized (except ProjectFile which is normalized)
+    { ProjectFile = projFile
+      OtherOptions = proj.OtherOptions
+      ReferencedProjects = projRefs
+      SourceFiles = proj.SourceFiles
+      OutputType = outputType }
+
+let getRawProjectOptionsFromProjectFile configuration (projFile : string) =
+    rawProjInfo ["Configuration", configuration] projFile
+
 type FablePackage =
     { Id: string
       Version: string
@@ -30,7 +98,7 @@ type CacheInfo =
         OutDir: string option
         FableLibDir: string
         FableModulesDir: string
-        OutputType: OutputType option
+        OutputType: OutputType
         Exclude: string option
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -117,7 +185,7 @@ type CrackerResponse =
       FableModulesDir: string
       References: string list
       ProjectOptions: FSharpProjectOptions
-      OutputType: OutputType option
+      OutputType: OutputType
       PrecompiledInfo: PrecompiledInfoImpl option
       CanReuseCompiledFiles: bool }
 
@@ -136,7 +204,7 @@ type CrackedFsproj =
       DllReferences: IDictionary<string, string>
       PackageReferences: FablePackage list
       OtherCompilerOptions: string list
-      OutputType: OutputType option }
+      OutputType: OutputType }
 
 let makeProjectOptions (opts: CrackerOptions) otherOptions sources: FSharpProjectOptions =
     let otherOptions = [|
@@ -333,7 +401,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-let getCrackedFsproj (opts: CrackerOptions) projFile sourceFiles otherOptions projRefs outputType =
+let getCrackedFsproj (opts: CrackerOptions) (projInfo: RawProjectInfo) =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
@@ -343,10 +411,10 @@ let getCrackedFsproj (opts: CrackerOptions) projFile sourceFiles otherOptions pr
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
-    let sourceFiles = sourceFiles |> List.map Path.normalizePath
+    let sourceFiles = projInfo.SourceFiles |> List.map Path.normalizePath
 
     let otherOpts =
-        otherOptions |> List.choose (fun (line: string) ->
+        projInfo.OtherOptions |> List.choose (fun (line: string) ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
                 let dllName = getDllName line
@@ -368,13 +436,13 @@ let getCrackedFsproj (opts: CrackerOptions) projFile sourceFiles otherOptions pr
         |> Seq.toList
         |> sortFablePackages
 
-    { ProjectFile = projFile
+    { ProjectFile = projInfo.ProjectFile
       SourceFiles = sourceFiles
-      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projRefs
+      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projInfo.ReferencedProjects
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OtherCompilerOptions = otherOpts
-      OutputType = outputType }
+      OutputType = projInfo.OutputType }
 
 let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
     let projectFilePath = opts.ProjFile
@@ -387,16 +455,16 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
 
     getCrackedFsproj
         opts
-        projOpts.ProjectFileName
-        (List.ofArray projOpts.SourceFiles)
-        (List.ofArray projOpts.OtherOptions)
-        []
-        (Some OutputType.Exe)
+        { ProjectFile = projectFilePath
+          OtherOptions = List.ofArray projOpts.OtherOptions
+          ReferencedProjects = []
+          SourceFiles = List.ofArray projOpts.SourceFiles
+          OutputType = OutputType.Exe }
 
-/// Use Ionide.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
+/// Use Ionide.ProjInfo to invoke MSBuild
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
-/// checking if some .dlls correspond to Fable libraries
+/// checking if some .dlls correspond to Fable libraries.
 let fullCrack (opts: CrackerOptions): CrackedFsproj =
     let projFile = opts.ProjFile
     let projDir = IO.Path.GetDirectoryName projFile
@@ -404,21 +472,17 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     if not opts.NoRestore then
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
-        // fail here if restore failed?
-        // Ionide.ProjInfo will throw otherwise, but the error message is long.
-
-    let projInfo = ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
-    getCrackedFsproj opts projFile projInfo.SourceFiles projInfo.OtherOptions projInfo.ReferencedProjects projInfo.OutputType
+    getRawProjectOptionsFromProjectFile opts.Configuration projFile |> getCrackedFsproj opts
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projInfo = ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
+    let projInfo = getRawProjectOptionsFromProjectFile opts.Configuration projFile
 
     { ProjectFile = projFile
       SourceFiles = projInfo.SourceFiles |> List.map Path.normalizePath
