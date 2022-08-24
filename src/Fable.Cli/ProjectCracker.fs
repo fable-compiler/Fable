@@ -14,6 +14,25 @@ open Globbing.Operators
 open Ionide.ProjInfo
 open Ionide.ProjInfo.Types
 
+let makeProjectOptions projFile sources otherOptions: FSharpProjectOptions =
+    { ProjectId = None
+      ProjectFileName = projFile
+      OtherOptions = otherOptions
+      SourceFiles = Array.distinct sources
+      ReferencedProjects = [| |]
+      IsIncompleteTypeCheckEnvironment = false
+      UseScriptResolutionRules = false
+      LoadTime = DateTime.UtcNow
+      UnresolvedReferences = None
+      OriginalLoadReferences = []
+      Stamp = None }
+
+let private makeProjectOptionsFromLoadedProject (proj: ProjectOptions) =
+    makeProjectOptions
+        proj.ProjectFileName
+        (List.toArray proj.SourceFiles)
+        (List.toArray proj.OtherOptions)
+
 let private logProjectLoad = function
     | WorkspaceProjectState.Loading projFile -> Log.verbose (lazy $"Loading project '{projFile}'.")
     | WorkspaceProjectState.Loaded (projFile, _, fromCache) ->
@@ -40,31 +59,31 @@ let private loadProjects additionalMSBuildProps (projFile: string) =
     let toolsPath = Init.init (IO.DirectoryInfo <| Path.GetDirectoryName projFile) None
     let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
     loader.Notifications.Add logProjectLoad
-    let loadedProjects = loader.LoadProjects [projFile] |> Array.ofSeq
 
-    if loadedProjects.Length = 0 then
+    match loader.LoadProjects [projFile] |> List.ofSeq with
+    | [] ->
         // should be unreachable as an error should have been thrown previously
         failwithf "No projects sucessfully loaded."
+    | mainProj :: refProjs ->
+        let outputType =
+            match mainProj.ProjectOutputType with
+            | Library -> OutputType.Library
+            | Exe -> OutputType.Exe
+            | Custom output ->
+                Log.warning $"Unknown output type '{output}' for '{mainProj.ProjectFileName}'. Defaulting to output type 'Library'."
+                OutputType.Library
 
-    let mainProj = loadedProjects[0]
-    let outputType =
-        match mainProj.ProjectOutputType with
-        | Library -> OutputType.Library
-        | Exe -> OutputType.Exe
-        | Custom output ->
-            Log.warning $"Unknown output type '{output}' for '{mainProj.ProjectFileName}'. Defaulting to output type 'Library'."
-            OutputType.Library
+        let mainProj = makeProjectOptionsFromLoadedProject mainProj
+        let refProjs = refProjs |> List.map makeProjectOptionsFromLoadedProject
 
-    // TODO cache projects info of p2p ref
-    //   let p2pProjects =
-    //       p2ps
-    //       // do not follow others lang project, is not supported by FCS anyway
-    //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
-    //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+        // TODO cache projects info of p2p ref
+        //   let p2pProjects =
+        //       p2ps
+        //       // do not follow others lang project, is not supported by FCS anyway
+        //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
+        //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
 
-    match FCS.mapManyOptions loadedProjects |> List.ofSeq with
-    | [] -> failwithf "Failed to convert loaded projects."
-    | (mainProj :: refProjs) -> mainProj, refProjs, outputType
+        mainProj, refProjs, outputType
 
 let getProjectOptionsFromProjectFile configuration (projFile : string) =
     loadProjects ["Configuration", configuration] projFile
@@ -186,24 +205,14 @@ type CrackedFsprojs =
       PackageReferences: FablePackage list
       OutputType: OutputType }
 
-let makeProjectOptions (opts: CrackerOptions) otherOptions sources: FSharpProjectOptions =
+let makeProjectOptionsUsing (opts: CrackerOptions) sources otherOptions =
     let otherOptions = [|
         yield! otherOptions
         for constant in opts.FableOptions.Define do
             yield "--define:" + constant
         yield "--optimize" + if opts.FableOptions.OptimizeFSharpAst then "+" else "-"
     |]
-    { ProjectId = None
-      ProjectFileName = opts.ProjFile
-      OtherOptions = otherOptions
-      SourceFiles = Array.distinct sources
-      ReferencedProjects = [| |]
-      IsIncompleteTypeCheckEnvironment = false
-      UseScriptResolutionRules = false
-      LoadTime = DateTime.UtcNow
-      UnresolvedReferences = None
-      OriginalLoadReferences = []
-      Stamp = None }
+    makeProjectOptions opts.ProjFile sources otherOptions
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -431,7 +440,7 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
     let refProjs = refProjs |> List.filter (fun proj -> not <| shouldExcludeProject opts dllRefs proj.ProjectFileName)
 
     { MainProject = mainProj
-      ReferencedProjects = refProjs
+      ReferencedProjects = List.rev refProjs // preserve compilation order
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OutputType = outputType }
@@ -665,7 +674,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
 
-        { ProjectOptions = makeProjectOptions opts otherOptions sourcePaths
+        { ProjectOptions = makeProjectOptionsUsing opts sourcePaths otherOptions
           References = cacheInfo.References
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> cacheInfo.FableLibDir
           FableModulesDir = opts.FableModulesDir
@@ -754,7 +763,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
         let precompiledInfo, otherOptions, sourcePaths =
             loadPrecompiledInfo opts otherOptions sourcePaths
 
-        { ProjectOptions = makeProjectOptions opts otherOptions sourcePaths
+        { ProjectOptions = makeProjectOptionsUsing opts sourcePaths otherOptions
           References = projRefs
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> fableLibDir
           FableModulesDir = opts.FableModulesDir
