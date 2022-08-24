@@ -268,7 +268,6 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
-// TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
     let mutable sourceHash = None
     member _.NormalizedFullPath = normalizedFullPath
