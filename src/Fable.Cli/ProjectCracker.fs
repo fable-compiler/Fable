@@ -32,8 +32,8 @@ let private logProjectLoad = function
             | MissingExtraProjectInfos projFile -> projFile, "there is missing extra info."
             | InvalidExtraProjectInfos (projFile, error) -> projFile, $"there is invalid extra info: '{error}'."
             | ReferencesNotLoaded (projFile, referenceErrors) ->
-                let refs = referenceErrors |> Seq.map fst |> String.concat "\n  "
-                projFile, $"the following references are not loaded/have errors:\n  {refs}"
+                let refs = referenceErrors |> Seq.map fst |> String.concat $"{Log.newLine}    "
+                projFile, $"the following references are not loaded/have errors:{Log.newLine}    {refs}"
         Fable.FableError $"Failed to load project '{projFile}' because {message}" |> raise
 
 let private loadProjects additionalMSBuildProps (projFile: string) =
@@ -431,7 +431,7 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
     let refProjs = refProjs |> List.filter (fun proj -> not <| shouldExcludeProject opts dllRefs proj.ProjectFileName)
 
     { MainProject = mainProj
-      ReferencedProjects = List.rev refProjs // preserve compilation order
+      ReferencedProjects = refProjs
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OutputType = outputType }
