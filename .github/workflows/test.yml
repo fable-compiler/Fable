@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ main, snake_island, Ionide-ProjInfo-Testing ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, snake_island ]
+    branches: [ main ]
 
 jobs:
   # Separate build job for JS

@@ -433,7 +433,6 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
         let projName = IO.Path.GetFileName opts.ProjFile
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    // This preserves compilation order (I think)
     let mainProj, refProjs, outputType = getProjectOptionsFromProjectFile opts.Configuration opts.ProjFile
 
     let dllRefs, fablePkgs = getDllsAndFablePkgs opts mainProj.OtherOptions
