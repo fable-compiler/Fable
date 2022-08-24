@@ -3,7 +3,7 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Version>4.0.0</Version>
     <PackageVersion>4.0.0-snake-island-alpha-021</PackageVersion>
     <PackageReleaseNotes>* Rust, fixed curried apply, @ncave
@@ -47,7 +47,9 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="NuGet.Frameworks" Version="6.2.1" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Ionide.ProjInfo" Version="0.60.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
