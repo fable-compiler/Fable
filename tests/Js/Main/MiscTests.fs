@@ -508,7 +508,7 @@ let tests =
         equal 13 x
 
     testCase "Can check compiler version at runtime" <| fun _ ->
-        Compiler.majorMinorVersion >=  4.0 |> equal true
+        Compiler.majorMinorVersion >= 4.0 |> equal true
         Text.RegularExpressions.Regex.IsMatch(Compiler.version, @"^\d+\.\d+") |> equal true
 
     testCase "Can access compiler options" <| fun _ ->

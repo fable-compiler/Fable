@@ -570,7 +570,7 @@ let testDart isWatch =
     runInDir runDir "dart test main.dart"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
-    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
+    let version = Publish.loadReleaseVersion "src/Fable.Cli" + "-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     action version
     updatePkgVersionInFsproj fsproj version
     run $"dotnet pack {fsproj} -p:Pack=true -c Release -o {pkgDir}"
