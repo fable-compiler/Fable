@@ -177,7 +177,7 @@ let isSystemPackage (pkgName: string) =
 type CrackedFsproj =
     { ProjectFile: string
       SourceFiles: string list
-      ProjectReferences: string list
+      ProjectReferences: string list // Not used
       DllReferences: IDictionary<string, string>
       PackageReferences: FablePackage list
       OtherCompilerOptions: string list }
@@ -362,21 +362,25 @@ let private isUsefulOption (opt : string) =
     ]
     |> List.exists opt.StartsWith
 
-let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (refProj: ProjectReference) =
-    let projRef = refProj.ProjectFileName
-    let projName = Path.GetFileNameWithoutExtension(projRef)
+let shouldExcludeProject (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) projFile =
+    let projName = Path.GetFileNameWithoutExtension(projFile)
     match opts.Exclude with
-    | Some e when projRef.Contains(e) ->
+    | Some e when projFile.Contains(e) ->
         try
             opts.BuildDll(dllRefs.[projName])
         with e ->
             Log.always("Couldn't build " + projName + ": " + e.Message)
-        None
+        true
     | _ ->
         let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
-        Path.normalizeFullPath projRef |> Some
+        false
+
+let excludeProjRef opts dllRefs (projRef: ProjectReference) =
+    if shouldExcludeProject opts dllRefs projRef.ProjectFileName
+    then None
+    else Some (Path.normalizePath projRef.ProjectFileName)
 
 /// For project references of main project, ignore dll and package references
 let crackRefProject (opts: CrackerOptions) dllRefs (proj: ProjectOptions): CrackedFsproj =
@@ -443,7 +447,7 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
         let projName = IO.Path.GetFileName opts.ProjFile
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    // does this preserve compilation order?
+    // This preserves compilation order (I think)
     let mainProj, refProjs = getRawProjectOptionsFromProjectFile opts.Configuration opts.ProjFile
 
     let outputType =
@@ -455,8 +459,13 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
             OutputType.Library
 
     let mainProj = crackMainProj opts mainProj
+    let refProjs =
+        refProjs |> List.choose (fun proj ->
+            if shouldExcludeProject opts mainProj.DllReferences proj.ProjectFileName
+            then None
+            else crackRefProject opts mainProj.DllReferences proj |> Some)
 
-    mainProj, refProjs |> List.map (crackRefProject opts mainProj.DllReferences), outputType
+    mainProj, refProjs, outputType
 
 let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
     let projectFilePath = opts.ProjFile
