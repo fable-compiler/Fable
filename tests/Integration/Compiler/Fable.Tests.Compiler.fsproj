@@ -22,6 +22,7 @@
     <Compile Include="Util/Compiler.fs" />
     <Compile Include="CompilerMessagesTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />
+    <Compile Include="CompilationOrderPreserved/Main.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

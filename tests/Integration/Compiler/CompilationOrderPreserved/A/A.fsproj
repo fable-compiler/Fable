@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="A.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../C/C.fsproj" />
+    <ProjectReference Include="../B/B.fsproj" />
+  </ItemGroup>
+</Project>
