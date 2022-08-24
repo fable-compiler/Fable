@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -32,6 +32,5 @@
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestAsync.fs" />
     <Compile Include="Main.fs" />
-
   </ItemGroup>
 </Project>

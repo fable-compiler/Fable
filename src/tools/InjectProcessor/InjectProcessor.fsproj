@@ -1,19 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../Fable.Cli/ProjectCoreCracker.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="InjectProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="35.0.0" /> -->
     <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <ProjectReference Include="../../Fable.Cli/Fable.Cli.fsproj" />
   </ItemGroup>
 </Project>

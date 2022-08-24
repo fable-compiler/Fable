@@ -18,7 +18,7 @@ let parse (checker: FSharpChecker) projFile =
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
-            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile "Release" projFile
+            let opts, _, _ = Fable.Cli.ProjectCracker.getProjectOptionsFromProjectFile "Release" projFile
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
     // for f in options.OtherOptions do
@@ -34,7 +34,7 @@ let printShort limit (e: FSharpExpr) =
 let rec printExpr = function
     | FSharpExprPatterns.Sequential(e1, e2) ->
         sprintf "SEQUENTIAL: %s\n%s" (printExpr e1) (printExpr e2)
-    | FSharpExprPatterns.Let((var, value), e) ->
+    | FSharpExprPatterns.Let((var, value, _), e) ->
         sprintf "LET: (%A, %A)\n>>>> %A" var value e
     | e -> printShort 100 e
 
