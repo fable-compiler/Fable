@@ -16,7 +16,7 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Compile Include="tests/common/Aether.fs" /> -->
+    <Compile Include="tests/common/Aether.fs" />
     <Compile Include="tests/common/Imports.fs" />
     <Compile Include="tests/common/Util.fs" />
     <Compile Include="tests/src/AnonRecordTests.fs" />
