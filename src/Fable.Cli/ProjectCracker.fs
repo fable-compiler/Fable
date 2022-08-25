@@ -60,12 +60,11 @@ let private loadProjects additionalMSBuildProps (projFile: string) =
     let toolsPath = Init.init (IO.DirectoryInfo <| Path.GetDirectoryName projFile) None
     let loader = WorkspaceLoaderViaProjectGraph.Create(toolsPath, additionalMSBuildProps)
     loader.Notifications.Add logProjectLoad
-    let loadedProjects =
-        loader.LoadProjects [projFile]
-        |> Array.ofSeq
+    let loadedProjects = loader.LoadProjects [projFile] |> Array.ofSeq
 
-    // for some reason the main project is not always the firt or last entry
+    // For some reason the main project is not always the first or last entry
     // even though the projects are supposed? to be returned in topological order.
+    // We do this manually later, since we also have to sort fable packages anyway.
     let mainProjIdx = loadedProjects |> Array.findIndex (fun x -> Path.normalizePath x.ProjectFileName = projFile)
     let mainProj = loadedProjects[mainProjIdx]
     let refProjs = loadedProjects |> Array.removeAt mainProjIdx
@@ -79,7 +78,7 @@ let private loadProjects additionalMSBuildProps (projFile: string) =
             OutputType.Library
 
     let mainProj = makeProjectOptionsFromLoadedProject mainProj
-    let refProjs = refProjs |> Seq.map makeProjectOptionsFromLoadedProject |> List.ofSeq
+    let refProjs = refProjs |> Array.map makeProjectOptionsFromLoadedProject |> Array.toList
 
     // TODO cache projects info of p2p ref
     //   let p2pProjects =
@@ -103,11 +102,11 @@ let private topologicalSort getId dependencies entryPoint items =
 
     let entryPoint =
         match entryPoint with
-        | Some item -> [item]
+        | Some item -> [| item |] :> _ seq
         | None -> items
 
     ([], entryPoint)
-    ||> List.fold getDeps
+    ||> Seq.fold getDeps
     |> List.distinctBy getId
 
 let getProjectOptionsFromProjectFile configuration (projFile : string) =
@@ -331,13 +330,12 @@ let private getDllsAndFablePkgs (opts: CrackerOptions) otherOptions =
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
-        dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
+        dllRefs' |> Array.choose (fun (dllName, dllPath) ->
             match tryGetFablePackage opts dllPath with
             | Some pkg ->
                 dllRefs.Remove(dllName) |> ignore
                 Some pkg
             | None -> None)
-        |> Seq.toList
         |> topologicalSort (fun x -> x.Id) (fun x -> x.Dependencies) None
 
     dllRefs, fablePkgs
@@ -721,16 +719,15 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 "Microsoft.CSharp"
             ]
             // We only keep dllRefs for the main project
-            crackedProjs.DllReferences.Values
+            crackedProjs.DllReferences
             // Remove unneeded System dll references
-            |> Seq.choose (fun r ->
-                let name = getDllName r
+            |> Seq.choose (fun (KeyValue(name, r)) ->
                 if ignoredRefs.Contains(name) ||
                     (name.StartsWith("System.") && not(coreRefs.Contains(name))) then None
                 else Some("-r:" + r))
             |> Seq.toArray
 
-        let projectPaths = crackedProjs.Projects |> Seq.map (fun p -> p.ProjectFileName) |> Array.ofSeq
+        let projectPaths = crackedProjs.Projects |> Seq.map (fun p -> p.ProjectFileName) |> Seq.toArray
         let otherOptions = Array.append otherOptions dllRefs
 
         if not opts.NoCache then

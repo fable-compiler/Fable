@@ -15,8 +15,7 @@
     <Reference Include="../../../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../../../Js/Main/Util/Util.Testing.fs" />
-    <Compile Include="../Util/Compiler.fs" />
+    <Compile Include="../Util/Util.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

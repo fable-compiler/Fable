@@ -10,7 +10,6 @@
     <PackageReference Include="Expecto" Version="9.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" /> -->
     <ProjectReference Include="..\..\..\src\Fable.AST\Fable.AST.fsproj" />
     <ProjectReference Include="..\..\..\src\Fable.Transforms\Fable.Transforms.fsproj" />
     <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />
@@ -18,8 +17,7 @@
     <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../../Js/Main/Util/Util.Testing.fs" />
-    <Compile Include="Util/Compiler.fs" />
+    <Compile Include="Util/Util.fs" />
     <Compile Include="CompilerMessagesTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />
     <Compile Include="Main.fs" />

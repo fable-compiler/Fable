@@ -1,9 +1,8 @@
 module Fable.Tests.Compiler.AnonRecordInInterface
 
 open System
-open Util.Testing
 open Fable.Tests.Compiler.Util
-open Fable.Tests.Compiler.Util.Compiler
+open Expecto
 
 module private Source =
   let nl = Environment.NewLine
@@ -112,8 +111,8 @@ module private Source =
 
 open Source
 
-let settings: Compiler.Settings =
-  let s = Compiler.Settings.standard
+let settings: Settings =
+  let s = Settings.standard
   { s with
       Opens =
         [
@@ -122,7 +121,7 @@ let settings: Compiler.Settings =
           yield "Fable.Core.JsInterop"
         ]
   }
-let compile source = Compiler.Cached.compile settings source
+let compile source = Cached.compile settings source
 let private testCase msg test = testCase msg (test >> ignore)
 
 module Error =
