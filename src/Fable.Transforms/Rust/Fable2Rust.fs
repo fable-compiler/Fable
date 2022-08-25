@@ -2918,9 +2918,11 @@ module Util =
         match expr with
         | Fable.IdentExpr ident ->
             if not (ignoredNames.Contains(ident.Name))
+                && not (ident.IsCompilerGenerated && ident.Name = "matchValue")
                 && (ident.IsMutable ||
                     (isValueScoped ctx ident.Name) ||
                     (isRefScoped ctx ident.Name) ||
+                    (match ident.Type with Fable.GenericParam _ -> true | _ -> false) ||
                     // Closures may capture Ref counted vars, so by cloning
                     // the actual closure, all attached ref counted var are cloned too
                     (shouldBeRefCountWrapped com ctx ident.Type |> Option.isSome)
@@ -2956,8 +2958,7 @@ module Util =
 
     let getIgnoredNames (name: string option) (args: Fable.Ident list) =
         let argNames = args |> List.map (fun arg -> arg.Name)
-        let fixedNames = ["matchValue"] //TODO: find better way to exclude this
-        let allNames = name |> Option.fold (fun xs x -> x :: xs) (argNames @ fixedNames)
+        let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
         allNames |> Set.ofList
 
     let hasCapturedNames com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
