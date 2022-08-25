@@ -90,26 +90,31 @@ let private loadProjects additionalMSBuildProps (projFile: string) =
 
     mainProj, refProjs, outputType
 
-// Maybe not the most efficient, but it's temporary until the graph loader is fixed.
-let topologicalSort (mainProj, immediateProjRefs) otherProjAndRefs =
-    let projAndRefsByFileName =
-        otherProjAndRefs
-        |> Seq.map (fun (proj: FSharpProjectOptions, refs) -> proj.ProjectFileName, (proj, refs))
-        |> dict
+// Maybe not the most efficient but good enough?
+let private topologicalSort getId dependencies entryPoint items =
+    let getById = items |> Seq.map (fun x -> getId x, x) |> dict
 
-    let rec getRefs acc projFile =
-        let proj, refProjs = projAndRefsByFileName[projFile]
-        // Add always a reference to the front to preserve compilation order
+    let rec getDeps acc item =
+        // Add always a reference/dependency to the front to preserve compilation order
         // Duplicated items will be removed later
-        refProjs |> List.fold getRefs (proj::acc)
+        dependencies item
+        |> Seq.map (fun x -> getById[x])
+        |> Seq.fold getDeps (item :: acc)
 
-    ([mainProj], immediateProjRefs)
-    ||> List.fold getRefs
-    |> List.distinctBy (fun x -> x.ProjectFileName)
+    let entryPoint =
+        match entryPoint with
+        | Some item -> [item]
+        | None -> items
+
+    ([], entryPoint)
+    ||> List.fold getDeps
+    |> List.distinctBy getId
 
 let getProjectOptionsFromProjectFile configuration (projFile : string) =
     let mainProj, refProjs, outputType = loadProjects ["Configuration", configuration] projFile
-    fst mainProj, topologicalSort mainProj refProjs, outputType
+    fst mainProj,
+    (mainProj :: refProjs) |> topologicalSort (fun (proj, _) -> proj.ProjectFileName) snd (Some mainProj) |> List.map fst,
+    outputType
 
 type FablePackage =
     { Id: string
@@ -304,28 +309,6 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
             }: FablePackage |> Some
         | _ -> None
 
-let sortFablePackages (pkgs: FablePackage list) =
-    ([], pkgs) ||> List.fold (fun acc pkg ->
-        match List.tryFindIndexBack (fun (x: FablePackage) -> pkg.Dependencies.Contains(x.Id)) acc with
-        | None -> pkg::acc
-        | Some targetIdx ->
-            let rec insertAfter x targetIdx i before after =
-                match after with
-                | justBefore::after ->
-                    if i = targetIdx then
-                        if i > 0 then
-                            let dependent, nonDependent =
-                                List.rev before |> List.partition (fun (x: FablePackage) ->
-                                    x.Dependencies.Contains(pkg.Id))
-                            nonDependent @ justBefore::x::dependent @ after
-                        else
-                            (justBefore::before |> List.rev) @ x::after
-                    else
-                        insertAfter x targetIdx (i + 1) (justBefore::before) after
-                | [] -> failwith "Unexpected empty list in insertAfter"
-            insertAfter pkg targetIdx 0 [] acc
-    )
-
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
@@ -355,7 +338,7 @@ let private getDllsAndFablePkgs (opts: CrackerOptions) otherOptions =
                 Some pkg
             | None -> None)
         |> Seq.toList
-        |> sortFablePackages
+        |> topologicalSort (fun x -> x.Id) (fun x -> x.Dependencies) None
 
     dllRefs, fablePkgs
 
