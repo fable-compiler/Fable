@@ -463,6 +463,7 @@ let testIntegration() =
 
     buildLibraryJsIfNotExists()
     runInDir "tests/Integration/Compiler" "dotnet run -c Release"
+    runInDir "tests/Integration/Compiler/CompilationOrderPreserved" "dotnet run -c Release"
     testProjectConfigs()
 
 let testJs() =

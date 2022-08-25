@@ -7,7 +7,6 @@ let allTests =
     [
         CompilerMessages.tests
         AnonRecordInInterface.tests
-        CompilationOrderPreserved.tests
     ]
 
 
