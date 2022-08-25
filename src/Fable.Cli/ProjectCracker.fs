@@ -18,7 +18,7 @@ let makeProjectOptions projFile sources otherOptions: FSharpProjectOptions =
     { ProjectId = None
       ProjectFileName = projFile
       OtherOptions = otherOptions
-      SourceFiles = Array.distinct sources
+      SourceFiles = sources
       ReferencedProjects = [||]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
@@ -66,7 +66,7 @@ let private loadProjects additionalMSBuildProps (projFile: string) =
 
     // for some reason the main project is not always the firt or last entry
     // even though the projects are supposed? to be returned in topological order.
-    let mainProjIdx = loadedProjects |> Array.findIndex (fun x -> x.ProjectFileName = projFile)
+    let mainProjIdx = loadedProjects |> Array.findIndex (fun x -> Path.normalizePath x.ProjectFileName = projFile)
     let mainProj = loadedProjects[mainProjIdx]
     let refProjs = loadedProjects |> Array.removeAt mainProjIdx
 
@@ -118,6 +118,21 @@ type FablePackage =
       DllPath: string
       SourcePaths: string list
       Dependencies: Set<string> }
+
+type CrackedFsprojs =
+    { Projects: FSharpProjectOptions list
+      DllReferences: IDictionary<string, string>
+      PackageReferences: FablePackage list
+      OutputType: OutputType }
+
+type CrackerResponse =
+    { FableLibDir: string
+      FableModulesDir: string
+      ProjectOptions: FSharpProjectOptions
+      ProjectPaths: string array
+      OutputType: OutputType
+      PrecompiledInfo: PrecompiledInfoImpl option
+      CanReuseCompiledFiles: bool }
 
 type CacheInfo =
     {
@@ -211,21 +226,6 @@ type CrackerOptions(cliArgs: CliArgs) =
             IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
 
         fableModulesDir
-
-type CrackerResponse =
-    { FableLibDir: string
-      FableModulesDir: string
-      ProjectOptions: FSharpProjectOptions
-      ProjectPaths: string array
-      OutputType: OutputType
-      PrecompiledInfo: PrecompiledInfoImpl option
-      CanReuseCompiledFiles: bool }
-
-type CrackedFsprojs =
-    { Projects: FSharpProjectOptions list
-      DllReferences: IDictionary<string, string>
-      PackageReferences: FablePackage list
-      OutputType: OutputType }
 
 let makeProjectOptionsUsing (opts: CrackerOptions) sources otherOptions =
     let otherOptions = [|
@@ -329,81 +329,6 @@ let sortFablePackages (pkgs: FablePackage list) =
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
-
-let (|Regex|_|) (pattern: string) (input: string) =
-    let m = Text.RegularExpressions.Regex.Match(input, pattern)
-    if m.Success then Some [for x in m.Groups -> x.Value]
-    else None
-
-let getBasicCompilerArgs () =
-    [|
-        // yield "--debug"
-        // yield "--debug:portable"
-        yield "--noframework"
-        yield "--nologo"
-        yield "--simpleresolution"
-        yield "--nocopyfsharpcore"
-        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
-        // yield "--warnaserror:76"
-        yield "--warn:3"
-        yield "--fullpaths"
-        yield "--flaterrors"
-        // Since net5.0 there's no difference between app/library
-        // yield "--target:library"
-    |]
-
-/// Simplistic XML-parsing of .fsproj to get source files, as we cannot
-/// run `dotnet restore` on .fsproj files embedded in Nuget packages.
-let getSourcesFromFablePkg (projFile: string) =
-    let withName s (xs: XElement seq) =
-        xs |> Seq.filter (fun x -> x.Name.LocalName = s)
-
-    let xmlDoc = XDocument.Load(projFile)
-    let projDir = Path.GetDirectoryName(projFile)
-
-    Log.showFemtoMsg (fun () ->
-        xmlDoc.Root.Elements()
-        |> withName "PropertyGroup"
-        |> Seq.exists (fun propGroup ->
-            propGroup.Elements()
-            |> withName "NpmDependencies"
-            |> Seq.isEmpty
-            |> not))
-
-    xmlDoc.Root.Elements()
-    |> withName "ItemGroup"
-    |> Seq.map (fun item ->
-        (item.Elements(), [])
-        ||> Seq.foldBack (fun el src ->
-            if el.Name.LocalName = "Compile" then
-                el.Elements() |> withName "Link"
-                |> Seq.tryHead |> function
-                | Some link when Path.isRelativePath link.Value ->
-                    link.Value::src
-                | _ ->
-                    match el.Attribute(XName.Get "Include") with
-                    | null -> src
-                    | att -> att.Value::src
-            else src))
-    |> List.concat
-    |> List.collect (fun fileName ->
-        Path.Combine(projDir, fileName)
-        |> function
-        | path when (path.Contains("*") || path.Contains("?")) ->
-            match !! path |> List.ofSeq with
-            | [] -> [ path ]
-            | globResults -> globResults
-        | path -> [ path ]
-        |> List.map Path.normalizeFullPath)
-
-let private isUsefulOption (opt : string) =
-    [ "--define"
-      "--nowarn"
-      "--warnon"
-    //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
-    //   "--langversion" // See getBasicCompilerArgs
-    ]
-    |> List.exists opt.StartsWith
 
 let private getDllsAndFablePkgs (opts: CrackerOptions) otherOptions =
     // Use case insensitive keys, as package names in .paket.resolved
@@ -583,6 +508,77 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
 
     getFableLibraryPath opts, pkgRefs
 
+/// Simplistic XML-parsing of .fsproj to get source files, as we cannot
+/// run `dotnet restore` on .fsproj files embedded in Nuget packages.
+let getSourcesFromFablePkg (projFile: string) =
+    let withName s (xs: XElement seq) =
+        xs |> Seq.filter (fun x -> x.Name.LocalName = s)
+
+    let xmlDoc = XDocument.Load(projFile)
+    let projDir = Path.GetDirectoryName(projFile)
+
+    Log.showFemtoMsg (fun () ->
+        xmlDoc.Root.Elements()
+        |> withName "PropertyGroup"
+        |> Seq.exists (fun propGroup ->
+            propGroup.Elements()
+            |> withName "NpmDependencies"
+            |> Seq.isEmpty
+            |> not))
+
+    xmlDoc.Root.Elements()
+    |> withName "ItemGroup"
+    |> Seq.map (fun item ->
+        (item.Elements(), [])
+        ||> Seq.foldBack (fun el src ->
+            if el.Name.LocalName = "Compile" then
+                el.Elements() |> withName "Link"
+                |> Seq.tryHead |> function
+                | Some link when Path.isRelativePath link.Value ->
+                    link.Value::src
+                | _ ->
+                    match el.Attribute(XName.Get "Include") with
+                    | null -> src
+                    | att -> att.Value::src
+            else src))
+    |> List.concat
+    |> List.collect (fun fileName ->
+        Path.Combine(projDir, fileName)
+        |> function
+        | path when (path.Contains("*") || path.Contains("?")) ->
+            match !! path |> List.ofSeq with
+            | [] -> [ path ]
+            | globResults -> globResults
+        | path -> [ path ]
+        |> List.map Path.normalizeFullPath)
+
+let private isUsefulOption (opt : string) =
+    [|
+        "--define"
+        "--nowarn"
+        "--warnon"
+        // "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
+        // "--langversion" // See getBasicCompilerArgs
+    |]
+    |> Array.exists opt.StartsWith
+
+let getBasicCompilerArgs () =
+    [|
+        // yield "--debug"
+        // yield "--debug:portable"
+        yield "--noframework"
+        yield "--nologo"
+        yield "--simpleresolution"
+        yield "--nocopyfsharpcore"
+        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
+        // yield "--warnaserror:76"
+        yield "--warn:3"
+        yield "--fullpaths"
+        yield "--flaterrors"
+        // Since net5.0 there's no difference between app/library
+        // yield "--target:library"
+    |]
+
 let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
     // Sources in fable_modules correspond to packages and they're qualified with the version
     // (e.g. fable_modules/Fable.Promise.2.1.0/Promise.fs) so we assume they're the same wherever they are
@@ -720,10 +716,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
             |> Array.map Path.normalizePath // already full paths
             |> Array.filter (fun path -> not <| path.Contains "/obj/")
             // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
+            |> Array.distinct
 
         let otherOptions =
-            let refOptions = crackedProjs.Projects |> Seq.map (fun x -> x.OtherOptions |> Array.filter isUsefulOption)
-            [| yield! refOptions // merged options from all referenced projects and main project
+            let projectOptions = crackedProjs.Projects |> Seq.map (fun x -> x.OtherOptions |> Array.filter isUsefulOption)
+            [| yield! projectOptions // merged options from all referenced projects and main project
                getBasicCompilerArgs() // options from compiler args
                [| "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-") |] |]
             |> Array.concat
