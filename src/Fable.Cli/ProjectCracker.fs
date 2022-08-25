@@ -30,9 +30,9 @@ let makeProjectOptions projFile sources otherOptions: FSharpProjectOptions =
 let private makeProjectOptionsFromLoadedProject (proj: ProjectOptions) =
     makeProjectOptions
         (Path.normalizePath proj.ProjectFileName)
-        (List.toArray proj.SourceFiles)
+        (proj.SourceFiles |> Seq.map Path.normalizePath |> Seq.toArray)
         (List.toArray proj.OtherOptions),
-    (proj.ReferencedProjects |> List.map (fun p -> Path.normalizePath p.ProjectFileName))
+    proj.ReferencedProjects |> List.map (fun p -> Path.normalizePath p.ProjectFileName)
 
 let private logProjectLoad = function
     | WorkspaceProjectState.Loading projFile -> Log.verbose (lazy $"Loading project '{projFile}'.")
@@ -109,11 +109,16 @@ let private topologicalSort getId dependencies entryPoint items =
     ||> Seq.fold getDeps
     |> List.distinctBy getId
 
+/// Provides the main ProjectOptions,
+/// all ProjectOptions for the main and referenced projects,
+/// and the output type (from the main project).
 let getProjectOptionsFromProjectFile configuration (projFile : string) =
     let mainProj, refProjs, outputType = loadProjects ["Configuration", configuration] projFile
-    fst mainProj,
-    (mainProj :: refProjs) |> topologicalSort (fun (proj, _) -> proj.ProjectFileName) snd (Some mainProj) |> List.map fst,
-    outputType
+    let sortedProjs =
+        (mainProj :: refProjs)
+        |> topologicalSort (fun (proj, _) -> proj.ProjectFileName) snd (Some mainProj)
+        |> List.map fst
+    fst mainProj, sortedProjs, outputType
 
 type FablePackage =
     { Id: string
@@ -316,11 +321,6 @@ let private getDllsAndFablePkgs (opts: CrackerOptions) otherOptions =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
-
-    // let targetFramework =
-    //     match Map.tryFind "TargetFramework" msbuildProps with
-    //     | Some targetFramework -> targetFramework
-    //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
     for line: string in otherOptions do
         if line.StartsWith("-r:") then
@@ -694,7 +694,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             [| yield! pkgSources
                yield! sourceFiles |]
             |> Array.concat
-            |> Array.map Path.normalizePath // already full paths
+            // already normalizedFull paths
             |> Array.filter (fun path -> not <| path.Contains "/obj/")
             // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
             |> Array.distinct
