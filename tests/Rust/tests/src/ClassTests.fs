@@ -1,7 +1,6 @@
 module Fable.Tests.ClassTests
 
 open Util.Testing
-open Common.Interfaces
 
 [<Struct>]
 type Point(x: float, y: float) =
@@ -52,10 +51,10 @@ type FluentB(a: FluentA) =
         a
 
 type WithCrossModuleInterface(m: int) =
-    interface Common.Interfaces.IHasAdd with
+    interface Common.Imports.IHasAdd with
       member this.Add x y = x + y + m
 
-type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) =
+type AdderWrapper<'a when 'a :> Common.Imports.IHasAdd> (adder: 'a) =
     member this.AddThroughCaptured x y = adder.Add x y
 
 type TestClass(name: string) =
@@ -70,7 +69,7 @@ type IPrintable =
 let ``Object expressions work`` () =
     let a = { new IPrintable with member x.Print() = "Hello" }
     a.Print() |> equal "Hello"
-    let b = { new IHasAdd with member _.Add x y = x + y }
+    let b = { new Common.Imports.IHasAdd with member _.Add x y = x + y }
     b.Add 2 3 |> equal 5
 
 // [<Fact>]
@@ -158,7 +157,7 @@ let ``Class fluent/builder should be sharing same reference and not cloning when
 [<Fact>]
 let ``Class interface from another module works`` () =
     let a = WithCrossModuleInterface(1)
-    let res = (a :> Common.Interfaces.IHasAdd).Add 2 1
+    let res = (a :> Common.Imports.IHasAdd).Add 2 1
     res |> equal 4
 
 [<Fact>]
@@ -167,6 +166,14 @@ let ``Class generic interface constraints work`` () =
     let w = AdderWrapper(a)
     let res = w.AddThroughCaptured 2 5
     res |> equal 8
+
+[<Fact>]
+let ``Class methods imported from another file work`` () =
+    let a = Common.Imports.MyClass()
+    let res = (a :> Common.Imports.IHasAdd).Add 2 3
+    res |> equal 5
+    a.Sub 2 3 |> equal -1
+    Common.Imports.MyClass.Mul 2 3 |> equal 6
 
 #if FABLE_COMPILER
 open Fable.Core

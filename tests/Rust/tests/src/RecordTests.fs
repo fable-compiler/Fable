@@ -187,8 +187,8 @@ let ``Box record multiple owner should clone and fork`` () =
 
 [<Fact>]
 let ``Should correctly import record in other file and allow creation`` =
-    let r = { Common.Records.MyRecord.a = 1}
-    let expected = Common.Records.MyRecord.create 1
+    let r = { Common.Imports.MyRecord.a = 1}
+    let expected = Common.Imports.MyRecord.create 1
     r |> equal expected
 
 #if FABLE_COMPILER
