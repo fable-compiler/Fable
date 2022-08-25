@@ -293,11 +293,11 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.ProjectFile = cliArgs.ProjectFile
     member _.FableOptions = cliArgs.CompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
-    member _.References = crackerResponse.References
     member _.PrecompiledInfo = crackerResponse.PrecompiledInfo
     member _.CanReuseCompiledFiles = crackerResponse.CanReuseCompiledFiles
     member _.SourceFiles = sourceFiles
     member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
+    member _.ProjectPaths = crackerResponse.ProjectPaths
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
 
@@ -566,8 +566,7 @@ type Watcher =
             this.Subscription.Dispose()
             let subs =
                 this.Watcher.Observe [
-                    projCracked.ProjectFile
-                    yield! projCracked.References
+                    yield! projCracked.ProjectPaths // includes main project file
                     yield! projCracked.SourceFiles |> Array.choose (fun f ->
                         let path = f.NormalizedFullPath
                         if Naming.isInFableModules(path) then None

@@ -19,7 +19,7 @@ let makeProjectOptions projFile sources otherOptions: FSharpProjectOptions =
       ProjectFileName = projFile
       OtherOptions = otherOptions
       SourceFiles = Array.distinct sources
-      ReferencedProjects = [| |]
+      ReferencedProjects = [||]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
       LoadTime = DateTime.UtcNow
@@ -29,9 +29,10 @@ let makeProjectOptions projFile sources otherOptions: FSharpProjectOptions =
 
 let private makeProjectOptionsFromLoadedProject (proj: ProjectOptions) =
     makeProjectOptions
-        proj.ProjectFileName
+        (Path.normalizePath proj.ProjectFileName)
         (List.toArray proj.SourceFiles)
-        (List.toArray proj.OtherOptions)
+        (List.toArray proj.OtherOptions),
+    (proj.ReferencedProjects |> List.map (fun p -> Path.normalizePath p.ProjectFileName))
 
 let private logProjectLoad = function
     | WorkspaceProjectState.Loading projFile -> Log.verbose (lazy $"Loading project '{projFile}'.")
@@ -57,36 +58,58 @@ let private logProjectLoad = function
 
 let private loadProjects additionalMSBuildProps (projFile: string) =
     let toolsPath = Init.init (IO.DirectoryInfo <| Path.GetDirectoryName projFile) None
-    let loader = WorkspaceLoader.Create(toolsPath, additionalMSBuildProps)
+    let loader = WorkspaceLoaderViaProjectGraph.Create(toolsPath, additionalMSBuildProps)
     loader.Notifications.Add logProjectLoad
+    let loadedProjects =
+        loader.LoadProjects [projFile]
+        |> Array.ofSeq
 
-    match loader.LoadProjects [projFile] |> List.ofSeq with
-    | [] ->
-        // should be unreachable as an error should have been thrown previously
-        failwithf "No projects sucessfully loaded."
-    | mainProj :: refProjs ->
-        let outputType =
-            match mainProj.ProjectOutputType with
-            | Library -> OutputType.Library
-            | Exe -> OutputType.Exe
-            | Custom output ->
-                Log.warning $"Unknown output type '{output}' for '{mainProj.ProjectFileName}'. Defaulting to output type 'Library'."
-                OutputType.Library
+    // for some reason the main project is not always the firt or last entry
+    // even though the projects are supposed? to be returned in topological order.
+    let mainProjIdx = loadedProjects |> Array.findIndex (fun x -> x.ProjectFileName = projFile)
+    let mainProj = loadedProjects[mainProjIdx]
+    let refProjs = loadedProjects |> Array.removeAt mainProjIdx
 
-        let mainProj = makeProjectOptionsFromLoadedProject mainProj
-        let refProjs = refProjs |> List.map makeProjectOptionsFromLoadedProject
+    let outputType =
+        match mainProj.ProjectOutputType with
+        | Library -> OutputType.Library
+        | Exe -> OutputType.Exe
+        | Custom output ->
+            Log.warning $"Unknown output type '{output}' for '{mainProj.ProjectFileName}'. Defaulting to output type 'Library'."
+            OutputType.Library
 
-        // TODO cache projects info of p2p ref
-        //   let p2pProjects =
-        //       p2ps
-        //       // do not follow others lang project, is not supported by FCS anyway
-        //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
-        //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+    let mainProj = makeProjectOptionsFromLoadedProject mainProj
+    let refProjs = refProjs |> Seq.map makeProjectOptionsFromLoadedProject |> List.ofSeq
 
-        mainProj, refProjs, outputType
+    // TODO cache projects info of p2p ref
+    //   let p2pProjects =
+    //       p2ps
+    //       // do not follow others lang project, is not supported by FCS anyway
+    //       |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
+    //       |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+
+    mainProj, refProjs, outputType
+
+// Maybe not the most efficient, but it's temporary until the graph loader is fixed.
+let topologicalSort (mainProj, immediateProjRefs) otherProjAndRefs =
+    let projAndRefsByFileName =
+        otherProjAndRefs
+        |> Seq.map (fun (proj: FSharpProjectOptions, refs) -> proj.ProjectFileName, (proj, refs))
+        |> dict
+
+    let rec getRefs acc projFile =
+        let proj, refProjs = projAndRefsByFileName[projFile]
+        // Add always a reference to the front to preserve compilation order
+        // Duplicated items will be removed later
+        refProjs |> List.fold getRefs (proj::acc)
+
+    ([mainProj], immediateProjRefs)
+    ||> List.fold getRefs
+    |> List.distinctBy (fun x -> x.ProjectFileName)
 
 let getProjectOptionsFromProjectFile configuration (projFile : string) =
-    loadProjects ["Configuration", configuration] projFile
+    let mainProj, refProjs, outputType = loadProjects ["Configuration", configuration] projFile
+    fst mainProj, topologicalSort mainProj refProjs, outputType
 
 type FablePackage =
     { Id: string
@@ -101,9 +124,9 @@ type CacheInfo =
         Version: string
         FableOptions: CompilerOptions
         ProjectPath: string
-        SourcePaths: string array
         FSharpOptions: string array
-        References: string list
+        SourcePaths: string array
+        ProjectPaths: string array
         OutDir: string option
         FableLibDir: string
         FableModulesDir: string
@@ -192,15 +215,14 @@ type CrackerOptions(cliArgs: CliArgs) =
 type CrackerResponse =
     { FableLibDir: string
       FableModulesDir: string
-      References: string list
       ProjectOptions: FSharpProjectOptions
+      ProjectPaths: string array
       OutputType: OutputType
       PrecompiledInfo: PrecompiledInfoImpl option
       CanReuseCompiledFiles: bool }
 
 type CrackedFsprojs =
-    { MainProject: FSharpProjectOptions
-      ReferencedProjects: FSharpProjectOptions list
+    { Projects: FSharpProjectOptions list
       DllReferences: IDictionary<string, string>
       PackageReferences: FablePackage list
       OutputType: OutputType }
@@ -433,13 +455,15 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
         let projName = IO.Path.GetFileName opts.ProjFile
         Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
-    let mainProj, refProjs, outputType = getProjectOptionsFromProjectFile opts.Configuration opts.ProjFile
+    let mainProj, allProjs, outputType = getProjectOptionsFromProjectFile opts.Configuration opts.ProjFile
 
     let dllRefs, fablePkgs = getDllsAndFablePkgs opts mainProj.OtherOptions
-    let refProjs = refProjs |> List.filter (fun proj -> not <| shouldExcludeProject opts dllRefs proj.ProjectFileName)
+    let projs =
+        allProjs |> List.filter (fun proj ->
+            proj.ProjectFileName = mainProj.ProjectFileName
+            || not <| shouldExcludeProject opts dllRefs proj.ProjectFileName)
 
-    { MainProject = mainProj
-      ReferencedProjects = List.rev refProjs // preserve compilation order
+    { Projects = projs
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OutputType = outputType }
@@ -455,8 +479,7 @@ let getCrackedProjectsFromScript (opts: CrackerOptions): CrackedFsprojs =
 
     let dllRefs, fablePkgs = getDllsAndFablePkgs opts projOpts.OtherOptions
 
-    { MainProject = projOpts
-      ReferencedProjects = []
+    { Projects = [ projOpts ]
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OutputType = OutputType.Exe }
@@ -618,27 +641,22 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
-            && (
-                [
-                    cacheInfo.ProjectPath
-                    yield! cacheInfo.References
-                ]
-                |> List.forall (fun fsproj ->
-                    if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
-                        // Check if the project uses Paket
-                        let fsprojDir = IO.Path.GetDirectoryName(fsproj)
-                        let paketReferences = IO.Path.Combine(fsprojDir, "paket.references")
-                        if not(IO.File.Exists(paketReferences)) then true
-                        else
-                            if isOlderThanCache paketReferences then
-                                // Only check paket.lock for main project and assume it's the same for references
-                                if fsproj <> cacheInfo.ProjectPath then true
-                                else
-                                    match File.tryFindUpwards "paket.lock" fsprojDir with
-                                    | Some paketLock -> isOlderThanCache paketLock
-                                    | None -> false
-                            else false
-                    else false
+            && (cacheInfo.ProjectPaths |> Array.forall (fun fsproj ->
+                if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
+                    // Check if the project uses Paket
+                    let fsprojDir = IO.Path.GetDirectoryName(fsproj)
+                    let paketReferences = IO.Path.Combine(fsprojDir, "paket.references")
+                    if not(IO.File.Exists(paketReferences)) then true
+                    else
+                        if isOlderThanCache paketReferences then
+                            // Only check paket.lock for main project and assume it's the same for references
+                            if fsproj <> cacheInfo.ProjectPath then true
+                            else
+                                match File.tryFindUpwards "paket.lock" fsprojDir with
+                                | Some paketLock -> isOlderThanCache paketLock
+                                | None -> false
+                        else false
+                else false
                 )
             )
         )
@@ -674,7 +692,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
 
         { ProjectOptions = makeProjectOptionsUsing opts sourcePaths otherOptions
-          References = cacheInfo.References
+          ProjectPaths = cacheInfo.ProjectPaths
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> cacheInfo.FableLibDir
           FableModulesDir = opts.FableModulesDir
           OutputType = cacheInfo.OutputType
@@ -695,23 +713,19 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let sourcePaths =
             let pkgSources = pkgRefs |> Seq.map (fun x -> x.SourcePaths |> Array.ofList)
-            let refSources = crackedProjs.ReferencedProjects |> Seq.map (fun x -> x.SourceFiles)
+            let sourceFiles = crackedProjs.Projects |> Seq.map (fun x -> x.SourceFiles)
             [| yield! pkgSources
-               yield! refSources
-               crackedProjs.MainProject.SourceFiles |]
+               yield! sourceFiles |]
             |> Array.concat
             |> Array.map Path.normalizePath // already full paths
             |> Array.filter (fun path -> not <| path.Contains "/obj/")
             // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 
         let otherOptions =
-            let refOptions = crackedProjs.ReferencedProjects |> Seq.map (fun x -> x.OtherOptions |> Array.filter isUsefulOption)
-            [|
-                yield! refOptions // merged options from all referenced projects
-                crackedProjs.MainProject.OtherOptions |> Array.filter isUsefulOption // main project compiler options
-                getBasicCompilerArgs() // options from compiler args
-                [| "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-") |]
-            |]
+            let refOptions = crackedProjs.Projects |> Seq.map (fun x -> x.OtherOptions |> Array.filter isUsefulOption)
+            [| yield! refOptions // merged options from all referenced projects and main project
+               getBasicCompilerArgs() // options from compiler args
+               [| "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-") |] |]
             |> Array.concat
             |> Array.distinct
 
@@ -736,34 +750,33 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 else Some("-r:" + r))
             |> Seq.toArray
 
-        let projRefs = crackedProjs.ReferencedProjects |> List.map (fun p -> Path.normalizePath p.ProjectFileName)
+        let projectPaths = crackedProjs.Projects |> Seq.map (fun p -> p.ProjectFileName) |> Array.ofSeq
         let otherOptions = Array.append otherOptions dllRefs
 
-        let cacheInfo: CacheInfo =
-            {
-                Version = Literals.VERSION
-                OutDir = opts.OutDir
-                FableLibDir = fableLibDir
-                FableModulesDir = opts.FableModulesDir
-                FableOptions = opts.FableOptions
-                ProjectPath = opts.ProjFile
-                FSharpOptions = otherOptions
-                SourcePaths = sourcePaths
-                References = projRefs
-                OutputType = crackedProjs.OutputType
-                Exclude = opts.Exclude
-                SourceMaps = opts.SourceMaps
-                SourceMapsRoot = opts.SourceMapsRoot
-            }
-
         if not opts.NoCache then
+            let cacheInfo: CacheInfo =
+                {
+                    Version = Literals.VERSION
+                    OutDir = opts.OutDir
+                    FableLibDir = fableLibDir
+                    FableModulesDir = opts.FableModulesDir
+                    FableOptions = opts.FableOptions
+                    ProjectPath = opts.ProjFile
+                    FSharpOptions = otherOptions
+                    SourcePaths = sourcePaths
+                    ProjectPaths = projectPaths
+                    OutputType = crackedProjs.OutputType
+                    Exclude = opts.Exclude
+                    SourceMaps = opts.SourceMaps
+                    SourceMapsRoot = opts.SourceMapsRoot
+                }
             cacheInfo.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =
             loadPrecompiledInfo opts otherOptions sourcePaths
 
         { ProjectOptions = makeProjectOptionsUsing opts sourcePaths otherOptions
-          References = projRefs
+          ProjectPaths = projectPaths
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> fableLibDir
           FableModulesDir = opts.FableModulesDir
           OutputType = crackedProjs.OutputType
