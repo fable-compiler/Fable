@@ -1,4 +1,4 @@
-﻿module Fable.Tests.CrossTargetingRelease
+﻿module Fable.Tests.MultiTargetingRelease
 
 open Fable.Core
 open Fable.Core.JsInterop
@@ -8,7 +8,7 @@ let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
 let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative
 let equals expected actual = Assert.AreEqual(actual, expected)
 
-describe "CrossTargetingRelease" (fun () ->
+describe "Multi-Targeting Release" (fun () ->
     let isDefined = "is defined"
     let notDefined = "not defined"
 

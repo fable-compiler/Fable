@@ -442,7 +442,7 @@ let testProjectConfigs() =
       "tests/Integration/ProjectConfigs/CustomConfiguration", "Test"
       "tests/Integration/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
       "tests/Integration/ProjectConfigs/ConsoleApp", String.Empty
-      "tests/Integration/ProjectConfigs/CrossTargetingRelease", String.Empty
+      "tests/Integration/ProjectConfigs/MultiTargetingRelease", String.Empty
     ]
     |> List.iter (fun (projectDir, configuration) ->
         let buildDir = "build/"+ projectDir
