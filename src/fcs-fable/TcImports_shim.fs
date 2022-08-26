@@ -47,14 +47,14 @@ module TcImports =
         let sigDataReaders ilModule =
             [ for resource in ilModule.Resources.AsList() do
                 if IsSignatureDataResource resource then 
-                    let _ccuName = GetSignatureDataResourceName resource
-                    yield resource.GetBytes() ]
+                    let _ccuName, getBytes = GetResourceNameAndSignatureDataFunc resource
+                    getBytes() ]
 
         let optDataReaders ilModule =
             [ for resource in ilModule.Resources.AsList() do
                 if IsOptimizationDataResource resource then
-                    let _ccuName = GetOptimizationDataResourceName resource
-                    yield resource.GetBytes() ]
+                    let _ccuName, getBytes = GetResourceNameAndOptimizationDataFunc resource
+                    getBytes() ]
 
         let LoadMod (ccuName: string) =
             let fileName =
@@ -248,11 +248,21 @@ module TcImports =
         let assembliesThatForwardToPrimaryAssembly = []
         let ilGlobals = mkILGlobals (primaryScopeRef, assembliesThatForwardToPrimaryAssembly, fsharpCoreScopeRef)
 
-        let tcGlobals = TcGlobals (
-                            tcConfig.compilingFSharpCore, ilGlobals, fslibCcuInfo.FSharpViewOfMetadata,
-                            tcConfig.implicitIncludeDir, tcConfig.mlCompatibility,
-                            tcConfig.isInteractive, tryFindSysTypeCcu, tcConfig.emitDebugInfoInQuotations,
-                            tcConfig.noDebugAttributes, tcConfig.pathMap, tcConfig.langVersion)
+        let tcGlobals =
+            TcGlobals(
+                tcConfig.compilingFSharpCore,
+                ilGlobals,
+                fslibCcuInfo.FSharpViewOfMetadata,
+                tcConfig.implicitIncludeDir,
+                tcConfig.mlCompatibility,
+                tcConfig.isInteractive,
+                tcConfig.useReflectionFreeCodeGen,
+                tryFindSysTypeCcu,
+                tcConfig.emitDebugInfoInQuotations,
+                tcConfig.noDebugAttributes,
+                tcConfig.pathMap,
+                tcConfig.langVersion
+            )
 
 #if DEBUG
         // the global_g reference cell is used only for debug printing
