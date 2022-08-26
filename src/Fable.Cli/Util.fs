@@ -561,7 +561,6 @@ module Json =
     open System.Text.Json
     open System.Text.Json.Serialization
     open System.Collections.Generic
-    open Fable.AST
 
     // TODO: Check which other parameters are accepted by attributes (arrays?)
     type AttParam =
@@ -642,7 +641,6 @@ module Json =
                     i
             writer.WriteNumberValue(i)
 
-    // TODO: When upgrading to net6, check if we still need FSharp.SystemTextJson
     let private getOptions() =
         // The default depth (64) is not enough, using 1024 that hopefully
         // should still prevent StackOverflow exceptions

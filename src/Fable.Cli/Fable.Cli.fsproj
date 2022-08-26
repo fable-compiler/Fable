@@ -50,7 +50,6 @@
     <PackageReference Include="NuGet.Frameworks" Version="6.3.0" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Ionide.ProjInfo" Version="0.60.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
   </ItemGroup>
 </Project>
