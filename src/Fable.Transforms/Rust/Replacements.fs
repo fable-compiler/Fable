@@ -315,8 +315,11 @@ let toSeq com t (expr: Expr) =
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
         match args with
+        | [] -> [makeStrConst ""]
+        | [arg] -> [makeStrConst "{0}"; arg]
+        | [str; Value(NewArray(ArrayValues [], _, _), _)] -> [str]
+        | [str; Value(NewArray(ArrayValues args, _, _), _)] -> str::args
         | (ExprType String)::restArgs -> args
-        | [] -> (makeStrConst "") :: args
         | _ -> (makeStrConst "{0}") :: args
     macro |> emitExpr r t args
 

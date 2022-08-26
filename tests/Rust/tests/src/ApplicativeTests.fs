@@ -1,7 +1,7 @@
 module Fable.Tests.ApplicativeTests
 
-open System
 open Util.Testing
+// open System
 
 let inline (|HasLength|) x =
   fun () -> (^a: (member Length: int) x)

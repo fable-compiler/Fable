@@ -1567,8 +1567,8 @@ module Util =
     let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
         let fmt = makeFormat parts
         let args = transformCallArgs com ctx values [] []
-        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args) |> mkAddrOfExpr
-        makeString com ctx expr
+        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
+        expr |> mkAddrOfExpr |> makeString com ctx
 
     let transformTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type): Rust.Expr =
         let importName = getLibraryImportName com ctx "Native" "TypeId"
@@ -1829,13 +1829,17 @@ module Util =
         let args = transformCallArgs com ctx info.Args info.SignatureArgTypes []
         let args =
             // for certain macros, use unwrapped format string as first argument
-            match macro, info.Args with
-            | ("print"|"println"|"format"), (Fable.Value(Fable.StringConstant formatStr, _)::restArgs) ->
-                (mkStrLitExpr formatStr)::(List.tail args)
+            match macro with
+            | "print" |"println" |"format" ->
+                match info.Args with
+                | [arg] -> (mkStrLitExpr "{0}")::args
+                | Fable.Value(Fable.StringConstant formatStr, _)::restArgs ->
+                    (mkStrLitExpr formatStr)::(List.tail args)
+                | _ -> args
             | _ -> args
         let expr = mkMacroExpr macro args
         if macro = "format"
-        then expr |> makeString com ctx
+        then expr |> mkAddrOfExpr |> makeString com ctx
         else expr
 
     let transformEmit (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
