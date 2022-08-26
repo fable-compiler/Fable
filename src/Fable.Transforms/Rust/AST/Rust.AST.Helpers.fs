@@ -36,7 +36,7 @@ module Naming =
         elif rustPrelude.Contains(ident) then ident + "_"
         else stripRaw ident // no need to keep it raw here
 
-    let splitFullName (name: string) =
+    let splitNameParts (name: string) =
         name.Split([|"."; "::"|], System.StringSplitOptions.RemoveEmptyEntries)
         |> List.ofArray
 
