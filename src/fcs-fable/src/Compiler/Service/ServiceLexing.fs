@@ -683,8 +683,10 @@ module internal LexerStateEncoding =
             let kind2 = ((nestingValue &&& 0b000000000011) >>> 0)
 
             [
-                if tag1 then i1, decodeStringStyle kind1, range0
-                if tag2 then i2, decodeStringStyle kind2, range0
+                if tag1 then
+                    i1, decodeStringStyle kind1, range0
+                if tag2 then
+                    i2, decodeStringStyle kind2, range0
             ]
 
         (colorState, ncomments, pos, ifDefs, hardwhite, stringKind, stringNest)
@@ -1185,14 +1187,18 @@ type FSharpSourceTokenizer(conditionalDefines: string list, fileName: string opt
 
     let lexResourceManager = LexResourceManager()
 
+    let applyLineDirectives = false
+    let indentationSyntaxStatus = IndentationAwareSyntaxStatus(true, false)
+
     let lexargs =
         mkLexargs (
             conditionalDefines,
-            IndentationAwareSyntaxStatus(true, false),
+            indentationSyntaxStatus,
             lexResourceManager,
             [],
             DiscardErrorsLogger,
-            PathMap.empty
+            PathMap.empty,
+            applyLineDirectives
         )
 
     member _.CreateLineTokenizer(lineText: string) =
@@ -1208,12 +1214,6 @@ type FSharpSourceTokenizer(conditionalDefines: string list, fileName: string opt
         FSharpLineTokenizer(lexbuf, None, fileName, lexargs)
 
 module FSharpKeywords =
-
-    let DoesIdentifierNeedBackticks s =
-        PrettyNaming.DoesIdentifierNeedBackticks s
-
-    let AddBackticksToIdentifierIfNeeded s =
-        PrettyNaming.AddBackticksToIdentifierIfNeeded s
 
     let NormalizeIdentifierBackticks s =
         PrettyNaming.NormalizeIdentifierBackticks s
@@ -1815,14 +1815,18 @@ module FSharpLexerImpl =
             UnicodeLexing.SourceTextAsLexbuf(reportLibraryOnlyFeatures, langVersion, text)
 
         let indentationSyntaxStatus = IndentationAwareSyntaxStatus(isLightSyntaxOn, true)
+        let applyLineDirectives = isCompiling
 
         let lexargs =
-            mkLexargs (conditionalDefines, indentationSyntaxStatus, LexResourceManager(0), [], diagnosticsLogger, pathMap)
-
-        let lexargs =
-            { lexargs with
-                applyLineDirectives = isCompiling
-            }
+            mkLexargs (
+                conditionalDefines,
+                indentationSyntaxStatus,
+                LexResourceManager(0),
+                [],
+                diagnosticsLogger,
+                pathMap,
+                applyLineDirectives
+            )
 
         let getNextToken =
             let lexer = Lexer.token lexargs canSkipTrivia

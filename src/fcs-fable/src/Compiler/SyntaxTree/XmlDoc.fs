@@ -266,9 +266,12 @@ type PreXmlDoc =
                 let lines = Array.map fst preLines
                 let m = Array.reduce unionRanges (Array.map snd preLines)
                 let doc = XmlDoc(lines, m)
+
 #if !FABLE_COMPILER
-                if check then doc.Check(paramNamesOpt)
+                if check then
+                    doc.Check(paramNamesOpt)
 #endif
+
                 doc
 
     member internal x.Range =
