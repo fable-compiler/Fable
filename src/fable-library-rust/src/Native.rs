@@ -8,6 +8,7 @@ pub mod Native_ {
     extern crate alloc;
 
     // re-export at module level
+    // pub use alloc::borrow::Cow;
     pub use alloc::boxed::Box as Box_;
     pub use alloc::rc::Rc;
     pub use alloc::sync::Arc;
