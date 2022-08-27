@@ -700,6 +700,8 @@ module Annotation =
         match t with
         | Fable.Measure _
         | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
+        | Fable.GenericParam (name = name) when name.StartsWith("$$") ->
+            stdlibModuleTypeHint com ctx "typing" "Any" []
         | Fable.GenericParam (name = name) ->
             match repeatedGenerics with
             | Some names when names.Contains name ->
