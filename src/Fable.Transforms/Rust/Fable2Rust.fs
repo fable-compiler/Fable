@@ -392,6 +392,7 @@ module TypeInfo =
         | Fable.Boolean
         | Fable.Char
         | Fable.Number _
+        | Fable.String
         | Fable.GenericParam _
         // struct containers, no need to Rc-wrap
         | Fable.List _
@@ -407,7 +408,6 @@ module TypeInfo =
             -> if ctx.RequiresSendSync then Some Arc else Some Lrc
 
         // should be Rc-wrapped
-        | Fable.String
         | Fable.Regex
         | Fable.Array _
         | Replacements.Util.Builtin (Replacements.Util.BclHashSet _)
@@ -617,7 +617,7 @@ module TypeInfo =
         ]
         mkDynTraitTy bounds
 
-    let numberType com ctx kind: Rust.Ty =
+    let transformNumberType com ctx kind: Rust.Ty =
         match kind with
         | Int8 -> "i8" |> primitiveType
         | UInt8 -> "u8" |> primitiveType
@@ -776,21 +776,23 @@ module TypeInfo =
     let transformMetaType com ctx: Rust.Ty =
         transformImportType com ctx [] "Native" "TypeId"
 
+    let transformStringType com ctx: Rust.Ty =
+        transformImportType com ctx [] "String" "string"
+
     let transformType (com: IRustCompiler) ctx (typ: Fable.Type): Rust.Ty =
         let ty =
             match typ with
-            | Fable.Measure _ -> mkInferTy ()
             | Fable.Any -> transformAnyType com ctx
-            | Fable.GenericParam(name=name) ->
-                mkGenericPathTy [name] None
-            | Fable.Unit    -> mkUnitTy ()
+            | Fable.Unit -> mkUnitTy ()
+            | Fable.Measure _ -> mkInferTy ()
+            | Fable.Char -> primitiveType "char"
             | Fable.Boolean -> primitiveType "bool"
-            | Fable.Char    -> primitiveType "char"
-            | Fable.String  -> primitiveType "str"
-            | Fable.Number(kind, _) -> numberType com ctx kind
+            | Fable.String -> transformStringType com ctx
+            | Fable.MetaType -> transformMetaType com ctx
+            | Fable.Number(kind, _) -> transformNumberType com ctx kind
+            | Fable.GenericParam(name, _, _) -> primitiveType name
             | Fable.LambdaType(argType, returnType) ->
                 let argTypes, returnType = [argType], returnType
-                // let argTypes, returnType = FableTransforms.uncurryLambdaType [argType] returnType
                 transformClosureType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) ->
                 transformClosureType com ctx argTypes returnType
@@ -801,7 +803,6 @@ module TypeInfo =
             | Fable.Regex ->
                 // nonGenericTypeInfo Types.regex
                 TODO_TYPE $"%A{typ}" //TODO:
-            | Fable.MetaType -> transformMetaType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
                 transformTupleType com ctx isStruct genArgs
 
@@ -1002,7 +1003,7 @@ module Util =
         if ident.IsMutable && not (isInRefType com ident.Type) then
             expr |> mutableGet
         elif isBoxScoped ctx ident.Name then
-            expr |> makeLrcValue
+            expr |> makeLrcValue com ctx
         // elif isRefScoped ctx ident.Name then
         //     expr |> makeClone // |> mkDerefExpr |> mkParenExpr
         else expr
@@ -1162,7 +1163,7 @@ module Util =
         | Fable.Tuple(ga1, false), Fable.Tuple(ga2, true) when ga1 = ga2 ->
             expr |> makeAsRef |> makeClone  //.ToValueTuple()
         | Fable.Tuple(ga1, true), Fable.Tuple(ga2, false) when ga1 = ga2 ->
-            expr |> makeLrcValue            //.ToTuple()
+            expr |> makeLrcValue com ctx            //.ToTuple()
 
         // casts to IEnumerable
         | Replacements.Util.IsEntity (Types.keyCollection) _, IEnumerable _
@@ -1189,7 +1190,7 @@ module Util =
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ ->
             expr
         | t1, t2 when not (shouldBeDyn com t1) && shouldBeDyn com t2 ->
-            expr |> makeClone |> makeLrcValue |> mkCastExpr ty
+            expr |> makeClone |> makeLrcValue com ctx |> mkCastExpr ty
         | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
         // // casts to object
@@ -1246,34 +1247,38 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
-    let makeLrcValue (value: Rust.Expr) =
-        makeCall ["Lrc";"new"] None [value]
+    let makeLrcValue com ctx (value: Rust.Expr) =
+        let name = getLibraryImportName com ctx "Native" "Lrc"
+        makeCall [name; "new"] None [value]
 
-    let makeRcValue (value: Rust.Expr) =
-        makeCall ["Rc";"new"] None [value]
+    let makeRcValue com ctx (value: Rust.Expr) =
+        let name = getLibraryImportName com ctx "Native" "Rc"
+        makeCall [name; "new"] None [value]
 
-    let makeArcValue (value: Rust.Expr) =
-        makeCall ["Arc";"new"] None [value]
+    let makeArcValue com ctx (value: Rust.Expr) =
+        let name = getLibraryImportName com ctx "Native" "Arc"
+        makeCall [name; "new"] None [value]
 
-    let makeBoxValue (value: Rust.Expr) =
-        makeCall ["Box";"new"] None [value]
+    let makeBoxValue com ctx (value: Rust.Expr) =
+        let name = getLibraryImportName com ctx "Native" "Box"
+        makeCall [name; "new"] None [value]
 
-    let maybeWrapSmartPtr ent expr =
+    let maybeWrapSmartPtr com ctx ent expr =
         match ent with
         | HasReferenceTypeAttribute a ->
             match a with
-            | Lrc -> expr |> makeLrcValue
-            | Rc -> expr |> makeRcValue
-            | Arc -> expr |> makeArcValue
-            | Box -> expr |> makeBoxValue
+            | Lrc -> expr |> makeLrcValue com ctx
+            | Rc -> expr |> makeRcValue com ctx
+            | Arc -> expr |> makeArcValue com ctx
+            | Box -> expr |> makeBoxValue com ctx
         | _ ->
             match ent.FullName with
             | Types.fsharpAsyncGeneric
             | Types.task
             | Types.taskGeneric ->
-                expr |> makeArcValue
+                expr |> makeArcValue com ctx
             | _ ->
-                expr |> makeLrcValue
+                expr |> makeLrcValue com ctx
 
     let makeMutValue (value: Rust.Expr) =
         makeCall ["MutCell";"new"] None [value]
@@ -1426,7 +1431,7 @@ module Util =
                 mkGenericPathExpr [rawIdent "None"] genArgs
         // if isStruct
         // then expr
-        // else expr |> makeLrcValue
+        // else expr |> makeLrcValue com ctx
         expr // all options are value options
 
     let makeArray (com: IRustCompiler) ctx r typ (exprs: Fable.Expr list) =
@@ -1492,7 +1497,7 @@ module Util =
             |> mkTupleExpr
         if isStruct
         then expr
-        else expr |> makeLrcValue
+        else expr |> makeLrcValue com ctx
 
     let makeRecord (com: IRustCompiler) ctx r values entRef genArgs =
         let ent = com.GetEntity(entRef)
@@ -1518,7 +1523,7 @@ module Util =
         let expr = mkStructExpr path fields // TODO: range
         if ent.IsValueType
         then expr
-        else expr |> maybeWrapSmartPtr ent
+        else expr |> maybeWrapSmartPtr com ctx ent
 
     let tryUseKnownUnionCaseNames fullName =
         match fullName with
@@ -1551,7 +1556,7 @@ module Util =
             else callFunction com ctx None callee values
         if ent.IsValueType || ent.FullName = Types.result
         then expr
-        else expr |> maybeWrapSmartPtr ent
+        else expr |> maybeWrapSmartPtr com ctx ent
 
     let makeThis (com: IRustCompiler) ctx r typ =
         let expr = mkGenericPathExpr [rawIdent "self"] None
@@ -1760,7 +1765,7 @@ module Util =
             let objExpr =
                 match baseCall with
                 | Some fableExpr -> com.TransformExpr(ctx, fableExpr)
-                | None -> mkStructExpr path fields |> makeLrcValue |> makeLrcValue
+                | None -> mkStructExpr path fields |> makeLrcValue com ctx |> makeLrcValue com ctx
             let objStmt = objExpr |> mkExprStmt
             let declStmts = structItems @ memberItems |> List.map mkItemStmt
             declStmts @ [objStmt] |> mkBlock |> mkBlockExpr
@@ -2193,7 +2198,7 @@ module Util =
         let initOpt =
             initOpt |> Option.map (fun init ->
                 if ident.IsMutable
-                then init |> makeMutValue |> makeLrcValue
+                then init |> makeMutValue |> makeLrcValue com ctx
                 else init)
         let local = mkIdentLocal [] ident.Name tyOpt initOpt
         // TODO : traverse body and follow references to decide on if this should be wrapped or not]
@@ -3069,8 +3074,8 @@ module Util =
                 ]
             else closureExpr
         if ctx.RequiresSendSync
-        then closureExpr |> makeArcValue
-        else closureExpr |> makeLrcValue
+        then closureExpr |> makeArcValue com ctx
+        else closureExpr |> makeLrcValue com ctx
 
     let makeTypeBounds (com: IRustCompiler) ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3242,7 +3247,7 @@ module Util =
         let value = transformLeaveContext com ctx None decl.Body
         let value =
             if memb.IsMutable
-            then value |> makeMutValue |> makeLrcValue
+            then value |> makeMutValue |> makeLrcValue com ctx
             else value
         let ty = transformType com ctx typ
         let ty =

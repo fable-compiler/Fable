@@ -21,7 +21,7 @@ pub mod Guid_ {
         Guid(Uuid::new_v4())
     }
 
-    pub fn parse(s: Lrc<str>) -> Guid {
+    pub fn parse(s: string) -> Guid {
         match Uuid::parse_str(s.as_ref()) {
             Ok(res) => Guid(res),
             Err(x) => panic!("{}", x)
