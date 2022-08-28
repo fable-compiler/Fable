@@ -30,6 +30,12 @@ let testInlineLambda () =
 // let testPartialApply () =
 //     add42 3 |> equal 45
 
+let test a = a, (fun b c -> a, b, c)
+
+[<Fact>]
+let testTupledLambda () =
+    (test 1 |> snd) 2 3 |> equal (1, 2, 3)
+
 let map f x =
     f x
 
@@ -77,10 +83,8 @@ let ``Closure captures and clones`` () =
 
 [<Fact>]
 let ``Closure can be declared locally and passed to a fn`` () =
-
     let x = "x"
     let cl s = s + x
-
     let res1 = "a." |> map (cl)//capture b, clone
     let res2 = "b." |> map (cl)//capture b, clone
     x |> equal "x"// prevent inlining
@@ -92,7 +96,6 @@ let ``Closure can close over another closure and call`` () =
     let x = "x"
     let cl1 s = s + x
     let cl2 s = cl1 s + x
-
     let res1 = "a." |> map (cl2)//capture b, clone
     let res2 = "b." |> map (cl2)//capture b, clone
     let res3 = "c." |> map (cl1)//capture b, clone
@@ -106,10 +109,8 @@ let ``Closures can accept multiple params`` () =
     let x = { Value = "x"}
     let cl a b c =
         (a + b + c + x.Value)
-
     let res1 = cl "a" "b" "c"
     let res2 = cl "d" "e" "f"
-
     x.Value |> equal "x" // prevent inlining
     res1 |> equal "abcx"
     res2 |> equal "defx"
@@ -117,9 +118,7 @@ let ``Closures can accept multiple params`` () =
 [<Fact>]
 let ``parameterless closure works - unit type in`` () =
     let x = { Value = "x"}
-    let cl () =
-        ("closed." + x.Value)
-
+    let cl () = ("closed." + x.Value)
     let res1 = cl()
     let res2 = cl()
     x.Value |> equal "x" // prevent inlining
@@ -131,7 +130,6 @@ let ``Mutable capture works`` () =
     let mutable x = 0
     let incrementX () =
         x <- x + 1
-
     incrementX()
     x |> equal 1
     incrementX()
@@ -148,7 +146,6 @@ let ``Capture works with type with interior mutability`` () =
     let x = { MutValue = 0 }
     let incrementX () =
         x.MutValue <- x.MutValue + 1
-
     incrementX()
     x.MutValue |> equal 1
     incrementX()

@@ -82,26 +82,14 @@ type FSharpSource with
         FSharpSourceCustom(filePath, getTimeStamp, getSourceText) :> FSharpSource
 
 #if !FABLE_COMPILER
-
     static member CreateFromFile(filePath: string) =
         FSharpSourceFromFile(filePath) :> FSharpSource
 
     static member CreateCopyFromFile(filePath: string) =
         let timeStamp = FileSystem.GetLastWriteTimeShim(filePath)
 
-        // We want to use mmaped documents only when
-        // not running on mono, since its MemoryMappedFile implementation throws when "mapName" is not provided (is null), (see: https://github.com/mono/mono/issues/10245)
-        if runningOnMono then
-            let bytes =
-                FileSystem
-                    .OpenFileForReadShim(filePath, useMemoryMappedFile = false)
-                    .ReadAllBytes()
+        let openStream =
+            fun () -> FileSystem.OpenFileForReadShim(filePath, useMemoryMappedFile = true, shouldShadowCopy = true)
 
-            FSharpSourceByteArray(filePath, timeStamp, bytes) :> FSharpSource
-        else
-            let openStream =
-                fun () -> FileSystem.OpenFileForReadShim(filePath, useMemoryMappedFile = true, shouldShadowCopy = true)
-
-            FSharpSourceMemoryMappedFile(filePath, timeStamp, openStream) :> FSharpSource
-
+        FSharpSourceMemoryMappedFile(filePath, timeStamp, openStream) :> FSharpSource
 #endif //!FABLE_COMPILER

@@ -512,7 +512,7 @@ type nonTerminalId =
     | NONTERM_objectImplementationBlock
     | NONTERM_objectImplementationMembers
     | NONTERM_objectImplementationMember
-    | NONTERM_memberOrOverride
+    | NONTERM_staticMemberOrMemberOrOverride
     | NONTERM_tyconDefnOrSpfnSimpleRepr
     | NONTERM_braceFieldDeclList
     | NONTERM_anonRecdType
@@ -530,7 +530,7 @@ type nonTerminalId =
     | NONTERM_opt_typeConstraints
     | NONTERM_typeConstraints
     | NONTERM_typeConstraint
-    | NONTERM_typarAlts
+    | NONTERM_typeAlts
     | NONTERM_unionTypeRepr
     | NONTERM_barAndgrabXmlDoc
     | NONTERM_attrUnionCaseDecls
@@ -626,8 +626,8 @@ type nonTerminalId =
     | NONTERM_arrayExpr
     | NONTERM_parenExpr
     | NONTERM_parenExprBody
-    | NONTERM_staticallyKnownHeadTypars
-    | NONTERM_staticallyKnownHeadTyparAlts
+    | NONTERM_typars
+    | NONTERM_typarAlts
     | NONTERM_braceExpr
     | NONTERM_braceExprBody
     | NONTERM_listExprElements
@@ -692,7 +692,6 @@ type nonTerminalId =
     | NONTERM_measureTypeSeq
     | NONTERM_measureTypeExpr
     | NONTERM_typar
-    | NONTERM_staticallyKnownHeadTypar
     | NONTERM_ident
     | NONTERM_path
     | NONTERM_opName

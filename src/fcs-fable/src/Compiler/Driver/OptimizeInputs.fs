@@ -237,7 +237,6 @@ let GenerateIlxCode
     (
         ilxBackend,
         isInteractiveItExpr,
-        isInteractiveOnMono,
         tcConfig: TcConfig,
         topAttrs: TopAttribs,
         optimizedImpls,
@@ -246,8 +245,10 @@ let GenerateIlxCode
     ) =
 
     let mainMethodInfo =
-        if (tcConfig.target = CompilerTarget.Dll)
-           || (tcConfig.target = CompilerTarget.Module) then
+        if
+            (tcConfig.target = CompilerTarget.Dll)
+            || (tcConfig.target = CompilerTarget.Module)
+        then
             None
         else
             Some topAttrs.mainMethodAttrs
@@ -255,7 +256,7 @@ let GenerateIlxCode
     let ilxGenOpts: IlxGenOptions =
         {
             generateFilterBlocks = tcConfig.generateFilterBlocks
-            emitConstantArraysUsingStaticDataBlobs = not isInteractiveOnMono
+            emitConstantArraysUsingStaticDataBlobs = true
             workAroundReflectionEmitBugs = tcConfig.isInteractive
             generateDebugSymbols = tcConfig.debuginfo // REVIEW: is this still required?
             fragName = fragName
@@ -264,6 +265,7 @@ let GenerateIlxCode
             mainMethodInfo = mainMethodInfo
             ilxBackend = ilxBackend
             fsiMultiAssemblyEmit = tcConfig.fsiMultiAssemblyEmit
+            useReflectionFreeCodeGen = tcConfig.useReflectionFreeCodeGen
             isInteractive = tcConfig.isInteractive
             isInteractiveItExpr = isInteractiveItExpr
             alwaysCallVirt = tcConfig.alwaysCallVirt

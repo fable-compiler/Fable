@@ -226,7 +226,7 @@ let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: i
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
         let decls = checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
         decls.Items |> Array.map (fun decl ->
-            { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
+            { Name = decl.NameInList; Glyph = convertGlyph decl.Glyph })
     | None ->
         [||]
 

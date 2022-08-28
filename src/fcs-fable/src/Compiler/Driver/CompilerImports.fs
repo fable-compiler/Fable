@@ -11,6 +11,10 @@ open System.Collections.Immutable
 #endif
 open System.Diagnostics
 open System.IO
+#if !FABLE_COMPILER
+open System.IO.Compression
+#endif
+open System.Reflection
 
 open Internal.Utilities
 open Internal.Utilities.Collections
@@ -59,27 +63,57 @@ let (++) x s = x @ [ s ]
 
 let IsSignatureDataResource (r: ILResource) =
     r.Name.StartsWithOrdinal FSharpSignatureDataResourceName
+    || r.Name.StartsWithOrdinal FSharpSignatureCompressedDataResourceName
     || r.Name.StartsWithOrdinal FSharpSignatureDataResourceName2
 
 let IsOptimizationDataResource (r: ILResource) =
     r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName
+    || r.Name.StartsWithOrdinal FSharpOptimizationCompressedDataResourceName
     || r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName2
 
-let GetSignatureDataResourceName (r: ILResource) =
-    if r.Name.StartsWithOrdinal FSharpSignatureDataResourceName then
-        String.dropPrefix r.Name FSharpSignatureDataResourceName
-    elif r.Name.StartsWithOrdinal FSharpSignatureDataResourceName2 then
-        String.dropPrefix r.Name FSharpSignatureDataResourceName2
-    else
-        failwith "GetSignatureDataResourceName"
+let decompressResource (r: ILResource) =
+#if FABLE_COMPILER
+    r.GetBytes() // no support for gunzip
+#else
+    use raw = r.GetBytes().AsStream()
+    use decompressed = new MemoryStream()
+    use deflator = new DeflateStream(raw, CompressionMode.Decompress)
+    deflator.CopyTo decompressed
+    deflator.Close()
+    ByteStorage.FromByteArray(decompressed.ToArray()).GetByteMemory()
+#endif
 
-let GetOptimizationDataResourceName (r: ILResource) =
-    if r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName then
-        String.dropPrefix r.Name FSharpOptimizationDataResourceName
-    elif r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName2 then
-        String.dropPrefix r.Name FSharpOptimizationDataResourceName2
+let GetResourceNameAndSignatureDataFunc (r: ILResource) =
+    let resourceType, ccuName =
+        if r.Name.StartsWithOrdinal FSharpSignatureDataResourceName then
+            FSharpSignatureDataResourceName, String.dropPrefix r.Name FSharpSignatureDataResourceName
+        elif r.Name.StartsWithOrdinal FSharpSignatureCompressedDataResourceName then
+            FSharpSignatureCompressedDataResourceName, String.dropPrefix r.Name FSharpSignatureCompressedDataResourceName
+        elif r.Name.StartsWithOrdinal FSharpSignatureDataResourceName2 then
+            FSharpSignatureDataResourceName2, String.dropPrefix r.Name FSharpSignatureDataResourceName2
+        else
+            failwith "GetSignatureDataResourceName"
+
+    if resourceType = FSharpSignatureCompressedDataResourceName then
+        ccuName, (fun () -> decompressResource (r))
     else
-        failwith "GetOptimizationDataResourceName"
+        ccuName, (fun () -> r.GetBytes())
+
+let GetResourceNameAndOptimizationDataFunc (r: ILResource) =
+    let resourceType, ccuName =
+        if r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName then
+            FSharpOptimizationDataResourceName, String.dropPrefix r.Name FSharpOptimizationDataResourceName
+        elif r.Name.StartsWithOrdinal FSharpOptimizationCompressedDataResourceName then
+            FSharpOptimizationCompressedDataResourceName, String.dropPrefix r.Name FSharpOptimizationCompressedDataResourceName
+        elif r.Name.StartsWithOrdinal FSharpOptimizationDataResourceName2 then
+            FSharpOptimizationDataResourceName2, String.dropPrefix r.Name FSharpOptimizationDataResourceName2
+        else
+            failwith "GetOptimizationDataResourceName"
+
+    if resourceType = FSharpOptimizationCompressedDataResourceName then
+        ccuName, (fun () -> decompressResource (r))
+    else
+        ccuName, (fun () -> r.GetBytes())
 
 let IsReflectedDefinitionsResource (r: ILResource) =
     r.Name.StartsWithOrdinal(QuotationPickler.SerializedReflectedDefinitionsResourceNameBase)
@@ -95,18 +129,23 @@ let MakeILResource rName bytes =
         MetadataIndex = NoMetadataIdx
     }
 
-let PickleToResource inMem file (g: TcGlobals) scope rName p x =
+let PickleToResource inMem file (g: TcGlobals) compress scope rName p x =
     let file = PathMap.apply g.pathMap file
 
-    let bytes = pickleObjWithDanglingCcus inMem file g scope p x
+    let bytes =
+        use bytes = pickleObjWithDanglingCcus inMem file g scope p x
 
-    let byteStorage =
-        if inMem then
-            ByteStorage.FromMemoryAndCopy(bytes.AsMemory(), useBackingMemoryMappedFile = true)
+        if compress then
+            let raw = new MemoryStream(bytes.AsMemory().ToArray())
+            let compressed = new MemoryStream()
+            use deflator = new DeflateStream(compressed, CompressionLevel.Optimal)
+            raw.CopyTo deflator
+            deflator.Close()
+            compressed.ToArray()
         else
-            ByteStorage.FromByteArray(bytes.AsMemory().ToArray())
+            bytes.AsMemory().ToArray()
 
-    (bytes :> IDisposable).Dispose()
+    let byteStorage = ByteStorage.FromByteArray(bytes)
 
     {
         Name = rName
@@ -120,15 +159,17 @@ let GetSignatureData (file, ilScopeRef, ilModule, byteReader) : PickledDataWithR
     unpickleObjWithDanglingCcus file ilScopeRef ilModule unpickleCcuInfo (byteReader ())
 
 let WriteSignatureData (tcConfig: TcConfig, tcGlobals, exportRemapping, ccu: CcuThunk, fileName, inMem) : ILResource =
-    let mspec = ccu.Contents
-    let mspec = ApplyExportRemappingToEntity tcGlobals exportRemapping mspec
+    let mspec = ApplyExportRemappingToEntity tcGlobals exportRemapping ccu.Contents
+
     // For historical reasons, we use a different resource name for FSharp.Core, so older F# compilers
     // don't complain when they see the resource.
-    let rName =
-        if ccu.AssemblyName = getFSharpCoreLibraryName then
-            FSharpSignatureDataResourceName2
+    let rName, compress =
+        if tcConfig.compressMetadata then
+            FSharpSignatureCompressedDataResourceName, true
+        elif ccu.AssemblyName = getFSharpCoreLibraryName then
+            FSharpSignatureDataResourceName2, false
         else
-            FSharpSignatureDataResourceName
+            FSharpSignatureDataResourceName, false
 
     let includeDir =
         if String.IsNullOrEmpty tcConfig.implicitIncludeDir then
@@ -142,6 +183,7 @@ let WriteSignatureData (tcConfig: TcConfig, tcGlobals, exportRemapping, ccu: Ccu
         inMem
         fileName
         tcGlobals
+        compress
         ccu
         (rName + ccu.AssemblyName)
         pickleCcuInfo
@@ -154,34 +196,23 @@ let WriteSignatureData (tcConfig: TcConfig, tcGlobals, exportRemapping, ccu: Ccu
 let GetOptimizationData (file, ilScopeRef, ilModule, byteReader) =
     unpickleObjWithDanglingCcus file ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo (byteReader ())
 
-let WriteOptimizationData (tcGlobals, fileName, inMem, ccu: CcuThunk, modulInfo) =
+let WriteOptimizationData (tcConfig: TcConfig, tcGlobals, fileName, inMem, ccu: CcuThunk, modulInfo) =
     // For historical reasons, we use a different resource name for FSharp.Core, so older F# compilers
     // don't complain when they see the resource.
-    let rName =
-        if ccu.AssemblyName = getFSharpCoreLibraryName then
-            FSharpOptimizationDataResourceName2
+    let rName, compress =
+        if tcConfig.compressMetadata then
+            FSharpOptimizationCompressedDataResourceName, true
+        elif ccu.AssemblyName = getFSharpCoreLibraryName then
+            FSharpOptimizationDataResourceName2, false
         else
-            FSharpOptimizationDataResourceName
+            FSharpOptimizationDataResourceName, false
 
-    PickleToResource inMem fileName tcGlobals ccu (rName + ccu.AssemblyName) Optimizer.p_CcuOptimizationInfo modulInfo
+    PickleToResource inMem fileName tcGlobals compress ccu (rName + ccu.AssemblyName) Optimizer.p_CcuOptimizationInfo modulInfo
 
 let EncodeSignatureData (tcConfig: TcConfig, tcGlobals, exportRemapping, generatedCcu, outfile, isIncrementalBuild) =
     if tcConfig.GenerateSignatureData then
         let resource =
             WriteSignatureData(tcConfig, tcGlobals, exportRemapping, generatedCcu, outfile, isIncrementalBuild)
-        // The resource gets written to a file for FSharp.Core
-        let useDataFiles =
-            (tcConfig.useOptimizationDataFile || tcGlobals.compilingFSharpCore)
-            && not isIncrementalBuild
-
-        if useDataFiles then
-            let sigDataFileName = (FileSystemUtils.chopExtension outfile) + ".sigdata"
-            let bytes = resource.GetBytes()
-
-            use fileStream =
-                FileSystem.OpenFileForWriteShim(sigDataFileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-
-            bytes.CopyTo fileStream
 
         let resources = [ resource ]
 
@@ -195,23 +226,6 @@ let EncodeSignatureData (tcConfig: TcConfig, tcGlobals, exportRemapping, generat
 let EncodeOptimizationData (tcGlobals, tcConfig: TcConfig, outfile, exportRemapping, data, isIncrementalBuild) =
     if tcConfig.GenerateOptimizationData then
         let data = map2Of2 (Optimizer.RemapOptimizationInfo tcGlobals exportRemapping) data
-        // As with the sigdata file, the optdata gets written to a file for FSharp.Core
-        let useDataFiles =
-            (tcConfig.useOptimizationDataFile || tcGlobals.compilingFSharpCore)
-            && not isIncrementalBuild
-
-        if useDataFiles then
-            let ccu, modulInfo = data
-
-            let bytes =
-                pickleObjWithDanglingCcus isIncrementalBuild outfile tcGlobals ccu Optimizer.p_CcuOptimizationInfo modulInfo
-
-            let optDataFileName = (FileSystemUtils.chopExtension outfile) + ".optdata"
-
-            use fileStream =
-                FileSystem.OpenFileForWriteShim(optDataFileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-
-            fileStream.Write(bytes)
 
         let ccu, optData =
             if tcConfig.onlyEssentialOptimizationData then
@@ -219,7 +233,9 @@ let EncodeOptimizationData (tcGlobals, tcConfig: TcConfig, outfile, exportRemapp
             else
                 data
 
-        [ WriteOptimizationData(tcGlobals, outfile, isIncrementalBuild, ccu, optData) ]
+        [
+            WriteOptimizationData(tcConfig, tcGlobals, outfile, isIncrementalBuild, ccu, optData)
+        ]
     else
         []
 
@@ -243,19 +259,15 @@ let OpenILBinary (fileName, reduceMemoryUsage, pdbDirPath, shadowCopyReferences,
         }
 
     let location =
-#if FX_NO_APP_DOMAINS
         // In order to use memory mapped files on the shadow copied version of the Assembly, we `preload the assembly
         // We swallow all exceptions so that we do not change the exception contract of this API
-        if shadowCopyReferences then
+        if shadowCopyReferences && not isRunningOnCoreClr then
             try
-                System.Reflection.Assembly.ReflectionOnlyLoadFrom(fileName).Location
+                Assembly.ReflectionOnlyLoadFrom(fileName).Location
             with _ ->
                 fileName
         else
-#else
-        ignore shadowCopyReferences
-#endif
-        fileName
+            fileName
 
     AssemblyReader.GetILModuleReader(location, opts)
 
@@ -332,7 +344,7 @@ type ImportedBinary =
         FileName: string
         RawMetadata: IRawFSharpAssemblyData
 #if !NO_TYPEPROVIDERS
-        ProviderGeneratedAssembly: System.Reflection.Assembly option
+        ProviderGeneratedAssembly: Assembly option
         IsProviderGenerated: bool
         ProviderGeneratedStaticLinkMap: ProvidedAssemblyStaticLinkingMap option
 #endif
@@ -422,7 +434,8 @@ type TcConfig with
                     seq {
                         yield! tcConfig.GetSearchPathsForLibraryFiles()
 
-                        if isHashRReference m then Path.GetDirectoryName(m.FileName)
+                        if isHashRReference m then
+                            Path.GetDirectoryName(m.FileName)
                     }
 
                 let resolved = TryResolveFileUsingPaths(searchPaths, m, nm)
@@ -437,7 +450,7 @@ type TcConfig with
                             resolvedPath = resolved
                             prepareToolTip =
                                 (fun () ->
-                                    let fusionName = System.Reflection.AssemblyName.GetAssemblyName(resolved).ToString()
+                                    let fusionName = AssemblyName.GetAssemblyName(resolved).ToString()
                                     let line (append: string) = append.Trim(' ') + "\n"
                                     line resolved + line fusionName)
                             sysdir = sysdir
@@ -470,30 +483,15 @@ type TcConfig with
                 raise (FileNameNotResolved(nm, searchMessage, m))
             | CcuLoadFailureAction.ReturnNone -> None
 
-    member tcConfig.MsBuildResolve(references, mode, errorAndWarningRange, showMessages) =
+    member tcConfig.MsBuildResolve(references, _, errorAndWarningRange, showMessages) =
         let logMessage showMessages =
             if showMessages && tcConfig.showReferenceResolutions then
                 (fun (message: string) -> printfn "%s" message)
             else
                 ignore
 
-        let logDiagnostic showMessages =
-            (fun isError code message ->
-                if showMessages && mode = ResolveAssemblyReferenceMode.ReportErrors then
-                    if isError then
-                        errorR (MSBuildReferenceResolutionError(code, message, errorAndWarningRange))
-                    else
-                        match code with
-                        // These are warnings that mean 'not resolved' for some assembly.
-                        // Note that we don't get to know the name of the assembly that couldn't be resolved.
-                        // Ignore these and rely on the logic below to emit an error for each unresolved reference.
-                        | "MSB3246" // Resolved file has a bad image, no metadata, or is otherwise inaccessible.
-                        | "MSB3106" -> ()
-                        | _ ->
-                            if code = "MSB3245" then
-                                errorR (MSBuildReferenceResolutionWarning(code, message, errorAndWarningRange))
-                            else
-                                warning (MSBuildReferenceResolutionWarning(code, message, errorAndWarningRange)))
+        let logDiagnostic _ =
+            (fun (_: bool) (_: string) (_: string) -> ())
 
         let targetProcessorArchitecture =
             match tcConfig.platform with
@@ -612,8 +610,10 @@ type TcConfig with
 
             // O(N^2) here over a small set of referenced assemblies.
             let IsResolved (originalName: string) =
-                if resultingResolutions
-                   |> List.exists (fun resolution -> resolution.originalReference.Text = originalName) then
+                if
+                    resultingResolutions
+                    |> List.exists (fun resolution -> resolution.originalReference.Text = originalName)
+                then
                     true
                 else
                     // MSBuild resolution may have unified the result of two duplicate references. Try to re-resolve now.
@@ -635,8 +635,10 @@ type TcConfig with
 
             // If mode=Speculative, then we haven't reported any errors.
             // We report the error condition by returning an empty list of resolutions
-            if mode = ResolveAssemblyReferenceMode.Speculative
-               && unresolvedReferences.Length > 0 then
+            if
+                mode = ResolveAssemblyReferenceMode.Speculative
+                && unresolvedReferences.Length > 0
+            then
                 [], unresolved
             else
                 resultingResolutions, unresolved
@@ -756,7 +758,8 @@ type TcAssemblyResolutions(tcConfig: TcConfig, results: AssemblyResolution list,
 
                             resolutions.Length = 1
 
-                    if found then asm
+                    if found then
+                        asm
 
             if tcConfig.implicitlyReferenceDotNetAssemblies then
                 let references, _useDotNetFramework =
@@ -878,10 +881,9 @@ type RawFSharpAssemblyDataBackedByFileOnDisk(ilModule: ILModuleDef, ilAssemblyRe
 
             let sigDataReaders =
                 [
-                    for iresource in resources do
-                        if IsSignatureDataResource iresource then
-                            let ccuName = GetSignatureDataResourceName iresource
-                            (ccuName, (fun () -> iresource.GetBytes()))
+                    for r in resources do
+                        if IsSignatureDataResource r then
+                            GetResourceNameAndSignatureDataFunc r
                 ]
 
             let sigDataReaders =
@@ -909,7 +911,7 @@ type RawFSharpAssemblyDataBackedByFileOnDisk(ilModule: ILModuleDef, ilAssemblyRe
                 ilModule.Resources.AsList()
                 |> List.choose (fun r ->
                     if IsOptimizationDataResource r then
-                        Some(GetOptimizationDataResourceName r, (fun () -> r.GetBytes()))
+                        Some(GetResourceNameAndOptimizationDataFunc r)
                     else
                         None)
 
@@ -970,17 +972,16 @@ type RawFSharpAssemblyData(ilModule: ILModuleDef, ilAssemblyRefs) =
             let resources = ilModule.Resources.AsList()
 
             [
-                for iresource in resources do
-                    if IsSignatureDataResource iresource then
-                        let ccuName = GetSignatureDataResourceName iresource
-                        (ccuName, (fun () -> iresource.GetBytes()))
+                for r in resources do
+                    if IsSignatureDataResource r then
+                        GetResourceNameAndSignatureDataFunc r
             ]
 
         member _.GetRawFSharpOptimizationData(_, _, _) =
             ilModule.Resources.AsList()
             |> List.choose (fun r ->
                 if IsOptimizationDataResource r then
-                    Some(GetOptimizationDataResourceName r, (fun () -> r.GetBytes()))
+                    Some(GetResourceNameAndOptimizationDataFunc r)
                 else
                     None)
 
@@ -1164,7 +1165,9 @@ and [<Sealed>] TcImports
     let mutable disposed = false // this doesn't need locking, it's only for debugging
     let mutable tcGlobals = None // this doesn't need locking, it's set during construction of the TcImports
 
-    let CheckDisposed () = if disposed then assert false
+    let CheckDisposed () =
+        if disposed then
+            assert false
 
     let dispose () =
         CheckDisposed()
@@ -1183,8 +1186,11 @@ and [<Sealed>] TcImports
             let unsuccessful =
                 [
                     for ccuThunk, func in contents do
-                        if ccuThunk.IsUnresolvedReference then func ()
-                        if ccuThunk.IsUnresolvedReference then (ccuThunk, func)
+                        if ccuThunk.IsUnresolvedReference then
+                            func ()
+
+                        if ccuThunk.IsUnresolvedReference then
+                            (ccuThunk, func)
                 ]
 
             ccuThunks <- ResizeArray unsuccessful)
@@ -1759,7 +1765,7 @@ and [<Sealed>] TcImports
                     tcConfig.ResolveLibWithDirectories(CcuLoadFailureAction.RaiseError, primaryAssemblyRef)
                     |> Option.get
                 // MSDN: this method causes the file to be opened and closed, but the assembly is not added to this domain
-                let name = System.Reflection.AssemblyName.GetAssemblyName(resolution.resolvedPath)
+                let name = AssemblyName.GetAssemblyName(resolution.resolvedPath)
                 name.Version
 
             let typeProviderEnvironment =
@@ -2263,7 +2269,7 @@ and [<Sealed>] TcImports
                 tryFile (assemblyName + ".exe") |> ignore
 
 #if !NO_TYPEPROVIDERS
-    member tcImports.TryFindProviderGeneratedAssemblyByName(ctok, assemblyName: string) : System.Reflection.Assembly option =
+    member tcImports.TryFindProviderGeneratedAssemblyByName(ctok, assemblyName: string) : Assembly option =
         // The assembly may not be in the resolutions, but may be in the load set including EST injected assemblies
         match tcImports.TryFindDllInfo(ctok, range0, assemblyName, lookupOnly = true) with
         | Some res ->
@@ -2484,6 +2490,7 @@ and [<Sealed>] TcImports
                     tcConfig.implicitIncludeDir,
                     tcConfig.mlCompatibility,
                     tcConfig.isInteractive,
+                    tcConfig.useReflectionFreeCodeGen,
                     tryFindSysTypeCcu,
                     tcConfig.emitDebugInfoInQuotations,
                     tcConfig.noDebugAttributes,

@@ -1,6 +1,7 @@
 module Fable.Tests.StringTests
 
 open Util.Testing
+open System
 // open System.Globalization
 
 // module M =
@@ -54,23 +55,23 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``String chunkBySize works`` () = // See #1296
-//     "fffff" |> Seq.chunkBySize 3 |> Seq.map System.String |> Seq.toList
+//     "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
 //     |> equal ["fff"; "ff"]
 
 // Format
 
 // [<Fact>]
 // let ``StringBuilder works`` () =
-//     let sb = System.Text.StringBuilder()
+//     let sb = Text.StringBuilder()
 //     sb.Append("Hello") |> ignore
 //     sb.AppendLine() |> ignore
 //     sb.AppendLine("World!") |> ignore
-//     let expected = System.String.Format("Hello{0}World!{0}", System.Environment.NewLine)
+//     let expected = String.Format("Hello{0}World!{0}", Environment.NewLine)
 //     sb.ToString() |> equal expected
 
 // [<Fact>]
 // let ``StringBuilder.Length works`` () =
-//     let sb = System.Text.StringBuilder()
+//     let sb = Text.StringBuilder()
 //     sb.Append("Hello") |> ignore
 //     // We don't test the AppendLine for Length because depending on the OS
 //     // the result is different. Unix \n VS Windows \r\n
@@ -79,22 +80,22 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``StringBuilder.ToString works with index and length`` () =
-//     let sb = System.Text.StringBuilder()
+//     let sb = Text.StringBuilder()
 //     sb.Append("Hello") |> ignore
 //     sb.AppendLine() |> ignore
 //     equal "ll" (sb.ToString(2, 2))
 
 // [<Fact>]
 // let ``StringBuilder.Clear works`` () =
-//     let builder = new System.Text.StringBuilder()
+//     let builder = new Text.StringBuilder()
 //     builder.Append("1111") |> ignore
 //     builder.Clear() |> ignore
 //     equal "" (builder.ToString())
 
 // [<Fact>]
 // let ``StringBuilder.Append works with various overloads`` () =
-//     let sb = System.Text.StringBuilder()
-//                         .Append(System.Text.StringBuilder("aaa"))
+//     let sb = Text.StringBuilder()
+//                         .Append(Text.StringBuilder("aaa"))
 //                         .Append("bcd".ToCharArray())
 //                         .Append('/')
 //                         .Append(true)
@@ -105,7 +106,7 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``StringBuilder.AppendFormat works`` () =
-//     let sb = System.Text.StringBuilder()
+//     let sb = Text.StringBuilder()
 //     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
 //     sb.ToString() |> equal "Hello World!"
 
@@ -125,7 +126,7 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``kbprintf works`` () =
-//     let sb = System.Text.StringBuilder()
+//     let sb = Text.StringBuilder()
 //     let mutable i = 0
 //     let f () = i <- i + 1
 //     Printf.kbprintf f sb "Hello"
@@ -144,7 +145,7 @@ let ``String literal addition is optimized`` () =
 
 // [<Fact>]
 // let ``bprintf works`` () =
-//     let sb = System.Text.StringBuilder(10)
+//     let sb = Text.StringBuilder(10)
 //     Printf.bprintf sb "Hello"
 //     Printf.bprintf sb " %s!" "world"
 //     sb.ToString() |> equal "Hello world!"
@@ -274,7 +275,7 @@ let ``string interpolation works`` () =
 
 [<Fact>]
 let ``string interpolation works with inline expressions`` () =
-    $"I think {3.0 + 0.14} is close to {float32 System.Math.PI}!"
+    $"I think {3.0 + 0.14} is close to {float32 Math.PI}!"
     |> equal "I think 3.14 is close to 3.1415927!"
 
 [<Fact>]
@@ -507,8 +508,19 @@ let ``String slicing works`` () =
     s.[0..-1] |> equal ""
     s.[-50..50] |> equal "cat and dog"
 
+[<Fact>]
+let ``String.Format works without args`` () =
+    String.Format("Hello") |> equal "Hello"
+    String.Format($"""Hello {"World!"}""") |> equal "Hello World!"
+
+[<Fact>]
+let ``String.Format works`` () =
+    let arg1, arg2, arg3 = "F#", "Fable", "Babel"
+    String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+    |> equal "Babel is to Fable what Fable is to F#"
+
 // [<Fact>]
-// let ``String.Format works`` () =
+// let ``String.Format works II`` () =
 //     let arg1, arg2, arg3 = "F#", "Fable", "Babel"
 //     String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
 //     |> equal "Babel is to Fable what Fable is to F#"
@@ -631,52 +643,52 @@ let ``Conversion string to char works`` () =
 //     equal 5.25m (decimal "5.25")
 //     (string 5.25m).StartsWith("5.25") |> equal true
 
-// System.String - constructors
+// String - constructors
 
 [<Fact>]
 let ``String.ctor(char[]) works`` () =
-    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|])
+    String([|'f'; 'a'; 'b'; 'l'; 'e'|])
     |> equal "fable"
 
 [<Fact>]
 let ``String.ctor(char, int) works`` () =
-    System.String('f', 5)
+    String('f', 5)
     |> equal "fffff"
 
 [<Fact>]
 let ``String.ctor(char[], int, int) works`` () =
-    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
+    String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
     |> equal "abl"
 
-// System.String - static methods
+// String - static methods
 
 [<Fact>]
-let ``System.String.Equals works`` () =
-    System.String.Equals("abc", "abc") |> equal true
-    System.String.Equals("ABC", "abc") |> equal false
-    System.String.Equals("abc", "abd") |> equal false
+let ``String.Equals works`` () =
+    String.Equals("abc", "abc") |> equal true
+    String.Equals("ABC", "abc") |> equal false
+    String.Equals("abc", "abd") |> equal false
     "abc".Equals("abc") |> equal true
     "ABC".Equals("abc") |> equal false
     "abc".Equals("abd") |> equal false
 
 // [<Fact>]
-// let ``System.String.Equals with comparison works`` () =
-//     System.String.Equals("ABC", "abc", System.StringComparison.Ordinal) |> equal false
-//     System.String.Equals("ABC", "abc", System.StringComparison.OrdinalIgnoreCase) |> equal true
-//     "ABC".Equals("abc", System.StringComparison.Ordinal) |> equal false
-//     "ABC".Equals("abc", System.StringComparison.OrdinalIgnoreCase) |> equal true
+// let ``String.Equals with comparison works`` () =
+//     String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
+//     String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
+//     "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
+//     "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
 
 [<Fact>]
 let ``String.CompareOrdinal works`` () =
-    System.String.CompareOrdinal("abc", "abc") = 0 |> equal true
-    System.String.CompareOrdinal("ABC", "abc") < 0 |> equal true
-    System.String.CompareOrdinal("abc", "abd") < 0 |> equal true
-    System.String.CompareOrdinal("bbc", "abd") > 0 |> equal true
+    String.CompareOrdinal("abc", "abc") = 0 |> equal true
+    String.CompareOrdinal("ABC", "abc") < 0 |> equal true
+    String.CompareOrdinal("abc", "abd") < 0 |> equal true
+    String.CompareOrdinal("bbc", "abd") > 0 |> equal true
 
 // [<Fact>]
 // let ``String.CompareOrdinal substring works`` () =
-//     System.String.CompareOrdinal("abc", 0, "bcd", 0, 3) < 0 |> equal true
-//     System.String.CompareOrdinal("abc", 1, "bcd", 0, 2) = 0 |> equal true
+//     String.CompareOrdinal("abc", 0, "bcd", 0, 3) < 0 |> equal true
+//     String.CompareOrdinal("abc", 1, "bcd", 0, 2) = 0 |> equal true
 
 // [<Fact>]
 // let ``String.CompareTo works`` () =
@@ -686,50 +698,50 @@ let ``String.CompareOrdinal works`` () =
 
 // [<Fact>]
 // let ``String.Compare works`` () =
-//     System.String.Compare("abc", "abc") |> equal 0
-//     System.String.Compare("ABC", "abc") |> equal 1
-//     System.String.Compare("abc", "abd") |> equal -1
-//     System.String.Compare("bbc", "abd") |> equal 1
+//     String.Compare("abc", "abc") |> equal 0
+//     String.Compare("ABC", "abc") |> equal 1
+//     String.Compare("abc", "abd") |> equal -1
+//     String.Compare("bbc", "abd") |> equal 1
 
 // [<Fact>]
 // let ``String.Compare case-insensitive works`` () =
-//     System.String.Compare("ABC", "abc", false) |> equal 1
-//     System.String.Compare("ABC", "abc", true) |> equal 0
-//     System.String.Compare("ABC", "abd", true) |> equal -1
-//     System.String.Compare("BBC", "abd", true) |> equal 1
+//     String.Compare("ABC", "abc", false) |> equal 1
+//     String.Compare("ABC", "abc", true) |> equal 0
+//     String.Compare("ABC", "abd", true) |> equal -1
+//     String.Compare("BBC", "abd", true) |> equal 1
 
 // [<Fact>]
 // let ``String.Compare substring works`` () =
-//     System.String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
-//     System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
+//     String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
+//     String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
 
 // [<Fact>]
 // let ``String.Compare with comparison works`` () =
-//     System.String.Compare("ABC", "abc", System.StringComparison.CurrentCulture) > 0 |> equal true
-//     System.String.Compare("ABC", "abc", System.StringComparison.Ordinal) < 0 |> equal true
-//     System.String.Compare("ABC", "abc", System.StringComparison.OrdinalIgnoreCase) |> equal 0
+//     String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
+//     String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+//     String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
 
 // [<Fact>]
 // let ``String.Compare substring with comparison works`` () =
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.CurrentCulture) > 0 |> equal true
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.Ordinal) < 0 |> equal true
-//     System.String.Compare("ABC", 1, "bcd", 0, 2, System.StringComparison.OrdinalIgnoreCase) |> equal 0
+//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
+//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
 
 [<Fact>]
 let ``String.IsNullOrEmpty works`` () =
-    System.String.IsNullOrEmpty("") |> equal true
-    System.String.IsNullOrEmpty(null) |> equal true
-    System.String.IsNullOrEmpty("test") |> equal false
-    System.String.IsNullOrEmpty(" \t") |> equal false
+    String.IsNullOrEmpty("") |> equal true
+    String.IsNullOrEmpty(null) |> equal true
+    String.IsNullOrEmpty("test") |> equal false
+    String.IsNullOrEmpty(" \t") |> equal false
 
 [<Fact>]
 let ``String.IsNullOrWhiteSpace works`` () =
-    System.String.IsNullOrWhiteSpace("") |> equal true
-    System.String.IsNullOrWhiteSpace(null) |> equal true
-    System.String.IsNullOrWhiteSpace("test") |> equal false
-    System.String.IsNullOrWhiteSpace(" \t") |> equal true
+    String.IsNullOrWhiteSpace("") |> equal true
+    String.IsNullOrWhiteSpace(null) |> equal true
+    String.IsNullOrWhiteSpace("test") |> equal false
+    String.IsNullOrWhiteSpace(" \t") |> equal true
 
-// System.String - instance methods
+// String - instance methods
 
 [<Fact>]
 let ``String.Contains works`` () =
@@ -776,9 +788,9 @@ let ``String.Split with null works`` () =
 [<Fact>]
 let ``String.Split with single separator works`` () =
     "a b c  d".Split(' ') |> equal [|"a";"b";"c";"";"d"|]
-    "---o---o---".Split("--", System.StringSplitOptions.None)
+    "---o---o---".Split("--", StringSplitOptions.None)
     |> equal [|""; "-o"; "-o"; "-"|];
-    "a--b-c".Split([|"--"|], System.StringSplitOptions.None)
+    "a--b-c".Split([|"--"|], StringSplitOptions.None)
     |> equal [|"a";"b-c"|]
 
 [<Fact>]
@@ -787,89 +799,89 @@ let ``String.Split with multiple char args works`` () =
 
 // [<Fact>]
 // let ``String.Split with string array works`` () =
-//     "a;b,c".Split([|","; ";"|], System.StringSplitOptions.None)
+//     "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
 //     |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with RemoveEmptyEntries works`` () =
-    "a b c  d ".Split([|" "|], System.StringSplitOptions.RemoveEmptyEntries)
+    "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
     |> equal [|"a"; "b"; "c"; "d"|]
-    " a-- b- c ".Split('-', System.StringSplitOptions.RemoveEmptyEntries)
+    " a-- b- c ".Split('-', StringSplitOptions.RemoveEmptyEntries)
     |> equal [|" a"; " b"; " c "|]
-    "---o---o---".Split("--", System.StringSplitOptions.RemoveEmptyEntries)
+    "---o---o---".Split("--", StringSplitOptions.RemoveEmptyEntries)
     |> equal [|"-o"; "-o"; "-"|]
-    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.RemoveEmptyEntries)
+    ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
     |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with TrimEntries works`` () =
-    "a b c  d ".Split([|" "|], System.StringSplitOptions.TrimEntries)
+    "a b c  d ".Split([|" "|], StringSplitOptions.TrimEntries)
     |> equal [|"a"; "b"; "c"; ""; "d"; ""|]
-    " a-- b- c ".Split('-', System.StringSplitOptions.TrimEntries)
+    " a-- b- c ".Split('-', StringSplitOptions.TrimEntries)
     |> equal [|"a"; ""; "b"; "c"|]
-    "---o---o---".Split("--", System.StringSplitOptions.TrimEntries)
+    "---o---o---".Split("--", StringSplitOptions.TrimEntries)
     |> equal [|""; "-o"; "-o"; "-"|]
-    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.TrimEntries)
+    ";,a;b,c".Split([|','; ';'|], StringSplitOptions.TrimEntries)
     |> equal [|""; ""; "a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with RemoveEmptyEntries and TrimEntries works`` () =
-    "a b c  d ".Split([|" "|], System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
     |> equal [|"a"; "b"; "c"; "d"|]
-    " a-- b- c ".Split('-', System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    " a-- b- c ".Split('-', StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
     |> equal [|"a"; "b"; "c"|]
-    "---o---o---".Split("--", System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    "---o---o---".Split("--", StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
     |> equal [|"-o"; "-o"; "-"|]
-    ";,a;b,c".Split([|','; ';'|], System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
     |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with count works`` () =
     "a b  c d".Split ([|' '|], 2)
     |> equal [|"a";"b  c d"|]
-    " a-- b- c ".Split('-', 2, System.StringSplitOptions.None)
+    " a-- b- c ".Split('-', 2, StringSplitOptions.None)
     |> equal [|" a"; "- b- c "|]
     "a-b-c".Split("-", 1)
     |> equal [|"a-b-c"|]
-    "a-b-c".Split("", System.Int32.MaxValue)
+    "a-b-c".Split("", Int32.MaxValue)
     |> equal [|"a-b-c"|]
 
 [<Fact>]
 let ``String.Split with count and consecutive separators works`` () =
-    "-----".Split("-", 4, System.StringSplitOptions.None)
+    "-----".Split("-", 4, StringSplitOptions.None)
     |> equal [|"";"";"";"--"|]
-    "     ".Split(" ", 4, System.StringSplitOptions.TrimEntries)
+    "     ".Split(" ", 4, StringSplitOptions.TrimEntries)
     |> equal [|"";"";"";""|]
-    "-----".Split("-", 4, System.StringSplitOptions.RemoveEmptyEntries)
+    "-----".Split("-", 4, StringSplitOptions.RemoveEmptyEntries)
     |> equal [||]
-    "     ".Split(" ", 4, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+    "     ".Split(" ", 4, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
     |> equal [||]
 
 [<Fact>]
 let ``String.Split with count and TrimEntries works`` () =
-    " a-- b- c ".Split("-", 2, System.StringSplitOptions.TrimEntries)
+    " a-- b- c ".Split("-", 2, StringSplitOptions.TrimEntries)
     |> equal [|"a"; "- b- c"|]
-    " a-- b- c ".Split('-', 3, System.StringSplitOptions.TrimEntries)
+    " a-- b- c ".Split('-', 3, StringSplitOptions.TrimEntries)
     |> equal [|"a"; ""; "b- c"|]
-    "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.TrimEntries)
+    "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.TrimEntries)
     |> equal [|"a"; ""; "b,c;d"|]
 
 // [<Fact>]
 // let ``String.Split with count and RemoveEmptyEntries works`` () =
-//     " a-- b- c ".Split("-", 2, System.StringSplitOptions.RemoveEmptyEntries)
+//     " a-- b- c ".Split("-", 2, StringSplitOptions.RemoveEmptyEntries)
 //     |> equal [|" a"; " b- c "|]
-//     " a-- b- c ".Split('-', 3, System.StringSplitOptions.TrimEntries)
+//     " a-- b- c ".Split('-', 3, StringSplitOptions.TrimEntries)
 //     |> equal [|"a"; ""; "b- c"|]
-//     "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.RemoveEmptyEntries)
+//     "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
 //     |> equal [|"a";"b";"c;d"|]
 
 // [<Fact>]
 // let ``String.Split with count, RemoveEmptyEntries and TrimEntries works`` () =
-//     " a-- b- c ".Split([| "-" |], 2, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+//     " a-- b- c ".Split([| "-" |], 2, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
 //     |> equal [|"a"; "b- c"|]
-//     " a-- b- c ".Split([| '-' |], 3, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+//     " a-- b- c ".Split([| '-' |], 3, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
 //     |> equal  [|"a"; "b"; "c"|]
-//     "a;,b,c;d".Split([|','; ';'|], 3, System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+//     "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
 //     |> equal [|"a";"b";"c;d"|]
 
 [<Fact>]
@@ -957,7 +969,7 @@ let ``String.StartsWith char works`` () =
 // let ``String.StartsWith with StringComparison works`` () =
 //     let args = [("ab", true); ("cd", false); ("abcdx", false)]
 //     for arg in args do
-//         "ABCD".StartsWith(fst arg, System.StringComparison.OrdinalIgnoreCase)
+//         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
 [<Fact>]
@@ -975,7 +987,7 @@ let ``String.EndsWith char works`` () =
 // let ``String.EndsWith with StringComparison works`` () =
 //     let args = [("ab", false); ("cd", true); ("abcdx", false)]
 //     for arg in args do
-//         "ABCD".EndsWith(fst arg, System.StringComparison.OrdinalIgnoreCase)
+//         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
 //         |> equal (snd arg)
 
 [<Fact>]
@@ -1017,7 +1029,7 @@ let ``String.TrimEnd with chars works`` () =
 
 [<Fact>]
 let ``String.Empty works`` () =
-    let s = System.String.Empty
+    let s = String.Empty
     s |> equal ""
 
 [<Fact>]
@@ -1092,91 +1104,91 @@ let ``String.ToCharArray works`` () =
 
 [<Fact>]
 let ``String.Join works`` () =
-    System.String.Join("--", [|"a"; "b"; "c"|])
+    String.Join("--", [|"a"; "b"; "c"|])
     |> equal "a--b--c"
 
 [<Fact>]
 let ``String.Join works II`` () =
-    System.String.Join("--", "a", "b", "c")
+    String.Join("--", "a", "b", "c")
     |> equal "a--b--c"
 
 [<Fact>]
 let ``String.Join with IEnumerable works`` () =
-    System.String.Join("--", seq { yield "a"; yield "b"; yield "c" })
+    String.Join("--", seq { yield "a"; yield "b"; yield "c" })
     |> equal "a--b--c"
 
 [<Fact>]
 let ``String.Join with indices works`` () =
-    System.String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
+    String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
     |> equal "b**c"
-    System.String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
+    String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
     |> equal "b*c*d"
 
 // [<Fact>]
 // let ``String.Join works with chars`` () = // See #1524
-//     System.String.Join("--", 'a', 'b', 'c')
+//     String.Join("--", 'a', 'b', 'c')
 //     |> equal "a--b--c"
-//     System.String.Join("--", seq { yield 'a'; yield 'b'; yield 'c' })
+//     String.Join("--", seq { yield 'a'; yield 'b'; yield 'c' })
 //     |> equal "a--b--c"
 //     [0..10]
 //     |> List.map (fun _ -> '*')
-//     |> fun chars -> System.String.Join("", chars)
+//     |> fun chars -> String.Join("", chars)
 //     |> equal "***********"
 
 // [<Fact>]
 // let ``String.Join with big integers works`` () =
-//     System.String.Join("--", [|3I; 5I|])
+//     String.Join("--", [|3I; 5I|])
 //     |> equal "3--5"
-//     System.String.Join("--", 3I, 5I)
+//     String.Join("--", 3I, 5I)
 //     |> equal "3--5"
 
 [<Fact>]
 let ``String.Join with single argument works`` () = // See #1182
-    System.String.Join(",", "abc") |> equal "abc"
-    System.String.Join(",", [|"abc"|]) |> equal "abc"
-    System.String.Join(",", ["abc"]) |> equal "abc"
+    String.Join(",", "abc") |> equal "abc"
+    String.Join(",", [|"abc"|]) |> equal "abc"
+    String.Join(",", ["abc"]) |> equal "abc"
 
 [<Fact>]
 let ``String.Concat works`` () =
-    System.String.Concat([|"a"; "b"; "c"|])
+    String.Concat([|"a"; "b"; "c"|])
     |> equal "abc"
 
 [<Fact>]
 let ``String.Concat works II`` () =
-    System.String.Concat("a", "b", "c")
+    String.Concat("a", "b", "c")
     |> equal "abc"
 
 [<Fact>]
 let ``String.Concat with IEnumerable works`` () =
-    System.String.Concat(seq { yield "a"; yield "b"; yield "c" })
+    String.Concat(seq { yield "a"; yield "b"; yield "c" })
     |> equal "abc"
 
 [<Fact>]
 let ``String.Join with long array works`` () =
     let n = 1_000_000
     let a = [| for i in 1..n -> "a" |]
-    let s = System.String.Join("", a)
+    let s = String.Join("", a)
     s.Length |> equal n
 
 [<Fact>]
-let ``System.String.Join with long seq works`` () =
+let ``String.Join with long seq works`` () =
     let n = 1_000_000
     let a = seq { for i in 1..n -> "a" }
-    let s = System.String.Join("", a)
+    let s = String.Join("", a)
     s.Length |> equal n
 
 [<Fact>]
 let ``String.Concat with long array works`` () =
     let n = 1_000_000
     let a = [| for i in 1..n -> "a" |]
-    let s = System.String.Concat(a)
+    let s = String.Concat(a)
     s.Length |> equal n
 
 [<Fact>]
 let ``String.Concat with long seq works`` () =
     let n = 1_000_000
     let a = seq { for i in 1..n -> "a" }
-    let s = System.String.Concat(a)
+    let s = String.Concat(a)
     s.Length |> equal n
 
 [<Fact>]
@@ -1208,12 +1220,12 @@ let ``String.Insert work`` () =
 
 [<Fact>]
 let ``String.IsNullOrWhiteSpace works on string with blanks`` () =
-    System.String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
+    String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
     |> equal false
 
 [<Fact>]
 let ``String.IsNullOrWhiteSpace works on blank only string`` () =
-    System.String.IsNullOrWhiteSpace "    "
+    String.IsNullOrWhiteSpace "    "
     |> equal true
 
 // [<Fact>]
@@ -1316,35 +1328,35 @@ let ``String.filter works with empty string`` () =
 // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
 [<Fact>]
 let ``String.filter with Char.IsDigit as a predicate doesn't hang`` () =
-    "Hello! 123" |> String.filter System.Char.IsDigit
+    "Hello! 123" |> String.filter Char.IsDigit
     |> equal "123"
 
 // #if FABLE_COMPILER
 // [<Fact>]
-// let ``System.Environment.NewLine works`` () =
-//     System.Environment.NewLine
+// let ``Environment.NewLine works`` () =
+//     Environment.NewLine
 //     |> equal "\n"
 // #endif
 
 // [<Fact>]
-// let ``System.Uri.UnescapeDataString works`` () =
-//     System.Uri.UnescapeDataString("Kevin%20van%20Zonneveld%21") |> equal "Kevin van Zonneveld!"
-//     System.Uri.UnescapeDataString("http%3A%2F%2Fkvz.io%2F") |> equal "http://kvz.io/"
-//     System.Uri.UnescapeDataString("http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a")
+// let ``Uri.UnescapeDataString works`` () =
+//     Uri.UnescapeDataString("Kevin%20van%20Zonneveld%21") |> equal "Kevin van Zonneveld!"
+//     Uri.UnescapeDataString("http%3A%2F%2Fkvz.io%2F") |> equal "http://kvz.io/"
+//     Uri.UnescapeDataString("http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a")
 //     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
 // [<Fact>]
-// let ``System.Uri.EscapeDataString works`` () =
-//     System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
-//     System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
-//     System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+// let ``Uri.EscapeDataString works`` () =
+//     Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
+//     Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
+//     Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
 //     |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
 
 // [<Fact>]
-// let ``System.Uri.EscapeUriString works`` () =
-//     System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
-//     System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
-//     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+// let ``Uri.EscapeUriString works`` () =
+//     Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
+//     Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
+//     Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
 //     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
 // [<Fact>]

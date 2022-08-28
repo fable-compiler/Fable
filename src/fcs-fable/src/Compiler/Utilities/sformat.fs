@@ -634,7 +634,8 @@ module Display =
         Breaks(next + 1, outer, stack)
 
     let popBreak (Breaks (next, outer, stack)) =
-        if next = 0 then raise (Failure "popBreak: underflow")
+        if next = 0 then
+            raise (Failure "popBreak: underflow")
 
         let topBroke = stack[next - 1] < 0
 
@@ -1314,12 +1315,14 @@ module Display =
             let possibleKeyValueL v =
                 let tyv = v.GetType()
 
-                if word = "map"
-                   && (match v with
-                       | null -> false
-                       | _ -> true)
-                   && tyv.IsGenericType
-                   && tyv.GetGenericTypeDefinition() = typedefof<KeyValuePair<int, int>> then
+                if
+                    word = "map"
+                    && (match v with
+                        | null -> false
+                        | _ -> true)
+                    && tyv.IsGenericType
+                    && tyv.GetGenericTypeDefinition() = typedefof<KeyValuePair<int, int>>
+                then
                     nestedObjL
                         depthLim
                         Precedence.BracketIfTuple
@@ -1531,8 +1534,10 @@ module Display =
                     "-infinity"
                 elif Double.IsPositiveInfinity(d) then
                     "infinity"
-                elif opts.FloatingPointFormat[0] = 'g'
-                     && String.forall (fun c -> Char.IsDigit(c) || c = '-') s then
+                elif
+                    opts.FloatingPointFormat[0] = 'g'
+                    && String.forall (fun c -> Char.IsDigit(c) || c = '-') s
+                then
                     s + ".0"
                 else
                     s
@@ -1547,11 +1552,13 @@ module Display =
                      "-infinity"
                  elif Single.IsPositiveInfinity(d) then
                      "infinity"
-                 elif opts.FloatingPointFormat.Length >= 1
-                      && opts.FloatingPointFormat[0] = 'g'
-                      && float32 (Int32.MinValue) < d
-                      && d < float32 (Int32.MaxValue)
-                      && float32 (int32 (d)) = d then
+                 elif
+                     opts.FloatingPointFormat.Length >= 1
+                     && opts.FloatingPointFormat[0] = 'g'
+                     && float32 (Int32.MinValue) < d
+                     && d < float32 (Int32.MaxValue)
+                     && float32 (int32 (d)) = d
+                 then
                      (Convert.ToInt32 d).ToString(opts.FormatProvider) + ".0"
                  else
                      d.ToString(opts.FloatingPointFormat, opts.FormatProvider))

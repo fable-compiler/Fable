@@ -7,9 +7,9 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants>
+    <!-- <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants> -->
+    <!-- <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants> -->
+    <!-- <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants> -->
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_TYPEPROVIDERS</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
@@ -210,12 +210,16 @@
     <Compile Include="$(FSharpSourcesRoot)/Checking/QuotationTranslator.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/PostInferenceChecks.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/PostInferenceChecks.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckPatterns.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckPatterns.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckComputationExpressions.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckComputationExpressions.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckIncrementalClasses.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckIncrementalClasses.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckDeclarations.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckDeclarations.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/Optimizer.fsi" />
@@ -331,6 +335,7 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceStructure.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceAnalysis.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceAnalysis.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/ControlledExecution.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fs" /> -->
 

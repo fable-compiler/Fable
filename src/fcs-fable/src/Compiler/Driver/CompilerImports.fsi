@@ -8,7 +8,7 @@ open System
 open Internal.Utilities.Library
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL.IL
-open FSharp.Compiler.CheckExpressions
+open FSharp.Compiler.CheckBasics
 open FSharp.Compiler.CompilerConfig
 #if !FABLE_COMPILER
 open FSharp.Compiler.DependencyManager
@@ -19,6 +19,7 @@ open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.BuildGraph
+open FSharp.Compiler.IO
 open FSharp.Compiler.Text
 open FSharp.Core.CompilerServices
 
@@ -44,8 +45,8 @@ val IsOptimizationDataResource: ILResource -> bool
 /// Determine if an IL resource attached to an F# assembly is an F# quotation data resource for reflected definitions
 val IsReflectedDefinitionsResource: ILResource -> bool
 
-val GetSignatureDataResourceName: ILResource -> string
-val GetOptimizationDataResourceName: ILResource -> string
+val GetResourceNameAndSignatureDataFunc: ILResource -> string * (unit -> ReadOnlyByteMemory)
+val GetResourceNameAndOptimizationDataFunc: ILResource -> string * (unit -> ReadOnlyByteMemory)
 
 #if !FABLE_COMPILER
 

@@ -43,6 +43,7 @@ let ``Union case equality works`` () =
 let unionFnAlways1 = function
     | IntCase1 x -> x
     | _ -> -1
+
 let unionFnRetNum = function
     | IntCase1 a -> a
     | IntCase2 b -> b
@@ -70,6 +71,7 @@ let ``Union with wrapped type works`` () =
     b |> equal "hello world"
 
 type DeepRecord = {Value: string}
+
 type DeepWrappedUnion =
     | DeepWrappedA of string * DeepRecord
     | DeepWrappedB of string
@@ -78,6 +80,7 @@ type DeepWrappedUnion =
     | DeepWrappedE of int * int
     | DeepWrappedF of WrappedUnion
     | DeepWrappedG of {| X: DeepRecord; Y: int|}
+
 let matchStrings = function
     | DeepWrappedA (s, d) -> d.Value + s
     | DeepWrappedB s -> s
@@ -128,8 +131,8 @@ let ``Multi-case Union with wrapped type works`` () =
 
 [<Fact>]
 let ``Should correctly import union in other file and allow creation`` =
-    let r = Common.Unions.MyUnion.A 1
-    let expected = Common.Unions.MyUnion.createA 1
+    let r = Common.Imports.MyUnion.A 1
+    let expected = Common.Imports.MyUnion.createA 1
     r |> equal expected
 
 
