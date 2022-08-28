@@ -1560,6 +1560,12 @@ module Identifiers =
     open Helpers
     open TypeHelpers
 
+    let isMutableOrByRefValue (fsRef: FSharpMemberOrFunctionOrValue) =
+        (fsRef.IsMutable || isByRefValue fsRef) &&
+            not (fsRef.IsCompilerGenerated && (
+                fsRef.CompiledName = "copyOfStruct" ||
+                fsRef.CompiledName = "inputRecord"))
+
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let part = Naming.NoMemberPart
 
@@ -1579,9 +1585,7 @@ module Identifiers =
 
         let isMutable =
             match com.Options.Language with
-            | Rust -> (fsRef.IsMutable || isByRefValue fsRef) &&
-                        // for Rust, make the compiler generated copies of structs non-mutable
-                        not (fsRef.IsCompilerGenerated && fsRef.CompiledName = "copyOfStruct")
+            | Rust -> isMutableOrByRefValue fsRef // non-compiler-generated mutable or byref value
             | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
