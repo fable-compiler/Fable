@@ -71,7 +71,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     Operation(Unary(UnaryAddressOf, value), t, r)
 
 let makeRefFromMutableField com ctx r t callee key =
-    let value = Get(callee, FieldInfo.Create(key, isMutable=true), t, r)
+    let value = Get(callee, FieldInfo.Create(key), t, r)
     Operation(Unary(UnaryAddressOf, value), t, r)
 
 // Mutable and public module values are compiled as functions

@@ -862,21 +862,10 @@ let ``Long integers comparison works`` () =
 //     formatEuro 2.0M |> equal "2,00 €"
 
 module UnitTests =
-    type [<Measure>] m
-    type [<Measure>] s
-    type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u> with
-
-        static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
-        static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
-
-    [<Struct>]
-    type Vector2R<[<Measure>] 'u> = {
-        x: float32<'u>
-        y: float32<'u>
-    } with
-        static member inline ( + ) (a, b) = { x = a.x + b.x; y = a.y + b.y }
+    open Common.Imports.Vectors
 
     let square (x: float<'a>) = x * x
+
     [<Fact>]
     let ``can square a unit`` () =
         let d = 3.<m>
