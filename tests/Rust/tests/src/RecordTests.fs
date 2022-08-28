@@ -357,15 +357,14 @@ module ComplexEdgeCases =
     [<Measure>] type m
     [<Measure>] type Rad
 
-    //TODO - When this is turned into a struct, the F# compiler seems to do an optimization which seems to break everything
-    //[<Struct>]
-    type Spatial = {
+    [<Struct>]
+    type SpatialDta = {
         Rotation: float32<Rad>
         Position: ArithmeticTests.UnitTests.Vector2R<m>
     }
-    type Entity = {
+    type ItemWithSpatialDta = {
         Name: string
-        Spatial: Spatial
+        Spatial: SpatialDta
     }
 
     let rotate r ([<ByRef>]ent) =

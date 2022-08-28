@@ -1663,7 +1663,7 @@ module Util =
 
         let expr =
             //only valid for this level, so must reset for nested expressions
-            let ctx = { ctx with Typegen = {ctx.Typegen with IsParamByRefPreferred = false} }
+            let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr (ctx, e)
 
         let targetExpectsRef =
