@@ -353,25 +353,29 @@ let ``Mutating records work`` () =
     equal -20 x''.uniqueB
 
 module ComplexEdgeCases =
+    open Common.Imports.Vectors
     open Fable.Core.Rust
+
     [<Measure>] type m
     [<Measure>] type Rad
 
     [<Struct>]
     type SpatialDta = {
         Rotation: float32<Rad>
-        Position: ArithmeticTests.UnitTests.Vector2R<m>
+        Position: Vector2R<m>
     }
+
     type ItemWithSpatialDta = {
         Name: string
         Spatial: SpatialDta
     }
 
-    let rotate r ([<ByRef>]ent) =
-        {ent with Spatial = {ent.Spatial with Rotation = ent.Spatial.Rotation + r}}
+    let rotate r ent =
+        { ent with Spatial = { ent.Spatial with Rotation = ent.Spatial.Rotation + r } }
+
     [<Fact>]
-    let ``Nested struct record reconstruction should not break compiler`` () =
+    let ``Nested struct records work`` () =
         let res =
-            { Name = "A"; Spatial = { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> }} }
+            { Name = "A"; Spatial = { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> } } }
             |> rotate (1.2f<Rad>)
-        equal (1.1f<Rad> + 1.2f<Rad>) res.Spatial.Rotation
+        res.Spatial.Rotation |> equal (1.1f<Rad> + 1.2f<Rad>)
