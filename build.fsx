@@ -420,8 +420,8 @@ let testStandalone(minify) =
     runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
 let testReact() =
-    runFableWithArgs "tests/Js/React" ["--noCache"]
-    runInDir "tests/Js/React" "npm i && npm test"
+    runFableWithArgs "tests/React" ["--noCache"]
+    runInDir "tests/React" "npm i && npm test"
 
 let compileAndRunTestsWithMocha clean projectName =
     let projectDir = "tests/Js/" + projectName
@@ -474,8 +474,7 @@ let testJs() =
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha true "Adaptive"
 
-    // TODO: Re-enable React tests after updating Feliz ReactComponent plugin
-    // testReact()
+    testReact()
 
     if envVarOrNone "CI" |> Option.isSome then
         testStandaloneFast()
