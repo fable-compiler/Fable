@@ -864,6 +864,8 @@ let ``Long integers comparison works`` () =
 module UnitTests =
     open Common.Imports.Vectors
 
+    type [<Measure>] m
+
     let square (x: float<'a>) = x * x
 
     [<Fact>]

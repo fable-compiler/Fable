@@ -40,7 +40,7 @@ pub mod ExtInteropTests {
 
     pub mod ArrayTests {
         //Work in progress - Array needs a built in wrapper as first class citizen before this can be fleshed out
-        use fable_library_rust::ArrayExt::Array;
+        use fable_library_rust::Native_::Array;
 
         #[test]
         pub fn can_interop_between_array_and_vec() {
@@ -75,7 +75,6 @@ pub mod ExtInteropTests {
 
     pub mod MapTests {
         use fable_library_rust::Map_::Map;
-        use fable_library_rust::Native_::Lrc;
         use fable_library_rust::String_::string;
 
         #[test]
@@ -83,7 +82,7 @@ pub mod ExtInteropTests {
             //todo
             let raw = vec![(string("a"), 1), (string("b"), 2), (string("c"), 3)];
             let map = Map::from(&raw);
-            let tgt: Vec<(Lrc<str>, i32)> = map.clone().into();
+            let tgt: Vec<(string, i32)> = map.clone().into();
             assert_eq!(raw, tgt);
         }
 

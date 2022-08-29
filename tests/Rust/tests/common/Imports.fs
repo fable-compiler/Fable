@@ -25,8 +25,6 @@ type MyClass() =
         member _.Add x y = x + y
 
 module Vectors =
-    type [<Measure>] m
-    type [<Measure>] s
 
     type Vector2<[<Measure>] 'u> =
         Vector2 of x: float<'u> * y: float<'u>
