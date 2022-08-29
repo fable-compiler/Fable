@@ -4084,24 +4084,25 @@ module Compiler =
         }
 
         let topAttrs = [
-            // adds "no_std" for fable library crate if feature is enabled
-            if isFableLibrary com && isLastFileInProject com then
-                mkInnerAttr "cfg_attr" ["feature = \"no_std\""; "no_std"]
+            if isLastFileInProject com then
+                // adds "no_std" for fable library crate if feature is enabled
+                if isFableLibrary com then
+                    mkInnerAttr "cfg_attr" ["feature = \"no_std\""; "no_std"]
 
-            // TODO: make some of those conditional on compiler options
-            mkInnerAttr "allow" ["dead_code"]
-            mkInnerAttr "allow" ["non_snake_case"]
-            mkInnerAttr "allow" ["non_camel_case_types"]
-            mkInnerAttr "allow" ["non_upper_case_globals"]
-            mkInnerAttr "allow" ["unused_parens"]
-            mkInnerAttr "allow" ["unused_imports"]
-            mkInnerAttr "allow" ["unused_variables"]
-            mkInnerAttr "allow" ["unused_attributes"]
+                // TODO: make some of those conditional on compiler options
+                mkInnerAttr "allow" ["dead_code"]
+                mkInnerAttr "allow" ["non_snake_case"]
+                mkInnerAttr "allow" ["non_camel_case_types"]
+                mkInnerAttr "allow" ["non_upper_case_globals"]
+                mkInnerAttr "allow" ["unused_parens"]
+                mkInnerAttr "allow" ["unused_imports"]
+                mkInnerAttr "allow" ["unused_variables"]
+                mkInnerAttr "allow" ["unused_attributes"]
 
-            // these require nightly
-            // mkInnerAttr "feature" ["once_cell"]
-            // mkInnerAttr "feature" ["stmt_expr_attributes"]
-            // mkInnerAttr "feature" ["destructuring_assignment"]
+                // these require nightly
+                // mkInnerAttr "feature" ["once_cell"]
+                // mkInnerAttr "feature" ["stmt_expr_attributes"]
+                // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
         let entryPointItems = getEntryPointItems com ctx file.Declarations

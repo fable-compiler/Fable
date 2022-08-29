@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 #[cfg(feature = "threaded")]
 pub mod Async_ {
     use std::future::{self, ready, Future};

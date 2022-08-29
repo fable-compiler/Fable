@@ -1,6 +1,6 @@
 /// Lazy values and one-time initialization.
 
-use core::fmt;
+use core::fmt::Debug;
 use crate::Native_::MutCell;
 
 pub struct Lazy<T, F = fn() -> T> {
@@ -8,8 +8,8 @@ pub struct Lazy<T, F = fn() -> T> {
     init: MutCell<Option<F>>,
 }
 
-impl<T: Clone + fmt::Debug, F> fmt::Debug for Lazy<T, F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<T: Clone + Debug, F> Debug for Lazy<T, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Lazy").field("cell", &self.cell).field("init", &"..").finish()
     }
 }

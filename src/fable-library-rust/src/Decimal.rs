@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
     use crate::Native_::{array, Array, Lrc, RefCell, Vec};
