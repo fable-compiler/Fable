@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 // import at root level
 mod Mutable;
 mod Lazy;
@@ -8,6 +6,7 @@ pub mod Native_ {
     extern crate alloc;
 
     // re-export at module level
+    // pub use alloc::borrow::Cow;
     pub use alloc::boxed::Box as Box_;
     pub use alloc::rc::Rc;
     pub use alloc::sync::Arc;
@@ -25,19 +24,6 @@ pub mod Native_ {
     pub type Lrc<T> = Rc<T>;
     #[cfg(feature = "atomic")]
     pub type Lrc<T> = Arc<T>;
-
-    #[cfg(not(feature = "no_std"))]
-    use std::collections;
-    #[cfg(feature = "no_std")]
-    use hashbrown as collections;
-
-    pub type MutArray<T> = MutCell<Vec<T>>;
-    pub type MutHashSet<T> = MutCell<collections::HashSet<T>>;
-    pub type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
-
-    pub type Array<T> = Lrc<MutArray<T>>;
-    pub type HashSet<T> = Lrc<MutHashSet<T>>;
-    pub type HashMap<K, V> = Lrc<MutHashMap<K, V>>;
 
     // TODO: use these types in generated code
     pub type seq<T> = Lrc<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
@@ -99,8 +85,27 @@ pub mod Native_ {
     // Arrays
     // -----------------------------------------------------------
 
+    type MutArray<T> = MutCell<Vec<T>>;
+
+    #[repr(transparent)]
+    #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    pub struct Array<T: Clone>(Lrc<MutArray<T>>);
+
+    impl<T: Clone> core::ops::Deref for Array<T> {
+        type Target = Lrc<MutArray<T>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl<T: Clone + Debug> core::fmt::Display for Array<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{:?}", self.0) //TODO:
+        }
+    }
+
     pub fn array<T: Clone>(v: Vec<T>) -> Array<T> {
-        mkRefMut(v)
+        Array(mkRefMut(v))
     }
 
     pub fn arrayEmpty<T: Clone>() -> Array<T> {
@@ -150,103 +155,4 @@ pub mod Native_ {
         crate::Seq_::mkSeq(mkRef(move || en.clone()))
     }
 
-    // -----------------------------------------------------------
-    // HashSets
-    // -----------------------------------------------------------
-
-    pub fn hashSetEmpty<T: Clone>() -> HashSet<T> {
-        mkRefMut(collections::HashSet::new())
-    }
-
-    pub fn hashSetWithCapacity<T: Clone>(capacity: i32) -> HashSet<T> {
-        mkRefMut(collections::HashSet::with_capacity(capacity as usize))
-    }
-
-    pub fn hashSetFrom<T: Eq + Hash + Clone>(a: Array<T>) -> HashSet<T> {
-        mkRefMut(collections::HashSet::from_iter(a.iter().cloned()))
-    }
-
-    pub fn hashSetEntries<T: Clone>(set: HashSet<T>) -> Array<T> {
-        array(Vec::from_iter(set.iter().cloned()))
-    }
-
-    // -----------------------------------------------------------
-    // HashMaps
-    // -----------------------------------------------------------
-
-    pub fn hashMapEmpty<K: Clone, V: Clone>() -> HashMap<K, V> {
-        mkRefMut(collections::HashMap::new())
-    }
-
-    pub fn hashMapWithCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
-        mkRefMut(collections::HashMap::with_capacity(capacity as usize))
-    }
-
-    pub fn hashMapFrom<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap<K, V> {
-        let it = a.iter().map(|pair| pair.as_ref().clone());
-        mkRefMut(collections::HashMap::from_iter(it))
-    }
-
-    pub fn hashMapTryAdd<K: Eq + Hash + Clone, V: Clone>(
-        dict: HashMap<K, V>,
-        k: K,
-        v: V,
-    ) -> bool {
-        // dict.get_mut().try_insert(k.clone(), v.clone()).is_ok() // nightly only
-        if dict.get_mut().contains_key(&k) {
-            false
-        } else {
-            dict.get_mut().insert(k.clone(), v.clone()).is_none()
-        }
-    }
-
-    pub fn hashMapAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
-        match dict.get_mut().insert(k.clone(), v.clone()) {
-            Some(v) => {
-                panic!("An item with the same key has already been added.")
-            }
-            None => (),
-        }
-    }
-
-    pub fn hashMapGet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K) -> V {
-        match dict.get_mut().get(&k) {
-            Some(v) => v.clone(),
-            None => {
-                panic!("The given key was not present in the dictionary.")
-            }
-        }
-    }
-
-    pub fn hashMapSet<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
-        dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
-    }
-
-    pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
-        dict: HashMap<K, V>,
-        k: K,
-        res: &RefCell<V>,
-    ) -> bool {
-        match dict.get_mut().get(&k) {
-            Some(v) => {
-                res.set(v.clone());
-                true
-            }
-            None => false,
-        }
-    }
-
-    pub fn hashMapKeys<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<K> {
-        array(Vec::from_iter(dict.keys().cloned()))
-    }
-
-    pub fn hashMapValues<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<V> {
-        array(Vec::from_iter(dict.values().cloned()))
-    }
-
-    pub fn hashMapEntries<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<(K, V)> {
-        array(Vec::from_iter(
-            dict.iter().map(|(k, v)| (k.clone(), v.clone())),
-        ))
-    }
 }

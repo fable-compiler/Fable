@@ -63,42 +63,24 @@ pub mod ListExt {
 }
 
 pub mod ArrayExt {
-    // use core::ops::Deref;
-    use crate::Native_::{self, array, Vec};
-
-    #[derive(Clone, Debug, PartialEq, PartialOrd)]
-    pub struct Array<T: Clone + 'static>(Native_::Array<T>);
-
-    // impl<T: Clone> Deref for Array<T> {
-    //     type Target = Array<T>;
-
-    //     fn deref(&self) -> &Self::Target {
-    //         &self.0
-    //     }
-    // }
-
-    impl<T: Clone> From<Native_::Array<T>> for Array<T> {
-        fn from(arr: Native_::Array<T>) -> Self {
-            Array(arr)
-        }
-    }
+    use crate::Native_::{array, Array, Vec};
 
     impl<T: Clone> From<Vec<T>> for Array<T> {
         fn from(vec: Vec<T>) -> Self {
-            Array(array(vec))
+            array(vec)
         }
     }
 
     impl<T: Clone> From<&Vec<T>> for Array<T> {
         fn from(vec: &Vec<T>) -> Self {
             let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
-            Array(array(vecNew))
+            array(vecNew)
         }
     }
 
     impl<T: Clone> Into<Vec<T>> for Array<T> {
         fn into(self) -> Vec<T> {
-            self.0.get().iter().map(|item| item.clone()).collect()
+            self.get().iter().map(|item| item.clone()).collect()
         }
     }
 }

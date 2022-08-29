@@ -34,6 +34,7 @@ let references_core = [|
     "System.Text.RegularExpressions"
     "System.Threading"
     "System.Threading.Tasks"
+    "System.Threading.Thread"
     "System.ValueTuple"
     |]
 

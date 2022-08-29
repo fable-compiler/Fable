@@ -6,6 +6,7 @@ namespace System
 
 type Environment() =
     static member ProcessorCount = 1
+    static member Exit(_exitcode) = ()
 
 module Diagnostics =
     type Trace() =

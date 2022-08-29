@@ -992,4 +992,7 @@ let resources =
       ( "TargetInvocationExceptionWrapper",
         "internal error: {0}"
       );
+      ( "NotUpperCaseConstructorWithoutRQA",
+        "Lowercase discriminated union cases are only allowed when using RequireQualifiedAccess attribute"
+      );
     ]
