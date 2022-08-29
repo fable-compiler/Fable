@@ -37,7 +37,7 @@ type MemberRefInfo =
       NonCurriedArgTypes: Type list option }
 
 type MemberRef =
-    | MemberRef of entity: EntityRef * info: MemberRefInfo
+    | MemberRef of declaringEntity: EntityRef * info: MemberRefInfo
     | GeneratedMemberRef of GeneratedMember
 
 type DeclaredType =

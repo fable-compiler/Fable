@@ -3197,22 +3197,29 @@ module Util =
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
         mkItemStmt fnItem, ctxNext
 
-    let transformAttributes (com: IRustCompiler) ctx (attributes: Fable.Attribute seq) =
+    let transformAttributes com ctx (attributes: Fable.Attribute seq) =
         attributes
         |> Seq.collect (fun att ->
-            // translate test methods attributes
-            // TODO: support more test frameworks
-            if att.Entity.FullName.EndsWith(".FactAttribute") then
-                [mkAttr "test" []]
-            // custom outer attributes
-            elif att.Entity.FullName = Atts.rustOuterAttr then
+            // Rust outer attributes
+            if att.Entity.FullName = Atts.rustOuterAttr then
                 match att.ConstructorArgs with
                 | [:? string as name] -> [mkAttr name []]
                 | [:? string as name; :? string as value] -> [mkEqAttr name value]
                 | [:? string as name; :? (obj[]) as items] -> [mkAttr name (items |> Array.map string)]
                 | _ -> []
-            // custom inner attributes
-            elif att.Entity.FullName = Atts.rustInnerAttr then
+            // translate test methods attributes
+            // TODO: support more test frameworks
+            elif att.Entity.FullName.EndsWith(".FactAttribute") then
+                [mkAttr "test" []]
+            else []
+        )
+        |> Seq.toList
+
+    let transformInnerAttributes com ctx (attributes: Fable.Attribute seq) =
+        attributes
+        |> Seq.collect (fun att ->
+            // Rust inner attributes
+            if att.Entity.FullName = Atts.rustInnerAttr then
                 match att.ConstructorArgs with
                 | [:? string as name] -> [mkInnerAttr name []]
                 | [:? string as name; :? string as value] -> [mkInnerEqAttr name value]
@@ -3221,6 +3228,23 @@ module Util =
             else []
         )
         |> Seq.toList
+
+    let getInnerAttributes (com: IRustCompiler) ctx (decls: Fable.Declaration list) =
+        decls
+        |> List.collect (fun decl ->
+            match decl with
+            | Fable.ModuleDeclaration decl ->
+                let ent = com.GetEntity(decl.Entity)
+                transformInnerAttributes com ctx ent.Attributes
+            | Fable.ActionDeclaration decl ->
+                []
+            | Fable.MemberDeclaration decl ->
+                let memb = com.GetMember(decl.MemberRef)
+                transformInnerAttributes com ctx memb.Attributes
+            | Fable.ClassDeclaration decl ->
+                let ent = com.GetEntity(decl.Entity)
+                transformInnerAttributes com ctx ent.Attributes
+        )
 
     let transformModuleAction (com: IRustCompiler) ctx (body: Fable.Expr) =
         // uses startup::on_startup! for static execution (before main)
@@ -3856,7 +3880,9 @@ module Util =
                 let importItems = com.GetAllImports(ctx) |> transformImports com ctx
                 com.ClearAllImports(ctx)
                 useItem :: importItems
-            let attrs = transformAttributes com ctx ent.Attributes
+            let outerAttrs = transformAttributes com ctx ent.Attributes
+            let innerAttrs = getInnerAttributes com ctx decl.Members
+            let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls
             let modItem = modDecls |> mkModItem attrs decl.Name
             [modItem |> mkPublicItem]
@@ -3871,7 +3897,7 @@ module Util =
         match decl with
         | Fable.ModuleDeclaration decl ->
             withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
-                transformModuleDecl (com: IRustCompiler) ctx decl
+                transformModuleDecl com ctx decl
 
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
@@ -4110,6 +4136,7 @@ module Compiler =
         let declItems = List.collect (transformDecl com ctx) file.Declarations
         let moduleItems = getModuleItems com ctx // global module imports
         let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
-
-        let crate = mkCrate topAttrs crateItems
+        let innerAttrs = getInnerAttributes com ctx file.Declarations
+        let crateAttrs = topAttrs @ innerAttrs
+        let crate = mkCrate crateAttrs crateItems
         crate
