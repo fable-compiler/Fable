@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 // import at root level
 mod Mutable;
 mod Lazy;

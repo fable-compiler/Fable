@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
-use core::fmt;
+use core::fmt::Debug;
 use core::ops::{Deref, DerefMut, Index};
 use core::hash::{Hash, Hasher};
 
@@ -12,8 +12,8 @@ pub struct MutCell<T: ?Sized> {
     value: UnsafeCell<T>,
 }
 
-impl<T: Clone + fmt::Debug> fmt::Debug for MutCell<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<T: Clone + Debug> Debug for MutCell<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("MutCell").field(&self.get()).finish()
     }
 }
