@@ -127,8 +127,8 @@ module CompilerExt =
         member com.TryGetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue option =
             match memberRef with
             | Fable.GeneratedMemberRef gen -> Some(gen :> _)
-            | Fable.MemberRef(entityRef, memberInfo) ->
-                com.TryGetEntity(entityRef)
+            | Fable.MemberRef(declaringEntity, memberInfo) ->
+                com.TryGetEntity(declaringEntity)
                 |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
 
         member com.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
