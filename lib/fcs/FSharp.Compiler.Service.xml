@@ -4965,7 +4965,7 @@
 </member>
 <member name="M:FSComp.SR.optsUnknownSignatureData(System.String)">
 <summary>
- Invalid value &apos;%s&apos; for --interfacedata, valid value are: none, file, compress.&quot;
+ Invalid value &apos;%s&apos; for --interfacedata, valid value are: none, file, compress.
  (Originally from FSComp.txt:933)
 </summary>
 </member>
