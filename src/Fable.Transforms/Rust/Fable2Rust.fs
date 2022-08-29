@@ -376,12 +376,38 @@ module TypeInfo =
         && (hasStructuralComparison ent)
         && (isEntityOfType com isComparableType entNames ent)
 
+    let isWrappedType com typ =
+        match typ with
+        | Fable.GenericParam _
+        | Fable.String
+        | Fable.Array _
+        | Fable.List _
+        | Fable.Option _
+        | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpSet _)
+        | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
+        | Replacements.Util.Builtin (Replacements.Util.BclHashSet _)
+        | Replacements.Util.Builtin (Replacements.Util.BclDictionary _)
+        // interfaces implemented as the type itself
+        | Replacements.Util.IsEntity (Types.iset) _
+        | Replacements.Util.IsEntity (Types.idictionary) _
+        | Replacements.Util.IsEntity (Types.ireadonlydictionary) _
+        | Replacements.Util.IsEntity (Types.keyCollection) _
+        | Replacements.Util.IsEntity (Types.valueCollection) _
+        | Replacements.Util.IsEntity (Types.icollectionGeneric) _
+            -> true
+        | _ -> false
+
     // Checks whether the type needs a ref counted wrapper
     // such as Rc<T> (or Arc<T> in a multithreaded context)
     let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
         match typ with
         // passed by reference, no need to Rc-wrap
         | t when isInRefType com t
+            -> None
+
+        // already wrapped, no need to Rc-wrap
+        | t when isWrappedType com t
             -> None
 
         // always not Rc-wrapped
@@ -392,14 +418,6 @@ module TypeInfo =
         | Fable.Boolean
         | Fable.Char
         | Fable.Number _
-        | Fable.String
-        | Fable.GenericParam _
-        // struct containers, no need to Rc-wrap
-        | Fable.List _
-        | Fable.Option _
-        | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
-        | Replacements.Util.Builtin (Replacements.Util.FSharpSet _)
-        | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
             -> None
 
         // should be Rc or Arc-wrapped
@@ -409,9 +427,6 @@ module TypeInfo =
 
         // should be Rc-wrapped
         | Fable.Regex
-        | Fable.Array _
-        | Replacements.Util.Builtin (Replacements.Util.BclHashSet _)
-        | Replacements.Util.Builtin (Replacements.Util.BclDictionary _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
         | Replacements.Util.IsEntity (Types.keyCollection) _
         | Replacements.Util.IsEntity (Types.valueCollection) _
@@ -421,8 +436,8 @@ module TypeInfo =
         // should be Arc-wrapped
         | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) _
         | Replacements.Util.IsEntity (Types.task) _
-        | Replacements.Util.IsEntity (Types.taskGeneric) _ ->
-            Some Arc
+        | Replacements.Util.IsEntity (Types.taskGeneric) _
+            -> Some Arc
 
         // conditionally Rc-wrapped
         | Fable.Tuple(_, isStruct) ->
@@ -438,12 +453,7 @@ module TypeInfo =
             | ent ->
                 if ent.IsValueType then None else Some Lrc
 
-    let shouldBeDyn (com: IRustCompiler) typ=
-        match typ with
-        | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity(entRef)
-            ent.IsInterface && not ent.IsValueType
-        | _ -> false
+        | _ -> None
 
     let TypeImplementsCloneTrait (com: IRustCompiler) typ =
         match typ with
@@ -545,13 +555,13 @@ module TypeInfo =
         transformImportType com ctx genArgs "Map" "Map"
 
     let transformArrayType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "MutArray"
+        transformImportType com ctx [genArg] "Native" "Array"
 
     let transformHashSetType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "MutHashSet"
+        transformImportType com ctx [genArg] "HashSet" "HashSet"
 
     let transformHashMapType com ctx genArgs: Rust.Ty =
-        transformImportType com ctx genArgs "Native" "MutHashMap"
+        transformImportType com ctx genArgs "HashMap" "HashMap"
 
     let transformGuidType com ctx: Rust.Ty =
         transformImportType com ctx [] "Guid" "Guid"
@@ -806,18 +816,21 @@ module TypeInfo =
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
                 transformTupleType com ctx isStruct genArgs
 
-            // pre-defined declared types
+            // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [genArg]) -> transformHashSetType com ctx genArg
             | Replacements.Util.IsEntity (Types.idictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
             | Replacements.Util.IsEntity (Types.ireadonlydictionary) (entRef, [k; v]) -> transformHashMapType com ctx [k; v]
             | Replacements.Util.IsEntity (Types.keyCollection) (entRef, [k; v]) -> transformArrayType com ctx k
             | Replacements.Util.IsEntity (Types.valueCollection) (entRef, [k; v]) -> transformArrayType com ctx v
             | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [t]) -> transformArrayType com ctx t
+
+            // pre-defined declared types
             | Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) (_, [t]) -> transformAsyncType com ctx t
             | Replacements.Util.IsEntity (Types.taskGeneric) (_, [t]) -> transformTaskType com ctx t
             | Replacements.Util.IsEntity (Types.taskBuilder) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.taskBuilderModule) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.thread) (_, []) -> transformThreadType com ctx
+
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
                 match tryFindInterface com Types.ienumeratorGeneric entRef with
@@ -1175,12 +1188,12 @@ module Util =
             makeLibCall com ctx None "Seq" "ofList" [expr]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashSetEntries" [expr]
+            let ar = makeLibCall com ctx None "HashSet" "entries" [expr]
             makeLibCall com ctx None "Seq" "ofArray" [ar]
         | Replacements.Util.IsEntity (Types.dictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.idictionary) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.ireadonlydictionary) _, IEnumerable _ ->
-            let ar = makeLibCall com ctx None "Native" "hashMapEntries" [expr]
+            let ar = makeLibCall com ctx None "HashMap" "entries" [expr]
             makeLibCall com ctx None "Seq" "ofArray" [ar]
 
         // casts to generic param
@@ -1189,7 +1202,7 @@ module Util =
         // casts to interface
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ ->
             expr
-        | t1, t2 when not (shouldBeDyn com t1) && shouldBeDyn com t2 ->
+        | t1, t2 when not (isInterface com t1) && (isInterface com t2) ->
             expr |> makeClone |> makeLrcValue com ctx |> mkCastExpr ty
         | _, t when isInterface com t ->
             expr |> makeClone |> mkCastExpr ty
@@ -1962,13 +1975,13 @@ module Util =
                     transformGenArgs com ctx [k; v]
                 | "Seq_::empty", IEnumerable genArg ->
                     transformGenArgs com ctx [genArg]
-                | "Native_::hashSetEmpty", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
+                | "HashSet_::empty", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native_::hashSetWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
+                | "HashSet_::withCapacity", Replacements.Util.Builtin (Replacements.Util.BclHashSet(genArg)) ->
                     transformGenArgs com ctx [genArg]
-                | "Native_::hashMapEmpty", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
+                | "HashMap_::empty", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
-                | "Native_::hashMapWithCapacity", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
+                | "HashMap_::withCapacity", Replacements.Util.Builtin (Replacements.Util.BclDictionary(k, v)) ->
                     transformGenArgs com ctx [k; v]
                 | _ -> None
             match callInfo.ThisArg, info.Kind with
@@ -2776,15 +2789,14 @@ module Util =
         match entryPoint with
         | Some path ->
             // add some imports for main function
-            let asStr = getLibraryImportName com ctx "String" "string"
             let asArr = getLibraryImportName com ctx "Native" "array"
-            let tyLrc = getLibraryImportName com ctx "Native" "Lrc"
+            let asStr = getLibraryImportName com ctx "String" "string"
 
             // main entrypoint
             let mainName = String.concat "::" path
             let strBody = [
                 $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<{tyLrc}<str>> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args: Vec<{asStr}> = args[1..].iter().map(|s| {asStr}(s)).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -2927,22 +2939,28 @@ module Util =
                 ty |> mkFnRetTy
         mkFnDecl inputs output
 
-    let isClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
+    let shouldBeCloned com ctx typ =
+        (isWrappedType com typ) ||
+        // Closures may capture Ref counted vars, so by cloning
+        // the actual closure, all attached ref counted var are cloned too
+        (shouldBeRefCountWrapped com ctx typ |> Option.isSome)
+
+    let isClosedOverIdent com ctx (ident: Fable.Ident) =
+        not (ident.IsCompilerGenerated && ident.Name = "matchValue")
+        && (ident.IsMutable
+            || (isValueScoped ctx ident.Name)
+            || (isRefScoped ctx ident.Name)
+            || (shouldBeCloned com ctx ident.Type)
+        )
+
+    let tryFindClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
         match expr with
         | Fable.IdentExpr ident ->
             if not (ignoredNames.Contains(ident.Name))
-                && not (ident.IsCompilerGenerated && ident.Name = "matchValue")
-                && (ident.IsMutable ||
-                    (isValueScoped ctx ident.Name) ||
-                    (isRefScoped ctx ident.Name) ||
-                    (match ident.Type with Fable.GenericParam _ -> true | _ -> false) ||
-                    // Closures may capture Ref counted vars, so by cloning
-                    // the actual closure, all attached ref counted var are cloned too
-                    (shouldBeRefCountWrapped com ctx ident.Type |> Option.isSome)
-                )
+                && (isClosedOverIdent com ctx ident)
             then Some ident
             else None
-        // ignore local names declared in the closure
+        // add local names in the closure to the ignore list
         // TODO: not perfect, local name shadowing will ignore captured names
         | Fable.ForLoop(ident, _, _, _, _, _) ->
             ignoredNames.Add(ident.Name) |> ignore
@@ -2977,7 +2995,7 @@ module Util =
     let hasCapturedNames com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let ignoredNames = HashSet(getIgnoredNames (Some name) args)
         let isClosedOver expr =
-            isClosedOverIdent com ctx ignoredNames expr
+            tryFindClosedOverIdent com ctx ignoredNames expr
             |> Option.isSome
         FableTransforms.deepExists isClosedOver body
 
@@ -2985,7 +3003,7 @@ module Util =
         let ignoredNames = HashSet(getIgnoredNames name args)
         let capturedNames = HashSet<string>()
         let addClosedOver expr =
-            isClosedOverIdent com ctx ignoredNames expr
+            tryFindClosedOverIdent com ctx ignoredNames expr
             |> Option.iter (fun ident -> capturedNames.Add(ident.Name) |> ignore)
             false
         // collect all closed over names that are not arguments

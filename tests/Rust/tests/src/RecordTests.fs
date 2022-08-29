@@ -370,7 +370,7 @@ module ComplexEdgeCases =
         Spatial: SpatialDta
     }
 
-    let rotate r ([<ByRef>]ent) =
+    let rotate r ([<ByRef>] ent) =
         { ent with Spatial = { ent.Spatial with Rotation = ent.Spatial.Rotation + r } }
 
     [<Fact>]
