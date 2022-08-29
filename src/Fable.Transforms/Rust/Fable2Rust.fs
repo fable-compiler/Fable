@@ -376,8 +376,10 @@ module TypeInfo =
         && (hasStructuralComparison ent)
         && (isEntityOfType com isComparableType entNames ent)
 
-    let isContainerType com typ =
+    let isWrappedType com typ =
         match typ with
+        | Fable.GenericParam _
+        | Fable.String
         | Fable.Array _
         | Fable.List _
         | Fable.Option _
@@ -404,8 +406,8 @@ module TypeInfo =
         | t when isInRefType com t
             -> None
 
-        // containers, no need to Rc-wrap
-        | t when isContainerType com t
+        // already wrapped, no need to Rc-wrap
+        | t when isWrappedType com t
             -> None
 
         // always not Rc-wrapped
@@ -415,9 +417,7 @@ module TypeInfo =
         | Fable.Unit
         | Fable.Boolean
         | Fable.Char
-        | Fable.String
         | Fable.Number _
-        | Fable.GenericParam _
             -> None
 
         // should be Rc or Arc-wrapped
@@ -2940,14 +2940,10 @@ module Util =
         mkFnDecl inputs output
 
     let shouldBeCloned com ctx typ =
-        match typ with
-        | Fable.GenericParam _
-            -> true
-        | _ ->
-            (isContainerType com typ) ||
-            // Closures may capture Ref counted vars, so by cloning
-            // the actual closure, all attached ref counted var are cloned too
-            (shouldBeRefCountWrapped com ctx typ |> Option.isSome)
+        (isWrappedType com typ) ||
+        // Closures may capture Ref counted vars, so by cloning
+        // the actual closure, all attached ref counted var are cloned too
+        (shouldBeRefCountWrapped com ctx typ |> Option.isSome)
 
     let isClosedOverIdent com ctx (ident: Fable.Ident) =
         not (ident.IsCompilerGenerated && ident.Name = "matchValue")
