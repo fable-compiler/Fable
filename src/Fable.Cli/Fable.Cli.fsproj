@@ -5,14 +5,20 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-021</PackageVersion>
-    <PackageReleaseNotes>* Rust, fixed curried apply, @ncave
-* Python, allow modules with uppercase letters, @dbrattli
-* Rust, added Math.DivRem support, @ncave
-* Rust, retain inlined funcs with CompiledName attr, @ncave
-* Python, fixes for extreme math values, @dbrattli
-* Rust, union fix for import prefixes, @alexswan10k
-* Rust, fixed build dependency for wasm32, @ncave</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-022</PackageVersion>
+    <PackageReleaseNotes>* Update F# compiler
+* Make Fable 4 compatible with Feliz plugins
+* Rust, Fixed inner attributes (#3121)
+* Rust, Output crate attributes only on last file (#3119)
+* Rust, Added collection wrappers (#3118)
+* Rust, fix byref nested context not correctly propagating (#3103)
+* Rust, Fixed passing fields by ref (#3116)
+* Rust, Fixed struct record copy (#3114)
+* Rust, Output string type (#3113)
+* Python, type var cleanup. Use Any for types starting with $$ (#3100)
+* Rust, Fixed string format without args
+* Rust, Fixed closure ident cloning (#3106)
+* Rust, Fixed static, member and interface imports (#3105)</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
