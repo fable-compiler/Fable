@@ -16,7 +16,7 @@ Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 Make sure the following **requirements** are installed in your system:
 
-- [dotnet SDK 5](https://www.microsoft.com/net/download/core)
+- [dotnet SDK 5 or higher](https://dotnet.microsoft.com/download)
 - [node.js](https://nodejs.org) with npm
 
 Then run `dotnet fsi build.fsx` at the root folder to see the build options.

@@ -1,4 +1,4 @@
-### 4.0.0-snake-island-alpha-022
+### 4.0.0-snake-island-alpha-023
 
 * Update F# compiler
 * Make Fable 4 compatible with Feliz plugins
