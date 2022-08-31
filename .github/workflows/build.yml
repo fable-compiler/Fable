@@ -1,10 +1,10 @@
-name: Test
+name: build
 
 on:
   push:
-    branches: [ main, snake_island ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, snake_island ]
+    branches: [ main ]
 
 jobs:
   # Separate build job for JS
