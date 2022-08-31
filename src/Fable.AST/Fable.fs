@@ -474,11 +474,20 @@ type EmitInfo =
       IsStatement: bool
       CallInfo: CallInfo }
 
+type LibraryImportInfo =
+    { IsInstanceMember: bool
+      IsModuleMember: bool }
+    static member Create(?isInstanceMember, ?isModuleMember) =
+        { IsInstanceMember = defaultArg isInstanceMember false
+          IsModuleMember = defaultArg isModuleMember false }
+
 type ImportKind =
-   | UserImport of isInline: bool
-   | LibraryImport
-   | MemberImport of isInstance: bool * fullPath: string
-   | ClassImport of fullPath: string
+    /// `isInline` is automatically set to true after applying the arguments of an inline function whose body
+    /// is a user generated import, to allow patterns like the one in "importDefault works with getters when inlined" test
+    | UserImport of isInline: bool
+    | LibraryImport of info: LibraryImportInfo
+    | MemberImport of memberRef: MemberRef
+    | ClassImport of entRef: EntityRef
 
 type ImportInfo =
     { Selector: string
@@ -487,7 +496,7 @@ type ImportInfo =
     member this.IsCompilerGenerated =
         match this.Kind with
         | UserImport isInline -> isInline
-        | LibraryImport | MemberImport _  | ClassImport _ -> true
+        | LibraryImport _ | MemberImport _  | ClassImport _ -> true
 
 type OperationKind =
     | Unary of operator: UnaryOperator * operand: Expr

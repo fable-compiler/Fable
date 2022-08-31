@@ -556,14 +556,16 @@ module TypeInfo =
             mkUnitExpr () // just an import without a body
         else
             match info.Kind with
-            | Fable.MemberImport(isInstance, _) when isInstance = true ->
-                // no import needed
-                makeFullNamePathExpr info.Selector genArgs
-            | Fable.MemberImport(isInstance, _) when isInstance = false ->
-                // for constructors or static members, import just the type
-                let selector, membName = splitName info.Selector
-                let importName = com.GetImportName(ctx, selector, info.Path, r)
-                makeFullNamePathExpr (importName + "::" + membName) genArgs
+            | Fable.MemberImport membRef ->
+                let memb = com.GetMember(membRef)
+                if memb.IsInstance then
+                    // no import needed
+                    makeFullNamePathExpr info.Selector genArgs
+                else
+                    // for constructors or static members, import just the type
+                    let selector, membName = splitName info.Selector
+                    let importName = com.GetImportName(ctx, selector, info.Path, r)
+                    makeFullNamePathExpr (importName + "::" + membName) genArgs
             | _ ->
                 let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
                 makeFullNamePathExpr importName genArgs
@@ -577,7 +579,8 @@ module TypeInfo =
         let path = getLibPath com moduleName
         let selector = moduleName + "_::" + memberName
         let info: Fable.ImportInfo =
-            { Selector = selector; Path = path; Kind = Fable.LibraryImport }
+            let info = Fable.LibraryImportInfo.Create() // TODO: isInstance/ModuleMember?
+            { Selector = selector; Path = path; Kind = Fable.LibraryImport info }
         let genArgs = transformGenArgs com ctx types
         let callee = transformImport com ctx r Fable.Any info genArgs
         Util.callFunction com ctx r callee args
@@ -2049,9 +2052,14 @@ module Util =
                     transformGenArgs com ctx [k; v]
                 | _ -> None
             match callInfo.ThisArg, info.Kind with
-            |  Some thisArg, Fable.MemberImport(isInstance, _) when isInstance = true ->
-                let callee = transformCallee com ctx thisArg
-                mkMethodCallExpr info.Selector genArgs callee args
+            |  Some thisArg, Fable.MemberImport membRef ->
+                let memb = com.GetMember(membRef)
+                if memb.IsInstance then
+                    let callee = transformCallee com ctx thisArg
+                    mkMethodCallExpr info.Selector genArgs callee args
+                else
+                    let callee = transformImport com ctx r t info genArgs
+                    mkCallExpr callee args
             | _ ->
                 let callee = transformImport com ctx r t info genArgs
                 mkCallExpr callee args
