@@ -1866,7 +1866,7 @@ module Util =
             if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
                 makeIdentExpr entityName
             else
-                makeInternalClassImport com entityName file
+                makeInternalClassImport com ent entityName file
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) =
         entityIdentWithSuffix com ent ""
@@ -1880,7 +1880,7 @@ module Util =
             then None
             else Some (entityIdent com ent.Ref)
 
-    let memberIdent (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberIdent (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let memberName =
@@ -1903,7 +1903,7 @@ module Util =
         else
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then com.AddWatchDependency(file)
-            makeInternalMemberImport com typ memb.IsInstanceMember memberName file
+            makeInternalMemberImport com typ membRef memberName file
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -2200,7 +2200,7 @@ module Util =
         let bindings, expr = com.ResolveInlineExpr(ctx, inExpr, args)
 
         match expr with
-        // If this is an import expression, apply the arguments, see #2280
+        // If this is a user import expression, apply the arguments, see #2280
         | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
             let isGetterOrValue() =
                 info.MemberRef
@@ -2261,7 +2261,7 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) membRef (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
@@ -2305,7 +2305,7 @@ module Util =
 
         | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
-            memberIdent com r typ memb
+            memberIdent com r typ memb membRef
 
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
             let classExpr = FsEnt.Ref entity |> entityIdent com
@@ -2315,7 +2315,7 @@ module Util =
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
             let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callExpr =
-                memberIdent com r Fable.Any memb
+                memberIdent com r Fable.Any memb membRef
                 |> makeCall r typ callInfo
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
@@ -2333,7 +2333,7 @@ module Util =
             sigArgTypes = getArgTypes com memb,
 //            isCons = memb.IsConstructor,
             memberRef = memberRef)
-        |> makeCallWithArgInfo com ctx r typ callee memb
+        |> makeCallWithArgInfo com ctx r typ callee memb memberRef
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType ctx.GenericArgs v.FullType
@@ -2346,4 +2346,4 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
-        | _ -> memberIdent com r typ v
+        | _ -> getValueMemberRef v |> memberIdent com r typ v

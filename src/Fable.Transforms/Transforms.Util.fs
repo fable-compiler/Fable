@@ -598,7 +598,7 @@ module AST =
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()
-                 Kind = UserImport false }, t, r)
+                 Kind = ImportKind.User() }, t, r)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
         let selector =
@@ -607,7 +607,7 @@ module AST =
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName
-                 Kind = LibraryImport }, t, None)
+                 Kind = ImportKind.Library() }, t, None)
 
     let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =
@@ -615,11 +615,11 @@ module AST =
             else Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import({ Selector = selector; Path = path; Kind = kind }, t, None)
 
-    let makeInternalMemberImport com t isInstance (selector: string) (path: string) =
-        MemberImport(isInstance, path) |> makeInternalImport com t selector path
+    let makeInternalMemberImport com t membRef (selector: string) (path: string) =
+        MemberImport(membRef) |> makeInternalImport com t selector path
 
-    let makeInternalClassImport com (selector: string) (path: string) =
-        ClassImport(path) |> makeInternalImport com Any selector path
+    let makeInternalClassImport com entRef (selector: string) (path: string) =
+        ClassImport(entRef) |> makeInternalImport com Any selector path
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Create(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
