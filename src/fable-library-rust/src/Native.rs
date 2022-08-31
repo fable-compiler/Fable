@@ -104,28 +104,28 @@ pub mod Native_ {
         }
     }
 
-    pub fn array<T: Clone>(v: Vec<T>) -> Array<T> {
+    pub fn arrayFrom<T: Clone>(v: Vec<T>) -> Array<T> {
         Array(mkRefMut(v))
     }
 
+    pub fn array<T: Clone>(a: &[T]) -> Array<T> {
+        arrayFrom(a.to_vec())
+    }
+
     pub fn arrayEmpty<T: Clone>() -> Array<T> {
-        array(Vec::new())
+        arrayFrom(Vec::new())
     }
 
     pub fn arrayWithCapacity<T: Clone>(capacity: i32) -> Array<T> {
-        array(Vec::with_capacity(capacity as usize))
-    }
-
-    pub fn arrayFrom<T: Clone>(a: &[T]) -> Array<T> {
-        array(a.to_vec())
+        arrayFrom(Vec::with_capacity(capacity as usize))
     }
 
     pub fn arrayCreate<T: Clone>(count: &i32, value: &T) -> Array<T> {
-        array(alloc::vec![value.clone(); *count as usize])
+        arrayFrom(alloc::vec![value.clone(); *count as usize])
     }
 
     pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {
-        array(a.to_vec())
+        arrayFrom(a.to_vec())
     }
 
     // -----------------------------------------------------------

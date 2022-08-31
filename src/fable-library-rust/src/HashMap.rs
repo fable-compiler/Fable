@@ -9,7 +9,7 @@ pub mod HashMap_ {
     #[cfg(feature = "no_std")]
     use hashbrown as collections;
 
-    use crate::Native_::{array, mkRefMut, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
     type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
     use core::fmt::Debug;
@@ -95,15 +95,15 @@ pub mod HashMap_ {
     }
 
     pub fn keys<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<K> {
-        array(Vec::from_iter(dict.keys().cloned()))
+        arrayFrom(Vec::from_iter(dict.keys().cloned()))
     }
 
     pub fn values<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<V> {
-        array(Vec::from_iter(dict.values().cloned()))
+        arrayFrom(Vec::from_iter(dict.values().cloned()))
     }
 
     pub fn entries<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<(K, V)> {
-        array(Vec::from_iter(
+        arrayFrom(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
     }

@@ -9,7 +9,7 @@ pub mod HashSet_ {
     #[cfg(feature = "no_std")]
     use hashbrown as collections;
 
-    use crate::Native_::{array, mkRefMut, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
     type MutHashSet<T> = MutCell<collections::HashSet<T>>;
 
     use core::fmt::Debug;
@@ -45,7 +45,7 @@ pub mod HashSet_ {
     }
 
     pub fn entries<T: Clone>(set: HashSet<T>) -> Array<T> {
-        array(Vec::from_iter(set.iter().cloned()))
+        arrayFrom(Vec::from_iter(set.iter().cloned()))
     }
 
 }

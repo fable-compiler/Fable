@@ -62,19 +62,35 @@ pub mod ListExt {
     }
 }
 
+pub mod StringExt {
+    use crate::String_::{string, stringFrom};
+
+    impl From<&'static str> for string {
+        fn from(s: &'static str) -> Self {
+            string(s)
+        }
+    }
+
+    impl From<String> for string {
+        fn from(s: String) -> Self {
+            stringFrom(s)
+        }
+    }
+}
+
 pub mod ArrayExt {
-    use crate::Native_::{array, Array, Vec};
+    use crate::Native_::{arrayFrom, Array, Vec};
 
     impl<T: Clone> From<Vec<T>> for Array<T> {
         fn from(vec: Vec<T>) -> Self {
-            array(vec)
+            arrayFrom(vec)
         }
     }
 
     impl<T: Clone> From<&Vec<T>> for Array<T> {
         fn from(vec: &Vec<T>) -> Self {
             let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
-            array(vecNew)
+            arrayFrom(vecNew)
         }
     }
 
