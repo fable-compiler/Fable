@@ -1,15 +1,16 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
     use crate::String_::{string, stringFrom};
-    use chrono::{DateTime as CDT, TimeZone, Utc, Local, Datelike};
+    use chrono::{DateTime as CDT, Datelike, Local, TimeZone, Utc, NaiveDateTime, NaiveDate};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     enum LocalUtcWrap {
         CLocal(CDT<Local>),
         CUtc(CDT<Utc>),
+        CUnspecified(NaiveDateTime)
     }
 
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, PartialEq, Debug)]
     pub struct DateTime(LocalUtcWrap);
 
     // impl core::fmt::Display for DateTime {
@@ -18,22 +19,77 @@ pub mod DateTime_ {
     //     }
     // }
 
+    impl PartialOrd for DateTime {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            //self.0.partial_cmp(&other.0)
+            // This is probably not sufficient and likely requires normalizing all dates to UTC first. Also what about Unspecified - perhaps these should return None?
+            let x = self.get_timestamp();
+            let y = other.get_timestamp();
+            if x > y { Some(core::cmp::Ordering::Greater) }
+            else if x < y { Some(core::cmp::Ordering::Less) }
+            else { Some(core::cmp::Ordering::Equal) }
+        }
+    }
+
     pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
-        let l = Local.ymd(y, m as u32, d as u32).and_hms(0, 0, 0);
-        DateTime(LocalUtcWrap::CLocal(l))
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(0, 0, 0);
+        DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
     pub fn new_ymdhms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32) -> DateTime {
-        let l = Local.ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
-        DateTime(LocalUtcWrap::CLocal(l))
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
+            .and_hms(h as u32, min as u32, s as u32);
+        DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
     pub fn new_ymdhmsms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32, ms: i32) -> DateTime {
-        let l = Local.ymd(y, m as u32, d as u32).and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
-        DateTime(LocalUtcWrap::CLocal(l))
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
+            .and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
+        DateTime(LocalUtcWrap::CUnspecified(l))
+    }
+
+    pub fn new_ymdhms_withkind(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32, kind: i32) -> DateTime {
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
+            .and_hms(h as u32, min as u32, s as u32);
+        let dt =
+            match kind {
+                1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
+                2 => LocalUtcWrap::CLocal(l.and_local_timezone(Local).unwrap()),
+                0 => LocalUtcWrap::CUnspecified(l),
+                _ => panic!("unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
+            };
+        DateTime(dt)
+    }
+
+    pub fn now() -> DateTime {
+        DateTime(LocalUtcWrap::CLocal(Local::now()))
+    }
+
+    pub fn minValue() -> DateTime {
+        DateTime(LocalUtcWrap::CUtc(CDT::<Utc>::MIN_UTC))
+    }
+
+    pub fn maxValue() -> DateTime {
+        DateTime(LocalUtcWrap::CUtc(CDT::<Utc>::MAX_UTC))
+    }
+
+    pub fn compare(x: DateTime, y: DateTime) -> i32 {
+        // let x = x.get_timestamp();
+        // let y = y.get_timestamp();
+
+        if x > y { 1i32 } else { if x < y { -1i32 } else { 0i32 } }
     }
 
     impl DateTime {
+
+        fn get_timestamp(&self) -> i64 {
+            match self.0 {
+                LocalUtcWrap::CLocal(dt) => dt.timestamp(),
+                LocalUtcWrap::CUtc(dt)  => dt.timestamp(),
+                LocalUtcWrap::CUnspecified(dt) => dt.timestamp(),
+            }
+        }
+
         pub fn to_string(&self, stringFormat: string) -> string {
             let chronoFriendlyStringFormat = stringFormat
                 .replace("yyyy", "%Y")
@@ -41,18 +97,19 @@ pub mod DateTime_ {
                 .replace("dd", "%d")
                 .replace("ss", "%S")
                 .replace("fff", "%3f");
-            let s =
-                match self.0 {
-                    LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
-                    LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
-                };
+            let s = match self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.format(&chronoFriendlyStringFormat),
+                LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
+                LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
+            };
             stringFrom(s.to_string())
         }
 
         pub fn year(&self) -> i32 {
             match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.year(),
                 LocalUtcWrap::CLocal(dt) => dt.year(),
-                LocalUtcWrap::CUtc(dt) => dt.year()
+                LocalUtcWrap::CUtc(dt) => dt.year(),
             }
         }
     }
