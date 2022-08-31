@@ -379,3 +379,15 @@ module ComplexEdgeCases =
             { Name = "A"; Spatial = { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> } } }
             |> rotate (1.2f<Rad>)
         res.Spatial.Rotation |> equal (1.1f<Rad> + 1.2f<Rad>)
+
+    [<Fact>]
+    let ``Ref tracking should correctly count arm ident usages + clone accordingly`` () =
+        let cmpPropLstR = [{ a = 1}]
+        let add1 x = {x with a = x.a + 1}
+        let res =
+            match cmpPropLstR with
+            | ({ a = 1 } as h)::t ->
+                let next = add1 h
+                next::t
+            | _ -> cmpPropLstR
+        notEqual res cmpPropLstR
