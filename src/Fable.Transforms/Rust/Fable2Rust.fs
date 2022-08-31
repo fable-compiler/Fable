@@ -579,7 +579,8 @@ module TypeInfo =
         let path = getLibPath com moduleName
         let selector = moduleName + "_::" + memberName
         let info: Fable.ImportInfo =
-            { Selector = selector; Path = path; Kind = Fable.ImportKind.Library() } // TODO: isInstance/moduleMember?
+            let info = Fable.LibraryImportInfo.Create() // TODO: isInstance/moduleMember?
+            { Selector = selector; Path = path; Kind = Fable.LibraryImport info }
         let genArgs = transformGenArgs com ctx types
         let callee = transformImport com ctx r Fable.Any info genArgs
         Util.callFunction com ctx r callee args

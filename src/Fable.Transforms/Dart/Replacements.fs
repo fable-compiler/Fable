@@ -1529,7 +1529,7 @@ let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
         let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
-        Helper.LibCall(com, "Set", mangledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, isInstance=not isStatic, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "Set", mangledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
@@ -1543,7 +1543,7 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
         let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
-        Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, isInstance=not isStatic, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName

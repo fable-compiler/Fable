@@ -598,16 +598,19 @@ module AST =
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()
-                 Kind = ImportKind.User() }, t, r)
+                 Kind = UserImport false }, t, r)
 
-    let makeImportLib (com: Compiler) t memberName moduleName =
+    let makeImportLibWithInfo (com: Compiler) t memberName moduleName info =
         let selector =
             match com.Options.Language with
             | Rust -> moduleName + "_::" + memberName //TODO: fix when imports change
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName
-                 Kind = ImportKind.Library() }, t, None)
+                 Kind = LibraryImport info }, t, None)
+
+    let makeImportLib (com: Compiler) t memberName moduleName =
+        LibraryImportInfo.Create() |> makeImportLibWithInfo com t memberName moduleName
 
     let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =

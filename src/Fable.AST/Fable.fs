@@ -477,21 +477,17 @@ type EmitInfo =
 type LibraryImportInfo =
     { IsInstance: bool
       IsModuleMember: bool }
+    static member Create(?isInstance, ?isModuleMember) =
+        { IsInstance = defaultArg isInstance false
+          IsModuleMember = defaultArg isModuleMember false }
 
 type ImportKind =
-    // `isInline` is set to true after applying the arguments of an inline function
-    // whose body is a user generated import, to allow patterns like the one in
-    // "importDefault works with getters when inlined" test
+    /// `isInline` is automatically set to true after applying the arguments of an inline function whose body
+    /// is a user generated import, to allow patterns like the one in "importDefault works with getters when inlined" test
     | UserImport of isInline: bool
     | LibraryImport of info: LibraryImportInfo
     | MemberImport of memberRef: MemberRef
     | ClassImport of entRef: EntityRef
-    static member User() = UserImport false
-    /// ATTENTION: Be careful if using this with plugins as library imports
-    /// are not guaranteed to stay the same between Fable versions
-    static member Library(?isInstance, ?isModuleMember) =
-        LibraryImport { IsInstance = defaultArg isInstance false
-                        IsModuleMember = defaultArg isModuleMember false }
 
 type ImportInfo =
     { Selector: string

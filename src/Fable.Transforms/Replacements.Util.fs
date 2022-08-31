@@ -34,14 +34,14 @@ type Helper =
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool,
-                           ?isInstance, ?isConstructor: bool, ?loc: SourceLocation) =
-
-        // TODO: Pass isInstance/isModuleMember to LibraryImportInfo
-        let callee = makeImportLib com Any coreMember coreModule
+                           ?isModuleMember, ?isConstructor: bool, ?loc: SourceLocation) =
+        let isInstance = Option.isSome thisArg
+        let callee =
+            LibraryImportInfo.Create(isInstance=isInstance, ?isModuleMember=isModuleMember)
+            |> makeImportLibWithInfo com Any coreMember coreModule
         let memberRef =
             match hasSpread with
             | Some true ->
-                let isInstance = defaultArg isInstance false
                 let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
                 GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=isInstance, hasSpread=true) |> Some
             | Some false | None -> None
