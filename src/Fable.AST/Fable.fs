@@ -475,7 +475,8 @@ type EmitInfo =
       CallInfo: CallInfo }
 
 type LibraryImportInfo =
-    { IsInstance: bool }
+    { IsInstance: bool
+      IsModuleMember: bool }
 
 type ImportKind =
     // `isInline` is set to true after applying the arguments of an inline function
@@ -488,8 +489,9 @@ type ImportKind =
     static member User() = UserImport false
     /// ATTENTION: Be careful if using this with plugins as library imports
     /// are not guaranteed to stay the same between Fable versions
-    static member Library(?isInstance) =
-        LibraryImport { IsInstance = defaultArg isInstance false }
+    static member Library(?isInstance, ?isModuleMember) =
+        LibraryImport { IsInstance = defaultArg isInstance false
+                        IsModuleMember = defaultArg isModuleMember false }
 
 type ImportInfo =
     { Selector: string

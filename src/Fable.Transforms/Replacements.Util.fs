@@ -33,14 +33,17 @@ type Helper =
         makeImportLib com returnType coreMember coreModule
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
-                           ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool, ?isConstructor: bool, ?loc: SourceLocation) =
+                           ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool,
+                           ?isInstance, ?isConstructor: bool, ?loc: SourceLocation) =
 
+        // TODO: Pass isInstance/isModuleMember to LibraryImportInfo
         let callee = makeImportLib com Any coreMember coreModule
         let memberRef =
             match hasSpread with
             | Some true ->
+                let isInstance = defaultArg isInstance false
                 let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
-                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=false, hasSpread=true) |> Some
+                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=isInstance, hasSpread=true) |> Some
             | Some false | None -> None
         let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)
