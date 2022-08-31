@@ -35,15 +35,15 @@ type Helper =
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool,
                            ?isModuleMember, ?isConstructor: bool, ?loc: SourceLocation) =
-        let isInstance = Option.isSome thisArg
+        let isInstanceMember = Option.isSome thisArg
         let callee =
-            LibraryImportInfo.Create(isInstance=isInstance, ?isModuleMember=isModuleMember)
+            LibraryImportInfo.Create(isInstanceMember=isInstanceMember, ?isModuleMember=isModuleMember)
             |> makeImportLibWithInfo com Any coreMember coreModule
         let memberRef =
             match hasSpread with
             | Some true ->
                 let argTypes = argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
-                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=isInstance, hasSpread=true) |> Some
+                GeneratedMember.Function(coreMember, argTypes, returnType, isInstance=isInstanceMember, hasSpread=true) |> Some
             | Some false | None -> None
         let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)

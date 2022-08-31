@@ -475,10 +475,10 @@ type EmitInfo =
       CallInfo: CallInfo }
 
 type LibraryImportInfo =
-    { IsInstance: bool
+    { IsInstanceMember: bool
       IsModuleMember: bool }
-    static member Create(?isInstance, ?isModuleMember) =
-        { IsInstance = defaultArg isInstance false
+    static member Create(?isInstanceMember, ?isModuleMember) =
+        { IsInstanceMember = defaultArg isInstanceMember false
           IsModuleMember = defaultArg isModuleMember false }
 
 type ImportKind =
