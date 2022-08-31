@@ -2325,6 +2325,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, "DateTime", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
+            Helper.LibCall(com, "DateTime", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymdhmsms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
