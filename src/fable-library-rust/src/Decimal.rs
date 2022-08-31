@@ -114,7 +114,7 @@ pub mod Decimal_ {
         let scale = du.scale as i32;
         let signExp =
             if du.negative { -(scale << 16) } else { scale << 16 };
-        array(Vec::from([low, mid, high, signExp]))
+        array(&[low, mid, high, signExp])
     }
 
     pub fn round(x: Decimal) -> Decimal { x.round() }

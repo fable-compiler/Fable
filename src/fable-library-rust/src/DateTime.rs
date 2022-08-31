@@ -1,6 +1,6 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
-    use crate::{Native_::Lrc, String_::{string, self}};
+    use crate::String_::{string, stringFrom};
     use chrono::{DateTime as CDT, TimeZone, Utc, Local, Datelike};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -46,7 +46,7 @@ pub mod DateTime_ {
                     LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
                     LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
                 };
-            string(s.to_string().as_str())
+            stringFrom(s.to_string())
         }
 
         pub fn year(&self) -> i32 {
@@ -62,7 +62,7 @@ pub mod DateTime_ {
 
 #[cfg(feature = "date")]
 pub mod DateTimeOffset_ {
-    use crate::{Native_::Lrc, String_::string};
+    use crate::String_::string;
     use chrono::{DateTime as CDT, TimeZone, Utc};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -77,7 +77,7 @@ pub mod DateTimeOffset_ {
 
 #[cfg(feature = "date")]
 pub mod TimeSpan_ {
-    use crate::{Native_::Lrc, String_::string};
+    use crate::String_::string;
     use chrono::{DateTime as CDT, TimeZone, Utc};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]

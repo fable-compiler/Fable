@@ -1486,8 +1486,11 @@ module Util =
             |> addError com [] r
             mkFloat64LitExpr 0.
 
-    let makeString com ctx (value: Rust.Expr) =
+    let makeStaticString com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "string" [value]
+
+    let makeStringFrom com ctx (value: Rust.Expr) =
+        makeLibCall com ctx None "String" "stringFrom" [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
@@ -1519,7 +1522,7 @@ module Util =
                 |> List.map (transformExpr com ctx)
                 |> mkArrayExpr
                 |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "arrayFrom" [arrayExpr]
+            makeLibCall com ctx None "Native" "array" [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
@@ -1531,7 +1534,7 @@ module Util =
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = transformExpr com ctx expr |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "arrayFrom" [sequence]
+            makeLibCall com ctx None "Native" "array" [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         // list contruction with cons
@@ -1647,7 +1650,7 @@ module Util =
         let fmt = makeFormat parts
         let args = transformCallArgs com ctx values [] []
         let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
-        expr |> mkAddrOfExpr |> makeString com ctx
+        expr |> makeStringFrom com ctx
 
     let transformTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type): Rust.Expr =
         let importName = getLibraryImportName com ctx "Native" "TypeId"
@@ -1674,7 +1677,7 @@ module Util =
         | Fable.UnitConstant -> mkUnitExpr ()
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
-        | Fable.StringConstant s -> mkStrLitExpr s |> makeString com ctx
+        | Fable.StringConstant s -> mkStrLitExpr s |> makeStaticString com ctx
         | Fable.StringTemplate(_tag, parts, values) -> formatString com ctx parts values
         | Fable.NumberConstant(x, kind, _) -> makeNumber com ctx r value.Type kind x
         | Fable.RegexConstant(source, flags) ->
@@ -1922,7 +1925,7 @@ module Util =
             | _ -> args
         let expr = mkMacroExpr macro args
         if macro = "format"
-        then expr |> mkAddrOfExpr |> makeString com ctx
+        then expr |> makeStringFrom com ctx
         else expr
 
     let transformEmit (com: IRustCompiler) ctx range (emitInfo: Fable.EmitInfo) =
@@ -2851,14 +2854,15 @@ module Util =
         match entryPoint with
         | Some path ->
             // add some imports for main function
-            let asArr = getLibraryImportName com ctx "Native" "array"
-            let asStr = getLibraryImportName com ctx "String" "string"
+            let asArr = getLibraryImportName com ctx "Native" "arrayFrom"
+            let asStr = getLibraryImportName com ctx "String" "toString"
+            let tyStr = getLibraryImportName com ctx "String" "string"
 
             // main entrypoint
             let mainName = String.concat "::" path
             let strBody = [
                 $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<{asStr}> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args: Vec<{tyStr}> = args[1..].iter().map(|s| {asStr}(s)).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
