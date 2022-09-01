@@ -9,8 +9,8 @@
     <Compile Include="Global.fs" />
     <Compile Include="Interfaces.fs" />
     <!-- <Compile Include="System.fs" /> -->
-    <!-- <Compile Include="System_Text.fs" /> -->
-    <!-- <Compile Include="System_Collections_Generic.fs" /> -->
+    <Compile Include="System.Text.fs" />
+    <!-- <Compile Include="System.Collections.Generic.fs" /> -->
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />

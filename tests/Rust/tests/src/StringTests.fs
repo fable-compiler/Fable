@@ -58,51 +58,49 @@ let ``String literal addition is optimized`` () =
 //     "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
 //     |> equal ["fff"; "ff"]
 
-// Format
+[<Fact>]
+let ``StringBuilder works`` () =
+    let sb = Text.StringBuilder()
+    sb.Append("Hello") |> ignore
+    sb.AppendLine() |> ignore
+    sb.AppendLine("World!") |> ignore
+    let expected = String.Format("Hello{0}World!{0}", Environment.NewLine)
+    sb.ToString() |> equal expected
 
-// [<Fact>]
-// let ``StringBuilder works`` () =
-//     let sb = Text.StringBuilder()
-//     sb.Append("Hello") |> ignore
-//     sb.AppendLine() |> ignore
-//     sb.AppendLine("World!") |> ignore
-//     let expected = String.Format("Hello{0}World!{0}", Environment.NewLine)
-//     sb.ToString() |> equal expected
+[<Fact>]
+let ``StringBuilder.Length works`` () =
+    let sb = Text.StringBuilder()
+    sb.Append("Hello") |> ignore
+    // We don't test the AppendLine for Length because depending on the OS
+    // the result is different. Unix \n VS Windows \r\n
+    // sb.AppendLine() |> ignore
+    equal 5 sb.Length
 
-// [<Fact>]
-// let ``StringBuilder.Length works`` () =
-//     let sb = Text.StringBuilder()
-//     sb.Append("Hello") |> ignore
-//     // We don't test the AppendLine for Length because depending on the OS
-//     // the result is different. Unix \n VS Windows \r\n
-//     // sb.AppendLine() |> ignore
-//     equal 5 sb.Length
+[<Fact>]
+let ``StringBuilder.ToString works with index and length`` () =
+    let sb = Text.StringBuilder()
+    sb.Append("Hello") |> ignore
+    sb.AppendLine() |> ignore
+    equal "ll" (sb.ToString(2, 2))
 
-// [<Fact>]
-// let ``StringBuilder.ToString works with index and length`` () =
-//     let sb = Text.StringBuilder()
-//     sb.Append("Hello") |> ignore
-//     sb.AppendLine() |> ignore
-//     equal "ll" (sb.ToString(2, 2))
+[<Fact>]
+let ``StringBuilder.Clear works`` () =
+    let builder = new Text.StringBuilder()
+    builder.Append("1111") |> ignore
+    builder.Clear() |> ignore
+    equal "" (builder.ToString())
 
-// [<Fact>]
-// let ``StringBuilder.Clear works`` () =
-//     let builder = new Text.StringBuilder()
-//     builder.Append("1111") |> ignore
-//     builder.Clear() |> ignore
-//     equal "" (builder.ToString())
-
-// [<Fact>]
-// let ``StringBuilder.Append works with various overloads`` () =
-//     let sb = Text.StringBuilder()
-//                         .Append(Text.StringBuilder("aaa"))
-//                         .Append("bcd".ToCharArray())
-//                         .Append('/')
-//                         .Append(true)
-//                         .Append(5.2)
-//                         .Append(34)
-//     let actual = sb.ToString().Replace(",", ".").ToLower()
-//     actual |> equal "aaabcd/true5.234"
+[<Fact>]
+let ``StringBuilder.Append works with various overloads`` () =
+    let sb = Text.StringBuilder()
+                        .Append(Text.StringBuilder("aaa"))
+                        .Append("bcd".ToCharArray())
+                        .Append('/')
+                        .Append(true)
+                        .Append(5.2)
+                        .Append(34)
+    let actual = sb.ToString().Replace(",", ".").ToLower()
+    actual |> equal "aaabcd/true5.234"
 
 // [<Fact>]
 // let ``StringBuilder.AppendFormat works`` () =

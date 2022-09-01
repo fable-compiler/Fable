@@ -382,11 +382,11 @@ module ComplexEdgeCases =
 
     [<Fact>]
     let ``Ref tracking should correctly count arm ident usages + clone accordingly`` () =
-        let cmpPropLstR = [{ a = 1}]
-        let add1 x = {x with a = x.a + 1}
+        let cmpPropLstR = [{ MyRecord.a = 1; b = "2"; c = 3.0 }]
+        let add1 (x: MyRecord) = {x with a = x.a + 1}
         let res =
             match cmpPropLstR with
-            | ({ a = 1 } as h)::t ->
+            | ({ MyRecord.a = 1 } as h)::t ->
                 let next = add1 h
                 next::t
             | _ -> cmpPropLstR

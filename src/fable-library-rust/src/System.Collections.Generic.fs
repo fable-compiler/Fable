@@ -1,23 +1,23 @@
-namespace System_Collections_Generic_
+namespace System.Collections.Generic
 
 open Interfaces_
-open System.Collections.Generic
+// open System.Collections.Generic
 
 type Comparer<'T when 'T : comparison>() =
     static member Default =
         { new IComparer<'T> with
-            member __.Compare(x, y) = LanguagePrimitives.GenericComparison x y }
+            member _.Compare(x, y) = LanguagePrimitives.GenericComparison x y }
     interface IComparer<'T> with
-        member __.Compare(x, y) = LanguagePrimitives.GenericComparison x y
+        member _.Compare(x, y) = LanguagePrimitives.GenericComparison x y
 
 type EqualityComparer<'T when 'T : equality>() =
     static member Default =
         { new IEqualityComparer<'T> with
-            member __.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-            member __.GetHashCode(x) = LanguagePrimitives.GenericHash x }
+            member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
+            member _.GetHashCode(x) = LanguagePrimitives.GenericHash x }
     interface IEqualityComparer<'T> with
-        member __.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-        member __.GetHashCode(x) = LanguagePrimitives.GenericHash x
+        member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
+        member _.GetHashCode(x) = LanguagePrimitives.GenericHash x
 
 type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
