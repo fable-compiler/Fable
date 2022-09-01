@@ -40,6 +40,9 @@ let makeInstanceCall r t (i: CallInfo) callee memberName args =
     Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, ?loc=r)
     |> nativeCall
 
+let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, isModuleMember=false, ?loc=r)
+
 let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r)
 
@@ -869,38 +872,38 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "set_Value", Some callee, [value] -> setRefCell com r callee value |> Some
     | _ -> None
 
-let getMemberName (i: CallInfo) =
+let getMemberName isStatic (i: CallInfo) =
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
     if i.OverloadSuffix = ""
     then memberName
+    elif isStatic
+    then memberName + "__" + i.OverloadSuffix
     else memberName + "_" + i.OverloadSuffix
 
-let getMangledNames (i: CallInfo) (thisArg: Expr option) =
+let getModuleAndMemberName (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
-    let entFullName = i.DeclaringEntityFullName
+    let entFullName = i.DeclaringEntityFullName.Replace("Microsoft.", "")
     let pos = entFullName.LastIndexOf('.')
-    let entityNs = entFullName.Substring(0, pos).Replace("Microsoft.", "")
-    let moduleName = entityNs.Replace(".", "_")
+    let moduleName = entFullName.Substring(0, pos)
     let entityName = entFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
-    let memberName = getMemberName i
-    let mangledName =
+    let memberName =
         if isStatic
-        then $"{entityNs}::{entityName}::{memberName}"
-        else $"{memberName}"
-    moduleName, mangledName
+        then entityName + "::" + (getMemberName isStatic i)
+        else getMemberName isStatic i
+    moduleName, memberName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | Some callee ->
-        let memberName = getMemberName i
+        let memberName = getMemberName false i
         makeInstanceCall r t i callee memberName args |> Some
     | None ->
-        let moduleName, mangledName = getMangledNames i thisArg
-        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let moduleName, memberName = getModuleAndMemberName i thisArg
+        makeStaticLibCall com r t i moduleName memberName args |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    let moduleName, memberName = getModuleAndMemberName i thisArg
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // // TODO: This is likely broken
 // let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =

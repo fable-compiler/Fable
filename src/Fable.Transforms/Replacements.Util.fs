@@ -36,8 +36,9 @@ type Helper =
                            ?argTypes: Type list, ?genArgs, ?thisArg: Expr, ?hasSpread: bool,
                            ?isModuleMember, ?isConstructor: bool, ?loc: SourceLocation) =
         let isInstanceMember = Option.isSome thisArg
+        let isModuleMember = defaultArg isModuleMember (not isInstanceMember)
         let callee =
-            LibraryImportInfo.Create(isInstanceMember=isInstanceMember, ?isModuleMember=isModuleMember)
+            LibraryImportInfo.Create(isModuleMember=isModuleMember, isInstanceMember=isInstanceMember)
             |> makeImportLibWithInfo com Any coreMember coreModule
         let memberRef =
             match hasSpread with

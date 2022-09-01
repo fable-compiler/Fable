@@ -600,17 +600,21 @@ module AST =
                  Path = path.Trim()
                  Kind = UserImport false }, t, r)
 
-    let makeImportLibWithInfo (com: Compiler) t memberName moduleName info =
+    let makeImportLibWithInfo (com: Compiler) t memberName (moduleName: string) info =
         let selector =
             match com.Options.Language with
-            | Rust -> moduleName + "_::" + memberName //TODO: fix when imports change
+            | Rust ->
+                if moduleName.StartsWith("System.")
+                then moduleName + "::" + memberName
+                else moduleName + "_::" + memberName
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName
                  Kind = LibraryImport info }, t, None)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        LibraryImportInfo.Create() |> makeImportLibWithInfo com t memberName moduleName
+        LibraryImportInfo.Create()
+        |> makeImportLibWithInfo com t memberName moduleName
 
     let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =

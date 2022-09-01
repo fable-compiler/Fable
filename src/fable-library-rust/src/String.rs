@@ -73,7 +73,7 @@ pub mod String_ {
         LrcStr(Lrc::from(&*s))
     }
 
-    pub fn toString<T: ToString>(o: &T) -> string {
+    pub fn toString<T: ToString>(o: T) -> string {
         stringFrom(o.to_string())
     }
 

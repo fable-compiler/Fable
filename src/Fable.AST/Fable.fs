@@ -475,11 +475,11 @@ type EmitInfo =
       CallInfo: CallInfo }
 
 type LibraryImportInfo =
-    { IsInstanceMember: bool
-      IsModuleMember: bool }
-    static member Create(?isInstanceMember, ?isModuleMember) =
-        { IsInstanceMember = defaultArg isInstanceMember false
-          IsModuleMember = defaultArg isModuleMember false }
+    { IsModuleMember: bool
+      IsInstanceMember: bool }
+    static member Create(?isModuleMember, ?isInstanceMember) =
+        { IsModuleMember = defaultArg isModuleMember true
+          IsInstanceMember = defaultArg isInstanceMember false }
 
 type ImportKind =
     /// `isInline` is automatically set to true after applying the arguments of an inline function whose body

@@ -195,13 +195,13 @@ module UsageTracking =
 
 module TypeInfo =
 
-    let splitName (fullName: string) =
-        let i = fullName.LastIndexOf('.')
+    let splitName (sep: string) (fullName: string) =
+        let i = fullName.LastIndexOf(sep)
         if i < 0 then "", fullName
-        else fullName.Substring(0, i), fullName.Substring(i + 1)
+        else fullName.Substring(0, i), fullName.Substring(i + sep.Length)
 
     let splitLast (fullName: string) =
-        let i = fullName.LastIndexOf('.')
+        let i = fullName.LastIndexOf(".")
         if i < 0 then fullName
         else fullName.Substring(i + 1)
 
@@ -559,13 +559,19 @@ module TypeInfo =
             | Fable.MemberImport membRef ->
                 let memb = com.GetMember(membRef)
                 if memb.IsInstance then
-                    // no import needed
-                    makeFullNamePathExpr info.Selector genArgs
+                    // no import needed (perhaps)
+                    let importName = info.Selector //com.GetImportName(ctx, info.Selector, info.Path, r)
+                    makeFullNamePathExpr importName genArgs
                 else
                     // for constructors or static members, import just the type
-                    let selector, membName = splitName info.Selector
+                    let selector, membName = splitName "." info.Selector
                     let importName = com.GetImportName(ctx, selector, info.Path, r)
                     makeFullNamePathExpr (importName + "::" + membName) genArgs
+            | Fable.LibraryImport mi when not (mi.IsInstanceMember) && not (mi.IsModuleMember) ->
+                // for static (non-module and non-instance) members, import just the type
+                let selector, membName = splitName "::" info.Selector
+                let importName = com.GetImportName(ctx, selector, info.Path, r)
+                makeFullNamePathExpr (importName + "::" + membName) genArgs
             | _ ->
                 let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
                 makeFullNamePathExpr importName genArgs
@@ -575,15 +581,10 @@ module TypeInfo =
         let callee = makeFullNamePathExpr importName genArgs
         mkCallExpr callee args
 
-    let libCall com ctx r types moduleName memberName (args: Fable.Expr list) =
-        let path = getLibPath com moduleName
-        let selector = moduleName + "_::" + memberName
-        let info: Fable.ImportInfo =
-            let info = Fable.LibraryImportInfo.Create() // TODO: isInstance/ModuleMember?
-            { Selector = selector; Path = path; Kind = Fable.LibraryImport info }
-        let genArgs = transformGenArgs com ctx types
-        let callee = transformImport com ctx r Fable.Any info genArgs
-        Util.callFunction com ctx r callee args
+    let libCall com ctx r genArgs moduleName memberName (args: Fable.Expr list) =
+        let genArgs = transformGenArgs com ctx genArgs
+        let args = Util.transformCallArgs com ctx args [] []
+        makeLibCall com ctx genArgs moduleName memberName args
 
     let genArgsUnitsFilter = function
         | Fable.Measure _ | Fable.GenericParam(_, true, _)
@@ -716,7 +717,13 @@ module TypeInfo =
             let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
             importName
         | _ ->
-            entRef.FullName
+            match entRef.Path with
+            | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ when not (Util.isFableLibrary com) ->
+                //TODO: perhaps only import from library if it's already implemented BCL class
+                let importName = com.GetImportName(ctx, entRef.FullName, "fable_library_rust", None)
+                importName
+            | _ ->
+                entRef.FullName
 
     let declaredInterfaces =
         Set.ofList [
@@ -4079,6 +4086,7 @@ module Compiler =
                         Fable.Path.ChangeExtension(path, fileExt)
                     else path
                 let cacheKey =
+                    let selector = selector.Replace(".", "::")
                     if (isFableLibraryPath self path)
                     then "fable_library_rust::" + selector
                     elif path.Length = 0 then selector
