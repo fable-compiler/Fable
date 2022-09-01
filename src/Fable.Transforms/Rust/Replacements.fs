@@ -2346,8 +2346,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg "to_string" args |> Some
         | None -> None
-        //Helper.LibCall(com, "DateTime", "to_string", t, (thisArg |> Option.toList) @ args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Kind" | "get_Offset" ->
+    | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
@@ -2365,6 +2364,8 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
         Helper.LibCall(com, "DateTimeOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, NumberInfo.Empty)], ?loc=r) |> Some
+    | "ToLocalTime" ->
+        makeInstanceCall r t i thisArg.Value "to_local_time" args |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -2387,7 +2388,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
-        | Some thisArg -> makeInstanceCall r t i thisArg "year" args |> Some
+        | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
         | None -> Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

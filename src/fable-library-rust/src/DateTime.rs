@@ -1,7 +1,7 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
     use crate::String_::{string, stringFrom};
-    use chrono::{DateTime as CDT, Datelike, Local, TimeZone, Utc, NaiveDateTime, NaiveDate};
+    use chrono::{DateTime as CDT, Datelike, Local, TimeZone, Utc, NaiveDateTime, NaiveDate, Timelike};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     enum LocalUtcWrap {
@@ -74,13 +74,30 @@ pub mod DateTime_ {
     }
 
     pub fn compare(x: DateTime, y: DateTime) -> i32 {
-        // let x = x.get_timestamp();
-        // let y = y.get_timestamp();
-
         if x > y { 1i32 } else { if x < y { -1i32 } else { 0i32 } }
     }
 
+    pub fn equals(a: DateTime, b: DateTime) -> bool {
+        a == b
+    }
+
     impl DateTime {
+
+        pub fn kind(&self) -> i32 {
+            match self.0 {
+                LocalUtcWrap::CUtc(t) => 1,
+                LocalUtcWrap::CLocal(t) => 2,
+                LocalUtcWrap::CUnspecified(t) => 0,
+            }
+        }
+
+        pub fn to_local_time(&self) -> DateTime {
+            match self.0 {
+                LocalUtcWrap::CLocal(t) => self.clone(),
+                LocalUtcWrap::CUtc(t) => DateTime(LocalUtcWrap::CLocal(t.into())),
+                LocalUtcWrap::CUnspecified(t) => DateTime(LocalUtcWrap::CLocal(Local.from_local_datetime(&t).unwrap())),
+            }
+        }
 
         fn get_timestamp(&self) -> i64 {
             match self.0 {
@@ -110,6 +127,14 @@ pub mod DateTime_ {
                 LocalUtcWrap::CUnspecified(dt) => dt.year(),
                 LocalUtcWrap::CLocal(dt) => dt.year(),
                 LocalUtcWrap::CUtc(dt) => dt.year(),
+            }
+        }
+
+        pub fn hour(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.hour() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.hour() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.hour() as i32,
             }
         }
     }
