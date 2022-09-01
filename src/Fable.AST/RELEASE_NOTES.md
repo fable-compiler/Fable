@@ -1,3 +1,7 @@
+### 4.0.0
+
+* Stable AST for Fable 4
+
 ### 4.0.0-snake-island-alpha-001
 
 * Snake Island alpha release
