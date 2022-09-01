@@ -78,19 +78,19 @@ module tests =
         let d2 = DateTime.MinValue
         d1 < d2 |> equal false
 
-//     [<Fact>]
-//     let ``DateTime.MinValue works in pattern match`` () =
-//         let d1 = Some DateTime.Now
-//         match d1 with
-//         | Some date when date <> DateTime.MinValue -> ()
-//         | _ -> failwith "expected pattern match above"
+    [<Fact>]
+    let ``DateTime.MinValue works in pattern match`` () =
+        let d1 = Some DateTime.Now
+        match d1 with
+        | Some date when date <> DateTime.MinValue -> ()
+        | _ -> failwith "expected pattern match above"
 
-//     [<Fact>]
-//     let ``DateTime.ToLocalTime works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//         let d' = d.ToLocalTime()
-//         d.Kind <> d'.Kind
-//         |> equal true
+    [<Fact>]
+    let ``DateTime.ToLocalTime works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let d' = d.ToLocalTime()
+        d.Kind <> d'.Kind
+        |> equal true
 
 //     [<Fact>]
 //     let ``Creating DateTimeOffset from DateTime and back works`` () =
@@ -108,10 +108,10 @@ module tests =
 //         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
 //         dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
-//     [<Fact>]
-//     let ``DateTime.Hour works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-//         d.Hour |> equal 13
+    [<Fact>]
+    let ``DateTime.Hour works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        d.Hour |> equal 13
 
 //     // TODO: These four tests don't match exactly between .NET and JS
 //     // Think of a way to compare the results approximately
