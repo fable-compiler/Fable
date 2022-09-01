@@ -613,7 +613,7 @@ module AST =
                  Kind = LibraryImport info }, t, None)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        LibraryImportInfo.Create()
+        LibraryImportInfo.Create(isInstanceMember=false, isModuleMember=true)
         |> makeImportLibWithInfo com t memberName moduleName
 
     let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =

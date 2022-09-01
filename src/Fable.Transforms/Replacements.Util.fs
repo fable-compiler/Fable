@@ -38,7 +38,7 @@ type Helper =
         let isInstanceMember = Option.isSome thisArg
         let isModuleMember = defaultArg isModuleMember (not isInstanceMember)
         let callee =
-            LibraryImportInfo.Create(isModuleMember=isModuleMember, isInstanceMember=isInstanceMember)
+            LibraryImportInfo.Create(isInstanceMember=isInstanceMember, isModuleMember=isModuleMember)
             |> makeImportLibWithInfo com Any coreMember coreModule
         let memberRef =
             match hasSpread with
