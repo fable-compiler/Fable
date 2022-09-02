@@ -80,100 +80,115 @@ module Helpers =
 module UsageTracking =
 
     type ConsumptionType =
-        | ConsByVal of string
-        | ConsByRef of string
+        {
+            Name: string
+            ByRef: bool
+            //Path: string list // for debugging purposes only
+        }
     let calcIdentConsumption (body: Fable.Expr) =
         // todo - handle shadowing of idents
-        let rec loop decTreeTargets consumingRef = function
+        let rec loop pathRev decTreeTargets consumingRef expr =
+            let mkUsage name= { Name = name
+                                ByRef = consumingRef
+                                //Path = pathRev |> List.rev //for debugging purposes only
+                                }
+            let loop pathComp =
+                loop []
+                //loop (pathComp::pathRev) // debugging purposes only
+            match expr with
             | Fable.IdentExpr id ->
-                if consumingRef then [ConsByRef id.Name] else [ConsByVal id.Name]
+                [mkUsage id.Name]
             | Fable.Sequential exprs ->
-                exprs |> List.collect (loop decTreeTargets consumingRef)
-            | Fable.Let(_, value, body) -> loop decTreeTargets false value @ loop decTreeTargets false body
+                exprs |> List.collect (loop "seq" decTreeTargets consumingRef)
+            | Fable.Let(_, value, body) -> loop "let" decTreeTargets false value @ loop "let" decTreeTargets false body
             | Fable.LetRec(bindings, body) ->
                 let bindingUsages =
                     bindings
                     |> List.map snd
-                    |> List.collect (loop decTreeTargets false)
-                bindingUsages @ loop decTreeTargets false body
+                    |> List.collect (loop "letrec" decTreeTargets false)
+                bindingUsages @ loop "letrec" decTreeTargets false body
             | Fable.IfThenElse(cond, thenExpr, elseExpr, _) ->
-                loop decTreeTargets true cond @ loop decTreeTargets consumingRef thenExpr @ loop decTreeTargets consumingRef elseExpr
+                loop "ifelse" decTreeTargets true cond @ loop "ifelse" decTreeTargets consumingRef thenExpr @ loop "ifelse" decTreeTargets consumingRef elseExpr
             | Fable.DecisionTree(expr, targets) ->
-                loop targets true expr //@ (List.map snd targets |> List.collect (loop consumingRef))
+                loop "dectree" targets true expr //@ (List.map snd targets |> List.collect (loop consumingRef))
             | Fable.DecisionTreeSuccess(targetIdx, boundValues, _ ) ->
                 //getDecisionTargetAndBindValues
                 let dcexpr = List.tryItem targetIdx decTreeTargets |> Option.map snd |> Option.toList
-                (boundValues @ dcexpr) |> List.collect (loop decTreeTargets consumingRef)
-            | Fable.Get(expr, _, _, _) ->
-                loop decTreeTargets consumingRef expr
+                (boundValues @ dcexpr) |> List.collect (loop $"dtsuc{targetIdx}" decTreeTargets consumingRef)
+            | Fable.Get(expr, kind, _, _) ->
+                loop "get" decTreeTargets consumingRef expr
             | Fable.Set(expr, kind, _, value, _) ->
                 let kindOps =
                     match kind with
-                    | Fable.ExprSet expr -> loop decTreeTargets true expr
-                    | _ -> []
-                loop decTreeTargets false expr @ kindOps @ loop decTreeTargets false value
+                    | Fable.ExprSet expr -> loop "set" decTreeTargets true expr @ loop "set" decTreeTargets true value
+                    | _ -> loop "set" decTreeTargets true value
+                loop "set" decTreeTargets false expr @ kindOps @ loop "set" decTreeTargets false value
             | Fable.Call(callee, info, c, d) ->
-                loop decTreeTargets consumingRef callee
-                @ (info.ThisArg |> Option.map (loop decTreeTargets true) |> Option.defaultValue [])
-                @ (info.Args |> List.collect (loop decTreeTargets false))
+                loop "call" decTreeTargets consumingRef callee
+                @ (info.ThisArg |> Option.map (loop "call" decTreeTargets true) |> Option.defaultValue [])
+                @ (info.Args |> List.collect (loop "call" decTreeTargets false))
             | Fable.Value (kind, _) ->
                 match kind with
                 | Fable.ThisValue _ | Fable.BaseValue _ -> []
                 | Fable.TypeInfo _ | Fable.Null _ | Fable.UnitConstant | Fable.NumberConstant _
                 | Fable.BoolConstant _ | Fable.CharConstant _ | Fable.StringConstant _ | Fable.RegexConstant _  -> []
                 | Fable.NewList(None,_) | Fable.NewOption(None,_,_) -> []
-                | Fable.NewOption(Some e,_,_) -> loop decTreeTargets false e
-                | Fable.NewList(Some(h,t),_) -> loop decTreeTargets false h @ loop decTreeTargets false t
+                | Fable.NewOption(Some e,_,_) -> loop "val_opt" decTreeTargets false e
+                | Fable.NewList(Some(h,t),_) -> loop "val_lst" decTreeTargets false h @ loop "val_lst" decTreeTargets false t
                 | Fable.StringTemplate(_,_,exprs)
                 | Fable.NewTuple(exprs,_)
-                | Fable.NewUnion(exprs,_,_,_) -> exprs |> List.collect (loop decTreeTargets consumingRef)
+                | Fable.NewUnion(exprs,_,_,_) -> exprs |> List.collect (loop "val_union" decTreeTargets consumingRef)
                 | Fable.NewArray(newKind, _, kind) ->
                     match newKind with
-                    | Fable.ArrayFrom expr -> loop decTreeTargets false expr
-                    | Fable.ArrayAlloc expr -> loop decTreeTargets false expr
-                    | Fable.ArrayValues exprs -> exprs |> List.collect (loop decTreeTargets consumingRef)
+                    | Fable.ArrayFrom expr -> loop "val_arr" decTreeTargets false expr
+                    | Fable.ArrayAlloc expr -> loop "val_arr" decTreeTargets false expr
+                    | Fable.ArrayValues exprs -> exprs |> List.collect (loop "val_arr" decTreeTargets consumingRef)
                 | Fable.NewRecord (exprs, _, _) | Fable.NewAnonymousRecord (exprs, _, _, _) ->
-                    exprs |> List.collect (loop decTreeTargets consumingRef)
+                    exprs |> List.collect (loop "val_rec" decTreeTargets consumingRef)
             | Fable.Lambda (_, body, _)
             | Fable.Delegate (_, body, _, _ ) ->
                 // this is not completely accurate. From here on out we only really want to count each ident maximum 1 time (by value) to simulate closed over ident cloning
-                loop decTreeTargets false body
+                loop "del" decTreeTargets false body
             | Fable.Operation(kind, _, _) ->
                 match kind with
                 | Fable.Unary(_, expr) ->
-                    loop decTreeTargets false expr
+                    loop "op_u" decTreeTargets false expr
                 | Fable.Binary(_, l, r) ->
-                    loop decTreeTargets false l @ loop decTreeTargets false r
-                | Fable.Logical(_, l, r) -> loop decTreeTargets true l @ loop decTreeTargets true r
+                    loop "op_b" decTreeTargets false l @ loop "op_b" decTreeTargets false r
+                | Fable.Logical(_, l, r) -> loop "op_l" decTreeTargets true l @ loop "op_l" decTreeTargets true r
             | Fable.WhileLoop (guard, body, _) ->
-                loop decTreeTargets true guard @ loop decTreeTargets true body
+                loop "while" decTreeTargets true guard @ loop "while" decTreeTargets true body
             | Fable.ForLoop (ident, start, limit, body, _, _) ->
-                let identEv = if consumingRef then [ConsByRef ident.Name] else [ConsByVal ident.Name]
-                identEv @ loop decTreeTargets true start @ loop decTreeTargets true limit @ loop decTreeTargets true body
+                let identEv = mkUsage ident.Name
+                [identEv] @ loop "for" decTreeTargets true start @ loop "for" decTreeTargets true limit @ loop "for" decTreeTargets true body
             | Fable.CurriedApply (applied, args, _, _) ->
-                loop decTreeTargets false applied @ (args |> List.collect (loop decTreeTargets false))
+                loop "ca" decTreeTargets false applied @ (args |> List.collect (loop "ca" decTreeTargets false))
             | Fable.TypeCast(e, t) ->
-                loop decTreeTargets true e
+                loop "tc" decTreeTargets true e
             | Fable.Test(expr, kind, range) ->
-                loop decTreeTargets true expr
+                loop "test" decTreeTargets true expr
             | Fable.TryCatch (body, catch, finalizer, _) ->
-                loop decTreeTargets false body
-                @ (catch |> Option.map (snd >> loop decTreeTargets true) |> Option.defaultValue [])
-                @ (finalizer |> Option.map (loop decTreeTargets true) |> Option.defaultValue [])
+                loop "try_catch" decTreeTargets false body
+                @ (catch |> Option.map (snd >> loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
+                @ (finalizer |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
             | Fable.Emit (info, _, _) ->
-                (info.CallInfo.ThisArg |> Option.map (loop decTreeTargets true) |> Option.defaultValue [])
-                @ (info.CallInfo.Args |> List.collect (loop decTreeTargets false))
+                (info.CallInfo.ThisArg |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
+                @ (info.CallInfo.Args |> List.collect (loop "try_catch" decTreeTargets false))
             | _ -> []
-        loop [] false body
+        loop [] [] false body
 
     let calcIdentUsages expr =
-        let usages = calcIdentConsumption expr
-                        |> List.map (function | ConsByVal x -> x | ConsByRef x -> x)
-                        //|> List.choose (function | ConsByVal x -> Some x | ConsByRef x -> None)
-                        |> List.groupBy (fun x -> x)
-                        |> List.map (fun (k, v) -> k, v |> List.length)
-                        |> Map.ofList
-        usages
+        let identUsages = calcIdentConsumption expr
+        //break here if you want to know how we got to a certain count
+        identUsages
+        |> List.map (fun u -> u.Name)
+        |> List.groupBy id
+        |> List.map (fun (identName, instances) ->
+            match identName with
+            //cannot get this working - It seems some call sites retain original ident names, so match value gives counts that are too low
+            | "matchValue" -> identName, 9999
+            | _ -> identName, instances |> List.length)
+        |> Map.ofList
 
     let isArmScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsArm) |> Option.defaultValue false
@@ -3337,6 +3352,7 @@ module Util =
 
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
+        //if name = "someProblematicFunction" then System.Diagnostics.Debugger.Break()
         let isByRefPreferred =
             memb.Attributes
             |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
