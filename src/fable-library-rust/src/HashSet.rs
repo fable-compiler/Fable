@@ -20,9 +20,9 @@ pub mod HashSet_ {
     pub struct HashSet<T: Clone>(Lrc<MutHashSet<T>>);
 
     impl<T: Clone> core::ops::Deref for HashSet<T> {
-        type Target = Lrc<MutHashSet<T>>;
+        type Target = MutHashSet<T>;
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.0.as_ref()
         }
     }
 
