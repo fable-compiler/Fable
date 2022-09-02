@@ -474,7 +474,7 @@ let testJs() =
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha true "Adaptive"
 
-    // testReact()
+    testReact()
 
     if envVarOrNone "CI" |> Option.isSome then
         testStandaloneFast()

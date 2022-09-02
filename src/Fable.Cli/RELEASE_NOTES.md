@@ -1,3 +1,8 @@
+### 4.0.0-snake-island-alpha-024
+
+* Fable.AST 4.0 stable
+* Rust, StringBuilder, Dates, ref counting
+
 ### 4.0.0-snake-island-alpha-023
 
 * Update F# compiler
