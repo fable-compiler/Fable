@@ -21,6 +21,14 @@ pub mod String_ {
         }
     }
 
+    pub fn string(s: &'static str) -> string {
+        LrcStr(Lrc::from(s))
+    }
+
+    pub fn stringFrom(s: String) -> string {
+        LrcStr(Lrc::from(&*s))
+    }
+
     // TODO: maybe intern strings, maybe add length in chars.
     // Alternative string type: enum of static/small/alloc strings.
 
@@ -52,6 +60,12 @@ pub mod String_ {
     //     LrcStr::Shared(Lrc::from(s))
     // }
 
+    impl core::convert::AsRef<str> for string {
+        fn as_ref(&self) -> &str {
+            &self.0.as_ref()
+        }
+    }
+
     impl core::ops::Deref for string {
         type Target = str;
         fn deref(&self) -> &Self::Target {
@@ -65,12 +79,16 @@ pub mod String_ {
         }
     }
 
-    pub fn string(s: &'static str) -> string {
-        LrcStr(Lrc::from(s))
+    impl From<&'static str> for string {
+        fn from(s: &'static str) -> Self {
+            string(s)
+        }
     }
 
-    pub fn stringFrom(s: String) -> string {
-        LrcStr(Lrc::from(&*s))
+    impl From<String> for string {
+        fn from(s: String) -> Self {
+            stringFrom(s)
+        }
     }
 
     pub fn toString<T: ToString>(o: T) -> string {

@@ -104,6 +104,25 @@ pub mod Native_ {
         }
     }
 
+    impl<T: Clone> From<Vec<T>> for Array<T> {
+        fn from(vec: Vec<T>) -> Self {
+            arrayFrom(vec)
+        }
+    }
+
+    impl<T: Clone> From<&Vec<T>> for Array<T> {
+        fn from(vec: &Vec<T>) -> Self {
+            let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
+            arrayFrom(vecNew)
+        }
+    }
+
+    impl<T: Clone> Into<Vec<T>> for Array<T> {
+        fn into(self) -> Vec<T> {
+            self.get().iter().map(|item| item.clone()).collect()
+        }
+    }
+
     pub fn arrayFrom<T: Clone>(v: Vec<T>) -> Array<T> {
         Array(mkRefMut(v))
     }

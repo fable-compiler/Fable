@@ -20,9 +20,9 @@ pub mod HashMap_ {
     pub struct HashMap<K: Clone, V: Clone>(Lrc<MutHashMap<K, V>>);
 
     impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {
-        type Target = Lrc<MutHashMap<K, V>>;
+        type Target = MutHashMap<K, V>;
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.0.as_ref()
         }
     }
 
