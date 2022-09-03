@@ -1447,15 +1447,24 @@ module Util =
                 |> Option.map Identifier
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-            let func =
-                Statement.functionDef (name = ident, args = args, body = body, returns = returnType)
-
+            let func = createFunction ident args body [] returnType
             Expression.name ident, [ func ]
+
+    let createFunction name args body decoratorList returnType =
+        match returnType with
+        | Subscript {Value=Name {Id=Identifier "Awaitable"}; Slice=returnType} ->
+            let body' =
+                body
+                |> List.replaceLast (function
+                    | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
+                    | stmt -> stmt)
+            Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
+        | _ -> Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
 
     let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
+        createFunction name args body decoratorList returnType
 
     let makeFunctionExpression
         (com: IPythonCompiler)
@@ -1471,7 +1480,6 @@ module Util =
             |> Option.defaultValue (Helpers.getUniqueIdentifier "_expr")
 
         let func = makeFunction name (args, body, decoratorList, returnType)
-
         Expression.name name, [ func ]
 
     let optimizeTailCall (com: IPythonCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
@@ -3446,10 +3454,7 @@ module Util =
 
         // printfn "transformModuleFunction %A" (membName, args)
         let name = com.GetIdentifier(ctx, membName)
-
-        let stmt =
-            Statement.functionDef (name = name, args = args, body = body', returns = returnType)
-
+        let stmt = createFunction name args body' [] returnType
         let expr = Expression.name name
 
         info.Attributes
@@ -4069,7 +4074,7 @@ module Compiler =
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
 
-        // printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
