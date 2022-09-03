@@ -208,6 +208,10 @@ module PrinterExtensions =
             printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true)
             printer.PrintNewLine()
 
+        member printer.Print(func: AsyncFunctionDef) =
+            printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true, isAsync = true)
+            printer.PrintNewLine()
+
         member printer.Print(gl: Global) =
             if not (List.isEmpty gl.Names) then
                 printer.Print("global ")
@@ -217,8 +221,6 @@ module PrinterExtensions =
             if not (List.isEmpty nl.Names) then
                 printer.Print("nonlocal ")
                 printer.PrintCommaSeparatedList nl.Names
-
-        member printer.Print(af: AsyncFunctionDef) = printer.Print("(AsyncFunctionDef)")
 
         member printer.Print(im: Import) =
             if not (List.isEmpty im.Names) then
@@ -576,6 +578,9 @@ module PrinterExtensions =
             | Lambda ex -> printer.Print(ex)
             | NamedExpr ex -> printer.Print(ex)
             | Name ex -> printer.Print(ex)
+            | Await ex ->
+                printer.Print("await ")
+                printer.Print(ex)
             | Yield expr -> printer.Print("(Yield)")
             | YieldFrom expr -> printer.Print("(Yield)")
             | Compare cp -> printer.Print(cp)
@@ -717,12 +722,18 @@ module PrinterExtensions =
                 body: Statement list,
                 returnType: Expression option,
                 decoratorList: Expression list,
-                ?isDeclaration
+                ?isDeclaration,
+                ?isAsync
             ) =
             for deco in decoratorList do
                 printer.Print("@")
                 printer.Print(deco)
                 printer.PrintNewLine()
+
+            match isAsync with
+            | Some true ->
+                printer.Print("async ")
+            | _ -> ()
 
             printer.Print("def ")
             printer.PrintOptional(id)

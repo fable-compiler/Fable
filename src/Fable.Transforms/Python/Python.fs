@@ -13,6 +13,7 @@ type Expression =
     | Subscript of Subscript
     | BoolOp of BoolOp
     | BinOp of BinOp
+    | Await of Expression
     /// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent
     /// back is not used.
     | YieldFrom of Expression option
@@ -796,6 +797,15 @@ module PythonExtensions =
               Returns = returns
               TypeComment = typeComment }
             |> FunctionDef
+
+        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { AsyncFunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> AsyncFunctionDef
 
         static member assign(targets, value, ?typeComment) : Statement =
             { Targets = targets
