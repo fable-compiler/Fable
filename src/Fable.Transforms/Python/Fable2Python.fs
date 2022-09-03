@@ -1451,13 +1451,17 @@ module Util =
             Expression.name ident, [ func ]
 
     let createFunction name args body decoratorList returnType =
+        let rec replace (body) =
+            body
+            |> List.map (function
+                | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
+                | Statement.If { Test=test; Body=body; Else=orElse } ->
+                    Statement.if'(test, replace body, orelse=replace orElse)
+                | stmt -> stmt)
+
         match returnType with
         | Subscript {Value=Name {Id=Identifier "Awaitable"}; Slice=returnType} ->
-            let body' =
-                body
-                |> List.replaceLast (function
-                    | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
-                    | stmt -> stmt)
+            let body' = replace body
             Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
         | _ -> Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
 
