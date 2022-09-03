@@ -56,11 +56,9 @@ type BoundVars =
             Inceptions = this.Inceptions + 1 }
 
     member this.Bind(name: string) =
-        // printfn "Binding variable %s" name
         this.LocalScope.Add name |> ignore
 
     member this.Bind(ids: Identifier list) =
-        // printfn "Binding variable %A" ids
         for (Identifier name) in ids do
             this.LocalScope.Add name |> ignore
 
@@ -90,9 +88,11 @@ type Context =
 type IPythonCompiler =
     inherit Compiler
     abstract AddTypeVar: ctx: Context * name: string -> Expression
+    abstract AddExport: name: string -> Expression
     abstract GetIdentifier: ctx: Context * name: string -> Identifier
     abstract GetIdentifierAsExpr: ctx: Context * name: string -> Expression
     abstract GetAllImports: unit -> Import list
+    abstract GetAllExports: unit -> HashSet<string>
     abstract GetAllTypeVars: unit -> HashSet<string>
     abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression * Statement list
@@ -3253,9 +3253,13 @@ module Util =
 
         Statement.if' (test, main)
 
-    let declareModuleMember ctx isPublic (membName: Identifier) typ (expr: Expression) =
-        let membName = Expression.name (membName)
-        varDeclaration ctx membName typ expr
+    let declareModuleMember (com: IPythonCompiler) ctx isPublic (membName: Identifier) typ (expr: Expression) =
+        let (Identifier name) = membName
+        if com.OutputType = OutputType.Library then
+            com.AddExport name |> ignore
+
+        let name = Expression.name membName
+        varDeclaration ctx name typ expr
 
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent
@@ -3442,7 +3446,7 @@ module Util =
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
 
             expr
-            |> declareModuleMember ctx ent.IsPublic name None,
+            |> declareModuleMember com ctx ent.IsPublic name None,
             stmts @ stmts'
 
         stmts
@@ -3452,7 +3456,6 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        // printfn "transformModuleFunction %A" (membName, args)
         let name = com.GetIdentifier(ctx, membName)
         let stmt = createFunction name args body' [] returnType
         let expr = Expression.name name
@@ -3461,7 +3464,10 @@ module Util =
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
             | true -> [ stmt; declareEntryPoint com ctx expr ]
-            | false -> [ stmt ] //; declareModuleMember info.IsPublic membName false expr ]
+            | false ->
+                if com.OutputType = OutputType.Library then
+                    com.AddExport membName |> ignore
+                [ stmt ]
 
     let transformAction (com: IPythonCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -3827,7 +3833,7 @@ module Util =
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts
-                        @ declareModuleMember ctx info.IsPublic name (Some ta) value
+                        @ declareModuleMember com ctx info.IsPublic name (Some ta) value
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
@@ -3872,8 +3878,17 @@ module Util =
               let value = Expression.call (value, args)
               Statement.assign (targets, value) ]
 
+    let transformExports (com: IPythonCompiler) ctx (exports: HashSet<string>) =
+        let exports = exports |> List.ofSeq
+        match exports with
+        | [] -> []
+        | _ ->
+            let all = Expression.name "__all__"
+            let names = exports |> List.map Expression.constant |>  Expression.list
+
+            [ Statement.assign([all], names) ]
+
     let transformImports (com: IPythonCompiler) (imports: Import list) : Statement list =
-        //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
@@ -3938,7 +3953,7 @@ module Compiler =
     type PythonCompiler(com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
-
+        let exports: HashSet<string> = HashSet()
         let typeVars: HashSet<string> = HashSet()
 
         interface IPythonCompiler with
@@ -3991,6 +4006,7 @@ module Compiler =
                 imports.Values :> Import seq |> List.ofSeq
 
             member _.GetAllTypeVars() = typeVars
+            member _.GetAllExports() = exports
 
             member _.AddTypeVar(ctx, name: string) =
                 // TypeVars should be private and uppercase. For auto-generated (inferred) generics we use a double-undercore.
@@ -4006,6 +4022,9 @@ module Compiler =
                 |> ignore
 
                 Expression.name name
+            member _.AddExport(name: string) =
+                 exports.Add name |> ignore
+                 Expression.name name
 
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
@@ -4063,8 +4082,7 @@ module Compiler =
                   DeclarationScopes = declScopes
                   CurrentDeclarationScope = Unchecked.defaultof<_> }
               BoundVars =
-                { //GlobalScope = HashSet()
-                  EnclosingScope = HashSet()
+                { EnclosingScope = HashSet()
                   LocalScope = HashSet()
                   Inceptions = 0 }
               DecisionTargets = []
@@ -4078,5 +4096,6 @@ module Compiler =
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
-        let body = importDecls @ typeVars @ rootDecls
+        let exports = com.GetAllExports() |> transformExports com ctx
+        let body = importDecls @ typeVars @ rootDecls @ exports
         Module.module' body
