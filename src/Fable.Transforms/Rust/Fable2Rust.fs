@@ -85,6 +85,7 @@ module UsageTracking =
             ByRef: bool
             //Path: string list // for debugging purposes only
         }
+
     let calcIdentConsumption (body: Fable.Expr) =
         // todo - handle shadowing of idents
         let rec loop pathRev decTreeTargets consumingRef expr =
@@ -479,7 +480,7 @@ module TypeInfo =
     let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
         match typ with
         // passed by reference, no need to Rc-wrap
-        | t when isInRefType com t
+        | t when isByRefType com t
             -> None
 
         // already wrapped, no need to Rc-wrap
@@ -504,8 +505,6 @@ module TypeInfo =
         // should be Rc-wrapped
         | Fable.Regex
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
-        | Replacements.Util.IsEntity (Types.keyCollection) _
-        | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEnumerator _
             -> Some Lrc
 
@@ -1228,7 +1227,8 @@ module Util =
         let tempArgs = tc.Args |> List.map (fun arg ->
             { arg with Name = arg.Name + "_temp"; IsMutable = false; Type = getCellType arg.Type })
         let bindings = List.zip tempArgs args
-        let tempLetStmts, ctx = makeLetStmts com ctx bindings Map.empty
+        let emptyBody = Fable.Sequential []
+        let tempLetStmts, ctx = makeLetStmts com ctx bindings emptyBody Map.empty
         let setArgStmts =
             List.zip tc.Args tempArgs
             |> List.map (fun (id, idTemp) ->
@@ -1967,10 +1967,12 @@ module Util =
             mkEmitExpr macro args
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
-        let expr = transformExpr com ctx calleeExpr
         match calleeExpr with
-        | Fable.IdentExpr id -> expr
-        | _ -> expr |> mkParenExpr // if not an identifier, wrap it in parentheses
+        | Fable.IdentExpr id ->
+            transformIdent com ctx None id
+        | _ ->
+            let expr = transformExpr com ctx calleeExpr
+            expr |> mkParenExpr // if not an identifier, wrap it in parentheses
 
     let isDeclEntityKindOf (com: IRustCompiler) isKindOf (callInfo: Fable.CallInfo) =
         callInfo.MemberRef
@@ -1998,8 +2000,8 @@ module Util =
             callInfo.MemberRef
             |> Option.bind com.TryGetMember
             |> Option.map (fun memberInfo ->
-                memberInfo.CurriedParameterGroups |> List.concat
-            ) |> Option.defaultValue []
+                memberInfo.CurriedParameterGroups |> List.concat)
+            |> Option.defaultValue []
 
         let ctx =
             let isSendSync =
@@ -2281,7 +2283,7 @@ module Util =
             List.collect flattenSequential exprs
         | _ -> [expr]
 
-    let makeLetStmt com ctx usages (ident: Fable.Ident) (value: Fable.Expr) =
+    let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
         let tyOpt =
             match ident.Type with
             | Fable.Any
@@ -2293,8 +2295,10 @@ module Util =
                 |> Some
         let tyOpt =
             tyOpt |> Option.map (fun ty ->
-                if ident.IsMutable
+                if ident.IsMutable && isCaptured
                 then ty |> makeMutTy com ctx |> makeLrcTy com ctx
+                elif ident.IsMutable
+                then ty |> makeMutTy com ctx
                 else ty)
         let initOpt =
             match value with
@@ -2309,8 +2313,10 @@ module Util =
                 |> Some
         let initOpt =
             initOpt |> Option.map (fun init ->
-                if ident.IsMutable
+                if ident.IsMutable && isCaptured
                 then init |> makeMutValue |> makeLrcValue com ctx
+                elif ident.IsMutable
+                then init |> makeMutValue
                 else init)
         let local = mkIdentLocal [] ident.Name tyOpt initOpt
         // TODO : traverse body and follow references to decide on if this should be wrapped or not]
@@ -2325,19 +2331,23 @@ module Util =
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
         mkLocalStmt local, ctxNext
 
-    let makeLetStmts (com: IRustCompiler) ctx bindings usages =
-        // Context will to be threaded through all let bindings, appending itself to ScopedSymbols each time
+    let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages =
+        // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time
         let ctx, letStmtsRev =
             ((ctx, []), bindings)
-            ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, expr) ->
+            ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, value) ->
                 let stmt, ctxNext =
-                    match expr with
-                    | Function (args, body, _name) ->
-                        let isCapturing = hasCapturedNames com ctx ident.Name args body
-                        if isCapturing then makeLetStmt com ctx usages ident expr
+                    let isCaptured =
+                        (bindings |> List.exists (fun (_i, v) ->
+                            FableTransforms.isIdentCaptured ident.Name v))
+                        || (FableTransforms.isIdentCaptured ident.Name letBody)
+                    match value with
+                    | Function (args, body, _name) when not (ident.IsMutable) ->
+                        if hasCapturedNames com ctx ident.Name args body
+                        then makeLetStmt com ctx ident value isCaptured usages
                         else transformInnerFunction com ctx ident.Name args body
                     | _ ->
-                        makeLetStmt com ctx usages ident expr
+                        makeLetStmt com ctx ident value isCaptured usages
                 (ctxNext, stmt::lst) )
         letStmtsRev |> List.rev, ctx
 
@@ -2347,7 +2357,7 @@ module Util =
             let bindingsUsages = bindings |> List.map (snd >> calcIdentUsages)
             (Map.empty, bodyUsages::bindingsUsages)
             ||> List.fold (Helpers.Map.mergeAndAggregate (+))
-        let letStmts, ctx = makeLetStmts com ctx bindings usages
+        let letStmts, ctx = makeLetStmts com ctx bindings body usages
         let bodyStmts =
             match body with
             | Fable.Sequential exprs ->
@@ -2414,8 +2424,7 @@ module Util =
 
     let transformCurriedApply (com: IRustCompiler) ctx range calleeExpr args =
         match ctx.TailCallOpportunity with
-        | Some tc when tc.IsRecursiveRef(calleeExpr)
-            && List.length tc.Args = List.length args ->
+        | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
             optimizeTailCall com ctx range tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
@@ -3043,11 +3052,10 @@ module Util =
 
     let isClosedOverIdent com ctx (ident: Fable.Ident) =
         not (ident.IsCompilerGenerated && ident.Name = "matchValue")
-        && (ident.IsMutable
-            || (isValueScoped ctx ident.Name)
-            || (isRefScoped ctx ident.Name)
-            || (shouldBeCloned com ctx ident.Type)
-        )
+        && (ident.IsMutable ||
+            isValueScoped ctx ident.Name ||
+            isRefScoped ctx ident.Name ||
+            shouldBeCloned com ctx ident.Type)
 
     let tryFindClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
         match expr with
@@ -3144,7 +3152,7 @@ module Util =
             let bindings = List.zip mutArgs idExprs
             let argMap = mutArgs |> List.map (fun arg -> arg.Name, Fable.IdentExpr arg) |> Map.ofList
             let body = FableTransforms.replaceValues argMap body
-            let letStmts, ctx = makeLetStmts com ctx bindings Map.empty
+            let letStmts, ctx = makeLetStmts com ctx bindings body Map.empty
             let loopBody = transformLeaveContext com ctx None body
             let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
             let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt

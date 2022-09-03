@@ -83,7 +83,7 @@ pub mod HashMap_ {
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
         dict: HashMap<K, V>,
         k: K,
-        res: &Lrc<MutCell<V>>,
+        res: &MutCell<V>,
     ) -> bool {
         match dict.get_mut().get(&k) {
             Some(v) => {
