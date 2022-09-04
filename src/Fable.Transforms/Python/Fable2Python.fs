@@ -1454,6 +1454,8 @@ module Util =
         let rec replace (body) =
             body
             |> List.map (function
+                | Statement.Return {Value=Some(Expression.IfExp { Test=test; Body=body; OrElse=orElse }) } ->
+                    Statement.return' (Expression.ifExp(test, Expression.Await(body), Expression.Await(orElse)))
                 | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
                 | Statement.If { Test=test; Body=body; Else=orElse } ->
                     Statement.if'(test, replace body, orelse=replace orElse)
@@ -3805,9 +3807,10 @@ module Util =
 
         [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
 
-    let rec transformDeclaration (com: IPythonCompiler) ctx decl =
+    let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
         // printfn "transformDeclaration: %A" decl
         // printfn "ctx.UsedNames: %A" ctx.UsedNames
+
         let withCurrentScope (ctx: Context) (usedNames: Set<string>) f =
             let ctx =
                 { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -3841,10 +3844,7 @@ module Util =
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
-                if List.contains "export-default" decl.Tags then
-                    decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
-                else
-                    decls
+                decls
 
         | Fable.ClassDeclaration decl ->
             // printfn "Class: %A" decl
