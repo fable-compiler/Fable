@@ -695,7 +695,10 @@ module TypeInfo =
         let inputs =
             match argTypes with
             | [Fable.Unit] -> []
-            | _ -> argTypes |> List.filter genArgsUnitsFilter |> List.map (transformParamType com ctx)
+            | _ ->
+                argTypes
+                |> List.filter genArgsUnitsFilter
+                |> List.map (transformParamType com ctx)
         let output =
             if returnType = Fable.Unit then VOID_RETURN_TY
             else
@@ -1102,6 +1105,7 @@ module Util =
             expr |> mutableGet
         elif isBoxScoped ctx ident.Name then
             expr |> makeLrcValue com ctx
+            // expr |> makeClone |> makeLrcValue com ctx
         // elif isRefScoped ctx ident.Name then
         //     expr |> makeClone // |> mkDerefExpr |> mkParenExpr
         else expr
@@ -1333,7 +1337,7 @@ module Util =
             | _ -> com.TransformExpr(ctx, e)
         | _ -> com.TransformExpr(ctx, e)
 *)
-    let transformCurry (com: IRustCompiler) (ctx: Context) expr arity: Rust.Expr =
+    let transformCurry (com: IRustCompiler) (ctx: Context) arity expr: Rust.Expr =
         com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     /// This guarantees a new owned Rc<T>
@@ -1393,7 +1397,7 @@ module Util =
 
     let transformCallArgs (com: IRustCompiler) ctx (args: Fable.Expr list) (argTypes: Fable.Type list) (parameters: Fable.Parameter list) =
         match args with
-        | []
+        | [] -> []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
         // | args when hasSpread ->
         //     match List.rev args with
@@ -1409,9 +1413,9 @@ module Util =
                 if argTypes.Length = args.Length
                 then args |> List.zip argTypes |> List.map(fun (t, a) -> Some t, a)
                 else args |> List.map (fun a -> None, a)
-            argsWithTypes |> List.mapi (fun i (argType, arg) ->
-                let isByRefPreferred =
-                    parameterIsByRefPreferred i parameters
+            argsWithTypes
+            |> List.mapi (fun i (argType, arg) ->
+                let isByRefPreferred = parameterIsByRefPreferred i parameters
                 let ctx = { ctx with IsParamByRefPreferred = isByRefPreferred || ctx.IsParamByRefPreferred }
                 transformLeaveContext com ctx argType arg)
 
@@ -1768,27 +1772,26 @@ module Util =
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr (ctx, e)
 
-        let targetExpectsRef =
+        let targetIsRef =
             ctx.IsParamByRefPreferred
             || Option.exists (isByRefType com) t
             || isAddrOfExpr e
-        let sourceIsRef =
-            varAttrs.IsRef
+        let sourceIsRef = varAttrs.IsRef
         let implClone = TypeImplementsCloneTrait com e.Type
         let implCopy = TypeImplementsCopyTrait com e.Type
-        let exprResultIsUnreachable =
+        let exprIsUnreachable =
             match e with
-            | Fable.Extended(Fable.Throw(_, _), _) -> true
+            | Fable.Extended _ -> true
             | _ -> false
 
-        match implClone,    implCopy,   sourceIsRef,    targetExpectsRef,   isOnlyReference,    exprResultIsUnreachable with
-        | _,                _,          true,           true,               _,                  false ->                    expr
-        | _,                true,       false,          false,              _,                  false ->                    expr
-        | _,                _,          true,           false,              _,                  false ->                    expr |> makeClone
-        //| _,                _,          true,           false,              true,               false ->                    expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
-        | _,                _,          false,          true,               _,                  false ->                    expr |> mkAddrOfExpr
-        | true,             false,      _,              false,              false,              false ->                    expr |> makeClone
-        | _ ->                                                                                                              expr
+        match implClone, implCopy, sourceIsRef, targetIsRef, isOnlyReference, exprIsUnreachable with
+        |     _,         _,        true,        true,        _,               false ->          expr
+        |     _,         true,     false,       false,       _,               false ->          expr
+        |     _,         _,        true,        false,       _,               false ->          expr |> makeClone
+        //|     _,         _,        true,        false,       true,            false ->          expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
+        |     _,         _,        false,       true,        _,               false ->          expr |> mkAddrOfExpr
+        |     true,      false,    _,           false,       false,           false ->          expr |> makeClone
+        | _ ->                                                                                  expr
         //|> BLOCK_COMMENT_SUFFIX (sprintf "implClone: %b, implCopy: %b, sourceIsRef; %b, targetExpRef: %b, isOnlyRef: %b (%i), unreachable: %b" implClone implCopy sourceIsRef targetExpectsRef isOnlyReference varAttrs.UsageCount exprResultIsUnreachable)
 
 (*
@@ -2284,6 +2287,9 @@ module Util =
         | _ -> [expr]
 
     let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
+        // TODO: traverse body and follow references to decide if this should be wrapped or not
+        // For Box/Rc it's not needed cause the Rust compiler will optimize the allocation away
+        let isBox = false //(match value with Function _ -> true | _ -> false)
         let tyOpt =
             match ident.Type with
             | Fable.Any
@@ -2305,7 +2311,9 @@ module Util =
             | Fable.Value(Fable.Null _t, _) ->
                 None // just a declaration, to be initialized later
             | Function (args, body, _name) ->
-                transformLambda com ctx (Some ident.Name) args body
+                if isBox
+                then transformClosure com ctx (Some ident.Name) args body
+                else transformLambda com ctx (Some ident.Name) args body
                 |> Some
             | _ ->
                 transformLeaveContext com ctx None value
@@ -2319,11 +2327,10 @@ module Util =
                 then init |> makeMutValue
                 else init)
         let local = mkIdentLocal [] ident.Name tyOpt initOpt
-        // TODO : traverse body and follow references to decide on if this should be wrapped or not]
         let scopedVarAttrs = {
             IsArm = false
             IsRef = false
-            IsBox = false
+            IsBox = isBox
             // HasMultipleUses = hasMultipleUses ident.Name usages
             UsageCount = usageCount ident.Name usages
         }
@@ -2836,8 +2843,8 @@ module Util =
         | Fable.Extended(kind, r) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                // transformCurry com ctx e arity //TODO: check arity, if curry is needed
-                transformExpr com ctx e
+                transformCurry com ctx arity e //TODO: check arity, if curry is needed
+                // transformExpr com ctx e
             | Fable.Throw(expr, _) ->
                 match expr with
                 | None -> failwith "TODO: rethrow"
@@ -3170,7 +3177,7 @@ module Util =
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genParams
 
-    let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformClosure com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let isRecursive, isTailRec = isTailRecursive name body
         let fixedArgs = if isRecursive && not isTailRec then (makeIdent name.Value) :: args else args
         let fnDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
@@ -3178,7 +3185,7 @@ module Util =
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableNames = getCapturedNames com ctx name args body
         let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableNames
-        let ctx = { ctx with IsInPluralizedExpr = true; ScopedSymbols = scopedSymbols }
+        let ctx = { ctx with ScopedSymbols = scopedSymbols; IsInPluralizedExpr = true }
         let fnBody = transformFunctionBody com ctx args body
         let closureExpr = mkClosureExpr fnDecl fnBody
         let closureExpr =
@@ -3187,18 +3194,23 @@ module Util =
                 let fixName = "fix" + string (List.length args)
                 makeLibCall com ctx None "Func" fixName [closureExpr]
             else closureExpr
-        let closureExpr =
-            if not (Set.isEmpty closedOverCloneableNames) then
-                mkStmtBlockExpr [
-                    for name in closedOverCloneableNames do
+        if not (Set.isEmpty closedOverCloneableNames) then
+            mkStmtBlockExpr [
+                for name in closedOverCloneableNames do
+                    // add local captured ident clone for move closures
+                    // skip non-local idents (e.g. module let bindings)
+                    if not (name.Contains(".")) then
                         let pat = makeFullNameIdentPat name
-                        let identExpr = com.TransformExpr(ctx, makeIdentExpr name)
-                        let cloneExpr = makeClone identExpr
-                        let letExpr = mkLetExpr pat cloneExpr
+                        let expr = com.TransformExpr(ctx, makeIdentExpr name)
+                        let value = expr |> makeClone
+                        let letExpr = mkLetExpr pat value
                         yield letExpr |> mkSemiStmt
-                    yield closureExpr |> mkExprStmt
-                ]
-            else closureExpr
+                yield closureExpr |> mkExprStmt
+            ]
+        else closureExpr
+
+    let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let closureExpr = transformClosure com ctx name args body
         if ctx.RequiresSendSync
         then closureExpr |> makeArcValue com ctx
         else closureExpr |> makeLrcValue com ctx
@@ -3270,6 +3282,7 @@ module Util =
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
         genParams
+        |> List.filter genArgsUnitsFilter
         |> List.choose (function
             | Fable.GenericParam(name, _isMeasure, constraints) ->
                 let bounds = makeTypeBounds com ctx name constraints
@@ -3533,9 +3546,7 @@ module Util =
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
-        let generics = getEntityGenArgs ent
-                        |> List.filter genArgsUnitsFilter
-                        |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
@@ -3558,9 +3569,7 @@ module Util =
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
-        let generics = getEntityGenArgs ent
-                        |> List.filter genArgsUnitsFilter
-                        |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let idents = getEntityFieldsAsIdents com ent
         let fields =
@@ -3655,9 +3664,7 @@ module Util =
                     makeAssocMemberItem com ctx memb membName args
                 )
             )
-        let generics = getEntityGenArgs ent
-                        |> List.filter genArgsUnitsFilter
-                        |> makeGenerics com ctx
+        let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let entName = splitLast ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
@@ -3750,7 +3757,7 @@ module Util =
             if List.isEmpty ctorOrStaticOrObjectItems then
                 []
             else
-                let generics = genArgs |> List.filter genArgsUnitsFilter |> makeGenerics com ctx
+                let generics = genArgs |> makeGenerics com ctx
                 let implItem =
                     mkImplItem [] "" self_ty generics ctorOrStaticOrObjectItems None
                 [implItem]
