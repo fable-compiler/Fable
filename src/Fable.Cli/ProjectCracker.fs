@@ -97,7 +97,10 @@ let private topologicalSort getId dependencies entryPoint items =
         // Add always a reference/dependency to the front to preserve compilation order
         // Duplicated items will be removed later
         dependencies item
-        |> Seq.map (fun x -> getById[x])
+        |> Seq.choose (fun x ->
+            match getById.TryGetValue x with
+            | true, v -> Some v
+            | _ -> None)
         |> Seq.fold getDeps (item :: acc)
 
     let entryPoint =
