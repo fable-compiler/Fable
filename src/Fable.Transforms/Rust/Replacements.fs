@@ -14,6 +14,49 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
+    // Let's use emit for simplicity
+    let argIdents = List.init arity (fun i -> $"arg{i}")
+    let curriedArgs = argIdents |> List.map (fun a -> $"Lrc::new(move |{a}|") |> String.concat " "
+    let curriedEnds = argIdents |> List.map (fun a -> $")") |> String.concat ""
+    let args = argIdents |> String.concat ", "
+    $"%s{curriedArgs} $0(%s{args}){curriedEnds}"
+    |> emitExpr None expr.Type [expr]
+
+let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+    let uncurry expr =
+        let argIdents = List.init arity (fun i -> $"arg{i}")
+        let args = argIdents |> String.concat ", "
+        let appliedArgs = argIdents |> String.concat ")("
+        $"Lrc::new(move |%s{args}| $0(%s{appliedArgs}))"
+        |> emitExpr None t [expr]
+    match expr with
+    | Value(Null _, _) -> expr
+    | Value(NewOption(value, t, isStruct), r) ->
+        match value with
+        | None -> expr
+        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
+    | ExprType(Option(t2,_)) ->
+        let fn =
+            let f = makeTypedIdent t2 "f"
+            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
+        Helper.LibCall(com, "Option", "map", t, [fn; expr])
+    | expr -> uncurry expr
+
+let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
+    let argIdents = List.init arity (fun i -> $"arg{i}")
+    let args = argIdents |> String.concat ", "
+    let curriedArgs = argIdents |> List.map (fun a -> $"Lrc::new(move |{a}|") |> String.concat " "
+    let curriedEnds = argIdents |> List.map (fun a -> $")") |> String.concat ""
+    let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
+    $"%s{curriedArgs} $0(%s{appliedArgs}, %s{args}){curriedEnds}"
+    |> emitExpr None t (fn::argExprs)
+
+let checkArity (_com: Compiler) t arity expr =
+    //TODO: implement this
+    makeIntConst arity
+    // Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
+
 let error (msg: Expr) = msg
 
 let coreModFor = function
@@ -39,6 +82,9 @@ let nativeCall expr =
 let makeInstanceCall r t (i: CallInfo) callee memberName args =
     Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, ?loc=r)
     |> nativeCall
+
+let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, isModuleMember=false, ?loc=r)
 
 let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r)
@@ -869,38 +915,38 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "set_Value", Some callee, [value] -> setRefCell com r callee value |> Some
     | _ -> None
 
-let getMemberName (i: CallInfo) =
+let getMemberName isStatic (i: CallInfo) =
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
     if i.OverloadSuffix = ""
     then memberName
+    elif isStatic
+    then memberName + "__" + i.OverloadSuffix
     else memberName + "_" + i.OverloadSuffix
 
-let getMangledNames (i: CallInfo) (thisArg: Expr option) =
+let getModuleAndMemberName (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
-    let entFullName = i.DeclaringEntityFullName
+    let entFullName = i.DeclaringEntityFullName.Replace("Microsoft.", "")
     let pos = entFullName.LastIndexOf('.')
-    let entityNs = entFullName.Substring(0, pos).Replace("Microsoft.", "")
-    let moduleName = entityNs.Replace(".", "_")
+    let moduleName = entFullName.Substring(0, pos)
     let entityName = entFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
-    let memberName = getMemberName i
-    let mangledName =
+    let memberName =
         if isStatic
-        then $"{entityNs}::{entityName}::{memberName}"
-        else $"{memberName}"
-    moduleName, mangledName
+        then entityName + "::" + (getMemberName isStatic i)
+        else getMemberName isStatic i
+    moduleName, memberName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | Some callee ->
-        let memberName = getMemberName i
+        let memberName = getMemberName false i
         makeInstanceCall r t i callee memberName args |> Some
     | None ->
-        let moduleName, mangledName = getMangledNames i thisArg
-        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let moduleName, memberName = getModuleAndMemberName i thisArg
+        makeStaticLibCall com r t i moduleName memberName args |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    let moduleName, memberName = getModuleAndMemberName i thisArg
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // // TODO: This is likely broken
 // let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
@@ -2325,6 +2371,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, "DateTime", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
+            Helper.LibCall(com, "DateTime", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymdhmsms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
@@ -2340,8 +2389,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg "to_string" args |> Some
         | None -> None
-        //Helper.LibCall(com, "DateTime", "to_string", t, (thisArg |> Option.toList) @ args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Kind" | "get_Offset" ->
+    | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
@@ -2359,6 +2407,8 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
         Helper.LibCall(com, "DateTimeOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, NumberInfo.Empty)], ?loc=r) |> Some
+    | "ToLocalTime" ->
+        makeInstanceCall r t i thisArg.Value "to_local_time" args |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -2381,7 +2431,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
-        | Some thisArg -> makeInstanceCall r t i thisArg "year" args |> Some
+        | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
         | None -> Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

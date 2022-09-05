@@ -56,11 +56,9 @@ type BoundVars =
             Inceptions = this.Inceptions + 1 }
 
     member this.Bind(name: string) =
-        // printfn "Binding variable %s" name
         this.LocalScope.Add name |> ignore
 
     member this.Bind(ids: Identifier list) =
-        // printfn "Binding variable %A" ids
         for (Identifier name) in ids do
             this.LocalScope.Add name |> ignore
 
@@ -90,9 +88,11 @@ type Context =
 type IPythonCompiler =
     inherit Compiler
     abstract AddTypeVar: ctx: Context * name: string -> Expression
+    abstract AddExport: name: string -> Expression
     abstract GetIdentifier: ctx: Context * name: string -> Identifier
     abstract GetIdentifierAsExpr: ctx: Context * name: string -> Expression
     abstract GetAllImports: unit -> Import list
+    abstract GetAllExports: unit -> HashSet<string>
     abstract GetAllTypeVars: unit -> HashSet<string>
     abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression * Statement list
@@ -1447,15 +1447,30 @@ module Util =
                 |> Option.map Identifier
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-            let func =
-                Statement.functionDef (name = ident, args = args, body = body, returns = returnType)
-
+            let func = createFunction ident args body [] returnType
             Expression.name ident, [ func ]
+
+    let createFunction name args body decoratorList returnType =
+        let rec replace (body) =
+            body
+            |> List.map (function
+                | Statement.Return {Value=Some(Expression.IfExp { Test=test; Body=body; OrElse=orElse }) } ->
+                    Statement.return' (Expression.ifExp(test, Expression.Await(body), Expression.Await(orElse)))
+                | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
+                | Statement.If { Test=test; Body=body; Else=orElse } ->
+                    Statement.if'(test, replace body, orelse=replace orElse)
+                | stmt -> stmt)
+
+        match returnType with
+        | Subscript {Value=Name {Id=Identifier "Awaitable"}; Slice=returnType} ->
+            let body' = replace body
+            Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
+        | _ -> Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
 
     let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
+        createFunction name args body decoratorList returnType
 
     let makeFunctionExpression
         (com: IPythonCompiler)
@@ -1471,7 +1486,6 @@ module Util =
             |> Option.defaultValue (Helpers.getUniqueIdentifier "_expr")
 
         let func = makeFunction name (args, body, decoratorList, returnType)
-
         Expression.name name, [ func ]
 
     let optimizeTailCall (com: IPythonCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
@@ -3245,9 +3259,13 @@ module Util =
 
         Statement.if' (test, main)
 
-    let declareModuleMember ctx isPublic (membName: Identifier) typ (expr: Expression) =
-        let membName = Expression.name (membName)
-        varDeclaration ctx membName typ expr
+    let declareModuleMember (com: IPythonCompiler) ctx isPublic (membName: Identifier) typ (expr: Expression) =
+        let (Identifier name) = membName
+        if com.OutputType = OutputType.Library then
+            com.AddExport name |> ignore
+
+        let name = Expression.name membName
+        varDeclaration ctx name typ expr
 
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent
@@ -3434,7 +3452,7 @@ module Util =
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
 
             expr
-            |> declareModuleMember ctx ent.IsPublic name None,
+            |> declareModuleMember com ctx ent.IsPublic name None,
             stmts @ stmts'
 
         stmts
@@ -3444,19 +3462,18 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        // printfn "transformModuleFunction %A" (membName, args)
         let name = com.GetIdentifier(ctx, membName)
-
-        let stmt =
-            Statement.functionDef (name = name, args = args, body = body', returns = returnType)
-
+        let stmt = createFunction name args body' [] returnType
         let expr = Expression.name name
 
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
             | true -> [ stmt; declareEntryPoint com ctx expr ]
-            | false -> [ stmt ] //; declareModuleMember info.IsPublic membName false expr ]
+            | false ->
+                if com.OutputType = OutputType.Library then
+                    com.AddExport membName |> ignore
+                [ stmt ]
 
     let transformAction (com: IPythonCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -3790,9 +3807,10 @@ module Util =
 
         [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
 
-    let rec transformDeclaration (com: IPythonCompiler) ctx decl =
+    let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
         // printfn "transformDeclaration: %A" decl
         // printfn "ctx.UsedNames: %A" ctx.UsedNames
+
         let withCurrentScope (ctx: Context) (usedNames: Set<string>) f =
             let ctx =
                 { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -3822,14 +3840,11 @@ module Util =
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts
-                        @ declareModuleMember ctx info.IsPublic name (Some ta) value
+                        @ declareModuleMember com ctx info.IsPublic name (Some ta) value
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
-                if List.contains "export-default" decl.Tags then
-                    decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
-                else
-                    decls
+                decls
 
         | Fable.ClassDeclaration decl ->
             // printfn "Class: %A" decl
@@ -3867,8 +3882,17 @@ module Util =
               let value = Expression.call (value, args)
               Statement.assign (targets, value) ]
 
+    let transformExports (com: IPythonCompiler) ctx (exports: HashSet<string>) =
+        let exports = exports |> List.ofSeq
+        match exports with
+        | [] -> []
+        | _ ->
+            let all = Expression.name "__all__"
+            let names = exports |> List.map Expression.constant |>  Expression.list
+
+            [ Statement.assign([all], names) ]
+
     let transformImports (com: IPythonCompiler) (imports: Import list) : Statement list =
-        //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
@@ -3933,7 +3957,7 @@ module Compiler =
     type PythonCompiler(com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
-
+        let exports: HashSet<string> = HashSet()
         let typeVars: HashSet<string> = HashSet()
 
         interface IPythonCompiler with
@@ -3986,6 +4010,7 @@ module Compiler =
                 imports.Values :> Import seq |> List.ofSeq
 
             member _.GetAllTypeVars() = typeVars
+            member _.GetAllExports() = exports
 
             member _.AddTypeVar(ctx, name: string) =
                 // TypeVars should be private and uppercase. For auto-generated (inferred) generics we use a double-undercore.
@@ -4001,6 +4026,9 @@ module Compiler =
                 |> ignore
 
                 Expression.name name
+            member _.AddExport(name: string) =
+                 exports.Add name |> ignore
+                 Expression.name name
 
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
@@ -4058,8 +4086,7 @@ module Compiler =
                   DeclarationScopes = declScopes
                   CurrentDeclarationScope = Unchecked.defaultof<_> }
               BoundVars =
-                { //GlobalScope = HashSet()
-                  EnclosingScope = HashSet()
+                { EnclosingScope = HashSet()
                   LocalScope = HashSet()
                   Inceptions = 0 }
               DecisionTargets = []
@@ -4069,9 +4096,10 @@ module Compiler =
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
 
-        // printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
-        let body = importDecls @ typeVars @ rootDecls
+        let exports = com.GetAllExports() |> transformExports com ctx
+        let body = importDecls @ typeVars @ rootDecls @ exports
         Module.module' body

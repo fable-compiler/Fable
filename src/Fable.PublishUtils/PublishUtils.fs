@@ -475,8 +475,8 @@ module Publish =
 
                 // Looks like the `nuget push` command automatically detects the .snupkg symbols
                 // We issue the command below just in case but with --skip-duplicate to prevent errors
-                let snupkg = findFileWithExt tempDir ".snupkg"
-                runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetInfo.ApiKey]
+                // let snupkg = findFileWithExt tempDir ".snupkg"
+                // runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetInfo.ApiKey]
 
                 removeDirRecursive tempDir
             with _ ->

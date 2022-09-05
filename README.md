@@ -1,6 +1,6 @@
 # Fable: F# |> JS
 
-[![Nuget](https://img.shields.io/nuget/v/Fable.svg?maxAge=0&colorB=brightgreen)](https://www.nuget.org/packages/Fable) [![Linux Build Status](https://travis-ci.org/fable-compiler/Fable.svg?branch=nagareyama "Linux Build Status")](https://travis-ci.org/fable-compiler/Fable) [![Windows Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5/branch/nagareyama?svg=true "Windows Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Nuget](https://img.shields.io/nuget/v/Fable.svg?maxAge=0&colorB=brightgreen)](https://www.nuget.org/packages/Fable) [![Build](https://github.com/fable-compiler/Fable/actions/workflows/build.yml/badge.svg)](https://github.com/fable-compiler/Fable/actions/workflows/build.yml) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
@@ -16,7 +16,7 @@ Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 Make sure the following **requirements** are installed in your system:
 
-- [dotnet SDK 6](https://www.microsoft.com/net/download/core)
+- [dotnet SDK 6.0.400](https://www.microsoft.com/net/download/core)
 - [node.js](https://nodejs.org) with npm
 
 Then run `dotnet fsi build.fsx` at the root folder to see the build options.

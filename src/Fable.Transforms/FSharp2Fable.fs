@@ -1668,10 +1668,9 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             // If it happens we're importing a member in the current file
             // use IdentExpr instead of Import
             let isImportToSameFile =
-                info.FileName = com.CurrentFile && (
-                    let dirName, info = Path.GetDirectoryAndFileNames(importInfo.Path)
-                    dirName = "." && info = Path.GetFileName(com.CurrentFile)
-                )
+                Path.Combine(Path.GetDirectoryName(info.FileName), importInfo.Path)
+                |> Path.normalizeFullPath
+                |> (=) com.CurrentFile
             if isImportToSameFile then
                 Fable.IdentExpr { makeTypedIdent t importInfo.Selector with Range = r }
             else

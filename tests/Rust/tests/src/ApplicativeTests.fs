@@ -1,7 +1,6 @@
 module Fable.Tests.ApplicativeTests
 
 open Util.Testing
-// open System
 
 let inline (|HasLength|) x =
   fun () -> (^a: (member Length: int) x)
@@ -233,7 +232,7 @@ let Lens_set (_, s) = fun i o -> s i o
 let Lens_map (g, s) = fun f o -> s (f (g o)) o
 
 let chars : Isomorphism<string, char[]> =
-    (fun x -> x.ToCharArray ()), (fun x -> String (x))
+    (fun x -> x.ToCharArray ()), (fun x -> System.String (x))
 
 let rev : Isomorphism<char[], char[]> =
     Array.rev, Array.rev

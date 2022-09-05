@@ -35,11 +35,11 @@ module tests =
         DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
         |> equal "11.345"
 
-//     [<Fact>]
-//     let ``DateTime.ToString with Round-trip format works for Utc`` () =
-//         let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-//         System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-//         |> equal "2014-09-11T16:37:02.000Z"
+    // [<Fact>]
+    // let ``DateTime.ToString with Round-trip format works for Utc`` () =
+    //     let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    //     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    //     |> equal "2014-09-11T16:37:02.000Z"
 
 //     // TODO
 //     // Next test is disabled because it's depends on the time zone of the machine
@@ -50,56 +50,55 @@ module tests =
 //     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
 //     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
-// api plugged in but exploding on windows api with https://github.com/chronotope/chrono/issues/651 - perhaps windows 11 problem?
-    // [<Fact>]
-    // let ``DateTime from Year 1 to 99 works`` () =
-    //     let date = DateTime(1, 1, 2)
-    //     date.Year |> equal 1
-    //     let date = DateTime(99, 1, 2)
-    //     date.Year |> equal 99
+    [<Fact>]
+    let ``DateTime from Year 1 to 99 works`` () =
+        let date = DateTime(1, 1, 2)
+        date.Year |> equal 1
+        let date = DateTime(99, 1, 2)
+        date.Year |> equal 99
 
-//     [<Fact>]
-//     let ``DateTime UTC from Year 1 to 99 works`` () =
-//         let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
-//         date.Year |> equal 1
-//         let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
-//         date.Year |> equal 99
+    [<Fact>]
+    let ``DateTime UTC from Year 1 to 99 works`` () =
+        let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        date.Year |> equal 1
+        let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        date.Year |> equal 99
 
 //     // TODO: These two tests give different values for .NET and JS because DateTime
 //     // becomes as a plain JS Date object, so I'm just checking the fields get translated
-//     [<Fact>]
-//     let ``DateTime.MaxValue works`` () =
-//         let d1 = DateTime.Now
-//         let d2 = DateTime.MaxValue
-//         d1 < d2 |> equal true
+    [<Fact>]
+    let ``DateTime.MaxValue works`` () =
+        let d1 = DateTime.Now
+        let d2 = DateTime.MaxValue
+        d1 < d2 |> equal true
 
-//     [<Fact>]
-//     let ``DateTime.MinValue works`` () =
-//         let d1 = DateTime.Now
-//         let d2 = DateTime.MinValue
-//         d1 < d2 |> equal false
+    [<Fact>]
+    let ``DateTime.MinValue works`` () =
+        let d1 = DateTime.Now
+        let d2 = DateTime.MinValue
+        d1 < d2 |> equal false
 
-//     [<Fact>]
-//     let ``DateTime.MinValue works in pattern match`` () =
-//         let d1 = Some DateTime.Now
-//         match d1 with
-//         | Some date when date <> DateTime.MinValue -> ()
-//         | _ -> failwith "expected pattern match above"
+    [<Fact>]
+    let ``DateTime.MinValue works in pattern match`` () =
+        let d1 = Some DateTime.Now
+        match d1 with
+        | Some date when date <> DateTime.MinValue -> ()
+        | _ -> failwith "expected pattern match above"
 
-//     [<Fact>]
-//     let ``DateTime.ToLocalTime works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//         let d' = d.ToLocalTime()
-//         d.Kind <> d'.Kind
-//         |> equal true
+    [<Fact>]
+    let ``DateTime.ToLocalTime works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let d' = d.ToLocalTime()
+        d.Kind <> d'.Kind
+        |> equal true
 
-//     [<Fact>]
-//     let ``Creating DateTimeOffset from DateTime and back works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//         let dto = DateTimeOffset(d)
-//         let d' = dto.DateTime
+    [<Fact>]
+    let ``Creating DateTimeOffset from DateTime and back works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let dto = DateTimeOffset(d)
+        let d' = dto.DateTime
 
-//         d' |> equal d
+        d' |> equal d
 
 //     [<Fact>]
 //     let ``Formatting DateTimeOffset works`` () =
@@ -109,10 +108,10 @@ module tests =
 //         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
 //         dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
-//     [<Fact>]
-//     let ``DateTime.Hour works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-//         d.Hour |> equal 13
+    [<Fact>]
+    let ``DateTime.Hour works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        d.Hour |> equal 13
 
 //     // TODO: These four tests don't match exactly between .NET and JS
 //     // Think of a way to compare the results approximately

@@ -62,29 +62,6 @@ pub mod ListExt {
     }
 }
 
-pub mod ArrayExt {
-    use crate::Native_::{array, Array, Vec};
-
-    impl<T: Clone> From<Vec<T>> for Array<T> {
-        fn from(vec: Vec<T>) -> Self {
-            array(vec)
-        }
-    }
-
-    impl<T: Clone> From<&Vec<T>> for Array<T> {
-        fn from(vec: &Vec<T>) -> Self {
-            let vecNew: Vec<T> = vec.iter().map(|item| item.clone()).collect();
-            array(vecNew)
-        }
-    }
-
-    impl<T: Clone> Into<Vec<T>> for Array<T> {
-        fn into(self) -> Vec<T> {
-            self.get().iter().map(|item| item.clone()).collect()
-        }
-    }
-}
-
 pub mod SetExt {
     // use core::ops::Deref;
     use crate::Native_::{seq_to_iter, Vec};

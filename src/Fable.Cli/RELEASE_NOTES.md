@@ -1,3 +1,24 @@
+### 4.0.0-snake-island-alpha-024
+
+* Fable.AST 4.0 stable
+* Rust, StringBuilder, Dates, ref counting
+
+### 4.0.0-snake-island-alpha-023
+
+* Update F# compiler
+* Make Fable 4 compatible with Feliz plugins
+* Rust, Fixed inner attributes (#3121)
+* Rust, Output crate attributes only on last file (#3119)
+* Rust, Added collection wrappers (#3118)
+* Rust, fix byref nested context not correctly propagating (#3103)
+* Rust, Fixed passing fields by ref (#3116)
+* Rust, Fixed struct record copy (#3114)
+* Rust, Output string type (#3113)
+* Python, type var cleanup. Use Any for types starting with $$ (#3100)
+* Rust, Fixed string format without args
+* Rust, Fixed closure ident cloning (#3106)
+* Rust, Fixed static, member and interface imports (#3105)
+
 ### 4.0.0-snake-island-alpha-021
 
 * Rust, fixed curried apply, @ncave

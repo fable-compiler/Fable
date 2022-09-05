@@ -3601,27 +3601,13 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
         |> Some
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let parseGuid (literalGuid: string) =
-        try
-            System.Guid.Parse(literalGuid)
-            |> string
-            |> makeStrConst
-        with
-        | e ->
-            e.Message
-            |> addErrorAndReturnNull com ctx.InlinePath r
-        |> Some
-
     match i.CompiledName with
     | "NewGuid" ->
         Helper.LibCall(com, "Guid", "new_guid", t, [])
         |> Some
     | "Parse" ->
-        match args with
-        | [ StringConst literalGuid ] -> parseGuid literalGuid
-        | _ ->
-            Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes)
-            |> Some
+        Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes)
+        |> Some
     | "TryParse" ->
         Helper.LibCall(com, "Guid", "tryParse", t, args, i.SignatureArgTypes)
         |> Some
@@ -3656,7 +3642,9 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
         | [ ExprType (Array _) ] ->
             Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes)
             |> Some
-        | [ StringConst literalGuid ] -> parseGuid literalGuid
+        | [ StringConst _ ] ->
+            Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes)
+            |> Some
         | [ ExprType String ] ->
             Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes)
             |> Some

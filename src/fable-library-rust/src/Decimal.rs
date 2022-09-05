@@ -1,6 +1,6 @@
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{array, Array, Lrc, RefCell, Vec};
+    use crate::Native_::{array, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
 
     use rust_decimal::prelude::*;
@@ -61,7 +61,7 @@ pub mod Decimal_ {
         toString_1(&x)
     }
 
-    pub fn tryParse(s: string, res: &RefCell<Decimal>) -> bool {
+    pub fn tryParse(s: string, res: &MutCell<Decimal>) -> bool {
         match Decimal::from_str(s.as_ref()) {
             Ok(d) => { res.set(d); true },
             Err(e) => false,
@@ -114,7 +114,7 @@ pub mod Decimal_ {
         let scale = du.scale as i32;
         let signExp =
             if du.negative { -(scale << 16) } else { scale << 16 };
-        array(Vec::from([low, mid, high, signExp]))
+        array(&[low, mid, high, signExp])
     }
 
     pub fn round(x: Decimal) -> Decimal { x.round() }

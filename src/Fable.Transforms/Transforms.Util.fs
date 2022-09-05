@@ -600,14 +600,21 @@ module AST =
                  Path = path.Trim()
                  Kind = UserImport false }, t, r)
 
-    let makeImportLib (com: Compiler) t memberName moduleName =
+    let makeImportLibWithInfo (com: Compiler) t memberName (moduleName: string) info =
         let selector =
             match com.Options.Language with
-            | Rust -> moduleName + "_::" + memberName //TODO: fix when imports change
+            | Rust ->
+                if moduleName.StartsWith("System.")
+                then moduleName + "::" + memberName
+                else moduleName + "_::" + memberName
             | _ -> memberName
         Import({ Selector = selector
                  Path = getLibPath com moduleName
-                 Kind = LibraryImport }, t, None)
+                 Kind = LibraryImport info }, t, None)
+
+    let makeImportLib (com: Compiler) t memberName moduleName =
+        LibraryImportInfo.Create(isInstanceMember=false, isModuleMember=true)
+        |> makeImportLibWithInfo com t memberName moduleName
 
     let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =
@@ -615,11 +622,11 @@ module AST =
             else Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import({ Selector = selector; Path = path; Kind = kind }, t, None)
 
-    let makeInternalMemberImport com t isInstance (selector: string) (path: string) =
-        MemberImport(isInstance, path) |> makeInternalImport com t selector path
+    let makeInternalMemberImport com t membRef (selector: string) (path: string) =
+        MemberImport(membRef) |> makeInternalImport com t selector path
 
-    let makeInternalClassImport com (selector: string) (path: string) =
-        ClassImport(path) |> makeInternalImport com Any selector path
+    let makeInternalClassImport com entRef (selector: string) (path: string) =
+        ClassImport(entRef) |> makeInternalImport com Any selector path
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Create(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)

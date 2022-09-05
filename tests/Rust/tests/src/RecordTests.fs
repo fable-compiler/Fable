@@ -379,3 +379,45 @@ module ComplexEdgeCases =
             { Name = "A"; Spatial = { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> } } }
             |> rotate (1.2f<Rad>)
         res.Spatial.Rotation |> equal (1.1f<Rad> + 1.2f<Rad>)
+
+    [<Fact>]
+    let ``Ref tracking should correctly count arm ident usages + clone accordingly`` () =
+        let cmpPropLstR = [{ MyRecord.a = 1; b = "2"; c = 3.0 }]
+        let add1 (x: MyRecord) = {x with a = x.a + 1}
+        let res =
+            match cmpPropLstR with
+            | ({ MyRecord.a = 1 } as h)::t ->
+                let next = add1 h
+                next::t
+            | _ -> cmpPropLstR
+        notEqual res cmpPropLstR
+
+    type ItemWithSpatialDta2 = {
+        Name: string
+        Spatial: SpatialDta option
+    }
+    type GameState = {
+        Items: ItemWithSpatialDta2 list
+    }
+    type TestInput = | T_A | T_B | T_C
+
+    let applyFn1 r p : ItemWithSpatialDta2 = { p with Name = "next" }
+    let applyFn2 p = p
+
+    let someStateTransform inputs current =
+        match current.Items with
+        | ({ Spatial = Some sp } as boundItemState)::t ->
+            let playerNext =
+                match inputs with
+                | T_A -> boundItemState |> applyFn1 boundItemState.Spatial
+                | T_B -> boundItemState |> applyFn2
+                | T_C -> boundItemState
+            { current with Items = playerNext::t }
+        | _ -> { current with Items = [] }
+
+    // This is mainly about ensuring the idents are correctly counted leading to too little/much cloning and potentially a build error
+    [<Fact>]
+    let ``Ref tracking should correctly count arm ident usages 2 + clone accordingly`` () =
+        let current = { Items = [{Name = "ab"; Spatial = Some { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> } }}]}
+        let next = someStateTransform T_A current
+        next |> notEqual current

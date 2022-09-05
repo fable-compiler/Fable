@@ -44,6 +44,7 @@
     <Compile Include="TestEnumerable.fs" />
     <Compile Include="TestEvent.fs" />
     <Compile Include="TestFn.fs" />
+    <Compile Include="TestGuid.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestMap.fs" />
