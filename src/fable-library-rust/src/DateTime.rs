@@ -1,16 +1,18 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
-    use crate::String_::{string, stringFrom};
-    use chrono::{DateTime as CDT, Datelike, Local, TimeZone, Utc, NaiveDateTime, NaiveDate, Timelike};
+    use crate::{String_::{string, stringFrom}, DateTimeOffset_::DateTimeOffset};
+    use chrono::{
+        DateTime as CDT, Datelike, Local, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc, FixedOffset, Offset,
+    };
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     enum LocalUtcWrap {
         CLocal(CDT<Local>),
         CUtc(CDT<Utc>),
-        CUnspecified(NaiveDateTime)
+        CUnspecified(NaiveDateTime),
     }
 
-    #[derive(Clone, Copy, PartialEq, Debug)]
+    #[derive(Clone, Copy, Debug)]
     pub struct DateTime(LocalUtcWrap);
 
     // impl core::fmt::Display for DateTime {
@@ -19,15 +21,30 @@ pub mod DateTime_ {
     //     }
     // }
 
+    impl PartialEq for DateTime {
+        fn eq(&self, other: &Self) -> bool {
+            if(self.0 == other.0) {
+                true
+            }
+            else {
+                let selfUtc = self.to_universal_time();
+                let otherUtc = other.to_universal_time();
+                selfUtc.0 == otherUtc.0
+            }
+        }
+    }
+
     impl PartialOrd for DateTime {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-            //self.0.partial_cmp(&other.0)
-            // This is probably not sufficient and likely requires normalizing all dates to UTC first. Also what about Unspecified - perhaps these should return None?
-            let x = self.get_timestamp();
-            let y = other.get_timestamp();
-            if x > y { Some(core::cmp::Ordering::Greater) }
-            else if x < y { Some(core::cmp::Ordering::Less) }
-            else { Some(core::cmp::Ordering::Equal) }
+            let x = self.to_universal_time().get_timestamp();
+            let y = other.to_universal_time().get_timestamp();
+            if x > y {
+                Some(core::cmp::Ordering::Greater)
+            } else if x < y {
+                Some(core::cmp::Ordering::Less)
+            } else {
+                Some(core::cmp::Ordering::Equal)
+            }
         }
     }
 
@@ -37,8 +54,7 @@ pub mod DateTime_ {
     }
 
     pub fn new_ymdhms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
-            .and_hms(h as u32, min as u32, s as u32);
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
         DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
@@ -48,9 +64,16 @@ pub mod DateTime_ {
         DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
-    pub fn new_ymdhms_withkind(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32, kind: i32) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
-            .and_hms(h as u32, min as u32, s as u32);
+    pub fn new_ymdhms_withkind(
+        y: i32,
+        m: i32,
+        d: i32,
+        h: i32,
+        min: i32,
+        s: i32,
+        kind: i32,
+    ) -> DateTime {
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
         let dt =
             match kind {
                 1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
@@ -74,7 +97,28 @@ pub mod DateTime_ {
     }
 
     pub fn compare(x: DateTime, y: DateTime) -> i32 {
-        if x > y { 1i32 } else { if x < y { -1i32 } else { 0i32 } }
+        if x > y {
+            1i32
+        } else {
+            if x < y {
+                -1i32
+            } else {
+                0i32
+            }
+        }
+    }
+
+    pub fn from_date_time_offset(dto: DateTimeOffset, kind: i32) -> DateTime {
+        let cdt = dto.get_cdt_with_offset();
+        let l = cdt.naive_utc() - cdt.offset().fix();
+        let dt =
+            match kind {
+                1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
+                2 => LocalUtcWrap::CLocal(l.and_local_timezone(Local).unwrap()),
+                0 => LocalUtcWrap::CUnspecified(l),
+                _ => panic!("unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
+            };
+        DateTime(dt)
     }
 
     pub fn equals(a: DateTime, b: DateTime) -> bool {
@@ -82,7 +126,6 @@ pub mod DateTime_ {
     }
 
     impl DateTime {
-
         pub fn kind(&self) -> i32 {
             match self.0 {
                 LocalUtcWrap::CUtc(t) => 1,
@@ -95,14 +138,28 @@ pub mod DateTime_ {
             match self.0 {
                 LocalUtcWrap::CLocal(t) => self.clone(),
                 LocalUtcWrap::CUtc(t) => DateTime(LocalUtcWrap::CLocal(t.into())),
-                LocalUtcWrap::CUnspecified(t) => DateTime(LocalUtcWrap::CLocal(Local.from_local_datetime(&t).unwrap())),
+                LocalUtcWrap::CUnspecified(t) => {
+                    // todo - need to check .NET implementation to see how it handles unspecified
+                    DateTime(LocalUtcWrap::CLocal(Local.from_local_datetime(&t).unwrap()))
+                }
+            }
+        }
+
+        pub fn to_universal_time(&self) -> DateTime {
+            match self.0 {
+                LocalUtcWrap::CLocal(t) => DateTime(LocalUtcWrap::CUtc(t.into())),
+                LocalUtcWrap::CUtc(t) => self.clone(),
+                LocalUtcWrap::CUnspecified(t) => {
+                    // todo - need to check .NET implementation to see how it handles unspecified
+                    DateTime(LocalUtcWrap::CUtc(Utc.from_utc_datetime(&t)))
+                }
             }
         }
 
         fn get_timestamp(&self) -> i64 {
             match self.0 {
                 LocalUtcWrap::CLocal(dt) => dt.timestamp(),
-                LocalUtcWrap::CUtc(dt)  => dt.timestamp(),
+                LocalUtcWrap::CUtc(dt) => dt.timestamp(),
                 LocalUtcWrap::CUnspecified(dt) => dt.timestamp(),
             }
         }
@@ -137,6 +194,14 @@ pub mod DateTime_ {
                 LocalUtcWrap::CUtc(dt) => dt.hour() as i32,
             }
         }
+
+        pub(crate) fn to_cdt_with_offset(&self) -> CDT<FixedOffset> {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => Utc.from_utc_datetime(&dt).into(),
+                LocalUtcWrap::CLocal(dt) => dt.with_timezone(&dt.offset().fix()),
+                LocalUtcWrap::CUtc(dt) => dt.with_timezone(&FixedOffset::west(0)),
+            }
+        }
     }
 
     pub fn year() {}
@@ -144,11 +209,22 @@ pub mod DateTime_ {
 
 #[cfg(feature = "date")]
 pub mod DateTimeOffset_ {
-    use crate::String_::string;
-    use chrono::{DateTime as CDT, TimeZone, Utc};
+    use crate::{String_::string, DateTime_::DateTime};
+    use chrono::{DateTime as CDT, TimeZone, Utc, NaiveDateTime, FixedOffset};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct DateTimeOffset;
+    pub struct DateTimeOffset(CDT<FixedOffset>);
+
+    pub fn from_date(d: DateTime) -> DateTimeOffset {
+        let cdto = d.to_cdt_with_offset();
+        DateTimeOffset(cdto)
+    }
+
+    impl DateTimeOffset {
+        pub(crate) fn get_cdt_with_offset(&self) -> CDT<FixedOffset> {
+            self.0
+        }
+    }
 
     // impl core::fmt::Display for DateTimeOffset {
     //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
