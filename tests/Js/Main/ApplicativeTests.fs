@@ -114,7 +114,7 @@ type SideEffects =
 let inline getFirstName x = (^T : (member FirstName : string) x)
 let inline getLastName x = (^T : (member LastName : string) x)
 
-let inline getFirsAndLastName x =
+let inline getFirstAndLastName x =
     (^T : (member FirstName : string) x) + " " + (^T : (member LastName : string) x)
 
 let inline getFullName x =
@@ -137,7 +137,7 @@ let tests1 = [
         |> equal "Horigome Alfonso"
 
     testCase "Picks the right witness II" <| fun () ->
-        getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+        getFirstAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
         |> equal "Alfonso Horigome"
 
     testCase "Infix applicative can be generated" <| fun () ->
