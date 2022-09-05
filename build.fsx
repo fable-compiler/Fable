@@ -443,9 +443,10 @@ let testProjectConfigs() =
       "tests/Integration/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
       "tests/Integration/ProjectConfigs/ConsoleApp", String.Empty
       "tests/Integration/ProjectConfigs/MultiTargetingRelease", String.Empty
+      "tests/Integration/ProjectConfigs/FSharpScript", String.Empty
     ]
     |> List.iter (fun (projectDir, configuration) ->
-        let buildDir = "build/"+ projectDir
+        let buildDir = "build/" + projectDir
 
         cleanDirs [ buildDir ]
         runFableWithArgs projectDir [
