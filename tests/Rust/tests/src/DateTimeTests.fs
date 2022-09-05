@@ -92,13 +92,13 @@ module tests =
         d.Kind <> d'.Kind
         |> equal true
 
-//     [<Fact>]
-//     let ``Creating DateTimeOffset from DateTime and back works`` () =
-//         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//         let dto = DateTimeOffset(d)
-//         let d' = dto.DateTime
+    [<Fact>]
+    let ``Creating DateTimeOffset from DateTime and back works`` () =
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let dto = DateTimeOffset(d)
+        let d' = dto.DateTime
 
-//         d' |> equal d
+        d' |> equal d
 
 //     [<Fact>]
 //     let ``Formatting DateTimeOffset works`` () =
