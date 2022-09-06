@@ -15,7 +15,6 @@ pub mod Native_ {
 
     pub use core::any::{Any, TypeId};
 
-    pub use startup::on_startup;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
     pub use crate::Choice_::*;

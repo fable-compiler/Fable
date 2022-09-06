@@ -1275,7 +1275,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx (name: string) (me
         let selector = importExprSelector memb info.Selector
         let memberRef =
             // If this is a getter, it means the imported value is an object but Fable will call it as a function, see #2329
-            if memb.IsPropertyGetterMethod then Fable.GeneratedMember.Function(name, [], typ)
+            if memb.IsPropertyGetterMethod // || (memb.IsFunction && com.Options.Language = Rust)
+            then Fable.GeneratedMember.Function(name, [], typ)
             else Fable.GeneratedMember.Value(name, typ)
         transformImport com r typ name [] memberRef selector info.Path
     | body ->
