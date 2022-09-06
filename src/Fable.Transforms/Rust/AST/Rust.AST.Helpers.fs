@@ -1262,8 +1262,8 @@ module Items =
           kind = kind
           tokens = None }
 
-    let mkPublicAssocItem item: AssocItem =
-        { item with vis = PUBLIC_VIS }
+    let mkInheritedItem item: Item =
+        { item with vis = INHERITED_VIS }
 
     let mkPublicItem item: Item =
         { item with vis = PUBLIC_VIS }
@@ -1271,8 +1271,30 @@ module Items =
     let mkPublicCrateItem item: Item =
         { item with vis = PUBLIC_CRATE_VIS }
 
-    let mkNonPublicItem item: Item =
+    let mkInheritedAssocItem item: AssocItem =
         { item with vis = INHERITED_VIS }
+
+    let mkPublicAssocItem item: AssocItem =
+        { item with vis = PUBLIC_VIS }
+
+    let mkPublicCrateAssocItem item: AssocItem =
+        { item with vis = PUBLIC_CRATE_VIS }
+
+    let mkItemWithVis isInternal isPrivate item: Item =
+        if isPrivate then
+            item // default is INHERITED_VIS
+        elif isInternal then
+            item |> mkPublicCrateItem
+        else
+            item |> mkPublicItem
+
+    let mkAssocItemWithVis isInternal isPrivate item: AssocItem =
+        if isPrivate then
+            item // default is INHERITED_VIS
+        elif isInternal then
+            item |> mkPublicCrateAssocItem
+        else
+            item |> mkPublicAssocItem
 
     let mkFnItem attrs name kind: Item =
         let ident = mkIdent name

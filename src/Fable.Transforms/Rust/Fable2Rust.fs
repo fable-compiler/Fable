@@ -3392,11 +3392,8 @@ module Util =
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx memb.Attributes
         let fnItem = mkFnItem attrs name kind
-        // let fnItem =
-        //     if memb.IsPublic
-        //     then fnItem |> mkPublicItem
-        //     else fnItem
-        [fnItem |> mkPublicItem]
+        let fnItem = fnItem |> mkItemWithVis memb.IsInternal memb.IsPrivate
+        [fnItem]
 
     let transformModuleMember (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         // Module let bindings look like this:
@@ -3436,11 +3433,8 @@ module Util =
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnItem attrs name fnKind
-        // let fnItem =
-        //     if memb.IsPublic
-        //     then fnItem |> mkPublicItem
-        //     else fnItem
-        [fnItem |> mkPublicItem]
+        let fnItem = fnItem |> mkItemWithVis memb.IsInternal memb.IsPrivate
+        [fnItem]
 
     // // is the member return type the same as the entity
     // let isFluentMemberType (ent: Fable.Entity) = function
@@ -3469,9 +3463,10 @@ module Util =
         let generics = getMemberGenArgs memb |> makeGenerics com ctx
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
         let attrs = transformAttributes com ctx memb.Attributes
-        mkFnAssocItem attrs membName fnKind
+        let fnItem = mkFnAssocItem attrs membName fnKind
+        fnItem
 
-    let transformAssocMemberFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformAssocMember (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let ctx = { ctx with IsClassMember = true }
         let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
@@ -3568,7 +3563,8 @@ module Util =
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
-        [enumItem |> mkPublicItem] // TODO: add traits for attached members
+        let enumItem = enumItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
+        [enumItem]
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
@@ -3588,7 +3584,8 @@ module Util =
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let structItem = mkStructItem attrs entName fields generics
-        [structItem |> mkPublicItem] // TODO: add traits for attached members
+        let structItem = structItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
+        [structItem]
 
     let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
@@ -3601,7 +3598,9 @@ module Util =
         let paramTypes = idents |> List.map (fun ident -> ident.Type)
         let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)
         let memb = com.GetMember(memberRef)
-        transformAssocMemberFunction com ctx memb entName idents body
+        let fnItem = transformAssocMember com ctx memb entName idents body
+        let fnItem = fnItem |> mkAssocItemWithVis ent.IsInternal ent.IsPrivate
+        fnItem
 
     let transformPrimaryConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
         let body =
@@ -3645,7 +3644,9 @@ module Util =
                                 |> List.map (fun p -> p.Name)
                                 |> Set.ofList }
         let memb = com.GetMember(ctor.MemberRef)
-        transformAssocMemberFunction com ctx memb ctor.Name ctor.Args ctor.Body
+        let fnItem = transformAssocMember com ctx memb ctor.Name ctor.Args ctor.Body
+        let fnItem = fnItem |> mkAssocItemWithVis memb.IsInternal memb.IsPrivate
+        fnItem
 
     let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let assocItems =
@@ -3671,7 +3672,8 @@ module Util =
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let entName = splitLast ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
-        [traitItem |> mkPublicItem]
+        let traitItem = traitItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
+        [traitItem]
 
     let makeDisplayTraitImpl com ctx self_ty genArgs =
         // expected output:
@@ -3703,28 +3705,24 @@ module Util =
             mkImplItem [] "" self_ty generics [fnItem] ofTrait
         [implItem]
 
+    let withCurrentScope ctx (usedNames: Set<string>) f =
+        let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+        let result = f ctx
+        ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+        result
+
+    let makeMemberItem (com: IRustCompiler) ctx withVis (m: Fable.MemberDecl) =
+        withCurrentScope ctx m.UsedNames <| fun ctx ->
+            let memb = com.GetMember(m.MemberRef)
+            let memberItem = transformAssocMember com ctx memb m.Name m.Args m.Body
+            if withVis
+            then memberItem |> mkAssocItemWithVis memb.IsInternal memb.IsPrivate
+            else memberItem
+
     let objectMethodsSet =
         set ["Equals"; "GetHashCode"; "GetType"; "ToString"] //MemberwiseClone, ReferenceEquals
 
     let transformClassMembers (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
-        let withCurrentScope ctx (usedNames: Set<string>) f =
-            let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
-            let result = f ctx
-            ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
-            result
-
-        let isCtorOrStaticOrObject (m: Fable.MemberDecl) =
-            let memb = com.GetMember(m.MemberRef)
-            memb.IsConstructor
-            || not (memb.IsOverrideOrExplicitInterfaceImplementation)
-            || Set.contains memb.CompiledName objectMethodsSet
-
-        let makeMemberItem ctx (m: Fable.MemberDecl) =
-            withCurrentScope ctx m.UsedNames <| fun ctx ->
-                let memb = com.GetMember(m.MemberRef)
-                let memberItem = transformAssocMemberFunction com ctx memb m.Name m.Args m.Body
-                memberItem
-
         let entRef = decl.Entity
         let ent = com.GetEntity(entRef)
         let entName =
@@ -3738,6 +3736,12 @@ module Util =
                                 ent.GenericParameters
                                 |> List.map (fun p -> p.Name)
                                 |> Set.ofList }
+
+        let isCtorOrStaticOrObject (m: Fable.MemberDecl) =
+            let memb = com.GetMember(m.MemberRef)
+            not (ent.IsInterface) && (memb.IsConstructor
+                || not (memb.IsOverrideOrExplicitInterfaceImplementation)
+                || Set.contains memb.CompiledName objectMethodsSet)
 
         let ctorOrStaticOrObjectImpls =
             let ctorItems =
@@ -3755,9 +3759,8 @@ module Util =
             let ctorOrStaticOrObjectItems =
                 decl.AttachedMembers
                 |> List.filter isCtorOrStaticOrObject
-                |> List.map (makeMemberItem ctx)
+                |> List.map (makeMemberItem com ctx true)
                 |> List.append ctorItems
-                |> List.map mkPublicAssocItem
             if List.isEmpty ctorOrStaticOrObjectItems then
                 []
             else
@@ -3827,7 +3830,7 @@ module Util =
                 let memberItems =
                     decl.AttachedMembers
                     |> List.filter (fun m -> Set.contains m.Name tMethods)
-                    |> List.map (makeMemberItem ctx)
+                    |> List.map (makeMemberItem com ctx false)
                 let ty =
                     let genArgTys = genArgs |> transformGenArgs com ctx
                     let bounds = mkTypeTraitGenericBound [entName] genArgTys
@@ -4004,28 +4007,19 @@ module Util =
             [modItem |> mkPublicItem]
 
     let transformDecl (com: IRustCompiler) ctx decl =
-        let withCurrentScope ctx (usedNames: Set<string>) f =
-            let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
-            let result = f ctx
-            ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
-            result
-
         match decl with
         | Fable.ModuleDeclaration decl ->
             withCurrentScope ctx (Set.singleton decl.Name) <| fun ctx ->
                 transformModuleDecl com ctx decl
-
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 transformModuleAction com ctx decl.Body
-
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 let memb = com.GetMember(decl.MemberRef)
                 if memb.IsValue
                 then transformModuleMember com ctx memb decl
                 else transformModuleFunction com ctx memb decl
-
         | Fable.ClassDeclaration decl ->
             transformClassDecl com ctx decl
 
