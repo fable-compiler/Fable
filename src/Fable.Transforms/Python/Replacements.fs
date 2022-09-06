@@ -3562,6 +3562,9 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | Some x, "get_Result" ->
         Helper.LibCall(com, "task", "get_result", t, [ x ], i.SignatureArgTypes, ?loc = r)
         |> Some
+    | Some x, "RunSynchronously" ->
+        Helper.LibCall(com, "task", "run_synchronously", t, [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | Some x, "Start" ->
         Helper.LibCall(com, "task", "start", t, [ x ], i.SignatureArgTypes, ?loc = r)
         |> Some

@@ -22,12 +22,6 @@ let ``test Guid.NewGuid creates different guids`` () =
     g = g2 |> equal false
 
 [<Fact>]
-let ``test Guid.Parse works`` () =
-    let s = "f46d24f0-183e-4fca-9f47-e382afdfde8b"
-    let g = Guid.Parse(s)
-    g.ToString() |> equal s
-
-[<Fact>]
 let ``test Guid equality works`` () =
     let s = "f46d24f0-183e-4fca-9f47-e382afdfde8b"
     let g = Guid.Parse(s)
@@ -42,42 +36,42 @@ let ``test Guid.ToString works`` () =
     let g = Guid.Parse("a3cc8928-7148-43e2-a863-a3954aea02df")
     g.ToString() |> equal "a3cc8928-7148-43e2-a863-a3954aea02df"
 
-// // id is prefixed for guid creation as we check at compile time (if able) to create a string const
-// [<Fact>]
-// let ``Guid.Parse works`` () =
-//     let guids = [
-//         Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//         Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//         Guid.Parse("96258006c4ba4a7f80c4de7f2b2898c5")
-//         Guid.Parse(id "96258006c4ba4a7f80c4de7f2b2898c5")
-//         Guid.Parse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
-//         Guid.Parse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
-//         Guid.Parse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
-//         Guid.Parse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
-//         Guid.Parse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
-//         Guid.Parse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
-//         Guid("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//         Guid(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//         Guid("96258006c4ba4a7f80c4de7f2b2898c5")
-//         Guid(id "96258006c4ba4a7f80c4de7f2b2898c5")
-//         Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
-//         Guid(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
-//         Guid("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
-//         Guid(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
-//         Guid("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
-//         Guid(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
-//     ]
-//     guids
-//     |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+// id is prefixed for guid creation as we check at compile time (if able) to create a string const
+[<Fact>]
+let ``test Guid.Parse works`` () =
+    let guids = [
+        Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid.Parse("96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.Parse(id "96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid.Parse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid.Parse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid.Parse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid.Parse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        //Guid.Parse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        //Guid.Parse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        Guid("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        Guid("96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid(id "96258006c4ba4a7f80c4de7f2b2898c5")
+        Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+        Guid("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        Guid(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+        //Guid("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        //Guid(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+    ]
+    guids
+    |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
-// [<Fact>]
-// let ``Guid.Parse fails if string is not well formed`` () =
-//     let success =
-//         try
-//             let g1 = Guid.Parse(id "foo")
-//             true
-//         with _ -> false
-//     equal false success
+[<Fact>]
+let ``test Guid.Parse fails if string is not well formed`` () =
+    let success =
+        try
+            let g1 = Guid.Parse(id "foo")
+            true
+        with _ -> false
+    equal false success
 
 // [<Fact>]
 // let ``Guid.TryParse works`` () =
@@ -110,15 +104,15 @@ let ``test Guid.ToString works`` () =
 //     failGuids
 //     |> List.iter (fst >> (equal false))
 
-// [<Fact>]
-// let ``Parsed guids with different case are considered the same`` () = // See #1718
-//     let aGuid = Guid.NewGuid()
-//     let lower = aGuid.ToString().ToLower()
-//     let upper = aGuid.ToString().ToUpper()
-//     lower = upper |> equal false
-//     let lowerGuid = Guid.Parse lower
-//     let upperGuid = Guid.Parse upper
-//     lowerGuid = upperGuid |> equal true
+[<Fact>]
+let ``test Parsed guids with different case are considered the same`` () = // See #1718
+    let aGuid = Guid.NewGuid()
+    let lower = aGuid.ToString().ToLower()
+    let upper = aGuid.ToString().ToUpper()
+    lower = upper |> equal false
+    let lowerGuid = Guid.Parse lower
+    let upperGuid = Guid.Parse upper
+    lowerGuid = upperGuid |> equal true
 
 [<Fact>]
 let ``test Convert Guid to byte[] works`` () =
