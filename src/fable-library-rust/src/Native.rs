@@ -19,6 +19,18 @@ pub mod Native_ {
     pub use super::Lazy::*;
     pub use crate::Choice_::*;
 
+    mod macros {
+        #[macro_export]
+        macro_rules! on_startup {
+            ($($tokens:tt)*) => {}; // does nothing
+        }
+    }
+
+    #[cfg(not(feature = "static_do_bindings"))]
+    pub use crate::on_startup;
+    #[cfg(feature = "static_do_bindings")]
+    pub use startup::on_startup;
+
     #[cfg(not(feature = "atomic"))]
     pub type Lrc<T> = Rc<T>;
     #[cfg(feature = "atomic")]

@@ -3372,8 +3372,8 @@ module Util =
         |> addWarning com [] body.Range
 
         let expr = transformExpr com ctx body
-        let attrs = [mkAttr "cfg" ["feature = \"static_do_bindings\""]]
-        let macroName = "startup::startup"
+        let attrs = [] //[mkAttr "cfg" ["feature = \"static_do_bindings\""]]
+        let macroName = getLibraryImportName com ctx "Native" "on_startup"
         let macroItem = mkMacroItem attrs macroName [expr]
         [macroItem]
 
