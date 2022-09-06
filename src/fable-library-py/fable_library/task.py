@@ -91,13 +91,18 @@ def get_result(value: Awaitable[_T]) -> _T:
     return asyncio.run(runner())
 
 
-def start(computation: Awaitable[Any]) -> None:
+def start(task: Awaitable[Any]) -> None:
     async def runner():
-        return await computation
+        return await task
 
     asyncio.create_task(runner())
 
-    return None
+
+def run_synchronously(task: Awaitable[Any]) -> None:
+    async def runner():
+        return await task
+
+    asyncio.run(runner())
 
 
 __all__ = [
@@ -107,4 +112,5 @@ __all__ = [
     "start",
     "TaskCompletionSource",
     "zero",
+    "run_synchronously",
 ]

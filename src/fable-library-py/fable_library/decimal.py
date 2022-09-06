@@ -82,4 +82,6 @@ __all__ = [
     "to_string",
     "op_addition",
     "from_parts",
+    "op_division",
+    "abs",
 ]

@@ -53,4 +53,4 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
         return False
 
 
-__all__ = ["parse", "try_parse"]
+__all__ = ["parse", "try_parse", "divide", "log", "sqrt", "is_negative_inf"]
