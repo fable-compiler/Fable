@@ -230,6 +230,8 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.HasSpread = Helpers.hasParamArray m
         member _.IsInline = Helpers.isInline m
         member _.IsPublic = Helpers.isNotPrivate m
+        member _.IsPrivate = m.Accessibility.IsPrivate
+        member _.IsInternal = m.Accessibility.IsInternal
         // Using memb.IsValue doesn't work for function values
         // (e.g. `let ADD = adder()` when adder returns a function)
         member _.IsValue = Helpers.isModuleValueForDeclarations m
@@ -355,6 +357,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
         member _.IsPublic = not ent.Accessibility.IsPrivate
+        member _.IsPrivate = ent.Accessibility.IsPrivate
+        member _.IsInternal = ent.Accessibility.IsInternal
         member _.IsAbstractClass = ent.IsAbstractClass
         member _.IsNamespace = ent.IsNamespace
         member _.IsFSharpModule = ent.IsFSharpModule

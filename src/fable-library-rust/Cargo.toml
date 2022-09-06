@@ -13,7 +13,7 @@ decimal = ["dep:rust_decimal"]
 default = ["guid", "date", "decimal"]
 
 [dependencies]
-startup = { version = "0.1.1" }
+startup = { version = "0.1.1", path = "vendored/startup" }
 hashbrown = { version = "0.12", optional = true }
 rust_decimal = { version = "1.25.0", features = ["maths"], default-features = false, optional = true }
 futures = { version = "0.3.21", features = ["executor", "thread-pool"], optional = true }

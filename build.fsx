@@ -233,6 +233,7 @@ let buildLibraryRust() =
 
     copyFiles libraryDir "*.toml" buildDir
     copyFiles sourceDir "*.rs" outDir
+    copyDirRecursive (libraryDir </> "vendored") (buildDir </> "vendored")
 
     runInDir buildDir ("cargo fmt")
     runInDir buildDir ("cargo build")
