@@ -3365,10 +3365,15 @@ module Util =
         )
 
     let transformModuleAction (com: IRustCompiler) ctx (body: Fable.Expr) =
-        // uses startup::on_startup! for static execution (before main)
+        // optional, uses startup::on_startup! for static execution (before main).
+        // See also: https://doc.rust-lang.org/1.6.0/complement-design-faq.html#there-is-no-life-before-or-after-main-no-static-ctorsdtors
+        "For Rust, support for F# static and module do bindings is disabled by default. " +
+        "It can be enabled with the 'static_do_bindings' feature. Use at your own risk!"
+        |> addWarning com [] body.Range
+
         let expr = transformExpr com ctx body
-        let attrs = []
-        let macroName = getLibraryImportName com ctx "Native" "on_startup"
+        let attrs = [mkAttr "cfg" ["feature = \"static_do_bindings\""]]
+        let macroName = "startup::startup"
         let macroItem = mkMacroItem attrs macroName [expr]
         [macroItem]
 
