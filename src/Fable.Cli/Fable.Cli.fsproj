@@ -5,9 +5,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-024</PackageVersion>
-    <PackageReleaseNotes>* Fable.AST 4.0 stable
-* Rust, StringBuilder, Dates, ref counting</PackageReleaseNotes>
+    <PackageVersion>4.0.0-snake-island-alpha-025</PackageVersion>
+    <PackageReleaseNotes>* Added IsInternal and IsPrivate properties in AST, @ncave
+* Rust, better datetime comparison + conversion. DateTimeOffset first, @alexswan10k
+* Python, GUID fixes, @dbrattli
+* Python, async/await fixes for Task returning functions, @dbrattli
+* Rust, another problematic ref counting scenario + fix, @alexswan10k</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
