@@ -1,3 +1,11 @@
+### 4.0.0-snake-island-alpha-025
+
+* Added IsInternal and IsPrivate properties in AST, @ncave
+* Rust, better datetime comparison + conversion. DateTimeOffset first, @alexswan10k
+* Python, GUID fixes, @dbrattli
+* Python, async/await fixes for Task returning functions, @dbrattli
+* Rust, another problematic ref counting scenario + fix, @alexswan10k
+
 ### 4.0.0-snake-island-alpha-024
 
 * Fable.AST 4.0 stable
