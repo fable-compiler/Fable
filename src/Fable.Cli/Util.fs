@@ -510,7 +510,7 @@ module Imports =
                 then Path.Combine(sourceDir, importPath) |> Path.normalizeFullPath
                 else importPath
             if isAbsolutePath importPath then
-                if importPath.EndsWith(".fs")
+                if importPath.EndsWith(".fs") || importPath.EndsWith(".fsx")
                 then getTargetRelativePath pathResolver importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath

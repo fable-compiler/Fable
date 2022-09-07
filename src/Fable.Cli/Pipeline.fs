@@ -104,7 +104,7 @@ module Js =
                     | Some path -> Imports.getRelativePath sourceDir path
                     | None -> path
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
+                if path.EndsWith(".fs") || path.EndsWith(".fsx") then
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
                     File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
                 else path

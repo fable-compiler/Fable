@@ -1,5 +1,8 @@
-#load "LoadedFile.fs"
-open LoadedFile
+#load "Loaded/File.fs"
+open File
+
+#load "Loaded/Script.fsx"
+open Script
 
 #r "nuget: Thoth.Json"
 open Thoth.Json
@@ -15,7 +18,7 @@ let equals expected actual = Assert.AreEqual(actual, expected)
 
 describe "FSharpScript" (fun () ->
     it "should load referenced files" (fun () ->
-        [ loadedFileStr ] |> equals [ "loadedFile" ]
+        [ file; script ] |> equals [ "file"; "script" ]
     )
 
     it "should load nuget packages" (fun () ->
