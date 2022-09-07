@@ -1208,26 +1208,19 @@ module Util =
         |> emitExpression range macro
 
     let transformJsxProps (com: IBabelCompiler) props =
-        let mutable capturedChildren = []
-        (Some [], props) ||> List.fold (fun props prop ->
-            match props, prop with
+        (Some([], []), props) ||> List.fold (fun propsAndChildren prop ->
+            match propsAndChildren, prop with
             | None, _ -> None
-            | Some props, Fable.Value(Fable.NewTuple([StringConst key; value],_),_) ->
-                match key, value with
-                | "children", Replacements.Util.ArrayOrListLiteral(children, _) ->
-                    capturedChildren <- children
-                    Some props
-                | "children", _ ->
-                    addError com [] value.Range "Expecting a static list or array literal (no generator) for JSX children"
-                    None
-                | "child", child ->
-                    capturedChildren <- [child]
-                    Some props
-                | key, _ -> (key, value)::props |> Some
+            | Some(props, children), Fable.Value(Fable.NewTuple([StringConst key; value],_),_) ->
+                if key = "children" then
+                    match value with
+                    | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
+                    | value -> Some(props, [value])
+                else
+                    Some((key, value)::props, children)
             | Some _, e ->
                 addError com [] e.Range "Cannot detect JSX prop key at compile time"
                 None)
-        |> Option.map (fun props -> props, capturedChildren)
 
     let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
