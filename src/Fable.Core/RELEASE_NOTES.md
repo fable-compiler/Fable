@@ -1,3 +1,7 @@
+### 4.0.0-beta-001
+
+* Fable 4 beta release
+
 ### 4.0.0-snake-island-alpha-007
 
 * Snake Island alpha release
