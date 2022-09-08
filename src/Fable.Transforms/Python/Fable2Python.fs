@@ -2693,7 +2693,7 @@ module Util =
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
     let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Fable.Expr list) : Expression * Statement list =
-        // printfn "transformSequenceExpr1"
+        // printfn "transformSequenceExpr"
         let ctx = { ctx with BoundVars = ctx.BoundVars.EnterScope() }
 
         let body =
@@ -2773,23 +2773,7 @@ module Util =
             Expression.compare (left, [ ComparisonOperator.In ], [ value ]), stmts @ stmts'
 
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, range) ->
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-
-            let args, stmts' =
-                info.Args
-                |> List.map (fun arg -> com.TransformAsExpr(ctx, arg))
-                |> List.unzip
-                |> (fun (e, s) -> (e, List.collect id s))
-
-            let slice =
-                match args with
-                | [] -> Expression.slice ()
-                | [ lower ] -> Expression.slice (lower = lower)
-                | [ Expression.Name { Id = Identifier "None" }; upper ] -> Expression.slice (upper = upper)
-                | [ lower; upper ] -> Expression.slice (lower = lower, upper = upper)
-                | _ -> failwith $"Array slice with {args.Length} not supported"
-
-            Expression.subscript (left, slice), stmts @ stmts'
+            transformAsSlice com ctx expr info
 
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = name }, _, _), _info, _, _range) when name.ToLower() = "tostring" ->
             let func = Expression.name "str"
@@ -2884,7 +2868,27 @@ module Util =
             | Fable.Throw _
             | Fable.Debugger -> iife com ctx expr
 
+    let transformAsSlice (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
+        let left, stmts = com.TransformAsExpr(ctx, expr)
+
+        let args, stmts' =
+            info.Args
+            |> List.map (fun arg -> com.TransformAsExpr(ctx, arg))
+            |> List.unzip
+            |> (fun (e, s) -> (e, List.collect id s))
+
+        let slice =
+            match args with
+            | [] -> Expression.slice ()
+            | [ lower ] -> Expression.slice (lower = lower)
+            | [ Expression.Name { Id = Identifier "None" }; upper ] -> Expression.slice (upper = upper)
+            | [ lower; upper ] -> Expression.slice (lower = lower, upper = upper)
+            | _ -> failwith $"Array slice with {args.Length} not supported"
+
+        Expression.subscript (left, slice), stmts @ stmts'
+
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
+        // printfn "transformAsStatements: %A" expr
         match expr with
         | Fable.Unresolved (_, _, r) ->
             addError com [] r "Unexpected unresolved expression"
@@ -2953,6 +2957,9 @@ module Util =
             let expr, stmts = transformObjectExpr com ctx members t baseCall
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, typ, range) ->
+            let expr, stmts = transformAsSlice com ctx expr info
+            stmts @ resolveExpr ctx typ returnStrategy expr
         | Fable.Call (callee, info, typ, range) -> transformCallAsStatements com ctx range typ returnStrategy callee info
 
         | Fable.CurriedApply (callee, args, typ, range) -> transformCurriedApplyAsStatements com ctx range typ returnStrategy callee args
