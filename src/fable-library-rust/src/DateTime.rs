@@ -1,12 +1,14 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
+    use core::ops::Add;
+
     use crate::{
         DateTimeOffset_::DateTimeOffset,
         String_::{string, stringFrom}, TimeSpan_::TimeSpan,
     };
     use chrono::{
         DateTime as CDT, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, TimeZone,
-        Timelike, Utc,
+        Timelike, Utc, Duration,
     };
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -149,19 +151,21 @@ pub mod DateTime_ {
         DateTime(dt)
     }
 
-    // Untested, as per docs here:
+    // as per docs here:
     // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
     fn get_ticks_from_ndt(ndt: NaiveDateTime) -> i64 {
         const num_ticks_per_second: i64 = 10_000_000;
-        let dayTicks = (ndt.num_days_from_ce() as i64) * 24 * 60 * 60 * 60 * num_ticks_per_second;
+        let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * num_ticks_per_second;
         let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * num_ticks_per_second;
-        (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000
+        let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000;
+        dayTicks + secondsTicks + subsecondTicks
     }
 
     pub fn get_ticks(dt: DateTime) -> i64 {
-        match dt.to_universal_time().0 {
+        match dt.0 {
             LocalUtcWrap::CUtc(dt) => get_ticks_from_ndt(dt.naive_utc()),
-            _ => panic!("Should only be universal time")
+            LocalUtcWrap::CLocal(dt) => get_ticks_from_ndt(dt.naive_local()),
+            LocalUtcWrap::CUnspecified(dt) => get_ticks_from_ndt(dt),
         }
     }
 
@@ -174,7 +178,7 @@ pub mod DateTime_ {
     pub fn specify_kind(dt: DateTime, kind: i32) -> DateTime {
         let naive_dt =
             match dt.0 {
-                LocalUtcWrap::CLocal(dt) => dt.naive_utc(),
+                LocalUtcWrap::CLocal(dt) => dt.naive_local(),
                 LocalUtcWrap::CUtc(dt) => dt.naive_utc(),
                 LocalUtcWrap::CUnspecified(dt) => dt,
             };
@@ -187,10 +191,6 @@ pub mod DateTime_ {
         };
         DateTime(res)
     }
-
-    // pub fn op_Subtraction(a: DateTime, b: TimeSpan) -> DateTime {
-    //     b - a
-    // }
 
     pub fn equals(a: DateTime, b: DateTime) -> bool {
         a == b
@@ -316,44 +316,99 @@ pub mod DateTime_ {
             }
         }
 
+        // todo implement as DayOfWeek enum https://docs.microsoft.com/en-us/dotnet/api/system.dayofweek?view=net-6.0
         pub fn day_of_week(&self) -> i32 {
-            panic!("Not implemented")
+            let weekday =
+                match &self.0 {
+                    LocalUtcWrap::CUnspecified(dt) => dt.weekday(),
+                    LocalUtcWrap::CLocal(dt) =>dt.weekday(),
+                    LocalUtcWrap::CUtc(dt) => dt.weekday(),
+                };
+
+            match weekday {
+                chrono::Weekday::Mon => 1,
+                chrono::Weekday::Tue => 2,
+                chrono::Weekday::Wed => 3,
+                chrono::Weekday::Thu => 4,
+                chrono::Weekday::Fri => 5,
+                chrono::Weekday::Sat => 6,
+                chrono::Weekday::Sun => 0,
+            }
         }
 
         pub fn day_of_month(&self) -> i32 {
-            panic!("Not implemented")
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.day() as i32,
+                LocalUtcWrap::CLocal(dt) =>dt.day() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.day() as i32,
+            }
         }
 
         pub fn day_of_year(&self) -> i32 {
-            panic!("Not implemented")
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.ordinal() as i32,
+                LocalUtcWrap::CLocal(dt) =>dt.ordinal() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.ordinal() as i32,
+            }
         }
 
+        // Placeholder implementation
         pub fn add_years(&self, years: i32) -> DateTime {
-            panic!("Not implemented")
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 0),
+                LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 2),
+                LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 1),
+            }
         }
 
+        // Placeholder implementation
+        //https://stackoverflow.com/questions/64081289/how-do-i-add-a-month-to-a-chrono-naivedate
         pub fn add_months(&self, months: i32) -> DateTime {
-            panic!("Not implemented")
+            // match &self.0 {
+            //     LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 0),
+            //     LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 2),
+            //     LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 1),
+            // }
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 0),
+                LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 2),
+                LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 1),
+            }
         }
 
         pub fn add_days(&self, days: f64) -> DateTime {
-            panic!("Not implemented")
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::days(days as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::days(days as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::days(days as i64))),
+            };
+            DateTime(next)
         }
 
         pub fn add_hours(&self, hours: f64) -> DateTime {
-            panic!("Not implemented")
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::hours(hours as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::hours(hours as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::hours(hours as i64))),
+            };
+            DateTime(next)
         }
 
         pub fn add_minutes(&self, minutes: f64) -> DateTime {
-            panic!("Not implemented")
+            self.add_milliseconds(minutes * 60.0 * 1000.0)
         }
 
         pub fn add_seconds(&self, seconds: f64) -> DateTime {
-            panic!("Not implemented")
+            self.add_milliseconds(seconds * 1000.0)
         }
 
         pub fn add_milliseconds(&self, milliseconds: f64) -> DateTime {
-            panic!("Not implemented")
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::milliseconds(milliseconds as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::milliseconds(milliseconds as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::milliseconds(milliseconds as i64))),
+            };
+            DateTime(next)
         }
 
         pub(crate) fn to_cdt_with_offset(&self) -> CDT<FixedOffset> {
