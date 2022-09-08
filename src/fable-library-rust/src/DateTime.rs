@@ -1,8 +1,14 @@
 #[cfg(feature = "date")]
 pub mod DateTime_ {
-    use crate::{String_::{string, stringFrom}, DateTimeOffset_::DateTimeOffset};
+    use core::ops::Add;
+
+    use crate::{
+        DateTimeOffset_::DateTimeOffset,
+        String_::{string, stringFrom}, TimeSpan_::TimeSpan,
+    };
     use chrono::{
-        DateTime as CDT, Datelike, Local, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc, FixedOffset, Offset,
+        DateTime as CDT, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, TimeZone,
+        Timelike, Utc, Duration,
     };
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -23,10 +29,9 @@ pub mod DateTime_ {
 
     impl PartialEq for DateTime {
         fn eq(&self, other: &Self) -> bool {
-            if(self.0 == other.0) {
+            if (self.0 == other.0) {
                 true
-            }
-            else {
+            } else {
                 let selfUtc = self.to_universal_time();
                 let otherUtc = other.to_universal_time();
                 selfUtc.0 == otherUtc.0
@@ -46,6 +51,10 @@ pub mod DateTime_ {
                 Some(core::cmp::Ordering::Equal)
             }
         }
+    }
+
+    pub fn op_Subtraction(a: DateTime, b: DateTime) -> TimeSpan {
+        crate::TimeSpan_::new_from_ticks(get_ticks(a) - get_ticks(b))
     }
 
     pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
@@ -74,6 +83,27 @@ pub mod DateTime_ {
         kind: i32,
     ) -> DateTime {
         let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
+        let dt =
+            match kind {
+                1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
+                2 => LocalUtcWrap::CLocal(l.and_local_timezone(Local).unwrap()),
+                0 => LocalUtcWrap::CUnspecified(l),
+                _ => panic!("unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
+            };
+        DateTime(dt)
+    }
+
+    pub fn new_ymdhmsms_withkind(
+        y: i32,
+        m: i32,
+        d: i32,
+        h: i32,
+        min: i32,
+        s: i32,
+        ms: i32,
+        kind: i32,
+    ) -> DateTime {
+        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
         let dt =
             match kind {
                 1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
@@ -119,6 +149,47 @@ pub mod DateTime_ {
                 _ => panic!("unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
             };
         DateTime(dt)
+    }
+
+    // as per docs here:
+    // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
+    fn get_ticks_from_ndt(ndt: NaiveDateTime) -> i64 {
+        const num_ticks_per_second: i64 = 10_000_000;
+        let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * num_ticks_per_second;
+        let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * num_ticks_per_second;
+        let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000;
+        dayTicks + secondsTicks + subsecondTicks
+    }
+
+    pub fn get_ticks(dt: DateTime) -> i64 {
+        match dt.0 {
+            LocalUtcWrap::CUtc(dt) => get_ticks_from_ndt(dt.naive_utc()),
+            LocalUtcWrap::CLocal(dt) => get_ticks_from_ndt(dt.naive_local()),
+            LocalUtcWrap::CUnspecified(dt) => get_ticks_from_ndt(dt),
+        }
+    }
+
+    pub fn today() -> DateTime {
+        let utcNow = chrono::Utc::now();
+        let next = new_ymdhms_withkind(utcNow.year(), utcNow.month() as i32, utcNow.day() as i32,0, 0, 0, 1);
+        next
+    }
+
+    pub fn specify_kind(dt: DateTime, kind: i32) -> DateTime {
+        let naive_dt =
+            match dt.0 {
+                LocalUtcWrap::CLocal(dt) => dt.naive_local(),
+                LocalUtcWrap::CUtc(dt) => dt.naive_utc(),
+                LocalUtcWrap::CUnspecified(dt) => dt,
+            };
+
+        let res = match kind {
+            1 => LocalUtcWrap::CUtc(naive_dt.and_local_timezone(Utc).unwrap()),
+            2 => LocalUtcWrap::CLocal(naive_dt.and_local_timezone(Local).unwrap()),
+            0 => LocalUtcWrap::CUnspecified(naive_dt),
+            _ => panic!("unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
+        };
+        DateTime(res)
     }
 
     pub fn equals(a: DateTime, b: DateTime) -> bool {
@@ -187,12 +258,157 @@ pub mod DateTime_ {
             }
         }
 
+        pub fn month(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.month() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.month() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.month() as i32,
+            }
+        }
+
+        pub fn day(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.day() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.day() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.day() as i32,
+            }
+        }
+
         pub fn hour(&self) -> i32 {
             match &self.0 {
                 LocalUtcWrap::CUnspecified(dt) => dt.hour() as i32,
                 LocalUtcWrap::CLocal(dt) => dt.hour() as i32,
                 LocalUtcWrap::CUtc(dt) => dt.hour() as i32,
             }
+        }
+
+        pub fn minute(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.minute() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.minute() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.minute() as i32,
+            }
+        }
+
+
+        pub fn second(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.second() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.second() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.second() as i32,
+            }
+        }
+
+        pub fn millisecond(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.timestamp_subsec_millis() as i32,
+                LocalUtcWrap::CLocal(dt) => dt.timestamp_subsec_millis() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.timestamp_subsec_millis() as i32,
+            }
+        }
+
+        pub fn date(&self) -> DateTime {
+            //new_ymdhms_withkind(utcNow.year(), utcNow.month() as i32, utcNow.day() as i32,0, 0, 0, 1);
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32, dt.day() as i32, 0, 0, 0, 0),
+                LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32, dt.day() as i32, 0, 0, 0, 2),
+                LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32, dt.day() as i32, 0, 0, 0, 1),
+            }
+        }
+
+        // todo implement as DayOfWeek enum https://docs.microsoft.com/en-us/dotnet/api/system.dayofweek?view=net-6.0
+        pub fn day_of_week(&self) -> i32 {
+            let weekday =
+                match &self.0 {
+                    LocalUtcWrap::CUnspecified(dt) => dt.weekday(),
+                    LocalUtcWrap::CLocal(dt) =>dt.weekday(),
+                    LocalUtcWrap::CUtc(dt) => dt.weekday(),
+                };
+
+            match weekday {
+                chrono::Weekday::Mon => 1,
+                chrono::Weekday::Tue => 2,
+                chrono::Weekday::Wed => 3,
+                chrono::Weekday::Thu => 4,
+                chrono::Weekday::Fri => 5,
+                chrono::Weekday::Sat => 6,
+                chrono::Weekday::Sun => 0,
+            }
+        }
+
+        pub fn day_of_month(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.day() as i32,
+                LocalUtcWrap::CLocal(dt) =>dt.day() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.day() as i32,
+            }
+        }
+
+        pub fn day_of_year(&self) -> i32 {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => dt.ordinal() as i32,
+                LocalUtcWrap::CLocal(dt) =>dt.ordinal() as i32,
+                LocalUtcWrap::CUtc(dt) => dt.ordinal() as i32,
+            }
+        }
+
+        // Placeholder implementation
+        pub fn add_years(&self, years: i32) -> DateTime {
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 0),
+                LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 2),
+                LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year() + years, dt.month() as i32, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 1),
+            }
+        }
+
+        // Placeholder implementation
+        //https://stackoverflow.com/questions/64081289/how-do-i-add-a-month-to-a-chrono-naivedate
+        pub fn add_months(&self, months: i32) -> DateTime {
+            // match &self.0 {
+            //     LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 0),
+            //     LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 2),
+            //     LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, dt.hour() as i32, dt.minute() as i32, dt.second() as i32, 1),
+            // }
+            match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 0),
+                LocalUtcWrap::CLocal(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 2),
+                LocalUtcWrap::CUtc(dt) => new_ymdhms_withkind(dt.year(), dt.month() as i32 + months, dt.day() as i32, 0, 0, 0, 1),
+            }
+        }
+
+        pub fn add_days(&self, days: f64) -> DateTime {
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::days(days as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::days(days as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::days(days as i64))),
+            };
+            DateTime(next)
+        }
+
+        pub fn add_hours(&self, hours: f64) -> DateTime {
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::hours(hours as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::hours(hours as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::hours(hours as i64))),
+            };
+            DateTime(next)
+        }
+
+        pub fn add_minutes(&self, minutes: f64) -> DateTime {
+            self.add_milliseconds(minutes * 60.0 * 1000.0)
+        }
+
+        pub fn add_seconds(&self, seconds: f64) -> DateTime {
+            self.add_milliseconds(seconds * 1000.0)
+        }
+
+        pub fn add_milliseconds(&self, milliseconds: f64) -> DateTime {
+            let next = match &self.0 {
+                LocalUtcWrap::CUnspecified(dt) => LocalUtcWrap::CUnspecified(dt.add(Duration::milliseconds(milliseconds as i64))),
+                LocalUtcWrap::CLocal(dt) =>LocalUtcWrap::CLocal(dt.add(Duration::milliseconds(milliseconds as i64))),
+                LocalUtcWrap::CUtc(dt) => LocalUtcWrap::CUtc(dt.add(Duration::milliseconds(milliseconds as i64))),
+            };
+            DateTime(next)
         }
 
         pub(crate) fn to_cdt_with_offset(&self) -> CDT<FixedOffset> {
@@ -209,8 +425,8 @@ pub mod DateTime_ {
 
 #[cfg(feature = "date")]
 pub mod DateTimeOffset_ {
-    use crate::{String_::string, DateTime_::DateTime};
-    use chrono::{DateTime as CDT, TimeZone, Utc, NaiveDateTime, FixedOffset};
+    use crate::{DateTime_::DateTime, String_::string};
+    use chrono::{DateTime as CDT, FixedOffset, NaiveDateTime, TimeZone, Utc};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct DateTimeOffset(CDT<FixedOffset>);
@@ -239,7 +455,25 @@ pub mod TimeSpan_ {
     use chrono::{DateTime as CDT, TimeZone, Utc};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct TimeSpan;
+    pub struct TimeSpan{
+        ticks: i64
+    }
+    const num_ticks_per_second: i64 = 10_000_000;
+
+    pub fn new_from_ticks(ticks:i64) -> TimeSpan {
+        TimeSpan {ticks: ticks}
+    }
+
+    impl TimeSpan {
+        pub fn total_seconds(&self) -> f64 {
+            (self.ticks / num_ticks_per_second) as f64
+        }
+
+        pub fn total_milliseconds(&self) -> f64 {
+            let num_ticks_per_millisecond = num_ticks_per_second / 1000;
+            (self.ticks / num_ticks_per_millisecond) as f64
+        }
+    }
 
     // impl core::fmt::Display for TimeSpan {
     //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
