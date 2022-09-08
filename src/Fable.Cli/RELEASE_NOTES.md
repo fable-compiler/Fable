@@ -1,3 +1,10 @@
+### 4.0.0-snake-island-alpha-026
+
+* Rust, more dates, @alexswan10k
+* Python, fix slice of string statements, @dbrattli
+* Python add task RunSynchronously, @dbrattli
+* Rust, ade startup an opt-in dependency, @ncave
+
 ### 4.0.0-snake-island-alpha-025
 
 * Added IsInternal and IsPrivate properties in AST, @ncave
