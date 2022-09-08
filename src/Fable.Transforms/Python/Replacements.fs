@@ -2830,7 +2830,10 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.LibCall(com, "map_util", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "Add", _ ->
-        Helper.LibCall(com, "map_util", "addToDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, "map_util", "add_to_dict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "Remove", _ ->
+        Helper.LibCall(com, "map_util", "remove_from_dict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Item", _ ->
         Helper.LibCall(com, "map_util", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -2839,8 +2842,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                     "get_Keys", "keys"
                     "get_Values", "values"
                     "ContainsKey", "has"
-                    "Clear", "clear"
-                    "Remove", "delete" ]
+                    "Clear", "clear" ]
                   methName,
       Some c ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r)

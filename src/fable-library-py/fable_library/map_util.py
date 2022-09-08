@@ -60,7 +60,6 @@ if TYPE_CHECKING:
     class FSharpMap(Dict[_K, _V]):
         ...
 
-
 else:
     from .map import FSharpMap
 
@@ -80,6 +79,14 @@ def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
         )
 
     di[k] = v
+
+
+def remove_from_dict(di: Dict[_K, Any], k: _K) -> bool:
+    if k in di:
+        del di[k]
+        return True
+
+    return False
 
 
 def try_get_value(
