@@ -5,11 +5,10 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-snake-island-alpha-026</PackageVersion>
-    <PackageReleaseNotes>* Rust, more dates, @alexswan10k
-* Python, fix slice of string statements, @dbrattli
-* Python add task RunSynchronously, @dbrattli
-* Rust, ade startup an opt-in dependency, @ncave</PackageReleaseNotes>
+    <PackageVersion>4.0.0-theta-001</PackageVersion>
+    <PackageReleaseNotes>* JSX, enable dynamic children
+* Python, fix dict remove
+* Rust, updated module visibility</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

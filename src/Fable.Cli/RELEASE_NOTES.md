@@ -1,3 +1,9 @@
+### 4.0.0-theta-001
+
+* JSX, enable dynamic children
+* Python, fix dict remove
+* Rust, updated module visibility
+
 ### 4.0.0-snake-island-alpha-026
 
 * Rust, more dates, @alexswan10k

@@ -1,6 +1,6 @@
-### 4.0.0-beta-001
+### 4.0.0-theta-001
 
-* Fable 4 beta release
+* Fable 4 theta release
 
 ### 4.0.0-snake-island-alpha-007
 
