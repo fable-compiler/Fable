@@ -85,24 +85,23 @@ module tests =
                t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
             |> equal 180122004.0
 
-//         [<Fact>]
-//         let ``TimeSpan components work`` () =
-//             let t = TimeSpan.FromMilliseconds(96441615.)
-//             t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
-//             |> equal 686.
+        // [<Fact>]
+        // let ``TimeSpan components work`` () =
+        //     let t = TimeSpan.FromMilliseconds(96441615.)
+        //     t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
+        //     |> equal 686.
 
-//         [<Fact>]
-//         let ``TimeSpan.Ticks works`` () =
-//             let t = TimeSpan.FromTicks(20000L)
-//             t.Ticks
-//             |> equal 20000L
+        [<Fact>]
+        let ``TimeSpan.Ticks works`` () =
+            let t = TimeSpan.FromTicks(20000L)
+            t.Ticks
+            |> equal 20000L
 
-//         // NOTE: This test fails because of very small fractions, so I cut the fractional part
-//         [<Fact>]
-//         let ``TimeSpan totals work`` () =
-//             let t = TimeSpan.FromMilliseconds(96441615.)
-//             t.TotalDays + t.TotalHours + t.TotalMinutes + t.TotalSeconds |> floor
-//             |> equal 98076.0
+        [<Fact>]
+        let ``TimeSpan totals work`` () =
+            let t = TimeSpan.FromMilliseconds(96441615.)
+            t.TotalDays + t.TotalHours + t.TotalMinutes + t.TotalSeconds |> floor
+            |> equal 98076.0
 
 //         [<Fact>]
 //         let ``TimeSpan.Duration works`` () =

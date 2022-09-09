@@ -5,15 +5,20 @@ pub mod TimeSpan_ {
     pub struct TimeSpan{
         ticks: i64
     }
+    pub(crate) const num_ticks_per_microsecond: i64 = 10;
+    pub(crate) const num_ticks_per_millisecond: i64 = 10_000;
     pub(crate) const num_ticks_per_second: i64 = 10_000_000;
+    pub(crate) const num_ticks_per_minute: i64 = num_ticks_per_second * 60;
+    pub(crate) const num_ticks_per_hour: i64 = num_ticks_per_minute * 60;
+    pub(crate) const num_ticks_per_day: i64 = num_ticks_per_hour * 24;
 
     pub fn new_ticks(ticks:i64) -> TimeSpan {
         TimeSpan {ticks: ticks}
     }
 
     pub fn new_hms(h: i32, m: i32, s: i32) -> TimeSpan {
-        let hoursTicks = (h as i64) * num_ticks_per_second * 60 * 60;
-        let minsTicks = (m as i64) * num_ticks_per_second * 60;
+        let hoursTicks = (h as i64) * num_ticks_per_hour;
+        let minsTicks = (m as i64) * num_ticks_per_minute;
         let secTicks = (s as i64) * num_ticks_per_second;
         new_ticks(hoursTicks + minsTicks + secTicks)
     }
@@ -25,10 +30,10 @@ pub mod TimeSpan_ {
 
     pub fn new_dhmsms(d: i32, h: i32, m: i32, s: i32, ms: i32) -> TimeSpan {
         let hours = (d * 24 + h) as i64;
-        let hoursTicks = hours * num_ticks_per_second * 60 * 60;
-        let minsTicks = (m as i64) * num_ticks_per_second * 60;
+        let hoursTicks = hours * num_ticks_per_hour;
+        let minsTicks = (m as i64) * num_ticks_per_minute;
         let secTicks = (s as i64) * num_ticks_per_second;
-        let msTicks = (ms as i64) * num_ticks_per_second / 1000;
+        let msTicks = (ms as i64) * num_ticks_per_millisecond;
         new_ticks(hoursTicks + minsTicks + secTicks + msTicks)
     }
 
@@ -53,12 +58,8 @@ pub mod TimeSpan_ {
     }
 
     pub fn from_milliseconds(ms: f64) -> TimeSpan {
-        let ticks_per_ms = num_ticks_per_second / 1000;
-        TimeSpan { ticks: (ms * (ticks_per_ms as f64)) as i64 }
+        TimeSpan { ticks: (ms * (num_ticks_per_millisecond as f64)) as i64 }
     }
-
-
-
 
     impl TimeSpan {
         pub fn total_seconds(&self) -> f64 {
@@ -66,8 +67,26 @@ pub mod TimeSpan_ {
         }
 
         pub fn total_milliseconds(&self) -> f64 {
-            let num_ticks_per_millisecond = num_ticks_per_second / 1000;
             (self.ticks / num_ticks_per_millisecond) as f64
+        }
+
+        pub fn total_days(&self) -> f64 {
+            let days = self.ticks as f64 / num_ticks_per_day as f64;
+            days
+        }
+
+        pub fn total_hours(&self) -> f64 {
+            let hours = self.ticks as f64 / num_ticks_per_hour as f64;
+            hours
+        }
+
+        pub fn total_minutes(&self) -> f64 {
+            let minutes = self.ticks as f64 / num_ticks_per_minute as f64;
+            minutes
+        }
+
+        pub fn ticks(&self) -> i64 {
+            self.ticks
         }
     }
 
