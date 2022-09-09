@@ -37,6 +37,13 @@ from .task import TaskCompletionSource
 _T = TypeVar("_T")
 
 
+def cancellation_token() -> Async[CancellationToken]:
+    def cont(ctx: IAsyncContext[Any]):
+        ctx.on_success(ctx.cancel_token)
+
+    return protected_cont(cont)
+
+
 default_cancellation_token = CancellationToken()
 
 # see AsyncBuilder.Delay
@@ -294,6 +301,7 @@ __all__ = [
     "await_task",
     "cancel",
     "cancel_after",
+    "cancellation_token",
     "catch_async",
     "create_cancellation_token",
     "from_continuations",
