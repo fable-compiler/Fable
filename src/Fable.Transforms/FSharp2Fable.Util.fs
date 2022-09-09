@@ -319,6 +319,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         member _.CompiledName = ent.CompiledName
         member _.FullName = FsEnt.FullName ent
 
+        member _.DeclaringEntity = ent.DeclaringEntity |> Option.map FsEnt.Ref
+
         member _.BaseType =
             match TypeHelpers.tryGetBaseEntity ent with
             | Some(baseEntity, baseGenArgs) -> Some(upcast FsDeclaredType(baseEntity, baseGenArgs))

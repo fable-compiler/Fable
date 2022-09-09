@@ -1282,7 +1282,7 @@ module Items =
 
     let mkItemWithVis isInternal isPrivate item: Item =
         if isPrivate then
-            item // default is INHERITED_VIS
+            item // INHERITED_VIS
         elif isInternal then
             item |> mkPublicCrateItem
         else

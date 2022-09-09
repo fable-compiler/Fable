@@ -127,6 +127,7 @@ type Entity =
     abstract DisplayName: string
     abstract CompiledName: string
     abstract FullName: string
+    abstract DeclaringEntity: EntityRef option
     abstract Attributes: Attribute seq
     abstract BaseType: DeclaredType option
     abstract AllInterfaces: DeclaredType seq
