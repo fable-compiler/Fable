@@ -1159,7 +1159,7 @@ let ``Curried function options work`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
 [<Fact>]
 let ``Applying function options works`` () =
-    Pointful.testFunctionOptions
+    Pointful.testFunctionOptions ()
 
 [<Fact>]
 let ``Point-free and partial application work`` () = // See #1199
@@ -1200,7 +1200,7 @@ let ``Uncurried functions in record fields can be partially applied`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
 [<Fact>]
 let ``Applicative operators work with three-argument functions``() =
-    Results.testOperatorsWith3Args
+    Results.testOperatorsWith3Args ()
 
 [<Fact>]
 let ``partialApply works with tuples`` () =

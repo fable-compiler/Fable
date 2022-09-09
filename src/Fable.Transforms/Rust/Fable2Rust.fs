@@ -3397,8 +3397,7 @@ module Util =
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx memb.Attributes
         let fnItem = mkFnItem attrs name kind
-        let fnItem = fnItem |> mkItemWithVis memb.IsInternal memb.IsPrivate
-        [fnItem]
+        fnItem
 
     let transformModuleMember (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         // Module let bindings look like this:
@@ -3438,8 +3437,7 @@ module Util =
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnItem attrs name fnKind
-        let fnItem = fnItem |> mkItemWithVis memb.IsInternal memb.IsPrivate
-        [fnItem]
+        fnItem
 
     // // is the member return type the same as the entity
     // let isFluentMemberType (ent: Fable.Entity) = function
@@ -3568,8 +3566,7 @@ module Util =
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let enumItem = mkEnumItem attrs entName variants generics
-        let enumItem = enumItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
-        [enumItem]
+        enumItem
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
@@ -3589,8 +3586,7 @@ module Util =
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [mkAttr "derive" (makeDerivedFrom com ent)]
         let structItem = mkStructItem attrs entName fields generics
-        let structItem = structItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
-        [structItem]
+        structItem
 
     let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
@@ -3604,7 +3600,7 @@ module Util =
         let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)
         let memb = com.GetMember(memberRef)
         let fnItem = transformAssocMember com ctx memb entName idents body
-        let fnItem = fnItem |> mkAssocItemWithVis ent.IsInternal ent.IsPrivate
+        let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 
     let transformPrimaryConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
@@ -3650,7 +3646,7 @@ module Util =
                                 |> Set.ofList }
         let memb = com.GetMember(ctor.MemberRef)
         let fnItem = transformAssocMember com ctx memb ctor.Name ctor.Args ctor.Body
-        let fnItem = fnItem |> mkAssocItemWithVis memb.IsInternal memb.IsPrivate
+        let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 
     let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) =
@@ -3677,8 +3673,7 @@ module Util =
         let generics = getEntityGenArgs ent |> makeGenerics com ctx
         let entName = splitLast ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
-        let traitItem = traitItem |> mkItemWithVis ent.IsInternal ent.IsPrivate
-        [traitItem]
+        [traitItem |> mkPublicItem]
 
     let makeDisplayTraitImpl com ctx self_ty genArgs =
         // expected output:
@@ -3721,7 +3716,7 @@ module Util =
             let memb = com.GetMember(m.MemberRef)
             let memberItem = transformAssocMember com ctx memb m.Name m.Args m.Body
             if withVis
-            then memberItem |> mkAssocItemWithVis memb.IsInternal memb.IsPrivate
+            then memberItem |> memberAssocItemWithVis com ctx memb
             else memberItem
 
     let objectMethodsSet =
@@ -3875,12 +3870,13 @@ module Util =
             then []
             else transformInterface com ctx ent
         else
-            let memberDecls = transformClassMembers com ctx decl
-            let entityDecls =
+            let entityItem =
                 if ent.IsFSharpUnion
                 then transformUnion com ctx ent
                 else transformClass com ctx ent
-            entityDecls @ memberDecls
+                |> entityItemWithVis com ctx ent
+            let memberItems = transformClassMembers com ctx decl
+            entityItem :: memberItems
 
 (*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -3979,6 +3975,29 @@ module Util =
         ]
 *)
 
+    let getVis (com: IRustCompiler) ctx declaringEntity isInternal isPrivate =
+        // If the declaring entity is internal or private, it affects
+        // default member visibility, so we need to compensate for that.
+        match declaringEntity |> Option.bind com.TryGetEntity with
+        | Some declaringEnt ->
+            let isInternal = isInternal && not (declaringEnt.IsInternal)
+            let isPrivate = isPrivate && not (declaringEnt.IsPrivate)
+            isInternal, isPrivate
+        | _ ->
+            isInternal, isPrivate
+
+    let entityItemWithVis com ctx (ent: Fable.Entity) entityItem =
+        let isInternal, isPrivate = getVis com ctx ent.DeclaringEntity ent.IsInternal ent.IsPrivate
+        entityItem |> mkItemWithVis isInternal isPrivate
+
+    let memberItemWithVis com ctx (memb: Fable.MemberFunctionOrValue) memberItem =
+        let isInternal, isPrivate = getVis com ctx memb.DeclaringEntity memb.IsInternal memb.IsPrivate
+        memberItem |> mkItemWithVis isInternal isPrivate
+
+    let memberAssocItemWithVis com ctx (memb: Fable.MemberFunctionOrValue) memberAssocItem =
+        let isInternal, isPrivate = getVis com ctx memb.DeclaringEntity memb.IsInternal memb.IsPrivate
+        memberAssocItem |> mkAssocItemWithVis isInternal isPrivate
+
     let transformModuleDecl (com: IRustCompiler) ctx (decl: Fable.ModuleDecl) =
         let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
         let memberDecls =
@@ -4009,7 +4028,17 @@ module Util =
             let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls
             let modItem = modDecls |> mkModItem attrs decl.Name
-            [modItem |> mkPublicItem]
+            let modItem = modItem |> entityItemWithVis com ctx ent
+            [modItem]
+
+    let transformMemberDecl (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
+        let memb = com.GetMember(decl.MemberRef)
+        let memberItem =
+            if memb.IsValue
+            then transformModuleMember com ctx memb decl
+            else transformModuleFunction com ctx memb decl
+        let memberItem = memberItem |> memberItemWithVis com ctx memb
+        [memberItem]
 
     let transformDecl (com: IRustCompiler) ctx decl =
         match decl with
@@ -4021,10 +4050,7 @@ module Util =
                 transformModuleAction com ctx decl.Body
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                let memb = com.GetMember(decl.MemberRef)
-                if memb.IsValue
-                then transformModuleMember com ctx memb decl
-                else transformModuleFunction com ctx memb decl
+                transformMemberDecl com ctx decl
         | Fable.ClassDeclaration decl ->
             transformClassDecl com ctx decl
 
