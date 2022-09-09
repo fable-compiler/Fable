@@ -1,6 +1,7 @@
 module Fable.Tests.ResizeArrays
 
 open Util.Testing
+open System.Text
 
 type Animal = Duck of int | Dog of int
 
@@ -292,6 +293,14 @@ let ``test ResizeArray.ToArray works`` () =
     ar[0] <- 2.
     equal 3. li[0]
     equal 2. ar[0]
+
+[<Fact>]
+let ``test ResizeArray<byte>.ToArray works`` () =
+    let li = ResizeArray<byte>()
+    li.Add(0x66uy); li.Add(0x61uy); li.Add(0x62uy); li.Add(0x6cuy); li.Add(0x65uy)
+    let ar = li.ToArray()
+    let text = ar |> Encoding.UTF8.GetString
+    equal text "fable"
 
 [<Fact>]
 let ``test ResizeArray.Item is undefined when index is out of range`` () =
