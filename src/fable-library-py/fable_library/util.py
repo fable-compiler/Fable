@@ -684,7 +684,7 @@ def partial_apply(
 
 
 def is_array_like(x: Any) -> bool:
-    return isinstance(x, (list, tuple, set, array))
+    return isinstance(x, (list, tuple, set, array, bytes, bytearray))
 
 
 def is_disposable(x: Any) -> bool:
