@@ -3173,10 +3173,13 @@ module Util =
             match ctx.TailCallOpportunity with
             | Some tc ->
                 tc.Args
-                |> List.map (fun arg ->
+                |> List.choose (fun arg ->
                     let (Identifier name) = arg.Arg
                     let name = name.Substring(0, name.Length - 4)
-                    Arg.arg (name, ?annotation = arg.Annotation), Expression.name (name))
+                    match name with
+                    | "tupled_arg_m" -> None // Remove these arguments (not sure why)
+                    | _ ->
+                        (Arg.arg (name, ?annotation = arg.Annotation), Expression.name (name)) |> Some)
                 |> List.unzip
             | _ -> [], []
 
