@@ -55,35 +55,35 @@ module tests =
 //         //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
 //         //     |> equal "03:54:00"
 
-//         [<Fact>]
-//         let ``TimeSpan constructors work`` () =
-//             let t1 = TimeSpan(20000L)
-//             let t2 = TimeSpan(3, 3, 3)
-//             let t3 = TimeSpan(5, 5, 5, 5)
-//             let t4 = TimeSpan(7, 7, 7, 7, 7)
-//             let t5 = TimeSpan(-2,0,0,0)
+        [<Fact>]
+        let ``TimeSpan constructors work`` () =
+            let t1 = TimeSpan(20000L)
+            let t2 = TimeSpan(3, 3, 3)
+            let t3 = TimeSpan(5, 5, 5, 5)
+            let t4 = TimeSpan(7, 7, 7, 7, 7)
+            let t5 = TimeSpan(-2,0,0,0)
 
-//             t1.TotalMilliseconds |> equal 2.0
-//             t2.TotalMilliseconds |> equal 10983000.0
-//             t3.TotalMilliseconds |> equal 450305000.0
-//             t4.TotalMilliseconds |> equal 630427007.0
-//             t5.TotalMilliseconds |> equal -172800000.0
+            t1.TotalMilliseconds |> equal 2.0
+            t2.TotalMilliseconds |> equal 10983000.0
+            t3.TotalMilliseconds |> equal 450305000.0
+            t4.TotalMilliseconds |> equal 630427007.0
+            t5.TotalMilliseconds |> equal -172800000.0
 
-//             t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
-//             |> equal 1091715009.0
+            t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
+            |> equal 1091715009.0
 
-//         [<Fact>]
-//         let ``TimeSpan static creation works`` () =
-//             let t1 = TimeSpan.FromTicks(20000L)
-//             let t2 = TimeSpan.FromMilliseconds(2.)
-//             let t3 = TimeSpan.FromDays   (2.)
-//             let t4 = TimeSpan.FromHours  (2.)
-//             let t5 = TimeSpan.FromMinutes(2.)
-//             let t6 = TimeSpan.FromSeconds(2.)
-//             let t7 = TimeSpan.Zero
-//             t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds +
-//                t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
-//             |> equal 180122004.0
+        [<Fact>]
+        let ``TimeSpan static creation works`` () =
+            let t1 = TimeSpan.FromTicks(20000L)
+            let t2 = TimeSpan.FromMilliseconds(2.)
+            let t3 = TimeSpan.FromDays   (2.)
+            let t4 = TimeSpan.FromHours  (2.)
+            let t5 = TimeSpan.FromMinutes(2.)
+            let t6 = TimeSpan.FromSeconds(2.)
+            let t7 = TimeSpan.FromSeconds 0. //TimeSpan.Zero - todo zero not working
+            t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds +
+               t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
+            |> equal 180122004.0
 
 //         [<Fact>]
 //         let ``TimeSpan components work`` () =

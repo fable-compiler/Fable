@@ -5,6 +5,8 @@ open Fable.Core.Rust
 let _imports() =
     importAll "./Async.rs"
     importAll "./DateTime.rs"
+    importAll "./DateTimeOffset.rs"
+    importAll "./TimeSpan.rs"
     importAll "./Decimal.rs"
     importAll "./Func.rs"
     importAll "./Guid.rs"

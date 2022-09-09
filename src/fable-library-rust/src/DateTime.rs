@@ -54,7 +54,7 @@ pub mod DateTime_ {
     }
 
     pub fn op_Subtraction(a: DateTime, b: DateTime) -> TimeSpan {
-        crate::TimeSpan_::new_from_ticks(get_ticks(a) - get_ticks(b))
+        crate::TimeSpan_::new_ticks(get_ticks(a) - get_ticks(b))
     }
 
     pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
@@ -426,63 +426,4 @@ pub mod DateTime_ {
     }
 
     pub fn year() {}
-}
-
-#[cfg(feature = "date")]
-pub mod DateTimeOffset_ {
-    use crate::{DateTime_::DateTime, String_::string};
-    use chrono::{DateTime as CDT, FixedOffset, NaiveDateTime, TimeZone, Utc};
-
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct DateTimeOffset(CDT<FixedOffset>);
-
-    pub fn from_date(d: DateTime) -> DateTimeOffset {
-        let cdto = d.to_cdt_with_offset();
-        DateTimeOffset(cdto)
-    }
-
-    impl DateTimeOffset {
-        pub(crate) fn get_cdt_with_offset(&self) -> CDT<FixedOffset> {
-            self.0
-        }
-    }
-
-    // impl core::fmt::Display for DateTimeOffset {
-    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    //         write!(f, "{}", self.0.to_string())
-    //     }
-    // }
-}
-
-#[cfg(feature = "date")]
-pub mod TimeSpan_ {
-    use crate::String_::string;
-    use chrono::{DateTime as CDT, TimeZone, Utc};
-
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct TimeSpan{
-        ticks: i64
-    }
-    pub(crate) const num_ticks_per_second: i64 = 10_000_000;
-
-    pub fn new_from_ticks(ticks:i64) -> TimeSpan {
-        TimeSpan {ticks: ticks}
-    }
-
-    impl TimeSpan {
-        pub fn total_seconds(&self) -> f64 {
-            (self.ticks / num_ticks_per_second) as f64
-        }
-
-        pub fn total_milliseconds(&self) -> f64 {
-            let num_ticks_per_millisecond = num_ticks_per_second / 1000;
-            (self.ticks / num_ticks_per_millisecond) as f64
-        }
-    }
-
-    // impl core::fmt::Display for TimeSpan {
-    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    //         write!(f, "{}", self.0.to_string())
-    //     }
-    // }
 }
