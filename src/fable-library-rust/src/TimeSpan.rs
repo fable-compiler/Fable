@@ -13,8 +13,8 @@ pub mod TimeSpan_ {
     pub const ticks_per_day: i64 = ticks_per_hour * 24;
 
     pub const zero: TimeSpan = TimeSpan { ticks: 0 };
-    pub const max_value: TimeSpan = TimeSpan { ticks: i64::MIN };
-    pub const min_value: TimeSpan = TimeSpan { ticks: i64::MAX };
+    pub const min_value: TimeSpan = TimeSpan { ticks: i64::MIN };
+    pub const max_value: TimeSpan = TimeSpan { ticks: i64::MAX };
 
     pub fn new_ticks(ticks:i64) -> TimeSpan {
         TimeSpan {ticks: ticks}
