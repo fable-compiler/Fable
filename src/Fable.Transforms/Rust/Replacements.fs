@@ -62,7 +62,7 @@ let error (msg: Expr) = msg
 let coreModFor = function
     | BclGuid -> "Guid"
     | BclDateTime -> "DateTime"
-    | BclDateTimeOffset -> "DateOffset"
+    | BclDateTimeOffset -> "DateTimeOffset"
     | BclTimer -> "Timer"
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
@@ -647,11 +647,11 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
     | Array(typ,_) -> makeArray typ []
-    | Builtin BclTimeSpan -> Helper.LibCall(com, "TimeSpan", "zero", t, [])
+    | Builtin BclTimeSpan -> Helper.LibValue(com, "TimeSpan", "zero", t)
     | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "min_value", t, [])
-    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateOffset", "min_value", t, [])
+    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "min_value", t, [])
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
-    | Builtin BclGuid -> Helper.LibCall(com, "Guid", "empty", t, [])
+    | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin (BclKeyValuePair(k,v)) ->
         makeTuple None true [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
@@ -2446,7 +2446,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
                 "new_dhmsms"
             | _ -> "new"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
+    // | "Zero" etc. -> // for static fields, see tryField
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
@@ -2915,12 +2915,16 @@ let tryField com returnTyp ownerTyp fieldName =
         Helper.LibValue(com, "Decimal", fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" ->
-        Helper.LibCall(com, "Guid", "empty", returnTyp, []) |> Some
-    | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
-    | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
-        Helper.LibCall(com, coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, []) |> Some
-    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
-        Helper.LibCall(com, coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, []) |> Some
+        Helper.LibValue(com, "Guid", "empty", returnTyp) |> Some
+    | Builtin BclTimeSpan, _ ->
+        let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        Helper.LibValue(com, "TimeSpan", meth, returnTyp) |> Some
+    | Builtin BclDateTime, _->
+        let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        Helper.LibCall(com, "DateTime", meth, returnTyp, []) |> Some
+    | Builtin BclDateTimeOffset, _ ->
+        let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        Helper.LibCall(com, "DateTimeOffset", meth, returnTyp, []) |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with
         | "System.BitConverter" ->

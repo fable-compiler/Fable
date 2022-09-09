@@ -4,11 +4,12 @@ pub mod DateTime_ {
 
     use crate::{
         DateTimeOffset_::DateTimeOffset,
-        String_::{string, stringFrom}, TimeSpan_::{TimeSpan, num_ticks_per_second},
+        String_::{string, stringFrom},
+        TimeSpan_::{TimeSpan, ticks_per_second},
     };
     use chrono::{
-        DateTime as CDT, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, TimeZone,
-        Timelike, Utc, Duration,
+        DateTime as CDT, Datelike, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime,
+        Offset, TimeZone, Timelike, Utc
     };
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -118,13 +119,17 @@ pub mod DateTime_ {
         DateTime(LocalUtcWrap::CLocal(Local::now()))
     }
 
-    pub fn minValue() -> DateTime {
+    pub fn min_value() -> DateTime {
         DateTime(LocalUtcWrap::CUtc(CDT::<Utc>::MIN_UTC))
     }
 
-    pub fn maxValue() -> DateTime {
+    pub fn max_value() -> DateTime {
         DateTime(LocalUtcWrap::CUtc(CDT::<Utc>::MAX_UTC))
     }
+
+    // pub fn unix_epoch() -> DateTime {
+    //     DateTime(LocalUtcWrap::CUtc(CDT::<Utc>::...))
+    // }
 
     pub fn compare(x: DateTime, y: DateTime) -> i32 {
         if x > y {
@@ -154,9 +159,9 @@ pub mod DateTime_ {
     // as per docs here:
     // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
     fn get_ticks_from_ndt(ndt: NaiveDateTime) -> i64 {
-        let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * num_ticks_per_second;
-        let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * num_ticks_per_second;
-        let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000;
+        let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * ticks_per_second;
+        let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * ticks_per_second;
+        let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * ticks_per_second / 1000;
         dayTicks + secondsTicks + subsecondTicks
     }
 
@@ -411,7 +416,7 @@ pub mod DateTime_ {
         }
 
         pub fn add_ticks(&self, ticks: i64) -> DateTime {
-            let ticks_per_ms = num_ticks_per_second / 1000;
+            let ticks_per_ms = ticks_per_second / 1000;
             let ms = ticks / ticks_per_ms;
             self.add_milliseconds(ms as f64)
         }
