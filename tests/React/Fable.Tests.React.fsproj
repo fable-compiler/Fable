@@ -8,11 +8,11 @@
     <Compile Include="__tests__/Tests.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
     <PackageReference Include="Fable.FluentUI" Version="0.7.0" />
     <PackageReference Include="Fable.Jester" Version="0.33.0" />
     <PackageReference Include="Fable.React" Version="8.0.1" />
     <PackageReference Include="Fable.ReactTestingLibrary" Version="0.33.0" />
-    <PackageReference Include="Feliz" Version="1.68.0" />
-    <PackageReference Include="Feliz.CompilerPlugins" Version="2.0.0-prerelease-002" />
+    <PackageReference Include="Feliz" Version="2.0.0-prerelease-002" />
   </ItemGroup>
 </Project>

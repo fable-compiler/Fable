@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.12.1",
+    "@babel/plugin-transform-react-jsx": "^7.19.0",
     "@fluentui/react": "^8.49.2",
     "@testing-library/jest-dom": "^5.11.6",
     "@testing-library/react": "^11.2.2",
