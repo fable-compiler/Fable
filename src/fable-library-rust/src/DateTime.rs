@@ -4,7 +4,7 @@ pub mod DateTime_ {
 
     use crate::{
         DateTimeOffset_::DateTimeOffset,
-        String_::{string, stringFrom}, TimeSpan_::TimeSpan,
+        String_::{string, stringFrom}, TimeSpan_::{TimeSpan, num_ticks_per_second},
     };
     use chrono::{
         DateTime as CDT, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, TimeZone,
@@ -154,7 +154,6 @@ pub mod DateTime_ {
     // as per docs here:
     // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
     fn get_ticks_from_ndt(ndt: NaiveDateTime) -> i64 {
-        const num_ticks_per_second: i64 = 10_000_000;
         let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * num_ticks_per_second;
         let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * num_ticks_per_second;
         let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000;
@@ -411,6 +410,12 @@ pub mod DateTime_ {
             DateTime(next)
         }
 
+        pub fn add_ticks(&self, ticks: i64) -> DateTime {
+            let ticks_per_ms = num_ticks_per_second / 1000;
+            let ms = ticks / ticks_per_ms;
+            self.add_milliseconds(ms as f64)
+        }
+
         pub(crate) fn to_cdt_with_offset(&self) -> CDT<FixedOffset> {
             match &self.0 {
                 LocalUtcWrap::CUnspecified(dt) => Utc.from_utc_datetime(&dt).into(),
@@ -458,7 +463,7 @@ pub mod TimeSpan_ {
     pub struct TimeSpan{
         ticks: i64
     }
-    const num_ticks_per_second: i64 = 10_000_000;
+    pub(crate) const num_ticks_per_second: i64 = 10_000_000;
 
     pub fn new_from_ticks(ticks:i64) -> TimeSpan {
         TimeSpan {ticks: ticks}

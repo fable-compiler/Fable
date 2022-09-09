@@ -2424,13 +2424,6 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "DateTime", "get_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     | "get_UtcTicks" ->
         Helper.LibCall(com, "DateTimeOffset", "get_utc_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "AddTicks" ->
-        match thisArg, args with
-        | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, NumberInfo.Empty)])
-            let ms = Helper.LibCall(com, "Long", "to_number", Number(Float64, NumberInfo.Empty), [ms], [ms.Type])
-            Helper.LibCall(com, moduleName, "add_milliseconds", Number(Float64, NumberInfo.Empty), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
-        | _ -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
