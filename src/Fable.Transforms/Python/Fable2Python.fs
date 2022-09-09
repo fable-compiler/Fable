@@ -2775,6 +2775,9 @@ module Util =
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, range) ->
             transformAsSlice com ctx expr info
 
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, _, range) ->
+            transformAsArray com ctx expr info
+
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = name }, _, _), _info, _, _range) when name.ToLower() = "tostring" ->
             let func = Expression.name "str"
             let left, stmts = com.TransformAsExpr(ctx, expr)
@@ -2887,6 +2890,35 @@ module Util =
 
         Expression.subscript (left, slice), stmts @ stmts'
 
+    let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
+        let value, stmts = com.TransformAsExpr(ctx, expr)
+
+        match expr.Type with
+        | Fable.Type.Array (typ, Fable.ArrayKind.ResizeArray) ->
+            let letter =
+                match typ with
+                | Fable.Type.Number (UInt8, _) -> Some "B"
+                | Fable.Type.Number (Int8, _) -> Some "b"
+                | Fable.Type.Number (Int16, _) -> Some "h"
+                | Fable.Type.Number (UInt16, _) -> Some "H"
+                | Fable.Type.Number (Int32, _) -> Some "l"
+                | Fable.Type.Number (UInt32, _) -> Some "L"
+                | Fable.Type.Number (Int64, _) -> Some "q"
+                | Fable.Type.Number (UInt64, _) -> Some "Q"
+                | Fable.Type.Number (Float32, _) -> Some "f"
+                | Fable.Type.Number (Float64, _) -> Some "d"
+                | _ -> None
+
+            match letter with
+            | Some "B" ->
+                let bytearray = Expression.name "bytearray"
+                Expression.call (bytearray, [ value ]), stmts
+            | Some l ->
+                let array = com.GetImportExpr(ctx, "array", "array")
+                Expression.call (array, Expression.constant l :: [ value ]), stmts
+            | _ -> transformAsSlice com ctx expr info
+        | _ -> transformAsSlice com ctx expr info
+
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
         // printfn "transformAsStatements: %A" expr
         match expr with
@@ -2959,6 +2991,9 @@ module Util =
 
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, typ, range) ->
             let expr, stmts = transformAsSlice com ctx expr info
+            stmts @ resolveExpr ctx typ returnStrategy expr
+         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, typ, range) ->
+            let expr, stmts = transformAsArray com ctx expr info
             stmts @ resolveExpr ctx typ returnStrategy expr
         | Fable.Call (callee, info, typ, range) -> transformCallAsStatements com ctx range typ returnStrategy callee info
 

@@ -1987,7 +1987,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "array", "sortInPlace", t, [ ar; arg ], i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToArray", Some ar, [] ->
-        Helper.InstanceCall(ar, "slice", t, args, ?loc = r)
+        Helper.InstanceCall(ar, "to_array", t, args, ?loc = r)
         |> Some
     | _ -> None
 
