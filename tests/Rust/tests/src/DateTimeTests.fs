@@ -62,19 +62,20 @@ let ``DateTime UTC from Year 1 to 99 works`` () =
     let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
     date.Year |> equal 99
 
-// TODO: These two tests give different values for .NET and JS because DateTime
-// becomes as a plain JS Date object, so I'm just checking the fields get translated
+[<Fact>]
+let ``DateTime.UnixEpoch works`` () =
+    let dt = DateTime.UnixEpoch
+    dt.Ticks |> equal 621355968000000000L
+
 [<Fact>]
 let ``DateTime.MaxValue works`` () =
-    let d1 = DateTime.Now
-    let d2 = DateTime.MaxValue
-    d1 < d2 |> equal true
+    let dt = DateTime.MaxValue
+    dt.Ticks |> equal 3155378975999999999L
 
 [<Fact>]
 let ``DateTime.MinValue works`` () =
-    let d1 = DateTime.Now
-    let d2 = DateTime.MinValue
-    d1 < d2 |> equal false
+    let dt = DateTime.MinValue
+    dt.Ticks |> equal 0L
 
 [<Fact>]
 let ``DateTime.MinValue works in pattern match`` () =

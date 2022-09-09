@@ -2446,7 +2446,6 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
                 "new_dhmsms"
             | _ -> "new"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "Zero" etc. -> // for static fields, see tryField
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
@@ -2461,11 +2460,12 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
             |> addError com ctx.InlinePath r
             None
+    // | "Zero" etc. -> // for static fields, see tryField
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
-        | None -> Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | None -> Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

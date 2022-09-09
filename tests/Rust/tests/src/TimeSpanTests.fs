@@ -5,7 +5,10 @@ open System.Globalization
 open Util.Testing
 
 [<Fact>]
-let ``Timespan ticks statics should work`` () =
+let ``Timespan static fields work`` () =
+    TimeSpan.Zero.Ticks |> equal 0L
+    TimeSpan.MinValue.Ticks |> equal System.Int64.MinValue
+    TimeSpan.MaxValue.Ticks |> equal System.Int64.MaxValue
     TimeSpan.TicksPerMillisecond |> equal 10000L
     TimeSpan.TicksPerSecond |> equal (10000L * 1000L)
     TimeSpan.TicksPerMinute |> equal (10000L * 1000L * 60L)
@@ -90,8 +93,7 @@ let ``TimeSpan static creation works`` () =
 [<Fact>]
 let ``TimeSpan.Ticks works`` () =
     let t = TimeSpan.FromTicks(20000L)
-    t.Ticks
-    |> equal 20000L
+    t.Ticks |> equal 20000L
 
 [<Fact>]
 let ``TimeSpan totals work`` () =
