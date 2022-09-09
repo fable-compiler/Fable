@@ -7,14 +7,12 @@ pub mod Guid_ {
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct Guid(Uuid);
 
+    pub const empty: Guid = Guid(Uuid::nil());
+
     impl core::fmt::Display for Guid {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", toString(&self.0))
         }
-    }
-
-    pub fn empty() -> Guid {
-        Guid(Uuid::nil())
     }
 
     pub fn new_guid() -> Guid {

@@ -6,6 +6,18 @@ pub mod DateTimeOffset_ {
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct DateTimeOffset(CDT<FixedOffset>);
 
+    // pub fn min_value() -> DateTimeOffset {
+    //     DateTimeOffset(CDT::<FixedOffset>::...)
+    // }
+
+    // pub fn max_value() -> v {
+    //     DateTimeOffset(CDT::<FixedOffset>::...)
+    // }
+
+    // pub fn unix_epoch() -> DateTimeOffset {
+    //     DateTimeOffset(CDT::<FixedOffset>::...)
+    // }
+
     pub fn from_date(d: DateTime) -> DateTimeOffset {
         let cdto = d.to_cdt_with_offset();
         DateTimeOffset(cdto)
