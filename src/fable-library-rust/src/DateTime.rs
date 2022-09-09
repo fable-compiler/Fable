@@ -4,7 +4,7 @@ pub mod DateTime_ {
 
     use crate::{
         DateTimeOffset_::DateTimeOffset,
-        String_::{string, stringFrom}, TimeSpan_::TimeSpan,
+        String_::{string, stringFrom}, TimeSpan_::{TimeSpan, num_ticks_per_second},
     };
     use chrono::{
         DateTime as CDT, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, TimeZone,
@@ -54,7 +54,7 @@ pub mod DateTime_ {
     }
 
     pub fn op_Subtraction(a: DateTime, b: DateTime) -> TimeSpan {
-        crate::TimeSpan_::new_from_ticks(get_ticks(a) - get_ticks(b))
+        crate::TimeSpan_::new_ticks(get_ticks(a) - get_ticks(b))
     }
 
     pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
@@ -154,7 +154,6 @@ pub mod DateTime_ {
     // as per docs here:
     // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
     fn get_ticks_from_ndt(ndt: NaiveDateTime) -> i64 {
-        const num_ticks_per_second: i64 = 10_000_000;
         let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * num_ticks_per_second;
         let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * num_ticks_per_second;
         let subsecondTicks = (ndt.timestamp_subsec_millis() as i64) * num_ticks_per_second / 1000;
@@ -411,6 +410,12 @@ pub mod DateTime_ {
             DateTime(next)
         }
 
+        pub fn add_ticks(&self, ticks: i64) -> DateTime {
+            let ticks_per_ms = num_ticks_per_second / 1000;
+            let ms = ticks / ticks_per_ms;
+            self.add_milliseconds(ms as f64)
+        }
+
         pub(crate) fn to_cdt_with_offset(&self) -> CDT<FixedOffset> {
             match &self.0 {
                 LocalUtcWrap::CUnspecified(dt) => Utc.from_utc_datetime(&dt).into(),
@@ -421,63 +426,4 @@ pub mod DateTime_ {
     }
 
     pub fn year() {}
-}
-
-#[cfg(feature = "date")]
-pub mod DateTimeOffset_ {
-    use crate::{DateTime_::DateTime, String_::string};
-    use chrono::{DateTime as CDT, FixedOffset, NaiveDateTime, TimeZone, Utc};
-
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct DateTimeOffset(CDT<FixedOffset>);
-
-    pub fn from_date(d: DateTime) -> DateTimeOffset {
-        let cdto = d.to_cdt_with_offset();
-        DateTimeOffset(cdto)
-    }
-
-    impl DateTimeOffset {
-        pub(crate) fn get_cdt_with_offset(&self) -> CDT<FixedOffset> {
-            self.0
-        }
-    }
-
-    // impl core::fmt::Display for DateTimeOffset {
-    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    //         write!(f, "{}", self.0.to_string())
-    //     }
-    // }
-}
-
-#[cfg(feature = "date")]
-pub mod TimeSpan_ {
-    use crate::String_::string;
-    use chrono::{DateTime as CDT, TimeZone, Utc};
-
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct TimeSpan{
-        ticks: i64
-    }
-    const num_ticks_per_second: i64 = 10_000_000;
-
-    pub fn new_from_ticks(ticks:i64) -> TimeSpan {
-        TimeSpan {ticks: ticks}
-    }
-
-    impl TimeSpan {
-        pub fn total_seconds(&self) -> f64 {
-            (self.ticks / num_ticks_per_second) as f64
-        }
-
-        pub fn total_milliseconds(&self) -> f64 {
-            let num_ticks_per_millisecond = num_ticks_per_second / 1000;
-            (self.ticks / num_ticks_per_millisecond) as f64
-        }
-    }
-
-    // impl core::fmt::Display for TimeSpan {
-    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    //         write!(f, "{}", self.0.to_string())
-    //     }
-    // }
 }

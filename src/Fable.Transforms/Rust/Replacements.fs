@@ -647,7 +647,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
     | Array(typ,_) -> makeArray typ []
-    | Builtin BclTimeSpan -> makeIntConst 0
+    | Builtin BclTimeSpan -> Helper.LibCall(com, "TimeSpan", "zero", t, [])
     | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "min_value", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateOffset", "min_value", t, [])
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
@@ -2424,13 +2424,6 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "DateTime", "get_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     | "get_UtcTicks" ->
         Helper.LibCall(com, "DateTimeOffset", "get_utc_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "AddTicks" ->
-        match thisArg, args with
-        | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, NumberInfo.Empty)])
-            let ms = Helper.LibCall(com, "Long", "to_number", Number(Float64, NumberInfo.Empty), [ms], [ms.Type])
-            Helper.LibCall(com, moduleName, "add_milliseconds", Number(Float64, NumberInfo.Empty), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
-        | _ -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
@@ -2441,9 +2434,19 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
-        let meth = match args with [ticks] -> "from_ticks" | _ -> "create"
+        let meth =
+            match args with
+            | ExprType(Number(Int64,_))::[] ->
+                "new_ticks"
+            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+                "new_hms"
+            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+                "new_dhms"
+            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+                "new_dhmsms"
+            | _ -> "new"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
+    // | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r

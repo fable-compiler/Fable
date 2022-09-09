@@ -453,17 +453,16 @@ module tests =
         test -100. 2.19455999e+10
         test 0. 2.19456e+10
 
-//     // NOTE: Doesn't work for values between 10000L (TimeSpan.TicksPerMillisecond) and -10000L, except 0L
-//     [<Fact>]
-//     let ``DateTime.AddTicks works`` () =
-//         let test v expected =
-//             let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddTicks(v)
-//             dt.Ticks
-//             |> equal expected
-//         let ticks = 635460768000000000L
-//         test 100000L (ticks + 100000L)
-//         test -100000L (ticks - 100000L)
-//         test 0L ticks
+    [<Fact>]
+    let ``DateTime.AddTicks works`` () =
+        let test v (expected: int64) =
+            let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddTicks(v)
+            dt.Ticks
+            |> equal expected
+        let ticks = 635460768000000000L
+        test 100000L (ticks + 100000L)
+        test -100000L (ticks - 100000L)
+        test 0L ticks
 
 //     [<Fact>]
 //     let ``DateTime Addition works`` () =
