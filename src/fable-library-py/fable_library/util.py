@@ -539,7 +539,18 @@ class IEnumerator(Iterator[_T], IDisposable):
         return self.Current()
 
 
-class IEnumerable(Iterable[_T], Protocol):
+class IEnumerable(Iterable[Any], Protocol):
+    __slots__ = ()
+
+    @abstractmethod
+    def GetEnumerator(self) -> IEnumerator[Any]:
+        ...
+
+    def __iter__(self) -> Iterator[Any]:
+        return self.GetEnumerator()
+
+
+class IEnumerable_1(Iterable[_T], Protocol):
     __slots__ = ()
 
     @abstractmethod
@@ -550,16 +561,16 @@ class IEnumerable(Iterable[_T], Protocol):
         return self.GetEnumerator()
 
 
-class ICollection(IEnumerable[_T], Protocol):
+class ICollection(IEnumerable_1[_T], Protocol):
     ...
 
 
 class IDictionary(ICollection[Tuple[_Key, _Value]], Protocol):
     @abstractmethod
-    def keys(self) -> IEnumerable[_Key]:
+    def keys(self) -> IEnumerable_1[_Key]:
         ...
 
-    def values(self) -> IEnumerable[_Value]:
+    def values(self) -> IEnumerable_1[_Value]:
         ...
 
 
