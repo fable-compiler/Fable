@@ -182,7 +182,7 @@ module Python =
                             if part = "." then None
                             elif part = ".." then Some ""
                             elif i = parts.Length - 1 then Some(normalizeFileName part)
-                            else Some part // Do not normalize dir names. See #3079
+                            else part.Replace(".", "_") |> Some // Do not lowercase dir names. See #3079
                         )
                         |> String.concat "."
                     if isLibrary then "." + path else path
