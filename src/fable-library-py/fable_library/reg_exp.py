@@ -88,7 +88,6 @@ def replace(
         replacement = re.sub(pattern=r"\$(\d+)", repl=r"\\g<\g<1>>", string=replacement)
 
     if isinstance(reg, str):
-        print("reg, replacement, input=", reg, replacement, input)
         return re.sub(input, replacement, reg, count=limit or 0)
     else:
         return input[:offset] + reg.sub(replacement, input[offset:], count=limit or 0)
@@ -104,7 +103,6 @@ def split(
         return re.split(input, reg, maxsplit=limit or 0)
 
     input = input[offset:]
-    print("reg, input: ", reg, input, limit)
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
