@@ -145,7 +145,11 @@ module private Util =
                         // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
                         let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
                         Naming.fableModules :: package :: packageModule :: modules
-                    | modules, _ -> modules
+                    | modules, _ ->
+                        modules |> List.map (fun m ->
+                            match m with
+                            | "." -> m
+                            | m -> m.Replace(".", "_"))
                     |> List.toArray
                     |> IO.Path.Join
 
