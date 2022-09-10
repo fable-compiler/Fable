@@ -870,7 +870,7 @@ module Annotation =
             fableModuleAnnotation com ctx "util" "IEnumerable" [ resolved ], stmts
         | Types.ienumerableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-            fableModuleAnnotation com ctx "util" "IEnumerable" resolved, stmts
+            fableModuleAnnotation com ctx "util" "IEnumerable_1" resolved, stmts
         | Types.iequatableGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
             fableModuleAnnotation com ctx "util" "IEquatable" [ resolved ], stmts
@@ -3835,13 +3835,12 @@ module Util =
                   |> List.filter (fun ent -> ent.FullName <> classEnt.FullName)
 
               for ref in interfaces do
-                  let entity = com.GetEntity(ref)
-                  // printfn "FullName: %A" entity.FullName
-                  match entity.FullName with
-                  | "System.IDisposable" ->
-                      let iDisposable = libValue com ctx "util" "IDisposable"
-                      iDisposable
-                  | name -> Expression.name (Helpers.removeNamespace name)
+                  let entity = com.TryGetEntity(ref)
+                  match entity with
+                  | Some entity ->
+                      let expr, stmts = makeEntityTypeAnnotation com ctx entity.Ref [] None
+                      expr
+                  | None -> ()
 
               // Only add Protocol base if no interfaces (since the included interfaces will be protocols themselves)
               if List.isEmpty interfaces then
