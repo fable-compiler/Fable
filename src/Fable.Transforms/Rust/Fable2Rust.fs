@@ -556,7 +556,7 @@ module TypeInfo =
         | _ -> false
 
     let rec tryGetIdent = function
-        | Fable.IdentExpr i -> i.Name |> Some
+        | Fable.IdentExpr ident -> ident.Name |> Some
         | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
         | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _) -> tryGetIdent expr
@@ -1782,6 +1782,7 @@ module Util =
         let implCopy = TypeImplementsCopyTrait com e.Type
         let exprIsUnreachable =
             match e with
+            | Fable.Emit _ -> true
             | Fable.Extended _ -> true
             | _ -> false
 
@@ -1805,7 +1806,7 @@ module Util =
         | Some(Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
                 match baseRef with
-                | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
+                | Fable.IdentExpr ident -> typedIdent com ctx ident |> Expression.Identifier
                 | _ -> transformExpr com ctx baseRef
             let args = transformCallArgs com ctx info.Args
             Some(baseExpr, args)
@@ -1972,8 +1973,8 @@ module Util =
 
     let transformCallee (com: IRustCompiler) ctx calleeExpr =
         match calleeExpr with
-        | Fable.IdentExpr id ->
-            transformIdent com ctx None id
+        | Fable.IdentExpr ident ->
+            transformIdent com ctx None ident
         | _ ->
             let expr = transformExpr com ctx calleeExpr
             expr |> mkParenExpr // if not an identifier, wrap it in parentheses
@@ -2765,7 +2766,7 @@ module Util =
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
-        | Fable.IdentExpr id -> transformIdentGet com ctx None id
+        | Fable.IdentExpr ident -> transformIdentGet com ctx None ident
 
         | Fable.Import(info, t, r) ->
             transformImport com ctx r t info None
