@@ -1,3 +1,11 @@
+### 4.0.0-theta-002
+
+- Rust, removed cloning after emit
+- Python, make sure module names are valid
+- Python, fix interface entity lookup
+- Python, fixes for .ToArray and is_array_like
+- Rust, fixed TimeSpan fields
+
 ### 4.0.0-theta-001
 
 * JSX, enable dynamic children
