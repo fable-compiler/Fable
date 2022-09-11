@@ -99,7 +99,7 @@ pub mod Native_ {
     type MutArray<T> = MutCell<Vec<T>>;
 
     #[repr(transparent)]
-    #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
     pub struct Array<T: Clone>(Lrc<MutArray<T>>);
 
     impl<T: Clone> core::ops::Deref for Array<T> {

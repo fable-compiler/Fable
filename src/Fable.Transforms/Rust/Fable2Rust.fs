@@ -361,7 +361,6 @@ module TypeInfo =
     let isDefaultableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more undefaultable types?
-        | Fable.String
         | Fable.LambdaType _
         | Fable.DelegateType _
             -> false

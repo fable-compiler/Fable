@@ -16,7 +16,7 @@ pub mod HashSet_ {
     use core::hash::Hash;
 
     #[repr(transparent)]
-    #[derive(Clone, Debug)] //, PartialEq, PartialOrd, Eq, Hash, Ord)]
+    #[derive(Clone, Debug, Default)] //, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashSet<T: Clone>(Lrc<MutHashSet<T>>);
 
     impl<T: Clone> core::ops::Deref for HashSet<T> {

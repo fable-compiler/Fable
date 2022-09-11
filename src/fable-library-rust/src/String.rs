@@ -66,6 +66,12 @@ pub mod String_ {
         }
     }
 
+    impl Default for string {
+        fn default() -> string {
+            string("")
+        }
+    }
+
     impl core::ops::Deref for string {
         type Target = str;
         fn deref(&self) -> &Self::Target {
