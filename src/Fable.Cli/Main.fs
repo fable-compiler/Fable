@@ -134,8 +134,8 @@ module private Util =
 
                 let modules =
                     absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length)
-                        .Trim([|'/'|])
-                        .Split([|'/'|])
+                        .Trim([|'/'; '\\'|])
+                        .Split([|'/'; '\\' |])
 
                 let modules =
                     match Array.toList modules, cliArgs.FableLibraryPath with
