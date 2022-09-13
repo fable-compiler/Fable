@@ -28,6 +28,14 @@ module Util =
             printfn $"Clean {dir}"
             removeDirRecursive dir
 
+    // TODO: move to PublishUtils.fs ?
+    let copyFiles sourceDir searchPattern destDir =
+        printfn $"Copy {sourceDir </> searchPattern} to {destDir}"
+        for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
+            let fileName = IO.Path.GetFileName(source)
+            let target = destDir </> fileName
+            IO.File.Copy(source, target, true)
+
     let resolveDir dir =
         __SOURCE_DIRECTORY__ </> dir
 
@@ -158,32 +166,27 @@ let buildLibraryJsIfNotExists() =
         buildLibraryJs()
 
 let buildLibraryTs() =
-    let projectDir = "src/fable-library"
+    let sourceDir = "src/fable-library"
     let buildDirTs = "build/fable-library-ts"
     let buildDirJs = "build/fable-library-js"
 
     cleanDirs [buildDirTs; buildDirJs]
 
-    runFableWithArgs projectDir [
+    runFableWithArgs sourceDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
         "--lang TypeScript"
+        "--typedArrays false"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"
     ]
-    // TODO: cleanDirs [buildDirTs </> "fable-library"]
-    // TODO: copy *.ts/*.js from projectDir to buildDir
+
+    copyFiles sourceDir "*.ts" buildDirTs
+    copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
+
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
-
-// TODO: move to PublishUtils.fs ?
-let copyFiles sourceDir searchPattern destDir =
-    printfn $"Copy {sourceDir </> searchPattern} to {destDir}"
-    for source in IO.Directory.GetFiles(sourceDir, searchPattern) do
-        let fileName = IO.Path.GetFileName(source)
-        let target = destDir </> fileName
-        IO.File.Copy(source, target, true)
 
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"

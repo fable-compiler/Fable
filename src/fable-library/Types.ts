@@ -104,7 +104,7 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
 
 function recordToJSON<T>(self: T) {
   const o: any = {};
-  const keys = Object.keys(self);
+  const keys = Object.keys(self as any);
   for (let i = 0; i < keys.length; i++) {
     o[keys[i]] = (self as any)[keys[i]];
   }
@@ -112,11 +112,11 @@ function recordToJSON<T>(self: T) {
 }
 
 function recordToString<T>(self: T) {
-  return "{ " + Object.entries(self).map(([k, v]) => k + " = " + toString(v)).join("\n  ") + " }";
+  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toString(v)).join("\n  ") + " }";
 }
 
 function recordGetHashCode<T>(self: T) {
-  const hashes = Object.values(self).map((v) => structuralHash(v));
+  const hashes = Object.values(self as any).map((v) => structuralHash(v));
   return combineHashCodes(hashes);
 }
 
@@ -126,7 +126,7 @@ function recordEquals<T>(self: T, other: T) {
   } else if (!sameConstructor(self, other)) {
     return false;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = Object.keys(self as any);
     for (let i = 0; i < thisNames.length; i++) {
       if (!equals((self as any)[thisNames[i]], (other as any)[thisNames[i]])) {
         return false;
@@ -142,7 +142,7 @@ function recordCompareTo<T>(self: T, other: T) {
   } else if (!sameConstructor(self, other)) {
     return -1;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = Object.keys(self as any);
     for (let i = 0; i < thisNames.length; i++) {
       const result = compare((self as any)[thisNames[i]], (other as any)[thisNames[i]]);
       if (result !== 0) {

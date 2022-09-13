@@ -1139,7 +1139,7 @@ module Util =
     //     let range = None // TODO:
     //     callFunction com ctx range fnExpr []
 
-    let getGenericParams (ctx: Context) (types: Fable.Type list) =
+    let getGenericTypeParams (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam (_, false, _) as p -> [p]
             | t -> t.Generics |> List.collect getGenParams
@@ -3172,7 +3172,7 @@ module Util =
         //if name |> Option.exists (fun n -> n.Contains("byrefAttrIntFn")) then System.Diagnostics.Debugger.Break()
         let isRecursive, isTailRec = isTailRecursive name body
         let argTypes = args |> List.map (fun arg -> arg.Type)
-        let genParams = getGenericParams ctx (argTypes @ [body.Type])
+        let genParams = getGenericTypeParams ctx (argTypes @ [body.Type])
         let fnDecl = transformFunctionDecl com ctx args parameters body.Type
         let ctx = getFunctionCtx com ctx name args body isTailRec
         let fnBody = transformFunctionBody com ctx args body
@@ -3463,7 +3463,8 @@ module Util =
         let parameters = memb.CurriedParameterGroups |> List.concat
         let returnType = memb.ReturnParameter.Type
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
-        let generics = getMemberGenArgs memb |> makeGenerics com ctx
+        let genArgs = FSharp2Fable.Util.getMemberGenArgs memb
+        let generics = genArgs |> makeGenerics com ctx
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics None
         let attrs = transformAttributes com ctx memb.Attributes
         let fnItem = mkFnAssocItem attrs membName fnKind
@@ -3485,18 +3486,6 @@ module Util =
         let attrs = transformAttributes com ctx memb.Attributes
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
-
-    let getEntityGenArgs (ent: Fable.Entity) =
-        ent.GenericParameters
-        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
-
-    let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
-        memb.GenericParameters
-        |> List.choose (fun p ->
-            if not p.IsMeasure then
-                Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints)
-                |> Some
-            else None)
 
     let getInterfaceMemberNamesSet (com: IRustCompiler) (entRef: Fable.EntityRef) =
         let ent = com.GetEntity(entRef)
@@ -3532,7 +3521,7 @@ module Util =
     let transformAbbrev (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // TODO: this is unfinished and untested
         let entName = splitLast ent.FullName
-        let genArgs = getEntityGenArgs ent
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let ty =
             let genArgs = transformGenArgs com ctx genArgs
             let traitBound = mkTypeTraitGenericBound [entName] genArgs
@@ -3547,7 +3536,8 @@ module Util =
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
+        let generics = genArgs |> makeGenerics com ctx
         let variants =
             ent.UnionCases |> Seq.map (fun uci ->
                 let name = uci.Name
@@ -3570,7 +3560,8 @@ module Util =
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
         let entName = splitLast ent.FullName
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
+        let generics = genArgs |> makeGenerics com ctx
         let isPublic = ent.IsFSharpRecord
         let idents = getEntityFieldsAsIdents com ent
         let fields =
@@ -3593,7 +3584,7 @@ module Util =
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
         let idents = getEntityFieldsAsIdents com ent
         let fields = idents |> List.map Fable.IdentExpr
-        let genArgs = getEntityGenArgs ent
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
         let entName = getEntityFullName com ctx ent.Ref
         let paramTypes = idents |> List.map (fun ident -> ident.Type)
@@ -3616,7 +3607,7 @@ module Util =
                     ident.Name, { ident with Name = uniqueName; IsMutable = false }) |> Map.ofList
                 let fieldIdents = idents |> List.map (fun ident -> Map.find ident.Name identMap)
                 let fieldValues = fieldIdents |> List.map Fable.IdentExpr
-                let genArgs = getEntityGenArgs ent
+                let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
 
                 // add return value after the body
                 let retVal = Fable.Value(Fable.NewRecord(fieldValues, ent.Ref, genArgs), None)
@@ -3670,7 +3661,8 @@ module Util =
                     makeAssocMemberItem com ctx memb membName args
                 )
             )
-        let generics = getEntityGenArgs ent |> makeGenerics com ctx
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
+        let generics = genArgs |> makeGenerics com ctx
         let entName = splitLast ent.FullName
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
@@ -3729,7 +3721,7 @@ module Util =
             if ent.IsInterface then decl.Name // for interface object expressions
             else getEntityFullName com ctx entRef
             |> splitLast
-        let genArgs = getEntityGenArgs ent
+        let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let self_ty = transformDeclaredType com ctx entRef genArgs
 
         let ctx = { ctx with ScopedTypeParams =
@@ -3840,7 +3832,7 @@ module Util =
                     if tEnt.IsValueType
                     then ty
                     else ty |> makeLrcTy com ctx
-                let genArgs = getEntityGenArgs tEnt
+                let genArgs = FSharp2Fable.Util.getEntityGenArgs tEnt
                 let generics = genArgs |> makeGenerics com ctx
                 let implItem =
                     let nameParts =

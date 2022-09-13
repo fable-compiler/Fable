@@ -77,7 +77,7 @@ type Expression =
     | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
-    | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
+    | CallExpression of callee: Expression * args: Expression array * typeParameters: TypeParameterInstantiation option * loc: SourceLocation option
     | UnaryExpression of argument: Expression * operator: string * loc: SourceLocation option
     | UpdateExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
     | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
@@ -85,7 +85,7 @@ type Expression =
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
     | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
-    | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
+    | NewExpression of callee: Expression * args: Expression array * typeParameters: TypeParameterInstantiation option * loc: SourceLocation option
     | FunctionExpression of
         id: Identifier option *
         parameters: Pattern array *
@@ -529,7 +529,8 @@ module Helpers =
         static member regExpLiteral(pattern, flags_, ?loc) =
             Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
         /// A function or method call expression.
-        static member callExpression(callee, arguments, ?loc) = CallExpression(callee, arguments, loc)
+        static member callExpression(callee, args, ?typeParameters, ?loc) =
+            CallExpression(callee, args, typeParameters, loc)
         static member assignmentExpression(operator_, left, right, ?loc) =
             let operator =
                 match operator_ with
@@ -558,7 +559,7 @@ module Helpers =
 
             LogicalExpression(left, operator, right, loc)
         static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
-        static member newExpression(callee, arguments, ?typeArguments, ?loc) = NewExpression(callee, arguments, typeArguments, loc)
+        static member newExpression(callee, args, ?typeParameters, ?loc) = NewExpression(callee, args, typeParameters, loc)
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
         static member arrowFunctionExpression(parameters, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
             ArrowFunctionExpression(parameters, body, returnType, typeParameters, loc)
