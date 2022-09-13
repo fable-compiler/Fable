@@ -459,6 +459,7 @@ type TypeAnnotationInfo =
         typeParameters: TypeParameterDeclaration option *
         rest: FunctionTypeParam option
     | NullableTypeAnnotation of typeAnnotation: TypeAnnotationInfo
+    | ArrayTypeAnnotation of TypeAnnotationInfo
     | TupleTypeAnnotation of types: TypeAnnotationInfo array
 
 type TypeAnnotation =

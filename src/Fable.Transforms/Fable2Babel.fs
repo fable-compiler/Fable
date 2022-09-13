@@ -37,6 +37,7 @@ type Context =
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
+    IsParamType: bool
     ScopedTypeParams: Set<string> }
 
 type IBabelCompiler =
@@ -348,10 +349,10 @@ module Reflection =
 
 module Annotation =
 
-    let makeTypeParamDecl (com: IBabelCompiler) ctx genArgs =
+    let makeTypeParamDecl (com: IBabelCompiler) (ctx: Context) genArgs =
         match genArgs with
         | [] -> None
-        | _ when com.Options.Language = TypeScript ->
+        | _ when com.Options.Language = TypeScript && not (ctx.IsParamType) ->
             genArgs
             |> List.choose (function
                 | Fable.GenericParam(name=name) -> Some name
@@ -409,7 +410,10 @@ module Annotation =
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
-        | Fable.LambdaType(argType, returnType) -> makeFunctionTypeAnnotation com ctx typ [argType] returnType
+        | Fable.LambdaType(argType, returnType) ->
+            ([argType], returnType)
+            ||> FableTransforms.uncurryLambdaType
+            ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
@@ -454,10 +458,11 @@ module Annotation =
         | JS.Replacements.TypedArrayCompatible com kind name ->
             makeSimpleTypeAnnotation com ctx name
         | _ ->
-            makeNativeTypeAnnotation com ctx [genArg] "Array"
+            // makeNativeTypeAnnotation com ctx [genArg] "Array"
+            typeAnnotation com ctx genArg |> ArrayTypeAnnotation
 
     let makeListTypeAnnotation com ctx genArg =
-        makeImportTypeAnnotation com ctx [genArg] "List" "List"
+        makeImportTypeAnnotation com ctx [genArg] "List" "FSharpList"
 
     let makeUnionTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
@@ -640,7 +645,7 @@ module Util =
         addError com [] range error
         Expression.nullLiteral()
 
-    let ident (id: Fable.Ident) =
+    let identAsIdent (id: Fable.Ident) =
         Identifier.identifier(id.Name, ?loc=id.Range)
 
     let identAsExpr (id: Fable.Ident) =
@@ -648,6 +653,12 @@ module Util =
 
     let identAsPattern (id: Fable.Ident) =
         Pattern.identifier(id.Name, ?loc=id.Range)
+
+    let typedIdentAsExpr com ctx (id: Fable.Ident) =
+        typedIdent com ctx id |> Expression.Identifier
+
+    let typedIdentAsPattern com ctx (id: Fable.Ident) =
+        typedIdent com ctx id |> Pattern.Identifier
 
     let thisExpr =
         Expression.thisExpression()
@@ -1032,7 +1043,7 @@ module Util =
         | Some (Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
                 match baseRef with
-                | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
+                | Fable.IdentExpr id -> typedIdentAsExpr com ctx id
                 | _ -> transformAsExpr com ctx baseRef
             let args = transformCallArgs com ctx (CallInfo info)
             Some (baseExpr, args)
@@ -1413,13 +1424,13 @@ module Util =
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isJsStatement ctx false value then
-            let varPattern, varExpr = identAsPattern var, identAsExpr var
+            let varPattern, varExpr = typedIdentAsPattern com ctx var, identAsExpr var
             let decl = Statement.variableDeclaration(varPattern)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             Array.append [|decl|] body
         else
             let value = transformBindingExprBody com ctx var value
-            let decl = varDeclaration (identAsPattern var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
+            let decl = varDeclaration (typedIdentAsPattern com ctx var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
             [|decl|]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
@@ -1611,7 +1622,7 @@ module Util =
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
             transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
         // Transform decision tree
-        let targetAssign = Target(ident targetId)
+        let targetAssign = Target(identAsIdent targetId)
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
@@ -1868,7 +1879,7 @@ module Util =
 
             [|Statement.forStatement(
                 transformBlock com ctx None body,
-                start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true,
+                start |> varDeclaration (typedIdentAsPattern com ctx var) true,
                 Expression.binaryExpression(op1, identAsExpr var, limit),
                 Expression.updateExpression(op2, false, identAsExpr var), ?loc=range)|]
 
@@ -1882,7 +1893,8 @@ module Util =
         let ctx =
             { ctx with TailCallOpportunity = tailcallChance
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
-                       OptimizeTailCall = fun () -> isTailCallOptimized <- true }
+                       OptimizeTailCall = fun () -> isTailCallOptimized <- true
+                       IsParamType = true }
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -1897,7 +1909,7 @@ module Util =
                 let args' =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
-                        makeTypedIdent id.Type tcArg |> typedIdent com ctx)
+                        makeTypedIdent id.Type tcArg |> typedIdentAsPattern com ctx)
                 let varDecls =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
@@ -1907,15 +1919,18 @@ module Util =
                 let body = Array.append [|varDecls|] body.Body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement(Array.append body [|Statement.breakStatement()|])
-                args', Statement.labeledStatement(Identifier.identifier(tc.Label), Statement.whileStatement(Expression.booleanLiteral(true), body))
-                |> Array.singleton |> BlockStatement
-            | _ -> args |> List.map (typedIdent com ctx), body
+                let body =
+                    Statement.labeledStatement(Identifier.identifier(tc.Label), Statement.whileStatement(Expression.booleanLiteral(true), body))
+                    |> Array.singleton |> BlockStatement
+                args', body
+            | _ ->
+                args |> List.map (typedIdentAsPattern com ctx), body
         let body =
             if declaredVars.Count = 0 then body
             else
                 let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None]
                 BlockStatement(Array.append [|varDeclStatement|] body.Body)
-        args |> List.mapToArray Pattern.Identifier, body
+        args |> List.toArray, body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
@@ -2103,8 +2118,8 @@ module Util =
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            [| typedIdent com ctx fieldIds[0] |> Pattern.Identifier
-               typedIdent com ctx fieldIds[1] |> Pattern.Identifier |> restElement |]
+            [| typedIdentAsPattern com ctx fieldIds[0]
+               typedIdentAsPattern com ctx fieldIds[1] |> restElement |]
         let body =
             BlockStatement([|
                 yield callSuperAsStatement []
@@ -2151,8 +2166,7 @@ module Util =
                     assign None left right |> ExpressionStatement)
                 |> Seq.toArray
             |])
-        let typedPattern x = typedIdent com ctx x
-        let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
+        let args = fieldIds |> Array.map (typedIdentAsPattern com ctx)
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithPrimaryConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
@@ -2382,6 +2396,7 @@ module Compiler =
             HoistVars = fun _ -> false
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
+            IsParamType = false
             ScopedTypeParams = Set.empty }
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports
