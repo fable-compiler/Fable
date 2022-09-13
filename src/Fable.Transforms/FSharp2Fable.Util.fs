@@ -1859,6 +1859,19 @@ module Util =
             Fable.Type.GenericParam(g.Name, g.IsMeasure, Seq.toList g.Constraints))
         Fable.Type.DeclaredType(ent.Ref, genArgs)
 
+    let getEntityGenArgs (ent: Fable.Entity) =
+        ent.GenericParameters
+        |> List.map (fun p ->
+            Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
+    let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
+        memb.GenericParameters
+        |> List.choose (fun p ->
+            if not p.IsMeasure then
+                Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints)
+                |> Some
+            else None)
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =

@@ -69,7 +69,7 @@ module Js =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
-            if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
+            if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
         let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
         let memoryStream = new IO.MemoryStream()
