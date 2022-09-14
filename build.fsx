@@ -166,9 +166,10 @@ let buildLibraryJsIfNotExists() =
         buildLibraryJs()
 
 let buildLibraryTs() =
+    let baseDir = __SOURCE_DIRECTORY__
     let sourceDir = "src/fable-library"
     let buildDirTs = "build/fable-library-ts"
-    let buildDirJs = "build/fable-library-js"
+    let buildDirJs = "build/temp/fable-library-js"
 
     cleanDirs [buildDirTs; buildDirJs]
 
@@ -183,10 +184,11 @@ let buildLibraryTs() =
     ]
 
     copyFiles sourceDir "*.ts" buildDirTs
+    copyFiles (sourceDir </> "ts") "*.json" buildDirTs
     copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
 
-    runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
-    runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
+    // runTSLint buildDirTs
+    runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir ../../" + buildDirJs)
 
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"

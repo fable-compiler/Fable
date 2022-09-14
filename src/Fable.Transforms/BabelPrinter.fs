@@ -998,6 +998,9 @@ module PrinterExtensions =
             | BooleanTypeAnnotation -> printer.Print("boolean")
             | AnyTypeAnnotation -> printer.Print("any")
             | VoidTypeAnnotation -> printer.Print("void")
+            | ArrayTypeAnnotation(t) ->
+                printer.Print(t)
+                printer.Print("[]")
             | TupleTypeAnnotation(types) ->
                 printer.Print("[")
                 printer.PrintCommaSeparatedArray(types)

@@ -55,7 +55,7 @@ let knownCliArgs() = [
                               "default is 'Debug' in watch mode, or 'Release' otherwise"]
   ["--verbose"],         ["Print more info during compilation"]
   ["--silent"],          ["Don't print any log during compilation"]
-  ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default true)"]
+  ["--typedArrays"],     ["Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)"]
   ["--watch"],           ["Alias of watch command"]
   ["--watchDelay"],      ["Delay in ms before recompiling after a file changes (default 200)"]
   [], []
@@ -188,7 +188,7 @@ type Runner =
         else
             Ok fsprojPath
 
-    let typedArrays = args.FlagOr("--typedArrays", true)
+    let typedArrays = args.FlagOr("--typedArrays", not (language = TypeScript))
     let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
     let precompiledLib = args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
     let fableLib = args.Value "--fableLib"
