@@ -178,6 +178,16 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
+    let (|Regex|_|) (reg: Regex) (str: string) =
+        let m = reg.Match(str)
+        if m.Success then
+            m.Groups
+            |> Seq.cast<Group>
+            |> Seq.map (fun g -> g.Value)
+            |> Seq.toList
+            |> Some
+        else None
+
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"

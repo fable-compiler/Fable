@@ -183,7 +183,7 @@ module Reflection =
         | Fable.List genArg     -> genericTypeInfo "list" [genArg]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
-        | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
+        | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
             let genArgs = resolveGenerics genArgs
             List.zip (fieldNames |> Array.toList) genArgs
             |> List.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
@@ -418,7 +418,7 @@ module Annotation =
         | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
-        | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
+        | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
             makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
 
     let makeSimpleTypeAnnotation _com _ctx name =
@@ -555,6 +555,8 @@ module Util =
     open Lib
     open Reflection
     open Annotation
+
+    let IMPORT_ALL_OR_DEFAULT_REGEX = System.Text.RegularExpressions.Regex(@"^(\*|default)(?: as (\w+))?$")
 
     let (|TransformExpr|) (com: IBabelCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
@@ -2276,8 +2278,10 @@ module Util =
                 |> Option.map (fun localId ->
                     let localId = Identifier.identifier(localId)
                     match import.Selector with
-                    | "*" -> ImportNamespaceSpecifier(localId)
-                    | "default" | "" -> ImportDefaultSpecifier(localId)
+                    | Naming.Regex IMPORT_ALL_OR_DEFAULT_REGEX (_::selector::_) ->
+                        match selector with
+                        | "*" -> ImportNamespaceSpecifier(localId)
+                        | _ -> ImportDefaultSpecifier(localId)
                     | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
             import.Path, specifier)
         |> Seq.groupBy fst
@@ -2314,7 +2318,9 @@ module Util =
         if System.String.IsNullOrEmpty selector then None
         else
             match selector with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(path).Replace("-", "_")
+            | Naming.Regex IMPORT_ALL_OR_DEFAULT_REGEX (_::_selector::alias::_) ->
+                if alias.Length > 0 then alias
+                else Path.GetFileNameWithoutExtension(path).Replace("-", "_")
             | _ -> selector
             |> getUniqueNameInRootScope ctx
             |> Some
