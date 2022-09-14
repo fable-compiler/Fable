@@ -1,3 +1,7 @@
+### 4.0.0-theta-004
+
+* JS, allow alias for default/namespace imports
+
 ### 4.0.0-theta-003
 
 * Python, fix regression when building on Windows
