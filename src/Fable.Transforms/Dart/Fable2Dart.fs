@@ -370,7 +370,7 @@ module Util =
             match info with
             | NoCallInfo args -> None, None, args
             | CallInfo callInfo ->
-                let paramsInfo = tryGetParamsInfo com callInfo
+                let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
                 paramsInfo, callInfo.ThisArg, callInfo.Args
 
         let unnamedArgs, namedArgs =

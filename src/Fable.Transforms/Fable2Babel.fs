@@ -12,7 +12,7 @@ type ReturnStrategy =
     | Target of Identifier
 
 type ArgsInfo =
-    | CallInfo of Fable.CallInfo
+    | CallInfo of Fable.CallInfo * Fable.MemberFunctionOrValue option
     | NoCallInfo of args: Fable.Expr list
 
 type Import =
@@ -1085,7 +1085,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdentAsExpr com ctx id
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx (CallInfo info)
+            let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1175,8 +1175,8 @@ module Util =
         let paramsInfo, args =
             match info with
             | NoCallInfo args -> None, args
-            | CallInfo callInfo ->
-                let paramsInfo = tryGetParamsInfo com callInfo
+            | CallInfo(callInfo, memberInfo) ->
+                let paramsInfo = Option.map getParamsInfo memberInfo
                 paramsInfo, callInfo.Args
 
         let args, objArg =
@@ -1251,7 +1251,8 @@ module Util =
         let macro = info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        transformCallArgs com ctx (CallInfo info)
+        CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
+        |> transformCallArgs com ctx
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1279,7 +1280,12 @@ module Util =
             let props = props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
             Expression.jsxElement(componentOrTag, props, children)
 
-    let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.MemberFunctionOrValue) =
+    let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.MemberFunctionOrValue) (attr: Fable.Attribute) =
+        let callee =
+            match attr.ConstructorArgs with
+            | (:? string as selector)::(:? string as path)::_ ->
+                makeImportUserGenerated None Fable.Any selector path
+            | _ -> callee
         let names = info.CurriedParameterGroups |> List.concat |> List.choose (fun p -> p.Name)
         let props =
             List.zipSafe names args
@@ -1320,18 +1326,23 @@ module Util =
         match optimized with
         | Some e -> e
         | None ->
-            callInfo.MemberRef
-            |> Option.bind com.TryGetMember
+            let memberInfo =
+                callInfo.MemberRef
+                |> Option.bind com.TryGetMember
+            memberInfo
+            |> Option.bind (fun m ->
+                tryGetAttribute Atts.jsxComponent m.Attributes
+                |> Option.map (fun att -> m, att))
             |> function
-            | Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
-                transformJsxCall com ctx callee callInfo.Args memberInfo
-            | _ ->
-                let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx (CallInfo callInfo)
-                match callInfo.ThisArg with
-                | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-                | None when List.contains "new" callInfo.Tags -> Expression.newExpression(callee, List.toArray args, ?loc=range)
-                | None -> callFunction range callee args
+                | Some(memberInfo, jsxComAttr) ->
+                    transformJsxCall com ctx callee callInfo.Args memberInfo jsxComAttr
+                | None ->
+                    let callee = com.TransformAsExpr(ctx, callee)
+                    let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
+                    match callInfo.ThisArg with
+                    | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+                    | None when List.contains "new" callInfo.Tags -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+                    | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx (NoCallInfo args) with
@@ -2097,30 +2108,38 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let tryGetAttribute fullName (atts: Fable.Attribute seq) =
+        atts |> Seq.tryFind (fun att -> att.Entity.FullName = fullName)
+
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) body =
-        let isJsx = hasAttribute Atts.jsxComponent info.Attributes
-        let args, body =
-            match args with
-            | [] -> args, body
-            | [arg] when arg.Type = Fable.Unit -> args, body
-            | _ when not isJsx -> args, body
-            | _ ->
-                // SolidJS requires values being accessed directly from the props object for reactivity to work properly
-                // https://www.solidjs.com/guides/rendering#props
-                let propsArg = makeIdent "$props"
-                let propsExpr = Fable.IdentExpr propsArg
-                let replacements = args |> List.map (fun a -> a.Name, getFieldWith None a.Type propsExpr a.Name) |> Map
-                [propsArg], FableTransforms.replaceValues replacements body
+        match tryGetAttribute Atts.jsxComponent info.Attributes with
+        // If the JSX.Component attribute has import and from arguments it means
+        // this is a binding for an imported component so we skip the declaration
+        | Some att when att.ConstructorArgs.Length = 2 -> []
+        | jsxCom ->
+            let isJsx = Option.isSome jsxCom
+            let args, body =
+                match args with
+                | [] -> args, body
+                | [arg] when arg.Type = Fable.Unit -> args, body
+                | _ when not isJsx -> args, body
+                | _ ->
+                    // SolidJS requires values being accessed directly from the props object for reactivity to work properly
+                    // https://www.solidjs.com/guides/rendering#props
+                    let propsArg = makeIdent "$props"
+                    let propsExpr = Fable.IdentExpr propsArg
+                    let replacements = args |> List.map (fun a -> a.Name, getFieldWith None a.Type propsExpr a.Name) |> Map
+                    [propsArg], FableTransforms.replaceValues replacements body
 
-        let hasSpread = info.HasSpread && not isJsx
-        let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx (NonAttached membName) hasSpread args body
+            let hasSpread = info.HasSpread && not isJsx
+            let args, body, returnType, typeParamDecl =
+                getMemberArgsAndBody com ctx (NonAttached membName) hasSpread args body
 
-        let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
+            let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
-        if hasAttribute Atts.entryPoint info.Attributes
-        then declareEntryPoint com ctx expr
-        else declareModuleMember info.IsPublic membName false expr
+            if hasAttribute Atts.entryPoint info.Attributes
+            then [declareEntryPoint com ctx expr]
+            else [declareModuleMember info.IsPublic membName false expr]
 
     let transformAction (com: IBabelCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -2274,11 +2293,16 @@ module Util =
                         let value = transformAsExpr com ctx decl.Body
                         [declareModuleMember info.IsPublic decl.Name info.IsMutable value]
                     else
-                        [transformModuleFunction com ctx info decl.Name decl.Args decl.Body]
+                        transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
-                if List.contains "export-default" decl.Tags then
-                    decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
-                else decls
+                let isDefaultExport =
+                    List.contains "export-default" decl.Tags || (
+                        com.TryGetMember(decl.MemberRef)
+                        |> Option.map (fun m -> hasAttribute Atts.exportDefault m.Attributes)
+                        |> Option.defaultValue false)
+
+                if not isDefaultExport then decls
+                else decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
 
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity

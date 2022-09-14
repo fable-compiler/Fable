@@ -18,6 +18,7 @@ module Atts =
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
     let [<Literal>] importMember = "Fable.Core.ImportMemberAttribute" // typeof<Fable.Core.ImportMemberAttribute>.FullName
+    let [<Literal>] exportDefault = "Fable.Core.ExportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
     let [<Literal>] emit = "Fable.Core.Emit"
     let [<Literal>] emitAttr = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
@@ -703,23 +704,17 @@ module AST =
         HasSpread: bool
     |}
 
-    let tryGetParamsInfo (com: Compiler) (callInfo: CallInfo): ParamsInfo option =
-        callInfo.MemberRef
-        |> Option.bind com.TryGetMember
-        |> function
-        | None -> None
+    let getParamsInfo (memberInfo: MemberFunctionOrValue): ParamsInfo =
         // ParamObject/NamedParams attribute is not compatible with arg spread
-        | Some memberInfo when memberInfo.HasSpread ->
+        if memberInfo.HasSpread then
             {| NamedIndex = None
                HasSpread = true
                Parameters = List.concat memberInfo.CurriedParameterGroups |}
-            |> Some
-        | Some memberInfo ->
+        else
             let parameters = List.concat memberInfo.CurriedParameterGroups
             {| HasSpread = false
                Parameters = parameters
                NamedIndex = parameters |> List.tryFindIndex (fun p -> p.IsNamed) |}
-            |> Some
 
     let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
         match info.NamedIndex with

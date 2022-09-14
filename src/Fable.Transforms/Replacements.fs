@@ -975,10 +975,13 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
         | ("inflate"|"deflate"), _ -> List.tryHead args
         | _ -> None
-    | "Fable.Core.JSX", "create" ->
-        Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
-    | "Fable.Core.JSX", "html" ->
-        Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
+    | "Fable.Core.JSX", meth ->
+        match meth with
+        | "create" -> Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
+        | "html" -> Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
+        | "text" -> TypeCast(args.Head, t) |> Some
+        | "nothing" -> makeNullTyped t |> Some
+        | _ -> None
     | _ -> None
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

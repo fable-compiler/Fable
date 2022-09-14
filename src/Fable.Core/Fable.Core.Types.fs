@@ -68,6 +68,9 @@ type ImportDefaultAttribute(from: string) =
 type ImportAllAttribute(from: string) =
     inherit Attribute()
 
+type ExportDefaultAttribute() =
+    inherit Attribute()
+
 /// Function calls will be replaced by inlined JS code.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#emit-when-f-is-not-enough
 type EmitAttribute(macro: string, isStatement: bool) =

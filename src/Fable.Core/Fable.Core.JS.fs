@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 module JSX =
     type ComponentAttribute() =
         inherit Attribute()
+        new (import: string, from:string) = ComponentAttribute()
 
     type Prop = string * obj
     type Style = string * string
@@ -17,6 +18,8 @@ module JSX =
 
     let create (componentOrTag: obj) (props: Prop list): Element = nativeOnly
     let html (template: string): Element = nativeOnly
+    let text (text: string): Element = nativeOnly
+    let nothing: Element = nativeOnly
 
 module JS =
     type [<AllowNullLiteral>] Function =
