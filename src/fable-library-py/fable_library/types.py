@@ -16,7 +16,7 @@ from typing import (
 from typing import Union as Union_
 from typing import cast
 
-from .util import IComparable, compare
+from .util import Array, IComparable, compare
 
 
 _T = TypeVar("_T")
@@ -388,9 +388,6 @@ def Float32Array(lst: List[float]) -> MutableSequence[float]:
 
 def Float64Array(lst: List[float]) -> MutableSequence[float]:
     return array.array("d", lst)
-
-
-Array = MutableSequence[_T]
 
 
 def is_exception(x: Any):

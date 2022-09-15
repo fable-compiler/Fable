@@ -19,6 +19,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    MutableSequence,
     Optional,
     Protocol,
     Sequence,
@@ -30,7 +31,6 @@ from typing import (
     cast,
 )
 from urllib.parse import quote, unquote
-
 
 class SupportsLessThan(Protocol):
     @abstractmethod
@@ -45,6 +45,7 @@ _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
+Array = MutableSequence[_T]
 
 class ObjectDisposedException(Exception):
     def __init__(self):
@@ -848,3 +849,7 @@ def escape_uri_string(s: str) -> str:
 def ignore(a: Any = None) -> None:
     """Ignore argument, returns None."""
     return
+
+def copy_to_array(src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int) -> None:
+    for i in range(0, cnt, 1):
+        trg[trgi + i] = src[srci + i]
