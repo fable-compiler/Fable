@@ -225,6 +225,46 @@ export function padLeftAndRightWithZeros(i: number, lengthLeft: number, lengthRi
   return str;
 }
 
+export function dateOffsetToString(offset: number) {
+  const isMinus = offset < 0;
+  offset = Math.abs(offset);
+  const hours = ~~(offset / 3600000);
+  const minutes = (offset % 3600000) / 60000;
+  return (isMinus ? "-" : "+") +
+    padWithZeros(hours, 2) + ":" +
+    padWithZeros(minutes, 2);
+}
+
+export function checkOffsetInRange(offset?: number) {
+  if (offset != null && offset !== 0) {
+    if (offset % 60000 !== 0) {
+      throw new Error("Offset must be specified in whole minutes.");
+    }
+    if (Math.abs(offset / 3600000) > 14) {
+      throw new Error("Offset must be within plus or minus 14 hours.");
+    }
+  }
+}
+
+export function dateIsoString(
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, offset: number | null) {
+  if (offset != null) {
+    checkOffsetInRange(offset);
+  }
+  const str =
+    padWithZeros(year, 4) + "-" +
+    padWithZeros(month, 2) + "-" +
+    padWithZeros(day, 2) + "T" +
+    padWithZeros(h, 2) + ":" +
+    padWithZeros(m, 2) + ":" +
+    padWithZeros(s, 2) + "." +
+    padWithZeros(ms, 3) +
+    (offset == null ? "" : dateOffsetToString(offset));
+  return str;
+}
+
 export function dateOffset(date: IDateTime | IDateTimeOffset): number {
   const date1 = date as IDateTimeOffset;
   return typeof date1.offset === "number"

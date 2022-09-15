@@ -10,20 +10,10 @@
 
 import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
 import { FSharpRef } from "./Types.js";
-import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { compareDates, dateIsoString, DateKind, dateOffset, dateOffsetToString, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;
-
-export function dateOffsetToString(offset: number) {
-  const isMinus = offset < 0;
-  offset = Math.abs(offset);
-  const hours = ~~(offset / 3600000);
-  const minutes = (offset % 3600000) / 60000;
-  return (isMinus ? "-" : "+") +
-    padWithZeros(hours, 2) + ":" +
-    padWithZeros(minutes, 2);
-}
 
 export function dateToHalfUTCString(date: IDateTime, half: "first" | "second") {
   const str = date.toISOString();
@@ -37,15 +27,18 @@ function dateToISOString(d: IDateTime, utc: boolean) {
     return d.toISOString();
   } else {
     // JS Date is always local
-    const printOffset = d.kind == null ? true : d.kind === DateKind.Local;
-    return padWithZeros(d.getFullYear(), 4) + "-" +
-      padWithZeros(d.getMonth() + 1, 2) + "-" +
-      padWithZeros(d.getDate(), 2) + "T" +
-      padWithZeros(d.getHours(), 2) + ":" +
-      padWithZeros(d.getMinutes(), 2) + ":" +
-      padWithZeros(d.getSeconds(), 2) + "." +
-      padWithZeros(d.getMilliseconds(), 3) +
-      (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60000) : "");
+    const offset = d.kind == null || d.kind === DateKind.Local
+      ? d.getTimezoneOffset() * -60000
+      : null;
+    return dateIsoString(
+      d.getFullYear(),
+      d.getMonth() + 1,
+      d.getDate(),
+      d.getHours(),
+      d.getMinutes(),
+      d.getSeconds(),
+      d.getMilliseconds(),
+      offset);
   }
 }
 
@@ -74,7 +67,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
     if (Number.isNaN(rep)) {
       return match;
     } else {
-      return (rep < 10 && match.length > 1) ? "0" + rep : "" + rep;
+      return padWithZeros(rep, match.length);
     }
   });
 }
@@ -263,17 +256,14 @@ export function create(
   year: number, month: number, day: number,
   h: number = 0, m: number = 0, s: number = 0,
   ms: number = 0, kind?: DateKind) {
-  const dateValue = kind === DateKind.UTC
-    ? Date.UTC(year, month - 1, day, h, m, s, ms)
-    : new Date(year, month - 1, day, h, m, s, ms).getTime();
+
+  const offset = kind === DateKind.UTC ? 0 : null;
+  const str = dateIsoString(year, month, day, h, m, s, ms, offset);
+  const dateValue = new Date(str).getTime();
   if (isNaN(dateValue)) {
     throw new Error("The parameters describe an unrepresentable Date.");
   }
-  const date = DateTime(dateValue, kind);
-  if (year <= 99) {
-    date.setFullYear(year, month - 1, day);
-  }
-  return date;
+  return DateTime(dateValue, kind);
 }
 
 export function now() {
