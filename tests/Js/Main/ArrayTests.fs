@@ -227,6 +227,27 @@ let tests =
         ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 #endif
 
+// Performance test for Array.blit
+// let numloops = 10000
+// do
+//     let src: uint8[] = Array.zeroCreate 16384
+//     let trg: uint8[] = Array.zeroCreate 131072
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
+// do
+//     let src: char[] = Array.zeroCreate 16384
+//     let trg: char[] = Array.zeroCreate 131072
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
+
     testCase "Array.copy works" <| fun () ->
         let xs = [| 1; 2; 3; 4 |]
         let ys = Array.copy xs

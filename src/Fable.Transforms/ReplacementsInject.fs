@@ -14,13 +14,11 @@ let fableReplacementsModules =
       "mapFold", (Types.arrayCons, 2)
       "mapFoldBack", (Types.arrayCons, 2)
       "concat", (Types.arrayCons, 0)
-      "contains", (Types.equalityComparerGeneric, 0)
       "collect", (Types.arrayCons, 1)
+      "indexOf", (Types.equalityComparerGeneric, 0)
       "contains", (Types.equalityComparerGeneric, 0)
       "singleton", (Types.arrayCons, 0)
-      "indexOf", (Types.equalityComparerGeneric, 0)
       "initialize", (Types.arrayCons, 0)
-      "removeInPlace", (Types.equalityComparerGeneric, 0)
       "replicate", (Types.arrayCons, 0)
       "scan", (Types.arrayCons, 1)
       "scanBack", (Types.arrayCons, 1)
@@ -28,6 +26,7 @@ let fableReplacementsModules =
       "skipWhile", (Types.arrayCons, 0)
       "take", (Types.arrayCons, 0)
       "takeWhile", (Types.arrayCons, 0)
+      "removeInPlace", (Types.equalityComparerGeneric, 0)
       "partition", (Types.arrayCons, 0)
       "choose", (Types.arrayCons, 1)
       "sortInPlaceBy", (Types.comparer, 1)
@@ -45,6 +44,9 @@ let fableReplacementsModules =
       "average", ("Fable.Core.IGenericAverager`1", 0)
       "averageBy", ("Fable.Core.IGenericAverager`1", 1)
       "transpose", (Types.arrayCons, 0)
+      "insertAt", (Types.arrayCons, 0)
+      "insertManyAt", (Types.arrayCons, 0)
+      "updateAt", (Types.arrayCons, 0)
     ]
     "List", Map [
       "contains", (Types.equalityComparerGeneric, 0)
@@ -94,9 +96,10 @@ let fableReplacementsModules =
       "ofSeq", (Types.comparer, 0)
     ]
     "Map", Map [
-      "empty", (Types.comparer, 0)
       "ofList", (Types.comparer, 0)
-      "ofArray", (Types.comparer, 0)
       "ofSeq", (Types.comparer, 0)
+      "ofArray", (Types.comparer, 0)
+      "empty", (Types.comparer, 0)
     ]
   ]
+

@@ -47,11 +47,11 @@ export interface ICollection<T> {
   Remove(item: T): boolean;
 }
 
-export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
+export function isIterable<T>(x: T | ArrayLike<T> | Iterable<T>): x is Iterable<T> {
   return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
-export function isArrayLike<T>(x: T | ArrayLike<T>): x is ArrayLike<T> {
+export function isArrayLike<T>(x: T | ArrayLike<T> | Iterable<T>): x is T[] {
   return Array.isArray(x) || ArrayBuffer.isView(x);
 }
 
@@ -652,4 +652,15 @@ export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
     }
   }
   return (arg: any) => mapArg(fn, arg, mappings, 0);
+}
+
+// More performant method to copy arrays, see #2352
+export function copyToArray<T>(source: T[], sourceIndex: number, target: T[], targetIndex: number, count: number): void {
+  if (ArrayBuffer.isView(source) && ArrayBuffer.isView(target)) {
+    (target as any).set((source as any).subarray(sourceIndex, sourceIndex + count), targetIndex);
+  } else {
+    for (let i = 0; i < count; ++i) {
+      target[targetIndex + i] = source[sourceIndex + i];
+    }
+  }
 }

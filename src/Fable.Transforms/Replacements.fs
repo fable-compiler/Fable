@@ -1573,11 +1573,7 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
-    let method =
-        match args with
-        | ExprType(Array(Number _, _))::_ when com.Options.TypedArrays -> "copyToTypedArray"
-        | _ -> "copyTo"
-    Helper.LibCall(com, "Array", method, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    Helper.LibCall(com, "Util", "copyToArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1624,8 +1620,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArrayAlloc (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (getFieldWith r (Number(Int32, NumberInfo.Empty)) ar "length") (makeIntConst 0) |> Some
-    | "CopyTo", args ->
-        copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
