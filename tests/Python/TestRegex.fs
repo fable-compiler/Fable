@@ -228,13 +228,11 @@ let ``test Match.Value works`` () =
     let m = Regex.Match(str, "Chapter \d+(\.\d)*")
     m.Value |> equal "Chapter 3.4.5.1"
 
-(*
 [<Fact>]
 let ``test Regex.Matches indexer getter works`` () =
     let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
     ms.[8].Index |> equal 29
-*)
 
 [<Fact>]
 let ``test Regex.Split with limit works`` () =
@@ -302,3 +300,60 @@ let ``test Regex.Replace with limit, offset and macros works`` () =
 
     re.Replace(str, "$2 $1", 10, 5)
     |> equal "AlfonGarcia-Caro so"
+
+
+[<Fact>]
+let ``test gets all matches with all named groups`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+    let expected = [
+        ("1", "12")
+        ("49", "456")
+        ("44", "7890")
+    ]
+
+    let actual =
+        r.Matches text
+        |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+        |> Seq.toList
+
+    actual |> equal expected
+
+[<Fact>]
+let ``test group name from string`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+    let expected = [
+        ("1", "12")
+        ("49", "456")
+        ("44", "7890")
+    ]
+
+    let actual =
+        r.Matches text
+        |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+        |> Seq.toList
+
+    actual |> equal expected
+
+[<Fact>]
+let ``test group name from variable`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+    let expected = [
+        ("1", "12")
+        ("49", "456")
+        ("44", "7890")
+    ]
+
+    let g1, g2 = (1, "num")
+
+    let actual =
+        r.Matches text
+        |> Seq.map (fun m -> m.Groups.[g1].Value, m.Groups.[g2].Value)
+        |> Seq.toList
+
+    actual |> equal expected

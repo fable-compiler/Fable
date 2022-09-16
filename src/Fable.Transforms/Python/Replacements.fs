@@ -3387,15 +3387,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         nullCheck r false thisArg.Value |> Some
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
-        // can be group index or group name
-        //        `m.Groups.[0]` `m.Groups.["name"]`
-        match (args |> List.head).Type with
-        | String ->
-            Helper.InstanceCall(thisArg.Value, "group", t, [ args.Head ], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | _ ->
-            // index
-            getExpr r t thisArg.Value args.Head |> Some
+        Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some

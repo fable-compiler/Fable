@@ -1,9 +1,10 @@
 import re
 
-from typing import Any, Callable, List, Match, Optional, Pattern, Union
+from typing import Any, Callable, Iterable, List, Match, Optional, Pattern, Union, Dict
 
 
 MatchEvaluator = Callable[[Any], str]
+GroupCollection = Dict[str, str]
 
 
 def _options_to_flags(options: int) -> int:
@@ -21,6 +22,7 @@ def _options_to_flags(options: int) -> int:
 def create(pattern: str, options: int = 0) -> Pattern[str]:
     # raw_pattern = pattern.encode("unicode_escape").decode("utf-8")
     flags = _options_to_flags(options)
+    pattern = pattern.replace("?<", "?P<")
     return re.compile(pattern, flags=flags)
 
 
@@ -44,9 +46,10 @@ def match(
 def matches(reg: Pattern[str], input: str, start_at: int = 0) -> List[Match[str]]:
     if isinstance(reg, str):
         flags = _options_to_flags(start_at)
-        return re.findall(input, reg, flags=flags)
+        input = input.replace("?<", "?P<")
+        return list(re.finditer(input, reg, flags=flags))
 
-    return reg.findall(input, pos=start_at)
+    return list(reg.finditer(input, pos=start_at))
 
 
 def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bool:
@@ -58,11 +61,9 @@ def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bo
     return reg.search(input, pos=start_at) is not None
 
 
-def groups(m: Match[str]) -> List[str]:
+def groups(m: Match[str]) -> GroupCollection:
     # .NET adds the whole capture as group 0
-    g = list(m.groups())
-    g.insert(0, m.string)
-    return g
+    return {"": m.string, **m.groupdict()}
 
 
 def options(reg: Pattern[str]) -> int:
@@ -106,6 +107,12 @@ def split(
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
+def get_item(matches: GroupCollection, index: Union[str, int]) -> str:
+    if isinstance(index, int):
+        return list(matches.values())[index]
+    return matches[index]
+
+
 __all__ = [
     "escape",
     "is_match",
@@ -116,4 +123,6 @@ __all__ = [
     "replace",
     "split",
     "unescape",
+    "groups",
+    "get_item",
 ]
