@@ -1,5 +1,5 @@
 import { FSharpRef } from "./Types.js";
-import { DateTime, create as Date_create, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth } from "./Date.js";
+import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth } from "./Date.js";
 import { IDateTime, DateKind, padWithZeros } from "./Util.js";
 import { toInt, fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, ticksToUnixEpochMilliseconds } from "./Long.js";
 
@@ -8,7 +8,11 @@ export function fromUnixMilliseconds(value: number) {
 }
 
 export function create(year: number, month: number, day: number) {
-  return Date_create(year, month, day, 0, 0, 0, 0, DateKind.UTC);
+  const d = fromUnixMilliseconds(Date.UTC(year, month - 1, day));
+  if (year <= 99) {
+    d.setUTCFullYear(year);
+  }
+  return d;
 }
 
 export function maxValue() {

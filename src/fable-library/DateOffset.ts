@@ -13,16 +13,27 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { create as createDate, daysInMonth, parseRaw } from "./Date.js";
+import { create as createDate, dateOffsetToString, daysInMonth, parseRaw } from "./Date.js";
 import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
 import { FSharpRef } from "./Types.js";
-import { compareDates, dateIsoString, checkOffsetInRange, DateKind, IDateTime, IDateTimeOffset } from "./Util.js";
+import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export default function DateTimeOffset(value: number, offset?: number) {
   checkOffsetInRange(offset);
   const d = new Date(value) as IDateTimeOffset;
   d.offset = offset != null ? offset : new Date().getTimezoneOffset() * -60000;
   return d;
+}
+
+function checkOffsetInRange(offset?: number) {
+  if (offset != null && offset !== 0) {
+    if (offset % 60000 !== 0) {
+      throw new Error("Offset must be specified in whole minutes.");
+    }
+    if (Math.abs(offset / 3600000) > 14) {
+      throw new Error("Offset must be within plus or minus 14 hours.");
+    }
+  }
 }
 
 export function fromDate(date: IDateTime, offset?: number) {
@@ -102,8 +113,26 @@ export function create(
     offset = ms;
     ms = 0;
   }
-  const str = dateIsoString(year, month, day, h, m, s, ms, offset);
-  const dateValue = new Date(str).getTime();
+  checkOffsetInRange(offset);
+  let date: Date;
+  if (offset === 0) {
+    date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
+    if (year <= 99) {
+      date.setFullYear(year, month - 1, day);
+    }
+  } else {
+    const str =
+      padWithZeros(year, 4) + "-" +
+      padWithZeros(month, 2) + "-" +
+      padWithZeros(day, 2) + "T" +
+      padWithZeros(h, 2) + ":" +
+      padWithZeros(m, 2) + ":" +
+      padWithZeros(s, 2) + "." +
+      padWithZeros(ms, 3) +
+      dateOffsetToString(offset);
+    date = new Date(str);
+  }
+  const dateValue = date.getTime();
   if (isNaN(dateValue)) {
     throw new Error("The parameters describe an unrepresentable Date");
   }
