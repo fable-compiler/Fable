@@ -1,6 +1,17 @@
 import re
 
-from typing import Any, Callable, Iterable, List, Match, Optional, Pattern, Union, Dict
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Match,
+    Optional,
+    Pattern,
+    Tuple,
+    Union,
+    Dict,
+)
 
 
 MatchEvaluator = Callable[[Any], str]
@@ -62,8 +73,16 @@ def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bo
 
 
 def groups(m: Match[str]) -> GroupCollection:
+    named_groups: Dict[str, str] = m.groupdict()
+
+    def mapper(tup: Tuple[int, str]) -> Tuple[str, str]:
+        index, item = tup
+        return str(index), item
+
+    groups: Dict[str, str] = dict(map(mapper, enumerate(m.groups())))
+
     # .NET adds the whole capture as group 0
-    return {"": m.string, **m.groupdict()}
+    return {"": m.string, **named_groups, **groups}
 
 
 def options(reg: Pattern[str]) -> int:
