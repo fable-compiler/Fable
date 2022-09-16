@@ -271,7 +271,11 @@ export function create(
   }
   const date = DateTime(dateValue, kind);
   if (year <= 99) {
-    date.setFullYear(year, month - 1, day);
+    if (kind === DateKind.UTC) {
+      date.setUTCFullYear(year, month - 1, day);
+    } else {
+      date.setFullYear(year, month - 1, day);
+    }
   }
   return date;
 }
