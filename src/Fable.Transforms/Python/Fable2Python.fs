@@ -903,14 +903,18 @@ module Annotation =
 
             if ent.IsInterface then
                 let name = Helpers.removeNamespace ent.FullName
-
                 match entRef.SourcePath with
                 | Some path when path <> com.CurrentFile ->
                     // this is just to import the interface
                     let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
 
                     com.GetImportExpr(ctx, importPath, name) |> ignore
-                | _ -> ()
+                | _ ->
+                    // If the interface is imported then it's erased and we need to add the actual imports
+                    match ent.Attributes with
+                    | Fable.Transforms.FSharp2Fable.Util.ImportAtt(name, importPath) ->
+                          com.GetImportExpr(ctx, importPath, name) |> ignore
+                    | _ -> ()
 
                 makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
             else
