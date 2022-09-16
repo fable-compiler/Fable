@@ -263,13 +263,9 @@ export function create(
   year: number, month: number, day: number,
   h: number = 0, m: number = 0, s: number = 0,
   ms: number = 0, kind?: DateKind) {
-  const dateValue = kind === DateKind.UTC
-    ? Date.UTC(year, month - 1, day, h, m, s, ms)
-    : new Date(year, month - 1, day, h, m, s, ms).getTime();
-  if (isNaN(dateValue)) {
-    throw new Error("The parameters describe an unrepresentable Date.");
-  }
-  const date = DateTime(dateValue, kind);
+  const date = kind === DateKind.UTC
+    ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
+    : new Date(year, month - 1, day, h, m, s, ms);
   if (year <= 99) {
     if (kind === DateKind.UTC) {
       date.setUTCFullYear(year, month - 1, day);
@@ -277,7 +273,11 @@ export function create(
       date.setFullYear(year, month - 1, day);
     }
   }
-  return date;
+  const dateValue = date.getTime();
+  if (isNaN(dateValue)) {
+    throw new Error("The parameters describe an unrepresentable Date.");
+  }
+  return DateTime(dateValue, kind);
 }
 
 export function now() {
