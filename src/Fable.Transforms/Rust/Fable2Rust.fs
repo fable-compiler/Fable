@@ -645,14 +645,23 @@ module TypeInfo =
     let transformGuidType com ctx: Rust.Ty =
         transformImportType com ctx [] "Guid" "Guid"
 
-    let transformDateTimeType com ctx: Rust.Ty =
-        transformImportType com ctx [] "DateTime" "DateTime"
-
     let transformTimeSpanType com ctx: Rust.Ty =
         transformImportType com ctx [] "TimeSpan" "TimeSpan"
 
+    let transformDateTimeType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTime" "DateTime"
+
     let transformDateTimeOffsetType com ctx: Rust.Ty =
         transformImportType com ctx [] "DateTimeOffset" "DateTimeOffset"
+
+    let transformDateOnlyType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTime" "DateOnly"
+
+    let transformTimeOnlyType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTime" "TimeOnly"
+
+    let transformTimerType com ctx: Rust.Ty =
+        transformImportType com ctx [] "DateTime" "Timer"
 
     let transformAsyncType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "Async" "Async"
@@ -877,6 +886,27 @@ module TypeInfo =
     let transformStringType com ctx: Rust.Ty =
         transformImportType com ctx [] "String" "string"
 
+    let transformBuiltinType com ctx typ kind: Rust.Ty =
+        match kind with
+        | Replacements.Util.BclGuid -> transformGuidType com ctx
+        | Replacements.Util.BclTimeSpan -> transformTimeSpanType com ctx
+        | Replacements.Util.BclDateTime -> transformDateTimeType com ctx
+        | Replacements.Util.BclDateTimeOffset -> transformDateTimeOffsetType com ctx
+        | Replacements.Util.BclDateOnly -> transformDateOnlyType com ctx
+        | Replacements.Util.BclTimeOnly -> transformTimeOnlyType com ctx
+        | Replacements.Util.BclTimer -> transformTimerType com ctx
+        | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
+        | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
+        | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg
+        | Replacements.Util.FSharpMap(k, v) -> transformMapType com ctx [k; v]
+        | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx true [k; v]
+        | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
+        | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
+        | Replacements.Util.FSharpReference(genArg) ->
+            if isInRefType com typ
+            then transformType com ctx genArg
+            else transformRefCellType com ctx genArg
+
     let transformType (com: IRustCompiler) ctx (typ: Fable.Type): Rust.Ty =
         let ty =
             match typ with
@@ -925,44 +955,13 @@ module TypeInfo =
                 | Some ifc -> transformInterfaceType com ctx ifc.Entity [Fable.Any]
                 | _ -> failwith "Cannot find IEnumerator interface, should not happen."
 
+            // built-in types
+            | Replacements.Util.Builtin kind ->
+                transformBuiltinType com ctx typ kind
+
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) ->
-                match entRef.FullName, genArgs with
-                | Replacements.Util.BuiltinEntity kind ->
-                    match kind with
-                    | Replacements.Util.BclDateOnly
-                    | Replacements.Util.BclTimeOnly
-                    | Replacements.Util.BclTimer
-                        -> transformDeclaredType com ctx entRef genArgs
-                    | Replacements.Util.BclGuid -> transformGuidType com ctx
-                    | Replacements.Util.BclDateTime -> transformDateTimeType com ctx
-                    | Replacements.Util.BclTimeSpan -> transformTimeSpanType com ctx
-                    | Replacements.Util.BclDateTimeOffset -> transformDateTimeOffsetType com ctx
-                    | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
-                    | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [k; v]
-                    | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg
-                    | Replacements.Util.FSharpMap(k, v) -> transformMapType com ctx [k; v]
-                    | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx true [k; v]
-                    | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
-                    | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
-                    | Replacements.Util.FSharpReference(genArg) ->
-                        if isInRefType com typ
-                        then transformType com ctx genArg
-                        else transformRefCellType com ctx genArg
-                | _ ->
-                    transformDeclaredType com ctx entRef genArgs
-
-                    // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                    // // Check if the entity is actually declared in JS code
-                    // if ent.IsInterface
-                    //     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                    //     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                    //     || FSharp2Fable.Util.isReplacementCandidate ent then
-                    //     genericEntity ent.FullName generics
-                    // else
-                    //     let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com ent Naming.reflectionSuffix
-                    //     let callee = com.TransformExpr(ctx, reflectionMethodExpr)
-                    //     Expression.callExpression(callee, generics)
+                transformDeclaredType com ctx entRef genArgs
 
         match shouldBeRefCountWrapped com ctx typ with
         | Some Lrc -> ty |> makeLrcTy com ctx

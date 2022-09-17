@@ -409,13 +409,13 @@ module Annotation =
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
-        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
+        | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
         | Fable.LambdaType(argType, returnType) ->
             ([argType], returnType)
             ||> FableTransforms.uncurryLambdaType
             ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
-        | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
+        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
@@ -490,29 +490,67 @@ module Annotation =
 
     let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
         let funcTypeParams =
-            argTypes
+            match argTypes with
+            | [Fable.Unit] -> []
+            | _ -> argTypes
             |> List.mapi (fun i argType ->
                 FunctionTypeParam.functionTypeParam(
                     Identifier.identifier("arg" + (string i)),
                     typeAnnotation com ctx argType))
             |> List.toArray
+        let ctx = { ctx with IsParamType = true };
         let genParams = Util.getGenericTypeParams ctx (argTypes @ [returnType])
         let returnType = typeAnnotation com ctx returnType
         let typeParamDecl = makeTypeParamDecl com ctx genParams
         TypeAnnotationInfo.functionTypeAnnotation(funcTypeParams, returnType, ?typeParameters=typeParamDecl)
 
-    let makeEntityTypeAnnotation com ctx (ent: Fable.EntityRef) genArgs =
-        match ent.FullName with
-        | Types.ienumerableGeneric ->
-            makeNativeTypeAnnotation com ctx genArgs "IterableIterator"
+    let makeInterfaceTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs =
+        match entRef.FullName with
+        | Types.icollection
+            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
+        | Types.icollectionGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "ICollection"
+        // | Types.idictionary
+        // | Types.ireadonlydictionary
+        | Types.idisposable
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IDisposable"
+        | Types.ienumerable
+            -> makeNativeTypeAnnotation com ctx [Fable.Any] "Iterable"
+        | Types.ienumerableGeneric
+            -> makeNativeTypeAnnotation com ctx genArgs "Iterable"
+            // -> makeImportTypeAnnotation com ctx genArgs "Util" "IEnumerable"
+        | Types.ienumerator
+            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerator"
+        | Types.ienumeratorGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEnumerator"
+        | Types.icomparable
+            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparable"
+        | Types.icomparableGeneric
+        | Types.iStructuralComparable
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IComparable"
+        | Types.iequatableGeneric
+        | Types.iStructuralEquatable
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEquatable"
+        | Types.icomparer
+            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparer"
+        | Types.icomparerGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IComparer"
+        | Types.iequalityComparerGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEqualityComparer"
+        | _ ->
+            // TODO: add more interfaces
+            AnyTypeAnnotation
+
+    let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs =
+        match entRef.FullName with
         | Types.result ->
             makeUnionTypeAnnotation com ctx genArgs
         | entName when entName.StartsWith(Types.choiceNonGeneric) ->
             makeUnionTypeAnnotation com ctx genArgs
         | _ ->
-            let ent = com.GetEntity(ent)
+            let ent = com.GetEntity(entRef)
             if ent.IsInterface then
-                AnyTypeAnnotation // TODO:
+                makeInterfaceTypeAnnotation com ctx entRef genArgs
             else
                 match Lib.tryJsConstructor com ctx ent with
                 | Some entRef ->
@@ -594,7 +632,7 @@ module Util =
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
-        let argIds = discardUnitArg args |> List.map (fun arg ->
+        let argIds = args |> discardUnitArg |> List.map (fun arg ->
             getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
         interface ITailCallOpportunity with
             member _.Label = name
@@ -2098,23 +2136,25 @@ module Util =
     let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let isStatic = not info.IsInstance
         let kind = if info.IsGetter then ClassGetter else ClassSetter
-        let args, body, _returnType, _typeParamDecl =
+        let args, body, returnType, _typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
-        ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
+        ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic,
+            ?returnType=returnType) //, ?typeParameters=typeParamDecl)
         |> Array.singleton
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let isStatic = not info.IsInstance
-        let makeMethod name args body =
+        let makeMethod name args body returnType _typeParamDecl =
             let key, computed = memberFromName name
-            ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
-        let args, body, _returnType, _typeParamDecl =
+            ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic,
+                ?returnType=returnType) //, ?typeParameters=typeParamDecl)
+        let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
         [|
-            yield makeMethod memb.Name args body
+            yield makeMethod memb.Name args body returnType typeParamDecl
             if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-                yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
+                yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx) None None
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =

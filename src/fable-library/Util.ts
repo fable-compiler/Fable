@@ -20,8 +20,11 @@ export interface IComparable<T> extends IEquatable<T> {
 }
 
 export interface IEquatable<T> {
-  GetHashCode(): number;
   Equals(x: T): boolean;
+}
+
+export interface IHashable {
+  GetHashCode(): number;
 }
 
 export interface IDisposable {
@@ -47,28 +50,32 @@ export interface ICollection<T> {
   Remove(item: T): boolean;
 }
 
-export function isIterable<T>(x: T | ArrayLike<T> | Iterable<T>): x is Iterable<T> {
-  return x != null && typeof x === "object" && Symbol.iterator in x;
-}
-
 export function isArrayLike<T>(x: T | ArrayLike<T> | Iterable<T>): x is T[] {
   return Array.isArray(x) || ArrayBuffer.isView(x);
 }
 
-function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
-  return typeof (x as IComparer<T>).Compare === "function";
+export function isIterable<T>(x: T | ArrayLike<T> | Iterable<T>): x is Iterable<T> {
+  return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
-function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
-  return typeof (x as IComparable<T>).CompareTo === "function";
+export function isEnumerable<T>(x: T | Iterable<T>): x is IEnumerable<T> {
+  return x != null && typeof (x as IEnumerable<T>).GetEnumerator === "function"
 }
 
-function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
-  return typeof (x as IEquatable<T>).Equals === "function";
+export function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
+  return x != null && typeof (x as IComparer<T>).Compare === "function";
 }
 
-function isHashable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
-  return typeof (x as IEquatable<T>).GetHashCode === "function";
+export function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
+  return x != null && typeof (x as IComparable<T>).CompareTo === "function";
+}
+
+export function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return x != null && typeof (x as IEquatable<T>).Equals === "function";
+}
+
+export function isHashable<T>(x: T | IHashable): x is IHashable {
+  return x != null && typeof (x as IHashable).GetHashCode === "function";
 }
 
 export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
@@ -86,8 +93,8 @@ export function sameConstructor<T>(x: T, y: T) {
 }
 
 export interface IEnumerator<T> extends IDisposable {
-  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
-  ["System.Collections.IEnumerator.get_Current"](): T | undefined;
+  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T;
+  ["System.Collections.IEnumerator.get_Current"](): T;
   ["System.Collections.IEnumerator.MoveNext"](): boolean;
   ["System.Collections.IEnumerator.Reset"](): void;
   Dispose(): void;
@@ -98,7 +105,7 @@ export interface IEnumerable<T> extends Iterable<T> {
 }
 
 export class Enumerator<T> implements IEnumerator<T> {
-  private current?: T;
+  private current: any; // : T;
   constructor(private iter: Iterator<T>) { }
   public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
     return this.current;
@@ -119,10 +126,9 @@ export class Enumerator<T> implements IEnumerator<T> {
   }
 }
 
-export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
-  return typeof (o as any).GetEnumerator === "function"
-    ? (o as IEnumerable<T>).GetEnumerator()
-    : new Enumerator(o[Symbol.iterator]());
+export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T> {
+  if (isEnumerable(e)) { return e.GetEnumerator(); }
+  else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
 export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
@@ -293,9 +299,7 @@ export function physicalHash<T>(x: T): number {
 }
 
 export function identityHash<T>(x: T): number {
-  if (x == null) {
-    return 0;
-  } else if (isHashable(x)) {
+  if (isHashable(x)) {
     return x.GetHashCode();
   } else {
     return physicalHash(x);
@@ -352,8 +356,9 @@ export function fastStructuralHash<T>(x: T): number {
 }
 
 // Intended for declared types that may or may not implement GetHashCode
-export function safeHash<T>(x: IEquatable<T> | undefined): number {
-  return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
+export function safeHash(x: IHashable | undefined): number {
+  // return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
+  return identityHash(x);
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {

@@ -1,4 +1,4 @@
-import { IComparable, IEquatable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
+import { IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 // This type is only used internally for .ts files in the library
 // F# Result type is in Choice.fs
@@ -153,7 +153,7 @@ function recordCompareTo<T>(self: T, other: T) {
   }
 }
 
-export abstract class Record implements IEquatable<Record>, IComparable<Record> {
+export abstract class Record implements IEquatable<Record>, IComparable<Record>, IHashable {
   toJSON() { return recordToJSON(this); }
   toString() { return recordToString(this); }
   GetHashCode() { return recordGetHashCode(this); }

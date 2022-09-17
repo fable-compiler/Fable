@@ -330,7 +330,7 @@ let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
 let findIndex (predicate: 'T -> bool) (array: 'T[]): int =
     match findIndexImpl predicate array with
     | index when index > -1 -> index
-    | _ -> indexNotFound()
+    | _ -> indexNotFound(); -1
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
     match findIndexImpl predicate array with
@@ -378,7 +378,7 @@ let findLastIndex predicate (array: _[]) =
 
 let findIndexBack predicate (array: _[]) =
     let rec loop i =
-        if i < 0 then indexNotFound()
+        if i < 0 then indexNotFound(); -1
         elif predicate array.[i] then i
         else loop (i - 1)
     loop (array.Length - 1)

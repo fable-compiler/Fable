@@ -689,9 +689,9 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> fail()
         | Some genArg ->
             match injectType with
-            | Types.comparer ->
+            | Types.icomparerGeneric ->
                 args @ [makeComparer com ctx genArg]
-            | Types.equalityComparerGeneric ->
+            | Types.iequalityComparerGeneric ->
                 args @ [makeEqualityComparer com ctx genArg]
             | Types.arrayCons ->
                 match genArg with

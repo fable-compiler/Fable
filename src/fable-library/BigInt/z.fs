@@ -113,7 +113,7 @@ namespace BigInt
         member x.StructuredDisplayString = x.ToString()
 
         interface Fable.Core.IJsonSerializable with
-            member this.toJSON(_key) =
+            member this.toJSON() =
                 this.ToString() |> box
 
         interface System.IComparable with

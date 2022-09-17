@@ -2001,8 +2001,8 @@ module Util =
             | "System.IObserver`1"
             | Types.ienumerableGeneric
             // These are used for injections
-            | Types.comparer
-            | Types.equalityComparerGeneric -> false
+            | Types.icomparerGeneric
+            | Types.iequalityComparerGeneric -> false
             | Types.icomparable -> false
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true

@@ -8,8 +8,8 @@ open FSharp.Compiler.Symbols
 
 let typeAliases =
     Map [
-        "System.Collections.Generic.IComparer`1", "comparer"
-        "System.Collections.Generic.IEqualityComparer`1", "equalityComparerGeneric"
+        "System.Collections.Generic.IComparer`1", "icomparerGeneric"
+        "System.Collections.Generic.IEqualityComparer`1", "iequalityComparerGeneric"
         "Native.Cons`1", "arrayCons"
     ]
 

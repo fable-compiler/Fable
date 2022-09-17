@@ -851,12 +851,12 @@ module Annotation =
         | Types.icomparable, _ -> libValue com ctx "util" "IComparable", []
         | Types.iStructuralEquatable, _ -> libValue com ctx "util" "IStructuralEquatable", []
         | Types.iStructuralComparable, _ -> libValue com ctx "util" "IStructuralComparable", []
-        | Types.comparer, _ ->
+        | Types.icomparerGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
         | Types.equalityComparer, _ ->
             libValue com ctx "util" "IEqualityComparer", []
-        | Types.equalityComparerGeneric, _ ->
+        | Types.iequalityComparerGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
             fableModuleAnnotation com ctx "util" "IEqualityComparer_1" [ resolved ], stmts
         | Types.ienumerator, _ ->
