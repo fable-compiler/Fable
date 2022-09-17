@@ -486,7 +486,6 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
         | BclDateTimeOffset) -> "dateHash"
         | DeclaredType (ent, _) ->
             let ent = com.GetEntity(ent)
-
             if not ent.IsInterface then
                 "safeHash"
             else
@@ -769,8 +768,8 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> fail ()
         | Some genArg ->
             match injectType with
-            | Types.comparer -> args @ [ makeComparer com ctx genArg ]
-            | Types.equalityComparerGeneric -> args @ [ makeEqualityComparer com ctx genArg ]
+            | Types.icomparerGeneric -> args @ [ makeComparer com ctx genArg ]
+            | Types.iequalityComparerGeneric -> args @ [ makeEqualityComparer com ctx genArg ]
             | Types.arrayCons ->
                 match genArg with
                 // We don't have a module for ResizeArray so let's assume the kind is MutableArray

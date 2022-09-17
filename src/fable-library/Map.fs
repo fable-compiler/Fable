@@ -705,7 +705,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         member _.``Symbol.toStringTag`` = "FSharpMap"
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with

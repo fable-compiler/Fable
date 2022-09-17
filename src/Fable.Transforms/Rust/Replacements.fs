@@ -702,7 +702,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
 //         | None -> fail()
 //         | Some(_,genArg) ->
 //             match injectType with
-//             | Types.comparer ->
+//             | Types.icomparerGeneric ->
 //                 args @ [makeComparer com ctx genArg]
 //             | Types.equalityComparer ->
 //                 args @ [makeEqualityComparer com ctx genArg]

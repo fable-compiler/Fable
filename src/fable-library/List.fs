@@ -21,7 +21,7 @@ type LinkedList<'T when 'T: comparison> =
     member xs.IsEmpty = xs.tail.IsNone
 
     member xs.Length =
-        let rec loop i xs =
+        let rec loop i (xs: 'T list) =
             match xs.tail with
             | None -> i
             | Some t -> loop (i + 1) t
@@ -38,7 +38,7 @@ type LinkedList<'T when 'T: comparison> =
         | Some t -> t
 
     member xs.Item with get (index) =
-        let rec loop i xs =
+        let rec loop i (xs: 'T list) =
             match xs.tail with
             | None -> invalidArg "index" SR.indexOutOfBounds
             | Some t ->
@@ -54,7 +54,7 @@ type LinkedList<'T when 'T: comparison> =
         then true
         else
             let ys = other :?> 'T list
-            let rec loop xs ys =
+            let rec loop (xs: 'T list) (ys: 'T list) =
                 match xs.tail, ys.tail with
                 | None, None -> true
                 | None, Some _ -> false
@@ -77,13 +77,13 @@ type LinkedList<'T when 'T: comparison> =
         loop 0 0 xs
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             Helpers.arrayFrom(this) |> box
 
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
             let ys = other :?> 'T list
-            let rec loop xs ys =
+            let rec loop (xs: 'T list) (ys: 'T list) =
                 match xs.tail, ys.tail with
                 | None, None -> 0
                 | None, Some _ -> -1
@@ -128,7 +128,7 @@ and List<'T> when 'T: comparison = LinkedList<'T>
 // [<RequireQualifiedAccess>]
 // module List =
 
-let inline indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
+let indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
 let empty () = List.Empty
 
@@ -413,7 +413,7 @@ let tryFindIndex f xs: int option =
 let findIndex f xs: int =
     match tryFindIndex f xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryFindIndexBack f xs: int option =
     xs |> toArray |> Array.tryFindIndexBack f
@@ -421,7 +421,7 @@ let tryFindIndexBack f xs: int option =
 let findIndexBack f xs: int =
     match tryFindIndexBack f xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryItem n (xs: 'T list) =
     let rec loop i (xs: 'T list) =

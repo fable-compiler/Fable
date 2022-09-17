@@ -554,9 +554,9 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         List.tryItem injectGenArgIndex genArgs
         |> Option.bind (fun genArg ->
             match injectType with
-            | Types.comparer ->
+            | Types.icomparerGeneric ->
                 args @ [makeComparer com ctx genArg] |> Some
-            | Types.equalityComparerGeneric ->
+            | Types.iequalityComparerGeneric ->
                 args @ [makeEqualityComparer com ctx genArg] |> Some
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg] |> Some
@@ -604,7 +604,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | Naming.EndsWith "Enumerator" _
         -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
-    | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparerGeneric ->
+    | Types.idisposable | Types.adder | Types.averager | Types.icomparerGeneric | Types.iequalityComparerGeneric ->
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
         let entFullName =
             match entFullName.IndexOf("`") with

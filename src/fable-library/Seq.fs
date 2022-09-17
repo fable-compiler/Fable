@@ -92,7 +92,7 @@ module Enumerator =
     //     let dispose() = ()
     //     fromFunctions current next dispose
 
-    let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
+    let cast (e: IEnumerator<'T>): IEnumerator<'T> =
         let current() = unbox<'T> e.Current
         let next() = e.MoveNext()
         let dispose() =
@@ -267,7 +267,7 @@ let generateIndexed create compute dispose =
 let append (xs: seq<'T>) (ys: seq<'T>) =
     concat [| xs; ys |]
 
-let cast (xs: System.Collections.IEnumerable) =
+let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
         checkNonNull "source" xs
         xs.GetEnumerator()
@@ -408,7 +408,7 @@ let tryFindIndex predicate (xs: seq<'T>) =
 let findIndex predicate (xs: seq<'T>) =
     match tryFindIndex predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryFindIndexBack predicate (xs: seq<'T>) =
     xs
@@ -418,7 +418,7 @@ let tryFindIndexBack predicate (xs: seq<'T>) =
 let findIndexBack predicate (xs: seq<'T>) =
     match tryFindIndexBack predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     use e = ofSeq xs

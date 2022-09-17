@@ -414,7 +414,7 @@ let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.FullName with
         | Types.idictionary -> IDictionary
-        | Types.equalityComparerGeneric -> IEqualityComparer
+        | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
     | _ -> Other
 
@@ -422,7 +422,7 @@ let (|IEnumerable|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.FullName with
         | Types.ienumerableGeneric -> IEnumerable
-        | Types.equalityComparerGeneric -> IEqualityComparer
+        | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
     | _ -> Other
 
