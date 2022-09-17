@@ -1,3 +1,11 @@
+### 4.0.0-theta-005
+
+* Python, fix type annotation for imports of erased interfaces
+* Python, better regex handling
+* TypeScript, ixed some array issues
+* Allow alias for default/namespace imports
+* TypeScript, added some interface annotations
+
 ### 4.0.0-theta-004
 
 * JS, allow alias for default/namespace imports
