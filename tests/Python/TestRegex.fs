@@ -301,6 +301,128 @@ let ``test Regex.Replace with limit, offset and macros works`` () =
     re.Replace(str, "$2 $1", 10, 5)
     |> equal "AlfonGarcia-Caro so"
 
+[<Fact>]
+let ``test Regex.Replace with evaluator works`` () =
+    let str = "Alfonso García-Caro"
+    let test pattern expected =
+        Regex.Replace(str, pattern, fun (m: Match) ->
+            m.Groups.[2].Value + " " + m.Groups.[1].Value)
+        |> equal expected
+    test "([A-Za-z]+) ([A-Za-z\-]+)" "Garc Alfonsoía-Caro"
+    test "(fon)(so)" "Also fon García-Caro"
+
+[<Fact>]
+let ``test Regex.Replace with evaluator and limit works`` () =
+    let str = "abcabcabcabcabcabcabcabc"
+    let r = Regex("c")
+    let test count expected =
+        r.Replace(str, (fun (m: Match) -> string m.Index), count=count)
+        |> equal expected
+    test 1 "ab2abcabcabcabcabcabcabc"
+    test 3 "ab2ab5ab8abcabcabcabcabc"
+
+[<Fact>]
+let ``test Regex.Replace with evaluator, limit and offset works`` () =
+    let str = "abcCcabCCabcccabcabcabCCCcabcabc"
+    let r = Regex("c+", RegexOptions.IgnoreCase)
+    let test startat expected =
+        r.Replace(str, (fun (m: Match) -> string m.Length), count=3, startat=startat)
+        |> equal expected
+    test 0 "ab3ab2ab3abcabcabCCCcabcabc"
+    test 10 "abcCcabCCab3ab1ab1abCCCcabcabc"
+
+[<Fact>]
+let ``test Replacing with $0 works`` () = // See #1155
+    let s = Regex.Replace("1234567890", ".{2}", "$0-")
+    equal "12-34-56-78-90-" s
+
+// See #838
+[<Fact>]
+let ``test Group values are correct and empty when not being matched`` () =
+    Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
+    |> Seq.cast<Match>
+    |> Seq.map (fun m -> m.Groups.[1].Value)
+    |> Seq.forall (fun value -> value = "")
+    |> equal true
+
+[<Fact>]
+let ``test Group values can be converted to int`` () = // See #1753
+    let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
+    let group = m.Groups.[2]
+    int (group.Value) |> equal 123
+
+// see #2359
+// [<Fact>]
+// let ``test Regex.Replace with elevator works when regex has named capture group`` () =
+//     let r = Regex "0(?<number>\\d+)"
+//     let text = "Number 012345!"
+
+//     let replace (m: Match) =
+//         m.Success |> equal true
+//         m.Length |> equal 6
+//         m.Groups.Count |> equal 2
+//         m.Groups |> Seq.toList |> List.map (fun m -> m.Value) |> equal [ "012345"; "12345" ]
+
+//         sprintf "%s" m.Groups.[1].Value
+
+//     let actual = r.Replace(text, replace)
+
+//     actual |> equal "Number 12345!"
+
+[<Fact>]
+let ``test Unicode patterns work`` () = // See #2925
+    let regex = Regex(@"^[\S ,.'-]+$", RegexOptions.ECMAScript)
+    let res = regex.Match("John Smith")
+    res.Value |> equal "John Smith"
+
+[<Fact>]
+let ``test succeeds when match`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    m.Success |> equal true
+
+[<Fact>]
+let ``test doesn't succeed when unmatched`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Hello World"
+    m.Success |> equal false
+
+[<Fact>]
+let ``test can get value of existing group`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    m.Groups.["number"].Value |> equal "12345"
+
+[<Fact>]
+let ``test can get values of multiple existing groups`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let m = r.Match "Number: +49 1234!"
+
+    m.Groups.["country"].Value |> equal "49"
+    m.Groups.["num"].Value |> equal "1234"
+
+// [<Fact>]
+// let ``test doesn't succeed for not existing named group`` () =
+//     let r = Regex "(?<number>\\d+)"
+//     let m = r.Match "Number 12345 is positive"
+
+//     m.Groups.["nothing"].Success |> equal false
+
+// [<Fact>]
+// let ``test doesn't succeed for not existing named group in regex without named groups`` () =
+//     let r = Regex "\\d+"
+//     let m = r.Match "Number 12345 is positive"
+
+//     m.Groups.["nothing"].Success |> equal false
+
+[<Fact>]
+let ``test doesn't succeed for existing unmatched group`` () =
+    let r = Regex "(?<exact>42)|(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    m.Groups.["exact"].Success |> equal false
+
 
 [<Fact>]
 let ``test gets all matches with all named groups`` () =

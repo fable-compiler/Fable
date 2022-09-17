@@ -1,9 +1,7 @@
 import re
 
 from typing import (
-    Any,
     Callable,
-    Iterable,
     List,
     Match,
     Optional,
@@ -14,7 +12,7 @@ from typing import (
 )
 
 
-MatchEvaluator = Callable[[Any], str]
+MatchEvaluator = Callable[[Match[str]], str]
 GroupCollection = Dict[str, str]
 
 
