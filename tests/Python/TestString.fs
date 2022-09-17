@@ -155,6 +155,18 @@ let ``test String.Format combining padding and zeroes pattern works`` () =
     String.Format(CultureInfo.InvariantCulture, "{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
 
 [<Fact>]
+let ``test String.Format works`` () =
+    let arg1, arg2, arg3 = "F#", "Fable", "Babel"
+    String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+    |> equal "Babel is to Fable what Fable is to F#"
+
+[<Fact>]
+let ``test String.Format with array works`` () =
+    let args = [| "F#" :> obj; "Fable"; "Babel" |]
+    String.Format("{2} is to {1} what {1} is to {0}", args=args)
+    |> equal "Babel is to Fable what Fable is to F#"
+
+[<Fact>]
 let ``test StringBuilder works`` () =
     let sb = System.Text.StringBuilder()
     sb.Append "Hello" |> ignore

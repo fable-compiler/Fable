@@ -53,6 +53,10 @@ def op_addition(a: int, b: int) -> int:
     return a + b
 
 
+def op_subtraction(a: int, b: int) -> int:
+    return a - b
+
+
 def op_multiply(a: int, b: int) -> int:
     return a * b
 
