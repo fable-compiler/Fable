@@ -3045,6 +3045,15 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "WriteLine" -> log com r t i thisArg args |> Some
     | _ -> None
 
+let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | _ ->
+        let memberName = Naming.lowerFirst i.CompiledName
+
+        Helper.LibCall(com, "diagnostics", memberName, Boolean, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+
+
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Write" ->
@@ -3328,6 +3337,13 @@ let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName with
     | "Enter"
     | "Exit" -> Null Type.Unit |> makeValue r |> Some
+    | _ -> None
+
+let thread (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Sleep" ->
+        Helper.LibCall(com, "thread", "sleep", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3910,6 +3926,7 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
     | _ -> None
 
 let tryField com returnTyp ownerTyp fieldName =
+    // printfn "tryField %A %A %A" returnTyp ownerTyp fieldName
     match ownerTyp, fieldName with
     | Number(Decimal,_), _ ->
         Helper.LibValue(com, "decimal", "get_" + fieldName, returnTyp)
@@ -3930,7 +3947,10 @@ let tryField com returnTyp ownerTyp fieldName =
     | DeclaredType (ent, genArgs), fieldName ->
         match ent.FullName with
         | "System.BitConverter" ->
-            Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, [])
+            Helper.LibCall(com, "bit_converter", Naming.lowerFirst fieldName, returnTyp, [])
+            |> Some
+        | "System.Diagnostics.Stopwatch" ->
+            Helper.LibCall(com, "diagnostics", Naming.lowerFirst fieldName, returnTyp, [])
             |> Some
         | _ -> None
     | _ -> None
@@ -4015,6 +4035,7 @@ let private replacedModules =
            "System.Console", console
            "System.Diagnostics.Debug", debug
            "System.Diagnostics.Debugger", debug
+           "System.Diagnostics.Stopwatch", stopwatch
            Types.datetime, dates
            Types.datetimeOffset, dates
            Types.timespan, timeSpans
@@ -4025,6 +4046,7 @@ let private replacedModules =
            "System.Threading.CancellationToken", cancels
            "System.Threading.CancellationTokenSource", cancels
            "System.Threading.Monitor", monitor
+           "System.Threading.Thread", thread
            Types.task, tasks
            Types.taskGeneric, tasks
            "System.Threading.Tasks.TaskCompletionSource`1", tasks
