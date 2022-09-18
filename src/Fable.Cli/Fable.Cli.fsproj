@@ -5,12 +5,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-theta-005</PackageVersion>
-    <PackageReleaseNotes>* Python, fix type annotation for imports of erased interfaces
-* Python, better regex handling
-* TypeScript, ixed some array issues
-* Allow alias for default/namespace imports
-* TypeScript, added some interface annotations</PackageReleaseNotes>
+    <PackageVersion>4.0.0-theta-006</PackageVersion>
+    <PackageReleaseNotes>* Python, regex fixes for group collection</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

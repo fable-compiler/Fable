@@ -1,3 +1,7 @@
+### 4.0.0-theta-006
+
+* Python, regex fixes for group collection
+
 ### 4.0.0-theta-005
 
 * Python, fix type annotation for imports of erased interfaces
