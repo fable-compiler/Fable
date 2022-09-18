@@ -3412,7 +3412,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             Naming.removeGetSetPrefix meth
             |> Naming.lowerFirst
 
-        Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, "reg_exp", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

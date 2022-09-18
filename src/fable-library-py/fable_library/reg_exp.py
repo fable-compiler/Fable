@@ -2,6 +2,7 @@ import re
 
 from typing import (
     Callable,
+    Iterator,
     List,
     Match,
     Optional,
@@ -13,7 +14,26 @@ from typing import (
 
 
 MatchEvaluator = Callable[[Match[str]], str]
-GroupCollection = Dict[str, str]
+
+
+class GroupCollection:
+    def __init__(self, groups: Dict[str, str]) -> None:
+        self.groups = groups
+
+    def values(self) -> List[str]:
+        return list(self.groups.values())
+
+    def __len__(self) -> int:
+        return len(self.groups)
+
+    def __getitem__(self, key: Union[int, str]) -> str:
+        if isinstance(key, int):
+            return list(self.groups.values())[key]
+        else:
+            return self.groups[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.groups.values())
 
 
 def _options_to_flags(options: int) -> int:
@@ -80,7 +100,7 @@ def groups(m: Match[str]) -> GroupCollection:
     groups: Dict[str, str] = dict(map(mapper, enumerate(m.groups())))
 
     # .NET adds the whole capture as group 0
-    return {"": m.string, **named_groups, **groups}
+    return GroupCollection({"": m.string, **named_groups, **groups})
 
 
 def options(reg: Pattern[str]) -> int:
@@ -124,10 +144,8 @@ def split(
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
-def get_item(matches: GroupCollection, index: Union[str, int]) -> str:
-    if isinstance(index, int):
-        return list(matches.values())[index]
-    return matches[index]
+def get_item(groups: GroupCollection, index: Union[str, int]) -> str:
+    return groups[index]
 
 
 __all__ = [
