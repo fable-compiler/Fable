@@ -235,6 +235,60 @@ let ``test Regex.Matches indexer getter works`` () =
     ms.[8].Index |> equal 29
 
 [<Fact>]
+let ``test Regex.Matches iteration works`` () =
+    let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
+    let count = ref 0
+    for m in ms do count.Value <- count.Value + m.Value.Length
+    equal 10 count.Value
+
+[<Fact>]
+let ``test Regex.Matches iteration with casting works`` () =
+    let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
+    let count =
+        ms |> Seq.cast<Match> |> Seq.fold(fun acc m -> acc + m.Value.Length) 0
+    equal 10 count
+
+[<Fact>]
+let ``test MatchCollection.Count works`` () =
+    let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    let test pattern expected =
+        let ms = Regex.Matches(str, pattern, RegexOptions.IgnoreCase)
+        ms.Count |> equal expected
+    test "[A-E]" 10
+    test "(ZZ)+" 0
+
+// [<Fact>]
+// let ``test Regex.Matches doesn't fall in infinite loop`` () = // See #2845
+//     let test input pattern expected =
+//         Regex.Matches(input, pattern)
+//         |> Seq.cast<Match>
+//         |> Seq.map (fun m -> m.Value)
+//         |> Seq.toList
+//         |> equal expected
+
+//     test "aaa" @".*" ["aaa"; ""]
+//     test "ab" @"(?<=a)(?=b)" [""]
+
+//     // unescaped pattern: (?<=")(?:\\\\|\\"|.)*(?=")|[A-Za-z0-9_-]+
+//     let pattern = @"(?<="")(?:\\\\|\\""|.)*(?="")|[A-Za-z0-9_-]+"
+//     test "\"\"" pattern [""]
+//     test "a \"\" b" pattern ["a"; ""; "b"]
+//     test "a \"b \\\"c\" de\"f\"" pattern ["a"; "b \\\"c\" de\"f"]
+//     test "a\" \\\\\" \\\"\"\" \"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\" \"b \\\"c\" de\"f"]
+//     test "a\" \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
+//     test "a\" \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
+
+[<Fact>]
+let ``test Regex.Split works`` () =
+    let test str expected =
+        let splits = Regex.Split(str, "[;,]")
+        splits.Length |> equal expected
+    test "plum;pear,orange" 3
+    test "" 1
+
+[<Fact>]
 let ``test Regex.Split with limit works`` () =
     let s = "blah blah blah, blah blah blah"
     let r = Regex(" ")
@@ -423,6 +477,64 @@ let ``test doesn't succeed for existing unmatched group`` () =
 
     m.Groups.["exact"].Success |> equal false
 
+[<Fact>]
+let ``test named capture group group name from string`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    m.Groups.["number"].Value |> equal "12345"
+
+[<Fact>]
+let ``test named capture group group name from variable`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    let g = "number"
+    m.Groups.[g].Value |> equal "12345"
+
+[<Fact>]
+let ``test group name from addition`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    m.Groups.["num" + "ber"].Value |> equal "12345"
+
+[<Fact>]
+let ``test group name from string in function`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    let namedGroup (name: string) (m: Match): string =
+        m.Groups.[name].Value
+
+    m |> namedGroup "number" |> equal "12345"
+
+[<Fact>]
+let ``test group name from variable in function`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    let namedGroup (name: string) (m: Match): string =
+        m.Groups.[name].Value
+
+    let g = "number"
+    m |> namedGroup g |> equal "12345"
+
+[<Fact>]
+let ``test group name from function call`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    let getName () = "number"
+    m.Groups.[getName ()].Value |> equal "12345"
+
+[<Fact>]
+let ``test group name from if expression`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+
+    m.Groups.[if m.Success then "number" else failwith "Regex didn't match!"].Value |> equal "12345"
+
 
 [<Fact>]
 let ``test gets all matches with all named groups`` () =
@@ -479,3 +591,48 @@ let ``test group name from variable`` () =
         |> Seq.toList
 
     actual |> equal expected
+
+[<Fact>]
+let ``test can access named groups`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+    let replace (m: Match) =
+        sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+
+    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+    let actual = r.Replace(text, replace)
+
+    actual |> equal expected
+
+// [<Fact>]
+// let ``test doesn't succeed when not existing group`` () =
+//     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+//     let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+//     let replace (m: Match) =
+//         if m.Groups.["nothing"].Success then
+//             failwith "Shouldn't get group 'nothing'"
+//         else
+//             sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+
+//     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+//     let actual = r.Replace(text, replace)
+
+//     actual |> equal expected
+
+// [<Fact>]
+// let ``test doesn't succeed when not existing group without any named groups`` () =
+//     let r = Regex "\\+(\\d{1,3}) (\\d+)"
+//     let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+//     let replace (m: Match) =
+//         if m.Groups.["nothing"].Success then
+//             failwith "Shouldn't get group 'nothing'"
+//         else
+//             sprintf "00%s-%s" m.Groups.[1].Value m.Groups.[2].Value
+
+//     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+//     let actual = r.Replace(text, replace)
+
+//     actual |> equal expected
