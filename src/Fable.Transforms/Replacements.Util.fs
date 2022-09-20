@@ -475,9 +475,14 @@ let (|MaybeInScope|) (ctx: Context) e =
         | None -> e
     | e -> e
 
-let (|RequireStringConst|) com (ctx: Context) r e =
+let rec (|MaybeInScopeStringConst|_|) ctx = function
+    | MaybeInScope ctx (StringConst s) -> Some s
+    | Operation(Binary(AST.BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
+    | _ -> None
+
+let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
-    | MaybeInScope ctx (StringConst s) -> s
+    | MaybeInScopeStringConst ctx s -> s
     | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
         ""

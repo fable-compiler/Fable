@@ -371,11 +371,9 @@ module AST =
         | Let(i, v, body) -> inner [i, v] body |> Some
         | _ -> None
 
-    let (|MaybeCasted|) e =
-        let rec inner = function
-            | TypeCast(e,_) -> inner e
-            | e -> e
-        inner e
+    let rec (|MaybeCasted|) = function
+        | TypeCast(MaybeCasted e,_) -> e
+        | e -> e
 
     let (|MaybeOption|) e =
         match e with
