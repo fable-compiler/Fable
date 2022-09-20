@@ -372,7 +372,7 @@ let (|EntFullName|_|) = function
     | _ -> None
 
 let (|IsByRefType|_|) (com: Compiler) = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
         match ent.IsByRef, genArgs with
         | true, (genArg::_) -> Some genArg
@@ -380,10 +380,10 @@ let (|IsByRefType|_|) (com: Compiler) = function
     | _ -> None
 
 let (|IsInRefType|_|) (com: Compiler) = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
         match ent.IsByRef, genArgs with
-        | true, [genArg; Fable.DeclaredType(byRefKind, _)]
+        | true, [genArg; DeclaredType(byRefKind, _)]
             when byRefKind.FullName = Types.byrefKindIn
             -> Some genArg
         | _ -> None
