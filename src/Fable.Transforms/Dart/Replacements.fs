@@ -1375,10 +1375,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 // Find/FindLast don't work because we cannot provide a default value for ref types with null safety in Dart
 //    | "Find", Some ar, [arg] ->
 //        let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
-//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
 //    | "FindLast", Some ar, [arg] ->
 //        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
-//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "filter", t, [arg; ar], genArgs=i.GenericArgs, ?loc=r) |> Some
     | "AddRange", Some ar, [arg] ->

@@ -564,10 +564,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // This is usually used to fill missing [<Optional>] arguments.
     // Unchecked.defaultof<'T> is resolved in Replacements instead.
     | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
+        let r = makeRangeFrom fsExpr
         match Compiler.Language with
         // In Dart we don't want the compiler to pass default values other than null to [<Optional>] args
-        | Dart -> return Fable.Value(Fable.Null typ, makeRangeFrom fsExpr)
-        | _ -> return Replacements.Api.defaultof com ctx typ
+        | Dart -> return Fable.Value(Fable.Null typ, r)
+        | _ -> return Replacements.Api.defaultof com ctx r typ
 
     | FSharpExprPatterns.Let((var, value, _), body) ->
         match value with
@@ -583,7 +584,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // check if it's directly assigned in a binding and use the actual default value in that case
         // (This is necessary to properly initialize the out arg in `TryParse` methods)
         | FSharpExprPatterns.DefaultValue (FableType com ctx typ) ->
-            let value = Replacements.Api.defaultof com ctx typ
+            let r = makeRangeFrom fsExpr
+            let value = Replacements.Api.defaultof com ctx r typ
             let ctx, ident = putIdentInScope com ctx var (Some value)
             let! body = transformExpr com ctx body
             return Fable.Let(ident, value, body)

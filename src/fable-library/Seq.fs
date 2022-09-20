@@ -101,8 +101,8 @@ module Enumerator =
             | _ -> ()
         fromFunctions current next dispose
 
-    let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
-        let mutable outerOpt: IEnumerator<'U> option = None
+    let concat<'T> (sources: seq<seq<'T>>) =
+        let mutable outerOpt: IEnumerator<seq<'T>> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable started = false
         let mutable finished = false
@@ -246,7 +246,7 @@ let toArray (xs: seq<'T>): 'T[] =
 let ofList (xs: list<'T>) =
     (xs :> seq<'T>)
 
-let toList (xs: seq<'T>): seq<'T> =
+let toList (xs: seq<'T>): list<'T> =
     match xs with
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
@@ -326,7 +326,7 @@ let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq
 let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) =
     finallyEnumerable(compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>) =
+let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> seq<'U>) =
     finallyEnumerable(
         (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
         (fun () -> source resource :> seq<_>))
@@ -656,7 +656,7 @@ let cache (source: seq<'T>) =
 let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
     let ysCache = cache ys
     delay (fun () ->
-        let mapping x = ysCache |> map (fun y -> (x, y))
+        let mapping (x: 'T1) = ysCache |> map (fun y -> (x, y))
         concat (map mapping xs)
     )
 
@@ -820,7 +820,7 @@ let windowed windowSize (xs: seq<'T>): 'T seq seq =
         |> ofArray
     )
 
-let transpose (xss: seq<#seq<'T>>) =
+let transpose (xss: seq<seq<'T>>) =
     delay (fun () ->
         xss
         |> toArray

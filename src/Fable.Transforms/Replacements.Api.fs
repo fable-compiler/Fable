@@ -75,12 +75,12 @@ let error (com: ICompiler) msg =
     | Dart -> Dart.Replacements.error msg
     | _ -> JS.Replacements.error msg
 
-let defaultof (com: ICompiler) ctx typ =
+let defaultof (com: ICompiler) ctx r typ =
     match com.Options.Language with
     | Rust -> Rust.Replacements.getZero com ctx typ
-    | Python -> Py.Replacements.defaultof com ctx typ
+    | Python -> Py.Replacements.defaultof com ctx r typ
     | Dart -> Dart.Replacements.getZero com ctx typ
-    | _ -> JS.Replacements.defaultof com ctx typ
+    | _ -> JS.Replacements.defaultof com ctx r typ
 
 let createMutablePublicValue (com: ICompiler) value =
     match com.Options.Language with
