@@ -161,7 +161,8 @@ module CompilerExt =
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
             if Map.isEmpty plugins then input
             else
-                (input, atts) ||> Seq.fold (fun input att ->
+                // Reverse attributes so plugins closer to member/type are applied first
+                (input, Seq.rev atts) ||> Seq.fold (fun input att ->
                     match Map.tryFind att.Entity plugins with
                     | None -> input
                     | Some plugin ->

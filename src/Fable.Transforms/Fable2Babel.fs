@@ -12,7 +12,7 @@ type ReturnStrategy =
     | Target of Identifier
 
 type ArgsInfo =
-    | CallInfo of Fable.CallInfo
+    | CallInfo of Fable.CallInfo * Fable.MemberFunctionOrValue option
     | NoCallInfo of args: Fable.Expr list
 
 type Import =
@@ -1085,7 +1085,7 @@ module Util =
                 match baseRef with
                 | Fable.IdentExpr id -> typedIdentAsExpr com ctx id
                 | _ -> transformAsExpr com ctx baseRef
-            let args = transformCallArgs com ctx (CallInfo info)
+            let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1175,8 +1175,8 @@ module Util =
         let paramsInfo, args =
             match info with
             | NoCallInfo args -> None, args
-            | CallInfo callInfo ->
-                let paramsInfo = tryGetParamsInfo com callInfo
+            | CallInfo(callInfo, memberInfo) ->
+                let paramsInfo = Option.map getParamsInfo memberInfo
                 paramsInfo, callInfo.Args
 
         let args, objArg =
@@ -1251,7 +1251,8 @@ module Util =
         let macro = info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        transformCallArgs com ctx (CallInfo info)
+        CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
+        |> transformCallArgs com ctx
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1325,9 +1326,9 @@ module Util =
             |> function
             | Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
                 transformJsxCall com ctx callee callInfo.Args memberInfo
-            | _ ->
+            | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx (CallInfo callInfo)
+                let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
                 match callInfo.ThisArg with
                 | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
                 | None when List.contains "new" callInfo.Tags -> Expression.newExpression(callee, List.toArray args, ?loc=range)
@@ -2102,7 +2103,7 @@ module Util =
         let args, body =
             match args with
             | [] -> args, body
-            | [arg] when arg.Type = Fable.Unit -> args, body
+            | [arg] when arg.Type = Fable.Unit -> [], body
             | _ when not isJsx -> args, body
             | _ ->
                 // SolidJS requires values being accessed directly from the props object for reactivity to work properly
@@ -2116,11 +2117,7 @@ module Util =
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) hasSpread args body
 
-        let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
-
-        if hasAttribute Atts.entryPoint info.Attributes
-        then declareEntryPoint com ctx expr
-        else declareModuleMember info.IsPublic membName false expr
+        Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
     let transformAction (com: IBabelCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -2269,16 +2266,39 @@ module Util =
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 let info = com.GetMember(decl.MemberRef)
+                let valueExpr =
+                    match decl.Body with
+                    | body when info.IsValue -> transformAsExpr com ctx body |> Some
+                    // Some calls with special attributes (like React lazy or memo) can turn the surrounding function into a value
+                    | Fable.Call(callee, ({ ThisArg = None; MemberRef = Some m } as callInfo), _, r) as body ->
+                        match com.TryGetMember(m), callInfo.Args with
+                        | Some m, _ when hasAttribute "Fable.Core.JS.RemoveSurroundingArgsAttribute" m.Attributes ->
+                            transformAsExpr com ctx body |> Some
+                        | Some m, arg::restArgs when hasAttribute "Fable.Core.JS.WrapSurroundingFunctionAttribute" m.Attributes ->
+                            let arg = transformModuleFunction com ctx info decl.Name decl.Args arg
+                            let callee = com.TransformAsExpr(ctx, callee)
+                            let restArgs = List.map (fun e -> com.TransformAsExpr(ctx, e)) restArgs
+                            callFunction r callee (arg::restArgs) |> Some
+                        | _ -> None
+                    | _ -> None
                 let decls =
-                    if info.IsValue then
-                        let value = transformAsExpr com ctx decl.Body
+                    match valueExpr with
+                    | Some value ->
                         [declareModuleMember info.IsPublic decl.Name info.IsMutable value]
-                    else
-                        [transformModuleFunction com ctx info decl.Name decl.Args decl.Body]
+                    | None ->
+                        let expr = transformModuleFunction com ctx info decl.Name decl.Args decl.Body
+                        if hasAttribute Atts.entryPoint info.Attributes
+                        then [declareEntryPoint com ctx expr]
+                        else [declareModuleMember info.IsPublic decl.Name false expr]
 
-                if List.contains "export-default" decl.Tags then
-                    decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
-                else decls
+                let isDefaultExport =
+                    List.contains "export-default" decl.Tags || (
+                        com.TryGetMember(decl.MemberRef)
+                        |> Option.map (fun m -> hasAttribute Atts.exportDefault m.Attributes)
+                        |> Option.defaultValue false)
+
+                if not isDefaultExport then decls
+                else decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
 
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity

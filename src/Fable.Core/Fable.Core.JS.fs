@@ -1,5 +1,7 @@
 namespace Fable.Core
 
+#nowarn "1182"
+
 open System
 open System.Text.RegularExpressions
 
@@ -10,15 +12,24 @@ module JSX =
 
     type Prop = string * obj
     type Style = string * string
+    type ElementType = obj
 
     [<AllowNullLiteral>]
     type Element =
         class end
 
-    let create (componentOrTag: obj) (props: Prop list): Element = nativeOnly
+    let create (componentOrTag: ElementType) (props: Prop list): Element = nativeOnly
     let html (template: string): Element = nativeOnly
+    let text (text: string): Element = nativeOnly
+    let nothing: Element = nativeOnly
 
 module JS =
+    type RemoveSurroundingArgsAttribute() =
+        inherit Attribute()
+
+    type WrapSurroundingFunctionAttribute() =
+        inherit Attribute()
+
     type [<AllowNullLiteral>] Function =
         abstract name: string
         abstract length: int
@@ -570,7 +581,7 @@ module JS =
     [<Obsolete(CONSTRUCTORS_WARNING)>]
     let [<Global>] Float64Array: Float64ArrayConstructor = nativeOnly
 
-    // [<ObsoleCONSTRUCTORS_WARNING)>]
+    // [<Obsolete(CONSTRUCTORS_WARNING)>]
     // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = nativeOnly
 
     [<RequireQualifiedAccess>]

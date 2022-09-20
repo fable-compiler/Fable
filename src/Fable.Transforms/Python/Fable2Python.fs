@@ -1815,9 +1815,8 @@ module Util =
             match info with
             | NoCallInfo args -> None, args
             | CallInfo callInfo ->
-                let paramsInfo = tryGetParamsInfo com callInfo
+                let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
                 paramsInfo, callInfo.Args
-
 
         let args, objArg, stmts =
             paramsInfo
