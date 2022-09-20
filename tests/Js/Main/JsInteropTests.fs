@@ -89,6 +89,9 @@ type MyCustomHTMLElement() =
     member this.SaySomethingNiceTo(name: string) =
         $"Repeat with me {name}: {this.getMotivated()}"
 
+let inline sqrtJsExpr (jsExpr: string): float =
+    emitJsExpr () ("Math.sqrt(" + jsExpr + ")")
+
 let myMeth (x: int) (y: int) = x - y
 
 let curry2 (f: 'a -> 'b -> 'c) = f
@@ -609,6 +612,10 @@ let tests =
         let z2: int = emitJsExpr (x, y) "$0 << $1"
         equal z1 z2
         equal 1024 z1
+
+    testCase "emitJsExpr works inlined and with addition" <| fun () ->
+        let x = sqrtJsExpr "3 + 1"
+        equal 2. x
 
     testCase "emitJsStatement works" <| fun () ->
         let f x y: int =
