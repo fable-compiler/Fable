@@ -7,7 +7,6 @@ from typing import (
     Match,
     Optional,
     Pattern,
-    Tuple,
     Union,
     Dict,
 )
@@ -17,23 +16,24 @@ MatchEvaluator = Callable[[Match[str]], str]
 
 
 class GroupCollection:
-    def __init__(self, groups: Dict[str, str]) -> None:
+    def __init__(self, groups: List[str], named_groups: Dict[str, str]) -> None:
+        self.named_groups = named_groups
         self.groups = groups
 
     def values(self) -> List[str]:
-        return list(self.groups.values())
+        return list(self.groups)
 
     def __len__(self) -> int:
         return len(self.groups)
 
-    def __getitem__(self, key: Union[int, str]) -> str:
+    def __getitem__(self, key: Union[int, str]) -> Optional[str]:
         if isinstance(key, int):
-            return list(self.groups.values())[key]
-        else:
             return self.groups[key]
+        else:
+            return self.named_groups.get(key)
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self.groups.values())
+        return iter(self.groups)
 
 
 def _options_to_flags(options: int) -> int:
@@ -93,14 +93,10 @@ def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bo
 def groups(m: Match[str]) -> GroupCollection:
     named_groups: Dict[str, str] = m.groupdict()
 
-    def mapper(tup: Tuple[int, str]) -> Tuple[str, str]:
-        index, item = tup
-        return str(index), item
-
-    groups: Dict[str, str] = dict(map(mapper, enumerate(m.groups())))
-
     # .NET adds the whole capture as group 0
-    return GroupCollection({"": m.string, **named_groups, **groups})
+    groups_ = [m.group(0), *m.groups()]
+
+    return GroupCollection(named_groups=named_groups, groups=groups_)
 
 
 def options(reg: Pattern[str]) -> int:
@@ -144,7 +140,7 @@ def split(
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
-def get_item(groups: GroupCollection, index: Union[str, int]) -> str:
+def get_item(groups: GroupCollection, index: Union[str, int]) -> Optional[str]:
     return groups[index]
 
 

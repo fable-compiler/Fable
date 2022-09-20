@@ -406,22 +406,22 @@ let ``test Group values can be converted to int`` () = // See #1753
     int (group.Value) |> equal 123
 
 // see #2359
-// [<Fact>]
-// let ``test Regex.Replace with elevator works when regex has named capture group`` () =
-//     let r = Regex "0(?<number>\\d+)"
-//     let text = "Number 012345!"
+[<Fact>]
+let ``test Regex.Replace with elevator works when regex has named capture group`` () =
+    let r = Regex "0(?<number>\\d+)"
+    let text = "Number 012345!"
 
-//     let replace (m: Match) =
-//         m.Success |> equal true
-//         m.Length |> equal 6
-//         m.Groups.Count |> equal 2
-//         m.Groups |> Seq.toList |> List.map (fun m -> m.Value) |> equal [ "012345"; "12345" ]
+    let replace (m: Match) =
+        m.Success |> equal true
+        m.Length |> equal 6
+        m.Groups.Count |> equal 2
+        m.Groups |> Seq.toList |> List.map (fun m -> m.Value) |> equal [ "012345"; "12345" ]
 
-//         sprintf "%s" m.Groups.[1].Value
+        sprintf "%s" m.Groups.[1].Value
 
-//     let actual = r.Replace(text, replace)
+    let actual = r.Replace(text, replace)
 
-//     actual |> equal "Number 12345!"
+    actual |> equal "Number 12345!"
 
 [<Fact>]
 let ``test Unicode patterns work`` () = // See #2925
@@ -456,19 +456,19 @@ let ``test can get values of multiple existing groups`` () =
     m.Groups.["country"].Value |> equal "49"
     m.Groups.["num"].Value |> equal "1234"
 
-// [<Fact>]
-// let ``test doesn't succeed for not existing named group`` () =
-//     let r = Regex "(?<number>\\d+)"
-//     let m = r.Match "Number 12345 is positive"
+[<Fact>]
+let ``test doesn't succeed for not existing named group`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
 
-//     m.Groups.["nothing"].Success |> equal false
+    m.Groups.["nothing"].Success |> equal false
 
-// [<Fact>]
-// let ``test doesn't succeed for not existing named group in regex without named groups`` () =
-//     let r = Regex "\\d+"
-//     let m = r.Match "Number 12345 is positive"
+[<Fact>]
+let ``test doesn't succeed for not existing named group in regex without named groups`` () =
+    let r = Regex "\\d+"
+    let m = r.Match "Number 12345 is positive"
 
-//     m.Groups.["nothing"].Success |> equal false
+    m.Groups.["nothing"].Success |> equal false
 
 [<Fact>]
 let ``test doesn't succeed for existing unmatched group`` () =
@@ -605,34 +605,34 @@ let ``test can access named groups`` () =
 
     actual |> equal expected
 
-// [<Fact>]
-// let ``test doesn't succeed when not existing group`` () =
-//     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
-//     let text = "Numbers: +1 12; +49 456; +44 7890;"
+[<Fact>]
+let ``test doesn't succeed when not existing group`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
 
-//     let replace (m: Match) =
-//         if m.Groups.["nothing"].Success then
-//             failwith "Shouldn't get group 'nothing'"
-//         else
-//             sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+    let replace (m: Match) =
+        if m.Groups.["nothing"].Success then
+            failwith "Shouldn't get group 'nothing'"
+        else
+            sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
 
-//     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
-//     let actual = r.Replace(text, replace)
+    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+    let actual = r.Replace(text, replace)
 
-//     actual |> equal expected
+    actual |> equal expected
 
-// [<Fact>]
-// let ``test doesn't succeed when not existing group without any named groups`` () =
-//     let r = Regex "\\+(\\d{1,3}) (\\d+)"
-//     let text = "Numbers: +1 12; +49 456; +44 7890;"
+[<Fact>]
+let ``test doesn't succeed when not existing group without any named groups`` () =
+    let r = Regex "\\+(\\d{1,3}) (\\d+)"
+    let text = "Numbers: +1 12; +49 456; +44 7890;"
 
-//     let replace (m: Match) =
-//         if m.Groups.["nothing"].Success then
-//             failwith "Shouldn't get group 'nothing'"
-//         else
-//             sprintf "00%s-%s" m.Groups.[1].Value m.Groups.[2].Value
+    let replace (m: Match) =
+        if m.Groups.["nothing"].Success then
+            failwith "Shouldn't get group 'nothing'"
+        else
+            sprintf "00%s-%s" m.Groups.[1].Value m.Groups.[2].Value
 
-//     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
-//     let actual = r.Replace(text, replace)
+    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+    let actual = r.Replace(text, replace)
 
-//     actual |> equal expected
+    actual |> equal expected
