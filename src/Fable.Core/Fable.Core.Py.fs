@@ -39,6 +39,10 @@ module Py =
     [<Emit("lambda *args: $0(args)")>]
     let argsFunc (fn: obj[] -> obj): Callable = nativeOnly
 
-    // Helpers for Fable Python interactive
-    let python (template: string): unit = nativeOnly // emitPyStatement () template
-    let NEW_CELL<'T> = nativeOnly // emitPyStatement () "# %%"
+    /// Embeds literal Python code into F#
+    let python (template: string): unit = nativeOnly
+
+    /// Defines a Jupyter-like code cell. Translates to `# %%`
+    /// https://code.visualstudio.com/docs/python/jupyter-support-py
+    [<Emit("# %%", isStatement=true)>]
+    let NEW_CELL: unit = nativeOnly
