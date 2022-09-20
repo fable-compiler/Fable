@@ -1,4 +1,7 @@
 pub mod TimeSpan_ {
+
+    use core::ops::{Add, Sub, Mul, Div};
+
     use crate::String_::string;
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -131,6 +134,55 @@ pub mod TimeSpan_ {
             leftover_milliseconds.floor() as i32
         }
     }
+
+    impl Add<TimeSpan> for TimeSpan {
+        type Output = TimeSpan;
+
+        fn add(self, rhs: TimeSpan) -> Self::Output {
+            TimeSpan { ticks: self.ticks + rhs.ticks }
+        }
+    }
+
+    impl Sub<TimeSpan> for TimeSpan {
+        type Output = TimeSpan;
+
+        fn sub(self, rhs: TimeSpan) -> Self::Output {
+            TimeSpan { ticks: self.ticks - rhs.ticks }
+        }
+    }
+
+    impl Mul<TimeSpan> for TimeSpan {
+        type Output = TimeSpan;
+
+        fn mul(self, rhs: TimeSpan) -> Self::Output {
+            TimeSpan { ticks: self.ticks * rhs.ticks }
+        }
+    }
+
+    impl Div<TimeSpan> for TimeSpan {
+        type Output = f64;
+
+        fn div(self, rhs: TimeSpan) -> Self::Output {
+            (self.ticks as f64) / (rhs.ticks as f64)
+        }
+    }
+
+    impl Mul<f64> for TimeSpan {
+        type Output = TimeSpan;
+
+        fn mul(self, rhs: f64) -> Self::Output {
+            TimeSpan { ticks: ((self.ticks as f64) * rhs) as i64 }
+        }
+    }
+
+    impl Div<f64> for TimeSpan {
+        type Output = TimeSpan;
+
+        fn div(self, rhs: f64) -> Self::Output {
+            TimeSpan { ticks: ((self.ticks as f64) / rhs) as i64  }
+        }
+    }
+
 
     // impl core::fmt::Display for TimeSpan {
     //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {

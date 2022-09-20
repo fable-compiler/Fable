@@ -2461,6 +2461,10 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> addError com ctx.InlinePath r
             None
     // | "Zero" etc. -> // for static fields, see tryField
+    | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), t, r) |> Some
+    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value,  args.Head), t, r) |> Some
+    | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value,  args.Head), t, r) |> Some
+    | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value,  args.Head), t, r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
