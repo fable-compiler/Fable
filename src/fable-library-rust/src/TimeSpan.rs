@@ -105,32 +105,22 @@ pub mod TimeSpan_ {
         }
 
         pub fn hours(&self) -> i32 {
-            let days = self.days() as f64;
-            let leftover_hours = self.total_hours().floor() - days * 24.0;
+            let leftover_hours = self.total_hours().floor() - self.total_days().floor() * 24.0;
             leftover_hours.floor() as i32
         }
 
         pub fn minutes(&self) -> i32 {
-            let days = self.days() as f64;
-            let hours = self.hours() as f64;
-            let leftover_minutes = self.total_minutes().floor() - days * 24.0 * 60.0 - hours * 60.0;
+            let leftover_minutes = self.total_minutes().floor() - self.total_hours().floor() * 60.0;
             leftover_minutes.floor() as i32
         }
 
         pub fn seconds(&self) -> i32 {
-            let days = self.days() as f64;
-            let hours = self.hours() as f64;
-            let minutes = self.minutes() as f64;
-            let leftover_seconds = self.total_seconds().floor() - days * 24.0 * 60.0 * 60.0 - hours * 60.0 * 60.0 - minutes * 60.0;
+            let leftover_seconds = self.total_seconds().floor() - self.total_minutes().floor() * 60.0;
             leftover_seconds.floor() as i32
         }
 
         pub fn milliseconds(&self) -> i32 {
-            let days = self.days() as f64;
-            let hours = self.hours() as f64;
-            let minutes = self.minutes() as f64;
-            let seconds = self.seconds() as f64;
-            let leftover_milliseconds = self.total_milliseconds().floor() - days * 24.0 * 60.0 * 60.0 * 1000.0 - hours * 60.0 * 60.0 * 1000.0 - minutes * 60.0 * 1000.0 - seconds * 1000.0;
+            let leftover_milliseconds = self.total_milliseconds().floor() - self.total_seconds().floor() * 1000.0;
             leftover_milliseconds.floor() as i32
         }
     }
