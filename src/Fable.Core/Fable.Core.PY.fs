@@ -2,6 +2,7 @@ namespace Fable.Core
 
 open System
 
+[<RequireQualifiedAccess>]
 module PY =
     [<Import("typing", "Callable")>]
     type [<AllowNullLiteral>] Callable =
@@ -19,10 +20,6 @@ module PY =
         inherit Attribute()
         abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
-    // Hack because currently Fable doesn't keep information about spread for anonymous functions
-    [<Emit("lambda *args: $0(args)")>]
-    let argsFunc (fn: obj[] -> obj): Callable = nativeOnly
-
     type [<AllowNullLiteral>] ArrayConstructor =
         [<Emit "$0([None]*$1...)">]
         abstract Create: size: int -> 'T[]
@@ -35,6 +32,13 @@ module PY =
         [<Emit("$0[$1:$1+$2]")>]
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
 
-    [<RequireQualifiedAccess>]
-    module Constructors =
-        let [<Emit("list")>] Array: ArrayConstructor = nativeOnly
+    [<Emit("list")>]
+    let Array: ArrayConstructor = nativeOnly
+
+    // Hack because currently Fable doesn't keep information about spread for anonymous functions
+    [<Emit("lambda *args: $0(args)")>]
+    let argsFunc (fn: obj[] -> obj): Callable = nativeOnly
+
+    // Helpers for Fable Python interactive
+    let python (template: string): unit = nativeOnly // emitPyStatement () template
+    let NEW_CELL<'T> = nativeOnly // emitPyStatement () "# %%"
