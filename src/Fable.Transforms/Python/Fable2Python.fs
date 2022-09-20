@@ -6,7 +6,7 @@ open System.Collections.Generic
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open Fable.PY
+open Fable.Py
 
 type ReturnStrategy =
     /// Return last expression
@@ -115,12 +115,12 @@ module Lib =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
     let tryPyConstructor (com: IPythonCompiler) ctx ent =
-        match PY.Replacements.tryConstructor com ent with
+        match Py.Replacements.tryConstructor com ent with
         | Some e -> com.TransformAsExpr(ctx, e) |> Some
         | None -> None
 
     let pyConstructor (com: IPythonCompiler) ctx ent =
-        let entRef = PY.Replacements.constructor com ent
+        let entRef = Py.Replacements.constructor com ent
         com.TransformAsExpr(ctx, entRef)
 
 module Reflection =
@@ -1586,7 +1586,7 @@ module Util =
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
             | Decimal, (:? decimal as x) ->
-                PY.Replacements.makeDecimal com r value.Type x
+                Py.Replacements.makeDecimal com r value.Type x
                 |> transformAsExpr com ctx
             | Int64, (:? int64 as x) -> makeNumber com ctx r value.Type "int64" x
             | UInt64, (:? uint64 as x) -> makeNumber com ctx r value.Type "uint64" x

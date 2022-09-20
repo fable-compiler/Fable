@@ -1,4 +1,4 @@
-namespace Fable.PY
+namespace Fable.Py
 
 open Fable
 open System

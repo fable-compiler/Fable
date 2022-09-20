@@ -139,7 +139,7 @@ module private Util =
 
                 let modules =
                     match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules, Some PY.Naming.sitePackages ->
+                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
                         // When building packages we generate Python snake_case module within the kebab-case package
                         let packageModule = package.Replace("-", "_")
                         // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)

@@ -3,7 +3,7 @@ namespace Fable.Core
 open System
 
 [<RequireQualifiedAccess>]
-module PY =
+module Py =
     [<Import("typing", "Callable")>]
     type [<AllowNullLiteral>] Callable =
         [<Emit "$0.__name__)">] abstract name: string
