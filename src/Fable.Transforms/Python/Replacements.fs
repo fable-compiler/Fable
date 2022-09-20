@@ -779,10 +779,10 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let rec defaultof (com: ICompiler) ctx (t: Type) =
+let rec defaultof (com: ICompiler) ctx r t =
     match t with
     | Tuple (args, true) ->
-        NewTuple(args |> List.map (defaultof com ctx), true)
+        NewTuple(args |> List.map (defaultof com ctx r), true)
         |> makeValue None
     | Boolean
     | Number _
@@ -1836,7 +1836,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Find", Some ar, [ arg ] ->
         let opt = Helper.LibCall(com, "array", "tryFind", t, [ arg; ar ], ?loc = r)
 
-        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx t ], ?loc = r)
+        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
         |> Some
     | "Exists", Some ar, [ arg ] ->
         Helper.LibCall(com, "resize_array", "exists", t, [ arg; ar ], ?loc = r)
@@ -1844,7 +1844,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "FindLast", Some ar, [ arg ] ->
         let opt = Helper.LibCall(com, "array", "tryFindBack", t, [ arg; ar ], ?loc = r)
 
-        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx t ], ?loc = r)
+        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
         |> Some
     | "FindAll", Some ar, [ arg ] ->
         Helper.LibCall(com, "Array", "filter", t, [ arg; ar ], ?loc = r)
@@ -2838,7 +2838,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     match i.CompiledName, args with
     | "DefaultOf", _ ->
         (genArg com ctx r 0 i.GenericArgs)
-        |> defaultof com ctx
+        |> defaultof com ctx r
         |> Some
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     | "Equals", [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some

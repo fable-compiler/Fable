@@ -349,6 +349,16 @@ module Reflection =
 
 module Annotation =
 
+    let isByRefOrAnyType (com: IBabelCompiler) = function
+        | Replacements.Util.IsByRefType com _ -> true
+        | Fable.Any -> true
+        | _ -> false
+
+    let isInRefOrAnyType (com: IBabelCompiler) = function
+        | Replacements.Util.IsInRefType com _ -> true
+        | Fable.Any -> true
+        | _ -> false
+
     let makeTypeParamDecl (com: IBabelCompiler) (ctx: Context) genArgs =
         match genArgs with
         | [] -> None
@@ -367,7 +377,7 @@ module Annotation =
         | [] -> None
         | _ when com.Options.Language = TypeScript ->
             genArgs
-            |> List.map (typeAnnotation com ctx)
+            |> List.map (makeTypeAnnotation com ctx)
             |> List.toArray
             |> TypeParameterInstantiation |> Some
         | _ -> None
@@ -390,7 +400,7 @@ module Annotation =
         GenericTypeAnnotation(Identifier.identifier(name), ?typeParameters=typeParamInst)
         |> TypeAnnotation |> Some
 
-    let typeAnnotation com ctx typ: TypeAnnotationInfo =
+    let makeTypeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
         | Fable.Measure _
         | Fable.MetaType
@@ -414,8 +424,10 @@ module Annotation =
             ([argType], returnType)
             ||> FableTransforms.uncurryLambdaType
             ||> makeFunctionTypeAnnotation com ctx typ
-        | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
-        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
+        | Fable.DelegateType(argTypes, returnType) ->
+            makeFunctionTypeAnnotation com ctx typ argTypes returnType
+        | Replacements.Util.Builtin kind ->
+            makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
@@ -450,7 +462,7 @@ module Annotation =
         makeImportTypeAnnotation com ctx [genArg] "Option" "Option"
 
     let makeTupleTypeAnnotation com ctx genArgs =
-        List.map (typeAnnotation com ctx) genArgs
+        List.map (makeTypeAnnotation com ctx) genArgs
         |> List.toArray |> TupleTypeAnnotation
 
     let makeArrayTypeAnnotation com ctx genArg kind =
@@ -459,16 +471,16 @@ module Annotation =
             makeSimpleTypeAnnotation com ctx name
         | _ ->
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
-            typeAnnotation com ctx genArg |> ArrayTypeAnnotation
+            makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
 
     let makeListTypeAnnotation com ctx genArg =
         makeImportTypeAnnotation com ctx [genArg] "List" "FSharpList"
 
     let makeUnionTypeAnnotation com ctx genArgs =
-        List.map (typeAnnotation com ctx) genArgs
+        List.map (makeTypeAnnotation com ctx) genArgs
         |> List.toArray |> UnionTypeAnnotation
 
-    let makeBuiltinTypeAnnotation com ctx kind =
+    let makeBuiltinTypeAnnotation com ctx typ kind =
         match kind with
         | Replacements.Util.BclGuid -> StringTypeAnnotation
         | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
@@ -486,7 +498,10 @@ module Annotation =
         | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}"
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
-        | Replacements.Util.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
+        | Replacements.Util.FSharpReference genArg ->
+            if isInRefOrAnyType com typ
+            then makeTypeAnnotation com ctx genArg
+            else makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
         let funcTypeParams =
@@ -496,11 +511,11 @@ module Annotation =
             |> List.mapi (fun i argType ->
                 FunctionTypeParam.functionTypeParam(
                     Identifier.identifier("arg" + (string i)),
-                    typeAnnotation com ctx argType))
+                    makeTypeAnnotation com ctx argType))
             |> List.toArray
         let ctx = { ctx with IsParamType = true };
         let genParams = Util.getGenericTypeParams ctx (argTypes @ [returnType])
-        let returnType = typeAnnotation com ctx returnType
+        let returnType = makeTypeAnnotation com ctx returnType
         let typeParamDecl = makeTypeParamDecl com ctx genParams
         TypeAnnotationInfo.functionTypeAnnotation(funcTypeParams, returnType, ?typeParameters=typeParamDecl)
 
@@ -572,7 +587,7 @@ module Annotation =
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
         if com.Options.Language = TypeScript then
-            let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
+            let ta = makeTypeAnnotation com ctx id.Type |> TypeAnnotation |> Some
             Identifier.identifier(id.Name, ?typeAnnotation=ta, ?loc=id.Range)
         else
             Identifier.identifier(id.Name, ?loc=id.Range)
@@ -582,7 +597,7 @@ module Annotation =
             let argTypes = args |> List.map (fun id -> id.Type)
             let genParams = Util.getGenericTypeParams ctx (argTypes @ [body.Type])
             let args', body' = com.TransformFunction(ctx, name, args, body)
-            let returnType = TypeAnnotation(typeAnnotation com ctx body.Type) |> Some
+            let returnType = TypeAnnotation(makeTypeAnnotation com ctx body.Type) |> Some
             let typeParamDecl = makeTypeParamDecl com ctx genParams
             args', body', returnType, typeParamDecl
         else
@@ -984,8 +999,8 @@ module Util =
                 let genMap = if List.contains "allow-generics" tag then None else Some Map.empty
                 transformTypeInfo com ctx r genMap t
         | Fable.Null _t ->
-            // if com.Options.typescript
-            //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
+            // if com.Options.Language = TypeScript
+            //     let ta = makeTypeAnnotation com ctx t |> TypeAnnotation |> Some
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
                 Expression.nullLiteral(?loc=r)
@@ -2044,13 +2059,13 @@ module Util =
             getUnionFieldsAsIdents com ctx ent
             |> Array.map (fun id ->
                 let prop = identAsExpr id
-                let ta = typeAnnotation com ctx id.Type
+                let ta = makeTypeAnnotation com ctx id.Type
                 ObjectTypeProperty.objectTypeProperty(prop, ta))
         else
             ent.FSharpFields
             |> Seq.map (fun field ->
                 let prop, computed = memberFromName field.Name
-                let ta = typeAnnotation com ctx field.FieldType
+                let ta = makeTypeAnnotation com ctx field.FieldType
                 let isStatic = if field.IsStatic then Some true else None
                 ObjectTypeProperty.objectTypeProperty(prop, ta, computed_=computed, ?``static``=isStatic))
             |> Seq.toArray

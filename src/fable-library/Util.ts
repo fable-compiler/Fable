@@ -88,6 +88,10 @@ export function disposeSafe(x: any) {
   }
 }
 
+export function defaultOf<T>(): T {
+  return null as T;
+}
+
 export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x)?.constructor === Object.getPrototypeOf(y)?.constructor;
 }
@@ -105,7 +109,7 @@ export interface IEnumerable<T> extends Iterable<T> {
 }
 
 export class Enumerator<T> implements IEnumerator<T> {
-  private current: any; // : T;
+  private current: T = defaultOf();
   constructor(private iter: Iterator<T>) { }
   public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
     return this.current;
@@ -131,14 +135,18 @@ export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
-  return {
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+  const it = {
+    [Symbol.iterator]() {
+      return it;
+    },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
       return { done: !hasNext, value: current } as IteratorResult<T>;
     },
   };
+  return it;
 }
 
 export class Comparer<T> implements IComparer<T> {

@@ -480,7 +480,7 @@ module TypeInfo =
     let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
         match typ with
         // passed by reference, no need to Rc-wrap
-        | t when isByRefType com t
+        | t when isByRefOrAnyType com t
             -> None
 
         // already wrapped, no need to Rc-wrap
@@ -685,7 +685,7 @@ module TypeInfo =
 
     let transformParamType com ctx typ: Rust.Ty =
         let ty = transformType com ctx typ
-        if isByRefType com typ || ctx.IsParamByRefPreferred
+        if isByRefOrAnyType com typ || ctx.IsParamByRefPreferred
         then ty |> mkRefTy
         else ty
 
@@ -855,12 +855,12 @@ module TypeInfo =
         | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _) -> true
         | _ -> false
 
-    let isByRefType (com: IRustCompiler) = function
+    let isByRefOrAnyType (com: IRustCompiler) = function
         | Replacements.Util.IsByRefType com _ -> true
         | Fable.Any -> true
         | _ -> false
 
-    let isInRefType (com: IRustCompiler) = function
+    let isInRefOrAnyType (com: IRustCompiler) = function
         | Replacements.Util.IsInRefType com _ -> true
         | Fable.Any -> true
         | _ -> false
@@ -903,7 +903,7 @@ module TypeInfo =
         | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ok; err]
         | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
         | Replacements.Util.FSharpReference(genArg) ->
-            if isInRefType com typ
+            if isInRefOrAnyType com typ
             then transformType com ctx genArg
             else transformRefCellType com ctx genArg
 
@@ -1100,7 +1100,7 @@ module Util =
 
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
-        if ident.IsMutable && not (isInRefType com ident.Type) then
+        if ident.IsMutable && not (isInRefOrAnyType com ident.Type) then
             expr |> mutableGet
         elif isBoxScoped ctx ident.Name then
             expr |> makeLrcValue com ctx
@@ -1420,7 +1420,7 @@ module Util =
 
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
         let expr = com.TransformExpr(ctx, fableExpr)
-        if isRefScoped ctx name || (isInRefType com typ)
+        if isRefScoped ctx name || (isInRefOrAnyType com typ)
         then expr
         elif shouldBeRefCountWrapped com ctx typ |> Option.isSome
         then expr |> makeAsRef
@@ -1773,7 +1773,7 @@ module Util =
 
         let targetIsRef =
             ctx.IsParamByRefPreferred
-            || Option.exists (isByRefType com) t
+            || Option.exists (isByRefOrAnyType com) t
             || isAddrOfExpr e
         let sourceIsRef = varAttrs.IsRef
         let implClone = TypeImplementsCloneTrait com e.Type
@@ -3129,7 +3129,7 @@ module Util =
                 //TODO: optimizations go here
                 let scopedVarAttrs = {
                     IsArm = false
-                    IsRef = arg.IsThisArgument || isByRefType com arg.Type || ctx.IsParamByRefPreferred
+                    IsRef = arg.IsThisArgument || isByRefOrAnyType com arg.Type || ctx.IsParamByRefPreferred
                     IsBox = false
                     // HasMultipleUses = hasMultipleUses arg.Name usages
                     UsageCount = usageCount arg.Name usages
