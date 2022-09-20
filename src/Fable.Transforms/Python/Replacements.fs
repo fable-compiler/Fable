@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module Fable.Transforms.PY.Replacements
+module Fable.Transforms.Py.Replacements
 
 #nowarn "1182"
 
@@ -7,7 +7,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 
-open Fable.PY
+open Fable.Py
 open Fable.Transforms
 open Replacements.Util
 

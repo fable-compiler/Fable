@@ -24,10 +24,10 @@ module Helpers =
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
         if isNull cons then
-            PY.Array.Create(len)
+            Py.Array.Create(len)
         else
             cons.Allocate(len)
-    let inline isDynamicArrayImpl arr = PY.Array.isArray arr
+    let inline isDynamicArrayImpl arr = Py.Array.isArray arr
 
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)

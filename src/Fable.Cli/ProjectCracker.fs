@@ -507,7 +507,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
             match opts.FableOptions.Language with
             | Python ->
                 match opts.FableLib with
-                | Some PY.Naming.sitePackages -> "fable-library-py", "fable-library"
+                | Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
                 | _ -> "fable-library-py/fable_library", "fable_library"
             | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
@@ -542,7 +542,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir =
                 match opts.FableLib with
-                | Some PY.Naming.sitePackages ->
+                | Some Py.Naming.sitePackages ->
                     let name = Naming.applyCaseRule Core.CaseRules.KebabCase pkg.Id
                     IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
                 | _ ->

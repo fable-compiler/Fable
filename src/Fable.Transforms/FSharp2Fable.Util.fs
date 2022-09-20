@@ -488,7 +488,7 @@ module Helpers =
         let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> entityName |> cleanNameAsRustIdentifier
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName
@@ -546,8 +546,8 @@ module Helpers =
                     // Don't snake_case if member has compiled name attribute
                     match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
                     | Some _ -> name
-                    | _ -> Fable.PY.Naming.toSnakeCase name
-                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+                    | _ -> Fable.Py.Naming.toSnakeCase name
+                Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.buildNameWithoutSanitation name part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
@@ -1584,8 +1584,8 @@ module Identifiers =
         let sanitizedName =
             match com.Options.Language with
             | Python ->
-                let name = Fable.PY.Naming.toSnakeCase name
-                Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
+                let name = Fable.Py.Naming.toSnakeCase name
+                Fable.Py.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.Py.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
 
@@ -2006,9 +2006,9 @@ module Util =
             | Types.icomparable -> false
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true
-        // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.PY namespaces
+        // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
         | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
-        | Some fullName when fullName.StartsWith("Fable.Core.PY.") -> false
+        | Some fullName when fullName.StartsWith("Fable.Core.Py.") -> false
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members

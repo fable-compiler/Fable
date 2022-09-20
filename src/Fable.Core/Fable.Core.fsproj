@@ -13,7 +13,7 @@
     <Compile Include="Fable.Core.Types.fs" />
     <Compile Include="Fable.Core.Util.fs" />
     <Compile Include="Fable.Core.JS.fs" />
-    <Compile Include="Fable.Core.PY.fs" />
+    <Compile Include="Fable.Core.Py.fs" />
     <Compile Include="Fable.Core.Dart.fs" />
     <Compile Include="Fable.Core.Rust.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
