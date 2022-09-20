@@ -84,11 +84,11 @@ let ``TimeSpan static creation works`` () =
         t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
     |> equal 180122004.0
 
-// [<Fact>]
-// let ``TimeSpan components work`` () =
-//     let t = TimeSpan.FromMilliseconds(96441615.)
-//     t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
-//     |> equal 686.
+[<Fact>]
+let ``TimeSpan components work`` () =
+    let t = TimeSpan.FromMilliseconds(96441615.)
+    t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
+    |> equal 686.
 
 [<Fact>]
 let ``TimeSpan.Ticks works`` () =
@@ -121,87 +121,87 @@ let ``TimeSpan totals work`` () =
 //     test -1. 1.
 //     test 0. 0.
 
-// [<Fact>]
-// let ``TimeSpan Addition works`` () =
-//     let test ms1 ms2 expected =
-//         let t1 = TimeSpan.FromMilliseconds(ms1)
-//         let t2 = TimeSpan.FromMilliseconds(ms2)
-//         let res1 = t1.Add(t2).TotalMilliseconds
-//         let res2 = (t1 + t2).TotalMilliseconds
-//         equal true (res1 = res2)
-//         equal expected res1
-//     test 1000. 2000. 3000.
-//     test 200. -1000. -800.
-//     test -2000. 1000. -1000.
-//     test -200. -300. -500.
-//     test 0. 1000. 1000.
-//     test -2000. 0. -2000.
-//     test 0. 0. 0.
+[<Fact>]
+let ``TimeSpan Addition works`` () =
+    let test ms1 ms2 (expected: float) =
+        let t1 = TimeSpan.FromMilliseconds(ms1)
+        let t2 = TimeSpan.FromMilliseconds(ms2)
+        let res1 = t1.Add(t2).TotalMilliseconds
+        let res2 = (t1 + t2).TotalMilliseconds
+        equal true (res1 = res2)
+        equal expected res1
+    test 1000. 2000. 3000.
+    test 200. -1000. -800.
+    test -2000. 1000. -1000.
+    test -200. -300. -500.
+    test 0. 1000. 1000.
+    test -2000. 0. -2000.
+    test 0. 0. 0.
 
-// [<Fact>]
-// let ``TimeSpan Subtraction works`` () =
-//     let test ms1 ms2 expected =
-//         let t1 = TimeSpan.FromMilliseconds(ms1)
-//         let t2 = TimeSpan.FromMilliseconds(ms2)
-//         let res1 = t1.Subtract(t2).TotalMilliseconds
-//         let res2 = (t1 - t2).TotalMilliseconds
-//         equal true (res1 = res2)
-//         equal expected res1
-//     test 1000. 2000. -1000.
-//     test 200. -2000. 2200.
-//     test -2000. 1000. -3000.
-//     test 200. -300. 500.
-//     test 0. 1000. -1000.
-//     test 1000. 1000. 0.
-//     test 0. 0. 0.
+[<Fact>]
+let ``TimeSpan Subtraction works`` () =
+    let test ms1 ms2 (expected: float) =
+        let t1 = TimeSpan.FromMilliseconds(ms1)
+        let t2 = TimeSpan.FromMilliseconds(ms2)
+        let res1 = t1.Subtract(t2).TotalMilliseconds
+        let res2 = (t1 - t2).TotalMilliseconds
+        equal true (res1 = res2)
+        equal expected res1
+    test 1000. 2000. -1000.
+    test 200. -2000. 2200.
+    test -2000. 1000. -3000.
+    test 200. -300. 500.
+    test 0. 1000. -1000.
+    test 1000. 1000. 0.
+    test 0. 0. 0.
 
-// [<Fact>]
-// let ``TimeSpan Multiplication works`` () =
-//     let test ms factor expected =
-//             // sprintf "(%f, %f) = %f" ms factor expected
-//             let t = TimeSpan.FromMilliseconds(ms)
-//             let res1 = t.Multiply(factor).TotalMilliseconds
-//             let res2 = (t * factor).TotalMilliseconds
-//             equal res1 res2
-//             equal true (res1 = res2)
-//             equal expected res1
-//     test 1000. -1. -1000.
-//     test 200. 11. 2200.
-//     test -2000. 1.5 -3000.
-//     test 0. 1000. 0.
-//     test 1000. 0. 0.
-//     test 0. 0. 0.
+[<Fact>]
+let ``TimeSpan Multiplication works`` () =
+    let test ms factor (expected: float) =
+            // sprintf "(%f, %f) = %f" ms factor expected
+            let t = TimeSpan.FromMilliseconds(ms)
+            let res1 = t.Multiply(factor).TotalMilliseconds
+            let res2 = (t * factor).TotalMilliseconds
+            equal res1 res2
+            equal true (res1 = res2)
+            equal expected res1
+    test 1000. -1. -1000.
+    test 200. 11. 2200.
+    test -2000. 1.5 -3000.
+    test 0. 1000. 0.
+    test 1000. 0. 0.
+    test 0. 0. 0.
 
-// [<Fact>]
-// let ``TimeSpan Division works`` () =
-//     // Note: there are two overloads, one with TimeSpan, one with float
-//     let test_ts ms1 ms2 expected =
-//             // sprintf "ts(%f, %f) = %f" ms1 ms2 expected
-//             let t1 = TimeSpan.FromMilliseconds(ms1)
-//             let t2 = TimeSpan.FromMilliseconds(ms2)
-//             let res1 = t1.Divide(t2)
-//             let res2 = (t1 / t2)
-//             equal res1 res2
-//             equal true (res1 = res2)
-//             equal expected res1
-//     let test_float ms (factor: float) expected =
-//             // sprintf "float(%f, %f) = %f" ms factor expected
-//             let t = TimeSpan.FromMilliseconds(ms)
-//             let res1 = t.Divide(factor).TotalMilliseconds
-//             let res2 = (t / factor).TotalMilliseconds
-//             equal res1 res2
-//             equal true (res1 = res2)
-//             equal expected res1
+[<Fact>]
+let ``TimeSpan Division works`` () =
+    // Note: there are two overloads, one with TimeSpan, one with float
+    let test_ts ms1 ms2 (expected: float) =
+            // sprintf "ts(%f, %f) = %f" ms1 ms2 expected
+            let t1 = TimeSpan.FromMilliseconds(ms1)
+            let t2 = TimeSpan.FromMilliseconds(ms2)
+            let res1 = t1.Divide(t2)
+            let res2 = (t1 / t2)
+            equal res1 res2
+            equal true (res1 = res2)
+            equal expected res1
+    let test_float ms (factor: float) (expected: float) =
+            // sprintf "float(%f, %f) = %f" ms factor expected
+            let t = TimeSpan.FromMilliseconds(ms)
+            let res1 = t.Divide(factor).TotalMilliseconds
+            let res2 = (t / factor).TotalMilliseconds
+            equal res1 res2
+            equal true (res1 = res2)
+            equal expected res1
 
-//     test_ts 1000. -1. -1000.
-//     test_ts 2200. 11. 200.
-//     test_ts -3000. 1.5 -2000.
-//     test_ts 0. 1000. 0.
+    test_ts 1000. -1. -1000.
+    test_ts 2200. 11. 200.
+    test_ts -3000. 1.5 -2000.
+    test_ts 0. 1000. 0.
 
-//     test_float 1000. -1. -1000.
-//     test_float 2200. 11. 200.
-//     test_float -3000. 1.5 -2000.
-//     test_float 0. 1000. 0.
+    test_float 1000. -1. -1000.
+    test_float 2200. 11. 200.
+    test_float -3000. 1.5 -2000.
+    test_float 0. 1000. 0.
 
 // [<Fact>]
 // let ``TimeSpan Comparison works`` () =
