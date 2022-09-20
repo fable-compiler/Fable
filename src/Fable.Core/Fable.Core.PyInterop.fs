@@ -45,11 +45,6 @@ let createObj (fields: #seq<string*obj>): obj = nativeOnly
 /// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in Python becomes `{ myUnion: 4 }`
 let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = nativeOnly
 
-/// Create a literal Py object from a mutator lambda. Normally used when
-/// the options interface has too many fields to be represented with a Pojo record.
-/// E.g. `pyOptions<MyOpt> (fun o -> o.foo <- 5)` in Python becomes `{ "foo": 5 }`
-let pyOptions<'T> (f: 'T->unit): 'T = nativeOnly
-
 /// Create an empty Python object: {}
 let createEmpty<'T> : 'T = nativeOnly
 

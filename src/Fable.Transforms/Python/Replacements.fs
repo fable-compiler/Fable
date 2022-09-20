@@ -690,72 +690,6 @@ let makeGenericAverager (com: ICompiler) ctx t =
               "Add", makeAddFunction com ctx t
               "DivideByInt", divideFn ]
 
-let makePojoFromLambda com arg =
-    let rec flattenSequential =
-        function
-        | Sequential statements -> List.collect flattenSequential statements
-        | e -> [ e ]
-
-    match arg with
-    | Lambda (_, lambdaBody, _) ->
-        (flattenSequential lambdaBody, Some [])
-        ||> List.foldBack (fun statement acc ->
-            match acc, statement with
-            | Some acc, Set (_, FieldSet (fieldName), _, value, _) -> objValue (fieldName, value) :: acc |> Some
-            | _ -> None)
-    | _ -> None
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-    |> Option.defaultWith (fun () -> Helper.LibCall(com, "util", "jsOptions", Any, [ arg ]))
-
-let makePojo (com: Compiler) caseRule keyValueList =
-    let makeObjMember caseRule name values =
-        let value =
-            match values with
-            | [] -> makeBoolConst true
-            | [ value ] -> value
-            | values -> Value(NewArray(ArrayValues values, Any, MutableArray), None)
-
-        objValue (Naming.applyCaseRule caseRule name, value)
-
-    // let rec findKeyValueList scope identName =
-    //     match scope with
-    //     | [] -> None
-    //     | (_,ident2,expr)::prevScope ->
-    //         if identName = ident2.Name then
-    //             match expr with
-    //             | Some(ArrayOrListLiteral(kvs,_)) -> Some kvs
-    //             | Some(MaybeCasted(IdentExpr ident)) -> findKeyValueList prevScope ident.Name
-    //             | _ -> None
-    //         else findKeyValueList prevScope identName
-
-    let caseRule =
-        match caseRule with
-        | Some(NumberConst(:? int as rule,_)) -> Some rule
-        | _ -> None
-        |> Option.map enum
-        |> Option.defaultValue Fable.Core.CaseRules.None
-
-    match keyValueList with
-    | ArrayOrListLiteral (kvs, _) -> Some kvs
-    // | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
-    | _ -> None
-    |> Option.bind (fun kvs ->
-        (kvs, Some [])
-        ||> List.foldBack (fun m acc ->
-            match acc, m with
-            // Try to get the member key and value at compile time for unions and tuples
-            | Some acc, MaybeCasted (Value (NewUnion (values, uci, ent, _), _)) ->
-                let uci = com.GetEntity(ent).UnionCases |> List.item uci
-                let name = defaultArg uci.CompiledName uci.Name
-                makeObjMember caseRule name values :: acc |> Some
-            | Some acc, MaybeCasted (Value (NewTuple ((StringConst name) :: values, _), _)) ->
-                // Don't change the case for tuples in disguise
-                makeObjMember Core.CaseRules.None name values
-                :: acc
-                |> Some
-            | _ -> None))
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-
 let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Type list) args =
     let injectArgInner args (injectType, injectGenArgIndex) =
         let fail () =
@@ -1106,17 +1040,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "$0($1...)"
             |> emitExpr r t (callee :: args)
             |> Some
-        | Naming.StartsWith "emitJs" rest, [ args; macro ] ->
+        | Naming.StartsWith "emitPy" rest, [ args; macro ] ->
             match macro with
-            | StringConst macro ->
+            | RequireStringConst com ctx r macro ->
                 let args = destructureTupleArgs [ args ]
                 let isStatement = rest = "Statement"
                 emit r t args isStatement macro |> Some
-            | _ ->
-                "emitJs only accepts string literals"
-                |> addError com ctx.InlinePath r
-
-                None
         | "op_EqualsEqualsGreater", [ name; MaybeLambdaUncurriedAtCompileTime value ] -> makeTuple r false [ name; value ] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "util", "createObj", Any, args)
@@ -1129,32 +1058,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             Helper.LibCall(com, "map_util", "keyValueList", Any, args)
             |> withTag "pojo"
             |> Some
-        | "toPlainJsObj", _ ->
-            let emptyObj = ObjectExpr([], t, None)
-
-            Helper.GlobalCall("Object", Any, emptyObj :: args, memb = "assign", ?loc = r)
-            |> Some
-        | "jsOptions", [ arg ] -> makePojoFromLambda com arg |> Some
-        | "jsThis", _ -> emitExpr r t [] "self" |> Some
-        | "jsConstructor", _ ->
-            match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType (ent, _) -> com.GetEntity(ent) |> constructor com |> Some
-            | _ ->
-                "Only declared types define a function constructor in JS"
-                |> addError com ctx.InlinePath r
-
-                None
         | "createEmpty", _ -> typedObjExpr t [] |> Some
-        // Deprecated methods
-        | "ofJson", _ ->
-            Helper.GlobalCall("JSON", t, args, memb = "parse", ?loc = r)
-            |> Some
-        | "toJson", _ ->
-            Helper.GlobalCall("JSON", t, args, memb = "stringify", ?loc = r)
-            |> Some
-        | ("inflate"
-          | "deflate"),
-          _ -> List.tryHead args
         | _ -> None
     | _ -> None
 
