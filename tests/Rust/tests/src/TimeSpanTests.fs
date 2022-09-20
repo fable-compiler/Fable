@@ -84,11 +84,11 @@ let ``TimeSpan static creation works`` () =
         t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
     |> equal 180122004.0
 
-// [<Fact>]
-// let ``TimeSpan components work`` () =
-//     let t = TimeSpan.FromMilliseconds(96441615.)
-//     t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
-//     |> equal 686.
+[<Fact>]
+let ``TimeSpan components work`` () =
+    let t = TimeSpan.FromMilliseconds(96441615.)
+    t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
+    |> equal 686.
 
 [<Fact>]
 let ``TimeSpan.Ticks works`` () =

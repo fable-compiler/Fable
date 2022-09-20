@@ -2,8 +2,8 @@ pub mod TimeSpan_ {
     use crate::String_::string;
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct TimeSpan{
-        ticks: i64
+    pub struct TimeSpan {
+        ticks: i64,
     }
 
     pub const ticks_per_millisecond: i64 = 10_000;
@@ -16,8 +16,8 @@ pub mod TimeSpan_ {
     pub const min_value: TimeSpan = TimeSpan { ticks: i64::MIN };
     pub const max_value: TimeSpan = TimeSpan { ticks: i64::MAX };
 
-    pub fn new_ticks(ticks:i64) -> TimeSpan {
-        TimeSpan {ticks: ticks}
+    pub fn new_ticks(ticks: i64) -> TimeSpan {
+        TimeSpan { ticks: ticks }
     }
 
     pub fn new_hms(h: i32, m: i32, s: i32) -> TimeSpan {
@@ -58,11 +58,15 @@ pub mod TimeSpan_ {
     }
 
     pub fn from_seconds(s: f64) -> TimeSpan {
-        TimeSpan { ticks: (s * (ticks_per_second as f64)) as i64 }
+        TimeSpan {
+            ticks: (s * (ticks_per_second as f64)) as i64,
+        }
     }
 
     pub fn from_milliseconds(ms: f64) -> TimeSpan {
-        TimeSpan { ticks: (ms * (ticks_per_millisecond as f64)) as i64 }
+        TimeSpan {
+            ticks: (ms * (ticks_per_millisecond as f64)) as i64,
+        }
     }
 
     impl TimeSpan {
@@ -91,6 +95,40 @@ pub mod TimeSpan_ {
 
         pub fn ticks(&self) -> i64 {
             self.ticks
+        }
+
+        pub fn days(&self) -> i32 {
+            self.total_days().floor() as i32
+        }
+
+        pub fn hours(&self) -> i32 {
+            let days = self.days() as f64;
+            let leftover_hours = self.total_hours().floor() - days * 24.0;
+            leftover_hours.floor() as i32
+        }
+
+        pub fn minutes(&self) -> i32 {
+            let days = self.days() as f64;
+            let hours = self.hours() as f64;
+            let leftover_minutes = self.total_minutes().floor() - days * 24.0 * 60.0 - hours * 60.0;
+            leftover_minutes.floor() as i32
+        }
+
+        pub fn seconds(&self) -> i32 {
+            let days = self.days() as f64;
+            let hours = self.hours() as f64;
+            let minutes = self.minutes() as f64;
+            let leftover_seconds = self.total_seconds().floor() - days * 24.0 * 60.0 * 60.0 - hours * 60.0 * 60.0 - minutes * 60.0;
+            leftover_seconds.floor() as i32
+        }
+
+        pub fn milliseconds(&self) -> i32 {
+            let days = self.days() as f64;
+            let hours = self.hours() as f64;
+            let minutes = self.minutes() as f64;
+            let seconds = self.seconds() as f64;
+            let leftover_milliseconds = self.total_milliseconds().floor() - days * 24.0 * 60.0 * 60.0 * 1000.0 - hours * 60.0 * 60.0 * 1000.0 - minutes * 60.0 * 1000.0 - seconds * 1000.0;
+            leftover_milliseconds.floor() as i32
         }
     }
 
