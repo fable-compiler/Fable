@@ -40,7 +40,7 @@ module Py =
     let argsFunc (fn: obj[] -> obj): Callable = nativeOnly
 
     /// Embeds literal Python code into F#
-    let python (template: string): unit = nativeOnly
+    let python (template: string): 'T = nativeOnly
 
     /// Defines a Jupyter-like code cell. Translates to `# %%`
     /// https://code.visualstudio.com/docs/python/jupyter-support-py
