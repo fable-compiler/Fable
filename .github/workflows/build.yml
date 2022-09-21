@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # Separate build job for JS
+  # Separate build job for JavaScript
   build-js:
     runs-on: ubuntu-latest
 
@@ -22,8 +22,29 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests
+    - name: Fable Tests - JavaScript
       run: dotnet fsi build.fsx test-js
+
+  # Separate build job for TypeScript
+  build-ts:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Library - TypeScript
+      run: dotnet fsi build.fsx library-ts
+
+    # - name: Fable Tests - TypeScript
+    #   run: dotnet fsi build.fsx test-ts
 
   # Separate build job for Integration
   build-integration:
@@ -80,7 +101,7 @@ jobs:
       - name: Fable Tests - Python
         run: dotnet fsi build.fsx test-py
 
-  # Separate build job for Rust (will run in parallell)
+  # Separate build job for Rust (will run in parallel)
   build-rust:
     runs-on: ubuntu-latest
     strategy:
