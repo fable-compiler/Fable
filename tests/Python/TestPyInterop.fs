@@ -16,6 +16,11 @@ type Props =
     | Names of NameProp array
     | [<Erase>] Custom of key:string * value:obj
 
+[<Global("Array")>]
+type PyArray =
+    abstract push: item: obj -> unit
+    abstract length: int
+
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, sign) =
     static let secretSauce = "wasabi"
@@ -61,6 +66,16 @@ let ``test Class with attached members can be inherited`` () =
 let ``test Class with attached members can be inherited II`` () =
     let x = ClassWithAttachmentsChild2()
     x.dileHola("Pepe") |> equal "Hola, Pepe???"
+
+[<Fact>]
+let ``test Can type test interfaces decorated with Global`` () =
+    let ar = ResizeArray [| 1; 2; 3 |] |> box
+    match ar with
+    | :? PyArray as ar ->
+        ar.length |> equal 3
+        ar.push("4")
+        ar.length |> equal 4
+    | _ -> failwith "Not an array"
 
 // FIXME: ImportError: cannot import name 'keyValueList' from 'fable.map_util'
 // [<Fact>]

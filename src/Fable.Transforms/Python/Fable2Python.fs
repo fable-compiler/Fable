@@ -346,7 +346,7 @@ module Reflection =
                     generics
                     |> List.map (transformTypeInfo com ctx r genMap)
                     |> Helpers.unzipArgs
-                // Check if the entity is actually declared in JS code
+                // Check if the entity is actually declared in Python code
                 if ent.IsInterface
                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -485,7 +485,12 @@ module Reflection =
                 let ent = com.GetEntity(ent)
 
                 if ent.IsInterface then
-                    warnAndEvalToFalse "interfaces", []
+                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
+                    | Some typeExpr ->
+                        let typeExpr, stmts = com.TransformAsExpr(ctx, typeExpr)
+                        let expr, stmts' = pyInstanceof typeExpr expr
+                        expr, stmts @ stmts'
+                    | None -> warnAndEvalToFalse "interfaces", []
                 else
                     match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) ->
@@ -900,22 +905,22 @@ module Annotation =
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
         | _ ->
             let ent = com.GetEntity(entRef)
-
+            // printfn "DeclaredType: %A" ent.FullName
             if ent.IsInterface then
                 let name = Helpers.removeNamespace ent.FullName
-                match entRef.SourcePath with
-                | Some path when path <> com.CurrentFile ->
-                    // this is just to import the interface
-                    let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
 
+                // If the interface is imported then it's erased and we need to add the actual imports
+                match ent.Attributes with
+                | FSharp2Fable.Util.ImportAtt(name, importPath) ->
                     com.GetImportExpr(ctx, importPath, name) |> ignore
                 | _ ->
-                    // If the interface is imported then it's erased and we need to add the actual imports
-                    match ent.Attributes with
-                    | Fable.Transforms.FSharp2Fable.Util.ImportAtt(name, importPath) ->
-                          com.GetImportExpr(ctx, importPath, name) |> ignore
-                    | _ -> ()
+                    match entRef.SourcePath with
+                    | Some path when path <> com.CurrentFile ->
+                        // this is just to import the interface
+                        let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
 
+                        com.GetImportExpr(ctx, importPath, name) |> ignore
+                    | _ -> ()
                 makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
             else
                 match Lib.tryPyConstructor com ctx ent with

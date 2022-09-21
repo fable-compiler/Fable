@@ -1,3 +1,4 @@
+from __future__ import annotations
 import builtins
 import functools
 import math
@@ -45,7 +46,7 @@ _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
-Array = MutableSequence[_T]
+Array = MutableSequence
 
 class ObjectDisposedException(Exception):
     def __init__(self):
@@ -116,9 +117,9 @@ class AnonymousDisposable(IDisposable):
         return self
 
 
-class IEquatable(Generic[_T_in], Protocol):
+class IEquatable(Protocol):
     @abstractmethod
-    def __eq__(self, other: _T_in) -> bool:
+    def __eq__(self, other: Any) -> bool:
         raise NotImplementedError
 
     @abstractmethod
