@@ -1,3 +1,10 @@
+### 4.0.0-theta-007
+
+* TypeScript, fix fable-library-ts @ncave
+* Python, fix regex tests @dbrattli
+* Python, fix emit expressions
+* JS, helpers for JSX/React apps
+
 ### 4.0.0-theta-006
 
 * Python, regex fixes for group collection

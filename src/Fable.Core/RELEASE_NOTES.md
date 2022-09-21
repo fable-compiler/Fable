@@ -1,3 +1,8 @@
+### 4.0.0-theta-002
+
+* Python helpers for Interactive
+* JS helpers for JSX/React integration
+
 ### 4.0.0-theta-001
 
 * Fable 4 theta release

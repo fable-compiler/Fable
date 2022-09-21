@@ -5,8 +5,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-theta-006</PackageVersion>
-    <PackageReleaseNotes>* Python, regex fixes for group collection</PackageReleaseNotes>
+    <PackageVersion>4.0.0-theta-007</PackageVersion>
+    <PackageReleaseNotes>* TypeScript, fix fable-library-ts @ncave
+* Python, fix regex tests @dbrattli
+* Python, fix emit expressions
+* JS, helpers for JSX/React apps</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
