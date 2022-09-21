@@ -172,6 +172,7 @@ let buildLibraryTs() =
     let buildDirJs = "build/temp/fable-library-js"
 
     cleanDirs [buildDirTs; buildDirJs]
+    runInDir baseDir "npm install"
 
     runFableWithArgs sourceDir [
         "--outDir " + buildDirTs

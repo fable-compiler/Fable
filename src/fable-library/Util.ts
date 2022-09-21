@@ -40,7 +40,7 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> {
+export interface ICollection<T> extends IterableIterator<T> {
   readonly Count: number;
   readonly IsReadOnly: boolean;
   Add(item: T): void;
@@ -104,8 +104,21 @@ export interface IEnumerator<T> extends IDisposable {
   Dispose(): void;
 }
 
-export interface IEnumerable<T> extends Iterable<T> {
+export interface IEnumerable<T> extends IterableIterator<T> {
   GetEnumerator(): IEnumerator<T>;
+}
+
+export class Enumerable<T> implements IEnumerable<T> {
+  constructor(private en: IEnumerator<T>) {}
+  public GetEnumerator(): IEnumerator<T> { return this.en; }
+  [Symbol.iterator]() {
+    return this;
+  }
+  next() {
+    const hasNext = this.en["System.Collections.IEnumerator.MoveNext"]();
+    const current = hasNext ? this.en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
+    return { done: !hasNext, value: current } as IteratorResult<T>;
+  }
 }
 
 export class Enumerator<T> implements IEnumerator<T> {
@@ -130,16 +143,21 @@ export class Enumerator<T> implements IEnumerator<T> {
   }
 }
 
+export function toEnumerable<T>(e: IEnumerable<T> | Iterable<T>): IEnumerable<T> {
+  if (isEnumerable(e)) { return e; }
+  else { return new Enumerable(new Enumerator(e[Symbol.iterator]())); }
+}
+
 export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T> {
   if (isEnumerable(e)) { return e.GetEnumerator(); }
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   const it = {
-    [Symbol.iterator]() {
-      return it;
-    },
+    // [Symbol.iterator]() {
+    //   return it;
+    // },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
@@ -147,6 +165,39 @@ export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
     },
   };
   return it;
+}
+
+export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterator<T> {
+  return toIterator(toEnumerable(e).GetEnumerator());
+}
+
+export interface ISet<T> {
+  add(value: T): this;
+  clear(): void;
+  delete(value: T): boolean;
+  forEach(callbackfn: (value: T, value2: T, set: ISet<T>) => void, thisArg?: any): void;
+  has(value: T): boolean;
+  readonly size: number;
+
+  [Symbol.iterator](): Iterator<T>;
+  entries(): Iterable<[T, T]>;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+}
+
+export interface IMap<K, V> {
+  clear(): void;
+  delete(key: K): boolean;
+  forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  readonly size: number;
+
+  [Symbol.iterator](): Iterator<[K, V]>;
+  entries(): Iterable<[K, V]>;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
 }
 
 export class Comparer<T> implements IComparer<T> {

@@ -1,4 +1,4 @@
-import { equals } from "./Util.js";
+import { equals, IMap, ISet } from "./Util.js";
 import { FSharpRef, Union } from "./Types.js";
 
 const CaseRules = {
@@ -79,7 +79,7 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None) {
 }
 
 // TODO: Move these methods to Map and Set modules
-export function containsValue<K, V>(v: V, map: Map<K, V>) {
+export function containsValue<K, V>(v: V, map: IMap<K, V>) {
   for (const kv of map) {
     if (equals(v, kv[1])) {
       return true;
@@ -88,7 +88,7 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: FSharpRef<V>): boolean {
+export function tryGetValue<K, V>(map: IMap<K, V>, key: K, defaultValue: FSharpRef<V>): boolean {
   if (map.has(key)) {
     defaultValue.contents = map.get(key) as V;
     return true;
@@ -96,7 +96,7 @@ export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: FSharpRe
   return false;
 }
 
-export function addToSet<T>(v: T, set: Set<T>) {
+export function addToSet<T>(v: T, set: ISet<T>) {
   if (set.has(v)) {
     return false;
   }
@@ -104,14 +104,14 @@ export function addToSet<T>(v: T, set: Set<T>) {
   return true;
 }
 
-export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
+export function addToDict<K, V>(dict: IMap<K, V>, k: K, v: V) {
   if (dict.has(k)) {
     throw new Error("An item with the same key has already been added. Key: " + k);
   }
   dict.set(k, v);
 }
 
-export function getItemFromDict<K, V>(map: Map<K, V>, key: K) {
+export function getItemFromDict<K, V>(map: IMap<K, V>, key: K) {
   if (map.has(key)) {
     return map.get(key) as V;
   } else {

@@ -188,9 +188,9 @@ module Reflection =
             List.zip (fieldNames |> Array.toList) genArgs
             |> List.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
             |> libReflectionCall com ctx None "anonRecord"
-        | Fable.DeclaredType(entRef, generics) ->
+        | Fable.DeclaredType(entRef, genArgs) ->
             let fullName = entRef.FullName
-            match fullName, generics with
+            match fullName, genArgs with
             | Replacements.Util.BuiltinEntity kind ->
                 match kind with
                 | Replacements.Util.BclGuid
@@ -226,7 +226,7 @@ module Reflection =
                     |> transformRecordReflectionInfo com ctx r ent
             | _ ->
                 let ent = com.GetEntity(entRef)
-                let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
+                let generics = genArgs |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 // Check if the entity is actually declared in JS code
                 // TODO: Interfaces should be declared when generating Typescript
                 if FSharp2Fable.Util.isGlobalOrImportedEntity ent then
@@ -489,8 +489,8 @@ module Annotation =
         | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclHashSet key -> makeNativeTypeAnnotation com ctx [key] "Set"
-        | Replacements.Util.BclDictionary (key, value) -> makeNativeTypeAnnotation com ctx [key; value] "Map"
+        | Replacements.Util.BclHashSet key -> makeImportTypeAnnotation com ctx [key] "Util" "ISet"
+        | Replacements.Util.BclDictionary (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Util" "IMap"
         | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
         | Replacements.Util.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
         | Replacements.Util.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
@@ -522,15 +522,18 @@ module Annotation =
     let makeInterfaceTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs =
         match entRef.FullName with
         | Types.icollection
-            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
+            -> makeNativeTypeAnnotation com ctx genArgs "Iterable"
+            // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
         | Types.icollectionGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "ICollection"
+            -> makeNativeTypeAnnotation com ctx genArgs "Iterable"
+            // -> makeImportTypeAnnotation com ctx genArgs "Util" "ICollection"
         // | Types.idictionary
         // | Types.ireadonlydictionary
         | Types.idisposable
             -> makeImportTypeAnnotation com ctx genArgs "Util" "IDisposable"
         | Types.ienumerable
             -> makeNativeTypeAnnotation com ctx [Fable.Any] "Iterable"
+            // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerable"
         | Types.ienumerableGeneric
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable"
             // -> makeImportTypeAnnotation com ctx genArgs "Util" "IEnumerable"
@@ -970,7 +973,7 @@ module Util =
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(ent,[_]) ->
+        | Fable.DeclaredType(ent, [_]) ->
             match ent.FullName with
             | Types.ienumerableGeneric | Types.ienumerable ->
                 match e with
@@ -1081,15 +1084,12 @@ module Util =
             let ent = com.GetEntity(ent)
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Language = TypeScript
-                then makeTypeParamInst com ctx genArgs
-                else None
+            let typeParamInst = makeTypeParamInst com ctx genArgs
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
             let values = (ofInt tag)::values |> List.toArray
             Expression.newExpression(consRef, values, ?typeParameters=typeParamInst, ?loc=r)
 
-    let enumerator2iterator com ctx =
+    let enumerableThisToIterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
         BlockStatement([| Statement.returnStatement(libCall com ctx None "Util" "toIterator" [] [enumerator])|])
 
@@ -1097,8 +1097,11 @@ module Util =
         match baseCall, baseType with
         | Some (Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
-                match baseRef with
-                | Fable.IdentExpr id -> typedIdentAsExpr com ctx id
+                match baseRef, baseType with
+                | Fable.IdentExpr id, Some d ->
+                    let typ = Fable.DeclaredType(d.Entity, d.GenericArgs)
+                    typedIdentAsExpr com ctx { id with Type = typ }
+                | Fable.IdentExpr id, _ -> typedIdentAsExpr com ctx id
                 | _ -> transformAsExpr com ctx baseRef
             let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
             Some (baseExpr, args)
@@ -1149,7 +1152,7 @@ module Util =
                     let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
-                        let body = enumerator2iterator com ctx
+                        let body = enumerableThisToIterator com ctx
                         ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
                     [method; iterator]
                 else
@@ -1303,7 +1306,7 @@ module Util =
                 Fable.Value(Fable.NewTuple([Fable.Value(Fable.StringConstant key, None); value], false), None))
         transformJsxEl com ctx callee props
 
-    let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
+    let transformCall (com: IBabelCompiler) ctx range typ callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.Tags, callInfo.Args with
@@ -1346,7 +1349,12 @@ module Util =
                 let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
                 match callInfo.ThisArg with
                 | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-                | None when List.contains "new" callInfo.Tags -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+                | None when List.contains "new" callInfo.Tags ->
+                    let typeParamInst =
+                        match typ with
+                        | Fable.DeclaredType(entRef, genArgs) -> makeTypeParamInst com ctx genArgs
+                        | _ -> None
+                    Expression.newExpression(callee, List.toArray args, ?typeParameters=typeParamInst, ?loc=range)
                 | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
@@ -1367,7 +1375,7 @@ module Util =
                 | None -> callInfo.Args
             optimizeTailCall com ctx range tc args
         | _ ->
-            [|transformCall com ctx range callee callInfo |> resolveExpr t returnStrategy|]
+            [|transformCall com ctx range t callee callInfo |> resolveExpr t returnStrategy|]
 
     let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
@@ -1765,8 +1773,8 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx members baseCall
 
-        | Fable.Call(callee, info, _, range) ->
-            transformCall com ctx range callee info
+        | Fable.Call(callee, info, typ, range) ->
+            transformCall com ctx range typ callee info
 
         | Fable.CurriedApply(callee, args, _, range) ->
             transformCurriedApply com ctx range callee args
@@ -2025,18 +2033,21 @@ module Util =
             None
 
     let getClassImplements com ctx (ent: Fable.Entity) =
-        let mkNative genArgs typeName =
-            let id = Identifier.identifier(typeName)
+        // let mkNative genArgs typeName =
+        //     let id = Identifier.identifier(typeName)
+        //     let typeParamInst = makeTypeParamInst com ctx genArgs
+        //     ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
+        let mkImport genArgs moduleName typeName =
+            let id = makeImportTypeId com ctx moduleName typeName
             let typeParamInst = makeTypeParamInst com ctx genArgs
             ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
-//        let mkImport genArgs moduleName typeName =
-//            let id = makeImportTypeId com ctx moduleName typeName
-//            let typeParamInst = makeTypeParamInst com ctx genArgs
-//            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
+
         ent.AllInterfaces |> Seq.choose (fun ifc ->
             match ifc.Entity.FullName with
-            | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
-            | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
+            // | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
+            // | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
+            | "Fable.Core.JS.Set`1" -> mkImport ifc.GenericArgs "Util" "ISet"
+            | "Fable.Core.JS.Map`2" -> mkImport ifc.GenericArgs "Util" "IMap"
             | _ -> None
         )
 
@@ -2166,7 +2177,7 @@ module Util =
         [|
             yield makeMethod memb.Name args body returnType typeParamDecl
             if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-                yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx) None None
+                yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) None None
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
