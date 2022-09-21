@@ -8,7 +8,7 @@ on:
 
 jobs:
   # Separate build job for JavaScript
-  build-js:
+  build-javascript:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +26,7 @@ jobs:
       run: dotnet fsi build.fsx test-js
 
   # Separate build job for TypeScript
-  build-ts:
+  build-typescript:
     runs-on: ubuntu-latest
 
     steps:

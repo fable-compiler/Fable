@@ -687,6 +687,7 @@ let packages =
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
         buildLibraryJs()
+        buildLibraryTs()
         buildLibraryPy()
         buildLibraryRust()
         buildLibraryDart true)
