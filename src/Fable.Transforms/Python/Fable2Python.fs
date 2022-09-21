@@ -485,7 +485,12 @@ module Reflection =
                 let ent = com.GetEntity(ent)
 
                 if ent.IsInterface then
-                    warnAndEvalToFalse "interfaces", []
+                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
+                    | Some typeExpr ->
+                        let typeExpr, stmts = com.TransformAsExpr(ctx, typeExpr)
+                        let expr, stmts' = pyInstanceof typeExpr expr
+                        expr, stmts @ stmts'
+                    | None -> warnAndEvalToFalse "interfaces", []
                 else
                     match tryPyConstructor com ctx ent with
                     | Some (cons, stmts) ->
