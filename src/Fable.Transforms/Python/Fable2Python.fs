@@ -1455,18 +1455,39 @@ module Util =
             Expression.name ident, [ func ]
 
     let createFunction name args body decoratorList returnType =
-        let rec replace (body) =
+        let (|Awaitable|_|) expr =
+            match expr with
+            | Expression.Call { Func=Expression.Attribute {Value=Expression.Name {Id=Identifier "_builder"}; Attr=Identifier "Run" }} ->
+                Some expr
+            | _ -> None
+
+        let isAsync =
+            // function is async is returnType is an Awaitable and the body return a call to _builder.Run
+            match returnType with
+            | Subscript {Value=Name {Id=Identifier "Awaitable"}} ->
+                let rec find body : bool =
+                    body
+                    |> List.tryFind (function
+                        | Statement.Return {Value=Some(Expression.IfExp { Body=Awaitable(_); OrElse=Awaitable(_) }) } -> true
+                        | Statement.Return { Value=Some(Awaitable(_))} -> true
+                        | Statement.If { Body=body; Else=orElse } ->
+                            find body && find orElse
+                        | stmt -> false)
+                    |> Option.isSome
+                find body
+            | _ -> false
+
+        let rec replace body : Statement list =
             body
             |> List.map (function
                 | Statement.Return {Value=Some(Expression.IfExp { Test=test; Body=body; OrElse=orElse }) } ->
                     Statement.return' (Expression.ifExp(test, Expression.Await(body), Expression.Await(orElse)))
-                | Statement.Return {Value=Some expr} -> Statement.return' (Expression.Await expr)
-                | Statement.If { Test=test; Body=body; Else=orElse } ->
-                    Statement.if'(test, replace body, orelse=replace orElse)
+                | Statement.Return { Value=Some(Awaitable(expr))} -> Statement.return' (Expression.Await (expr))
+                | Statement.If { Test=test; Body=body; Else=orElse } -> Statement.if'(test, replace body, orelse=replace orElse)
                 | stmt -> stmt)
 
-        match returnType with
-        | Subscript {Value=Name {Id=Identifier "Awaitable"}; Slice=returnType} ->
+        match isAsync, returnType with
+        | true, Subscript {Slice=returnType} ->
             let body' = replace body
             Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
         | _ -> Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)

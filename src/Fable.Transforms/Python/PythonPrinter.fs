@@ -327,17 +327,7 @@ module PrinterExtensions =
 
                 if segmentLength > 0 then
                     let segment = value.Substring(segmentStart, segmentLength)
-
-                    let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
-
-                    for i = 1 to subSegments.Length do
-                        let subSegment = subSegments[i - 1]
-
-                        if subSegment.Length > 0 then
-                            printer.Print(subSegment)
-
-                            if i < subSegments.Length then
-                                printer.PrintNewLine()
+                    printer.Print(segment)
 
             // Macro transformations
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
