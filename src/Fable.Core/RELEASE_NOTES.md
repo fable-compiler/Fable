@@ -1,3 +1,7 @@
+### 4.0.0-theta-003
+
+* Python fixes for Interactive
+
 ### 4.0.0-theta-002
 
 * Python helpers for Interactive
