@@ -1,3 +1,12 @@
+### 4.0.0-theta-008
+
+* Enable emitExpr/Statement with interpolation, @alfonsogarciacaro
+* Python, fix imported interfaces from other modules, @dbrattli
+* Python, allow python code embedder to return generic type T
+* Python, enable eliding async/await, @dbrattli
+* TypeScript, added library-ts to packages, @ncave
+* Python, do not trim emitted statements
+
 ### 4.0.0-theta-007
 
 * TypeScript, fix fable-library-ts @ncave
