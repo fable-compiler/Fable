@@ -20,6 +20,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
     <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\build\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
     <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
     <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
     <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />

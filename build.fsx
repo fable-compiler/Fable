@@ -4,9 +4,6 @@ open System
 open System.Text.RegularExpressions
 open PublishUtils
 
-// Appveyor artifact
-let FABLE_BRANCH = "master"
-
 // ncave FCS fork
 let FCS_REPO = "https://github.com/ncave/fsharp"
 let FCS_REPO_LOCAL = "../fsharp_fable"
