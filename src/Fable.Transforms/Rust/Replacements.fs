@@ -903,9 +903,9 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makeImportUserGenerated r t selector path |> Some
         | "importAll", [RequireStringConst com ctx r path] ->
             makeImportUserGenerated r t "*" path |> Some
-        | "emitExpr", [args; RequireStringConst com ctx r macro] ->
+        | "emitExpr", [args; RequireStringConstOrTemplate com ctx r template] ->
             let args = destructureTupleArgs [args]
-            emitExpr r t args macro |> Some
+            emitTemplate r t args false template |> Some
         | _ -> None
     | _ -> None
 

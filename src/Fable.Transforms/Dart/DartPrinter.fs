@@ -68,18 +68,7 @@ module PrinterExtensions =
                 let segmentLength = segmentEnd - segmentStart
                 if segmentLength > 0 then
                     let segment = value.Substring(segmentStart, segmentLength)
-
-                    let subSegments = Regex.Split(segment, @"\r?\n")
-                    for i = 1 to subSegments.Length do
-                        let subSegment =
-                            // Remove whitespace in front of new lines,
-                            // indent will be automatically applied
-                            if printer.Column = 0 then subSegments[i - 1].TrimStart()
-                            else subSegments[i - 1]
-                        if subSegment.Length > 0 then
-                            printer.Print(subSegment)
-                            if i < subSegments.Length then
-                                printer.PrintNewLine()
+                    printer.Print(segment)
 
             // Macro transformations
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
