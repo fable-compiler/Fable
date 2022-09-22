@@ -212,7 +212,6 @@ export class MatchFailureException extends FSharpException {
   public arg1: string;
   public arg2: number;
   public arg3: number;
-  public message: string;
 
   constructor(arg1: string, arg2: number, arg3: number) {
     super();

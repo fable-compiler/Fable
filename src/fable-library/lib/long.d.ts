@@ -3,7 +3,7 @@
 // Definitions by: Peter Kooijmans <https://github.com/peterkooijmans>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 // Definitions by: Denis Cappellin <https://github.com/cappellin>
-import { CustomNumeric } from "../Numeric";
+import { CustomNumeric, Numeric, symbol } from "../Numeric.js";
 
 export default Long;
 
@@ -27,6 +27,18 @@ export declare class Long implements CustomNumeric {
      * Whether unsigned or not.
      */
     unsigned: boolean;
+
+    Equals(x: Long): boolean;
+
+    CompareTo(x: Long): number;
+
+    [symbol](): {
+        multiply(y: Numeric): Numeric,
+        toPrecision(sd?: number): string,
+        toExponential(dp?: number): string,
+        toFixed(dp?: number): string,
+        toHex(): string,
+    }
 }
 
 /**
