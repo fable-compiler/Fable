@@ -638,6 +638,16 @@ module AST =
               CallInfo = CallInfo.Create(args=args) }
         Emit(emitInfo, t, r)
 
+    let emitTemplate r t args isStatement (templateParts, templateValues)  =
+        let macro =
+            match templateParts with
+            | [] -> ""
+            | head::tail ->
+                ((head, List.length args), tail)
+                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
+                |> fst
+        emit r t (args @ templateValues) isStatement macro
+
     let emitExpr r t args macro =
         emit r t args false macro
 

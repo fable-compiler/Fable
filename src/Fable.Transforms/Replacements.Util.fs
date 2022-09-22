@@ -477,7 +477,7 @@ let (|MaybeInScope|) (ctx: Context) e =
 
 let rec (|MaybeInScopeStringConst|_|) ctx = function
     | MaybeInScope ctx (StringConst s) -> Some s
-    | Operation(Binary(AST.BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
+    | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
     | _ -> None
 
 let rec (|RequireStringConst|) com (ctx: Context) r e =
@@ -486,6 +486,14 @@ let rec (|RequireStringConst|) com (ctx: Context) r e =
     | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
         ""
+
+let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
+    match e with
+    | MaybeInScopeStringConst ctx s -> [s], []
+    | MaybeInScope ctx (Value(StringTemplate(None, parts, values),_)) -> parts, values
+    | _ ->
+        addError com ctx.InlinePath r "Expecting string literal"
+        [""], []
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
    let argTypes = argExprs |> List.map (fun a -> a.Type)

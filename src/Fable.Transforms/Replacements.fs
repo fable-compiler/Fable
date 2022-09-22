@@ -949,10 +949,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | RequireStringConst com ctx r macro ->
+            | RequireStringConstOrTemplate com ctx r template ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
-                emit r t args isStatement macro |> Some
+                emitTemplate r t args isStatement template |> Some
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r true [name; value] |> Some
         | "createObj", _ ->

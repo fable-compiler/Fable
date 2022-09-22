@@ -947,8 +947,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | "Fable.Core.Py", "python" ->
         match args with
-        | RequireStringConst com ctx r macro::_ ->
-            emit r t [] true macro |> Some
+        | RequireStringConstOrTemplate com ctx r template::_ ->
+            emitTemplate r t [] true template  |> Some
         | _ -> None
     | "Fable.Core.PyInterop", _
     | "Fable.Core.JsInterop", _ ->
@@ -992,26 +992,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 |> addErrorAndReturnNull com ctx.InlinePath r
                 |> Some
         | Naming.StartsWith "import" suffix, _ ->
-            let (|RequireStringConst|_|) e =
-                (match e with
-                 | StringConst s -> Some s
-                 | MaybeCasted (IdentExpr ident) ->
-                     match tryFindInScope ctx ident.Name with
-                     | Some (StringConst s) -> Some s
-                     | _ -> None
-                 | _ -> None)
-                |> Option.orElseWith (fun () ->
-                    addError com ctx.InlinePath r "Import only accepts string literals"
-                    None)
-
             match suffix, args with
-            | "Member", [ RequireStringConst path ] ->
+            | "Member", [ RequireStringConst com ctx r path ] ->
                 makeImportUserGenerated r t Naming.placeholder path
                 |> Some
-            | "Default", [ RequireStringConst path ] -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [ RequireStringConst path ] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [ RequireStringConst path ] -> makeImportUserGenerated r t "*" path |> Some
-            | _, [ RequireStringConst selector; RequireStringConst path ] -> makeImportUserGenerated r t selector path |> Some
+            | "Default", [ RequireStringConst com ctx r path ] -> makeImportUserGenerated r t "default" path |> Some
+            | "SideEffects", [ RequireStringConst com ctx r path ] -> makeImportUserGenerated r t "" path |> Some
+            | "All", [ RequireStringConst com ctx r path ] -> makeImportUserGenerated r t "*" path |> Some
+            | _, [ RequireStringConst com ctx r selector; RequireStringConst com ctx r path ] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [ arg ] -> Some arg
@@ -1045,12 +1033,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "$0($1...)"
             |> emitExpr r t (callee :: args)
             |> Some
-        | Naming.StartsWith "emitPy" rest, [ args; macro ] ->
+        | Naming.StartsWith "emit" rest, [ args; macro ] ->
             match macro with
-            | RequireStringConst com ctx r macro ->
+            | RequireStringConstOrTemplate com ctx r template ->
                 let args = destructureTupleArgs [ args ]
                 let isStatement = rest = "Statement"
-                emit r t args isStatement macro |> Some
+                emitTemplate r t args isStatement template |> Some
         | "op_EqualsEqualsGreater", [ name; MaybeLambdaUncurriedAtCompileTime value ] -> makeTuple r false [ name; value ] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "util", "createObj", Any, args)

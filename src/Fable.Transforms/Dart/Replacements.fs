@@ -769,10 +769,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | _ -> None
             | Naming.StartsWith "emit" rest, [args; macro] ->
                 match macro with
-                | RequireStringConst com ctx r macro ->
+                | RequireStringConstOrTemplate com ctx r template ->
                     let args = destructureTupleArgs [args]
                     let isStatement = rest = "Statement"
-                    emit r t args isStatement macro |> Some
+                    emitTemplate r t args isStatement template |> Some
             | ("toNullable" | "ofNullable"), [arg] -> Some arg
             | "toOption" | "ofOption"|"defaultValue"|"defaultWith" as meth, args ->
                 Helper.LibCall(com, "Types", meth, t, args, ?loc=r) |> Some
