@@ -222,7 +222,7 @@ let ofSeq (xs: seq<'T>): IEnumerator<'T> =
 let delay (generator: unit -> seq<'T>) =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<#seq<'T>>) =
+let concat (sources: seq<seq<'T>>) =
     mkSeq (fun () -> Enumerator.concat sources)
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =

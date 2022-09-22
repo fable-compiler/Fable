@@ -1,4 +1,4 @@
-import { FSharpRef, Result } from "./Types";
+import { FSharpRef, Result } from "./Types.js";
 
 export const enum UriKind {
   RelativeOrAbsolute = 0,

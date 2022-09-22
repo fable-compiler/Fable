@@ -153,21 +153,20 @@ export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
-  const it = {
-    // [Symbol.iterator]() {
-    //   return it;
-    // },
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
       return { done: !hasNext, value: current } as IteratorResult<T>;
     },
   };
-  return it;
 }
 
-export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterator<T> {
+export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): IterableIterator<T> {
   return toIterator(toEnumerable(e).GetEnumerator());
 }
 
@@ -244,8 +243,8 @@ export function assertNotEqual<T>(actual: T, expected: T, msg?: string): void {
 }
 
 export class Lazy<T> {
-  public factory: () => T;
-  public isValueCreated: boolean;
+  private factory: () => T;
+  private isValueCreated: boolean;
 
   private createdValue?: T;
 
@@ -457,12 +456,12 @@ export function equals<T>(x: T, y: T): boolean {
     return y == null;
   } else if (y == null) {
     return false;
-  } else if (typeof x !== "object") {
-    return false;
   } else if (isEquatable(x)) {
     return x.Equals(y);
   } else if (isArrayLike(x)) {
     return isArrayLike(y) && equalArrays(x, y);
+  } else if (typeof x !== "object") {
+    return false;
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
@@ -534,12 +533,12 @@ export function compare<T>(x: T, y: T): number {
     return y == null ? 0 : -1;
   } else if (y == null) {
     return 1;
-  } else if (typeof x !== "object") {
-    return x < y ? -1 : 1;
   } else if (isComparable(x)) {
     return x.CompareTo(y);
   } else if (isArrayLike(x)) {
     return isArrayLike(y) ? compareArrays(x, y) : -1;
+  } else if (typeof x !== "object") {
+    return x < y ? -1 : 1;
   } else if (x instanceof Date) {
     return y instanceof Date ? compareDates(x, y) : -1;
   } else {
