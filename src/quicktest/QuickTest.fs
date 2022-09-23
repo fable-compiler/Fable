@@ -21,6 +21,7 @@ let equal expected actual =
    if not areEqual then
        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
+#if !FABLE_COMPILER_TYPESCRIPT
 let throwsError (expected: string) (f: unit -> 'a): unit =
    let success =
        try
@@ -64,8 +65,9 @@ let throwsAnyError (f: unit -> 'a): unit =
             false
     if success then
         printfn "[ERROR EXPECTED]"
+#endif
 
-let measureTime (f: unit -> unit) = emitJsStatement () """
+let measureTime (f: unit -> unit): unit = emitJsStatement () """
    //js
    const startTime = process.hrtime();
    f();

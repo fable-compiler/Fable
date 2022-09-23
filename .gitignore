@@ -5,6 +5,8 @@ node_modules/
 temp*/
 *.fs.js
 *.fs.js.map
+*.fs.ts
+*.fs.ts.map
 *.fs.php
 *.fs.dart
 src/fable-library/*.js

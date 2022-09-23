@@ -188,6 +188,11 @@ let buildLibraryTs() =
     // runTSLint buildDirTs
     runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir ../../" + buildDirJs)
 
+let buildLibraryTsIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-ts")) then
+        buildLibraryTs()
+
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
     let projectDir = libraryDir </> "fable_library"
@@ -735,9 +740,12 @@ match BUILD_ARGS_LOWER with
 | "quicktest"::_ ->
     buildLibraryJsIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+| "quicktest-ts"::_ ->
+    buildLibraryTsIfNotExists()
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang ts --cwd ../quicktest --exclude Fable.Core --noCache --exclude Fable.Core --runWatch ts-node --esm QuickTest.fs.ts "
 | "quicktest-py"::_ ->
     buildLibraryPyIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --noCache --runWatch python -m quicktest"
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --exclude Fable.Core --noCache --runWatch python -m quicktest"
 | "quicktest-dart"::_ ->
     run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest-dart --exclude Fable.Core --noCache --runWatch dart run Quicktest.fs.dart"
 | "quicktest-rust"::_ ->
