@@ -426,12 +426,12 @@ module Annotation =
             ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) ->
             makeFunctionTypeAnnotation com ctx typ argTypes returnType
-        | Replacements.Util.Builtin kind ->
-            makeBuiltinTypeAnnotation com ctx typ kind
-        | Fable.DeclaredType(ent, genArgs) ->
-            makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
             makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
+        | Replacements.Util.Builtin kind ->
+            makeBuiltinTypeAnnotation com ctx typ kind
+        | Fable.DeclaredType(entRef, genArgs) ->
+            makeEntityTypeAnnotation com ctx entRef genArgs
 
     let makeSimpleTypeAnnotation _com _ctx name =
         TypeAnnotationInfo.genericTypeAnnotation(Identifier.identifier(name))
@@ -457,6 +457,9 @@ module Annotation =
     let makeNumericTypeAnnotation com ctx kind =
         let typeName = getNumberKindName kind
         makeImportTypeAnnotation com ctx [] "Int32" typeName
+
+    let makeNullableTypeAnnotation com ctx genArg =
+        makeImportTypeAnnotation com ctx [genArg] "Option" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
         makeImportTypeAnnotation com ctx [genArg] "Option" "Option"
@@ -560,10 +563,12 @@ module Annotation =
             AnyTypeAnnotation
 
     let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs =
-        match entRef.FullName with
-        | Types.result ->
+        match entRef.FullName, genArgs with
+        | "System.Nullable`1", [genArg] ->
+            makeNullableTypeAnnotation com ctx genArg
+        | Types.result, _ ->
             makeUnionTypeAnnotation com ctx genArgs
-        | entName when entName.StartsWith(Types.choiceNonGeneric) ->
+        | entName, _ when entName.StartsWith(Types.choiceNonGeneric) ->
             makeUnionTypeAnnotation com ctx genArgs
         | _ ->
             let ent = com.GetEntity(entRef)
@@ -1396,7 +1401,8 @@ module Util =
         let ctx = { ctx with TailCallOpportunity = None }
         let handler =
             catch |> Option.map (fun (param, body) ->
-                CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
+                let e: Fable.Ident = { param with Type = Fable.Any } // intentionally set catch type to 'any'
+                CatchClause.catchClause(typedIdentAsPattern com ctx e, transformBlock com ctx returnStrategy body))
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
         [|Statement.tryStatement(transformBlock com ctx returnStrategy body,

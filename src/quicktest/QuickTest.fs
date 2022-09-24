@@ -21,7 +21,9 @@ let equal expected actual =
    if not areEqual then
        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
-#if !FABLE_COMPILER_TYPESCRIPT
+[<Emit("$0 ?? $1")>]
+let (??=) (x: 'T) (y: 'T): 'T = nativeOnly
+
 let throwsError (expected: string) (f: unit -> 'a): unit =
    let success =
        try
@@ -41,7 +43,7 @@ let testCase (msg: string) f: unit =
    with ex ->
        printfn "%s" ex.Message
        if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-           printfn "%s" ex.StackTrace
+           printfn "%s" (ex.StackTrace ??= "")
    printfn ""
 
 let testCaseAsync msg f =
@@ -52,7 +54,7 @@ let testCaseAsync msg f =
            with ex ->
                printfn "%s" ex.Message
                if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-                   printfn "%s" ex.StackTrace
+                   printfn "%s" (ex.StackTrace ??= "")
        } |> Async.StartImmediate)
 
 let throwsAnyError (f: unit -> 'a): unit =
@@ -65,7 +67,6 @@ let throwsAnyError (f: unit -> 'a): unit =
             false
     if success then
         printfn "[ERROR EXPECTED]"
-#endif
 
 let measureTime (f: unit -> unit): unit = emitJsStatement () """
    //js
