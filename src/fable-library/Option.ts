@@ -12,6 +12,8 @@ import { compare, equals, structuralHash } from "./Util.js";
 // Note: We use non-strict null check for backwards compatibility with
 // code that use F# options to represent values that could be null in JS
 
+export type Nullable<T> = T | undefined;
+
 export type Option<T> = T | Some<T> | undefined;
 
 // Using a class here for better compatibility with TS files importing Some

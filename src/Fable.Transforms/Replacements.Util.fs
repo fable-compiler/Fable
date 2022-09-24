@@ -82,7 +82,13 @@ let makeUniqueIdent ctx t name =
 
 let withTag tag = function
     | Call(e, i, t, r) -> Call(e, { i with Tags = tag::i.Tags }, t, r)
+    | Get(e, FieldGet i, t, r) -> Get(e, FieldGet { i with Tags = tag::i.Tags }, t, r)
     | e -> e
+
+let getTags = function
+    | Call(e, i, t, r) -> i.Tags
+    | Get(e, FieldGet i, t, r) -> i.Tags
+    | _e -> []
 
 let objValue (k, v): ObjectExprMember =
     {
