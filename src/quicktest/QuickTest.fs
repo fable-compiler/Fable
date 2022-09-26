@@ -21,9 +21,6 @@ let equal expected actual =
    if not areEqual then
        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
-[<Emit("$0 ?? $1")>]
-let (??=) (x: 'T) (y: 'T): 'T = nativeOnly
-
 let throwsError (expected: string) (f: unit -> 'a): unit =
    let success =
        try

@@ -21,39 +21,6 @@ type AssignmentOperator =
     | AssignXorBitwise
     | AssignAndBitwise
 
-/// The type field is a string representing the AST variant type.
-/// Each subtype of Node is documented below with the specific string of its type field.
-/// You can use this field to determine which interface a node implements.
-/// The loc field represents the source location information of the node.
-/// If the node contains no information about the source location, the field is null;
-/// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region)
-/// and an end position (the position of the first character after the parsed source region):
-type Node =
-    | Pattern of Pattern
-    | Program of Program
-    | Statement of Statement
-    | ClassBody of ClassBody
-    | Expression of Expression
-    | SwitchCase of SwitchCase
-    | CatchClause of CatchClause
-    | ObjectMember of ObjectMember
-    | TypeParameter of TypeParameter
-    | TypeAnnotation of TypeAnnotation
-    | ExportSpecifier of ExportSpecifier
-    | ImportSpecifier of ImportSpecifier
-    | InterfaceExtends of InterfaceExtends
-    | Directive of value: DirectiveLiteral // e.g. "use strict";
-    | ObjectTypeIndexer of ObjectTypeIndexer
-    | FunctionTypeParam of FunctionTypeParam
-    | ModuleDeclaration of ModuleDeclaration
-    | VariableDeclarator of VariableDeclarator
-    | TypeAnnotationInfo of TypeAnnotationInfo
-    | ObjectTypeProperty of ObjectTypeProperty
-    | ObjectTypeCallProperty of ObjectTypeCallProperty
-    | ObjectTypeInternalSlot of ObjectTypeInternalSlot
-    | TypeParameterDeclaration of TypeParameterDeclaration
-    | TypeParameterInstantiation of TypeParameterInstantiation
-
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
@@ -61,11 +28,10 @@ type Expression =
     | Literal of Literal
     | Identifier of Identifier
     | ClassExpression of
-        body: ClassBody *
+        members: ClassMember array *
         id: Identifier option *
         superClass: Expression option *
         implements: ClassImplements array option *
-        superTypeParameters: TypeParameterInstantiation option *
         typeParameters: TypeParameterDeclaration option *
         loc: SourceLocation option
     | ClassImplements of ClassImplements
@@ -84,7 +50,7 @@ type Expression =
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
-    | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
+    | MemberExpression of object: Expression * property: Expression * computed: bool * loc: SourceLocation option
     | NewExpression of callee: Expression * args: Expression array * typeParameters: TypeParameterInstantiation option * loc: SourceLocation option
     | FunctionExpression of
         id: Identifier option *
@@ -102,32 +68,33 @@ type Expression =
 
 type Pattern =
     | RestElement of argument: Pattern
-    | Identifier of name: Identifier
+    | Identifier of name: Identifier * accessModifier: AccessModifier option
 
     member this.Name =
         match this with
         | RestElement(argument) -> argument.Name
-        | Identifier(Identifier.Identifier(name=name)) -> name
+        | Identifier(Identifier.Identifier(name=name), _) -> name
 
     member this.IsNamed =
         match this with
-        | Identifier(Identifier.Identifier(named=named)) -> named
+        | Identifier(Identifier.Identifier(named=named), _) -> named
         | RestElement _ -> false
 
     member this.AsNamed =
         match this with
-        | Identifier(Identifier.Identifier(name, optional, _named, typeAnnotation, loc)) ->
-            Identifier(Identifier.Identifier(name, optional, true, typeAnnotation, loc))
+        | Identifier(Identifier.Identifier(name, optional, _named, typeAnnotation, loc), accessModifier) ->
+            Identifier(Identifier.Identifier(name, optional, true, typeAnnotation, loc), accessModifier)
         | RestElement argument -> argument.AsNamed // Named arguments cannot be spread
 
 type Literal =
     | StringLiteral of StringLiteral
     | StringTemplate of tag: Expression option * parts: string array * values: Expression array * loc: SourceLocation option
-    | DirectiveLiteral of DirectiveLiteral
+    | DirectiveLiteral of value: string
     | NullLiteral of loc: SourceLocation option
     | BooleanLiteral of value: bool * loc: SourceLocation option
     | NumericLiteral of value: float * loc: SourceLocation option
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
+    | EnumCaseLiteral of id: Identifier * caseName: string
 
 type Statement =
     | Declaration of Declaration
@@ -148,11 +115,10 @@ type Statement =
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
     | ClassDeclaration of
-        body: ClassBody *
+        members: ClassMember array *
         id: Identifier option *
         superClass: Expression option *
         implements: ClassImplements array option *
-        superTypeParameters: TypeParameterInstantiation option *
         typeParameters: TypeParameterDeclaration option *
         loc: SourceLocation option
     | VariableDeclaration of VariableDeclaration
@@ -169,6 +135,14 @@ type Declaration =
         extends: InterfaceExtends array *
         implements: ClassImplements array *
         typeParameters: TypeParameterDeclaration option
+    | EnumDeclaration of
+        name: string *
+        cases: (string * Expression) array *
+        isConst: bool
+    | TypeAliasDeclaration of
+        name: string *
+        typeParameters: TypeParameterDeclaration *
+        alias: TypeAnnotation
 
 /// A module import or export declaration.
 type ModuleDeclaration =
@@ -204,6 +178,10 @@ type ModuleDeclaration =
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
     | Identifier of name: string * optional: bool * named: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
+    member this.MapName(f) =
+        match this with
+            | Identifier(name, optional, named, typeAnnotation, loc) ->
+                Identifier(f name, optional, named, typeAnnotation, loc)
 
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option
@@ -213,8 +191,6 @@ type StringLiteral =
 //    inherit Node("Decorator", ?loc = loc)
 //    member _.Value = value
 //
-type DirectiveLiteral =
-    | DirectiveLiteral of value: string
 
 // Program
 
@@ -377,6 +353,12 @@ type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
 
 // Classes
+type AccessModifier =
+    | Public
+    | Private
+    | Protected
+    | Readonly
+
 type ClassMember =
     | ClassMethod of
         kind: string *
@@ -396,6 +378,7 @@ type ClassMember =
         ``static``: bool *
         optional: bool *
         typeAnnotation: TypeAnnotation option *
+        accessModifier: AccessModifier option *
         loc: SourceLocation option
 
 type ClassMethodKind =
@@ -409,9 +392,6 @@ type ClassMethodKind =
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
 type ClassImplements =
     | ClassImplements of id: Identifier * typeParameters: TypeParameterInstantiation option
-
-type ClassBody =
-    | ClassBody of body: ClassMember array * loc: SourceLocation option
 
 // type MetaProperty(meta, property, ?loc) =
 //     interface Expression with
@@ -443,44 +423,42 @@ type ExportSpecifier =
     | ExportSpecifier of local: Identifier * exported: Identifier
 
 // Type Annotations
-type TypeAnnotationInfo =
+type TypeAnnotation =
+    | AliasTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation
     | AnyTypeAnnotation
     | VoidTypeAnnotation
     | StringTypeAnnotation
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
-    | TypeAnnotationInfo of TypeAnnotationInfo
-    | UnionTypeAnnotation of types: TypeAnnotationInfo array
+    | UnionTypeAnnotation of types: TypeAnnotation array
     | ObjectTypeAnnotation of ObjectTypeAnnotation
-    | GenericTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation option
     | FunctionTypeAnnotation of
         parameters: FunctionTypeParam array *
-        returnType: TypeAnnotationInfo *
-        typeParameters: TypeParameterDeclaration option *
+        returnType: TypeAnnotation *
+        typeParameters: TypeParameterDeclaration *
         rest: FunctionTypeParam option
-    | NullableTypeAnnotation of typeAnnotation: TypeAnnotationInfo
-    | ArrayTypeAnnotation of TypeAnnotationInfo
-    | TupleTypeAnnotation of types: TypeAnnotationInfo array
-
-type TypeAnnotation =
-    | TypeAnnotation of TypeAnnotationInfo
+    | NullableTypeAnnotation of typeAnnotation: TypeAnnotation
+    | ArrayTypeAnnotation of TypeAnnotation
+    | TupleTypeAnnotation of types: TypeAnnotation array
+    | KeyofTypeAnnotation of TypeAnnotation
+    | TypeofTypeAnnotation of Expression
+    | IndexedTypeAnnotation of TypeAnnotation * prop: TypeAnnotation
+    | LiteralTypeAnnotation of Literal
 
 type TypeParameter =
-    | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotationInfo option
+    | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotation option
 
-type TypeParameterDeclaration =
-    | TypeParameterDeclaration of parameters: TypeParameter array
+type TypeParameterDeclaration = TypeParameter array
 
-type TypeParameterInstantiation =
-    | TypeParameterInstantiation of parameters: TypeAnnotationInfo array
+type TypeParameterInstantiation = TypeAnnotation array
 
 type FunctionTypeParam =
-    | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotationInfo * optional: bool option
+    | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotation * optional: bool option
 
 type ObjectTypeProperty =
     | ObjectTypeProperty of
         key: Expression *
-        value: TypeAnnotationInfo *
+        value: TypeAnnotation *
         kind: string option *
         computed: bool *
         ``static``: bool *
@@ -489,13 +467,13 @@ type ObjectTypeProperty =
         method: bool
 
 type ObjectTypeIndexer =
-    | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotationInfo * ``static``: bool option
+    | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotation * ``static``: bool option
 
 type ObjectTypeCallProperty =
-    | ObjectTypeCallProperty of value: TypeAnnotationInfo * ``static``: bool option
+    | ObjectTypeCallProperty of value: TypeAnnotation * ``static``: bool option
 
 type ObjectTypeInternalSlot =
-    | ObjectTypeInternalSlot of id: Identifier * value: TypeAnnotationInfo * optional: bool * ``static``: bool * method: bool
+    | ObjectTypeInternalSlot of id: Identifier * value: TypeAnnotation * optional: bool * ``static``: bool * method: bool
 
 type ObjectTypeAnnotation =
     | ObjectTypeAnnotation of
@@ -506,7 +484,6 @@ type ObjectTypeAnnotation =
         exact: bool
 type InterfaceExtends =
     | InterfaceExtends of id: Identifier * typeParameters: TypeParameterInstantiation option
-
 
 //    let mixins = defaultArg mixins_ [||]
 //    member _.Mixins: InterfaceExtends array = mixins
@@ -571,15 +548,11 @@ module Helpers =
         /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
         static member memberExpression(object, property, ?computed_, ?loc) =
             let computed = defaultArg computed_ false
-            let name =
-                match property with
-                | Expression.Identifier(Identifier(name=name)) -> name
-                | _ -> ""
-            MemberExpression(name, object, property, computed, loc)
+            MemberExpression(object, property, computed, loc)
         static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
             FunctionExpression(id, parameters, body, returnType, typeParameters, loc)
-        static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-            ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
+        static member classExpression(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
+            ClassExpression(body, id, superClass, implements, typeParameters, loc)
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
@@ -670,19 +643,15 @@ module Helpers =
             SwitchCase(test, defaultArg consequent Array.empty, loc)
 
     type Pattern with
-        static member identifier(name, ?optional, ?named, ?typeAnnotation, ?loc) =
-            Identifier(name, optional = defaultArg optional false, named = defaultArg named false, ?typeAnnotation = typeAnnotation, ?loc = loc)
-            |> Pattern.Identifier
+        static member identifier(name, ?optional, ?named, ?typeAnnotation, ?accessModifier, ?loc) =
+            let ident = Identifier(name, optional = defaultArg optional false, named = defaultArg named false, ?typeAnnotation = typeAnnotation, ?loc = loc)
+            Pattern.Identifier(ident, accessModifier)
         static member restElement(argument: Pattern) =
             RestElement(argument)
 
     type ClassImplements with
         static member classImplements(id, ?typeParameters) =
             ClassImplements(id, typeParameters)
-
-    type ClassBody with
-        static member classBody(body, ?loc) =
-            ClassBody(body, loc)
 
     type Declaration with
         static member variableDeclaration(kind, declarations, ?loc) : Declaration =
@@ -695,12 +664,14 @@ module Helpers =
             )
         static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
             FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc)
-        static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
+        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
+            ClassDeclaration(body, id, superClass, implements, typeParameters, loc)
         static member interfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
             let extends = defaultArg extends_ [||]
             let implements = defaultArg implements_ [||]
             InterfaceDeclaration(id, body, extends, implements, typeParameters)
+        static member enumDeclaration(name, cases, ?isConst) =
+            EnumDeclaration(name, cases, defaultArg isConst false)
 
     type VariableDeclaration with
         static member variableDeclaration(kind, declarations, ?loc) : VariableDeclaration =
@@ -739,9 +710,9 @@ module Helpers =
                 | ClassFunction -> "method"
             let computed = defaultArg computed_ false
             ClassMethod(kind, key, parameters, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
-        static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
+        static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?accessModifier, ?loc): ClassMember =
             let computed = defaultArg computed_ false
-            ClassProperty(key, value, computed, defaultArg ``static`` false, defaultArg optional false, typeAnnotation, loc)
+            ClassProperty(key, value, computed, defaultArg ``static`` false, defaultArg optional false, typeAnnotation, accessModifier, loc)
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -789,11 +760,11 @@ module Helpers =
         static member exportNamedReferences(specifiers, ?source): ModuleDeclaration =
             ExportNamedReferences(specifiers, source)
 
-    type TypeAnnotationInfo with
-        static member genericTypeAnnotation(id, ?typeParameters) =
-            GenericTypeAnnotation (id, typeParameters)
-        static member functionTypeAnnotation(parameters, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
-            FunctionTypeAnnotation(parameters,returnType, typeParameters, rest)
+    type TypeAnnotation with
+        static member aliasTypeAnnotation(id, ?typeParameters) =
+            AliasTypeAnnotation(id, defaultArg typeParameters [||])
+        static member functionTypeAnnotation(parameters, returnType, ?typeParameters, ?rest): TypeAnnotation =
+            FunctionTypeAnnotation(parameters,returnType, defaultArg typeParameters [||], rest)
 
     type ObjectTypeAnnotation with
         static member objectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =

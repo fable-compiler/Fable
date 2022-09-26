@@ -3,6 +3,10 @@ module Fable.Core.JsInterop
 open System
 open Fable.Core
 
+/// Compiles to ?? operator in JavaScript
+[<Emit("$0 ?? $1")>]
+let (??=) (nullable: 'T) (defaultValue: 'T): 'T = nativeOnly
+
 /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
 let (!!) x: 'T = nativeOnly
