@@ -48,7 +48,7 @@ module Util =
     let updatePkgVersionInFsproj projFile version =
         readFile projFile
         |> replaceRegex Publish.NUGET_PACKAGE_VERSION (fun m ->
-            m.Groups.[1].Value + version + m.Groups.[3].Value)
+            m.Groups[1].Value + version + m.Groups[3].Value)
         |> writeFile projFile
 
     let runTSLint projectDir =
@@ -91,7 +91,7 @@ open Util
 
 module Unused =
     let downloadAndExtractTo (url: string) (targetDir: string) =
-        sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
+        $"npx download --extract --out %s{targetDir} \"%s{url}\"" |> run
 
     let coverage() =
         // report converter
@@ -185,8 +185,12 @@ let buildLibraryTs() =
     copyFiles (sourceDir </> "ts") "*.json" buildDirTs
     copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
 
+    // Remove extra d.ts files (like Choice.d.s)
+    for file in IO.Directory.GetFiles buildDirTs do
+        if file.EndsWith(".d.ts") then removeFile file
+
     // runTSLint buildDirTs
-    runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir ../../" + buildDirJs)
+    runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir " + buildDirJs)
 
 let buildLibraryTsIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
@@ -611,8 +615,8 @@ let testRepos() =
     let pkgInstallCmd = buildLocalPackage (testDir </> "pkg")
 
     for (repo, command) in repos do
-        let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
-        let name = url.[url.LastIndexOf("/") + 1..]
+        let url, branch = let i = repo.LastIndexOf(":") in repo[..i-1], repo[i+1..]
+        let name = url[url.LastIndexOf("/") + 1..]
         runInDir testDir $"git clone {url} {name}"
         let repoDir = testDir </> name
         runInDir repoDir ("git checkout " + branch)
@@ -629,9 +633,9 @@ let githubRelease() =
             let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
             run $"git commit -am \"Release {version}\" && git push"
             runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
-            printfn "Github release %s created successfully" version
+            printfn $"Github release %s{version} created successfully"
         with ex ->
-            printfn "Github release failed: %s" ex.Message
+            printfn $"Github release failed: %s{ex.Message}"
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let copyFcsRepo sourceDir =
@@ -663,7 +667,7 @@ let syncFcsRepo() =
         f ()
         runInDir dir "git reset --hard"
 
-    printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
+    printfn $"Expecting %s{FCS_REPO} repo to be cloned at %s{FCS_REPO_LOCAL}"
 
     // TODO: Prompt to reset --hard changes
     // service_slim
@@ -705,7 +709,7 @@ let publishPackages restArgs =
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
     for (pkg, buildAction) in packages do
-        if Char.IsUpper pkg.[0] then
+        if Char.IsUpper pkg[0] then
             let projFile = "src" </> pkg </> pkg + ".fsproj"
             pushFableNuget projFile ["Pack", "true"] buildAction
         else
@@ -742,7 +746,7 @@ match BUILD_ARGS_LOWER with
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-ts"::_ ->
     buildLibraryTsIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang ts --cwd ../quicktest --exclude Fable.Core --noCache --exclude Fable.Core --runWatch ts-node --esm QuickTest.fs.ts "
+    run "dotnet watch --project src/Fable.Cli run -- watch --lang ts --cwd ../quicktest --exclude Fable.Core --noCache --exclude Fable.Core --run npm run run-quicktest-ts"
 | "quicktest-py"::_ ->
     buildLibraryPyIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --exclude Fable.Core --noCache --runWatch python -m quicktest"

@@ -14,15 +14,17 @@
     "postbuild-compiler-js": "rollup build/fable-compiler-js/out/app.js --file src/fable-compiler-js/dist/app.js --format umd --name Fable",
     "minify-compiler-js": "terser src/fable-compiler-js/dist/app.js -o src/fable-compiler-js/dist/app.min.js --mangle --compress",
     "test-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj build/tests-js",
-    "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
+    "posttest-js": "mocha build/tests-js --reporter dot -t 10000",
+    "run-quicktest-ts": "concurrently --kill-others \"tsc --watch --project src/quicktest\" \"npx nodemon -w build/quicktest-ts/QuickTest.fs.js build/quicktest-ts/QuickTest.fs.js\""
   },
   "dependencies": {
     "@types/node": "^18.7.16",
+    "concurrently": "^7.4.0",
     "ghreleases": "^3.0.2",
     "mocha": "^10.0.0",
+    "nodemon": "^2.0.20",
     "rollup": "^2.79.0",
     "terser": "^5.15.0",
-    "ts-node": "^10.9.1",
     "tslint": "^6.1.3",
     "typescript": "^4.8.3"
   }

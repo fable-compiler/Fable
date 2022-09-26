@@ -42,7 +42,7 @@ export function unionToString(name: string, fields: any[]) {
   if (fields.length === 0) {
     return name;
   } else {
-    let fieldStr = "";
+    let fieldStr;
     let withParens = true;
     if (fields.length === 1) {
       fieldStr = toString(fields[0]);
@@ -55,8 +55,8 @@ export function unionToString(name: string, fields: any[]) {
 }
 
 export abstract class Union implements IEquatable<Union>, IComparable<Union> {
-  public tag!: number;
-  public fields!: any[];
+  public tag!: any;
+  public fields!: any;
   abstract cases(): string[];
 
   public get name() {
@@ -162,8 +162,8 @@ export abstract class Record implements IEquatable<Record>, IComparable<Record>,
 }
 
 export class FSharpRef<T> {
-  private getter: () => T;
-  private setter: (v: T) => void;
+  private readonly getter: () => T;
+  private readonly setter: (v: T) => void;
 
   get contents() {
     return this.getter();

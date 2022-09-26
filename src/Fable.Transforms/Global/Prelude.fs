@@ -43,6 +43,12 @@ module Seq =
 
 [<RequireQualifiedAccess>]
 module Array =
+    let filteri (filter: int -> 'a -> bool) (xs: 'a[]): 'a[] =
+        let mutable i = -1
+        xs |> Array.filter (fun x ->
+            i <- i + 1
+            filter i x)
+
     let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
         let r1 = ResizeArray()
         let r2 = ResizeArray()
