@@ -2,7 +2,7 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
   </PropertyGroup>

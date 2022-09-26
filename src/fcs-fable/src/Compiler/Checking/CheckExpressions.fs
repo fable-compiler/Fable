@@ -2185,7 +2185,9 @@ module GeneralizationHelpers =
          | Some memberFlags ->
             match memberFlags.MemberKind with
             // can't infer extra polymorphism for properties
-            | SynMemberKind.PropertyGet | SynMemberKind.PropertySet -> false
+            | SynMemberKind.PropertyGet
+            | SynMemberKind.PropertySet
+            | SynMemberKind.PropertyGetSet -> false
             // can't infer extra polymorphism for class constructors
             | SynMemberKind.ClassConstructor -> false
             // can't infer extra polymorphism for constructors
@@ -4041,7 +4043,7 @@ and TcPseudoMemberSpec cenv newOk env synTypes tpenv synMemberSig m =
             let logicalCompiledName = ComputeLogicalName id memberFlags
             for argInfos in curriedArgInfos do
                 for argInfo in argInfos do
-                    let info = CrackParamAttribsInfo g argInfo
+                    let info, _ = CrackParamAttribsInfo g argInfo
                     let (ParamAttribs(isParamArrayArg, isInArg, isOutArg, optArgInfo, callerInfo, reflArgInfo)) = info
                     if isParamArrayArg || isInArg || isOutArg || optArgInfo.IsOptional || callerInfo <> CallerInfo.NoCallerInfo || reflArgInfo <> ReflectedArgInfo.None then
                         if g.langVersion.SupportsFeature(LanguageFeature.InterfacesWithAbstractStaticMembers) then
@@ -4303,6 +4305,9 @@ and TcTypeOrMeasure kindOpt (cenv: cenv) newOk checkConstraints occ (iwsam: Warn
     | SynType.LongIdent synLongId ->
         TcLongIdentType kindOpt cenv newOk checkConstraints occ iwsam env tpenv synLongId
 
+    | MultiDimensionArrayType (rank, elemTy, m) ->
+        TcElementType cenv newOk checkConstraints occ env tpenv rank elemTy m
+    
     | SynType.App (StripParenTypes (SynType.LongIdent longId), _, args, _, _, postfix, m) ->
         TcLongIdentAppType kindOpt cenv newOk checkConstraints occ iwsam env tpenv longId postfix args m
 
@@ -4353,7 +4358,8 @@ and TcTypeOrMeasure kindOpt (cenv: cenv) newOk checkConstraints occ (iwsam: Warn
     | SynType.App(arg1, _, args, _, _, postfix, m) ->
         TcTypeMeasureApp kindOpt cenv newOk checkConstraints occ env tpenv arg1 args postfix m 
 
-    | SynType.Paren(innerType, _) ->
+    | SynType.Paren(innerType, _)
+    | SynType.SignatureParameter(usedType = innerType) ->
         TcTypeOrMeasure kindOpt cenv newOk checkConstraints occ iwsam env tpenv innerType
 
 and CheckIWSAM (cenv: cenv) (env: TcEnv) checkConstraints iwsam m tcref =
@@ -4769,6 +4775,9 @@ and CrackStaticConstantArgs (cenv: cenv) env tpenv (staticParameters: Tainted<Pr
     argsInStaticParameterOrderIncludingDefaults
 
 and TcProvidedTypeAppToStaticConstantArgs (cenv: cenv) env generatedTypePathOpt tpenv (tcref: TyconRef) (args: SynType list) m =
+    // Static argument expressions should not get debug points
+    let env = { env with eIsControlFlow = false }
+
     let typeBeforeArguments =
         match tcref.TypeReprInfo with
         | TProvidedTypeRepr info -> info.ProvidedType
@@ -7019,7 +7028,7 @@ and TcInterpolatedStringExpr cenv (overallTy: OverallTy) env m tpenv (parts: Syn
     let newFormatMethod =
         match GetIntrinsicConstructorInfosOfType cenv.infoReader m formatTy |> List.filter (fun minfo -> minfo.NumArgs = [3]) with
         | [ctorInfo] -> ctorInfo
-        | _ -> languageFeatureNotSupportedInLibraryError g.langVersion LanguageFeature.StringInterpolation m
+        | _ -> languageFeatureNotSupportedInLibraryError LanguageFeature.StringInterpolation m
 
     let stringKind =
         // If this is an interpolated string then try to force the result to be a string
@@ -7054,7 +7063,7 @@ and TcInterpolatedStringExpr cenv (overallTy: OverallTy) env m tpenv (parts: Syn
 
             match createMethodOpt with
             | Some createMethod -> Choice2Of2 createMethod
-            | None -> languageFeatureNotSupportedInLibraryError g.langVersion LanguageFeature.StringInterpolation m
+            | None -> languageFeatureNotSupportedInLibraryError LanguageFeature.StringInterpolation m
 
         // ... or if that fails then may be a PrintfFormat by a type-directed rule....
         elif not (isObjTy g overallTy.Commit) && AddCxTypeMustSubsumeTypeUndoIfFailed env.DisplayEnv cenv.css m overallTy.Commit formatTy then
@@ -8258,8 +8267,9 @@ and TcUnionCaseOrExnCaseOrActivePatternResultItemThen (cenv: cenv) overallTy env
                 // first: put all positional arguments
                 let mutable currentIndex = 0
                 for arg in unnamedArgs do
-                    fittedArgs[currentIndex] <- arg
-                    currentIndex <- currentIndex + 1
+                    if currentIndex < fittedArgs.Length then
+                        fittedArgs[currentIndex] <- arg
+                        currentIndex <- currentIndex + 1
 
                 let SEEN_NAMED_ARGUMENT = -1
 
@@ -8921,8 +8931,11 @@ and TcLookupItemThen cenv overallTy env tpenv mObjExpr objExpr objExprTy delayed
         // To get better warnings we special case some of the few known mutate-a-struct method names
         let mutates = (if methodName = "MoveNext" || methodName = "GetNextArg" then DefinitelyMutates else PossiblyMutates)
 
-        // Check if we have properties with "init-only" setters, which we try to call after init is done.
-        CheckInitProperties g (List.head minfos) methodName mItem
+        match minfos with
+        | minfo :: _ ->
+            // Check if we have properties with "init-only" setters, which we try to call after init is done.
+            CheckInitProperties g minfo methodName mItem
+        | _ -> ()
 
 #if !NO_TYPEPROVIDERS
         match TryTcMethodAppToStaticConstantArgs cenv env tpenv (minfos, tyArgsOpt, mExprAndItem, mItem) with
@@ -9198,6 +9211,7 @@ and GenerateMatchingSimpleArgumentTypes (cenv: cenv) (calledMeth: MethInfo) mIte
     let g = cenv.g
     let curriedMethodArgAttribs = calledMeth.GetParamAttribs(cenv.amap, mItem)
     curriedMethodArgAttribs
+    |> List.map (List.map fst)
     |> List.map (List.filter isSimpleFormalArg >> NewInferenceTypes g)
 
 and UnifyMatchingSimpleArgumentTypes (cenv: cenv) (env: TcEnv) exprTy (calledMeth: MethInfo) mMethExpr mItem =
@@ -9251,7 +9265,7 @@ and TcMethodApplication_SplitSynArguments
         let singleMethodCurriedArgs =
             match candidates with
             | [calledMeth] when List.forall isNil namedCurriedCallerArgs  ->
-                let curriedCalledArgs = calledMeth.GetParamAttribs(cenv.amap, mItem)
+                let curriedCalledArgs = calledMeth.GetParamAttribs(cenv.amap, mItem) |> List.map (List.map fst)
                 match curriedCalledArgs with
                 | [arg :: _] when isSimpleFormalArg arg -> Some(curriedCalledArgs)
                 | _ -> None
@@ -9486,7 +9500,7 @@ and TcAdhocChecksOnLibraryMethods (cenv: cenv) (env: TcEnv) isInstance (finalCal
     if HasHeadType g g.tcref_System_Collections_Generic_Dictionary finalCalledMethInfo.ApparentEnclosingType &&
         finalCalledMethInfo.IsConstructor &&
         not (finalCalledMethInfo.GetParamDatas(cenv.amap, mItem, finalCalledMeth.CalledTyArgs)
-            |> List.existsSquared (fun (ParamData(_, _, _, _, _, _, _, ty)) ->
+            |> List.existsSquared (fun (ParamData(_, _, _, _, _, _, _, ty), _) ->
                 HasHeadType g g.tcref_System_Collections_Generic_IEqualityComparer ty)) then
 
         match argsOfAppTy g finalCalledMethInfo.ApparentEnclosingType with
