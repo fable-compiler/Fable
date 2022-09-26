@@ -770,8 +770,8 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
     | Builtin BclDateOnly
     | Builtin BclTimeOnly -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid()
-    | DeclaredType(ent, _)  ->
-        let ent = com.GetEntity(ent)
+    | DeclaredType(entRef, _)  ->
+        let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
         if ent.IsValueType
         then tryConstructor com ent

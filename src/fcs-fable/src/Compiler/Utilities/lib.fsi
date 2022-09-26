@@ -231,7 +231,7 @@ val buildString: f: (StringBuilder -> unit) -> string
 
 #if !FABLE_COMPILER
 /// Writing to output stream via a string buffer.
-val writeViaBuffer: os: TextWriter -> f: (StringBuilder -> 'a -> unit) -> x: 'a -> unit
+val writeViaBuffer: os: TextWriter -> f: (StringBuilder -> unit) -> unit
 #endif
 
 type StringBuilder with
@@ -321,6 +321,21 @@ type DisposablesTracker =
 [<RequireQualifiedAccess>]
 module ArrayParallel =
 
+    val inline iter: ('T -> unit) -> 'T[] -> unit
+
+    val inline iteri: (int -> 'T -> unit) -> 'T[] -> unit
+
     val inline map: ('T -> 'U) -> 'T[] -> 'U[]
 
     val inline mapi: (int -> 'T -> 'U) -> 'T[] -> 'U[]
+
+[<RequireQualifiedAccess>]
+module ListParallel =
+
+    //val inline iter: ('T -> unit) -> 'T list -> unit
+
+    //val inline iteri: (int -> 'T -> unit) -> 'T list -> unit
+
+    val map: ('T -> 'U) -> 'T list -> 'U list
+
+//val inline mapi: (int -> 'T -> 'U) -> 'T list -> 'U list

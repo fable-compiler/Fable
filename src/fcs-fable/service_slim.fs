@@ -113,10 +113,9 @@ type internal CompilerStateCache(readAllBytes: string -> byte[], projectOptions:
         )
 #endif
 
-        let niceNameGen = NiceNameGenerator()
         let assemblyName = projectOptions.ProjectFileName |> Path.GetFileNameWithoutExtension
         let tcInitial, openDecls0 = GetInitialTcEnv (assemblyName, rangeStartup, tcConfig, tcImports, tcGlobals)
-        let tcInitialState = GetInitialTcState (rangeStartup, assemblyName, tcConfig, tcGlobals, tcImports, niceNameGen, tcInitial, openDecls0)
+        let tcInitialState = GetInitialTcState (rangeStartup, assemblyName, tcConfig, tcGlobals, tcImports, tcInitial, openDecls0)
 
         // parse cache, keyed on file name and source hash
         let parseCache = ConcurrentDictionary<string * int, FSharpParseFileResults>(HashIdentity.Structural)
@@ -190,7 +189,7 @@ module internal ParseAndCheck =
         let input = parseResults.ParseTree
         let diagnosticsOptions = compilerState.tcConfig.diagnosticsOptions
         let capturingLogger = CompilationDiagnosticLogger("TypeCheckFile", diagnosticsOptions)
-        let diagnosticsLogger = GetDiagnosticsLoggerFilteringByScopedPragmas(false, GetScopedPragmasForInput(input), diagnosticsOptions, capturingLogger)
+        let diagnosticsLogger = GetDiagnosticsLoggerFilteringByScopedPragmas(false, input.ScopedPragmas, diagnosticsOptions, capturingLogger)
         use _scope = new CompilationGlobalsScope (diagnosticsLogger, BuildPhase.TypeCheck)
 
         let checkForErrors () = parseResults.ParseHadErrors || diagnosticsLogger.ErrorCount > 0

@@ -569,7 +569,7 @@ type internal TypeCheckInfo
             match meth.GetParamDatas(amap, m, meth.FormalMethodInst) with
             | x :: _ ->
                 x
-                |> List.choose (fun (ParamData (_isParamArray, _isInArg, _isOutArg, _optArgInfo, _callerInfo, name, _, ty)) ->
+                |> List.choose (fun (ParamData (_isParamArray, _isInArg, _isOutArg, _optArgInfo, _callerInfo, name, _, ty), _) ->
                     match name with
                     | Some id -> Some(Item.ArgName(Some id, ty, Some(ArgumentContainer.Method meth), id.idRange))
                     | None -> None)
@@ -2137,8 +2137,8 @@ type FSharpParsingOptions =
 
 module internal ParseAndCheckFile =
 
-    /// Error handler for parsing & type checking while processing a single file
-    type ErrorHandler
+    /// Diagnostics handler for parsing & type checking while processing a single file
+    type DiagnosticsHandler
         (
             reportErrors,
             mainInputFileName,
@@ -2190,7 +2190,7 @@ module internal ParseAndCheckFile =
                 | _ -> collectOne severity diagnostic
 
         let diagnosticsLogger =
-            { new DiagnosticsLogger("ErrorHandler") with
+            { new DiagnosticsLogger("DiagnosticsHandler") with
                 member _.DiagnosticSink(exn, severity) = diagnosticSink severity exn
                 member _.ErrorCount = errorCount
             }
@@ -2219,7 +2219,7 @@ module internal ParseAndCheckFile =
 
         IndentationAwareSyntaxStatus(indentationSyntaxStatus, true)
 
-    let createLexerFunction fileName options lexbuf (errHandler: ErrorHandler) =
+    let createLexerFunction fileName options lexbuf (errHandler: DiagnosticsHandler) =
         let indentationSyntaxStatus = getLightSyntaxStatus fileName options
 
         // If we're editing a script then we define INTERACTIVE otherwise COMPILED.
@@ -2253,22 +2253,18 @@ module internal ParseAndCheckFile =
         UnicodeLexing.SourceTextAsLexbuf(true, LanguageVersion(langVersion), sourceText)
 
     let matchBraces (sourceText: ISourceText, fileName, options: FSharpParsingOptions, userOpName: string, suggestNamesForErrors: bool) =
-        let delayedLogger = CapturingDiagnosticsLogger("matchBraces")
-        use _unwindEL = PushDiagnosticsLoggerPhaseUntilUnwind(fun _ -> delayedLogger)
-        use _unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.Parse
-
-        Trace.TraceInformation("FCS: {0}.{1} ({2})", userOpName, "matchBraces", fileName)
-
         // Make sure there is an DiagnosticsLogger installed whenever we do stuff that might record errors, even if we ultimately ignore the errors
         let delayedLogger = CapturingDiagnosticsLogger("matchBraces")
-        use _unwindEL = PushDiagnosticsLoggerPhaseUntilUnwind(fun _ -> delayedLogger)
-        use _unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.Parse
+        use _ = UseDiagnosticsLogger delayedLogger
+        use _ = UseBuildPhase BuildPhase.Parse
+
+        Trace.TraceInformation("FCS: {0}.{1} ({2})", userOpName, "matchBraces", fileName)
 
         let matchingBraces = ResizeArray<_>()
 
         usingLexbufForParsing (createLexbuf options.LangVersionText sourceText, fileName) (fun lexbuf ->
             let errHandler =
-                ErrorHandler(false, fileName, options.DiagnosticOptions, sourceText, suggestNamesForErrors)
+                DiagnosticsHandler(false, fileName, options.DiagnosticOptions, sourceText, suggestNamesForErrors)
 
             let lexfun = createLexerFunction fileName options lexbuf errHandler
 
@@ -2359,12 +2355,11 @@ module internal ParseAndCheckFile =
         Trace.TraceInformation("FCS: {0}.{1} ({2})", userOpName, "parseFile", fileName)
 
         let errHandler =
-            ErrorHandler(true, fileName, options.DiagnosticOptions, sourceText, suggestNamesForErrors)
+            DiagnosticsHandler(true, fileName, options.DiagnosticOptions, sourceText, suggestNamesForErrors)
 
-        use unwindEL =
-            PushDiagnosticsLoggerPhaseUntilUnwind(fun _oldLogger -> errHandler.DiagnosticsLogger)
+        use _ = UseDiagnosticsLogger errHandler.DiagnosticsLogger
 
-        use unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.Parse
+        use _ = UseBuildPhase BuildPhase.Parse
 
         let parseResult =
             usingLexbufForParsing (createLexbuf options.LangVersionText sourceText, fileName) (fun lexbuf ->
@@ -2414,8 +2409,8 @@ module internal ParseAndCheckFile =
             // If there was a loadClosure, replay the errors and warnings from resolution, excluding parsing
             loadClosure.LoadClosureRootFileDiagnostics |> List.iter diagnosticSink
 
-            let fileOfBackgroundError err =
-                match GetRangeOfDiagnostic(fst err) with
+            let fileOfBackgroundError (diagnostic: PhasedDiagnostic, _) =
+                match diagnostic.Range with
                 | Some m -> Some m.FileName
                 | None -> None
 
@@ -2523,12 +2518,11 @@ module internal ParseAndCheckFile =
 
             // Initialize the error handler
             let errHandler =
-                ErrorHandler(true, mainInputFileName, tcConfig.diagnosticsOptions, sourceText, suggestNamesForErrors)
+                DiagnosticsHandler(true, mainInputFileName, tcConfig.diagnosticsOptions, sourceText, suggestNamesForErrors)
 
-            use _unwindEL =
-                PushDiagnosticsLoggerPhaseUntilUnwind(fun _oldLogger -> errHandler.DiagnosticsLogger)
+            use _ = UseDiagnosticsLogger errHandler.DiagnosticsLogger
 
-            use _unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.TypeCheck
+            use _unwindBP = UseBuildPhase BuildPhase.TypeCheck
 
 #if !FABLE_COMPILER
             // Apply nowarns to tcConfig (may generate errors, so ensure diagnosticsLogger is installed)
@@ -2548,11 +2542,6 @@ module internal ParseAndCheckFile =
             // If additional references were brought in by the preprocessor then we need to process them
             ApplyLoadClosure(tcConfig, parsedMainInput, mainInputFileName, loadClosure, tcImports, backgroundDiagnostics)
 #endif
-
-            // A problem arises with nice name generation, which really should only
-            // be done in the backend, but is also done in the typechecker for better or worse.
-            // If we don't do this the NNG accumulates data and we get a memory leak.
-            tcState.NiceNameGenerator.Reset()
 
             // Typecheck the real input.
             let sink = TcResultsSinkImpl(tcGlobals, sourceText = sourceText)
@@ -2676,6 +2665,22 @@ type FSharpCheckFileResults
         match details with
         | None -> []
         | Some (scope, _builderOpt) -> scope.GetDeclarationListSymbols(parsedFileResults, line, lineText, partialName, getAllEntities)
+
+    member _.GetKeywordTooltip(names: string list) =
+        ToolTipText.ToolTipText
+            [
+                for kw in names do
+                    match Tokenization.FSharpKeywords.KeywordsDescriptionLookup.TryGetValue kw with
+                    | false, _ -> ()
+                    | true, kwDescription ->
+                        let kwText = kw |> TaggedText.tagKeyword |> wordL |> LayoutRender.toArray
+                        let kwTip = ToolTipElementData.Create(kwText, FSharpXmlDoc.None)
+
+                        let descText = kwDescription |> TaggedText.tagText |> wordL |> LayoutRender.toArray
+                        let descTip = ToolTipElementData.Create(descText, FSharpXmlDoc.None)
+
+                        yield ToolTipElement.Group [ kwTip; descTip ]
+            ]
 
     /// Resolve the names at the given location to give a data tip
     member _.GetToolTip(line, colAtEndOfNames, lineText, names, tokenTag) =
@@ -2816,7 +2821,7 @@ type FSharpCheckFileResults
             let (nenv, _), _ = scope.GetBestDisplayEnvForPos cursorPos
             Some(FSharpDisplayContext(fun _ -> nenv.DisplayEnv))
 
-    member _.GenerateSignature() =
+    member _.GenerateSignature(?pageWidth: int) =
         match details with
         | None -> None
         | Some (scope, _builderOpt) ->
@@ -2834,7 +2839,15 @@ type FSharpCheckFileResults
                 let layout =
                     NicePrint.layoutImpliedSignatureOfModuleOrNamespace true denv infoReader ad range0 mexpr
 
-                layout |> LayoutRender.showL |> SourceText.ofString)
+                match pageWidth with
+                | None -> layout
+#if FABLE_COMPILER
+                | Some _pageWidth -> layout
+#else
+                | Some pageWidth -> Display.squashTo pageWidth layout
+#endif
+                |> LayoutRender.showL
+                |> SourceText.ofString)
 
     member _.ImplementationFile =
         if not keepAssemblyContents then
