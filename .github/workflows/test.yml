@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fable3 ]
   pull_request:
     branches: [ main ]
 

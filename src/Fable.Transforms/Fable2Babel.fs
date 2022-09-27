@@ -937,8 +937,9 @@ module Util =
                     | keyValueList::_ -> toPojo None keyValueList
                     | _ -> None
                 | "function", Fable.Delegate(args, body, name) ->
+                    let id = name |> Option.map Identifier.identifier
                     let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
-                    Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
+                    Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
                 | _ -> None
             | _ -> None
 

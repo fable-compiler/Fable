@@ -713,16 +713,28 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     projCracked, filesToCompile
 
 let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
-    let pathResolver = state.GetPathResolver()
-    filesToCompile
-    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-    |> Array.forall (fun source ->
-        let outPath = getOutPath state.CliArgs pathResolver source
-        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
-        if not existsAndIsNewer then
-            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
-        existsAndIsNewer
-    )
+    try
+        let mutable foundCompiledFile = false
+        let pathResolver = state.GetPathResolver()
+        let upToDate =
+            filesToCompile
+            |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+            |> Array.forall (fun source ->
+                let outPath = getOutPath state.CliArgs pathResolver source
+                // Empty files are not written to disk so we only check date for existing files
+                if IO.File.Exists(outPath) then
+                    foundCompiledFile <- true
+                    let upToDate = IO.File.GetLastWriteTime(source) < IO.File.GetLastWriteTime(outPath)
+                    if not upToDate then
+                        Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} is older than {File.relPathToCurDir source}")
+                    upToDate
+                else true
+            )
+        // If we don't find compiled files, assume we need recompilation
+        upToDate && foundCompiledFile
+    with er ->
+        Log.warning("Cannot check timestamp of compiled files: " + er.Message)
+        false
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
