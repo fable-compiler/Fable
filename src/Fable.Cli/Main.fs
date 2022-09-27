@@ -644,17 +644,29 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     Log.verbose(lazy $"""Files to compile:{Log.newLine}    {filesToCompile |> String.concat $"{Log.newLine}    "}""")
     projCracked, filesToCompile
 
-let private areCompiledFilesUpToDate (cliArgs: CliArgs) (state: State) (filesToCompile: string[]) =
-    let pathResolver = state.GetPathResolver()
-    filesToCompile
-    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-    |> Array.forall (fun source ->
-        let outPath = getOutPath state.CliArgs pathResolver source
-        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
-        if not existsAndIsNewer then
-            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
-        existsAndIsNewer
-    )
+let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
+    try
+        let mutable foundCompiledFile = false
+        let pathResolver = state.GetPathResolver()
+        let upToDate =
+            filesToCompile
+            |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+            |> Array.forall (fun source ->
+                let outPath = getOutPath state.CliArgs pathResolver source
+                // Empty files are not written to disk so we only check date for existing files
+                if IO.File.Exists(outPath) then
+                    foundCompiledFile <- true
+                    let upToDate = IO.File.GetLastWriteTime(source) < IO.File.GetLastWriteTime(outPath)
+                    if not upToDate then
+                        Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} is older than {File.relPathToCurDir source}")
+                    upToDate
+                else true
+            )
+        // If we don't find compiled files, assume we need recompilation
+        upToDate && foundCompiledFile
+    with er ->
+        Log.warning("Cannot check timestamp of compiled files: " + er.Message)
+        false
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
@@ -748,7 +760,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
     if Option.isNone state.Watcher
         && projCracked.CanReuseCompiledFiles
-        && areCompiledFilesUpToDate cliArgs state filesToCompile then
+        && areCompiledFilesUpToDate state filesToCompile then
             Log.always "Skipped compilation because all generated files are up-to-date!"
             let exitCode, state = checkRunProcess state projCracked 0
             return state, [||], exitCode
@@ -760,7 +772,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                                 && projCracked.CanReuseCompiledFiles
                                 && not runProc.IsWatch
                                 && runProc.ExeFile <> Naming.placeholder
-                                && areCompiledFilesUpToDate cliArgs state filesToCompile ->
+                                && areCompiledFilesUpToDate state filesToCompile ->
                 let cliArgs = runProcessAndForget cliArgs runProc
                 { state with CliArgs = cliArgs
                              SilentCompilation = true }, cliArgs
