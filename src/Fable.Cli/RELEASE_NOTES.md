@@ -1,3 +1,7 @@
+### 3.7.19
+
+* Add FABLE_COMPILER prop when parsing .fsproj
+
 ### 3.7.18
 
 * Fix #3052: Nested options with Option.orElse #3052 @IanManske
