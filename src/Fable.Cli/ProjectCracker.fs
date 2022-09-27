@@ -392,7 +392,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     let projName = IO.Path.GetFileName projFile
 
     if not opts.NoRestore then
-        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
+        Process.runSync projDir "dotnet" ["restore"; projName; "-p:FABLE_COMPILER=true"] |> ignore
 
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile

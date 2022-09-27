@@ -155,4 +155,4 @@ let rec private projInfo additionalMSBuildProps (file: string) =
       projOptions, projRefs, props
 
 let GetProjectOptionsFromProjectFile configuration (file : string) =
-    projInfo ["Configuration", configuration] file
+    projInfo ["Configuration", configuration; "FABLE_COMPILER", "true"] file
