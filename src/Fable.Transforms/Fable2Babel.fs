@@ -1817,8 +1817,9 @@ module Util =
 
         | Fable.Delegate(args, body, name, tag) ->
             if List.contains "not-arrow" tag then
+                let id = name |> Option.map Identifier.identifier
                 let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
-                Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
+                Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
             else
                 transformFunctionWithAnnotations com ctx name args body
                 |> makeArrowFunctionExpression name

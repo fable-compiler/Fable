@@ -169,11 +169,6 @@ module File =
         if String.IsNullOrEmpty(path) then ""
         else Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
-    let existsAndIsNewerThanSource (sourcePath: string) (targetPath: string) =
-        try
-            File.Exists(targetPath) && File.GetLastWriteTime(sourcePath) < File.GetLastWriteTime(targetPath)
-        with _ -> false
-
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
         if File.Exists(path) then

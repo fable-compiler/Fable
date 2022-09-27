@@ -250,17 +250,18 @@ let (|Regex|_|) (pattern: string) (input: string) =
 
 let getBasicCompilerArgs () =
     [|
-        // yield "--debug"
-        // yield "--debug:portable"
-        yield "--noframework"
-        yield "--nologo"
-        yield "--simpleresolution"
-        yield "--nocopyfsharpcore"
-        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
-        // yield "--warnaserror:76"
-        yield "--warn:3"
-        yield "--fullpaths"
-        yield "--flaterrors"
+        // "--debug"
+        // "--debug:portable"
+        "--noframework"
+        "--nologo"
+        "--simpleresolution"
+        "--nocopyfsharpcore"
+        "--nowin32manifest"
+        // "--nowarn:NU1603,NU1604,NU1605,NU1608"
+        // "--warnaserror:76"
+        "--warn:3"
+        "--fullpaths"
+        "--flaterrors"
         // Since net5.0 there's no difference between app/library
         // yield "--target:library"
     |]
@@ -580,15 +581,23 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         //    FableError($"Library was precompiled using different compiler options. Please use same options.") |> raise
 
         // Check if precompiled files are up-to-date
-        info.Files |> Seq.choose (fun (KeyValue(file, { OutPath = outPath })) ->
-            if File.existsAndIsNewerThanSource file outPath then None else Some file)
-        |> Seq.toList
-        |> function
-            | [] -> ()
-            | outdated ->
-                let outdated = outdated |> List.map (fun f -> "    " + File.relPathToCurDir f) |> String.concat Log.newLine
-                // TODO: This should likely be an error but make it a warning for now
-                Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
+        try
+            info.Files |> Seq.choose (fun (KeyValue(file, { OutPath = outPath })) ->
+                // Empty files are not written to disk so we only check date for existing files
+                if IO.File.Exists(outPath) then
+                    if IO.File.GetLastWriteTime(file) < IO.File.GetLastWriteTime(outPath)
+                    then None
+                    else Some file
+                else None)
+            |> Seq.toList
+            |> function
+                | [] -> ()
+                | outdated ->
+                    let outdated = outdated |> List.map (fun f -> "    " + File.relPathToCurDir f) |> String.concat Log.newLine
+                    // TODO: This should likely be an error but make it a warning for now
+                    Log.warning($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
+        with er ->
+            Log.warning("Cannot check timestamp of precompiled files: " + er.Message)
 
         // Remove precompiled files from sources and add reference to precompiled .dll to other options
         let otherOptions = Array.append otherOptions [|"-r:" + info.DllPath|]
