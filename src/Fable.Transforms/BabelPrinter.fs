@@ -91,7 +91,7 @@ module PrinterExtensions =
         member printer.PrintOptional(item: TypeAnnotation option, ?before: string) =
             printer.PrintOptional(item, (fun p i -> p.Print(i)), ?before=before)
         member printer.PrintOptional(item: Identifier option, ?before: string) =
-            printer.PrintOptional(item, (fun p i -> p.Print(i)), ?before=before)
+            printer.PrintOptional(item, (fun p i -> p.PrintIdent(i)), ?before=before)
         member printer.PrintOptional(item: Literal option, ?before: string) =
             printer.PrintOptional(item, (fun p i -> p.PrintLiteral(i)), ?before=before)
         member printer.PrintOptional(item: StringLiteral option, ?before: string) =
@@ -101,7 +101,7 @@ module PrinterExtensions =
         member printer.PrintOptional(item: Statement option, ?before: string) =
             printer.PrintOptional(item, (fun p i -> p.Print(i)), ?before=before)
         member printer.PrintOptional(item: Declaration option, ?before: string) =
-            printer.PrintOptional(item, (fun p i -> p.Print(i)), ?before=before)
+            printer.PrintOptional(item, (fun p i -> p.PrintDeclaration(i)), ?before=before)
         member printer.PrintOptional(item: VariableDeclaration option, ?before: string) =
             printer.PrintOptional(item, (fun p i -> p.Print(i)), ?before=before)
         member printer.PrintOptional(item: CatchClause option, ?before: string) =
@@ -115,7 +115,7 @@ module PrinterExtensions =
                 if i < items.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintCommaSeparatedArray(items: Pattern array) =
+        member printer.PrintPatterns(items: Pattern array) =
             let len = items.Length
             let mutable i = 0
             let mutable foundNamed = false
@@ -135,7 +135,7 @@ module PrinterExtensions =
             printer.PrintArray(items, (fun p x ->
                 match x with
                 | ImportMemberSpecifier(local, imported) -> p.PrintImportMemberSpecific(local, imported)
-                | ImportDefaultSpecifier(local) -> printer.Print(local)
+                | ImportDefaultSpecifier(local) -> printer.PrintIdent(local)
                 | ImportNamespaceSpecifier(local) -> printer.PrintImportNamespaceSpecifier(local)
             ), (fun p -> p.Print(", ")))
 
@@ -175,7 +175,7 @@ module PrinterExtensions =
                 printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
             | _ -> ()
             printer.Print(" ")
-            printer.PrintBlock(members, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintBlock(members, (fun p x -> p.PrintClassMember(x)), (fun p -> p.PrintStatementSeparator()))
 
         member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement,
                 typeParameters: TypeParameterDeclaration option, returnType: TypeAnnotation option, loc, ?isDeclaration, ?isArrow) =
@@ -206,7 +206,7 @@ module PrinterExtensions =
                 // Remove parens if we only have one argument? (and no annotation)
                 printer.PrintOptional(typeParameters)
                 printer.Print("(")
-                printer.PrintCommaSeparatedArray(parameters)
+                printer.PrintPatterns(parameters)
                 printer.Print(")")
                 printer.PrintOptional(returnType, ": ")
                 printer.Print(" => ")
@@ -225,7 +225,7 @@ module PrinterExtensions =
                 printer.PrintOptional(id)
                 printer.PrintOptional(typeParameters)
                 printer.Print("(")
-                printer.PrintCommaSeparatedArray(parameters)
+                printer.PrintPatterns(parameters)
                 printer.Print(")")
                 printer.PrintOptional(returnType, ": ")
                 printer.Print(" ")
@@ -350,7 +350,7 @@ module PrinterExtensions =
             | Super(loc) ->  printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.PrintLiteral(n)
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
-            | Expression.Identifier(n) -> printer.Print(n)
+            | Expression.Identifier(n) -> printer.PrintIdent(n)
             | NewExpression(callee, args, typeParameters, loc) ->
                 printer.PrintNewExpression(callee, args, typeParameters, loc)
             | SpreadElement(argument, loc) ->
@@ -403,7 +403,11 @@ module PrinterExtensions =
                 printer.PrintOptional(accessModifier, fun p m ->
                     p.PrintAccessModifier(m)
                     p.Print(" "))
-                printer.Print(p)
+                let (Identifier(name, optional, _named, typeAnnotation, loc)) = p
+                printer.Print(name, ?loc=loc)
+                if optional then
+                    printer.Print("?")
+                printer.PrintOptional(typeAnnotation, ": ")
             // TODO: Should we try to destructure an array literal here?
             | RestElement(argument) ->
                 printer.Print("...")
@@ -430,13 +434,13 @@ module PrinterExtensions =
                 printer.Print(Array.last parts |> escape)
                 printer.Print("`")
             | EnumCaseLiteral(id, case) ->
-                printer.Print(id)
+                printer.PrintIdent(id)
                 printer.Print(".")
                 printer.Print(case)
 
         member printer.Print(stmt: Statement) =
             match stmt with
-            | Declaration(s) -> printer.Print(s)
+            | Declaration(s) -> printer.PrintDeclaration(s)
             | IfStatement(test, consequent, alternate, loc) -> printer.PrintIfStatement(test, consequent, alternate, loc)
             | TryStatement(block, handler, finalizer, loc) -> printer.PrintTryStatement(block, handler, finalizer, loc)
             | ForStatement(body, init, test, update, loc) -> printer.PrintForStatement(body, init, test, update, loc)
@@ -469,7 +473,7 @@ module PrinterExtensions =
                 | UnaryExpression(argument, operator, _loc) when operator = "void" -> printer.Print(argument)
                 | _ -> printer.Print(expr)
 
-        member printer.Print(decl: Declaration) =
+        member printer.PrintDeclaration(decl: Declaration) =
             match decl with
             | ClassDeclaration(body, id, superClass, implements, typeParameters, loc) ->
                 printer.PrintClass(id, superClass, typeParameters, implements, body, loc)
@@ -515,7 +519,7 @@ module PrinterExtensions =
                 printer.PrintOptional(source, " from ")
             | ExportNamedDeclaration(declaration) ->
                 printer.Print("export ")
-                printer.Print(declaration)
+                printer.PrintDeclaration(declaration)
             | ExportAllDeclaration(source, loc) ->
                 printer.Print("export * from ", ?loc=loc)
                 printer.PrintLiteral(source)
@@ -525,7 +529,7 @@ module PrinterExtensions =
             | ExportDefaultDeclaration(declaration) ->
                 printer.Print("export default ")
                 match declaration with
-                | Choice1Of2 x -> printer.Print(x)
+                | Choice1Of2 x -> printer.PrintDeclaration(x)
                 | Choice2Of2 x -> printer.Print(x)
 
         member printer.PrintEmitExpression(value, args, loc) =
@@ -602,12 +606,9 @@ module PrinterExtensions =
             else
                 printSegment printer value 0 value.Length
 
-        member printer.Print(identifier: Identifier) =
-            let (Identifier(name, optional, _named, typeAnnotation, loc)) = identifier
+        member printer.PrintIdent(identifier: Identifier) =
+            let (Identifier(name, _optional, _named, _typeAnnotation, loc)) = identifier
             printer.Print(name, ?loc=loc)
-            if optional then
-                printer.Print("?")
-            printer.PrintOptional(typeAnnotation, ": ")
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
@@ -634,7 +635,7 @@ module PrinterExtensions =
             printer.PrintBlock(node.Body)
 
         member printer.PrintLabeledStatement(body, label) =
-            printer.Print(label)
+            printer.PrintIdent(label)
             printer.Print(":")
             printer.PrintNewLine()
             // Don't push indent
@@ -793,7 +794,7 @@ module PrinterExtensions =
 
             printer.PrintOptional(typeParameters)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(parameters)
+            printer.PrintPatterns(parameters)
             printer.Print(")")
             printer.PrintOptional(returnType, ": ")
             printer.Print(" ")
@@ -874,9 +875,7 @@ module PrinterExtensions =
                 printer.ComplexExpressionWithParens(argument)
                 printer.Print(operator)
 
-// Binary Operations
-
-        member printer.Print(memb: ClassMember) =
+        member printer.PrintClassMember(memb: ClassMember) =
             match memb with
             | ClassMethod(kind, key, parameters, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc) ->
                 printer.PrintClassMethod(kind, key, parameters, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
@@ -904,7 +903,7 @@ module PrinterExtensions =
 
             printer.PrintOptional(typeParameters)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(parameters)
+            printer.PrintPatterns(parameters)
             printer.Print(")")
             printer.PrintOptional(returnType, ": ")
             printer.Print(" ")
@@ -937,19 +936,19 @@ module PrinterExtensions =
 
         member printer.Print(node: ClassImplements) =
             let (ClassImplements(id, typeParameters)) = node
-            printer.Print(id)
+            printer.PrintIdent(id)
             printer.PrintOptional(typeParameters)
 
         member printer.PrintImportMemberSpecific(local, imported) =
             // Don't print the braces, node will be done in the import declaration
-            printer.Print(imported)
+            printer.PrintIdent(imported)
             if imported.Name <> local.Name then
                 printer.Print(" as ")
-                printer.Print(local)
+                printer.PrintIdent(local)
 
         member printer.PrintImportNamespaceSpecifier(local) =
             printer.Print("* as ")
-            printer.Print(local)
+            printer.PrintIdent(local)
 
         member printer.PrintImportDeclaration(specifiers, source) =
             let members = specifiers |> Array.choose (function ImportMemberSpecifier(local, imported) -> Some (ImportMemberSpecifier(local, imported)) | _ -> None)
@@ -984,15 +983,15 @@ module PrinterExtensions =
         member printer.Print(node: ExportSpecifier) =
             let (ExportSpecifier (local, exported)) = node
             // Don't print the braces, node will be done in the export declaration
-            printer.Print(local)
+            printer.PrintIdent(local)
             if exported.Name <> local.Name then
                 printer.Print(" as ")
-                printer.Print(exported)
+                printer.PrintIdent(exported)
 
         member printer.Print(node: TypeAnnotation) =
             match node with
             | AliasTypeAnnotation(id, typeParams) ->
-                printer.Print(id)
+                printer.PrintIdent(id)
                 printer.Print(typeParams)
             | StringTypeAnnotation -> printer.Print("string")
             | NumberTypeAnnotation -> printer.Print("number")
@@ -1047,7 +1046,7 @@ module PrinterExtensions =
 
         member printer.Print(node: FunctionTypeParam) =
             let (FunctionTypeParam(name, typeAnnotation, optional)) = node
-            printer.Print(name)
+            printer.PrintIdent(name)
             if optional = Some true then
                 printer.Print("?")
             printer.Print(": ")
@@ -1099,12 +1098,12 @@ module PrinterExtensions =
 
         member printer.Print(node: InterfaceExtends) =
             let (InterfaceExtends(id, typeParameters)) = node
-            printer.Print(id)
+            printer.PrintIdent(id)
             printer.PrintOptional(typeParameters)
 
         member printer.PrintInterfaceDeclaration(id, body, extends, implements, typeParameters) =
             printer.Print("interface ")
-            printer.Print(id)
+            printer.PrintIdent(id)
             printer.PrintOptional(typeParameters)
 
             if not (Array.isEmpty extends) then

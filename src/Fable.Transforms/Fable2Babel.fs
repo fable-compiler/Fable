@@ -607,12 +607,15 @@ module Annotation =
     let makeAnonymousRecordTypeAnnotation _com _ctx _fieldNames _genArgs =
          AnyTypeAnnotation // TODO:
 
-    let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
+    let typedIdentWith (com: IBabelCompiler) ctx r typ name =
         let ta =
             if com.Options.Language = TypeScript then
-                makeTypeAnnotation com ctx id.Type |> Some
+                makeTypeAnnotation com ctx typ |> Some
             else None
-        Identifier.identifier(id.Name, ?typeAnnotation=ta, ?loc=id.Range)
+        Identifier.identifier(name, ?typeAnnotation=ta, ?loc=r)
+
+    let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
+        typedIdentWith com ctx id.Range id.Type id.Name
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         if com.Options.Language = TypeScript then
@@ -1108,16 +1111,26 @@ module Util =
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            let values = makeArray com ctx values
             let consRef = ent |> jsConstructor com ctx
-            let tag, typeParams =
-                if com.Options.Language = TypeScript then
-                    let caseRef = getTypedUnionTag tag ent consRef
-                    let typeParams = Array.append (makeTypeParamInstantiation com ctx genArgs) [|LiteralTypeAnnotation caseRef|]
-                    Expression.Literal caseRef, Some typeParams
-                else
-                    ofInt tag, None
-            Expression.newExpression(consRef, [|tag; values|], ?typeParameters=typeParams, ?loc=r)
+            if com.Options.Language = TypeScript then
+                let case = ent.UnionCases[tag].Name
+                let values = values |> List.mapToArray (transformAsExpr com ctx)
+                let typeParams = makeTypeParamInstantiation com ctx genArgs
+                let helperRef =
+                    match consRef with
+                    | Expression.Identifier(ident) -> ident.MapName(fun name -> Regex.Replace(name, "_Cons$", "_" + case)) |> Expression.Identifier
+                    | consRef -> consRef // Error?
+                Expression.callExpression(helperRef, values, typeParameters=typeParams)
+            else
+                let values = makeArray com ctx values
+                let tag, typeParams =
+                    // if com.Options.Language = TypeScript then
+                    //     let caseRef = getTypedUnionTag tag ent consRef
+                    //     let typeParams = Array.append (makeTypeParamInstantiation com ctx genArgs) [|LiteralTypeAnnotation caseRef|]
+                    //     Expression.Literal caseRef, Some typeParams
+                    // else
+                        ofInt tag, None
+                Expression.newExpression(consRef, [|tag; values|], ?typeParameters=typeParams, ?loc=r)
 
     let enumerableThisToIterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -2252,7 +2265,23 @@ module Util =
                 EnumDeclaration(union_tag.Name, union_tag_cases, isConst=true) |> asModuleDeclaration isPublic
                 TypeAliasDeclaration(union_fields.Name, entParamsDecl, TupleTypeAnnotation union_fields_ta) |> asModuleDeclaration isPublic
                 TypeAliasDeclaration(entName, entParamsDecl, UnionTypeAnnotation union_ta) |> asModuleDeclaration isPublic
-                // TODO: Helpers to instantiate union
+
+                // Helpers to instantiate union
+                for case in ent.UnionCases do
+                    let args = case.UnionCaseFields |> List.mapToArray (fun fi -> typedIdentWith com ctx None fi.FieldType fi.Name)
+                    let tag = EnumCaseLiteral(union_tag, case.Name)
+                    let passedArgs = args |> Array.map Expression.Identifier |> Expression.arrayExpression
+                    let consTypeParams = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
+                    let body = BlockStatement [|
+                       Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeParameters=consTypeParams)
+                       |> Statement.returnStatement
+                    |]
+                    let args = args |> Array.map (fun a -> Pattern.Identifier(a, None))
+                    let fnId = entName + "_" + case.Name |> Identifier.identifier
+                    Declaration.functionDeclaration(args, body, fnId, typeParameters=entParamsDecl)
+                    |> asModuleDeclaration isPublic
+
+                // Actual class
                 declareClassWithParams com ctx ent union_cons.Name consArgs consBody baseExpr classMembers unionConsTypeParams
                 if not com.Options.NoReflection then
                     declareTypeReflection com ctx ent entName
