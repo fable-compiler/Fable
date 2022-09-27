@@ -75,6 +75,7 @@ module Lib =
             else Some cons
         | None -> None
 
+    /// Cannot be used for annotations (use `tryJsConstructorForAnnotation true` instead)
     let jsConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         tryJsConstructorForAnnotation false com ctx ent
         |> Option.defaultWith (fun () ->
