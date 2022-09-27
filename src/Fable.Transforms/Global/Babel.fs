@@ -177,6 +177,7 @@ type ModuleDeclaration =
 
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
+    // TODO: Move optional, named and typeAnnotation to Pattern.Identifier
     | Identifier of name: string * optional: bool * named: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
     member this.MapName(f) =
         match this with
