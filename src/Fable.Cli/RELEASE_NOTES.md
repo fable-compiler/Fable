@@ -1,3 +1,8 @@
+### 3.7.20
+
+* Ignore missing files when checking outdated compilation
+* Print name of non-arrow function expressions
+
 ### 3.7.19
 
 * Add FABLE_COMPILER prop when parsing .fsproj
