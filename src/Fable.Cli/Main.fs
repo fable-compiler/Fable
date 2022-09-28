@@ -686,20 +686,32 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
     | Some runProc ->
         let workingDir = cliArgs.RootDir
 
-        let findLastFilePath () =
+        let findLastFileFullPath () =
             let pathResolver = state.GetPathResolver()
             let lastFile = Array.last projCracked.SourceFiles
-            let lastFilePath = getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
-            // Fable's getRelativePath version ensures there's always a period in front of the path: ./
-            Path.getRelativeFileOrDirPath true workingDir false lastFilePath
+            getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
+
+        // Fable's getRelativePath version ensures there's always a period in front of the path: ./
+        let findLastFileRelativePath () =
+            findLastFileFullPath () |> Path.getRelativeFileOrDirPath true workingDir false
 
         let exeFile, args =
             match cliArgs.CompilerOptions.Language, runProc.ExeFile with
             | Python, Naming.placeholder ->
-                let lastFilePath = findLastFilePath()
+                let lastFilePath = findLastFileRelativePath()
                 "python", lastFilePath::runProc.Args
-            | (JavaScript | TypeScript), Naming.placeholder ->
-                let lastFilePath = findLastFilePath()
+            | Rust, Naming.placeholder ->
+                let lastFileDir = IO.Path.GetDirectoryName(findLastFileFullPath())
+                let args =
+                    match File.tryFindUpwards "Cargo.toml" lastFileDir with
+                    | Some path -> "--manifest-path"::path::runProc.Args
+                    | None -> runProc.Args
+                "cargo", "run"::args
+            | Dart, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
+                "dart", "run"::lastFilePath::runProc.Args
+            | JavaScript, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
                 "node", lastFilePath::runProc.Args
             | (JavaScript | TypeScript), exeFile ->
                 File.tryNodeModulesBin workingDir exeFile

@@ -60,8 +60,8 @@ module Util =
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
-    let watchFable projectDir fableArgs =
-        run ("dotnet watch --project src/Fable.Cli run -- " + projectDir + " --cwd ../.. " + String.concat " " fableArgs)
+    let watchFableWithArgs projectDir args =
+        run ("dotnet watch --project src/Fable.Cli run -- " + projectDir + " --cwd ../.. " + String.concat " " args)
 
     let runFableWithArgsInDirAs release projectDir args =
         let cliDir = resolveDir "src/Fable.Cli"
@@ -161,8 +161,7 @@ let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
 let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
 
 let buildLibraryJsIfNotExists() =
-    let baseDir = __SOURCE_DIRECTORY__
-    if not (pathExists (baseDir </> "build/fable-library")) then
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library")) then
         buildLibraryJs()
 
 let buildLibraryTs() =
@@ -196,8 +195,7 @@ let buildLibraryTs() =
     runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir " + buildDirJs)
 
 let buildLibraryTsIfNotExists() =
-    let baseDir = __SOURCE_DIRECTORY__
-    if not (pathExists (baseDir </> "build/fable-library-ts")) then
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then
         buildLibraryTs()
 
 let buildLibraryPy() =
@@ -253,10 +251,9 @@ let buildLibraryRust() =
     runInDir buildDir ("cargo fmt")
     runInDir buildDir ("cargo build")
 
-// let buildLibraryRustIfNotExists() =
-//     let baseDir = __SOURCE_DIRECTORY__
-//     if not (pathExists (baseDir </> "build/fable-library-rust")) then
-//         buildLibraryRust()
+let buildLibraryRustIfNotExists() =
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust")) then
+        buildLibraryRust()
 
 let buildLibraryDart(clean: bool) =
     let sourceDir = resolveDir "src/fable-library-dart"
@@ -278,6 +275,10 @@ let buildLibraryDart(clean: bool) =
         "--define FABLE_LIBRARY"
         if clean then "--noCache"
     ]
+
+let buildLibraryDartIfNotExists() =
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-dart")) then
+        buildLibraryDart(true)
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -737,6 +738,7 @@ match BUILD_ARGS_LOWER with
 | "test-standalone-fast"::_ -> testStandaloneFast()
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
+| "test-repos"::_ -> testRepos()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust SingleThreaded
 | "test-rust-default"::_ -> testRust SingleThreaded
@@ -744,9 +746,10 @@ match BUILD_ARGS_LOWER with
 | "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
+
 | "quicktest"::_ ->
     buildLibraryJsIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+    watchFableWithArgs "src/quicktest" ["--watch --exclude Fable.Core --noCache --runScript"]
 | "quicktest-ts"::_ ->
     buildLibraryTsIfNotExists()
     let srcDir = "src/quicktest"
@@ -756,24 +759,25 @@ match BUILD_ARGS_LOWER with
         makeDirRecursive (dirname outPath)
         writeFile outPath ""
     let runCmd = $"npx concurrently \"tsc -w -p {srcDir} --outDir {dirname outPath}\" \"nodemon -w {outPath} {outPath}\""
-    watchFable srcDir ["--watch --lang ts --exclude Fable.Core --noCache --run"; runCmd]
-| "quicktest-py"::_ ->
+    watchFableWithArgs srcDir ["--lang ts --watch --exclude Fable.Core --noCache --run"; runCmd]
+| ("quicktest-py"|"quicktest-python")::_ ->
     buildLibraryPyIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --exclude Fable.Core --noCache --runWatch python -m quicktest"
+    watchFableWithArgs "src/quicktest-py" ["--lang py --watch --exclude Fable.Core --noCache --runScript"]
 | "quicktest-dart"::_ ->
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang dart --cwd ../quicktest-dart --exclude Fable.Core --noCache --runWatch dart run Quicktest.fs.dart"
-| "quicktest-rust"::_ ->
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang rust -e .rs --cwd ../quicktest-rust --exclude Fable.Core --noCache --runWatch cargo run"
+    buildLibraryDartIfNotExists()
+    watchFableWithArgs "src/quicktest-dart" ["--lang dart --watch --exclude Fable.Core --noCache --runScript"]
+| ("quicktest-rs"|"quicktest-rust")::_ ->
+    buildLibraryRustIfNotExists()
+    watchFableWithArgs "src/quicktest-rust" ["--lang rs -e .rs --watch --exclude Fable.Core --noCache --runScript"]
 | "run"::_ ->
     buildLibraryJsIfNotExists()
-    // Don't take it from pattern matching as that one uses lowered args
+    // Don't take args from pattern matching because they're lowered
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
 
 | "package"::_ ->
     let pkgInstallCmd = buildLocalPackage (resolveDir "temp/pkg")
     printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
-
 | "package-core"::_ ->
     let pkgInstallCmd = buildLocalPackageWith (resolveDir "temp/pkg") "add package Fable.Core" (resolveDir "src/Fable.Core/Fable.Core.fsproj") ignore
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
@@ -797,13 +801,15 @@ match BUILD_ARGS_LOWER with
     let minify = hasFlag "--no-minify" |> not
     buildWorker {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
+
+| "sync-fcs-repo"::_ -> syncFcsRepo()
+| "copy-fcs-repo"::_ -> copyFcsRepo FCS_REPO_LOCAL
+
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->
     publishPackages []
     githubRelease ()
-| "sync-fcs-repo"::_ -> syncFcsRepo()
-| "copy-fcs-repo"::_ -> copyFcsRepo FCS_REPO_LOCAL
-| "test-repos"::_ -> testRepos()
+
 | _ ->
     printfn """Please pass a target name. Examples:
 

@@ -145,12 +145,12 @@ let argLanguage (args: CliArgs) =
         |> string
     )
     |> (function
-    | "js" | "javascript" | "JavaScript" -> JavaScript
-    | "ts" | "typescript" | "TypeScript" -> TypeScript
-    | "py" | "python" | "Python" -> Python
-    | "php" | "Php" | "PHP" -> Php
+    | "js" | "javascript" -> JavaScript
+    | "ts" | "typescript" -> TypeScript
+    | "py" | "python" -> Python
+    | "php" -> Php
     | "dart" -> Dart
-    | "rust" | "Rust" -> Rust
+    | "rs" | "rust" -> Rust
     | _ -> JavaScript)
 
 type Runner =
@@ -229,7 +229,6 @@ type Runner =
         |> List.append [
             "FABLE_COMPILER"
             "FABLE_COMPILER_4"
-            "FABLE_COMPILER_4_OR_GREATER"
             match language with
             | Php -> "FABLE_COMPILER_PHP"
             | Rust -> "FABLE_COMPILER_RUST"
@@ -242,6 +241,7 @@ type Runner =
 
     let fileExt =
         args.Value("-e", "--extension")
+        |> Option.map (fun e -> if e.StartsWith(".") then e else "." + e)
         |> Option.defaultWith (fun () ->
             let usesOutDir = Option.isSome outDir
             File.defaultFileExt usesOutDir language)
@@ -356,6 +356,14 @@ let clean (args: CliArgs) language rootDir =
     else
         Log.always("Clean completed! Files deleted: " + string fileCount)
 
+let getStatus = function
+    | JavaScript -> "beta"
+    | Python -> "beta"
+    | Rust -> "alpha"
+    | Dart -> "beta"
+    | TypeScript -> "alpha"
+    | Php -> "experimental"
+
 [<EntryPoint>]
 let main argv =
     result {
@@ -397,7 +405,7 @@ let main argv =
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
 
-                Log.always($"Fable: F# to {language} compiler " + Literals.VERSION)
+                Log.always($"Fable: F# to {language} compiler {Literals.VERSION} (status: {getStatus language})")
                 Log.always("Thanks to the contributor! @" + Contributors.getRandom())
                 Log.always("Stand with Ukraine! https://standwithukraine.com.ua/" + "\n")
 
