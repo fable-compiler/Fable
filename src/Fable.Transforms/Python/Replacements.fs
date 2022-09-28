@@ -1128,8 +1128,9 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> Some
         | _ -> None
     | "PrintFormatToString", _, _ ->
-        Helper.LibCall(com, "string", "toText", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | [template] when template.Type = String -> Some template
+        | _ -> Helper.LibCall(com, "string", "toText", t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | "PrintFormatLine", _, _ ->
         Helper.LibCall(com, "string", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -1161,9 +1162,10 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
       | "PrintFormatToStringBuilderThen"),
       _,
       _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str :: (Value (NewArray _, _) as values) :: _ ->
-        Helper.LibCall(com, "string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, _), _) as values)::_ ->
+        match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
+        | Some v -> makeValue r v |> Some
+        | None -> Helper.LibCall(com, "string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r) |> Some
     | ".ctor", _, arg :: _ ->
         Helper.LibCall(com, "string", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
         |> Some

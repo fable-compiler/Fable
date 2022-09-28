@@ -570,6 +570,11 @@ module Helpers =
     let hasInterface fullName (ent: Fable.Entity) =
         ent |> FSharp2Fable.Util.hasInterface fullName
 
+    let toString (e: Fable.Expr) =
+        let callInfo = Fable.CallInfo.Create(args=[e])
+        makeIdentExpr "str"
+        |> makeCall None Fable.String callInfo
+
 // https://www.python.org/dev/peps/pep-0484/
 module Annotation =
     open Lib
@@ -1609,6 +1614,20 @@ module Util =
         | Fable.BoolConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.CharConstant x -> Expression.constant (string x, ?loc = r), []
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
+        | Fable.StringTemplate(_, parts, values) ->
+            match parts with
+            | [] -> makeStrConst ""
+            | [part] -> makeStrConst part
+            | part::parts ->
+                let acc = makeStrConst part
+                (acc, List.zip values parts) ||> List.fold (fun acc ((MaybeCasted(value)), part) ->
+                    let value =
+                        match value.Type with
+                        | Fable.String -> value
+                        | _ -> Helpers.toString value
+                    let acc = makeBinOp None Fable.String acc value BinaryPlus
+                    makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus)
+            |> transformAsExpr com ctx
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
             | Decimal, (:? decimal as x) ->
