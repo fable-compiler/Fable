@@ -486,19 +486,22 @@ let changeFsprojToFableproj (path: string) =
         IO.Path.ChangeExtension(path, Naming.fableProjExt)
     else path
 
+let copyDir replaceFsprojExt (source: string) (target: string) =
+    IO.Directory.CreateDirectory(target) |> ignore
+    if IO.Directory.Exists source |> not then
+        failwith ("Source directory is missing: " + source)
+    let source = source.TrimEnd('/', '\\')
+    let target = target.TrimEnd('/', '\\')
+    for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
+        IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
+    for fromPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
+        let toPath = fromPath.Replace(source, target)
+        let toPath = if replaceFsprojExt then changeFsprojToFableproj toPath else toPath
+        IO.File.Copy(fromPath, toPath, true)
+
 let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
     if File.isDirectoryEmpty target then
-        IO.Directory.CreateDirectory(target) |> ignore
-        if IO.Directory.Exists source |> not then
-            failwith ("Source directory is missing: " + source)
-        let source = source.TrimEnd('/', '\\')
-        let target = target.TrimEnd('/', '\\')
-        for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
-            IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
-        for fromPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
-            let toPath = fromPath.Replace(source, target)
-            let toPath = if replaceFsprojExt then changeFsprojToFableproj toPath else toPath
-            IO.File.Copy(fromPath, toPath, true)
+        copyDir replaceFsprojExt source target
 
 let getFableLibraryPath (opts: CrackerOptions) =
     match opts.FableLib with
@@ -522,7 +525,8 @@ let getFableLibraryPath (opts: CrackerOptions) =
 
         Log.verbose(lazy ("fable-library: " + fableLibrarySource))
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
-        copyDirIfDoesNotExist false fableLibrarySource fableLibraryTarget
+        // Always overwrite fable-library in case it has been updated, see #3208
+        copyDir false fableLibrarySource fableLibraryTarget
         Path.normalizeFullPath fableLibraryTarget
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
