@@ -1,3 +1,7 @@
+### 4.0.0-theta-010
+
+* Use StringTemplate expr in Fable AST for Python
+
 ### 4.0.0-theta-009
 
 * Add language status to version
