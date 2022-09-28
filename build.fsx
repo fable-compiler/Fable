@@ -60,6 +60,9 @@ module Util =
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
+    let watchFable projectDir fableArgs =
+        run ("dotnet watch --project src/Fable.Cli run -- " + projectDir + " --cwd ../.. " + String.concat " " fableArgs)
+
     let runFableWithArgsInDirAs release projectDir args =
         let cliDir = resolveDir "src/Fable.Cli"
         let cliArgs = args |> String.concat " "
@@ -746,7 +749,14 @@ match BUILD_ARGS_LOWER with
     run "dotnet watch --project src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-ts"::_ ->
     buildLibraryTsIfNotExists()
-    run "dotnet watch --project src/Fable.Cli run -- watch --lang ts --cwd ../quicktest --exclude Fable.Core --noCache --exclude Fable.Core --run npm run run-quicktest-ts"
+    let srcDir = "src/quicktest"
+    let outPath = "build/quicktest-ts/Quicktest.fs.js"
+    // Make sure outPath exists so nodemon doesn't complain
+    if not(pathExists outPath) then
+        makeDirRecursive (dirname outPath)
+        writeFile outPath ""
+    let runCmd = $"npx concurrently \"tsc -w -p {srcDir} --outDir {dirname outPath}\" \"nodemon -w {outPath} {outPath}\""
+    watchFable srcDir ["--watch --lang ts --exclude Fable.Core --noCache --run"; runCmd]
 | "quicktest-py"::_ ->
     buildLibraryPyIfNotExists()
     run "dotnet watch --project src/Fable.Cli run -- watch --lang Python --cwd ../quicktest-py --exclude Fable.Core --noCache --runWatch python -m quicktest"

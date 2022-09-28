@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "outDir": "../../build/quicktest-ts",
     "target": "es2015",
     "module": "es2015",
     "sourceMap": false,
