@@ -93,7 +93,7 @@ let parseCompilerOptions projectXml =
         projectXml
         |> getXmlTagContents "DefineConstants"
         |> Seq.collect (fun s -> s.Split(';'))
-        |> Seq.append ["FABLE_COMPILER"; "FABLE_COMPILER_4"; "FABLE_COMPILER_4_OR_GREATER"; "FABLE_COMPILER_JAVASCRIPT"]
+        |> Seq.append ["FABLE_COMPILER"; "FABLE_COMPILER_4"; "FABLE_COMPILER_JAVASCRIPT"]
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
         |> Seq.except ["$(DefineConstants)"; ""]
@@ -168,7 +168,7 @@ let parseProjectScript projectFilePath =
             | _ -> dllRefs, srcFiles)
     let projectRefs = [||]
     let sourceFiles = Array.append srcFiles [| Path.GetFileName projectFilePath |]
-    let otherOptions = [| "--define:FABLE_COMPILER"; "--define:FABLE_COMPILER_4"; "--define:FABLE_COMPILER_4_OR_GREATER"; "--define:FABLE_COMPILER_JAVASCRIPT" |]
+    let otherOptions = [| "--define:FABLE_COMPILER"; "--define:FABLE_COMPILER_4"; "--define:FABLE_COMPILER_JAVASCRIPT" |]
     (projectRefs, dllRefs, sourceFiles, otherOptions)
 
 let parseProjectFile projectFilePath =

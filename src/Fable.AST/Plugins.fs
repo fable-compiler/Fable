@@ -19,7 +19,7 @@ type Language =
 
     override this.ToString () =
         match this with
-        | JavaScript -> "JS"
+        | JavaScript -> "JavaScript"
         | TypeScript -> "TypeScript"
         | Python -> "Python"
         | Php -> "PHP"
