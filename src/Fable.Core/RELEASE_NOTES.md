@@ -1,3 +1,7 @@
+### 4.0.0-theta-004
+
+* Add ??= operator to JsInterop
+
 ### 4.0.0-theta-003
 
 * Python fixes for Interactive

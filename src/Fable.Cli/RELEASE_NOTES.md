@@ -1,3 +1,11 @@
+### 4.0.0-theta-009
+
+* Add language status to version
+* Make --runScript compatible with Python, Rust and Dart
+* Update F# compiler
+* Compile as net6 binary
+* TypeScript, type-safe union types and other fixes
+
 ### 4.0.0-theta-008
 
 * Enable emitExpr/Statement with interpolation, @alfonsogarciacaro
