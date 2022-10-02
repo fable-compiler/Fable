@@ -1,6 +1,6 @@
 # Fable Python
 
-This experimental support for Python in Fable. Transforming the Fable AST into a Python AST, then printing to untyped
+Adds beta  support for Python in Fable. Transforming the Fable AST into a Python AST, then printing to typed
 Python source code.
 
 ## Current Design
@@ -70,8 +70,8 @@ lifted up into the nearest statement block.
 
 ## Object Expressions
 
-Currently translated to classes since they can be used to implement an interface and have methods etc. They are more like
-anonymous classes.
+Currently translated to classes since they can be used to implement an interface and have methods etc. They are more
+like anonymous classes.
 
 ## Sequence Expressions
 
