@@ -1627,20 +1627,20 @@ module Util =
                     let acc = makeBinOp None Fable.String acc value BinaryPlus
                     makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus)
             |> transformAsExpr com ctx
-        | Fable.NumberConstant (x, kind, _) ->
+        | Fable.NumberConstant(x, kind, _) ->
             match kind, x with
             | Decimal, (:? decimal as x) ->
                 Py.Replacements.makeDecimal com r value.Type x
                 |> transformAsExpr com ctx
             | Int64, (:? int64 as x) -> makeNumber com ctx r value.Type "int64" x
             | UInt64, (:? uint64 as x) -> makeNumber com ctx r value.Type "uint64" x
-            | _, (:? int8 as x) -> makeNumber com ctx r value.Type "int8" x
-            | _, (:? uint8 as x) -> makeNumber com ctx r value.Type "uint8" x
-            | _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
-            | _, (:? int16 as x) -> makeNumber com ctx r value.Type "int16" x
-            | _, (:? uint16 as x) -> makeNumber com ctx r value.Type "uint16" x
-            | _, (:? int32 as x) -> Expression.constant (x, ?loc = r), []
-            | _, (:? uint32 as x) -> makeNumber com ctx r value.Type "uint32" x
+            | Int8, (:? int8 as x) -> makeNumber com ctx r value.Type "int8" x
+            | UInt8, (:? uint8 as x) -> makeNumber com ctx r value.Type "uint8" x
+            | Int16, (:? int16 as x) -> makeNumber com ctx r value.Type "int16" x
+            | UInt16, (:? uint16 as x) -> makeNumber com ctx r value.Type "uint16" x
+            | Int32, (:? int32 as x) -> Expression.constant (x, ?loc = r), []
+            | UInt32, (:? uint32 as x) -> makeNumber com ctx r value.Type "uint32" x
+            //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
             | _, (:? float as x) when Double.IsNaN(x) -> Expression.name "float('nan')", []
@@ -1648,7 +1648,6 @@ module Util =
             | _, (:? float32 as x) -> makeNumber com ctx r value.Type "float32" x
             | _, (:? float as x) -> Expression.constant (x, ?loc = r), []
             | _ -> Expression.constant (x, ?loc = r), []
-        //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (newKind, typ, kind) ->
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ

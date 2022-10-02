@@ -1336,4 +1336,4 @@ let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
     System.Threading.Thread.Sleep(10)
     let stop = System.Diagnostics.Stopwatch.GetTimestamp()
     let elapsedMs = (double (stop - start)) * 1000.0 / freq
-    elapsedMs > 9 |> equal true
+    elapsedMs > 0 |> equal true
