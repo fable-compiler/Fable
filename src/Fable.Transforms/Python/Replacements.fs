@@ -3452,14 +3452,34 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
         Helper.LibCall(com, "async_", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
-let files com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    printfn "files: %A" i.CompiledName
 
+let paths com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "ReadAllText"
-    | "WriteAllText"
+    | "GetDirectoryName"
+    | "GetExtension"
+    | "GetFileName"
+    | "GetFileNameWithoutExtension"
+    | "GetFullPath"
+    | "GetRandomFileName"
+    | "GetTempFileName"
+    | "GetTempPath"
+    | "HasExtension" as meth ->
+        Helper.LibCall(com, "path", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
+let files com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Copy"
+    | "Delete"
+    | "Exists"
+    | "Move"
+    | "ReadAllBytes"
     | "ReadAllLines"
-    | "WriteAllLines" as meth ->
+    | "ReadAllText"
+    | "WriteAllBytes"
+    | "WriteAllLines"
+    | "WriteAllText" as meth ->
         Helper.LibCall(com, "file", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
@@ -3950,6 +3970,7 @@ let private replacedModules =
            "System.Environment", systemEnv
            "System.Globalization.CultureInfo", globalization
            "System.IO.File", files
+           "System.IO.Path", paths
            "System.Random", random
            "System.Threading.CancellationToken", cancels
            "System.Threading.CancellationTokenSource", cancels

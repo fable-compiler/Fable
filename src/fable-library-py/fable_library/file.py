@@ -17,13 +17,13 @@ def read_all_text_async(file_name: str) -> Awaitable[str]:
 
 def read_all_lines(file_name: str) -> list[str]:
     with open(file_name, "r") as f:
-        return f.readlines()
+        return [line.strip("\n") for line in f.readlines()]
 
 
 def read_all_lines_async(file_name: str) -> Awaitable[list[str]]:
     async def read_all_lines_async():
         with open(file_name, "r") as f:
-            return f.readlines()
+            return [line.strip("\n") for line in f.readlines()]
 
     return read_all_lines_async()
 
@@ -56,13 +56,13 @@ def write_all_text_async(file_name: str, text: str) -> Awaitable[None]:
 
 def write_all_lines(file_name: str, lines: list[str]) -> None:
     with open(file_name, "w") as f:
-        f.writelines(lines)
+        f.write('\n'.join(lines))
 
 
 def write_all_lines_async(file_name: str, lines: list[str]) -> Awaitable[None]:
     async def write_all_lines_async():
         with open(file_name, "w") as f:
-            f.writelines(lines)
+            f.write('\n'.join(lines))
 
     return write_all_lines_async()
 

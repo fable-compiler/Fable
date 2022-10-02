@@ -52,6 +52,7 @@
     <Compile Include="TestMisc.fs" />
     <Compile Include="TestRegex.fs" />
     <Compile Include="TestSet.fs" />
+    <Compile Include="TestSystemIO.fs" />
     <Compile Include="TestObservable.fs" />
     <Compile Include="TestOption.fs" />
     <Compile Include="TestQueue.fs" />
