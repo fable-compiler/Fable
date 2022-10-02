@@ -107,5 +107,3 @@ def replace(
     with open(destination_backup_file_name, "wb") as f:
         f.write(data)
     os.replace(source_file_name, destination_file_name)
-
-def open_read()
