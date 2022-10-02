@@ -2,6 +2,7 @@ from __future__ import annotations
 import builtins
 import functools
 import math
+import platform
 import random
 import re
 
@@ -33,6 +34,7 @@ from typing import (
 )
 from urllib.parse import quote, unquote
 
+
 class SupportsLessThan(Protocol):
     @abstractmethod
     def __lt__(self, __other: Any) -> bool:
@@ -47,6 +49,7 @@ _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
 
 Array = MutableSequence
+
 
 class ObjectDisposedException(Exception):
     def __init__(self):
@@ -851,6 +854,33 @@ def ignore(a: Any = None) -> None:
     """Ignore argument, returns None."""
     return
 
-def copy_to_array(src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int) -> None:
+
+def copy_to_array(
+    src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int
+) -> None:
     for i in range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
+
+
+class PlatformID(IntEnum):
+    Win32S = 0
+    Win32Windows = 1
+    Win32NT = 2
+    WinCE = 3
+    Unix = 4
+    Xbox = 5
+    MacOSX = 6
+    Other = 7
+
+
+def get_platform() -> PlatformID:
+    name = platform.platform(terse=True).lower()
+
+    if name.startswith("windows"):
+        return PlatformID.Win32NT
+    elif name.startswith("linux"):
+        return PlatformID.Unix
+    elif name.startswith("macos"):
+        return PlatformID.MacOSX
+
+    return PlatformID.Other

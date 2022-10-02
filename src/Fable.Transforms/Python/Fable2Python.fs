@@ -11,7 +11,6 @@ open Fable.Py
 type ReturnStrategy =
     /// Return last expression
     | Return
-    /// Return unit
     | ReturnUnit
     /// Return within a with-statement (to make sure we don't TC with statements)
     | ResourceManager
@@ -4067,7 +4066,6 @@ module Compiler =
                     | None -> Expression.none
                 | false, _ ->
                     let local_id = getIdentForImport ctx moduleName name
-                    // printfn "localId: %A" localId
                     match name with
                     | Some "*"
                     | None ->

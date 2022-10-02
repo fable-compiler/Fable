@@ -3452,9 +3452,39 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
         Helper.LibCall(com, "async_", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
-let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // printfn "tasks: %A" i.CompiledName
 
+let paths com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "GetDirectoryName"
+    | "GetExtension"
+    | "GetFileName"
+    | "GetFileNameWithoutExtension"
+    | "GetFullPath"
+    | "GetRandomFileName"
+    | "GetTempFileName"
+    | "GetTempPath"
+    | "HasExtension" as meth ->
+        Helper.LibCall(com, "path", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
+let files com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Copy"
+    | "Delete"
+    | "Exists"
+    | "Move"
+    | "ReadAllBytes"
+    | "ReadAllLines"
+    | "ReadAllText"
+    | "WriteAllBytes"
+    | "WriteAllLines"
+    | "WriteAllText" as meth ->
+        Helper.LibCall(com, "file", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
+let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | Some x, "GetAwaiter" ->
         Helper.LibCall(com, "task", "get_awaiter", t, [ x ], i.SignatureArgTypes, ?loc = r)
@@ -3482,8 +3512,6 @@ let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         |> Some
 
 let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // printfn "Taskbuilder: %A" i.CompiledName
-
     match thisArg, i.CompiledName, args with
     | _, "Singleton", _ ->
         makeImportLib com t "singleton" "task_builder"
@@ -3941,6 +3969,8 @@ let private replacedModules =
            "System.Timers.Timer", timers
            "System.Environment", systemEnv
            "System.Globalization.CultureInfo", globalization
+           "System.IO.File", files
+           "System.IO.Path", paths
            "System.Random", random
            "System.Threading.CancellationToken", cancels
            "System.Threading.CancellationTokenSource", cancels
