@@ -431,28 +431,26 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 class Atom(Generic[_T], Protocol):
     def __call__(
         self,
-        value: Optional[_T] = None,
-        is_setter: Optional[Callable[[_T], None]] = None,
+        *value: _T
     ) -> Optional[_T]:
         ...
 
 
-def create_atom(value: Optional[_T] = None) -> Atom[_T]:
+def create_atom(value: _T) -> Atom[_T]:
     atom = value
 
     def wrapper(
-        value: Optional[_T] = None, is_setter: Optional[Callable[[_T], None]] = None
+        *value: _T
     ) -> Optional[_T]:
         nonlocal atom
 
-        if not is_setter:
+        if len(value) == 0:
             return atom
 
-        atom = value
+        atom = value[0]
         return None
 
     return wrapper
-
 
 def create_obj(fields: List[Tuple[Any, Any]]):
     return dict(fields)

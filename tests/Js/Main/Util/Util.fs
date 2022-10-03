@@ -28,7 +28,7 @@ module private RunResult =
             | _ when value = Fable.Core.JS.undefined -> "" // probably `unit`
             | :? string as value -> sprintf "\"%s\"" value
             | _ -> sprintf "%A" value
-        let stringifyHead head value =
+        let stringifyHead head (value: obj) =
             match stringifyValue value with
             | "" -> head
             | str -> sprintf "%s %s" head str

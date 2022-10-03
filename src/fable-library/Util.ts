@@ -558,14 +558,13 @@ export function clamp<T>(comparer: (x: T, y: T) => number, value: T, min: T, max
   return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
 }
 
-export function createAtom<T>(value?: T): (v?: T, isSet?: boolean) => T | void {
+export function createAtom<T>(value: T): (<Args extends [] | [T]>(...args: Args) => Args extends [] ? T : void) {
   let atom = value;
-  return (value?: T, isSetter?: boolean) => {
-    if (!isSetter) {
-      return atom;
+  return (...args) => {
+    if (args.length === 0) {
+      return atom as any;
     } else {
-      atom = value;
-      return void 0;
+      atom = args[0];
     }
   };
 }

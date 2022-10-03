@@ -66,7 +66,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
 
 let createAtom com (value: Expr) =
     let typ = value.Type
-    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
+    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ], genArgs=[typ])
 
 let getRefCell com r typ (expr: Expr) =
     getFieldWith r typ expr "contents"
@@ -102,7 +102,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        let args = [IdentExpr v; makeBoolConst true]
+        let args = [IdentExpr v]
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None, Tags.empty)

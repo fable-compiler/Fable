@@ -1337,3 +1337,24 @@ let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
     let stop = System.Diagnostics.Stopwatch.GetTimestamp()
     let elapsedMs = (double (stop - start)) * 1000.0 / freq
     elapsedMs > 0 |> equal true
+
+[<Fact>]
+let ``test Module mutable values work`` () =
+    Util.mutableValue <- 3
+    Util.mutableValue |> equal 3
+    Util.getValueTimes2() |> equal 6
+    Util.Nested.getOuterValueTimes4() |> equal 12
+
+[<Fact>]
+let ``test Nested module mutable values work`` () =
+    Util.Nested.nestedMutableValue <- "C"
+    Util.Nested.nestedMutableValue |> equal "C"
+    Util.Nested.getValueTimes2() |> equal "CC"
+    Util.getNestedValueTimes3() |> equal "CCC"
+
+[<Fact>]
+let ``test Module mutable option values work`` () =
+    Util.mutableValueOpt <- Some 3
+    Util.mutableValueOpt.Value |> equal 3
+    Util.mutableValueOpt <- None
+    Util.mutableValueOpt.IsNone |> equal true
