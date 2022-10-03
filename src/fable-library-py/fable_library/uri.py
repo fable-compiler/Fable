@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from enum import IntEnum
-from typing import Optional
-from urllib.parse import urlparse
+from typing import Union
+from urllib.parse import urlparse, urljoin
 
 
 class UriKind(IntEnum):
@@ -12,9 +14,21 @@ class UriKind(IntEnum):
 class Uri:
     __slots__ = "res", "kind"
 
-    def __init__(self, uri: str, uri_kind: Optional[int] = None) -> None:
+    def __init__(self, uri: Union[Uri, str], uri_kind: Union[int, str, Uri, None] = None) -> None:
+        uri = str(uri)
+
+        if isinstance(uri_kind, int):
+            self.kind = UriKind(uri_kind)
+        else:
+            self.kind = UriKind.Absolute
+
+        if isinstance(uri_kind, (str, Uri)):
+             uri = urljoin(uri, str(uri_kind))
+
+        if self.kind == UriKind.Absolute and ":" not in uri:
+            raise ValueError("Invalid URI: The format of the URI could not be determined.")
+
         self.res = urlparse(uri)
-        self.kind = UriKind(uri_kind) if uri_kind else UriKind.Absolute
 
     @property
     def is_absolute_uri(self) -> bool:
