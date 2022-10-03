@@ -61,19 +61,20 @@ module Lib =
     let libValue (com: IBabelCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
-    let tryJsConstructorForAnnotation forAnnotation (com: IBabelCompiler) ctx ent =
+    let tryJsConstructorWithSuffix (com: IBabelCompiler) ctx ent (suffix: string) =
         match JS.Replacements.tryConstructor com ent with
-        | Some e ->
-            let cons = com.TransformAsExpr(ctx, e)
-            if not forAnnotation && com.Options.Language = TypeScript && ent.IsFSharpUnion then
-                match cons with
-                | Expression.Identifier(ident) ->
-                    ident.MapName(fun name -> name + "_Cons")
-                    |> Expression.Identifier
-                    |> Some
-                | cons -> Some cons
-            else Some cons
-        | None -> None
+        | Some(Fable.Import(info, typ, range)) when suffix.Length > 0 ->
+            let consExpr = Fable.Import({ info with Selector = info.Selector + suffix }, typ, range)
+            com.TransformAsExpr(ctx, consExpr) |> Some
+        | Some(Fable.IdentExpr ident) when suffix.Length > 0 ->
+            let consExpr = Fable.IdentExpr { ident with Name = ident.Name + suffix }
+            com.TransformAsExpr(ctx, consExpr) |> Some
+        | consExpr -> consExpr |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+
+    let tryJsConstructorForAnnotation forAnnotation (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+        // TODO: Check this is not an StringEnum or Erase union
+        let suffix = if not forAnnotation && com.Options.Language = TypeScript && ent.IsFSharpUnion then "_Cons" else ""
+        tryJsConstructorWithSuffix com ctx ent suffix
 
     /// Cannot be used for annotations (use `tryJsConstructorForAnnotation true` instead)
     let jsConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) =
@@ -81,8 +82,7 @@ module Lib =
         |> Option.defaultWith (fun () ->
             $"Cannot find %s{ent.FullName} constructor"
             |> addError com [] None
-            Expression.nullLiteral()
-        )
+            Expression.nullLiteral())
 
 module Reflection =
     open Lib
@@ -933,13 +933,6 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         getExpr r expr (Expression.stringLiteral("tag"))
 
-    let getTypedUnionTag (tag: int) (ent: Fable.Entity) (consRef: Expression) =
-        let tagRef =
-            match consRef with
-            | Expression.Identifier(ident) -> ident.MapName(fun name -> Regex.Replace(name, "_Cons$", "_Tag"))
-            | _ -> Identifier.identifier(ent.DisplayName + "_Tag") // Error?
-        EnumCaseLiteral(tagRef, ent.UnionCases[tag].Name)
-
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
@@ -1110,27 +1103,21 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
+            let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) tag values =
+                let consRef = jsConstructor com ctx ent
+                let values = makeArray com ctx values
+                Expression.newExpression(consRef, [|ofInt tag; values|], ?loc=r)
             let ent = com.GetEntity(ent)
-            let consRef = ent |> jsConstructor com ctx
             if com.Options.Language = TypeScript then
                 let case = ent.UnionCases[tag].Name
-                let values = values |> List.mapToArray (transformAsExpr com ctx)
-                let typeParams = makeTypeParamInstantiation com ctx genArgs
-                let helperRef =
-                    match consRef with
-                    | Expression.Identifier(ident) -> ident.MapName(fun name -> Regex.Replace(name, "_Cons$", "_" + case)) |> Expression.Identifier
-                    | consRef -> consRef // Error?
-                Expression.callExpression(helperRef, values, typeParameters=typeParams)
+                match tryJsConstructorWithSuffix com ctx ent ("_" + case) with
+                | Some helperRef ->
+                    let values = values |> List.mapToArray (transformAsExpr com ctx)
+                    let typeParams = makeTypeParamInstantiation com ctx genArgs
+                    Expression.callExpression(helperRef, values, typeParameters=typeParams)
+                | None -> transformNewUnion com ctx r ent tag values
             else
-                let values = makeArray com ctx values
-                let tag, typeParams =
-                    // if com.Options.Language = TypeScript then
-                    //     let caseRef = getTypedUnionTag tag ent consRef
-                    //     let typeParams = Array.append (makeTypeParamInstantiation com ctx genArgs) [|LiteralTypeAnnotation caseRef|]
-                    //     Expression.Literal caseRef, Some typeParams
-                    // else
-                        ofInt tag, None
-                Expression.newExpression(consRef, [|tag; values|], ?typeParameters=typeParams, ?loc=r)
+                transformNewUnion com ctx r ent tag values
 
     let enumerableThisToIterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1556,9 +1543,9 @@ module Util =
                     match expr.Type with
                     | Fable.DeclaredType(ent, _) ->
                         let ent = com.GetEntity(ent)
-                        jsConstructor com ctx ent
-                        |> getTypedUnionTag tag ent
-                        |> Literal
+                        match tryJsConstructorWithSuffix com ctx ent "_Tag" with
+                        | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
+                        | _ -> ofInt tag
                     | _ -> ofInt tag
                 else
                     ofInt tag

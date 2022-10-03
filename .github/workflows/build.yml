@@ -40,8 +40,8 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Library - TypeScript
-      run: dotnet fsi build.fsx library-ts
+    - name: Fable Tests - TypeScript
+      run: dotnet fsi build.fsx test-ts
 
     # - name: Fable Tests - TypeScript
     #   run: dotnet fsi build.fsx test-ts
