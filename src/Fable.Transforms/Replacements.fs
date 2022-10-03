@@ -983,7 +983,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "Fable.Core.JSX", meth ->
         match meth with
         | "create" -> Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
-        | "html" -> Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
+        | "html" | "jsx" -> Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
         | "text" -> TypeCast(args.Head, t) |> Some
         | "nothing" -> makeNullTyped t |> Some
         | _ -> None

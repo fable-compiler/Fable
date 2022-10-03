@@ -634,7 +634,27 @@ module Util =
     open Reflection
     open Annotation
 
-    let IMPORT_ALL_OR_DEFAULT_REGEX = Regex(@"^(\*|default)(?: as (\w+))?$")
+    let IMPORT_REGEX = Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?$""")
+    let IMPORT_SELECTOR_REGEX = Regex(@"^(\*|\w+)(?:\s+as\s+(\w+))?$")
+
+    let stripImports (com: IBabelCompiler) ctx r (str: string) =
+        str.Split('\n')
+        |> Array.skipWhile (fun line ->
+            match line.Trim() with
+            | "" -> true
+            | Naming.Regex IMPORT_REGEX (_::selector::path::_) ->
+                if selector.StartsWith("{") then
+                    for selector in selector.TrimStart('{').TrimEnd('}').Split(',') do
+                        com.GetImportExpr(ctx, selector, path, r) |> ignore
+                    true
+                else
+                    let selector =
+                        if selector.StartsWith("*") then selector
+                        else $"default as {selector}"
+                    com.GetImportExpr(ctx, selector, path, r) |> ignore
+                    true
+            | _ -> false)
+        |> String.concat "\n"
 
     let (|TransformExpr|) (com: IBabelCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
@@ -1369,12 +1389,18 @@ module Util =
                 |> addErrorAndReturnNull com range |> Some
             | Fable.Tags.Contains "jsx-template", args ->
                 match args with
-                | StringConst template ::_ -> Expression.jsxTemplate(template) |> Some
+                | StringConst template ::_ ->
+                    let template = stripImports com ctx range template
+                    Expression.jsxTemplate(template) |> Some
                 | MaybeCasted(Fable.Value(Fable.StringTemplate(_, parts, values), _))::_ ->
+                    let parts =
+                        match parts with
+                        | head::parts -> (stripImports com ctx range head)::parts
+                        | parts -> parts
                     let values = values |> List.mapToArray (transformAsExpr com ctx)
                     Expression.jsxTemplate(List.toArray parts, values) |> Some
                 | _ ->
-                    $"Expecting an interpolated string literal without formatting, found %A{args}"
+                    "Expecting a string literal or interpolation without formatting"
                     |> addErrorAndReturnNull com range |> Some
             | _ -> None
 
@@ -1872,7 +1898,9 @@ module Util =
 
         | Fable.Emit(info, _, range) ->
             if info.IsStatement then iife com ctx expr
-            else transformEmit com ctx range info
+            else
+                let info = { info with Macro = stripImports com ctx range info.Macro }
+                transformEmit com ctx range info
 
         // These cannot appear in expression position in JS, must be wrapped in a lambda
         | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _ -> iife com ctx expr
@@ -2451,10 +2479,8 @@ module Util =
                 |> Option.map (fun localId ->
                     let localId = Identifier.identifier(localId)
                     match import.Selector with
-                    | Naming.Regex IMPORT_ALL_OR_DEFAULT_REGEX (_::selector::_) ->
-                        match selector with
-                        | "*" -> ImportNamespaceSpecifier(localId)
-                        | _ -> ImportDefaultSpecifier(localId)
+                    | "*" -> ImportNamespaceSpecifier(localId)
+                    | "default" -> ImportDefaultSpecifier(localId)
                     | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
             import.Path, specifier)
         |> Seq.groupBy fst
@@ -2488,15 +2514,20 @@ module Util =
         ]
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
-        if System.String.IsNullOrEmpty selector then None
+        if System.String.IsNullOrEmpty selector then selector, None
         else
-            match selector with
-            | Naming.Regex IMPORT_ALL_OR_DEFAULT_REGEX (_::_selector::alias::_) ->
-                if alias.Length > 0 then alias
-                else Path.GetFileNameWithoutExtension(path).Replace("-", "_")
-            | _ -> selector
-            |> getUniqueNameInRootScope ctx
-            |> Some
+            let selector, alias =
+                match selector with
+                | Naming.Regex IMPORT_SELECTOR_REGEX (_::selector::alias::_) ->
+                    let alias =
+                        if alias.Length = 0 then
+                            if selector = "*" || selector = "default"
+                            then Path.GetFileNameWithoutExtension(path).Replace("-", "_")
+                            else selector
+                        else alias
+                    selector, alias
+                | _ -> selector, selector
+            selector, alias |> getUniqueNameInRootScope ctx |> Some
 
 module Compiler =
     open Util
@@ -2511,6 +2542,8 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, selector, path, r) =
+                let selector = selector.Trim()
+                let path = path.Trim()
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2518,13 +2551,12 @@ module Compiler =
                     | Some localIdent -> Expression.identifier(localIdent)
                     | None -> Expression.nullLiteral()
                 | false, _ ->
-                    let localId = getIdentForImport ctx path selector
+                    let selector, localId = getIdentForImport ctx path selector
+                    if selector = Naming.placeholder then
+                        "`importMember` must be assigned to a variable"
+                        |> addError com [] r
                     let i =
-                      { Selector =
-                            if selector = Naming.placeholder then
-                                     "`importMember` must be assigned to a variable"
-                                     |> addError com [] r; selector
-                            else selector
+                      { Selector = selector
                         Path = path
                         LocalIdent = localId }
                     imports.Add(cachedName, i)

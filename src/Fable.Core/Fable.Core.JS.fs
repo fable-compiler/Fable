@@ -20,6 +20,7 @@ module JSX =
 
     let create (componentOrTag: ElementType) (props: Prop list): Element = nativeOnly
     let html (template: string): Element = nativeOnly
+    let jsx (template: string): Element = nativeOnly
     let text (text: string): Element = nativeOnly
     let nothing: Element = nativeOnly
 
