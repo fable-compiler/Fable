@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <DefineConstants>FABLE_COMPILER;FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Js/Main/Util/Util.Testing.fs" />
+    <!-- <Compile Include="../Js/Main/Util/Util.fs" />
+    <Compile Include="../Js/Main/Util/UtilTests.fs" /> -->
+    <Compile Include="../Js/Main/ArithmeticTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+</Project>

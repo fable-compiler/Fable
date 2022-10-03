@@ -179,10 +179,6 @@ type ModuleDeclaration =
 type Identifier =
     // TODO: Move optional, named and typeAnnotation to Pattern.Identifier
     | Identifier of name: string * optional: bool * named: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
-    member this.MapName(f) =
-        match this with
-            | Identifier(name, optional, named, typeAnnotation, loc) ->
-                Identifier(f name, optional, named, typeAnnotation, loc)
 
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option

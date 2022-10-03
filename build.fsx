@@ -496,6 +496,30 @@ let testJs() =
     if envVarOrNone "CI" |> Option.isSome then
         testStandaloneFast()
 
+let testTypeScript() =
+    buildLibraryTsIfNotExists()
+
+    let projectDir = "tests/TypeScript"
+    let buildDir = "build/tests/TypeScript"
+    let buildDir2 = "build/tests/TypeScriptCompiled"
+
+    cleanDirs [buildDir; buildDir2]
+
+    runFableWithArgs projectDir [
+        "--lang ts"
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+    ]
+
+    copyFile (projectDir </> "tsconfig.json") buildDir
+
+    runNpmScript "tsc" [
+        $"-p {buildDir}"
+        $"--outDir {buildDir2}"
+    ]
+
+    runMocha (buildDir2 </> "build/tests/TypeScript/")
+
 let testPython() =
     buildLibraryPyIfNotExists() // NOTE: fable-library-py needs to be built separately.
 
@@ -739,6 +763,7 @@ match BUILD_ARGS_LOWER with
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
 | "test-repos"::_ -> testRepos()
+| ("test-ts"|"test-typescript")::_ -> testTypeScript()
 | "test-py"::_ -> testPython()
 | "test-rust"::_ -> testRust SingleThreaded
 | "test-rust-default"::_ -> testRust SingleThreaded
