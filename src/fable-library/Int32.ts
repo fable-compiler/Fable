@@ -133,13 +133,13 @@ export function op_UnaryNegation_Int32(x: number) {
   return x === -2147483648 ? x : -x;
 }
 
-export function divRem(x: number, y: number, out?: FSharpRef<number>) {
+export function divRem<Out extends FSharpRef<number> | undefined = undefined>(x: number, y: number, out?: Out): Out extends undefined ? [number, number] : number {
   const div = ~~(x / y);
   const rem = x % y;
-  if (out != null) {
-    out.contents = rem;
-    return div;
+  if (out === void 0) {
+    return [div, rem] as Out extends undefined ? [number, number] : number;
   } else {
-    return [div, rem];
+    out.contents = rem;
+    return div as Out extends undefined ? [number, number] : number;
   }
 }

@@ -2,9 +2,7 @@ module Fable.Tests.Arithmetic
 
 open System
 open Util.Testing
-#if !FABLE_COMPILER_TYPESCRIPT
 open Fable.Tests.Util
-#endif
 
 let [<Literal>] aLiteral = 5
 let notALiteral = 5
@@ -583,7 +581,6 @@ let tests =
         decr i
         !i |> equal 4
 
-#if !FABLE_COMPILER_TYPESCRIPT
     testCase "System.Random works" <| fun () ->
         let rnd = System.Random()
         let x = rnd.Next()
@@ -629,7 +626,6 @@ let tests =
         buffer |> equal [|152uy; 238uy; 227uy; 30uy|]
 
         throwsAnyError <| fun () -> System.Random().NextBytes(null)
-#endif
 
     testCase "Long integers equality works" <| fun () ->
         let x = 5L
@@ -714,7 +710,6 @@ let tests =
         sign -1. |> equal -1
         sign -89. |> equal -1
 
-#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Formatting of decimal works" <| fun () ->
 
         let formatNumber (d:decimal) =
@@ -747,5 +742,4 @@ let tests =
         formatEuro 0.020M |> equal "0,02 €"
         formatEuro 0.20M |> equal "0,20 €"
         formatEuro 2.0M |> equal "2,00 €"
-#endif
 ]

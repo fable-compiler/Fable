@@ -8,8 +8,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Js/Main/Util/Util.Testing.fs" />
-    <!-- <Compile Include="../Js/Main/Util/Util.fs" />
-    <Compile Include="../Js/Main/Util/UtilTests.fs" /> -->
+    <Compile Include="../Js/Main/Util/Util.fs" />
+    <Compile Include="../Js/Main/Util/UtilTests.fs" />
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

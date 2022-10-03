@@ -104,7 +104,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        let args = [ IdentExpr v; makeBoolConst true ]
+        let args = [ IdentExpr v ]
         let info = makeCallInfo None args [ t; Boolean ]
         let value = makeCall r Unit info value
         Delegate([ v ], value, None, Tags.empty)
