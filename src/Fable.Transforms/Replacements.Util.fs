@@ -482,9 +482,19 @@ let (|MaybeInScope|) (ctx: Context) e =
     | e -> e
 
 let rec (|MaybeInScopeStringConst|_|) ctx = function
-    | MaybeInScope ctx (StringConst s) -> Some s
-    | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
-    | _ -> None
+    | MaybeInScope ctx expr ->
+        match expr with
+        | StringConst s -> Some s
+        | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
+        | Value(StringTemplate(None, start::parts, values),_) ->
+            (Some [], values) ||> List.fold (fun acc value ->
+                match acc, value with
+                | None, _ -> None
+                | Some acc, MaybeInScopeStringConst ctx value -> Some(value::acc)
+                | _ -> None)
+            |> Option.map (fun values ->
+                let valuesAndParts = List.zip (List.rev values) parts
+                (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p))
 
 let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
