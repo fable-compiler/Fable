@@ -7,27 +7,55 @@ open System.Text.RegularExpressions
 
 [<RequireQualifiedAccess>]
 module JSX =
+    /// Used to decorate a function to turn it into a JSX component.
+    /// Arguments will become the props except for `children` argument.
     type ComponentAttribute() =
         inherit Attribute()
 
+    /// Represents a JSX prop, alias for a string * obj tuple.
+    /// Prop key must be a literal string that can be resolved at compile-time.
     type Prop = string * obj
+
+    /// Represents a string key value pair used for styles in JSX.
+    /// Key must be a literal string that can be resolved at compile-time.
     type Style = string * string
+
+    /// Represents an entity that can be used as a JSX tag.
+    /// Usually strings (for standard HTML tags) or functions returning JSX.Element
     type ElementType = obj
 
+    /// The actual representation of JSX elements depend on the framework used.
+    /// E.g. if using React, JSX.Element will be the same as ReactElement
     [<AllowNullLiteral>]
     type Element =
         class end
 
+    /// Instantiates a JSX Element with F# code. The `props` argument must be a list literal
+    /// that can be resolved at compile-time.
     let create (componentOrTag: ElementType) (props: Prop list): Element = nativeOnly
+
+    /// Creates a JSX Element directly from a string template, which can be interpolated.
+    /// When using interpolation note the holes must follow JSX syntax rules.
+    /// E.g. holes in the middle of a string or in the position of a prop key are not valid.
     let html (template: string): Element = nativeOnly
+
+    /// Same as JSX.html. Use it with editor tools that can recognize JSX as an embedded language.
     let jsx (template: string): Element = nativeOnly
+
+    /// Converts a string into a JSX Element
     let text (text: string): Element = nativeOnly
+
+    /// Null JSX Element
     let nothing: Element = nativeOnly
 
 module JS =
+    /// Used to remove the arguments of a surrounding function immediately calling a function decorated with this argument.
+    /// This is convenient to represent JS patterns when a function is actually loaded lazily with a dynamic import.
     type RemoveSurroundingArgsAttribute() =
         inherit Attribute()
 
+    /// Used for move a surrounding function to the first argument of call to the function decorated with the attribute.
+    /// This is convenient to represent JS patterns for higher order components, like React.memo.
     type WrapSurroundingFunctionAttribute() =
         inherit Attribute()
 
