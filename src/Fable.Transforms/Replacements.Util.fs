@@ -477,7 +477,7 @@ let (|MaybeInScope|) (ctx: Context) e =
     match e with
     | MaybeCasted(IdentExpr ident) when not ident.IsMutable  ->
         match tryFindInScope ctx ident.Name with
-        | Some e -> e
+        | Some(MaybeCasted e) -> e
         | None -> e
     | e -> e
 
@@ -495,6 +495,7 @@ let rec (|MaybeInScopeStringConst|_|) ctx = function
             |> Option.map (fun values ->
                 let valuesAndParts = List.zip (List.rev values) parts
                 (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p))
+        | _ -> None
 
 let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
