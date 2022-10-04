@@ -144,13 +144,15 @@ export function ticksToUnixEpochMilliseconds(ticks: Long) {
 //   };
 // }
 
-export function divRem<Out extends FSharpRef<Long> | undefined = undefined>(x: Long, y: Long, out?: Out): Out extends undefined ? [Long, Long] : Long {
+export function divRem(x: Long, y: Long): [Long, Long];
+export function divRem(x: Long, y: Long, out: FSharpRef<Long>): Long;
+export function divRem(x: Long, y: Long, out?: FSharpRef<Long>): Long | [Long, Long] {
   const div = op_Division(x, y);
   const rem = op_Modulus(x, y);
   if (out === void 0) {
-    return [div, rem] as Out extends undefined ? [Long, Long] : Long;
+    return [div, rem];
   } else {
     out.contents = rem;
-    return div as Out extends undefined ? [Long, Long] : Long;
+    return div;
   }
 }
