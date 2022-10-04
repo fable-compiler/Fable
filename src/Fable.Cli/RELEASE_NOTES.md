@@ -1,3 +1,11 @@
+### 4.0.0-theta-011
+
+* Python, add read/write files
+* Python, fix URI and number types
+* JS, allow imports in emit expressions and JSX
+* JS, improve import path resolution (interpolation, inlined functions)
+* TypeScript, fix arithmetic tests
+
 ### 4.0.0-theta-010
 
 * Use StringTemplate expr in Fable AST for Python

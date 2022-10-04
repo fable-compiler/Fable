@@ -1,3 +1,7 @@
+### 4.0.0-theta-005
+
+* Add JSX.jsx function
+
 ### 4.0.0-theta-004
 
 * Add ??= operator to JsInterop
