@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 from enum import IntEnum
-from typing import Optional
-from urllib.parse import urlparse
+from typing import Union
+from urllib.parse import ParseResult, urlparse, urljoin, unquote
+
+
+from .types import FSharpRef
 
 
 class UriKind(IntEnum):
@@ -10,11 +15,43 @@ class UriKind(IntEnum):
 
 
 class Uri:
-    __slots__ = "res", "kind"
+    __slots__ = "res", "kind", "orginal"
 
-    def __init__(self, uri: str, uri_kind: Optional[int] = None) -> None:
-        self.res = urlparse(uri)
-        self.kind = UriKind(uri_kind) if uri_kind else UriKind.Absolute
+    def __init__(
+        self,
+        base_uri: Union[Uri, str],
+        kind_or_uri: Union[int, str, Uri, None] = UriKind.Absolute,
+    ) -> None:
+        self.res: ParseResult
+
+        kind = kind_or_uri if isinstance(kind_or_uri, int) else UriKind.Absolute
+        uri = urlparse(base_uri) if isinstance(base_uri, str) else base_uri.res
+        relative_uri = (
+            urlparse(kind_or_uri)
+            if isinstance(kind_or_uri, str)
+            else kind_or_uri.res
+            if isinstance(kind_or_uri, Uri)
+            else None
+        )
+
+        # Absolute base URI must be absolute
+        if kind == UriKind.Absolute and not uri.netloc:
+            raise ValueError(
+                "Invalid URI: The format of the URI could not be determined."
+            )
+
+        # Relative base URI must be relative
+        if kind == UriKind.Relative and uri.netloc:
+            raise ValueError(
+                "Invalid URI: The format of the URI could not be determined."
+            )
+
+        if relative_uri:
+            self.res = urlparse(urljoin(uri.geturl(), relative_uri.geturl()))
+        else:
+            self.res = uri
+        self.kind = kind
+        self.orginal = base_uri
 
     @property
     def is_absolute_uri(self) -> bool:
@@ -51,5 +88,32 @@ class Uri:
     def fragment(self) -> str:
         return f"#{self.res.fragment}"
 
+    @property
+    def original_string(self) -> str:
+        return str(self.orginal)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Uri):
+            return False
+
+        return self.res == other.res
+
     def __str__(self) -> str:
-        return self.res.geturl()
+        res = self.res._replace(netloc=self.res.netloc.replace(":80", ""))
+        return unquote(res.geturl())
+
+    @staticmethod
+    def create(
+        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri] = UriKind.Absolute
+    ) -> Uri:
+        return Uri(uri, kind_or_uri)
+
+    @staticmethod
+    def try_create(
+        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri], out: FSharpRef[Uri]
+    ) -> bool:
+        try:
+            out.contents = Uri.create(uri, kind_or_uri)
+            return True
+        except Exception:
+            return False
