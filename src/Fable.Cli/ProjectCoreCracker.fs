@@ -154,5 +154,9 @@ let rec private projInfo additionalMSBuildProps (file: string) =
       let projRefs = p2ps |> List.map (fun p2p -> p2p.ProjectReferenceFullPath)
       projOptions, projRefs, props
 
-let GetProjectOptionsFromProjectFile configuration (file : string) =
-    projInfo ["Configuration", configuration; "FABLE_COMPILER", "true"] file
+let GetProjectOptionsFromProjectFile configuration define (file : string) =
+    projInfo [
+        "Configuration", configuration
+        for constant in define do
+            constant, "true"
+    ] file

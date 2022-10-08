@@ -399,10 +399,15 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     let projName = IO.Path.GetFileName projFile
 
     if not opts.NoRestore then
-        Process.runSync projDir "dotnet" ["restore"; projName; "-p:FABLE_COMPILER=true"] |> ignore
+        Process.runSync projDir "dotnet" [
+            "restore"
+            projName;
+            for constant in opts.FableOptions.Define do
+                $"-p:{constant}=true"
+        ] |> ignore
 
     let projOpts, projRefs, msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration opts.FableOptions.Define projFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
@@ -416,7 +421,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration opts.FableOptions.Define projFile
 
     let outputType = Map.tryFind "OutputType" _msbuildProps
     let sourceFiles, otherOpts =
