@@ -507,7 +507,9 @@ let rec (|RequireStringConst|) com (ctx: Context) r e =
 let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
     match e with
     | MaybeInScopeStringConst ctx s -> [s], []
-    | MaybeInScope ctx (Value(StringTemplate(None, parts, values),_)) -> parts, values
+    // If any of the interpolated values can have side effects, beta binding reduction won't work
+    // so we don't check interpolation in scope
+    | Value(StringTemplate(None, parts, values),_) -> parts, values
     | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
         [""], []
