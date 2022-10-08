@@ -945,10 +945,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
-    | "Fable.Core.Py", "python" ->
+    | "Fable.Core.Py", ("python" | "expr_python" as meth) ->
+        let isStatement = meth <> "expr_python"
         match args with
         | RequireStringConstOrTemplate com ctx r template::_ ->
-            emitTemplate r t [] true template  |> Some
+            emitTemplate r t [] isStatement template  |> Some
         | _ -> None
     | "Fable.Core.PyInterop", _
     | "Fable.Core.JsInterop", _ ->

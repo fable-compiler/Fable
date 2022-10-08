@@ -43,6 +43,9 @@ module Py =
     /// if you want to return a value use Python `return` keyword within a function.
     let python (template: string): 'T = nativeOnly
 
+    /// Embeds a literal Python expression into F#
+    let expr_python (template: string): 'T = nativeOnly
+
     /// Defines a Jupyter-like code cell. Translates to `# %%`
     /// https://code.visualstudio.com/docs/python/jupyter-support-py
     [<Emit("# %%", isStatement=true)>]

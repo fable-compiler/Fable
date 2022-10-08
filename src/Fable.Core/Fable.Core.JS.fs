@@ -541,6 +541,13 @@ module JS =
     let [<Emit("debugger")>] debugger () : unit = nativeOnly
     let [<Emit("void 0")>] undefined<'a> : 'a = nativeOnly
 
+    /// Embeds literal JS code into F#. Code will be printed as statements,
+    /// if you want to return a value use JS `return` keyword within a function.
+    let js (template: string): 'T = nativeOnly
+
+    /// Embeds a literal JS expression into F#
+    let expr_js (template: string): 'T = nativeOnly
+
     [<Literal>]
     let private CONSTRUCTORS_WARNING = "JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name"
 
