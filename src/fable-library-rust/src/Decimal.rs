@@ -2,6 +2,7 @@
 pub mod Decimal_ {
     use crate::Native_::{array, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
+    use core::cmp::Ordering;
 
     use rust_decimal::prelude::*;
     pub use rust_decimal::Decimal as decimal;
@@ -12,14 +13,20 @@ pub mod Decimal_ {
     pub const MaxValue: Decimal = Decimal::MAX;
     pub const MinValue: Decimal = Decimal::MIN;
 
-    // pub fn hash (x: Decimal) = x.GetHashCode()
-    // pub fn compare (x: Decimal, y: Decimal) = compare x y
-    // pub fn equals (x: Decimal, y: Decimal) = x == y
+    // pub fn getHashCode(x: Decimal) = x.GetHashCode()
+    pub fn equals(x: Decimal, y: Decimal) -> bool { x.eq(&y) }
+    pub fn compare(x: Decimal, y: Decimal) -> i32 {
+        match x.cmp(&y) {
+            Ordering::Less => -1,
+            Ordering::Greater => 1,
+            Ordering::Equal => 0,
+        }
+    }
 
     pub fn scale(x: Decimal) -> u8 { x.scale() as u8 }
 
     pub fn abs(x: Decimal) -> Decimal { x.abs() }
-    pub fn sign(x: Decimal) -> Decimal { x.signum() }
+    pub fn sign(x: Decimal) -> i32 { x.signum().to_i32().unwrap() }
 
     pub fn floor(x: Decimal) -> Decimal { x.floor() }
     pub fn ceiling(x: Decimal) -> Decimal { x.ceil() }
@@ -33,11 +40,14 @@ pub mod Decimal_ {
     pub fn remainder(x: Decimal, y: Decimal) -> Decimal { x % y }
     pub fn negate(x: Decimal) -> Decimal { -x }
 
-    // pub fn isNegative(x: Decimal) -> bool { x.is_sign_negative() }
-    // pub fn isPositive(x: Decimal) -> bool { x.is_sign_positive() }
+    pub fn max(x: Decimal, y: Decimal) -> Decimal { x.max(y) }
+    pub fn min(x: Decimal, y: Decimal) -> Decimal { x.min(y) }
+
+    pub fn isNegative(x: Decimal) -> bool { x.is_sign_negative() }
+    pub fn isPositive(x: Decimal) -> bool { x.is_sign_positive() }
     // pub fn isInteger(x: Decimal) -> bool { false } //TODO:
-    // pub fn isOddInteger(x: Decimal) -> bool { false } //TODO:
     // pub fn isEvenInteger(x: Decimal) -> bool { false } //TODO:
+    // pub fn isOddInteger(x: Decimal) -> bool { false } //TODO:
     // pub fn isCanonical(x: Decimal) -> bool { false } //TODO:
 
     pub fn toInt8 (x: Decimal) -> i8 { x.to_i8().unwrap() }
@@ -47,7 +57,9 @@ pub mod Decimal_ {
     pub fn toInt32 (x: Decimal) -> i32 { x.to_i32().unwrap() }
     pub fn toUInt32 (x: Decimal) -> u32 { x.to_u32().unwrap() }
     pub fn toInt64 (x: Decimal) -> i64 { x.to_i64().unwrap() }
-    pub fn toUInt64 (x :Decimal) -> u64 { x.to_u64().unwrap() }
+    pub fn toUInt64 (x: Decimal) -> u64 { x.to_u64().unwrap() }
+    pub fn toNativeInt(x: Decimal) -> isize { x.to_isize().unwrap() }
+    pub fn toUNativeInt(x: Decimal) -> usize { x.to_usize().unwrap() }
     pub fn toFloat32 (x: Decimal) -> f32 { x.to_f32().unwrap() }
     pub fn toFloat64 (x: Decimal) -> f64 { x.to_f64().unwrap() }
 
@@ -147,4 +159,16 @@ pub mod Decimal_ {
         roundToMode(x, 0, mode)
     }
 
+    // pub fn clamp
+    // pub fn copySign
+    // pub fn createChecked
+    // pub fn createSaturating
+    // pub fn createTruncating
+    // pub fn fromOACurrency
+    // pub fn getTypeCode
+    // pub fn maxMagnitude
+    // pub fn minMagnitude
+    // pub fn toOACurrency
+    // pub fn tryFormat
+    // pub fn tryGetBits
 }
