@@ -887,6 +887,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
         | _ -> None
+    | "Fable.Core.JS", ("js" | "expr_js" as meth) ->
+        let isStatement = meth <> "expr_js"
+        match args with
+        | RequireStringConstOrTemplate com ctx r template::_ ->
+            emitTemplate r t [] isStatement template  |> Some
+        | _ -> None
     | "Fable.Core.JsInterop", meth ->
         match meth, args with
         | "importDynamic", [path] ->
