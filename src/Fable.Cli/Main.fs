@@ -199,7 +199,12 @@ module FileWatcherUtil =
         files
         // FCS may add files in temporary dirs to resolve nuget references in scripts
         // See https://github.com/fable-compiler/Fable/pull/2725#issuecomment-1015123642
-        |> List.filter (fun file -> not (file.EndsWith(".fsproj.fsx")))
+        |> List.filter (fun file -> not (
+            file.EndsWith(".fsproj.fsx")
+            // It looks like latest F# compiler puts generated files for resolution of packages
+            // in scripts in $HOME/.packagemanagement. See #3222
+            || file.Contains(".packagemanagement")
+        ))
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
         |> List.sortBy (fun f -> f.Length)
@@ -215,7 +220,7 @@ module FileWatcherUtil =
                     if restDirs |> List.forall (fun d -> (withTrailingSep d).StartsWith dir') then dir
                     else
                         match IO.Path.GetDirectoryName(dir) with
-                        | null -> failwith "No common base dir"
+                        | null -> failwith "No common base dir, please run again with --verbose option and report"
                         | dir -> getCommonDir dir
                 getCommonDir dir
 
