@@ -1186,74 +1186,73 @@ let ``FSharp.Core type converters can combined via the >> operator`` () =
 //     let bytes = BitConverter.GetBytes(value)
 //     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
-// //-------------------------------------
-// // System.Numerics.BigInteger
-// //-------------------------------------
+//-------------------------------------
+// System.Numerics.BigInteger
+//-------------------------------------
 
-// [<Fact>]
-// let ``BigInt from uint32 works`` () =
-//     bigint System.UInt32.MaxValue |> equal 4294967295I
+[<Fact>]
+let ``BigInt from uint32 works`` () =
+    bigint System.UInt32.MaxValue |> equal 4294967295I
 
-// [<Fact>]
-// let ``BigInt ToSByte works`` () =
-//     let value = 0x02y
-//     sbyte (bigint (int32 value)) |> equal value
+[<Fact>]
+let ``BigInt ToSByte works`` () =
+    let value = 0x02y
+    sbyte (bigint (int32 value)) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToInt16 works`` () =
-//     let value = 0x0102s
-//     int16 (bigint (int32 value)) |> equal value
+[<Fact>]
+let ``BigInt ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (bigint (int32 value)) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToInt32 works`` () =
-//     let value = 0x01020304
-//     int32 (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToInt32 works`` () =
+    let value = 0x01020304
+    int32 (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToInt64 works`` () =
-//     let value = 0x0102030405060708L
-//     int64 (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    int64 (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToByte works`` () =
-//     let value = 0x02uy
-//     byte (bigint (uint32 value)) |> equal value
+[<Fact>]
+let ``BigInt ToByte works`` () =
+    let value = 0x02uy
+    byte (bigint (uint32 value)) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToUInt16 works`` () =
-//     let value = 0xFF02us
-//     uint16 (bigint (uint32 value)) |> equal value
+[<Fact>]
+let ``BigInt ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (bigint (uint32 value)) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToUInt32 works`` () =
-//     //let value = 0xFF020304u //TODO: BigInt.FromUInt32 not implemented yet, so this will fail
-//     let value = 0x1F020304u
-//     uint32 (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToUInt32 works`` () =
+    let value = 0xFF020304u
+    uint32 (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToUInt64 works`` () =
-//     let value = 0xFF02030405060708UL
-//     uint64 (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToSingle works`` () =
-//     let value = 1.0f
-//     single (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToSingle works`` () =
+    let value = 1.0f
+    single (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToDouble works`` () =
-//     let value = -1.0
-//     double (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToDouble works`` () =
+    let value = -1.0
+    double (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToDecimal works`` () =
-//     let value = 1.0m
-//     decimal (bigint value) |> equal value
+[<Fact>]
+let ``BigInt ToDecimal works`` () =
+    let value = 1.0m
+    decimal (bigint value) |> equal value
 
-// [<Fact>]
-// let ``BigInt ToString works`` () =
-//     let value = 1234567890
-//     string (bigint value) |> equal "1234567890"
+[<Fact>]
+let ``BigInt ToString works`` () =
+    let value = 1234567890
+    string (bigint value) |> equal "1234567890"
 
 // [<Fact>]
 // let ``Convert.ToBase64String works`` () =

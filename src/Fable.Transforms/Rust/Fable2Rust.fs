@@ -621,6 +621,9 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
+    let transformBigIntType com ctx: Rust.Ty =
+        transformImportType com ctx [] "BigInt" "bigint"
+
     let transformDecimalType com ctx: Rust.Ty =
         transformImportType com ctx [] "Decimal" "decimal"
 
@@ -733,7 +736,7 @@ module TypeInfo =
         | Float32 -> "f32" |> primitiveType
         | Float64 -> "f64" |> primitiveType
         | Decimal -> transformDecimalType com ctx
-        | BigInt -> makeFullNamePathTy Types.bigint None
+        | BigInt -> transformBigIntType com ctx
 
     let getEntityFullName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         match entRef.SourcePath with

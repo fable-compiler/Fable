@@ -8,6 +8,7 @@ let _imports() =
     importAll "./DateTimeOffset.rs"
     importAll "./TimeSpan.rs"
     importAll "./Decimal.rs"
+    importAll "./BigInt.rs"
     importAll "./Func.rs"
     importAll "./Guid.rs"
     importAll "./HashMap.rs"
