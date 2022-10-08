@@ -1308,7 +1308,7 @@ module Util =
             Expression.logicalExpression(left, op, right, ?loc=range)
 
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
-        let macro = info.Macro
+        let macro = stripImports com ctx range info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
         CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
@@ -1878,9 +1878,7 @@ module Util =
 
         | Fable.Emit(info, _, range) ->
             if info.IsStatement then iife com ctx expr
-            else
-                let info = { info with Macro = stripImports com ctx range info.Macro }
-                transformEmit com ctx range info
+            else transformEmit com ctx range info
 
         // These cannot appear in expression position in JS, must be wrapped in a lambda
         | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _ -> iife com ctx expr
