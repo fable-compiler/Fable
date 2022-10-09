@@ -429,19 +429,14 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 
 
 class Atom(Generic[_T], Protocol):
-    def __call__(
-        self,
-        *value: _T
-    ) -> Optional[_T]:
+    def __call__(self, *value: _T) -> Optional[_T]:
         ...
 
 
 def create_atom(value: _T) -> Atom[_T]:
     atom = value
 
-    def wrapper(
-        *value: _T
-    ) -> Optional[_T]:
+    def wrapper(*value: _T) -> Optional[_T]:
         nonlocal atom
 
         if len(value) == 0:
@@ -451,6 +446,7 @@ def create_atom(value: _T) -> Atom[_T]:
         return None
 
     return wrapper
+
 
 def create_obj(fields: List[Tuple[Any, Any]]):
     return dict(fields)
@@ -533,7 +529,7 @@ class IEnumerator(Iterator[_T], IDisposable):
     def System_Collections_IEnumerator_Reset(self) -> None:
         ...
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_T]:
         return self
 
     def __next__(self) -> _T:
@@ -602,6 +598,29 @@ class Enumerator(IEnumerator[_T]):
 
     def Dispose(self) -> None:
         return
+
+    def __next__(self) -> _T:
+        return next(self.iter)
+
+    def __iter__(self) -> Iterator[_T]:
+        return self
+
+
+class Enumerable(IEnumerable_1[_T]):
+    __slots__ = "xs"
+
+    def __init__(self, xs: Iterable[_T]) -> None:
+        self.xs = xs
+
+    def GetEnumerator(self) -> IEnumerator[_T]:
+        return Enumerator(iter(self.xs))
+
+    def __iter__(self) -> Iterator[_T]:
+        return iter(self.xs)
+
+
+def to_enumerable(e: Iterable[_T]) -> IEnumerable_1[_T]:
+    return Enumerable(e)
 
 
 def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:

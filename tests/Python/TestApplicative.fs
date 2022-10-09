@@ -1479,10 +1479,10 @@ module FSharpPlus =
 
 open FSharpPlus
 
-//[<Fact>]
-//let ``test FSharpPlus regression`` () = // See #2471
-//    let expected = Some(seq [1; 2])
-//    sequence (seq [Some 1; Some 2]) |> equal expected
+[<Fact>]
+let ``test FSharpPlus regression`` () = // See #2471
+    let expected = Some(seq [1; 2] |> List.ofSeq)
+    sequence (seq [Some 1; Some 2]) |> Option.map List.ofSeq |> equal expected
 
 module Curry =
     let addString (value : string) (f : string -> 'T) =
