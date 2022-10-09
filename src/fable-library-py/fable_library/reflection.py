@@ -15,6 +15,7 @@ Constructor = Callable[..., Any]
 EnumCase = Tuple[str, int]
 FieldInfo = Tuple[str, "TypeInfo"]
 PropertyInfo = FieldInfo
+ParameterInfo = FieldInfo
 
 
 @dataclass
@@ -23,6 +24,13 @@ class CaseInfo:
     tag: int
     name: str
     fields: List[FieldInfo]
+
+
+@dataclass
+class MethodInfo:
+    name: str
+    parameters: List[ParameterInfo]
+    returnType: TypeInfo
 
 
 @dataclass
@@ -188,12 +196,11 @@ def name(info: Union[FieldInfo, TypeInfo, CaseInfo]) -> str:
     if isinstance(info, Tuple):
         return cast(FieldInfo, info)[0]
 
-    elif isinstance(info, CaseInfo):
-        return info.name
-
-    else:
+    elif isinstance(info, TypeInfo):
         i = info.fullname.rfind(".")
         return info.fullname if i == -1 else info.fullname[i + 1 :]
+    else:
+        return info.name
 
 
 def full_name(t: TypeInfo) -> str:
@@ -459,6 +466,16 @@ def assert_union(x: Any) -> None:
         raise Exception("Value is not an F# union type")
 
 
+def get_case_tag(x: Any) -> int:
+    assert_union(x)
+    return x.tag
+
+
 def get_case_name(x: Any) -> str:
     assert_union(x)
     return x.cases()[x.tag]
+
+
+def get_case_fields(x: Any) -> List[Any]:
+    assert_union(x)
+    return x.fields

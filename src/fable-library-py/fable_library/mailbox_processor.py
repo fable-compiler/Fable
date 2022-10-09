@@ -67,7 +67,9 @@ class MailboxProcessor(Generic[_Msg]):
         """
 
         result: Optional[_Reply] = None
-        continuation : List[Callable[[Any], None]] = None  # This is the continuation for the `done` callback of the awaiting poster.
+        continuation: List[
+            Callable[[Any], None]
+        ] = None  # This is the continuation for the `done` callback of the awaiting poster.
 
         def check_completion() -> None:
             if result is not None and continuation is not None:

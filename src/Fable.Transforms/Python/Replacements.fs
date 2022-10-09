@@ -2946,11 +2946,21 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | _ -> None
 
 let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        Helper.LibCall(com, "diagnostics", "StopWatch", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
+        |> Some
+    | "get_ElapsedMilliseconds", Some x ->
+         Helper.InstanceCall(x, "elapsed_milliseconds", t, []) |> Some
+    | "get_ElapsedTicks", Some x ->
+         Helper.InstanceCall(x, "elapsed_ticks", t, []) |> Some
+    | "Start", Some x
+    | "Stop", Some x ->
+        Helper.InstanceCall(x, i.CompiledName.ToLower(), t, []) |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
 
-        Helper.LibCall(com, "diagnostics", memberName, Boolean, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "diagnostics", memberName, Boolean, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc = r)
         |> Some
 
 
@@ -4012,26 +4022,24 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             fsharpValue com methName r t info args
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.PropertyInfo"
+    | "System.Reflection.ParameterInfo"
+    | "System.Reflection.MethodBase"
+    | "System.Reflection.MethodInfo"
     | "System.Reflection.MemberInfo" ->
         match thisArg, info.CompiledName with
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
-        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
-        | Some c, "GetFields" ->
-            Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [ c ], ?loc = r)
-            |> Some
-        | Some c, "GetValue" ->
-            Helper.LibCall(com, "Reflection", "getValue", t, c :: args, ?loc = r)
-            |> Some
+        | Some c, "get_ReturnType" -> makeStrConst "returnType" |> getExpr r t c |> Some
+        | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
+        | Some c, ("get_PropertyType"|"get_ParameterType") -> makeIntConst 1 |> getExpr r t c |> Some
+        | Some c, "GetFields" -> Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+        | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "getValue", t, c::args, ?loc=r) |> Some
         | Some c, "get_Name" ->
             match c with
-            | Value (TypeInfo(exprType, _), loc) ->
+            | Value(TypeInfo(exprType,_), loc) ->
                 getTypeName com ctx loc exprType
-                |> StringConstant
-                |> makeValue r
-                |> Some
+                |> StringConstant |> makeValue r |> Some
             | c ->
-                Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r)
-                |> Some
+                Helper.LibCall(com, "Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
     | _ -> None
 
