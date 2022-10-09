@@ -1594,7 +1594,14 @@ module Util =
         | Fable.DeclaredType (ent, [ _ ]) ->
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, typ) ->
-                makeArray com ctx exprs Fable.ImmutableArray typ
+                let expr, stmts =
+                    exprs
+                    |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                    |> Helpers.unzipArgs
+
+                let xs = Expression.list expr
+                libCall com ctx None "util" "to_enumerable" [ xs ], stmts
+
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
@@ -1678,7 +1685,6 @@ module Util =
                 libCall com ctx r "list" "cons" [ head; tail ], stmts @ stmts'
             | exprs, Some (TransformExpr com ctx (tail, stmts)) ->
                 let expr, stmts' = makeList com ctx exprs
-
                 [ expr; tail ]
                 |> libCall com ctx r "list" "ofArrayWithTail",
                 stmts @ stmts'
