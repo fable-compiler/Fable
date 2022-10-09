@@ -521,7 +521,7 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Number (Decimal,_) ->
         Helper.LibCall(com, "Decimal", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc = r)
     | Number (BigInt,_) ->
-        Helper.LibCall(com, "BigInt", "compare", Number(Int32, NumberInfo.Empty), [makeRef left; makeRef right], ?loc = r)
+        Helper.LibCall(com, "BigInt", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc = r)
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ ->
         Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
@@ -1968,8 +1968,13 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | Patterns.SetContains Operators.standardSet, _, _ ->
         applyOp com ctx r t i.CompiledName args |> Some
-    | "DivRem", _, [x; y; rem] ->
-        Helper.LibCall(com, "Util", "divRemOut", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "DivRem", None, _ ->
+        match args with
+        | [x; y] ->
+            Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [x; y; rem] ->
+            Helper.LibCall(com, "BigInt", "divRemOut", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> None
     | "op_Explicit", None, _ ->
         match t with
         | Number(kind, _) ->

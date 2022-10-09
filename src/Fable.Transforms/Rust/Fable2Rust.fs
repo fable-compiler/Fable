@@ -460,6 +460,7 @@ module TypeInfo =
         | Fable.Array _
         | Fable.List _
         | Fable.Option _
+        | Fable.Number(BigInt, _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpResult _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpSet _)
         | Replacements.Util.Builtin (Replacements.Util.FSharpMap _)
@@ -530,7 +531,7 @@ module TypeInfo =
 
         | _ -> None
 
-    let TypeImplementsCloneTrait (com: IRustCompiler) typ =
+    let typeImplementsCloneTrait (com: IRustCompiler) typ =
         match typ with
         | Fable.String
         | Fable.GenericParam _
@@ -540,18 +541,19 @@ module TypeInfo =
         | Fable.List _
         | Fable.Array _
             -> true
-
+        | Fable.Number(BigInt, _) -> true
         | Fable.AnonymousRecordType _ -> true
         | Fable.DeclaredType(entRef, _) -> true
-
         | _ -> false
 
-    let TypeImplementsCopyTrait (com: IRustCompiler) typ =
+    let typeImplementsCopyTrait (com: IRustCompiler) typ =
         match typ with
+        | Fable.Number(BigInt, _) -> false
         | Fable.Unit
         | Fable.Boolean
         | Fable.Char _
-        | Fable.Number _ -> true
+        | Fable.Number _ // all numbers except BigInt
+            -> true
         | _ -> false
 
     let rec tryGetIdent = function
@@ -1779,8 +1781,8 @@ module Util =
             || Option.exists (isByRefOrAnyType com) t
             || isAddrOfExpr e
         let sourceIsRef = varAttrs.IsRef
-        let implClone = TypeImplementsCloneTrait com e.Type
-        let implCopy = TypeImplementsCopyTrait com e.Type
+        let implClone = typeImplementsCloneTrait com e.Type
+        let implCopy = typeImplementsCopyTrait com e.Type
         let exprIsUnreachable =
             match e with
             | Fable.Emit _ -> true
