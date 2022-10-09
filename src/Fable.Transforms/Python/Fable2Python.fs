@@ -622,13 +622,15 @@ module Annotation =
             let returnType = List.last args
 
             let args =
-                args
-                |> List.removeAt (args.Length - 1)
-                |> List.choose (function
-                    | Expression.Name { Id = Identifier "None" } when args.Length = 2 -> None
-                    | x -> Some x)
-                |> Expression.list
-
+                match args with
+                | Expression.Name { Id=Identifier Ellipsis } :: xs -> Expression.ellipsis
+                | _ ->
+                    args
+                    |> List.removeAt (args.Length - 1)
+                    |> List.choose (function
+                        | Expression.Name { Id = Identifier "None" } when args.Length = 2 -> None
+                        | x -> Some x)
+                    |> Expression.list
             Expression.subscript (expr, Expression.tuple ([ args; returnType ]))
         | _, [] -> expr
         | _, [ arg ] -> Expression.subscript (expr, arg)
@@ -907,6 +909,9 @@ module Annotation =
         | Types.mailboxProcessor, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
+        | "Fable.Core.Py.Callable", _ ->
+            let genArgs = [ Expression.ellipsis; Expression.any]
+            stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, []
         | _ ->
             let ent = com.GetEntity(entRef)
             // printfn "DeclaredType: %A" ent.FullName

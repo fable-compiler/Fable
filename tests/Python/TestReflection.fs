@@ -481,4 +481,111 @@ let ``test Can create generic classes at runtime`` () =
     x.Value1 |> equal 123
     x.Value2 |> equal "abc"
 
+[<Fact>]
+let ``test IsSubclassOf works`` () =
+    let t1 = typeof<MyClass>
+    let t2 = typeof<MyClass<obj, obj>>
+    let t3 = typeof<MyClass2>
+    t3.IsSubclassOf(t1) |> equal false
+    t2.IsSubclassOf(t1) |> equal true
+    t1.IsSubclassOf(t2) |> equal false
+
+[<Fact>]
+let ``test .GetInterface works when types are know at compile time`` () = // #2321
+    let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
+    t.GetGenericArguments().[0] = typeof<int> |> equal true
+    t.GetGenericArguments().[0] = typeof<string> |> equal false
+    typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
+    typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
+    typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
+
+
+[<Fact>]
+let ``test GetType and typeof return the same Type instance for primitive types`` () =
+    let inline getTypeGeneric (x: 'T) =
+      x.GetType()
+
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<uint32>) |> equal false
+    obj.ReferenceEquals(getTypeGeneric 2u, typeof<uint32>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2uy, typeof<byte>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2s, typeof<int16>) |> equal true
+
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<uint32>) |> equal false
+
+#if FABLE_COMPILER
+open Fable.Core
+open Fable.Core.Reflection
+
+type R1 = { x: int }
+type R2 = { y: int }
+
+type Maybe<'t> =
+    | Just of 't
+    | Nothing
+
+type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
+type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
+
+// helper class to extract the name of a type argument
+type Types() =
+    static member inline getNameOf<'t> () : string =
+        typeof<'t>.Name
+
+    static member inline get<'t> () : System.Type =
+        typeof<'t>
+
+type MyUnion20 =
+    | Union20_A
+    | Union20_B of int * string
+
+type MyRecord20 =
+    { FieldA: int
+      FieldB: string }
+
+[<Fact>]
+let ``test Recursively reading generic arguments of nested generic types works`` () =
+    let typeInfo = Types.get<Maybe<Maybe<int>>>()
+
+    // recursively reads the generic arguments
+    let rec getGenericArgs (typeDef: System.Type) : string list =
+        [ yield typeDef.Name
+          for genericTypeArg in typeDef.GetGenericArguments() do
+            yield! getGenericArgs genericTypeArg ]
+
+    getGenericArgs typeInfo
+    |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
+
+[<Fact>]
+let ``test Name can be extracted from RecWithGenDU`` () =
+    let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
+    equal false (name = "")
+
+[<Fact>]
+let ``test Name can be extracted from GenericTestRecord`` () =
+    let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
+    equal false (name = "")
+
+[<Fact>]
+let ``test Can check unions and records without type`` () =
+    let x = box Union20_A
+    let y = box { FieldA = 5; FieldB = "foo" }
+    isUnion x |> equal true
+    isRecord x |> equal false
+    isUnion y |> equal false
+    isRecord y |> equal true
+
+[<Fact>]
+let ``test Can get union values without type`` () =
+    let x = box Union20_A
+    let y = Union20_B(5, "foo") |> box
+    getCaseTag x |> equal 0
+    getCaseTag y |> equal 1
+    getCaseName x |> equal "Union20_A"
+    getCaseName y |> equal "Union20_B"
+    getCaseFields x |> equal [||]
+    getCaseFields y |> equal [|5; "foo"|]
+
+#endif
 #endif

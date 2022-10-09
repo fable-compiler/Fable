@@ -4,7 +4,7 @@ open System
 
 [<RequireQualifiedAccess>]
 module Py =
-    [<Import("typing", "Callable")>]
+    [<Import("Callable", "typing")>]
     type [<AllowNullLiteral>] Callable =
         [<Emit "$0.__name__)">] abstract name: string
         [<Emit "$0$1...">] abstract Invoke: [<ParamArray>] args: obj[] -> obj
