@@ -1,4 +1,4 @@
-import { IComparable, IEquatable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
+import { IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 // This type is only used internally for .ts files in the library
 // F# Result type is in Choice.fs
@@ -42,7 +42,7 @@ export function unionToString(name: string, fields: any[]) {
   if (fields.length === 0) {
     return name;
   } else {
-    let fieldStr = "";
+    let fieldStr;
     let withParens = true;
     if (fields.length === 1) {
       fieldStr = toString(fields[0]);
@@ -55,8 +55,8 @@ export function unionToString(name: string, fields: any[]) {
 }
 
 export abstract class Union implements IEquatable<Union>, IComparable<Union> {
-  public tag!: number;
-  public fields!: any[];
+  public tag!: any;
+  public fields!: any;
   abstract cases(): string[];
 
   public get name() {
@@ -104,7 +104,7 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
 
 function recordToJSON<T>(self: T) {
   const o: any = {};
-  const keys = Object.keys(self);
+  const keys = Object.keys(self as any);
   for (let i = 0; i < keys.length; i++) {
     o[keys[i]] = (self as any)[keys[i]];
   }
@@ -112,11 +112,11 @@ function recordToJSON<T>(self: T) {
 }
 
 function recordToString<T>(self: T) {
-  return "{ " + Object.entries(self).map(([k, v]) => k + " = " + toString(v)).join("\n  ") + " }";
+  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toString(v)).join("\n  ") + " }";
 }
 
 function recordGetHashCode<T>(self: T) {
-  const hashes = Object.values(self).map((v) => structuralHash(v));
+  const hashes = Object.values(self as any).map((v) => structuralHash(v));
   return combineHashCodes(hashes);
 }
 
@@ -126,7 +126,7 @@ function recordEquals<T>(self: T, other: T) {
   } else if (!sameConstructor(self, other)) {
     return false;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = Object.keys(self as any);
     for (let i = 0; i < thisNames.length; i++) {
       if (!equals((self as any)[thisNames[i]], (other as any)[thisNames[i]])) {
         return false;
@@ -142,7 +142,7 @@ function recordCompareTo<T>(self: T, other: T) {
   } else if (!sameConstructor(self, other)) {
     return -1;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = Object.keys(self as any);
     for (let i = 0; i < thisNames.length; i++) {
       const result = compare((self as any)[thisNames[i]], (other as any)[thisNames[i]]);
       if (result !== 0) {
@@ -153,7 +153,7 @@ function recordCompareTo<T>(self: T, other: T) {
   }
 }
 
-export abstract class Record implements IEquatable<Record>, IComparable<Record> {
+export abstract class Record implements IEquatable<Record>, IComparable<Record>, IHashable {
   toJSON() { return recordToJSON(this); }
   toString() { return recordToString(this); }
   GetHashCode() { return recordGetHashCode(this); }
@@ -162,8 +162,8 @@ export abstract class Record implements IEquatable<Record>, IComparable<Record> 
 }
 
 export class FSharpRef<T> {
-  private getter: () => T;
-  private setter: (v: T) => void;
+  private readonly getter: () => T;
+  private readonly setter: (v: T) => void;
 
   get contents() {
     return this.getter();
@@ -212,7 +212,6 @@ export class MatchFailureException extends FSharpException {
   public arg1: string;
   public arg2: number;
   public arg3: number;
-  public message: string;
 
   constructor(arg1: string, arg2: number, arg3: number) {
     super();

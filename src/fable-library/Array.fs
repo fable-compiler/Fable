@@ -207,6 +207,10 @@ let copy (array: 'T[]) =
     // else
     copyImpl array
 
+let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) =
+    // TODO: Check array lengths
+    System.Array.Copy(source, sourceIndex, target, targetIndex, count)
+
 let reverse (array: 'T[]) =
     // if isTypedArrayImpl array then
     //     let res = allocateArrayFrom array array.Length
@@ -300,45 +304,6 @@ let removeAllInPlace predicate (array: 'T[]) =
             count
     countRemoveAll 0
 
-// TODO: Check array lengths
-let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-    let diff = targetIndex - sourceIndex
-    for i = sourceIndex to sourceIndex + count - 1 do
-        target.[i + diff] <- source.[i]
-
-// More performant method to copy arrays, see #2352
-let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-    try
-        Helpers.copyToTypedArray source sourceIndex target targetIndex count
-    with _ ->
-        // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
-        copyTo source sourceIndex target targetIndex count
-
-// Performance test for above method
-// let numloops = 10000
-
-// do
-//     let src: uint8[] = Array.zeroCreate 16384
-//     let trg: uint8[] = Array.zeroCreate 131072
-
-//     measureTime <| fun () ->
-//         for _ in 1 .. numloops do
-//           let rec loopi i =
-//             if i < trg.Length then
-//               Array.blit src 0 trg i src.Length
-//               loopi (i + src.Length) in loopi 0
-
-// do
-//     let src: char[] = Array.zeroCreate 16384
-//     let trg: char[] = Array.zeroCreate 131072
-
-//     measureTime <| fun () ->
-//         for _ in 1 .. numloops do
-//           let rec loopi i =
-//             if i < trg.Length then
-//               Array.blit src 0 trg i src.Length
-//               loopi (i + src.Length) in loopi 0
-
 let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: Cons<'T>) =
     let len = source.Length
     let res1 = allocateArrayFromCons cons len
@@ -365,7 +330,7 @@ let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
 let findIndex (predicate: 'T -> bool) (array: 'T[]): int =
     match findIndexImpl predicate array with
     | index when index > -1 -> index
-    | _ -> indexNotFound()
+    | _ -> indexNotFound(); -1
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
     match findIndexImpl predicate array with
@@ -413,7 +378,7 @@ let findLastIndex predicate (array: _[]) =
 
 let findIndexBack predicate (array: _[]) =
     let rec loop i =
-        if i < 0 then indexNotFound()
+        if i < 0 then indexNotFound(); -1
         elif predicate array.[i] then i
         else loop (i - 1)
     loop (array.Length - 1)
@@ -854,11 +819,11 @@ let transpose (arrays: 'T[] seq) ([<Inject>] cons: Cons<'T>): 'T[][] =
                 result.[i].[j] <- arrays.[j].[i]
         result
 
-let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+let insertAt (index: int) (y: 'T) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
     let len = xs.Length
     if index < 0 || index > len then
         invalidArg "index" SR.indexOutOfBounds
-    let target = allocateArrayFrom xs (len + 1)
+    let target = allocateArrayFromCons cons (len + 1)
     for i = 0 to (index - 1) do
         target.[i] <- xs.[i]
     target.[index] <- y
@@ -866,13 +831,13 @@ let insertAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
         target.[i + 1] <- xs.[i]
     target
 
-let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]): 'T[] =
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
     let len = xs.Length
     if index < 0 || index > len then
         invalidArg "index" SR.indexOutOfBounds
     let ys = arrayFrom ys
     let len2 = ys.Length
-    let target = allocateArrayFrom xs (len + len2)
+    let target = allocateArrayFromCons cons (len + len2)
     for i = 0 to (index - 1) do
         target.[i] <- xs.[i]
     for i = 0 to (len2 - 1) do
@@ -915,11 +880,11 @@ let removeManyAt (index: int) (count: int) (xs: 'T[]): 'T[] =
         invalidArg arg SR.indexOutOfBounds
     ys
 
-let updateAt (index: int) (y: 'T) (xs: 'T[]): 'T[] =
+let updateAt (index: int) (y: 'T) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
     let len = xs.Length
     if index < 0 || index >= len then
         invalidArg "index" SR.indexOutOfBounds
-    let target = allocateArrayFrom xs len
+    let target = allocateArrayFromCons cons len
     for i = 0 to (len - 1) do
         target.[i] <- if i = index then y else xs.[i]
     target

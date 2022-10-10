@@ -1,3 +1,24 @@
+### 4.0.0-theta-005
+
+* Add JSX.jsx function
+
+### 4.0.0-theta-004
+
+* Add ??= operator to JsInterop
+
+### 4.0.0-theta-003
+
+* Python fixes for Interactive
+
+### 4.0.0-theta-002
+
+* Python helpers for Interactive
+* JS helpers for JSX/React integration
+
+### 4.0.0-theta-001
+
+* Fable 4 theta release
+
 ### 4.0.0-snake-island-alpha-007
 
 * Snake Island alpha release

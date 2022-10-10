@@ -101,6 +101,8 @@ type MemberFunctionOrValue =
     abstract HasSpread: bool
     abstract IsInline: bool
     abstract IsPublic: bool
+    abstract IsPrivate: bool
+    abstract IsInternal: bool
     abstract IsConstructor: bool
     abstract IsInstance: bool
     abstract IsExtension: bool
@@ -125,6 +127,7 @@ type Entity =
     abstract DisplayName: string
     abstract CompiledName: string
     abstract FullName: string
+    abstract DeclaringEntity: EntityRef option
     abstract Attributes: Attribute seq
     abstract BaseType: DeclaredType option
     abstract AllInterfaces: DeclaredType seq
@@ -136,6 +139,8 @@ type Entity =
     abstract UnionCases: UnionCase list
     abstract IsAbstractClass: bool
     abstract IsPublic: bool
+    abstract IsPrivate: bool
+    abstract IsInternal: bool
     abstract IsNamespace: bool
     abstract IsFSharpModule: bool
     abstract IsFSharpUnion: bool
@@ -295,8 +300,10 @@ type GeneratedMember =
         member this.IsGetter = match this with GeneratedGetter _ -> true | _ -> false
         member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
         member _.IsProperty = false
-        member _.IsPublic = true
         member _.IsInline = false
+        member _.IsPublic = true
+        member _.IsPrivate = false
+        member _.IsInternal = false
         member _.IsExtension = false
         member _.IsOverrideOrExplicitInterfaceImplementation = false
         member _.IsDispatchSlot = false

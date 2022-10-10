@@ -117,27 +117,29 @@ let compilerOptionUsage (CompilerOption (s, tag, spec, _, _)) =
 
 let nl = Environment.NewLine
 
-let getCompilerOption (CompilerOption (_s, _tag, _spec, _, help) as compilerOption) =
+let getCompilerOption (CompilerOption (_s, _tag, _spec, _, help) as compilerOption) width =
     let sb = StringBuilder()
 
     let flagWidth = 42 // fixed width for printing of flags, e.g. --debug:{full|pdbonly|portable|embedded}
     let defaultLineWidth = 80 // the fallback width
 
     let lineWidth =
-#if FABLE_COMPILER
-        defaultLineWidth
-#else
-        try
-            Console.BufferWidth
-        with e ->
-            defaultLineWidth
+        match width with
+        | None ->
+#if !FABLE_COMPILER
+            try
+                Console.BufferWidth
+            with _ ->
 #endif
+                defaultLineWidth
+        | Some w -> w
 
     let lineWidth =
         if lineWidth = 0 then
             defaultLineWidth
         else
-            lineWidth (* Have seen BufferWidth=0 on Linux/Mono *)
+            lineWidth (* Have seen BufferWidth=0 on Linux/Mono Coreclr for sure *)
+
     // Lines have this form: <flagWidth><space><description>
     //   flagWidth chars - for flags description or padding on continuation lines.
     //   single space    - space.
@@ -165,14 +167,14 @@ let getCompilerOption (CompilerOption (_s, _tag, _spec, _, help) as compilerOpti
     let _ = sb.Append $"{nl}"
     sb.ToString()
 
-let getPublicOptions (heading, opts) =
-    if not (isNil opts) then
-        $"{nl}{nl}\t\t{heading}{nl}"
-        + (opts |> List.map getCompilerOption |> String.concat "")
-    else
-        ""
+let getPublicOptions heading opts width =
+    match opts with
+    | [] -> ""
+    | _ ->
+        $"{nl}{nl}                {heading}{nl}"
+        + (opts |> List.map (fun t -> getCompilerOption t width) |> String.concat "")
 
-let GetCompilerOptionBlocks blocks =
+let GetCompilerOptionBlocks blocks width =
     let sb = new StringBuilder()
 
     let publicBlocks =
@@ -188,7 +190,7 @@ let GetCompilerOptionBlocks blocks =
             let headingOptions =
                 publicBlocks |> List.filter (fun (h2, _) -> heading = h2) |> List.collect snd
 
-            let _ = sb.Append(getPublicOptions (heading, headingOptions))
+            let _ = sb.Append(getPublicOptions heading headingOptions width)
             Set.add heading doneHeadings
 
     List.fold consider Set.empty publicBlocks |> ignore<Set<string>>
@@ -261,35 +263,44 @@ module ResponseFile =
 #endif //!FABLE_COMPILER
 
 let ParseCompilerOptions (collectOtherArgument: string -> unit, blocks: CompilerOptionBlock list, args) =
-    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind BuildPhase.Parameter
+    use _ = UseBuildPhase BuildPhase.Parameter
 
     let specs = List.collect GetOptionsOfBlock blocks
 
-    // returns a tuple - the option token, the option argument string
-    let parseOption (s: string) =
-        // grab the option token
-        let opts = s.Split([| ':' |])
-        let mutable opt = opts[0]
+    // returns a tuple - the option minus switchchars, the option tokenand  the option argument string
+    let parseOption (option: string) =
 
-        if opt = "" then
-            ()
-        // if it doesn't start with a '-' or '/', reject outright
-        elif opt[0] <> '-' && opt[0] <> '/' then
-            opt <- ""
-        elif opt <> "--" then
-            // is it an abbreviated or MSFT-style option?
-            // if so, strip the first character and move on with your life
-            if opt.Length = 2 || isSlashOpt opt then
-                opt <- opt[1..]
-            // else, it should be a non-abbreviated option starting with "--"
-            elif opt.Length > 3 && opt.StartsWithOrdinal("--") then
-                opt <- opt[2..]
+        // Get option arguments, I.e everything following first:
+        let opts = option.Split([| ':' |])
+        let optArgs = String.Join(":", opts[1..])
+
+        let opt =
+            if option = "" then
+                ""
+            // if it doesn't start with a '-' or '/', reject outright
+            elif option[0] <> '-' && option[0] <> '/' then
+                ""
+            elif option <> "--" then
+                // is it an abbreviated or MSFT-style option?
+                // if so, strip the first character and move on with your life
+                // Wierdly a -- option can't have only a 1 character name
+                if option.Length = 2 || isSlashOpt option then
+                    option[1..]
+                elif option.Length >= 3 && option[2] = ':' then
+                    option[1..]
+                elif option.StartsWithOrdinal("--") then
+                    match option.Length with
+                    | l when l >= 4 && option[3] = ':' -> ""
+                    | l when l > 3 -> option[2..]
+                    | _ -> ""
+                else
+                    ""
             else
-                opt <- ""
+                option
 
-        // get the argument string
-        let optArgs = if opts.Length > 1 then String.Join(":", opts[1..]) else ""
-        opt, optArgs
+        // grab the option token
+        let token = opt.Split([| ':' |])[0]
+        opt, token, optArgs
 
     let getOptionArg compilerOption (argString: string) =
         if argString = "" then
@@ -361,7 +372,7 @@ let ParseCompilerOptions (collectOtherArgument: string -> unit, blocks: Compiler
             processArg (responseFileOptions @ t)
 #endif //!FABLE_COMPILER
         | opt :: t ->
-            let optToken, argString = parseOption opt
+            let option, optToken, argString = parseOption opt
 
             let reportDeprecatedOption errOpt =
                 match errOpt with
@@ -370,7 +381,7 @@ let ParseCompilerOptions (collectOtherArgument: string -> unit, blocks: Compiler
 
             let rec attempt l =
                 match l with
-                | CompilerOption (s, _, OptionConsoleOnly f, d, _) :: _ when optToken = s && argString = "" ->
+                | CompilerOption (s, _, OptionConsoleOnly f, d, _) :: _ when option = s ->
                     reportDeprecatedOption d
                     f blocks
                     t
@@ -719,7 +730,7 @@ let tagAlgorithm = "{SHA1|SHA256}"
 let tagInt = "<n>"
 let tagPathMap = "<path=sourcePath;...>"
 let tagNone = ""
-let tagLangVersionValues = "{?|version|latest|preview}"
+let tagLangVersionValues = "{version|latest|preview}"
 
 // PrintOptionInfo
 //----------------
@@ -1117,34 +1128,35 @@ let mlCompatibilityFlag (tcConfigB: TcConfigBuilder) =
 let exit _code = ()
 #endif
 
-/// LanguageVersion management
-let setLanguageVersion specifiedVersion =
+let GetLanguageVersions () =
+    seq {
+        FSComp.SR.optsSupportedLangVersions ()
+        yield! LanguageVersion.ValidOptions
+        yield! LanguageVersion.ValidVersions
+    }
+    |> String.concat Environment.NewLine
 
-    let languageVersion = LanguageVersion(specifiedVersion)
-
-    let dumpAllowedValues () =
-        printfn "%s" (FSComp.SR.optsSupportedLangVersions ())
-
-        for v in languageVersion.ValidOptions do
-            printfn "%s" v
-
-        for v in languageVersion.ValidVersions do
-            printfn "%s" v
-
-        exit 0
-
-    if specifiedVersion = "?" then
-        dumpAllowedValues ()
-    elif specifiedVersion.ToUpperInvariant() = "PREVIEW" then
+let setLanguageVersion (specifiedVersion: string) =
+    if specifiedVersion.ToUpperInvariant() = "PREVIEW" then
         ()
-    elif not (languageVersion.ContainsVersion specifiedVersion) then
+    elif not (LanguageVersion.ContainsVersion specifiedVersion) then
         error (Error(FSComp.SR.optsUnrecognizedLanguageVersion specifiedVersion, rangeCmdArgs))
 
-    languageVersion
+    LanguageVersion(specifiedVersion)
 
 let languageFlags tcConfigB =
     [
         // -langversion:?                Display the allowed values for language version
+        CompilerOption(
+            "langversion:?",
+            tagNone,
+            OptionConsoleOnly(fun _ ->
+                Console.Write(GetLanguageVersions())
+                tcConfigB.exiter.Exit 0),
+            None,
+            Some(FSComp.SR.optsGetLangVersions ())
+        )
+
         // -langversion:<string>         Specify language version such as
         //                               'default' (latest major version), or
         //                               'latest' (latest version, including minor versions),
@@ -1155,7 +1167,7 @@ let languageFlags tcConfigB =
             tagLangVersionValues,
             OptionString(fun switch -> tcConfigB.langVersion <- setLanguageVersion (switch)),
             None,
-            Some(FSComp.SR.optsLangVersion ())
+            Some(FSComp.SR.optsSetLangVersion ())
         )
 
         CompilerOption(
@@ -1394,6 +1406,7 @@ let testFlag tcConfigB =
             | "ShowLoadedAssemblies" -> tcConfigB.showLoadedAssemblies <- true
             | "ContinueAfterParseFailure" -> tcConfigB.continueAfterParseFailure <- true
             | "ParallelOff" -> tcConfigB.concurrentBuild <- false
+            | "ParallelCheckingWithSignatureFilesOn" -> tcConfigB.parallelCheckingWithSignatureFiles <- true
 #if DEBUG
             | "ShowParserStackOnParseError" -> showParserStackOnParseError <- true
 #endif
@@ -1482,6 +1495,14 @@ let internalFlags (tcConfigB: TcConfigBuilder) =
             tagNone,
             OptionUnit(fun () -> tcConfigB.pause <- true),
             Some(InternalCommandLineOption("--pause", rangeCmdArgs)),
+            None
+        )
+
+        CompilerOption(
+            "bufferwidth",
+            tagNone,
+            OptionInt((fun v -> tcConfigB.bufferWidth <- Some v)),
+            Some(InternalCommandLineOption("--bufferWidth", rangeCmdArgs)),
             None
         )
 
@@ -1675,6 +1696,14 @@ let internalFlags (tcConfigB: TcConfigBuilder) =
             tagNone,
             OptionUnit(fun () -> tcConfigB.noDebugAttributes <- true),
             Some(InternalCommandLineOption("nodebugdata", rangeCmdArgs)),
+            None
+        )
+
+        CompilerOption(
+            "parallelreferenceresolution",
+            tagNone,
+            OptionUnit(fun () -> tcConfigB.parallelReferenceResolution <- ParallelReferenceResolution.On),
+            Some(InternalCommandLineOption("--parallelreferenceresolution", rangeCmdArgs)),
             None
         )
 
@@ -2020,7 +2049,8 @@ let GetBannerText tcConfigB =
 
 /// FSC only help. (FSI has it's own help function).
 let GetHelpFsc tcConfigB (blocks: CompilerOptionBlock list) =
-    GetBannerText tcConfigB + GetCompilerOptionBlocks blocks
+
+    GetBannerText tcConfigB + GetCompilerOptionBlocks blocks tcConfigB.bufferWidth
 
 let GetVersion tcConfigB =
     $"{tcConfigB.productNameForBannerText}{nl}"
@@ -2033,7 +2063,7 @@ let miscFlagsBoth tcConfigB =
             tagNone,
             OptionConsoleOnly(fun _ ->
                 Console.Write(GetVersion tcConfigB)
-                exit 0),
+                tcConfigB.exiter.Exit 0),
             None,
             Some(FSComp.SR.optsVersion ())
         )
@@ -2047,7 +2077,7 @@ let miscFlagsFsc tcConfigB =
             tagNone,
             OptionConsoleOnly(fun blocks ->
                 Console.Write(GetHelpFsc tcConfigB blocks)
-                exit 0),
+                tcConfigB.exiter.Exit 0),
             None,
             Some(FSComp.SR.optsHelp ())
         )
@@ -2108,7 +2138,7 @@ let abbreviatedFlagsFsc tcConfigB =
             tagNone,
             OptionConsoleOnly(fun blocks ->
                 Console.Write(GetHelpFsc tcConfigB blocks)
-                exit 0),
+                tcConfigB.exiter.Exit 0),
             None,
             Some(FSComp.SR.optsShortFormOf ("--help"))
         )
@@ -2118,7 +2148,7 @@ let abbreviatedFlagsFsc tcConfigB =
             tagNone,
             OptionConsoleOnly(fun blocks ->
                 Console.Write(GetHelpFsc tcConfigB blocks)
-                exit 0),
+                tcConfigB.exiter.Exit 0),
             None,
             Some(FSComp.SR.optsShortFormOf ("--help"))
         )
@@ -2128,7 +2158,7 @@ let abbreviatedFlagsFsc tcConfigB =
             tagNone,
             OptionConsoleOnly(fun blocks ->
                 Console.Write(GetHelpFsc tcConfigB blocks)
-                exit 0),
+                tcConfigB.exiter.Exit 0),
             None,
             Some(FSComp.SR.optsShortFormOf ("--help"))
         )

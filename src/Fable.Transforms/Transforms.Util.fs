@@ -18,6 +18,7 @@ module Atts =
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
     let [<Literal>] importMember = "Fable.Core.ImportMemberAttribute" // typeof<Fable.Core.ImportMemberAttribute>.FullName
+    let [<Literal>] exportDefault = "Fable.Core.ExportDefaultAttribute" // typeof<Fable.Core.ExportDefaultAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
     let [<Literal>] emit = "Fable.Core.Emit"
     let [<Literal>] emitAttr = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
@@ -35,8 +36,8 @@ module Atts =
     let [<Literal>] jsDecorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
     let [<Literal>] jsReflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
-    let [<Literal>] pyDecorator = "Fable.Core.PY.DecoratorAttribute" // typeof<Fable.Core.PY.DecoratorAttribute>.FullName
-    let [<Literal>] pyReflectedDecorator = "Fable.Core.PY.ReflectedDecoratorAttribute" // typeof<Fable.Core.PY.ReflectedDecoratorAttribute>.FullName
+    let [<Literal>] pyDecorator = "Fable.Core.Py.DecoratorAttribute" // typeof<Fable.Core.Py.DecoratorAttribute>.FullName
+    let [<Literal>] pyReflectedDecorator = "Fable.Core.Py.ReflectedDecoratorAttribute" // typeof<Fable.Core.Py.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] dartIsConst = "Fable.Core.Dart.IsConstAttribute" // typeof<Fable.Core.Dart.IsConstAttribute>.FullName
     let [<Literal>] rustByRef = "Fable.Core.Rust.ByRefAttribute"// typeof<Fable.Core.Rust.ByRefAttribute>.FullName
     let [<Literal>] rustOuterAttr = "Fable.Core.Rust.OuterAttrAttribute"// typeof<Fable.Core.Rust.OuterAttrAttribute>.FullName
@@ -119,6 +120,7 @@ module Types =
     let [<Literal>] iequatableGeneric = "System.IEquatable`1"
     let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
+    let [<Literal>] icomparer = "System.Collections.IComparer"
     let [<Literal>] iStructuralEquatable = "System.Collections.IStructuralEquatable"
     let [<Literal>] iStructuralComparable = "System.Collections.IStructuralComparable"
     let [<Literal>] idisposable = "System.IDisposable"
@@ -133,8 +135,8 @@ module Types =
     let [<Literal>] equalityComparer = "System.Collections.IEqualityComparer"
 
     // Types compatible with Inject attribute (fable library)
-    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
-    let [<Literal>] equalityComparerGeneric = "System.Collections.Generic.IEqualityComparer`1"
+    let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"
+    let [<Literal>] iequalityComparerGeneric = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.Cons`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
@@ -369,11 +371,9 @@ module AST =
         | Let(i, v, body) -> inner [i, v] body |> Some
         | _ -> None
 
-    let (|MaybeCasted|) e =
-        let rec inner = function
-            | TypeCast(e,_) -> inner e
-            | e -> e
-        inner e
+    let rec (|MaybeCasted|) = function
+        | TypeCast(MaybeCasted e,_) -> e
+        | e -> e
 
     let (|MaybeOption|) e =
         match e with
@@ -638,6 +638,16 @@ module AST =
               CallInfo = CallInfo.Create(args=args) }
         Emit(emitInfo, t, r)
 
+    let emitTemplate r t args isStatement (templateParts, templateValues)  =
+        let macro =
+            match templateParts with
+            | [] -> ""
+            | head::tail ->
+                ((head, List.length args), tail)
+                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
+                |> fst
+        emit r t (args @ templateValues) isStatement macro
+
     let emitExpr r t args macro =
         emit r t args false macro
 
@@ -702,23 +712,17 @@ module AST =
         HasSpread: bool
     |}
 
-    let tryGetParamsInfo (com: Compiler) (callInfo: CallInfo): ParamsInfo option =
-        callInfo.MemberRef
-        |> Option.bind com.TryGetMember
-        |> function
-        | None -> None
+    let getParamsInfo (memberInfo: MemberFunctionOrValue): ParamsInfo =
         // ParamObject/NamedParams attribute is not compatible with arg spread
-        | Some memberInfo when memberInfo.HasSpread ->
+        if memberInfo.HasSpread then
             {| NamedIndex = None
                HasSpread = true
                Parameters = List.concat memberInfo.CurriedParameterGroups |}
-            |> Some
-        | Some memberInfo ->
+        else
             let parameters = List.concat memberInfo.CurriedParameterGroups
             {| HasSpread = false
                Parameters = parameters
                NamedIndex = parameters |> List.tryFindIndex (fun p -> p.IsNamed) |}
-            |> Some
 
     let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
         match info.NamedIndex with

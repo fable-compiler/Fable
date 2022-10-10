@@ -4,17 +4,15 @@ pub mod Guid_ {
     use crate::String_::{string, toString};
     use uuid::{Uuid};
 
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
     pub struct Guid(Uuid);
+
+    pub const empty: Guid = Guid(Uuid::nil());
 
     impl core::fmt::Display for Guid {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", toString(&self.0))
         }
-    }
-
-    pub fn empty() -> Guid {
-        Guid(Uuid::nil())
     }
 
     pub fn new_guid() -> Guid {

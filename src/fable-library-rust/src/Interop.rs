@@ -1,6 +1,6 @@
 pub mod ListExt {
     // use core::ops::Deref;
-    use crate::List_::{cons, mkList, reverse, List};
+    use crate::List_::{cons, empty, reverse, List};
     use crate::Native_::{seq_to_iter, Vec};
     use crate::Seq_::ofList;
 
@@ -27,7 +27,7 @@ pub mod ListExt {
 
     impl<T: Clone> From<&Vec<T>> for List<T> {
         fn from(vec: &Vec<T>) -> Self {
-            let mut lst: List<T> = mkList(None);
+            let mut lst: List<T> = empty();
             for (i, item) in vec.iter().rev().enumerate() {
                 lst = cons(item.clone(), lst);
             }
@@ -37,7 +37,7 @@ pub mod ListExt {
 
     impl<T: Clone> FromIterator<T> for List<T> {
         fn from_iter<U: IntoIterator<Item = T>>(iter: U) -> Self {
-            let mut lst: List<T> = mkList(None);
+            let mut lst: List<T> = empty();
             for (i, item) in iter.into_iter().enumerate() {
                 lst = cons(item, lst);
             }
@@ -47,7 +47,7 @@ pub mod ListExt {
 
     impl<'a, T: Clone> FromIterator<&'a T> for List<T> {
         fn from_iter<U: IntoIterator<Item = &'a T>>(iter: U) -> Self {
-            let mut lst: List<T> = mkList(None);
+            let mut lst: List<T> = empty();
             for (i, item) in iter.into_iter().enumerate() {
                 lst = cons(item.clone(), lst);
             }

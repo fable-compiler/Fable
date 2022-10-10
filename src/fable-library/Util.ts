@@ -20,8 +20,11 @@ export interface IComparable<T> extends IEquatable<T> {
 }
 
 export interface IEquatable<T> {
-  GetHashCode(): number;
   Equals(x: T): boolean;
+}
+
+export interface IHashable {
+  GetHashCode(): number;
 }
 
 export interface IDisposable {
@@ -37,7 +40,7 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> {
+export interface ICollection<T> extends IterableIterator<T> {
   readonly Count: number;
   readonly IsReadOnly: boolean;
   Add(item: T): void;
@@ -47,28 +50,32 @@ export interface ICollection<T> {
   Remove(item: T): boolean;
 }
 
-export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
-  return x != null && typeof x === "object" && Symbol.iterator in x;
-}
-
-export function isArrayLike<T>(x: T | ArrayLike<T>): x is ArrayLike<T> {
+export function isArrayLike<T>(x: T | ArrayLike<T> | Iterable<T>): x is T[] {
   return Array.isArray(x) || ArrayBuffer.isView(x);
 }
 
-function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
-  return typeof (x as IComparer<T>).Compare === "function";
+export function isIterable<T>(x: T | ArrayLike<T> | Iterable<T>): x is Iterable<T> {
+  return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
-function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
-  return typeof (x as IComparable<T>).CompareTo === "function";
+export function isEnumerable<T>(x: T | Iterable<T>): x is IEnumerable<T> {
+  return x != null && typeof (x as IEnumerable<T>).GetEnumerator === "function"
 }
 
-function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
-  return typeof (x as IEquatable<T>).Equals === "function";
+export function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
+  return x != null && typeof (x as IComparer<T>).Compare === "function";
 }
 
-function isHashable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
-  return typeof (x as IEquatable<T>).GetHashCode === "function";
+export function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
+  return x != null && typeof (x as IComparable<T>).CompareTo === "function";
+}
+
+export function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return x != null && typeof (x as IEquatable<T>).Equals === "function";
+}
+
+export function isHashable<T>(x: T | IHashable): x is IHashable {
+  return x != null && typeof (x as IHashable).GetHashCode === "function";
 }
 
 export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
@@ -81,24 +88,41 @@ export function disposeSafe(x: any) {
   }
 }
 
+export function defaultOf<T>(): T {
+  return null as T;
+}
+
 export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x)?.constructor === Object.getPrototypeOf(y)?.constructor;
 }
 
 export interface IEnumerator<T> extends IDisposable {
-  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
-  ["System.Collections.IEnumerator.get_Current"](): T | undefined;
+  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T;
+  ["System.Collections.IEnumerator.get_Current"](): T;
   ["System.Collections.IEnumerator.MoveNext"](): boolean;
   ["System.Collections.IEnumerator.Reset"](): void;
   Dispose(): void;
 }
 
-export interface IEnumerable<T> extends Iterable<T> {
+export interface IEnumerable<T> extends IterableIterator<T> {
   GetEnumerator(): IEnumerator<T>;
 }
 
+export class Enumerable<T> implements IEnumerable<T> {
+  constructor(private en: IEnumerator<T>) {}
+  public GetEnumerator(): IEnumerator<T> { return this.en; }
+  [Symbol.iterator]() {
+    return this;
+  }
+  next() {
+    const hasNext = this.en["System.Collections.IEnumerator.MoveNext"]();
+    const current = hasNext ? this.en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
+    return { done: !hasNext, value: current } as IteratorResult<T>;
+  }
+}
+
 export class Enumerator<T> implements IEnumerator<T> {
-  private current?: T;
+  private current: T = defaultOf();
   constructor(private iter: Iterator<T>) { }
   public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
     return this.current;
@@ -119,20 +143,60 @@ export class Enumerator<T> implements IEnumerator<T> {
   }
 }
 
-export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
-  return typeof (o as any).GetEnumerator === "function"
-    ? (o as IEnumerable<T>).GetEnumerator()
-    : new Enumerator(o[Symbol.iterator]());
+export function toEnumerable<T>(e: IEnumerable<T> | Iterable<T>): IEnumerable<T> {
+  if (isEnumerable(e)) { return e; }
+  else { return new Enumerable(new Enumerator(e[Symbol.iterator]())); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
+export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T> {
+  if (isEnumerable(e)) { return e.GetEnumerator(); }
+  else { return new Enumerator(e[Symbol.iterator]()); }
+}
+
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
   return {
+    [Symbol.iterator]() {
+      return this;
+    },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
       return { done: !hasNext, value: current } as IteratorResult<T>;
     },
   };
+}
+
+export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): IterableIterator<T> {
+  return toIterator(toEnumerable(e).GetEnumerator());
+}
+
+export interface ISet<T> {
+  add(value: T): this;
+  clear(): void;
+  delete(value: T): boolean;
+  forEach(callbackfn: (value: T, value2: T, set: ISet<T>) => void, thisArg?: any): void;
+  has(value: T): boolean;
+  readonly size: number;
+
+  [Symbol.iterator](): Iterator<T>;
+  entries(): Iterable<[T, T]>;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+}
+
+export interface IMap<K, V> {
+  clear(): void;
+  delete(key: K): boolean;
+  forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  readonly size: number;
+
+  [Symbol.iterator](): Iterator<[K, V]>;
+  entries(): Iterable<[K, V]>;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
 }
 
 export class Comparer<T> implements IComparer<T> {
@@ -179,8 +243,8 @@ export function assertNotEqual<T>(actual: T, expected: T, msg?: string): void {
 }
 
 export class Lazy<T> {
-  public factory: () => T;
-  public isValueCreated: boolean;
+  private factory: () => T;
+  private isValueCreated: boolean;
 
   private createdValue?: T;
 
@@ -293,9 +357,7 @@ export function physicalHash<T>(x: T): number {
 }
 
 export function identityHash<T>(x: T): number {
-  if (x == null) {
-    return 0;
-  } else if (isHashable(x)) {
+  if (isHashable(x)) {
     return x.GetHashCode();
   } else {
     return physicalHash(x);
@@ -352,8 +414,9 @@ export function fastStructuralHash<T>(x: T): number {
 }
 
 // Intended for declared types that may or may not implement GetHashCode
-export function safeHash<T>(x: IEquatable<T> | undefined): number {
-  return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
+export function safeHash(x: IHashable | undefined): number {
+  // return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
+  return identityHash(x);
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
@@ -393,12 +456,12 @@ export function equals<T>(x: T, y: T): boolean {
     return y == null;
   } else if (y == null) {
     return false;
-  } else if (typeof x !== "object") {
-    return false;
   } else if (isEquatable(x)) {
     return x.Equals(y);
   } else if (isArrayLike(x)) {
     return isArrayLike(y) && equalArrays(x, y);
+  } else if (typeof x !== "object") {
+    return false;
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
@@ -470,12 +533,12 @@ export function compare<T>(x: T, y: T): number {
     return y == null ? 0 : -1;
   } else if (y == null) {
     return 1;
-  } else if (typeof x !== "object") {
-    return x < y ? -1 : 1;
   } else if (isComparable(x)) {
     return x.CompareTo(y);
   } else if (isArrayLike(x)) {
     return isArrayLike(y) ? compareArrays(x, y) : -1;
+  } else if (typeof x !== "object") {
+    return x < y ? -1 : 1;
   } else if (x instanceof Date) {
     return y instanceof Date ? compareDates(x, y) : -1;
   } else {
@@ -495,14 +558,13 @@ export function clamp<T>(comparer: (x: T, y: T) => number, value: T, min: T, max
   return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
 }
 
-export function createAtom<T>(value?: T): (v?: T, isSet?: boolean) => T | void {
+export function createAtom<T>(value: T): (<Args extends [] | [T]>(...args: Args) => Args extends [] ? T : void) {
   let atom = value;
-  return (value?: T, isSetter?: boolean) => {
-    if (!isSetter) {
-      return atom;
+  return (...args) => {
+    if (args.length === 0) {
+      return atom as any;
     } else {
-      atom = value;
-      return void 0;
+      atom = args[0];
     }
   };
 }
@@ -652,4 +714,15 @@ export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
     }
   }
   return (arg: any) => mapArg(fn, arg, mappings, 0);
+}
+
+// More performant method to copy arrays, see #2352
+export function copyToArray<T>(source: T[], sourceIndex: number, target: T[], targetIndex: number, count: number): void {
+  if (ArrayBuffer.isView(source) && ArrayBuffer.isView(target)) {
+    (target as any).set((source as any).subarray(sourceIndex, sourceIndex + count), targetIndex);
+  } else {
+    for (let i = 0; i < count; ++i) {
+      target[targetIndex + i] = source[sourceIndex + i];
+    }
+  }
 }

@@ -82,7 +82,13 @@ let makeUniqueIdent ctx t name =
 
 let withTag tag = function
     | Call(e, i, t, r) -> Call(e, { i with Tags = tag::i.Tags }, t, r)
+    | Get(e, FieldGet i, t, r) -> Get(e, FieldGet { i with Tags = tag::i.Tags }, t, r)
     | e -> e
+
+let getTags = function
+    | Call(e, i, t, r) -> i.Tags
+    | Get(e, FieldGet i, t, r) -> i.Tags
+    | _e -> []
 
 let objValue (k, v): ObjectExprMember =
     {
@@ -372,7 +378,7 @@ let (|EntFullName|_|) = function
     | _ -> None
 
 let (|IsByRefType|_|) (com: Compiler) = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
         match ent.IsByRef, genArgs with
         | true, (genArg::_) -> Some genArg
@@ -380,10 +386,10 @@ let (|IsByRefType|_|) (com: Compiler) = function
     | _ -> None
 
 let (|IsInRefType|_|) (com: Compiler) = function
-    | Fable.DeclaredType(entRef, genArgs) ->
+    | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
         match ent.IsByRef, genArgs with
-        | true, [genArg; Fable.DeclaredType(byRefKind, _)]
+        | true, [genArg; DeclaredType(byRefKind, _)]
             when byRefKind.FullName = Types.byrefKindIn
             -> Some genArg
         | _ -> None
@@ -414,7 +420,7 @@ let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.FullName with
         | Types.idictionary -> IDictionary
-        | Types.equalityComparerGeneric -> IEqualityComparer
+        | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
     | _ -> Other
 
@@ -422,7 +428,7 @@ let (|IEnumerable|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.FullName with
         | Types.ienumerableGeneric -> IEnumerable
-        | Types.equalityComparerGeneric -> IEqualityComparer
+        | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
     | _ -> Other
 
@@ -471,16 +477,42 @@ let (|MaybeInScope|) (ctx: Context) e =
     match e with
     | MaybeCasted(IdentExpr ident) when not ident.IsMutable  ->
         match tryFindInScope ctx ident.Name with
-        | Some e -> e
+        | Some(MaybeCasted e) -> e
         | None -> e
     | e -> e
 
-let (|RequireStringConst|) com (ctx: Context) r e =
+let rec (|MaybeInScopeStringConst|_|) ctx = function
+    | MaybeInScope ctx expr ->
+        match expr with
+        | StringConst s -> Some s
+        | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
+        | Value(StringTemplate(None, start::parts, values),_) ->
+            (Some [], values) ||> List.fold (fun acc value ->
+                match acc, value with
+                | None, _ -> None
+                | Some acc, MaybeInScopeStringConst ctx value -> Some(value::acc)
+                | _ -> None)
+            |> Option.map (fun values ->
+                let valuesAndParts = List.zip (List.rev values) parts
+                (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p))
+        | _ -> None
+
+let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
-    | MaybeInScope ctx (StringConst s) -> s
+    | MaybeInScopeStringConst ctx s -> s
     | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
         ""
+
+let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
+    match e with
+    | MaybeInScopeStringConst ctx s -> [s], []
+    // If any of the interpolated values can have side effects, beta binding reduction won't work
+    // so we don't check interpolation in scope
+    | Value(StringTemplate(None, parts, values),_) -> parts, values
+    | _ ->
+        addError com ctx.InlinePath r "Expecting string literal"
+        [""], []
 
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
    let argTypes = argExprs |> List.map (fun a -> a.Type)

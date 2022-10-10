@@ -15,10 +15,21 @@ pub mod Native_ {
 
     pub use core::any::{Any, TypeId};
 
-    pub use startup::on_startup;
     pub use super::Mutable::*;
     pub use super::Lazy::*;
     pub use crate::Choice_::*;
+
+    mod macros {
+        #[macro_export]
+        macro_rules! on_startup {
+            ($($tokens:tt)*) => {}; // does nothing
+        }
+    }
+
+    #[cfg(not(feature = "static_do_bindings"))]
+    pub use crate::on_startup;
+    #[cfg(feature = "static_do_bindings")]
+    pub use startup::on_startup;
 
     #[cfg(not(feature = "atomic"))]
     pub type Lrc<T> = Rc<T>;
@@ -88,7 +99,7 @@ pub mod Native_ {
     type MutArray<T> = MutCell<Vec<T>>;
 
     #[repr(transparent)]
-    #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
     pub struct Array<T: Clone>(Lrc<MutArray<T>>);
 
     impl<T: Clone> core::ops::Deref for Array<T> {

@@ -43,6 +43,12 @@ module Seq =
 
 [<RequireQualifiedAccess>]
 module Array =
+    let filteri (filter: int -> 'a -> bool) (xs: 'a[]): 'a[] =
+        let mutable i = -1
+        xs |> Array.filter (fun x ->
+            i <- i + 1
+            filter i x)
+
     let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
         let r1 = ResizeArray()
         let r2 = ResizeArray()
@@ -176,6 +182,16 @@ module Naming =
     let (|EndsWith|_|) (pattern: string) (txt: string) =
         if txt.EndsWith(pattern)
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
+        else None
+
+    let (|Regex|_|) (reg: Regex) (str: string) =
+        let m = reg.Match(str)
+        if m.Success then
+            m.Groups
+            |> Seq.cast<Group>
+            |> Seq.map (fun g -> g.Value)
+            |> Seq.toList
+            |> Some
         else None
 
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"

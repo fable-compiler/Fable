@@ -92,7 +92,7 @@ module Enumerator =
     //     let dispose() = ()
     //     fromFunctions current next dispose
 
-    let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
+    let cast (e: IEnumerator<'T>): IEnumerator<'T> =
         let current() = unbox<'T> e.Current
         let next() = e.MoveNext()
         let dispose() =
@@ -101,8 +101,8 @@ module Enumerator =
             | _ -> ()
         fromFunctions current next dispose
 
-    let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
-        let mutable outerOpt: IEnumerator<'U> option = None
+    let concat<'T> (sources: seq<seq<'T>>) =
+        let mutable outerOpt: IEnumerator<seq<'T>> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable started = false
         let mutable finished = false
@@ -222,7 +222,7 @@ let ofSeq (xs: seq<'T>): IEnumerator<'T> =
 let delay (generator: unit -> seq<'T>) =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<#seq<'T>>) =
+let concat (sources: seq<seq<'T>>) =
     mkSeq (fun () -> Enumerator.concat sources)
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
@@ -246,7 +246,7 @@ let toArray (xs: seq<'T>): 'T[] =
 let ofList (xs: list<'T>) =
     (xs :> seq<'T>)
 
-let toList (xs: seq<'T>): seq<'T> =
+let toList (xs: seq<'T>): list<'T> =
     match xs with
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
@@ -267,7 +267,7 @@ let generateIndexed create compute dispose =
 let append (xs: seq<'T>) (ys: seq<'T>) =
     concat [| xs; ys |]
 
-let cast (xs: System.Collections.IEnumerable) =
+let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
         checkNonNull "source" xs
         xs.GetEnumerator()
@@ -326,7 +326,7 @@ let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq
 let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) =
     finallyEnumerable(compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>) =
+let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> seq<'U>) =
     finallyEnumerable(
         (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
         (fun () -> source resource :> seq<_>))
@@ -408,7 +408,7 @@ let tryFindIndex predicate (xs: seq<'T>) =
 let findIndex predicate (xs: seq<'T>) =
     match tryFindIndex predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryFindIndexBack predicate (xs: seq<'T>) =
     xs
@@ -418,7 +418,7 @@ let tryFindIndexBack predicate (xs: seq<'T>) =
 let findIndexBack predicate (xs: seq<'T>) =
     match tryFindIndexBack predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     use e = ofSeq xs
@@ -656,7 +656,7 @@ let cache (source: seq<'T>) =
 let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
     let ysCache = cache ys
     delay (fun () ->
-        let mapping x = ysCache |> map (fun y -> (x, y))
+        let mapping (x: 'T1) = ysCache |> map (fun y -> (x, y))
         concat (map mapping xs)
     )
 
@@ -820,7 +820,7 @@ let windowed windowSize (xs: seq<'T>): 'T seq seq =
         |> ofArray
     )
 
-let transpose (xss: seq<#seq<'T>>) =
+let transpose (xss: seq<seq<'T>>) =
     delay (fun () ->
         xss
         |> toArray

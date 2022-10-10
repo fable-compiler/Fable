@@ -9,12 +9,51 @@ open Fable.Core.PyInterop
 open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
 
+let logs = ResizeArray()
+
+type LogAttribute(msg1: string, code: int) =
+    inherit Py.DecoratorAttribute()
+    override _.Decorate(fn) =
+        let mutable count = 0
+        Py.argsFunc(fun args ->
+            count <- count + 1
+            logs.Add $"LOG1: [%s{msg1} (code %i{code})] called %i{count} time(s)!"
+            fn.Invoke(args))
+
+type Log2Attribute() =
+    inherit Py.DecoratorAttribute()
+    override _.Decorate(fn) =
+        let mutable count = 0
+        Py.argsFunc(fun args ->
+            count <- count + 1
+            logs.Add $"LOG2: called %i{count} time(s)!"
+            fn.Invoke(args))
+
+type Log3Attribute() =
+    inherit Py.ReflectedDecoratorAttribute()
+    override _.Decorate(fn, info) =
+        logs.Add $"{info.Name}: {info.ReturnType}"
+        for p in info.GetParameters() do
+            logs.Add $"{p.Name}: {p.ParameterType}"
+        Py.argsFunc(fun args ->
+            fn.Invoke(args))
+
+[<Log("MATH", 3)>]
+[<Log2>]
+[<Log3>]
+let myComplexAdder x y = x + y
+
 type NameProp =
     { Name: string }
 
 type Props =
     | Names of NameProp array
     | [<Erase>] Custom of key:string * value:obj
+
+[<Global("Array")>]
+type PyArray =
+    abstract push: item: obj -> unit
+    abstract length: int
 
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, sign) =
@@ -62,6 +101,16 @@ let ``test Class with attached members can be inherited II`` () =
     let x = ClassWithAttachmentsChild2()
     x.dileHola("Pepe") |> equal "Hola, Pepe???"
 
+[<Fact>]
+let ``test Can type test interfaces decorated with Global`` () =
+    let ar = ResizeArray [| 1; 2; 3 |] |> box
+    match ar with
+    | :? PyArray as ar ->
+        ar.length |> equal 3
+        ar.push("4")
+        ar.length |> equal 4
+    | _ -> failwith "Not an array"
+
 // FIXME: ImportError: cannot import name 'keyValueList' from 'fable.map_util'
 // [<Fact>]
 // let ``Array inside keyValueList is preserved`` () =
@@ -69,5 +118,19 @@ let ``test Class with attached members can be inherited II`` () =
 //     let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
 //     let expected = props |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
 //     actual |> equal expected
+
+[<Fact>]
+let ``test Decorators work`` () =
+    myComplexAdder 3 4 |> equal 7
+    myComplexAdder 6 7 |> equal 13
+    logs |> Seq.toList |> equal [
+        "my_complex_adder: System.Int32"
+        "x: System.Int32"
+        "y: System.Int32"
+        "LOG1: [MATH (code 3)] called 1 time(s)!"
+        "LOG2: called 1 time(s)!"
+        "LOG1: [MATH (code 3)] called 2 time(s)!"
+        "LOG2: called 2 time(s)!"
+    ]
 
 #endif

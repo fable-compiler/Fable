@@ -147,7 +147,7 @@ export function toConsoleError(arg: IPrintfFormat | string) {
   return continuePrint((x: string) => console.error(x), arg);
 }
 
-export function toText(arg: IPrintfFormat | string): string {
+export function toText(arg: IPrintfFormat | string) {
   return continuePrint((x: string) => x, arg);
 }
 

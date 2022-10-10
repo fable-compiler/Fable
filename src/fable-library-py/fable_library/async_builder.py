@@ -5,6 +5,7 @@ from collections import deque
 from threading import Lock, RLock, Timer
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Dict,
     Generic,
@@ -296,7 +297,7 @@ class AsyncBuilder:
         except StopIteration:
             done = True
 
-        def delay():
+        def delay() -> Async[_U]:
             nonlocal cur, done
             res = body(cur)
             try:

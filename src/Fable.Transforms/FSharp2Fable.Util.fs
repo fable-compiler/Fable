@@ -230,6 +230,8 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.HasSpread = Helpers.hasParamArray m
         member _.IsInline = Helpers.isInline m
         member _.IsPublic = Helpers.isNotPrivate m
+        member _.IsPrivate = m.Accessibility.IsPrivate
+        member _.IsInternal = m.Accessibility.IsInternal
         // Using memb.IsValue doesn't work for function values
         // (e.g. `let ADD = adder()` when adder returns a function)
         member _.IsValue = Helpers.isModuleValueForDeclarations m
@@ -317,6 +319,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         member _.CompiledName = ent.CompiledName
         member _.FullName = FsEnt.FullName ent
 
+        member _.DeclaringEntity = ent.DeclaringEntity |> Option.map FsEnt.Ref
+
         member _.BaseType =
             match TypeHelpers.tryGetBaseEntity ent with
             | Some(baseEntity, baseGenArgs) -> Some(upcast FsDeclaredType(baseEntity, baseGenArgs))
@@ -355,6 +359,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
         member _.IsPublic = not ent.Accessibility.IsPrivate
+        member _.IsPrivate = ent.Accessibility.IsPrivate
+        member _.IsInternal = ent.Accessibility.IsInternal
         member _.IsAbstractClass = ent.IsAbstractClass
         member _.IsNamespace = ent.IsNamespace
         member _.IsFSharpModule = ent.IsFSharpModule
@@ -482,7 +488,7 @@ module Helpers =
         let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> entityName |> cleanNameAsRustIdentifier
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName
@@ -540,8 +546,8 @@ module Helpers =
                     // Don't snake_case if member has compiled name attribute
                     match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
                     | Some _ -> name
-                    | _ -> Fable.PY.Naming.toSnakeCase name
-                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+                    | _ -> Fable.Py.Naming.toSnakeCase name
+                Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.buildNameWithoutSanitation name part
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
@@ -1578,8 +1584,8 @@ module Identifiers =
         let sanitizedName =
             match com.Options.Language with
             | Python ->
-                let name = Fable.PY.Naming.toSnakeCase name
-                Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name) name part
+                let name = Fable.Py.Naming.toSnakeCase name
+                Fable.Py.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.Py.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
             | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
 
@@ -1853,6 +1859,19 @@ module Util =
             Fable.Type.GenericParam(g.Name, g.IsMeasure, Seq.toList g.Constraints))
         Fable.Type.DeclaredType(ent.Ref, genArgs)
 
+    let getEntityGenArgs (ent: Fable.Entity) =
+        ent.GenericParameters
+        |> List.map (fun p ->
+            Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
+    let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
+        memb.GenericParameters
+        |> List.choose (fun p ->
+            if not p.IsMeasure then
+                Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints)
+                |> Some
+            else None)
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =
@@ -1982,14 +2001,14 @@ module Util =
             | "System.IObserver`1"
             | Types.ienumerableGeneric
             // These are used for injections
-            | Types.comparer
-            | Types.equalityComparerGeneric -> false
+            | Types.icomparerGeneric
+            | Types.iequalityComparerGeneric -> false
             | Types.icomparable -> false
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true
-        // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.PY namespaces
+        // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
         | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
-        | Some fullName when fullName.StartsWith("Fable.Core.PY.") -> false
+        | Some fullName when fullName.StartsWith("Fable.Core.Py.") -> false
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members

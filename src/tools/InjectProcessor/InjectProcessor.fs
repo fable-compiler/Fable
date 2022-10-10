@@ -5,13 +5,12 @@ open System.IO
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
-open Fable
 
 let typeAliases =
     Map [
-        "System.Collections.Generic.IComparer`1", "comparer"
-        "System.Collections.Generic.IEqualityComparer`1", "equalityComparer"
-        "ArrayModule.Cons`1", "arrayCons"
+        "System.Collections.Generic.IComparer`1", "icomparerGeneric"
+        "System.Collections.Generic.IEqualityComparer`1", "iequalityComparerGeneric"
+        "Native.Cons`1", "arrayCons"
     ]
 
 let parse (checker: FSharpChecker) projFile =
@@ -55,7 +54,7 @@ let rec getInjects initialized decls =
             | FSharpImplementationFileDeclaration.Entity(_, sub) ->
                 // If the entity contains multiple declarations it must be the root module
                 if not initialized then
-                    yield! getInjects (List.isMultiple sub) sub
+                    yield! getInjects (Fable.List.isMultiple sub) sub
             | FSharpImplementationFileDeclaration.InitAction _ -> ()
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, _) ->
                 let _, injections =
@@ -71,8 +70,8 @@ let rec getInjects initialized decls =
                     let membName =
                         match memb.DeclaringEntity with
                         | Some ent when not ent.IsFSharpModule ->
-                            let suffix = Fable.Transforms.OverloadSuffix.getHash ent memb
-                            Naming.buildNameWithoutSanitationFrom
+                            let suffix = Fable.Transforms.FSharp2Fable.Helpers.getOverloadSuffixFrom ent memb
+                            Fable.Naming.buildNameWithoutSanitationFrom
                                 ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName suffix
                         | _ -> memb.CompiledName
                     yield membName, injections

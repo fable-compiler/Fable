@@ -69,7 +69,7 @@ module Js =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
-            if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
+            if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
         let sourceDir = Path.GetDirectoryName(sourcePath)
         let targetDir = Path.GetDirectoryName(targetPath)
         let memoryStream = new IO.MemoryStream()
@@ -136,7 +136,7 @@ module Python =
     let normalizeFileName path =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
-        |> PY.Naming.checkPyKeywords
+        |> Py.Naming.checkPyKeywords
 
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
@@ -150,7 +150,7 @@ module Python =
         let sourcePath = com.CurrentFile
         let buildPackages =
             match cliArgs.FableLibraryPath with
-            | Some PY.Naming.sitePackages -> true
+            | Some Py.Naming.sitePackages -> true
             | _ -> false
 
 
@@ -182,7 +182,7 @@ module Python =
                             if part = "." then None
                             elif part = ".." then Some ""
                             elif i = parts.Length - 1 then Some(normalizeFileName part)
-                            else Some part // Do not normalize dir names. See #3079
+                            else part.Replace(".", "_") |> Some // Do not lowercase dir names. See #3079
                         )
                         |> String.concat "."
                     if isLibrary then "." + path else path
@@ -194,7 +194,7 @@ module Python =
                         i <- i + 1
                         if part = "." then if i = 0 && isLibrary then Some("") else None
                         elif part = ".." then None
-                        elif part = PY.Naming.sitePackages then Some("fable_library")
+                        elif part = Py.Naming.sitePackages then Some("fable_library")
                         elif part = Naming.fableModules && (not isLibrary) then None
                         elif i = parts.Length - 1 then Some(normalizeFileName part)
                         else Some part // Do not normalize dir names. See #3079

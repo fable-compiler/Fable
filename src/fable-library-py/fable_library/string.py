@@ -72,8 +72,6 @@ def to_console_error(arg: Union[IPrintfFormat, str]):
     return continue_print(lambda x: print(x), arg)
 
 
-# Set return to `Any` since `Union[str, Callable]` will make type
-# checkers really unhappy.
 def to_text(arg: Union[IPrintfFormat, str]) -> Union[str, Callable[..., Any]]:
     cont: Callable[[str], Any] = lambda x: x
     return continue_print(cont, arg)

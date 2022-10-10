@@ -16,7 +16,7 @@ pub mod HashMap_ {
     use core::hash::Hash;
 
     #[repr(transparent)]
-    #[derive(Clone, Debug)] //, PartialEq, PartialOrd, Eq, Hash, Ord)]
+    #[derive(Clone, Debug, Default)] //, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashMap<K: Clone, V: Clone>(Lrc<MutHashMap<K, V>>);
 
     impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {

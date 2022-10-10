@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
-from typing import Union
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Union
 
 from .types import FSharpRef
 
@@ -22,6 +22,27 @@ def try_parse(
         return True
     except Exception:
         return False
+
+
+def create(
+    year: int,
+    month: int,
+    day: int,
+    h: int,
+    m: int,
+    s: int,
+    ms: Union[int, timedelta],
+    offset: Optional[timedelta] = None,
+) -> datetime:
+    if isinstance(ms, timedelta):
+        offset = ms
+        ms = 0
+
+    if offset is None:
+        return datetime(year, month, day, h, m, s, ms)
+
+    tzinfo = timezone(offset)
+    return datetime(year, month, day, h, m, s, ms, tzinfo=tzinfo)
 
 
 def now() -> datetime:

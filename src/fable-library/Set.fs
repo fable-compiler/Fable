@@ -775,7 +775,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
         member _.``Symbol.toStringTag`` = "FSharpSet"
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             Helpers.arrayFrom(this) |> box
 
     interface System.IComparable with

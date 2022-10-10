@@ -554,9 +554,9 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         List.tryItem injectGenArgIndex genArgs
         |> Option.bind (fun genArg ->
             match injectType with
-            | Types.comparer ->
+            | Types.icomparerGeneric ->
                 args @ [makeComparer com ctx genArg] |> Some
-            | Types.equalityComparerGeneric ->
+            | Types.iequalityComparerGeneric ->
                 args @ [makeEqualityComparer com ctx genArg] |> Some
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg] |> Some
@@ -604,7 +604,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | Naming.EndsWith "Enumerator" _
         -> makeIdentExpr "Iterator" |> Some
     | Types.icomparable | Types.icomparableGeneric -> makeIdentExpr "Comparable" |> Some
-    | Types.idisposable | Types.adder | Types.averager | Types.comparer | Types.equalityComparerGeneric ->
+    | Types.idisposable | Types.adder | Types.averager | Types.icomparerGeneric | Types.iequalityComparerGeneric ->
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1..]
         let entFullName =
             match entFullName.IndexOf("`") with
@@ -650,7 +650,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
             // In imports *.ts extensions have to be converted to *.js extensions instead
             let fileExt = com.Options.FileExtension
-            let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
+            let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
             Value(StringConstant(Path.ChangeExtension(path, fileExt)), r)
         | path -> path
 
@@ -769,10 +769,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | _ -> None
             | Naming.StartsWith "emit" rest, [args; macro] ->
                 match macro with
-                | RequireStringConst com ctx r macro ->
+                | RequireStringConstOrTemplate com ctx r template ->
                     let args = destructureTupleArgs [args]
                     let isStatement = rest = "Statement"
-                    emit r t args isStatement macro |> Some
+                    emitTemplate r t args isStatement template |> Some
             | ("toNullable" | "ofNullable"), [arg] -> Some arg
             | "toOption" | "ofOption"|"defaultValue"|"defaultWith" as meth, args ->
                 Helper.LibCall(com, "Types", meth, t, args, ?loc=r) |> Some
@@ -1375,10 +1375,10 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 // Find/FindLast don't work because we cannot provide a default value for ref types with null safety in Dart
 //    | "Find", Some ar, [arg] ->
 //        let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
-//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
 //    | "FindLast", Some ar, [arg] ->
 //        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
-//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+//        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "filter", t, [arg; ar], genArgs=i.GenericArgs, ?loc=r) |> Some
     | "AddRange", Some ar, [arg] ->

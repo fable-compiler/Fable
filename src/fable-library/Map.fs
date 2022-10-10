@@ -374,8 +374,8 @@ module MapTree =
     let fold f x m =
         foldOpt (OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt f) x m
 
-    let foldSectionOpt (comparer: IComparer<'Key>) lo hi (f: OptimizedClosures.FSharpFunc<_, _, _, _>) (m: MapTree<'Key, 'Value>) x =
-        let rec foldFromTo (f: OptimizedClosures.FSharpFunc<_, _, _, _>) (m: MapTree<'Key, 'Value>) x =
+    let foldSectionOpt (comparer: IComparer<'Key>) lo hi (f: OptimizedClosures.FSharpFunc<_, _, _, 'a>) (m: MapTree<'Key, 'Value>) x =
+        let rec foldFromTo (f: OptimizedClosures.FSharpFunc<_, _, _, 'a>) (m: MapTree<'Key, 'Value>) x =
             match m with
             | None -> x
             | Some m2 ->
@@ -705,7 +705,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         member _.``Symbol.toStringTag`` = "FSharpMap"
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with

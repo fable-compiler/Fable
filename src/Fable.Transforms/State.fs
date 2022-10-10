@@ -211,7 +211,9 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
 
         member _.WillPrecompileInlineFunction(file) =
             let fableLibraryDir =
-                Path.Combine(Path.GetDirectoryName(currentFile), fableLibraryDir)
+                if Path.isRelativePath fableLibraryDir then
+                    Path.Combine(Path.GetDirectoryName(currentFile), fableLibraryDir)
+                else fableLibraryDir
                 |> Path.getRelativeFileOrDirPath false file true
             CompilerImpl(file, project, options, fableLibraryDir, ?outDir=outDir, ?outType=outType,
                 ?watchDependencies=watchDependencies, logs=logs, isPrecompilingInlineFunction=true)

@@ -116,7 +116,7 @@ type SideEffects =
 let inline getFirstName x = (^T : (member FirstName : string) x)
 let inline getLastName x = (^T : (member LastName : string) x)
 
-let inline getFirsAndLastName x =
+let inline getFirstAndLastName x =
     (^T : (member FirstName : string) x) + " " + (^T : (member LastName : string) x)
 
 let inline getFullName x =
@@ -134,7 +134,7 @@ let ``test Picks the right witness`` () =
 
 [<Fact>]
 let ``test Picks the right witness II`` () =
-    getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+    getFirstAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
     |> equal "Alfonso Horigome"
 
 [<Fact>]
@@ -628,16 +628,16 @@ let ``test Trait calls work with record fields`` () =
     replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
     replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 
-//[<Fact>]
-//let ``test Nested trait calls work`` () = // See #2468
-//    let i: int  = parse "123"
-//    let b: bool = parse "true"
-//    let p: Parseable = parse ""
-//    let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
-//    equal 123 i
-//    equal true b
-//    equal Parseable p
-//    equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
+[<Fact>]
+let ``test Nested trait calls work`` () = // See #2468
+    let i: int  = parse "123"
+    let b: bool = parse "true"
+    let p: Parseable = parse ""
+    let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
+    equal 123 i
+    equal true b
+    equal Parseable p
+    equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
 
 [<Fact>]
 let ``test Inline local function can call another inline function with trait call`` () =
@@ -1479,10 +1479,10 @@ module FSharpPlus =
 
 open FSharpPlus
 
-//[<Fact>]
-//let ``test FSharpPlus regression`` () = // See #2471
-//    let expected = Some(seq [1; 2])
-//    sequence (seq [Some 1; Some 2]) |> equal expected
+[<Fact>]
+let ``test FSharpPlus regression`` () = // See #2471
+    let expected = Some(seq [1; 2] |> List.ofSeq)
+    sequence (seq [Some 1; Some 2]) |> Option.map List.ofSeq |> equal expected
 
 module Curry =
     let addString (value : string) (f : string -> 'T) =

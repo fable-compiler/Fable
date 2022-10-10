@@ -83,11 +83,14 @@ type D1 = D1
 type D2 = D2
 type D3 = D3
 
-type ToLength = ToLength with
-    static member (&.) (ToLength, x: int<px>) = fun D1 _ _ -> String.Join("", string x, "px")
-    static member (&.) (ToLength, x: int<em>) = fun D1 D2 _ -> String.Join("", string x, "em")
+// type ToLength = ToLength with
+type ToLength = ToLength of int
+with
+    static member (&.) (_a: ToLength, x: int<px>) = fun D1 _ _ -> String.Join("", string x, "px")
+    static member (&.) (_a: ToLength, x: int<em>) = fun D1 D2 _ -> String.Join("", string x, "em")
 
-let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
+// let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
+let inline toLen x : string = ((ToLength 0) &. x) D1 D2 D3
 
 [<Fact>]
 let ``first overload`` () =

@@ -1,3 +1,11 @@
+### 4.2.0
+
+* Add Entity.DeclaringEntity
+
+### 4.1.0
+
+* Add IsInternal/IsPrivate to Entity and MemberFunctionOrValue
+
 ### 4.0.0
 
 * Stable AST for Fable 4

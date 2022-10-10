@@ -1308,7 +1308,7 @@ type Type1 = { t1: string }
 
 [<Fact>]
 let ``test conditional expressions`` () = // See #2782
-    let test (u2: U2<string, Type1>) =       
+    let test (u2: U2<string, Type1>) =
         match u2 with
         | U2.Case1 s -> s
         | U2.Case2 s when s.t1 <> "" -> s.t1
@@ -1318,8 +1318,43 @@ let ``test conditional expressions`` () = // See #2782
 
 type Æøå =
     | Union1 of string
-    
+
 [<Fact>]
 let ``test unicode chars in identifiers are preserved`` () =
     let x = typeof<Æøå>.FullName
     x.Replace("+", ".") |> equal "Fable.Tests.Misc.Æøå"
+
+[<Fact>]
+let ``test System.Diagnostics.Stopwatch.Frequency works`` () =
+    let x = System.Diagnostics.Stopwatch.Frequency
+    x > 1000000L |> equal true
+
+
+let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
+    let freq = double System.Diagnostics.Stopwatch.Frequency
+    let start = System.Diagnostics.Stopwatch.GetTimestamp()
+    System.Threading.Thread.Sleep(10)
+    let stop = System.Diagnostics.Stopwatch.GetTimestamp()
+    let elapsedMs = (double (stop - start)) * 1000.0 / freq
+    elapsedMs > 0 |> equal true
+
+[<Fact>]
+let ``test Module mutable values work`` () =
+    Util.mutableValue <- 3
+    Util.mutableValue |> equal 3
+    Util.getValueTimes2() |> equal 6
+    Util.Nested.getOuterValueTimes4() |> equal 12
+
+[<Fact>]
+let ``test Nested module mutable values work`` () =
+    Util.Nested.nestedMutableValue <- "C"
+    Util.Nested.nestedMutableValue |> equal "C"
+    Util.Nested.getValueTimes2() |> equal "CC"
+    Util.getNestedValueTimes3() |> equal "CCC"
+
+[<Fact>]
+let ``test Module mutable option values work`` () =
+    Util.mutableValueOpt <- Some 3
+    Util.mutableValueOpt.Value |> equal 3
+    Util.mutableValueOpt <- None
+    Util.mutableValueOpt.IsNone |> equal true

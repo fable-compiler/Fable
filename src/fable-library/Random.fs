@@ -147,13 +147,13 @@ type Seeded (seed : int) =
 
     member this.Next1(maxValue : int) =
         if maxValue < 0 then
-         raise <| ArgumentOutOfRangeException("maxValue", "maxValue must be positive")
+         raise <| ArgumentOutOfRangeException("maxValue must be positive")
 
         int (this.Sample() * float maxValue)
 
     member this.Next2(minValue : int, maxValue : int) =
         if minValue > maxValue then
-            raise <| ArgumentOutOfRangeException("minValue", "minValue must be less than maxValue")
+            raise <| ArgumentOutOfRangeException("minValue must be less than maxValue")
 
         let range = int64 (maxValue - minValue)
 

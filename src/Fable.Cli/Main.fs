@@ -134,18 +134,22 @@ module private Util =
 
                 let modules =
                     absPath.Substring(outDir.Length, absPath.Length-outDir.Length-fileName.Length)
-                        .Trim([|'/'|])
-                        .Split([|'/'|])
+                        .Trim([|'/'; '\\'|])
+                        .Split([|'/'; '\\' |])
 
                 let modules =
                     match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules, Some PY.Naming.sitePackages ->
+                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
                         // When building packages we generate Python snake_case module within the kebab-case package
                         let packageModule = package.Replace("-", "_")
                         // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
                         let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
                         Naming.fableModules :: package :: packageModule :: modules
-                    | modules, _ -> modules
+                    | modules, _ ->
+                        modules |> List.map (fun m ->
+                            match m with
+                            | "." -> m
+                            | m -> m.Replace(".", "_"))
                     |> List.toArray
                     |> IO.Path.Join
 
@@ -195,7 +199,12 @@ module FileWatcherUtil =
         files
         // FCS may add files in temporary dirs to resolve nuget references in scripts
         // See https://github.com/fable-compiler/Fable/pull/2725#issuecomment-1015123642
-        |> List.filter (fun file -> not (file.EndsWith(".fsproj.fsx")))
+        |> List.filter (fun file -> not (
+            file.EndsWith(".fsproj.fsx")
+            // It looks like latest F# compiler puts generated files for resolution of packages
+            // in scripts in $HOME/.packagemanagement. See #3222
+            || file.Contains(".packagemanagement")
+        ))
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
         |> List.sortBy (fun f -> f.Length)
@@ -211,7 +220,7 @@ module FileWatcherUtil =
                     if restDirs |> List.forall (fun d -> (withTrailingSep d).StartsWith dir') then dir
                     else
                         match IO.Path.GetDirectoryName(dir) with
-                        | null -> failwith "No common base dir"
+                        | null -> failwith "No common base dir, please run again with --verbose option and report"
                         | dir -> getCommonDir dir
                 getCommonDir dir
 
@@ -638,17 +647,29 @@ let private getFilesToCompile (state: State) (changes: ISet<string>) (oldFiles: 
     Log.verbose(lazy $"""Files to compile:{Log.newLine}    {filesToCompile |> String.concat $"{Log.newLine}    "}""")
     projCracked, filesToCompile
 
-let private areCompiledFilesUpToDate (cliArgs: CliArgs) (state: State) (filesToCompile: string[]) =
-    let pathResolver = state.GetPathResolver()
-    filesToCompile
-    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-    |> Array.forall (fun source ->
-        let outPath = getOutPath state.CliArgs pathResolver source
-        let existsAndIsNewer = File.existsAndIsNewerThanSource source outPath
-        if not existsAndIsNewer then
-            Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} doesn't exist or is older than {File.relPathToCurDir source}")
-        existsAndIsNewer
-    )
+let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
+    try
+        let mutable foundCompiledFile = false
+        let pathResolver = state.GetPathResolver()
+        let upToDate =
+            filesToCompile
+            |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+            |> Array.forall (fun source ->
+                let outPath = getOutPath state.CliArgs pathResolver source
+                // Empty files are not written to disk so we only check date for existing files
+                if IO.File.Exists(outPath) then
+                    foundCompiledFile <- true
+                    let upToDate = IO.File.GetLastWriteTime(source) < IO.File.GetLastWriteTime(outPath)
+                    if not upToDate then
+                        Log.verbose(lazy $"Output file {File.relPathToCurDir outPath} is older than {File.relPathToCurDir source}")
+                    upToDate
+                else true
+            )
+        // If we don't find compiled files, assume we need recompilation
+        upToDate && foundCompiledFile
+    with er ->
+        Log.warning("Cannot check timestamp of compiled files: " + er.Message)
+        false
 
 let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     let workingDir = cliArgs.RootDir
@@ -668,14 +689,32 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
     | Some runProc ->
         let workingDir = cliArgs.RootDir
 
+        let findLastFileFullPath () =
+            let pathResolver = state.GetPathResolver()
+            let lastFile = Array.last projCracked.SourceFiles
+            getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
+
+        // Fable's getRelativePath version ensures there's always a period in front of the path: ./
+        let findLastFileRelativePath () =
+            findLastFileFullPath () |> Path.getRelativeFileOrDirPath true workingDir false
+
         let exeFile, args =
             match cliArgs.CompilerOptions.Language, runProc.ExeFile with
-            | (JavaScript | TypeScript), Naming.placeholder ->
-                let pathResolver = state.GetPathResolver()
-                let lastFile = Array.last projCracked.SourceFiles
-                let lastFilePath = getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
-                // Fable's getRelativePath version ensures there's always a period in front of the path: ./
-                let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
+            | Python, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
+                "python", lastFilePath::runProc.Args
+            | Rust, Naming.placeholder ->
+                let lastFileDir = IO.Path.GetDirectoryName(findLastFileFullPath())
+                let args =
+                    match File.tryFindUpwards "Cargo.toml" lastFileDir with
+                    | Some path -> "--manifest-path"::path::runProc.Args
+                    | None -> runProc.Args
+                "cargo", "run"::args
+            | Dart, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
+                "dart", "run"::lastFilePath::runProc.Args
+            | JavaScript, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
                 "node", lastFilePath::runProc.Args
             | (JavaScript | TypeScript), exeFile ->
                 File.tryNodeModulesBin workingDir exeFile
@@ -736,7 +775,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
     // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
     if Option.isNone state.Watcher
         && projCracked.CanReuseCompiledFiles
-        && areCompiledFilesUpToDate cliArgs state filesToCompile then
+        && areCompiledFilesUpToDate state filesToCompile then
             Log.always "Skipped compilation because all generated files are up-to-date!"
             let exitCode, state = checkRunProcess state projCracked 0
             return state, [||], exitCode
@@ -748,7 +787,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) = async {
                                 && projCracked.CanReuseCompiledFiles
                                 && not runProc.IsWatch
                                 && runProc.ExeFile <> Naming.placeholder
-                                && areCompiledFilesUpToDate cliArgs state filesToCompile ->
+                                && areCompiledFilesUpToDate state filesToCompile ->
                 let cliArgs = runProcessAndForget cliArgs runProc
                 { state with CliArgs = cliArgs
                              SilentCompilation = true }, cliArgs

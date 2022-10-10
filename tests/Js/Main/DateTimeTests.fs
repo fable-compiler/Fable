@@ -52,10 +52,20 @@ let tests =
         date.Year |> equal 99
 
     testCase "DateTime UTC from Year 1 to 99 works" <| fun () ->
-        let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        let date = DateTime(1, 1, 2, 3, 4, 5, DateTimeKind.Utc)
         date.Year |> equal 1
-        let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        date.Month |> equal 1
+        date.Day |> equal 2
+        date.Hour |> equal 3
+        date.Minute |> equal 4
+        date.Second |> equal 5
+        let date = DateTime(99, 1, 2, 3, 4, 5, DateTimeKind.Utc)
         date.Year |> equal 99
+        date.Month |> equal 1
+        date.Day |> equal 2
+        date.Hour |> equal 3
+        date.Minute |> equal 4
+        date.Second |> equal 5
 
     // TODO: These two tests give different values for .NET and JS because DateTime
     // becomes as a plain JS Date object, so I'm just checking the fields get translated

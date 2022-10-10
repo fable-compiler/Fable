@@ -70,7 +70,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     // Native JS Set (used for primitive keys) doesn't work with `JSON.stringify` but
     // let's add `toJSON` for consistency with the types within fable-library.
     interface Fable.Core.IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             Helpers.arrayFrom(this) |> box
 
 

@@ -66,7 +66,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
 
 let createAtom com (value: Expr) =
     let typ = value.Type
-    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
+    Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ], genArgs=[typ])
 
 let getRefCell com r typ (expr: Expr) =
     getFieldWith r typ expr "contents"
@@ -102,7 +102,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         Delegate([], value, None, Tags.empty)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        let args = [IdentExpr v; makeBoolConst true]
+        let args = [IdentExpr v]
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None, Tags.empty)
@@ -689,16 +689,16 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> fail()
         | Some genArg ->
             match injectType with
-            | Types.comparer ->
+            | Types.icomparerGeneric ->
                 args @ [makeComparer com ctx genArg]
-            | Types.equalityComparerGeneric ->
+            | Types.iequalityComparerGeneric ->
                 args @ [makeEqualityComparer com ctx genArg]
             | Types.arrayCons ->
                 match genArg with
                 // We don't have a module for ResizeArray so let's assume the kind is MutableArray
                 | TypedArrayCompatible com MutableArray consName ->
                     args @ [makeIdentExpr consName]
-                | _ -> args
+                | _ -> args @ [Value(Null Any, None)]
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg]
             | Types.averager ->
@@ -758,10 +758,10 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
+let rec defaultof (com: ICompiler) (ctx: Context) r t =
     match t with
     // Non-struct tuples default to null
-    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx), true) |> makeValue None
+    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
     | Number _
     | Builtin BclTimeSpan
@@ -770,23 +770,28 @@ let rec defaultof (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateOnly
     | Builtin BclTimeOnly -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid()
-    | DeclaredType(ent,_)  ->
-        let ent = com.GetEntity(ent)
+    | DeclaredType(entRef, _)  ->
+        let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
         if ent.IsValueType
         then tryConstructor com ent
         else None
         |> Option.map (fun e -> Helper.ConstructorCall(e, t, []))
-        |> Option.defaultWith (fun () -> Null t |> makeValue None)
+        |> Option.defaultWith (fun () ->
+            // Null t |> makeValue None
+            Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc=r)
+        )
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
-    | _ -> Null t |> makeValue None
+    | _ ->
+        // Null t |> makeValue None
+        Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc=r)
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
             // In imports *.ts extensions have to be converted to *.js extensions instead
             let fileExt = com.Options.FileExtension
-            let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(".js", fileExt) else fileExt
+            let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
             Value(StringConstant(Path.ChangeExtension(path, fileExt)), r)
         | path -> path
 
@@ -882,6 +887,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
         | _ -> None
+    | "Fable.Core.JS", ("js" | "expr_js" as meth) ->
+        let isStatement = meth <> "expr_js"
+        match args with
+        | RequireStringConstOrTemplate com ctx r template::_ ->
+            emitTemplate r t [] isStatement template  |> Some
+        | _ -> None
     | "Fable.Core.JsInterop", meth ->
         match meth, args with
         | "importDynamic", [path] ->
@@ -944,10 +955,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | RequireStringConst com ctx r macro ->
+            | RequireStringConstOrTemplate com ctx r template ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
-                emit r t args isStatement macro |> Some
+                emitTemplate r t args isStatement template |> Some
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             makeTuple r true [name; value] |> Some
         | "createObj", _ ->
@@ -975,10 +986,13 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
         | ("inflate"|"deflate"), _ -> List.tryHead args
         | _ -> None
-    | "Fable.Core.JSX", "create" ->
-        Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
-    | "Fable.Core.JSX", "html" ->
-        Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
+    | "Fable.Core.JSX", meth ->
+        match meth with
+        | "create" -> Helper.LibCall(com, "JSX", "create", t, args, ?loc=r) |> withTag "jsx" |> Some
+        | "html" | "jsx" -> Helper.LibCall(com, "JSX", "html", t, args, ?loc=r) |> withTag "jsx-template" |> Some
+        | "text" -> TypeCast(args.Head, t) |> Some
+        | "nothing" -> makeNullTyped t |> Some
+        | _ -> None
     | _ -> None
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1495,13 +1509,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "map", t, [arg; ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
-        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
         let left = Helper.InstanceCall(ar, "findIndex", Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
-        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
+        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "filter", t, [arg; ar], ?loc=r) |> Some
     | "AddRange", Some ar, [arg] ->
@@ -1542,8 +1556,6 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 let nativeArrayFunctions =
     dict [| "Exists", "some"
             "Filter", "filter"
-            "Find", "find"
-            "FindIndex", "findIndex"
             "ForAll", "every"
             "Iterate", "forEach"
             "Reduce", "reduce"
@@ -1573,11 +1585,7 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
-    let method =
-        match args with
-        | ExprType(Array(Number _, _))::_ when com.Options.TypedArrays -> "copyToTypedArray"
-        | _ -> "copyTo"
-    Helper.LibCall(com, "Array", method, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    Helper.LibCall(com, "Util", "copyToArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1624,8 +1632,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArrayAlloc (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (getFieldWith r (Number(Int32, NumberInfo.Empty)) ar "length") (makeIntConst 0) |> Some
-    | "CopyTo", args ->
-        copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -2175,7 +2181,7 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
+    | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx r |> Some
     | "Hash", [arg] -> structuralHash com r arg |> Some
     | "Equals", [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
     | "Compare", [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some

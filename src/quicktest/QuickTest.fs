@@ -40,7 +40,7 @@ let testCase (msg: string) f: unit =
    with ex ->
        printfn "%s" ex.Message
        if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-           printfn "%s" ex.StackTrace
+           printfn "%s" (ex.StackTrace ??= "")
    printfn ""
 
 let testCaseAsync msg f =
@@ -51,7 +51,7 @@ let testCaseAsync msg f =
            with ex ->
                printfn "%s" ex.Message
                if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-                   printfn "%s" ex.StackTrace
+                   printfn "%s" (ex.StackTrace ??= "")
        } |> Async.StartImmediate)
 
 let throwsAnyError (f: unit -> 'a): unit =
@@ -65,7 +65,7 @@ let throwsAnyError (f: unit -> 'a): unit =
     if success then
         printfn "[ERROR EXPECTED]"
 
-let measureTime (f: unit -> unit) = emitJsStatement () """
+let measureTime (f: unit -> unit): unit = emitJsStatement () """
    //js
    const startTime = process.hrtime();
    f();

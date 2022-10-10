@@ -113,7 +113,7 @@ type SideEffects =
 let inline getFirstName x = (^T : (member FirstName : string) x)
 let inline getLastName x = (^T : (member LastName : string) x)
 
-let inline getFirsAndLastName x =
+let inline getFirstAndLastName x =
     (^T : (member FirstName : string) x) + " " + (^T : (member LastName : string) x)
 
 let inline getFullName x =
@@ -137,7 +137,7 @@ let ``Picks the right witness`` () =
 
 [<Fact>]
 let ``Picks the right witness II`` () =
-    getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+    getFirstAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
     |> equal "Alfonso Horigome"
 
 [<Fact>]
@@ -1159,7 +1159,7 @@ let ``Curried function options work`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
 [<Fact>]
 let ``Applying function options works`` () =
-    Pointful.testFunctionOptions
+    Pointful.testFunctionOptions ()
 
 [<Fact>]
 let ``Point-free and partial application work`` () = // See #1199
@@ -1200,7 +1200,7 @@ let ``Uncurried functions in record fields can be partially applied`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
 [<Fact>]
 let ``Applicative operators work with three-argument functions``() =
-    Results.testOperatorsWith3Args
+    Results.testOperatorsWith3Args ()
 
 [<Fact>]
 let ``partialApply works with tuples`` () =

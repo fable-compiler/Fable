@@ -224,3 +224,12 @@ let ``test Dictionary.ContainsValue works`` () =
     dic.Add("B", "World!")
     dic.ContainsValue("Hello") |> equal true
     dic.ContainsValue("Everybody!") |> equal false
+
+[<Fact>]
+let ``test Dictionary.Delete works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add("A", "Hello")
+    dic.Add("B", "World!")
+    dic.ContainsValue("Hello") |> equal true
+    dic.Remove("A") |> equal true
+    dic.ContainsValue("Hello") |> equal false

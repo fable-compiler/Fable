@@ -1,3 +1,89 @@
+### 4.0.0-theta-011
+
+* Python, add read/write files
+* Python, fix URI and number types
+* JS, allow imports in emit expressions and JSX
+* JS, improve import path resolution (interpolation, inlined functions)
+* TypeScript, fix arithmetic tests
+
+### 4.0.0-theta-010
+
+* Use StringTemplate expr in Fable AST for Python
+
+### 4.0.0-theta-009
+
+* Add language status to version
+* Make --runScript compatible with Python, Rust and Dart
+* Update F# compiler
+* Compile as net6 binary
+* TypeScript, type-safe union types and other fixes
+
+### 4.0.0-theta-008
+
+* Enable emitExpr/Statement with interpolation, @alfonsogarciacaro
+* Python, fix imported interfaces from other modules, @dbrattli
+* Python, allow python code embedder to return generic type T
+* Python, enable eliding async/await, @dbrattli
+* TypeScript, added library-ts to packages, @ncave
+* Python, do not trim emitted statements
+
+### 4.0.0-theta-007
+
+* TypeScript, fix fable-library-ts @ncave
+* Python, fix regex tests @dbrattli
+* Python, fix emit expressions
+* JS, helpers for JSX/React apps
+
+### 4.0.0-theta-006
+
+* Python, regex fixes for group collection
+
+### 4.0.0-theta-005
+
+* Python, fix type annotation for imports of erased interfaces
+* Python, better regex handling
+* TypeScript, ixed some array issues
+* Allow alias for default/namespace imports
+* TypeScript, added some interface annotations
+
+### 4.0.0-theta-004
+
+* JS, allow alias for default/namespace imports
+
+### 4.0.0-theta-003
+
+* Python, fix regression when building on Windows
+* Rust, added Default for array, string, hashmap, hashset, guid
+
+### 4.0.0-theta-002
+
+* Rust, removed cloning after emit
+* Python, make sure module names are valid
+* Python, fix interface entity lookup
+* Python, fixes for .ToArray and is_array_like
+* Rust, fixed TimeSpan fields
+
+### 4.0.0-theta-001
+
+* JSX, enable dynamic children
+* Python, fix dict remove
+* Rust, updated module visibility
+
+### 4.0.0-snake-island-alpha-026
+
+* Rust, more dates, @alexswan10k
+* Python, fix slice of string statements, @dbrattli
+* Python add task RunSynchronously, @dbrattli
+* Rust, ade startup an opt-in dependency, @ncave
+
+### 4.0.0-snake-island-alpha-025
+
+* Added IsInternal and IsPrivate properties in AST, @ncave
+* Rust, better datetime comparison + conversion. DateTimeOffset first, @alexswan10k
+* Python, GUID fixes, @dbrattli
+* Python, async/await fixes for Task returning functions, @dbrattli
+* Rust, another problematic ref counting scenario + fix, @alexswan10k
+
 ### 4.0.0-snake-island-alpha-024
 
 * Fable.AST 4.0 stable

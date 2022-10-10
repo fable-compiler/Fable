@@ -31,7 +31,7 @@
     <!-- <Compile Include="tests/src/ComparisonTests.fs" /> -->
     <Compile Include="tests/src/ControlFlowTests.fs" />
     <Compile Include="tests/src/ConvertTests.fs" />
-    <!-- <Compile Include="tests/src/CustomOperatorTests.fs" /> -->
+    <Compile Include="tests/src/CustomOperatorTests.fs" />
     <!-- <Compile Include="tests/src/DateTimeOffsetTests.fs" /> -->
     <Compile Include="tests/src/DateTimeTests.fs" />
     <!-- <Compile Include="tests/src/DateOnlyTests.fs" /> -->
@@ -66,7 +66,7 @@
     <Compile Include="tests/src/SudokuTest.fs" />
     <Compile Include="tests/src/TailCallTests.fs" />
     <!-- <Compile Include="tests/src/TimeOnlyTests.fs" /> -->
-    <!-- <Compile Include="tests/src/TimeSpanTests.fs" /> -->
+    <Compile Include="tests/src/TimeSpanTests.fs" />
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/TypeTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />

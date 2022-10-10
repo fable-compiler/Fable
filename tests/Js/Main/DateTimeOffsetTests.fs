@@ -20,17 +20,16 @@ let thatYearMilliseconds (dt: DateTimeOffset) =
 let tests =
   testList "DateTimeOffset" [
     testCase "DateTimeOffset.ToString with format works" <| fun () ->
-        DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+        DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", Globalization.CultureInfo.InvariantCulture)
         |> equal "16:37"
 
     testCase "DateTimeOffset.ToString without separator works" <| fun () -> // See #1131
         DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
         |> equal "201709"
 
-    // TODO
-    // testCase "TimeSpan.ToString with format works" <| fun () ->
-    //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
-    //     |> equal "03:54:00"
+    testCase "DateTimeOffset.ToString with numeric format is padded" <| fun () ->
+        DateTimeOffset(1, 2, 3, 4, 5, 6, TimeSpan.Zero).ToString("yyyy-MM-ddTHH:mm:ss.fffffff")
+        |> equal "0001-02-03T04:05:06.0000000"
 
     testCase "DateTimeOffset.ToString with Roundtrip format works for Utc" <| fun () ->
         let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")

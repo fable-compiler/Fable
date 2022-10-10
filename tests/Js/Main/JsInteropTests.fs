@@ -89,6 +89,24 @@ type MyCustomHTMLElement() =
     member this.SaySomethingNiceTo(name: string) =
         $"Repeat with me {name}: {this.getMotivated()}"
 
+let inline sqrtJsExpr (jsExpr: string): float =
+    emitJsExpr () ("Math.sqrt(" + jsExpr + ")")
+
+let doSomethingInJs (x: int) (y: float) (z: float): string =
+    emitJsStatement () $"""
+    let acc = 0;
+    for (let i = 0; i < {min x 10}; i++) {{
+        acc += {y ** 2} + {x + 3} * 2;
+    }}
+    return acc + {sprintf "%.2f" z};
+    """
+
+let doSomethingInFSharp (x: int) (y: float) (z: float): string =
+    let mutable acc = 0.
+    for _ = 0 to (min x 10) - 1 do
+        acc <- acc + (y ** 2) + (float x + 3.) * 2.
+    string acc + sprintf "%.2f" z
+
 let myMeth (x: int) (y: int) = x - y
 
 let curry2 (f: 'a -> 'b -> 'c) = f
@@ -610,10 +628,19 @@ let tests =
         equal z1 z2
         equal 1024 z1
 
+    testCase "emitJsExpr works inlined and with addition" <| fun () ->
+        let x = sqrtJsExpr "3 + 1"
+        equal 2. x
+
     testCase "emitJsStatement works" <| fun () ->
         let f x y: int =
             emitJsStatement (x, y) "return $0 << $1"
         f 4 8 |> equal 1024
+
+    testCase "emitJsStatement can be used with interpolation" <| fun () ->
+        let res1 = doSomethingInJs 8 3 4.5678
+        let res2 = doSomethingInFSharp 8 3 4.5678
+        equal res1 res2
 
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>
