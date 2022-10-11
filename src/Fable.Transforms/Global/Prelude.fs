@@ -4,6 +4,20 @@ open System
 open System.Globalization
 open System.Text
 
+module Dictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
+module ReadOnlyDictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IReadOnlyDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
 [<RequireQualifiedAccess>]
 module Tuple =
     let make2 x y = x, y

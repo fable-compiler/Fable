@@ -10,6 +10,7 @@ open FSharp.Compiler.Text
 open Fable
 open Fable.AST
 open Globbing.Operators
+open Buildalyzer
 
 type FablePackage =
     { Id: string
@@ -334,13 +335,13 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-let getCrackedFsproj (opts: CrackerOptions) projOpts projRefs outputType =
+let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[]) (projRefs: string[]) outputType =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
     let sourceFiles, otherOpts =
-        (projOpts.OtherOptions, ([], []))
+        (projOpts, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
@@ -353,11 +354,6 @@ let getCrackedFsproj (opts: CrackerOptions) projOpts projRefs outputType =
                 src, otherOpts
             else
                 (Path.normalizeFullPath line)::src, otherOpts)
-
-    let sourceFiles =
-        match sourceFiles with
-        | [] -> projOpts.SourceFiles |> Array.map Path.normalizePath |> Array.toList
-        | sourceFiles -> sourceFiles
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -372,7 +368,7 @@ let getCrackedFsproj (opts: CrackerOptions) projOpts projRefs outputType =
 
     { ProjectFile = opts.ProjFile
       SourceFiles = sourceFiles
-      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projRefs
+      ProjectReferences = Array.choose (excludeProjRef opts dllRefs) projRefs |> Array.toList
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OtherCompilerOptions = otherOpts
@@ -387,45 +383,79 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
         checker.GetProjectOptionsFromScript(projectFilePath, text, useSdkRefs=true, assumeDotNetFramework=false)
         |> Async.RunSynchronously
 
-    getCrackedFsproj opts projOpts [] (Some "Exe")
+    let projOpts = Array.append projOpts.OtherOptions projOpts.SourceFiles
+    getCrackedFsproj opts projOpts [||] (Some "Exe")
 
-/// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
-/// and get F# compiler args from an .fsproj file. As we'll merge this
-/// later with other projects we'll only take the sources and the references,
-/// checking if some .dlls correspond to Fable libraries
+let getProjectOptionsFromProjectFile =
+    let mutable manager = None
+
+    let compileFilesToAbsolutePath projDir (f: string) =
+        if f.EndsWith(".fs") || f.EndsWith(".fsi") then
+            if Path.IsPathRooted f then f else Path.Combine(projDir, f)
+        else
+            f
+    fun (opts: CrackerOptions) projFile ->
+        let manager =
+            match manager with
+            | Some m -> m
+            | None ->
+                let log = new System.IO.StringWriter()
+                let options = AnalyzerManagerOptions(LogWriter = log)
+                let m = AnalyzerManager(options)
+                m.SetGlobalProperty("Configuration", opts.Configuration)
+                for define in opts.FableOptions.Define do
+                    m.SetGlobalProperty(define, "true")
+                manager <- Some m
+                m
+
+        let analyzer = manager.GetProject(projFile)
+        // If the project targets multiple frameworks, multiple results will be returned
+        // For now we just take the first one
+        let result =
+            match analyzer.Build() |> Seq.toList with
+            | result::_ -> result
+            // TODO: Get Buildalyzer errors from the log
+            | [] -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
+        let projDir = IO.Path.GetDirectoryName(projFile)
+        let projOpts =
+            // result.CompilerArguments doesn't seem to work well in Linux
+            System.Text.RegularExpressions.Regex.Split(result.Command, @"\r?\n")
+            |> Array.skipWhile (fun line -> not(line.StartsWith("-")))
+            |> Array.map (compileFilesToAbsolutePath projDir)
+        projOpts, Seq.toArray result.ProjectReferences, result.Properties
+
+/// Use Buildalyzer to invoke MSBuild and get F# compiler args from an .fsproj file.
+/// As we'll merge this later with other projects we'll only take the sources and
+/// the references, checking if some .dlls correspond to Fable libraries
 let fullCrack (opts: CrackerOptions): CrackedFsproj =
-    let projFile = opts.ProjFile
-    let projDir = IO.Path.GetDirectoryName projFile
-    let projName = IO.Path.GetFileName projFile
-
-    if not opts.NoRestore then
-        Process.runSync projDir "dotnet" [
-            "restore"
-            projName;
-            for constant in opts.FableOptions.Define do
-                $"-p:{constant}=true"
-        ] |> ignore
+    // if not opts.NoRestore then
+    //     Process.runSync (IO.Path.GetDirectoryName projFile) "dotnet" [
+    //         "restore"
+    //         IO.Path.GetFileName projFile
+    //         for constant in opts.FableOptions.Define do
+    //             $"-p:{constant}=true"
+    //     ] |> ignore
 
     let projOpts, projRefs, msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration opts.FableOptions.Define projFile
+        getProjectOptionsFromProjectFile opts opts.ProjFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
 
-    let outputType = Map.tryFind "OutputType" msbuildProps
+    let outputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
 
     getCrackedFsproj opts projOpts projRefs outputType
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration opts.FableOptions.Define projFile
+    let projOpts, projRefs, msbuildProps =
+        getProjectOptionsFromProjectFile opts projFile
 
-    let outputType = Map.tryFind "OutputType" _msbuildProps
+    let outputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
     let sourceFiles, otherOpts =
-        (projOpts.OtherOptions, ([], []))
+        (projOpts, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
             if isUsefulOption line then
                 src, line::otherOpts
@@ -436,7 +466,7 @@ let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
 
     { ProjectFile = projFile
       SourceFiles = sourceFiles
-      ProjectReferences = List.choose (excludeProjRef opts dllRefs) projRefs
+      ProjectReferences = Array.choose (excludeProjRef opts dllRefs) projRefs |> Array.toList
       DllReferences = Dictionary()
       PackageReferences = []
       OtherCompilerOptions = otherOpts
