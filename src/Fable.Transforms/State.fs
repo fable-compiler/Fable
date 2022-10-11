@@ -5,18 +5,6 @@ open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
 
-type IDictionary<'Key, 'Value> with
-    member this.TryValue(key: 'Key) =
-        match this.TryGetValue(key) with
-        | true, v -> Some v
-        | false, _ -> None
-
-type IReadOnlyDictionary<'Key, 'Value> with
-    member this.TryValue(key: 'Key) =
-        match this.TryGetValue(key) with
-        | true, v -> Some v
-        | false, _ -> None
-
 type PluginRef =
     { DllPath: string
       TypeFullName: string }
@@ -61,11 +49,13 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
         |> Option.map(fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
 
     member _.TryGetEntityByAssemblyPath(asmPath, entityFullName) =
-        assemblies.TryValue(asmPath)
+        assemblies
+        |> Dictionary.tryFind asmPath
         |> Option.bind (tryFindEntityByPath entityFullName)
 
     member _.TryGetEntityByCoreAssemblyName(asmName, entityFullName) =
-        coreAssemblies.TryValue(asmName)
+        coreAssemblies
+        |> Dictionary.tryFind asmName
         |> Option.bind (tryFindEntityByPath entityFullName)
 
     member _.Plugins = plugins
@@ -84,7 +74,7 @@ type ImplFile =
             for e in ents do
                 let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
                 if not e.IsFSharpAbbreviation || not (entities.ContainsKey(fableEnt.FullName)) then
-                    entities.[fableEnt.FullName] <- fableEnt
+                    entities[fableEnt.FullName] <- fableEnt
                 loop e.NestedEntities
 
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop
@@ -149,7 +139,8 @@ type Project private (
         Project(this.ProjectFile, this.SourceFiles, implFiles, this.Assemblies, this.PrecompiledInfo)
 
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
-        inlineExprsDic.TryValue(memberUniqueName)
+        inlineExprsDic
+        |> Dictionary.tryFind memberUniqueName
         |> Option.map (fun e -> e.Calculate(com))
 
     member _.GetFileInlineExprs(com: Compiler): (string * InlineExpr)[] =
@@ -231,7 +222,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
 
         member this.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match project.ImplementationFiles.TryValue(fileName) with
+            match Dictionary.tryFind fileName project.ImplementationFiles with
             | Some file -> file.RootModule
             | None ->
                 match project.PrecompiledInfo.TryGetRootModule(fileName) with
@@ -248,8 +239,9 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             | Fable.PrecompiledLib(_, path) -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef.FullName)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
-                project.ImplementationFiles.TryValue(fileName)
-                |> Option.bind (fun file -> file.Entities.TryValue(entityRef.FullName))
+                project.ImplementationFiles
+                |> Dictionary.tryFind fileName
+                |> Option.bind (fun file -> ReadOnlyDictionary.tryFind entityRef.FullName file.Entities)
                 |> Option.orElseWith (fun () ->
                     // Check also the precompiled dll because this may come from a precompiled inline expr
                     project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))

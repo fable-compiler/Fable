@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -30,7 +30,6 @@
     <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
     <Compile Include="Globbing.fs" />
-    <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fs" />
@@ -46,9 +45,8 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <PackageReference Include="Buildalyzer" Version="4.1.5" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
   </ItemGroup>
 </Project>
