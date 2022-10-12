@@ -2225,16 +2225,16 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "FoldBack", [ folder; opt; state ] ->
         Helper.LibCall(com, "seq", "foldBack", t, [ folder; toArray None t opt; state ], i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("DefaultValue"
-      | "OrElse"),
-      _ ->
+    | "DefaultValue", _ ->
         Helper.LibCall(com, "option", "defaultArg", t, List.rev args, ?loc = r)
         |> Some
-    | ("DefaultWith"
-      | "OrElseWith"),
-      _ ->
+    | "DefaultWith", _ ->
         Helper.LibCall(com, "option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "OrElse", _ ->
+        Helper.LibCall(com, "Option", "or_else", t, List.rev args, ?loc=r) |> Some
+    | "OrElseWith", _ ->
+        Helper.LibCall(com, "Option", "or_else_with", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
     | ("Count"
       | "Contains"
       | "Exists"
