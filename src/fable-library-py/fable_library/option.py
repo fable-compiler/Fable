@@ -76,8 +76,8 @@ def map3(
     )
 
 
-def some(x: _T) -> Option[_T]:
-    return Some(x) if x is None or isinstance(x, Some) else x  # type: ignore
+def some(x: Any) -> Option[Any]:
+    return Some[Any](x) if x is None or isinstance(x, Some) else x
 
 
 def value(x: Option[_T]) -> _T:
@@ -107,6 +107,16 @@ def to_array(opt: Option[_T]) -> List[_T]:
 
 def bind(binder: Callable[[_T], Option[_U]], opt: Option[_T]) -> Option[_U]:
     return binder(value(opt)) if opt is not None else None
+
+
+def or_else(opt: Option[_T], if_none: Option[_T]) -> Option[_T]:
+    return if_none if opt is None else opt
+
+
+def or_else_with(
+    opt: Option[_T], if_none_thunk: Callable[[], Option[_T]]
+) -> Option[_T]:
+    return if_none_thunk() if opt is None else opt
 
 
 __all__ = [

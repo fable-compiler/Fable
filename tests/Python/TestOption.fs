@@ -56,6 +56,8 @@ let ``test Option.defaultValue works II`` () =
 let ``test Option.orElse works`` () =
     Some 5 |> Option.orElse (Some 4) |> equal (Some 5)
     None |> Option.orElse (Some "foo") |> equal (Some "foo")
+    Some None |> Option.orElse (Some (Some "foo")) |> equal (Some None)
+    Some (Some "foo") |> Option.orElse (Some (Some "bar")) |> equal (Some (Some "foo"))
 
 [<Fact>]
 let ``test Option.defaultWith works`` () =
@@ -66,6 +68,8 @@ let ``test Option.defaultWith works`` () =
 let ``test Option.orElseWith works`` () =
     Some 5 |> Option.orElseWith (fun () -> Some 4) |> equal (Some 5)
     None |> Option.orElseWith (fun () -> Some "foo") |> equal (Some "foo")
+    Some None |> Option.orElseWith (fun () -> Some (Some "foo")) |> equal (Some None)
+    Some (Some "foo") |> Option.orElseWith (fun () -> Some (Some "bar")) |> equal (Some (Some "foo"))
 
 [<Fact>]
 let ``test Option.isSome/isNone works`` () =
