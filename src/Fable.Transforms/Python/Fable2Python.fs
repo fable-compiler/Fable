@@ -910,8 +910,9 @@ module Annotation =
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
         | "Fable.Core.Py.Callable", _ ->
-            let genArgs = [ Expression.ellipsis; Expression.any]
-            stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, []
+            let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+            let genArgs = [ Expression.ellipsis; any]
+            stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, stmts
         | _ ->
             let ent = com.GetEntity(entRef)
             // printfn "DeclaredType: %A" ent.FullName
@@ -1440,6 +1441,7 @@ module Util =
         (body: Statement list)
         returnType
         : Expression * Statement list =
+
         let args =
             match args.Args with
             | [] ->
@@ -1447,18 +1449,23 @@ module Util =
                 Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
             | _ -> args
 
+        let (|ImmediatelyApplied|_|) = function
+            | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length ->
+                // To be sure we're not running side effects when deleting the function check the callee is an identifier
+                match callee with
+                | Expression.Name(_) ->
+                    let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
+                    List.zip parameters appliedArgs
+                    |> List.forall (function
+                        | Expression.Name({Id=Identifier name1}),
+                            Expression.Name( { Id=Identifier name2}) -> name1 = name2
+                        | _ -> false)
+                    |> function true -> Some callee | false -> None
+                | _ -> None
+            | _ -> None
+
         match body with
-        //            | [ Statement.Return({Value=Some expr}) ] ->
-//                let fn = Expression.name(Helpers.getUniqueIdentifier "lambda")
-//                // Remove annotations from lambda expressions
-//                let args' = { args with Args = args.Args |> List.map(fun arg -> { arg with Annotation = None })}
-//                let lambda = Expression.lambda(args', expr)
-//                // Add separate assignment annotation
-//                let taArgs = args.Args |> List.choose (fun arg -> arg.Annotation)
-//                printfn "Args: %A" args
-//                let ta = pythonModuleAnnotation com ctx "typing" "Callable" (taArgs @ [ returnType ])
-//                let stmts = [Statement.assign(fn, lambda, ta)]
-//                fn, stmts
+        | [Statement.Return { Value=Some (ImmediatelyApplied(callExpr))}] -> callExpr, []
         | _ ->
             let ident =
                 name
