@@ -19,7 +19,7 @@ from .choice import (
     FSharpChoice_2,
 )
 from .observable import IObservable, IObserver, Observer
-from .option import Option, some, value
+from .option import some, value
 from .util import IDisposable
 
 
@@ -125,7 +125,9 @@ def add(callback: Delegate[_T], source_event: IEvent[_T]) -> None:
         source_event.Subscribe(Observer(callback))
 
 
-def choose(chooser: Callable[[_T], Option[_U]], source_event: IEvent[_T]) -> IEvent[_U]:
+def choose(
+    chooser: Callable[[_T], Optional[_U]], source_event: IEvent[_T]
+) -> IEvent[_U]:
     ev = Event[_U]()
 
     def callback(t):
