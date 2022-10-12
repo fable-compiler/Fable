@@ -1333,6 +1333,11 @@ module Util =
             match txt with
             | "$0.join('')" -> "''.join($0)"
             | "throw $0" -> "raise $0"
+            | "$0 is $1" ->
+                match args with
+                | [Constant(_); _]
+                | [_; Constant(_)] -> "$0 == $1"
+                | _ -> "$0 is $1"
             | Naming.StartsWith "void " value
             | Naming.StartsWith "new " value -> value
             | _ -> txt
@@ -1983,21 +1988,29 @@ module Util =
             let compare op =
                 Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
 
+            let (|IsNone|_|) = function
+                | Name { Id = Identifier "None" } -> Some ()
+                | _ -> None
+
             match op with
             | BinaryEqual ->
                 match left, right with
                 // Use == with literals
-                | Constant _, Name { Id = Identifier "None" } -> compare Eq
+                | Constant _, _ -> compare Eq
+                | _, Constant _ -> compare Eq
                 // Use `is` with None (except literals)
-                | _, Name { Id = Identifier "None" } -> compare Is
+                | _, IsNone -> compare Is
+                | IsNone, _ -> compare Is
                 // Use == for the rest
                 | _ -> compare Eq
             | BinaryUnequal ->
                 match left, right with
                 // Use != with literals
-                | Constant _, Name { Id = Identifier "None" } -> compare NotEq
+                | Constant _, _ -> compare NotEq
+                | _, Constant _ -> compare NotEq
                 // Use `is not` with None (except literals)
-                | _, Name { Id = Identifier "None" } -> compare IsNot
+                | _, IsNone -> compare IsNot
+                | IsNone, _ -> compare IsNot
                 // Use != for the rest
                 | _ -> compare NotEq
             | BinaryLess -> compare Lt
