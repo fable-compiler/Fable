@@ -19,7 +19,7 @@ let getXmlWithoutComments xml =
 let getXmlTagContents tag xml =
     let pattern = sprintf @"<%s[^>]*>([^<]*)<\/%s[^>]*>" tag tag
     Regex.Matches(xml, pattern)
-    |> Seq.map (fun m -> m.Groups.[1].Value.Trim())
+    |> Seq.map (fun m -> m.Groups[1].Value.Trim())
 
 let getXmlTagContentsFirstOrDefault tag defaultValue xml =
     defaultArg (getXmlTagContents tag xml |> Seq.tryHead) defaultValue
@@ -27,14 +27,14 @@ let getXmlTagContentsFirstOrDefault tag defaultValue xml =
 let getXmlTagAttributes1 tag attr1 xml =
     let pattern = sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1
     Regex.Matches(xml, pattern)
-    |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim())
+    |> Seq.map (fun m -> m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim())
 
 let getXmlTagAttributes2 tag attr1 attr2 xml =
     let pattern = sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1 attr2
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m ->
-        m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim(),
-        m.Groups.[2].Value.TrimStart('"').TrimStart(''').Trim())
+        m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim(),
+        m.Groups[2].Value.TrimStart('"').TrimStart(''').Trim())
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")

@@ -60,7 +60,7 @@ let measureTime (f: 'a -> 'b) x =
     let startTime = JS.proc.hrtime()
     let res = f x
     let elapsed = JS.proc.hrtime(startTime)
-    res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+    res, int64 (elapsed[0] * 1e3 + elapsed[1] / 1e6)
 
 let ensureDirExists (dir: string) = JS.util.ensureDirExists(dir)
 let serializeToJson (data: obj) = JS.util.serializeToJson(data)

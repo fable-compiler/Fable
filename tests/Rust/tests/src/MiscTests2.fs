@@ -514,7 +514,7 @@ module tests =
         let parsed = LiteralJson(ANOTHER_JSON)
         parsed.widget.debug |> equal false
         parsed.widget.text.data |> equal "lots of"
-        parsed.widget.text.size.[1].height |> equal 80.
+        parsed.widget.text.size[1].height |> equal 80.
         parsed.widget.text.vOffset |> equal 500.
 #endif
 

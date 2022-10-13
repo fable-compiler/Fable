@@ -435,6 +435,6 @@ let contains_exterior_struct_lit(value: ast.Expr): bool =
 
     | ast.ExprKind.MethodCall(_, exprs, _) ->
         // X { y: 1 }.bar(...)
-        contains_exterior_struct_lit(exprs.[0])
+        contains_exterior_struct_lit(exprs[0])
 
     | _ -> false

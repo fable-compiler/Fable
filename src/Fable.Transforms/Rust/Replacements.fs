@@ -2611,14 +2611,14 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
         // can be group index or group name
-        //        `m.Groups.[0]` `m.Groups.["name"]`
+        //        `m.Groups[0]` `m.Groups["name"]`
         match (args |> List.head).Type with
         | String ->
             // name
             (* `groups` might not exist -> check first:
                 (`m`: `thisArg.Value`; `name`: `args.Head`)
                   ```ts
-                  m.groups?.[name]
+                  m.groups?[name]
                   ```
                 or here
                   ```ts

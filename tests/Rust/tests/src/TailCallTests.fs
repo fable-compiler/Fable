@@ -77,10 +77,10 @@ module Functions =
     //     let mutable log = ""
     //     let rec test n =
     //       try
-    //         log <- log + string "abcde".[n]
+    //         log <- log + string "abcde"[n]
     //         if n < 4 then test (n+1)
     //       finally
-    //         log <- log + string "ABCDE".[n]
+    //         log <- log + string "ABCDE"[n]
     //     test 0
     //     log
 
@@ -88,10 +88,10 @@ module Functions =
     //     let mutable log = ""
     //     let disp(n) =
     //       { new System.IDisposable with
-    //           member x.Dispose() = log <- log + string "ABCDE".[n] }
+    //           member x.Dispose() = log <- log + string "ABCDE"[n] }
     //     let rec test n =
     //       use _disp = disp(n)
-    //       log <- log + string "abcde".[n]
+    //       log <- log + string "abcde"[n]
     //       if n < 4 then test (n+1) else 0
     //     test 0 |> ignore
     //     log
@@ -215,7 +215,7 @@ let ``Functions returning unit can be tail called`` () =
         if x > 0 then
             let rec loopi i =
                 if i <= 254 then
-                    if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) <> 0uy then loopi (i + 1) else
+                    if cmpsts[i >>> 3] &&& (1uy <<< (i &&& 7)) <> 0uy then loopi (i + 1) else
                     let p = i + i + 3
                     let s0 = 2 * i * (i + 3) + 3
                     let lmt = min 131072 <| s0 + (p <<< 3)
@@ -225,7 +225,7 @@ let ``Functions returning unit can be tail called`` () =
                             let rec loopj j =
                                 let cmpsts = cmpsts
                                 if j < 16384 then
-                                    cmpsts.[j] <- cmpsts.[j] ||| msk
+                                    cmpsts[j] <- cmpsts[j] ||| msk
                                     loopj (j + p)
                             loopj (s >>> 3); loops (s + p)
                     loops s0; loopi (i + 1)
@@ -233,7 +233,7 @@ let ``Functions returning unit can be tail called`` () =
     loop 100
     let oddprms = seq {
         for i in 0 .. 131071 do
-            if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) = 0uy
+            if cmpsts[i >>> 3] &&& (1uy <<< (i &&& 7)) = 0uy
             then yield i + i + 3 }
     seq { yield 2; yield! oddprms }
     |> Seq.length |> equal 23000
@@ -248,7 +248,7 @@ let ``Functions returning unit can be tail called`` () =
 
 //     let update msg (model: Map<int,bool>) =
 //         accValue <- accValue + msg
-//         let b = model.[msg]
+//         let b = model[msg]
 //         Map.add msg (not b) model
 
 //     let view model dispatch =

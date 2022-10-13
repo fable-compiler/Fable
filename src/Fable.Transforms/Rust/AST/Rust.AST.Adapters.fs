@@ -153,14 +153,14 @@ type System.String with
         let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
         let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
         let res = System.Text.RegularExpressions.Regex.Replace(res, @"[\x00-\x1F]",
-            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value.[0], "}"))
+            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}"))
         res
     member self.escape_default() =
         // escapes \\, \', \", \t, \r, \n, [^\x20-\x7F]
         let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
         let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
         let res = System.Text.RegularExpressions.Regex.Replace(res, @"[^\x20-\x7F]",
-            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value.[0], "}"))
+            fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}"))
         res
 
 type System.Text.StringBuilder with
@@ -218,7 +218,7 @@ type Macros =
 module ArrayHelpers =
     let split_first(arr: 'T[]) =
         if arr.Length = 0 then None
-        else Some(arr.[0], arr.[1..])
+        else Some(arr[0], arr[1..])
     let split_last(arr: 'T[]) =
         if arr.Length = 0 then None
-        else Some(arr.[arr.Length - 1], arr.[0..arr.Length - 1])
+        else Some(arr[arr.Length - 1], arr[0..arr.Length - 1])

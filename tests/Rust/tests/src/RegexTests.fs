@@ -138,7 +138,7 @@ module tests =
     let ``Match.Groups indexer getter works`` () =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-        let g = m.Groups.[1]
+        let g = m.Groups[1]
         g.Value |> equal ".1"
 
     [<Fact>]
@@ -184,7 +184,7 @@ module tests =
     let ``Regex.Matches indexer getter works`` () =
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
-        ms.[8].Index |> equal 29
+        ms[8].Index |> equal 29
 
     [<Fact>]
     let ``Regex.Matches iteration works`` () =
@@ -298,7 +298,7 @@ module tests =
         let str = "Alfonso García-Caro"
         let test pattern expected =
             Regex.Replace(str, pattern, fun (m: Match) ->
-                m.Groups.[2].Value + " " + m.Groups.[1].Value)
+                m.Groups[2].Value + " " + m.Groups[1].Value)
             |> equal expected
         test "([A-Za-z]+) ([A-Za-z\-]+)" "Garc Alfonsoía-Caro"
         test "(fon)(so)" "Also fon García-Caro"
@@ -333,14 +333,14 @@ module tests =
     let ``Group values are correct and empty when not being matched`` () =
         Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
         |> Seq.cast<Match>
-        |> Seq.map (fun m -> m.Groups.[1].Value)
+        |> Seq.map (fun m -> m.Groups[1].Value)
         |> Seq.forall (fun value -> value = "")
         |> equal true
 
     [<Fact>]
     let ``Group values can be converted to int`` () = // See #1753
         let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
-        let group = m.Groups.[2]
+        let group = m.Groups[2]
         int (group.Value) |> equal 123
 
     // see #2359
@@ -355,7 +355,7 @@ module tests =
             m.Groups.Count |> equal 2
             m.Groups |> Seq.toList |> List.map (fun m -> m.Value) |> equal [ "012345"; "12345" ]
 
-            sprintf "%s" m.Groups.[1].Value
+            sprintf "%s" m.Groups[1].Value
 
         let actual = r.Replace(text, replace)
 
@@ -386,43 +386,43 @@ module tests =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["number"].Value |> equal "12345"
+                m.Groups["number"].Value |> equal "12345"
 
             [<Fact>]
             let ``can get values of multiple existing groups`` () =
                 let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
                 let m = r.Match "Number: +49 1234!"
 
-                m.Groups.["country"].Value |> equal "49"
-                m.Groups.["num"].Value |> equal "1234"
+                m.Groups["country"].Value |> equal "49"
+                m.Groups["num"].Value |> equal "1234"
 
             [<Fact>]
             let ``doesn't succeed for not existing named group`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["nothing"].Success |> equal false
+                m.Groups["nothing"].Success |> equal false
 
             [<Fact>]
             let ``doesn't succeed for not existing named group in regex without named group`` () =
                 let r = Regex "\\d+"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["nothing"].Success |> equal false
+                m.Groups["nothing"].Success |> equal false
 
             [<Fact>]
             let ``doesn't succeed for existing unmatched group`` () =
                 let r = Regex "(?<exact>42)|(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["exact"].Success |> equal false
+                m.Groups["exact"].Success |> equal false
 
             [<Fact>]
             let ``group name from string`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["number"].Value |> equal "12345"
+                m.Groups["number"].Value |> equal "12345"
 
             [<Fact>]
             let ``group name from variable`` () =
@@ -430,14 +430,14 @@ module tests =
                 let m = r.Match "Number 12345 is positive"
 
                 let g = "number"
-                m.Groups.[g].Value |> equal "12345"
+                m.Groups[g].Value |> equal "12345"
 
             [<Fact>]
             let ``group name from addition`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.["num" + "ber"].Value |> equal "12345"
+                m.Groups["num" + "ber"].Value |> equal "12345"
 
             [<Fact>]
             let ``group name from string in function`` () =
@@ -445,7 +445,7 @@ module tests =
                 let m = r.Match "Number 12345 is positive"
 
                 let namedGroup (name: string) (m: Match): string =
-                    m.Groups.[name].Value
+                    m.Groups[name].Value
 
                 m |> namedGroup "number" |> equal "12345"
 
@@ -455,7 +455,7 @@ module tests =
                 let m = r.Match "Number 12345 is positive"
 
                 let namedGroup (name: string) (m: Match): string =
-                    m.Groups.[name].Value
+                    m.Groups[name].Value
 
                 let g = "number"
                 m |> namedGroup g |> equal "12345"
@@ -466,14 +466,14 @@ module tests =
                 let m = r.Match "Number 12345 is positive"
 
                 let getName () = "number"
-                m.Groups.[getName ()].Value |> equal "12345"
+                m.Groups[getName ()].Value |> equal "12345"
 
             [<Fact>]
             let ``group name from if expression`` () =
                 let r = Regex "(?<number>\\d+)"
                 let m = r.Match "Number 12345 is positive"
 
-                m.Groups.[if m.Success then "number" else failwith "Regex didn't match!"].Value |> equal "12345"
+                m.Groups[if m.Success then "number" else failwith "Regex didn't match!"].Value |> equal "12345"
 
 
 #if FABLE_COMPILER
@@ -487,7 +487,7 @@ module tests =
                     let r = Regex "\\d+"
                     let m = r.Match "Number 12345 is positive"
 
-                    let g = m.Groups.[42]
+                    let g = m.Groups[42]
                     g |> equalUndefined
 
                 [<Fact>]
@@ -496,7 +496,7 @@ module tests =
                     let m = r.Match "Number 12345 is positive"
                     // in JS: `m.groups` exists
 
-                    let g = m.Groups.["nothing"]
+                    let g = m.Groups["nothing"]
                     g |> equalUndefined
 
                 [<Fact>]
@@ -505,16 +505,16 @@ module tests =
                     let m = r.Match "Number 12345 is positive"
                     // in JS: no `m.groups`
 
-                    let g = m.Groups.["nothing"]
+                    let g = m.Groups["nothing"]
                     g |> equalUndefined
 
                 [<Fact>]
                 let ``unmatched existing named group`` () =
                     let r = Regex "(?<exact>42)|(?<number>\\d+)"
                     let m = r.Match "Number 12345 is positive"
-                    // in JS: `m.groups` exists, `m.groups.["exact"]` is `undefined`
+                    // in JS: `m.groups` exists, `m.groups["exact"]` is `undefined`
 
-                    let g = m.Groups.["exact"]
+                    let g = m.Groups["exact"]
                     g |> equalUndefined
 
 #endif
@@ -533,7 +533,7 @@ module tests =
 
                 let actual =
                     r.Matches text
-                    |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+                    |> Seq.map (fun m -> m.Groups["country"].Value, m.Groups["num"].Value)
                     |> Seq.toList
 
                 actual |> equal expected
@@ -551,7 +551,7 @@ module tests =
 
                 let actual =
                     r.Matches text
-                    |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+                    |> Seq.map (fun m -> m.Groups["country"].Value, m.Groups["num"].Value)
                     |> Seq.toList
 
                 actual |> equal expected
@@ -571,7 +571,7 @@ module tests =
 
                 let actual =
                     r.Matches text
-                    |> Seq.map (fun m -> m.Groups.[g1].Value, m.Groups.[g2].Value)
+                    |> Seq.map (fun m -> m.Groups[g1].Value, m.Groups[g2].Value)
                     |> Seq.toList
 
                 actual |> equal expected
@@ -592,7 +592,7 @@ module tests =
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
                     let replace (m: Match) =
-                        sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+                        sprintf "00%s-%s" m.Groups["country"].Value m.Groups["num"].Value
                     let replace = "00${country}-${num}"
 
                     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
@@ -607,7 +607,7 @@ module tests =
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
                     let replace (m: Match) =
-                        sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+                        sprintf "00%s-%s" m.Groups["country"].Value m.Groups["num"].Value
 
                     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
                     let actual = r.Replace(text, replace)
@@ -620,10 +620,10 @@ module tests =
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
                     let replace (m: Match) =
-                        if m.Groups.["nothing"].Success then
+                        if m.Groups["nothing"].Success then
                             failwith "Shouldn't get group 'nothing'"
                         else
-                            sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+                            sprintf "00%s-%s" m.Groups["country"].Value m.Groups["num"].Value
 
                     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
                     let actual = r.Replace(text, replace)
@@ -636,10 +636,10 @@ module tests =
                     let text = "Numbers: +1 12; +49 456; +44 7890;"
 
                     let replace (m: Match) =
-                        if m.Groups.["nothing"].Success then
+                        if m.Groups["nothing"].Success then
                             failwith "Shouldn't get group 'nothing'"
                         else
-                            sprintf "00%s-%s" m.Groups.[1].Value m.Groups.[2].Value
+                            sprintf "00%s-%s" m.Groups[1].Value m.Groups[2].Value
 
                     let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
                     let actual = r.Replace(text, replace)

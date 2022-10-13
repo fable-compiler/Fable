@@ -368,7 +368,7 @@ let foldSection lo hi f (m: Map<'K, 'V>) x =
 
 let copyToArray m (arr: _[]) i =
     let mutable j = i
-    iterate (fun k v -> arr.[j] <- (k, v); j <- j + 1) m
+    iterate (fun k v -> arr[j] <- (k, v); j <- j + 1) m
 
 let keys (m: Map<'K, 'V>) =
     // KeyCollection(m) :> ICollection<'K>
@@ -704,7 +704,7 @@ type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditi
 
     interface IDictionary<'K, 'V> with
         member t.Item
-            with get x = t.[x]
+            with get x = t[x]
             and  set _ _ = raise (NotSupportedException(SR.GetString(SR.mapCannotBeMutated)))
 
         member t.Keys = t.Keys
@@ -726,7 +726,7 @@ type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditi
 
         member _.Remove(_) = raise (NotSupportedException(SR.GetString(SR.mapCannotBeMutated)))
 
-        member t.Contains x = t.ContainsKey x.Key && Unchecked.equals t.[x.Key] x.Value
+        member t.Contains x = t.ContainsKey x.Key && Unchecked.equals t[x.Key] x.Value
 
         member _.CopyTo(arr, i) = MapTree.copyToArray tree arr i
 
@@ -751,7 +751,7 @@ type Map<[<EqualityConditionalOn>]'K, [<EqualityConditionalOn; ComparisonConditi
 
     interface IReadOnlyDictionary<'K, 'V> with
 
-        member t.Item with get key = t.[key]
+        member t.Item with get key = t[key]
 
         member t.Keys = t.Keys :> IEnumerable<'K>
 
@@ -814,7 +814,7 @@ and KeyCollection<'K, 'V when 'K : comparison>(parent: Map<'K, 'V>) =
 
             let mutable i = index
             for item in parent do
-                arr.[i] <- item.Key
+                arr[i] <- item.Key
                 i <- i + 1
 
         member _.IsReadOnly = true
@@ -846,7 +846,7 @@ and ValueCollection<'K, 'V when 'K : comparison>(parent: Map<'K, 'V>) =
 
             let mutable i = index
             for item in parent do
-                arr.[i] <- item.Value
+                arr[i] <- item.Value
                 i <- i + 1
 
         member _.IsReadOnly = true
@@ -879,7 +879,7 @@ module Map =
 
     [<CompiledName("Find")>]
     let find key (table: Map<_, _>) =
-        table.[key]
+        table[key]
 
     [<CompiledName("TryFind")>]
     let tryFind key (table: Map<_, _>) =

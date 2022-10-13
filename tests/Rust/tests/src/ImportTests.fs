@@ -262,7 +262,7 @@ module tests =
     [<Fact>]
     let ``Inline import expressions can absorb arguments`` () = // See #2284
         let stylesheet = Stylesheet.load "./js/1foo.js"
-        stylesheet.["myKey"] |> equal "a secret"
+        stylesheet["myKey"] |> equal "a secret"
     #endif
 
     [<Fact>]

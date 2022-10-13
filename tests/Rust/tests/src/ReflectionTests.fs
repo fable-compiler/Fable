@@ -556,22 +556,22 @@ module reflectionTests =
   let ``FSharp.Reflection: Result`` () =
     let typ = typeof<Result<int,string>>
     let ucis = FSharpType.GetUnionCases typ
-    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
-    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
+    FSharpValue.MakeUnion(ucis[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
+    FSharpValue.MakeUnion(ucis[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
 
   [<Fact>]
   let ``FSharp.Reflection: Choice`` () =
     let typ = typeof<Choice<int,string>>
     let ucis = FSharpType.GetUnionCases typ
-    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
-    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
+    FSharpValue.MakeUnion(ucis[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
+    FSharpValue.MakeUnion(ucis[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
 
     let typ = typeof<Choice<float,string list,float>>
     let ucis = FSharpType.GetUnionCases typ
-    FSharpValue.MakeUnion(ucis.[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
-    FSharpValue.MakeUnion(ucis.[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
-    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
-    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
+    FSharpValue.MakeUnion(ucis[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
+    FSharpValue.MakeUnion(ucis[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
+    FSharpValue.MakeUnion(ucis[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
+    FSharpValue.MakeUnion(ucis[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
 
   [<Fact>]
   let ``Type.GenericTypeArguments works`` () =
@@ -585,8 +585,8 @@ module reflectionTests =
         FSharpType.GetUnionCases(typeof<MyList<int>>)
         |> Array.find (fun x -> x.Name = "Cons")
     let fieldTypes = cons.GetFields()
-    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
-    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
+    fieldTypes[0].PropertyType.FullName |> equal typeof<int>.FullName
+    fieldTypes[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
 
   [<Fact>]
   let ``Calling constructor of generic type in inline functions works`` () =
@@ -639,8 +639,8 @@ module reflectionTests =
   [<Fact>]
   let ``.GetInterface works when types are know at compile time`` () = // #2321
     let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
-    t.GetGenericArguments().[0] = typeof<int> |> equal true
-    t.GetGenericArguments().[0] = typeof<string> |> equal false
+    t.GetGenericArguments()[0] = typeof<int> |> equal true
+    t.GetGenericArguments()[0] = typeof<string> |> equal false
     typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
     typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
     typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true

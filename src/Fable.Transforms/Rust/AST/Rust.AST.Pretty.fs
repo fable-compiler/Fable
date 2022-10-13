@@ -204,7 +204,7 @@ let buf_str(buf: Vec<BufEntry>, left: usize, right: usize, lim: usize): String =
         l <- l - 1
         if i <> left then
             s.push_str(", ")
-        s.push_str(format("{0}={1}", buf.[i].size, buf.[i].token))
+        s.push_str(format("{0}={1}", buf[i].size, buf[i].token))
         i <- i + 1
         i <- i % n
     s.push(']')
@@ -286,11 +286,11 @@ type BufEntry with
 
 type Printer with
     member self.last_token(): Token =
-        self.buf.[self.right].token
+        self.buf[self.right].token
 
     /// Be very careful with this!
     member self.replace_last_token(t: Token) =
-        self.buf.[self.right].token <- t
+        self.buf[self.right].token <- t
 
     member self.scan_eof() =
         if not(self.scan_stack.is_empty()) then
@@ -338,7 +338,7 @@ type Printer with
             debug("pp String('{0}')/buffer Vec<{1},{2}>", s, self.left, self.right)
             self.advance_right()
             let len = s.len()
-            self.buf.[self.right] <- { token = Token.String(s); size = len }
+            self.buf[self.right] <- { token = Token.String(s); size = len }
             self.right_total <- self.right_total + len
             self.check_stream()
 
@@ -356,14 +356,14 @@ type Printer with
             if Some(self.left) = self.scan_stack.back() then
                 debug("setting {0} to infinity and popping", self.left)
                 let scanned = self.scan_pop_bottom()
-                self.buf.[scanned].size <- _SIZE_INFINITY
+                self.buf[scanned].size <- _SIZE_INFINITY
             self.advance_left()
             if self.left <> self.right then
                 self.check_stream()
 
     member self.scan_push(entry: BufEntry) =
         debug("scan_push {0}", self.right)
-        self.buf.[self.right] <- entry
+        self.buf[self.right] <- entry
         self.scan_stack.push_front(self.right)
 
     member self.scan_pop(): usize =
@@ -386,13 +386,13 @@ type Printer with
     member self.advance_left() =
         debug(
             "advance_left Vec<{0},{1}>, sizeof({2})={3}",
-            self.left, self.right, self.left, self.buf.[self.left].size
+            self.left, self.right, self.left, self.buf[self.left].size
         )
 
-        let mutable left_size = self.buf.[self.left].size
+        let mutable left_size = self.buf[self.left].size
         let mutable finished = false
         while not finished && left_size >= 0 do
-            let left = self.buf.[self.left].token
+            let left = self.buf[self.left].token
 
             let len =
                 match left with
@@ -413,25 +413,25 @@ type Printer with
             self.left <- self.left + 1
             self.left <- self.left % self.buf_max_len
 
-            left_size <- self.buf.[self.left].size
+            left_size <- self.buf[self.left].size
 
     member self.check_stack(k: usize) =
         if not(self.scan_stack.is_empty()) then
             let x = self.scan_top()
-            match self.buf.[x].token with
+            match self.buf[x].token with
                 | Token.Begin(_) ->
                     if k > 0 then
                         self.scan_pop() |> ignore
-                        self.buf.[x].size <- self.buf.[x].size + self.right_total
+                        self.buf[x].size <- self.buf[x].size + self.right_total
                         self.check_stack(k - 1)
                 | Token.End ->
                     // paper says + not =, but that makes no sense.
                     self.scan_pop() |> ignore
-                    self.buf.[x].size <- 1
+                    self.buf[x].size <- 1
                     self.check_stack(k + 1)
                 | _ ->
                     self.scan_pop() |> ignore
-                    self.buf.[x].size <- self.buf.[x].size + self.right_total
+                    self.buf[x].size <- self.buf[x].size + self.right_total
                     if k > 0 then
                         self.check_stack(k)
 

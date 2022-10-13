@@ -246,7 +246,7 @@ let run opts projectFileName outDir =
             // TODO: This only works if the project is an .fsx file
             let outDir = Option.defaultValue "." outDir
             let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
-            let runArgs = opts.[i+1..] |> String.concat " "
+            let runArgs = opts[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
         outDir = opts |> argValue ["--outDir"; "-o"] |> Option.orElse outDir

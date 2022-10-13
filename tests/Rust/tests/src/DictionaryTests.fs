@@ -88,7 +88,7 @@ let ``Dictionary iteration works`` () =
     let mutable i = 0
     for kv in dict do
         i <- i + kv.Value
-    i + dict.[1]
+    i + dict[1]
     |> equal 386
 
 [<Fact>]
@@ -108,18 +108,18 @@ let ``Dictionary.Count works`` () =
 [<Fact>]
 let ``Dictionary indexer works`` () =
     let dict = Dictionary()
-    dict.["A"] <- 1
-    dict.["B"] <- 2
-    dict.["A"] <- 3
-    dict.["A"] |> equal 3
-    dict.["B"] |> equal 2
+    dict["A"] <- 1
+    dict["B"] <- 2
+    dict["A"] <- 3
+    dict["A"] |> equal 3
+    dict["B"] |> equal 2
 
 // [<Fact>]
 // let ``Dictionary indexer works II`` () =
 //     let dict = Dictionary<string, obj>()
-//     dict.["A"] <- "Hello"
-//     dict.["B"] <- 2
-//     dict.["B"].ToString()
+//     dict["A"] <- "Hello"
+//     dict["B"] <- 2
+//     dict["B"].ToString()
 //     |> equal "2"
 
 [<Fact>]
@@ -129,7 +129,7 @@ let ``Dictionary.TryAdd works`` () =
     dict.TryAdd("B", "World!") |> equal true
     dict.TryAdd("A", "Bye!") |> equal false
     dict.Count |> equal 2
-    dict.["A"] |> equal "Hello"
+    dict["A"] |> equal "Hello"
 
 [<Fact>]
 let ``Dictionary.TryGetValue works`` () =
@@ -164,7 +164,7 @@ let ``Dictionary.Keys works`` () =
     let dict = Dictionary<_,_>()
     dict.Add("A", 1)
     dict.Add("B", 2)
-    dict.Keys |> Seq.fold (fun acc k -> acc + dict.[k]) 0
+    dict.Keys |> Seq.fold (fun acc k -> acc + dict[k]) 0
     |> equal 3
 
 [<Fact>]
@@ -271,7 +271,7 @@ let ``Interface IDictionary.Count works`` () =
 [<Fact>]
 let ``Interface IDictionary indexer getter works`` () =
     let dict = dict <| seq { for i in 1 .. 10 -> i, i*i }
-    dict.[2] |> equal 4
+    dict[2] |> equal 4
 
 [<Fact>]
 let ``Interface IDictionary.Keys works`` () =
@@ -305,8 +305,8 @@ let ``Interface IDictionary.ContainsKey works`` () =
 // let ``Indexer throws when key not found`` () =
 //     let dict = Dictionary<_,_>()
 //     dict.Add("A", 65)
-//     // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dict.["B"] |> ignore)
-//     throwsAnyError (fun () -> dict.["B"])
+//     // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dict["B"] |> ignore)
+//     throwsAnyError (fun () -> dict["B"])
 
 [<Fact>]
 let ``conversion from array works`` () =
@@ -327,6 +327,6 @@ let ``conversion from array works with duplicates`` () =
 //     cache.Add(typeof<string>, 2)
 //     cache.Add(typeof<int64>, 3)
 //     equal 3 cache.Count
-//     equal cache.[typeof<int>] 1
-//     equal cache.[typeof<string>] 2
-//     equal cache.[typeof<int64>] 3
+//     equal cache[typeof<int>] 1
+//     equal cache[typeof<string>] 2
+//     equal cache[typeof<int64>] 3

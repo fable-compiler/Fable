@@ -48,7 +48,7 @@ let ``ResizeArray casting to seq works`` () =
 //         xs.Add(i)
 //     let mutable x = 0
 //     for i = 0 to xs.Count - 1 do
-//         x <- x + xs.[i]
+//         x <- x + xs[i]
 //     x |> equal 10
 
 // [<Fact>]
@@ -132,14 +132,14 @@ let ``ResizeArray.Count works`` () =
 let ``ResizeArray indexer getter works`` () =
     let xs = ResizeArray<_>()
     xs.Add(1.); xs.Add(2.); xs.Add(3.); xs.Add(4.); xs.Add(5.)
-    xs.[1] |> equal 2.
+    xs[1] |> equal 2.
 
 [<Fact>]
 let ``ResizeArray indexer setter works`` () =
     let xs = ResizeArray<_>()
     xs.Add(1.); xs.Add(2.); xs.Add(3.); xs.Add(4.); xs.Add(5.)
-    xs.[3] <- 10.
-    xs.[3] |> equal 10.
+    xs[3] <- 10.
+    xs[3] |> equal 10.
 
 [<Fact>]
 let ``ResizeArray.Clear works`` () =
@@ -208,16 +208,16 @@ let ``ResizeArray.IndexOf works`` () =
 //     xs.Add("ab")
 //     System.Predicate<_> (fun x -> x = "ab") |> xs.RemoveAll |> equal 2
 //     System.Predicate<_> (fun x -> x = "ab") |> xs.RemoveAll |> equal 0
-//     xs.[0] |> equal "ch"
+//     xs[0] |> equal "ch"
 
 // [<Fact>]
 // let ``ResizeArray.RemoveRange works`` () =
 //     let xs = ResizeArray<int>()
 //     for x in [1 .. 5] do xs.Add(x)
 //     xs.RemoveRange(1, 2) // [1;2;3;4;5] -> [1;4;5]
-//     equal 1 xs.[0]
-//     equal 4 xs.[1]
-//     equal 5 xs.[2]
+//     equal 1 xs[0]
+//     equal 4 xs[1]
+//     equal 5 xs[2]
 
 [<Fact>]
 let ``ResizeArray.Exists works`` () =
@@ -236,7 +236,7 @@ let ``ResizeArray.RemoveAt works`` () =
     xs.Add(1.); xs.Add(2.); xs.Add(3.); xs.Add(4.); xs.Add(5.)
     xs.RemoveAt(2)
     xs.Count |> equal 4
-    xs.[2] |> equal 4.
+    xs[2] |> equal 4.
 
 [<Fact>]
 let ``ResizeArray.Insert works`` () =
@@ -244,7 +244,7 @@ let ``ResizeArray.Insert works`` () =
     xs.Add(1.); xs.Add(2.); xs.Add(3.); xs.Add(4.); xs.Add(5.)
     xs.Insert(2, 8.)
     xs.Count |> equal 6
-    xs.[2] |> equal 8.
+    xs[2] |> equal 8.
 
 [<Fact>]
 let ``ResizeArray.ReverseInPlace works`` () =
@@ -301,9 +301,9 @@ let ``ResizeArray.ToArray works`` () =
     xs.Count |> equal 5
     let ar = xs.ToArray()
     Array.length ar |> equal 5
-    ar.[0] <- 2.
-    equal 3. xs.[0]
-    equal 2. ar.[0]
+    ar[0] <- 2.
+    equal 3. xs[0]
+    equal 2. ar[0]
 
 // [<Fact>]
 // let ``ResizeArray.Item is undefined when index is out of range`` () =

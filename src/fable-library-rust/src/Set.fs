@@ -520,7 +520,7 @@ let choose s =
 
 let copyToArray s (arr: _[]) i =
     let mutable j = i
-    iterate (fun x -> arr.[j] <- x; j <- j + 1) s
+    iterate (fun x -> arr[j] <- x; j <- j + 1) s
 
 let toArray (s: Set<'T>) =
     let len = count s

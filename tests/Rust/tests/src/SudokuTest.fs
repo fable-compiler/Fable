@@ -10,7 +10,7 @@ type Sudoku = Box array array
 let rows = id
 let cols (sudoku:Sudoku) =
     sudoku
-    |> Array.mapi (fun a row -> row |> Array.mapi (fun b cell -> sudoku.[b].[a]))
+    |> Array.mapi (fun a row -> row |> Array.mapi (fun b cell -> sudoku[b][a]))
 
 let getBoxIndex count row col =
    let n = row/count
@@ -24,7 +24,7 @@ let boxes (sudoku:Sudoku) =
 
     for a in 0..(Array.length sudoku - 1) do
         for b in 0..(Array.length sudoku - 1) do
-            list.[getBoxIndex d a b].Add(sudoku.[a].[b])
+            list[getBoxIndex d a b].Add(sudoku[a][b])
 
     list
       |> Seq.map Seq.toArray
@@ -50,12 +50,12 @@ let solvable sudoku =
 let replaceAtPos (x:Sudoku) row col newValue :Sudoku =
     [| for a in 0..(Array.length x - 1) ->
         [| for b in 0..(Array.length x - 1) ->
-            if a = row && b = col then newValue else x.[a].[b] |] |]
+            if a = row && b = col then newValue else x[a][b] |] |]
 
 let rec substitute row col (x:Sudoku) =
     let a,b = if col >= Array.length x then row+1,0 else row,col
     if a >= Array.length x then seq { yield x } else
-    if x.[a].[b] = 0 then
+    if x[a][b] = 0 then
         [1..Array.length x]
             |> Seq.map (replaceAtPos x a b)
             |> Seq.filter solvable

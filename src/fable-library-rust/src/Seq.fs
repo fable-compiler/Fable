@@ -245,7 +245,7 @@ module Enumerable =
         let current() =
             if i < 0 then notStarted()
             elif i >= len then alreadyFinished()
-            else arr.[i]
+            else arr[i]
         let movenext() =
             if i < len then
                 i <- i + 1
@@ -806,7 +806,7 @@ let cache (xs: 'T seq): 'T seq =
         // TODO: enable lock in multi-threading context
         // lock prefix <| fun () ->
         if i < prefix.Count then
-            Some (prefix.[i], i + 1)
+            Some (prefix[i], i + 1)
         else
             if enumOpt.IsNone then
                 enumOpt <- Some (xs.GetEnumerator())
@@ -1092,13 +1092,13 @@ let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq):
             let key = projection x
             match dict.TryGetValue(key) with
             | true, prev ->
-                dict.[key] <- prev + 1
+                dict[key] <- prev + 1
             | false, _ ->
-                dict.[key] <- 1
+                dict[key] <- 1
                 keys.Add(key)
         keys
         |> asArray
-        |> Array.map (fun key -> key, dict.[key])
+        |> Array.map (fun key -> key, dict[key])
         |> ofArray
     )
 
@@ -1116,7 +1116,7 @@ let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq):
                 keys.Add(key)
         keys
         |> asArray
-        |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
+        |> Array.map (fun key -> key, dict[key] |> asArray |> ofArray)
         |> ofArray
     )
 

@@ -183,7 +183,7 @@ let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
     let mutable res = tail
     let len = Array.length xs
     for i = len - 1 downto 0 do
-        res <- cons xs.[i] res
+        res <- cons xs[i] res
     res
 
 let ofArray (xs: 'T[]) =
@@ -638,7 +638,7 @@ let transpose (lists: 'T list list): 'T list list =
             xs |> iterateIndexed (fun i x ->
                 if i >= nodes.Length then
                     invalidArg "lists" SR.listsHadDifferentLengths
-                nodes.[i] <- nodes.[i] |> appendConsNoTail x))
+                nodes[i] <- nodes[i] |> appendConsNoTail x))
         tRows
 
 let distinct<'T when 'T: equality> (xs: 'T list): 'T list =
@@ -660,14 +660,14 @@ let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list)
         let key = projection x
         match dict.TryGetValue(key) with
         | true, prev ->
-            dict.[key] <- prev + 1
+            dict[key] <- prev + 1
         | false, _ ->
-            dict.[key] <- 1
+            dict[key] <- 1
             keys.Add(key)
     )
     keys
     |> asArray
-    |> Array.map (fun key -> key, dict.[key])
+    |> Array.map (fun key -> key, dict[key])
     |> ofArray
 
 let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list): ('Key * 'T list) list =
@@ -684,7 +684,7 @@ let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list)
     )
     keys
     |> asArray
-    |> Array.map (fun key -> key, dict.[key] |> asArray |> ofArray)
+    |> Array.map (fun key -> key, dict[key] |> asArray |> ofArray)
     |> ofArray
 
 let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =

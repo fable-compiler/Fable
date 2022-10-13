@@ -255,26 +255,26 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
         value
         |> replace @"\$(\d+)\.\.\." (fun m ->
             let rep = ResizeArray()
-            let i = int m.Groups.[1].Value
+            let i = int m.Groups[1].Value
             for j = i to args.Length - 1 do
                 rep.Add("$" + string j)
             String.concat ", " rep)
 
         // |> replace @"\{\{\s*\$(\d+)\s*\?(.*?):(.*?)\}\}" (fun m ->
-        //     let i = int m.Groups.[1].Value
-        //     match args.[i] with
-        //     | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
-        //     | _ -> m.Groups.[3].Value)
+        //     let i = int m.Groups[1].Value
+        //     match args[i] with
+        //     | Literal(BooleanLiteral(value=value)) when value -> m.Groups[2].Value
+        //     | _ -> m.Groups[3].Value)
 
         |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-            let i = int m.Groups.[2].Value
+            let i = int m.Groups[2].Value
             match Array.tryItem i args with
-            | Some _ -> m.Groups.[1].Value
+            | Some _ -> m.Groups[1].Value
             | None -> "")
 
         // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
         // |> replace @"\$(\d+)!" (fun m ->
-        //     let i = int m.Groups.[1].Value
+        //     let i = int m.Groups[1].Value
         //     match Array.tryItem i args with
         //     | Some(Literal(Literal.StringLiteral(StringLiteral(value, _)))) -> value
         //     | _ -> "")
@@ -282,25 +282,25 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
     let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
     if matches.Count > 0 then
         for i = 0 to matches.Count - 1 do
-            let m = matches.[i]
+            let m = matches[i]
             let isSurroundedWithParens =
                 m.Index > 0
                 && m.Index + m.Length < value.Length
-                && value.[m.Index - 1] = '('
-                && value.[m.Index + m.Length] = ')'
+                && value[m.Index - 1] = '('
+                && value[m.Index + m.Length] = ')'
 
             let segmentStart =
-                if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                if i > 0 then matches[i-1].Index + matches[i-1].Length
                 else 0
 
             printSegment self.s value segmentStart m.Index
 
-            let argIndex = int m.Value.[1..]
+            let argIndex = int m.Value[1..]
             match Array.tryItem argIndex args with
             | Some e -> printArgs e
             | None -> self.s.word("undefined")
 
-        let lastMatch = matches.[matches.Count - 1]
+        let lastMatch = matches[matches.Count - 1]
         printSegment self.s value (lastMatch.Index + lastMatch.Length) value.Length
     else
         printSegment self.s value 0 value.Length
@@ -372,7 +372,7 @@ type State with
                 if not(self.s.is_beginning_of_line()) then
                     self.s.word(" ")
                 if cmnt.lines.len() = 1 then
-                    self.s.word(cmnt.lines.[0])
+                    self.s.word(cmnt.lines[0])
                     self.s.hardbreak()
                 else
                     self.s.ibox(0)
@@ -594,7 +594,7 @@ type State with
 
     member self.print_path(path: ast.Path, colons_before_params: bool, depth: usize) =
         self.maybe_print_comment(path.span.lo())
-        let segments = path.segments.[..path.segments.len() - depth]
+        let segments = path.segments[..path.segments.len() - depth]
         let mutable i = -1
         for segment in segments do //.iter().enumerate() do
             i <- i + 1
@@ -842,7 +842,7 @@ type State with
             i <- i + 1
             if i < len then
                 self.s.word(",")
-                self.maybe_print_trailing_comment(get_span(elt), Some(get_span(elts.[i]).hi()))
+                self.maybe_print_trailing_comment(get_span(elt), Some(get_span(elts[i]).hi()))
                 self.s.space_if_not_bol()
         self.s.end_()
 
@@ -1611,8 +1611,8 @@ type State with
         self.print_call_post(args)
 
     member self.print_expr_method_call(segment: ast.PathSegment, args: Vec<P<ast.Expr>>) =
-        let base_args = args.[1..]
-        self.print_expr_maybe_paren(args.[0], parser.PREC_POSTFIX)
+        let base_args = args[1..]
+        self.print_expr_maybe_paren(args[0], parser.PREC_POSTFIX)
         self.s.word(".")
         self.print_ident(segment.ident)
         match segment.args with
@@ -2068,7 +2068,7 @@ type State with
             let depth = path.segments.len() - qself.position
             self.print_path(path, false, depth)
         self.s.word(">")
-        for item_segment in path.segments.[qself.position..] do
+        for item_segment in path.segments[qself.position..] do
             self.s.word("::")
             self.print_ident(item_segment.ident)
             match item_segment.args with

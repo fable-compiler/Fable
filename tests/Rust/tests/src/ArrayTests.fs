@@ -14,7 +14,7 @@ type ExceptFoo = { Bar: string }
 // let map f ar = Array.map f ar
 
 let inc_elem2 (a: _[]) i =
-    a.[i] <- a.[i] + 1
+    a[i] <- a[i] + 1
     a
 
 type Point =
@@ -121,20 +121,20 @@ let ``Array.compareWith works`` () =
 [<Fact>]
 let ``Array get by index works`` () =
     let arr = [|1;2;3|]
-    arr.[0] |> equal 1
-    arr.[1] |> equal 2
-    arr.[2] |> equal 3
+    arr[0] |> equal 1
+    arr[1] |> equal 2
+    arr[2] |> equal 3
 
 [<Fact>]
 let ``Array set by index works`` () =
     let arr = [|1;2;3|]
-    arr.[1] <- arr.[2] + 1
+    arr[1] <- arr[2] + 1
     arr |> equal [|1;4;3|]
 
 [<Fact>]
 let ``Array pass by reference works`` () =
     let inc_elem (a: _[]) i =
-        a.[i] <- a.[i] + 1
+        a[i] <- a[i] + 1
         a
     let arr = [|1;2;3|]
     inc_elem arr 2 |> equal [|1;2;4|]
@@ -193,7 +193,7 @@ let ``Array.length works`` () =
 let ``Array.copy works`` () =
     let xs = [|1;2;3|]
     let ys = Array.copy xs
-    xs.[1] <- xs.[1] + 1
+    xs[1] <- xs[1] + 1
     ys |> equal [|1;2;3|]
 
 [<Fact>]
@@ -219,7 +219,7 @@ let ``Pattern matching with arrays works`` () =
 
 // [<Fact>]
 // let ``Can spread a complex expression`` () =
-//     let sideEffect (ar: int[]) = ar.[1] <- 5
+//     let sideEffect (ar: int[]) = ar[1] <- 5
 //     ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
 //     |> equal 9
 
@@ -232,58 +232,58 @@ let ``Pattern matching with arrays works`` () =
 //     let concaters3 = a |> Array.map (fun x -> let f = (fun y -> y + x) in f)
 //     let concaters4 = a |> Array.map f
 //     let concaters5 = b |> Array.mapi f
-//     concaters1.[0] "x" |> equal "xa"
-//     concaters2.[1] "x" |> equal "xb"
-//     concaters3.[2] "x" |> equal "xc"
-//     concaters4.[0] "x" "y" |> equal "axy"
-//     concaters5.[1] "x" |> equal "12x"
+//     concaters1[0] "x" |> equal "xa"
+//     concaters2[1] "x" |> equal "xb"
+//     concaters3[2] "x" |> equal "xc"
+//     concaters4[0] "x" "y" |> equal "axy"
+//     concaters5[1] "x" |> equal "12x"
 //     let f2 = f
 //     a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
 
 // [<Fact>]
 // let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values`` () = // See #120, #171
 //     let xs = map string [|1;2|]
-//     (box xs.[0]) :? string |> equal true
+//     (box xs[0]) :? string |> equal true
 //     let xs2 = Array.map string [|1;2|]
-//     (box xs2.[1]) :? string |> equal true
+//     (box xs2[1]) :? string |> equal true
 
 [<Fact>]
 let ``Array slice with upper index work`` () =
     let xs = [| 1; 2; 3; 4; 5; 6 |]
     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-    xs.[..2] |> equal [| 1; 2; 3 |]
-    xs.[..2] <- ys
+    xs[..2] |> equal [| 1; 2; 3 |]
+    xs[..2] <- ys
     xs |> equal [| 8; 8; 8; 4; 5; 6 |]
 
 [<Fact>]
 let ``Array slice with lower index work`` () =
     let xs = [| 1; 2; 3; 4; 5; 6 |]
     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-    xs.[4..] |> equal [| 5; 6 |]
-    xs.[4..] <- ys
+    xs[4..] |> equal [| 5; 6 |]
+    xs[4..] <- ys
     xs |> equal [| 1; 2; 3; 4; 8; 8 |]
 
 [<Fact>]
 let ``Array slice with both indices work`` () =
     let xs = [| 1; 2; 3; 4; 5; 6 |]
     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-    xs.[1..3] |> equal [| 2; 3; 4 |]
-    xs.[1..3] <- ys
+    xs[1..3] |> equal [| 2; 3; 4 |]
+    xs[1..3] <- ys
     xs |> equal [| 1; 8; 8; 8; 5; 6 |]
 
 [<Fact>]
 let ``Array slice with invalid indices work`` () =
     let xs = [| 1; 2; 3; 4; 5; 6 |]
     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8 |]
-    xs.[0..-1] |> equal [||]
-    xs.[-50..50] |> equal [| 1; 2; 3; 4; 5; 6 |]
-    xs.[0..-1] <- ys
+    xs[0..-1] |> equal [||]
+    xs[-50..50] |> equal [| 1; 2; 3; 4; 5; 6 |]
+    xs[0..-1] <- ys
     xs |> equal [| 1; 2; 3; 4; 5; 6 |]
 
 [<Fact>]
 let ``Array slice with non-numeric arrays work`` () =
     let xs = [|"A";"B";"C";"D"|]
-    xs.[1..2] <- [|"X";"X";"X";"X"|]
+    xs[1..2] <- [|"X";"X";"X";"X"|]
     xs |> equal [|"A";"X";"X";"D"|]
 
 [<Fact>]
@@ -294,13 +294,13 @@ let ``Array literals work`` () =
 [<Fact>]
 let ``Array indexer getter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
-    x.[2] |> equal 3.
+    x[2] |> equal 3.
 
 [<Fact>]
 let ``Array indexer setter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
-    x.[3] <- 10.
-    equal 10. x.[3]
+    x[3] <- 10.
+    equal 10. x[3]
 
 [<Fact>]
 let ``Array getter works`` () =
@@ -311,7 +311,7 @@ let ``Array getter works`` () =
 let ``Array setter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
     Array.set x 3 10.
-    equal 10. x.[3]
+    equal 10. x[3]
 
 [<Fact>]
 let ``Array.Length works`` () =
@@ -333,22 +333,22 @@ let ``Array.length works with non-numeric arrays`` () =
 // [<Fact>]
 // let ``Array.zeroCreate works with KeyValuePair`` () =
 //     let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
-//     equal 0. a.[1].Key
-//     equal false a.[2].Value
+//     equal 0. a[1].Key
+//     equal false a[2].Value
 
 // [<Fact>]
 // let ``Array.blit works`` () =
 //     let xs = [| 1..10 |]
 //     let ys = Array.zeroCreate 20
 //     Array.blit xs 3 ys 5 4
-//     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
+//     ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
 
 // [<Fact>]
 // let ``Array.blit works with non typed arrays`` () =
 //     let xs = [| 'a'..'h' |] |> Array.map string
 //     let ys = Array.zeroCreate 20
 //     Array.blit xs 3 ys 5 4
-//     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
+//     ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
 
 [<Fact>]
 let ``Array.distinct works`` () =
@@ -402,13 +402,13 @@ let ``Array.fill works`` () =
 let ``Array.append works`` () =
     let xs1 = [|1; 2; 3; 4|]
     let zs1 = Array.append [|5|] xs1
-    zs1.[0] + zs1.[1] |> equal 6
+    zs1[0] + zs1[1] |> equal 6
 
 [<Fact>]
 let ``Array.append works II`` () =
     let xs2 = [|"a"; "b"; "c"|]
     let zs2 = Array.append [|"x";"y"|] xs2
-    zs2.[1] + zs2.[3] |> equal "yb"
+    zs2[1] + zs2[3] |> equal "yb"
 
 [<Fact>]
 let ``Array.average works`` () =
@@ -445,30 +445,30 @@ let ``Array.choose with longs works`` () =
     let res = xs |> Array.choose (fun x ->
         if x > 2L then Some x
         else None)
-    res.[0] + res.[1]
+    res[0] + res[1]
     |> equal 7L
 
 [<Fact>]
 let ``Array.choose must construct array of output type`` () = // See #1658
     let source = [|1; 3; 5; 7|]
     let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
-    target.[3].MainThing |> equal 7
+    target[3].MainThing |> equal 7
 
 [<Fact>]
 let ``Array.collect works`` () =
     let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
     let ys = xs |> Array.collect id
-    ys.[0] + ys.[1] |> equal 3
+    ys[0] + ys[1] |> equal 3
     let xs1 = [|[|1.; 2.|]; [|3.|]; [|4.; 5.; 6.;|]; [|7.|]|]
     let ys1 = xs1 |> Array.collect id
-    ys1.[0] + ys1.[1] + ys1.[2] + ys1.[3] + ys1.[4]
+    ys1[0] + ys1[1] + ys1[2] + ys1[3] + ys1[4]
     |> equal 15.
 
 [<Fact>]
 let ``Array.concat works`` () =
     let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
     let ys = xs |> Array.concat
-    ys.[0] + ys.[1]
+    ys[0] + ys[1]
     |> equal 3.
 
 [<Fact>]
@@ -597,9 +597,9 @@ let ``Array.forall2 works`` () =
 [<Fact>]
 let ``Array.init works`` () =
     let xs = Array.init 4 (float >> sqrt)
-    xs.[0] + xs.[1]
+    xs[0] + xs[1]
     |> equal 1.
-    (xs.[2] > 1. && xs.[3] < 2.)
+    (xs[2] > 1. && xs[3] < 2.)
     |> equal true
 
 [<Fact>]
@@ -654,7 +654,7 @@ let ``Array.countBy works`` () =
 let ``Array.map works`` () =
     let xs = [|1.|]
     let ys = xs |> Array.map (fun x -> x * 2.)
-    ys.[0] |> equal 2.
+    ys[0] |> equal 2.
 
 [<Fact>]
 let ``Array.map doesn't execute side effects twice`` () = // See #1140
@@ -668,7 +668,7 @@ let ``Array.map2 works`` () =
     let xs = [|1.|]
     let ys = [|2.|]
     let zs = Array.map2 (*) xs ys
-    zs.[0] |> equal 2.
+    zs[0] |> equal 2.
 
 [<Fact>]
 let ``Array.map3 works`` () =
@@ -676,20 +676,20 @@ let ``Array.map3 works`` () =
     let value2 = [|2.|]
     let value3 = [|3.|]
     let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
-    zs.[0] |> equal 6.
+    zs[0] |> equal 6.
 
 [<Fact>]
 let ``Array.mapi works`` () =
     let xs = [|1.; 2.|]
     let ys = xs |> Array.mapi (fun i x -> float i + x)
-    ys.[1] |> equal 3.
+    ys[1] |> equal 3.
 
 [<Fact>]
 let ``Array.mapi2 works`` () =
     let xs = [|1.; 2.|]
     let ys = [|2.; 3.|]
     let zs = Array.mapi2 (fun i x y -> float i + x * y) xs ys
-    zs.[1] |> equal 7.
+    zs[1] |> equal 7.
 
 [<Fact>]
 let ``Array.mapFold works`` () =
@@ -739,7 +739,7 @@ let ``Array.ofList works`` () =
 let ``Array.ofSeq works`` () =
     let xs = seq { yield 1; yield 2 }
     let ys = Array.ofSeq xs
-    ys.[0] |> equal 1
+    ys[0] |> equal 1
 
 [<Fact>]
 let ``Array.partition works`` () =
@@ -820,14 +820,14 @@ let ``Array.rev works`` () =
 let ``Array.scan works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let ys = xs |> Array.scan (+) 0.
-    ys.[2] + ys.[3]
+    ys[2] + ys[3]
     |> equal 9.
 
 [<Fact>]
 let ``Array.scanBack works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let ys = Array.scanBack (-) xs 0.
-    ys.[2] + ys.[3]
+    ys[2] + ys[3]
     |> equal 3.
 
 [<Fact>]
@@ -836,7 +836,7 @@ let ``Array.sort works`` () =
     let ys = [|"a"; "c"; "B"; "d"|]
     xs |> Array.sort |> equal [|-3; 1; 2; 3; 4; 10|]
     ys |> Array.sort |> equal [|"B"; "a"; "c"; "d"|]
-    xs.[0] |> equal 3 // Make sure there is no side effects
+    xs[0] |> equal 3 // Make sure there is no side effects
 
 [<Fact>]
 let ``Array.sort with tuples works`` () =
@@ -850,19 +850,19 @@ let ``Array.sortDescending works`` () =
     let ys = [|"a"; "c"; "B"; "d"|]
     xs |> Array.sortDescending |> equal [|10; 4; 3; 2; 1; -3|]
     ys |> Array.sortDescending |> equal [|"d"; "c"; "a"; "B"|]
-    xs.[0] |> equal 3 // Make sure there is no side effects
+    xs[0] |> equal 3 // Make sure there is no side effects
 
 [<Fact>]
 let ``Array.sortBy works`` () =
     let xs = [|3.; 4.; 1.; 2.|]
     let ys = xs |> Array.sortBy (fun x -> -x)
-    ys.[0] + ys.[1] |> equal 7.
+    ys[0] + ys[1] |> equal 7.
 
 [<Fact>]
 let ``Array.sortByDescending works`` () =
     let xs = [|3.; 4.; 1.; 2.|]
     let ys = xs |> Array.sortByDescending (fun x -> -x)
-    ys.[0] + ys.[1] |> equal 3.
+    ys[0] + ys[1] |> equal 3.
 
 [<Fact>]
 let ``Array.sortWith works`` () =
@@ -874,13 +874,13 @@ let ``Array.sortWith works`` () =
 let ``Array.sortInPlace works`` () =
     let xs = [|3.; 4.; 1.; 2.; 10.|]
     Array.sortInPlace xs
-    xs.[0] + xs.[1] |> equal 3.
+    xs[0] + xs[1] |> equal 3.
 
 [<Fact>]
 let ``Array.sortInPlaceBy works`` () =
     let xs = [|3.; 4.; 1.; 2.; 10.|]
     Array.sortInPlaceBy (fun x -> -x) xs
-    xs.[0] + xs.[1] |> equal 14.
+    xs[0] + xs[1] |> equal 14.
 
 [<Fact>]
 let ``Array.sortInPlaceWith works`` () =
@@ -930,7 +930,7 @@ let ``Array.sumBy with numeric projection works`` () =
 let ``Array.toList works`` () =
     let xs = [|1.; 2.|]
     let ys = xs |> Array.toList
-    ys.[0] + ys.[1]
+    ys[0] + ys[1]
     |> equal 3.
 
 [<Fact>]
@@ -988,14 +988,14 @@ let ``Array.unfold works`` () =
 let ``Array.unzip works`` () =
     let xs = [|1., 2.|]
     let ys, zs = xs |> Array.unzip
-    ys.[0] + zs.[0]
+    ys[0] + zs[0]
     |> equal 3.
 
 [<Fact>]
 let ``Array.unzip3 works`` () =
     let xs = [|1., 2., 3.|]
     let ys, zs, ks = xs |> Array.unzip3
-    ys.[0] + zs.[0] + ks.[0]
+    ys[0] + zs[0] + ks[0]
     |> equal 6.
 
 [<Fact>]
@@ -1003,7 +1003,7 @@ let ``Array.zip works`` () =
     let xs = [|1.; 2.; 3.|]
     let ys = [|1.; 2.; 3.|]
     let zs = Array.zip xs ys
-    let x, y = zs.[0]
+    let x, y = zs[0]
     x + y |> equal 2.
 
 [<Fact>]
@@ -1012,15 +1012,15 @@ let ``Array.zip3 works`` () =
     let ys = [|1.; 2.; 3.|]
     let zs = [|1.; 2.; 3.|]
     let ks = Array.zip3 xs ys zs
-    let x, y, z = ks.[0]
+    let x, y, z = ks[0]
     x + y + z |> equal 3.
 
 // [<Fact>]
 // let ``Array as IList indexer has same behaviour`` () =
 //     let xs = [|1.; 2.; 3.|]
 //     let ys = xs :> _ System.Collections.Generic.IList
-//     ys.[0] <- -3.
-//     ys.[0] + ys.[2]
+//     ys[0] <- -3.
+//     ys[0] + ys[2]
 //     |> equal 0.
 
 // [<Fact>]
@@ -1095,8 +1095,8 @@ let ``Array.tail works`` () =
 let ``Array.groupBy returns valid array`` () =
     let xs = [|1; 2|]
     let actual = Array.groupBy (fun _ -> true) xs
-    let actualKey, actualGroup = actual.[0]
-    let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
+    let actualKey, actualGroup = actual[0]
+    let worked = actualKey && actualGroup[0] = 1 && actualGroup[1] = 2
     worked |> equal true
 
 [<Fact>]
@@ -1124,12 +1124,12 @@ let ``Array.except works`` () =
     // Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
 
 // [<Fact>]
-// let ``Array.[i] is undefined in Fable when i is out of range`` () =
+// let ``Array[i] is undefined in Fable when i is out of range`` () =
 //     let xs = [|0|]
 // #if FABLE_COMPILER
-//     isNull <| box xs.[1]
+//     isNull <| box xs[1]
 // #else
-//     try xs.[1] |> ignore; false with _ -> true
+//     try xs[1] |> ignore; false with _ -> true
 // #endif
 //     |> equal true
 
@@ -1143,8 +1143,8 @@ let ``Array iterators from range do rewind`` () =
 let ``Array indexed works`` () =
     let xs = [|1.; 2.; 3.|] |> Array.indexed
     xs.Length |> equal 3
-    fst xs.[2] |> equal 2
-    snd xs.[2] |> equal 3.
+    fst xs[2] |> equal 2
+    snd xs[2] |> equal 3.
 
 [<Fact>]
 let ``Array.chunkBySize works`` () =

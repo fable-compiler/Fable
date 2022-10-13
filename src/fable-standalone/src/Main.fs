@@ -74,7 +74,7 @@ let findLongIdentsAndResidue (col: int, lineStr:string) =
         | "" -> [], ""
         | text ->
             let res = text.Split '.' |> List.ofArray |> List.rev
-            if lineStr.[col - 1] = '.' then res |> List.rev, ""
+            if lineStr[col - 1] = '.' then res |> List.rev, ""
             else
                 match res with
                 | head :: tail -> tail |> List.rev, head
@@ -129,7 +129,7 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
 let makeCompiler fableLibrary typedArrays language fsharpOptions project fileName: CompilerImpl =
     let define = fsharpOptions |> Array.choose (fun (x: string) ->
         if x.StartsWith("--define:") || x.StartsWith("-d:")
-        then x.[(x.IndexOf(':') + 1)..] |> Some
+        then x[(x.IndexOf(':') + 1)..] |> Some
         else None) |> Array.toList
     let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
     CompilerImpl(fileName, project, options, fableLibrary)

@@ -244,7 +244,7 @@ let ``Decimal constructors work`` () =
     let d = 1.2493M
     let bits = Decimal.GetBits(d)
     let d2 = Decimal(bits)
-    let d3 = Decimal(bits.[0], bits.[1], bits.[2], false, 4uy)
+    let d3 = Decimal(bits[0], bits[1], bits[2], false, 4uy)
     d2 |> equal d
     d3 |> equal d
 
@@ -253,7 +253,7 @@ let ``Decimal GetBits works`` () =
     let d = Decimal([| -1; -1; -2; 0 |])
     let bits = Decimal.GetBits(d)
     let d2 = Decimal(bits)
-    let d3 = Decimal(bits.[0], bits.[1], bits.[2], true, 0uy)
+    let d3 = Decimal(bits[0], bits[1], bits[2], true, 0uy)
     d2 |> equal d
     d3 |> equal -d
 

@@ -188,7 +188,7 @@ let ``Map.filter works`` () =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
     let ys = xs |> Map.filter (fun x y -> x % 2 = 0)
     ys.Count |> equal 2
-    ys.[4] |> equal 16.
+    ys[4] |> equal 16.
 
 [<Fact>]
 let ``Map.partition works`` () =
@@ -213,7 +213,7 @@ let ``Map.foldBack works`` () =
 let ``Map.map works`` () =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
     let ys = xs |> Map.map (fun k v -> v * 2.)
-    ys.[3] |> equal 18.
+    ys[3] |> equal 18.
 
 [<Fact>]
 let ``Map.find works`` () =
@@ -305,7 +305,7 @@ let ``Map.toList works`` () =
     let xs = [1,1.; 2,4.; 3,9.; 4,16.]
     let ys = Map.ofList xs
     let zs = Map.toList ys
-    snd xs.[2] = snd zs.[2]
+    snd xs[2] = snd zs[2]
     |> equal true
 
 [<Fact>]
@@ -313,7 +313,7 @@ let ``Map.toArray works`` () =
     let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
     let ys = Map.ofArray xs
     let zs = Map.toArray ys
-    snd xs.[2] = snd zs.[2]
+    snd xs[2] = snd zs[2]
     |> equal true
 
 [<Fact>]
@@ -340,7 +340,7 @@ let ``Map.keys works`` () =
     // zs.Count |> equal xs.Length //TODO:
     let zs = Map.keys ys :> seq<_>
     Seq.length zs |> equal xs.Length
-    Seq.item 2 zs |> equal (fst xs.[2])
+    Seq.item 2 zs |> equal (fst xs[2])
 
 [<Fact>]
 let ``Map.values works`` () =
@@ -350,7 +350,7 @@ let ``Map.values works`` () =
     // zs.Count |> equal xs.Length //TODO:
     let zs = Map.values ys :> seq<_>
     Seq.length zs |> equal xs.Length
-    Seq.item 2 zs |> equal (snd xs.[2])
+    Seq.item 2 zs |> equal (snd xs[2])
 
 // [<Fact>]
 // let ``Map can be casted to IDictionary`` () = // See #1729, #1857
