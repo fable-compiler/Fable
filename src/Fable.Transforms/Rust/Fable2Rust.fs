@@ -151,7 +151,7 @@ module UsageTracking =
             | Fable.Delegate (_, body, _, _ ) ->
                 // this is not completely accurate. From here on out we only really want to count each ident maximum 1 time (by value) to simulate closed over ident cloning
                 loop "del" decTreeTargets false body
-            | Fable.Operation(kind, _, _) ->
+            | Fable.Operation(kind, _, _, _) ->
                 match kind with
                 | Fable.Unary(_, expr) ->
                     loop "op_u" decTreeTargets false expr
@@ -560,7 +560,7 @@ module TypeInfo =
         | Fable.IdentExpr ident -> ident.Name |> Some
         | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
         | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
-        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _) -> tryGetIdent expr
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _, _) -> tryGetIdent expr
         | _ -> None
 
     let getIdentName expr =
@@ -744,7 +744,7 @@ module TypeInfo =
         match entRef.SourcePath with
         | Some path when path <> com.CurrentFile ->
             // entity is imported from another file
-            let importPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false path
+            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
             let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
             importName
         | _ ->
@@ -857,7 +857,7 @@ module TypeInfo =
 
     let isAddrOfExpr (expr: Fable.Expr) =
         match expr with
-        | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _) -> true
+        | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
         | _ -> false
 
     let isByRefOrAnyType (com: IRustCompiler) = function
@@ -1747,7 +1747,7 @@ module Util =
             | Fable.Value(kind, r) ->
                 //an inline value kind is also never bound, so can assume this is the only reference also
                 true
-            | Fable.Operation(Fable.Binary _, _, _) ->
+            | Fable.Operation(Fable.Binary _, _, _, _) ->
                 true //Anything coming out of an operation is as good as being returned from a function
             | Fable.Lambda _
             | Fable.Delegate _ ->
@@ -2792,7 +2792,7 @@ module Util =
         | Fable.CurriedApply(callee, args, t, range) ->
             transformCurriedApply com ctx range callee args
 
-        | Fable.Operation(kind, typ, range) ->
+        | Fable.Operation(kind, _, typ, range) ->
             transformOperation com ctx range typ kind
 
         | Fable.Get(expr, kind, typ, range) ->
@@ -2881,11 +2881,11 @@ module Util =
             // add all other project files as module imports
             com.SourceFiles |> Array.iter (fun filePath ->
                 if filePath <> com.CurrentFile then
-                    let relPath = Fable.Path.getRelativeFileOrDirPath false com.CurrentFile false filePath
+                    let relPath = Path.getRelativeFileOrDirPath false com.CurrentFile false filePath
                     com.GetImportName(ctx, "*", relPath, None) |> ignore
             )
             let makeModItems (modulePath, moduleName) =
-                let relPath = Fable.Path.getRelativePath com.CurrentFile modulePath
+                let relPath = Path.getRelativePath com.CurrentFile modulePath
                 let attrs = [mkEqAttr "path" relPath]
                 let modItem = mkUnloadedModItem attrs moduleName
                 let useItem = mkGlobUseItem [] [moduleName]
@@ -4055,7 +4055,7 @@ module Util =
     let stableStringHash (s: string) =
         let mutable h = 5381
         for i = 0 to s.Length - 1 do
-            h <- (h * 33) ^^^ (int s.[i])
+            h <- (h * 33) ^^^ (int s[i])
         h
 
     let isFableLibrary (com: IRustCompiler) =
@@ -4069,11 +4069,11 @@ module Util =
             path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(":") = 1
         let modulePath =
             if isAbsolutePath || (isFableLibraryPath com path) then
-                Fable.Path.normalizePath path
+                Path.normalizePath path
             else
-                let currentDir = Fable.Path.GetDirectoryName(com.CurrentFile)
-                Fable.Path.Combine(currentDir, path)
-                |> Fable.Path.normalizeFullPath
+                let currentDir = Path.GetDirectoryName(com.CurrentFile)
+                Path.Combine(currentDir, path)
+                |> Path.normalizeFullPath
         modulePath
 
     let getImportModuleName (com: IRustCompiler) (modulePath: string) =
@@ -4109,7 +4109,7 @@ module Util =
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         match selector with
-        | "" | "*" | "default" -> Fable.Path.GetFileNameWithoutExtension(path)
+        | "" | "*" | "default" -> Path.GetFileNameWithoutExtension(path)
         | _ -> splitNameParts selector |> List.last
         |> getUniqueNameInRootScope ctx
 
@@ -4139,7 +4139,7 @@ module Compiler =
                 let path =
                     if path.EndsWith(".fs") then
                         let fileExt = (self :> Compiler).Options.FileExtension
-                        Fable.Path.ChangeExtension(path, fileExt)
+                        Path.ChangeExtension(path, fileExt)
                     else path
                 let cacheKey =
                     let selector = selector.Replace(".", "::")

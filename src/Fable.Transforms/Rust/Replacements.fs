@@ -101,24 +101,24 @@ let makeDecimal com r t (x: decimal) =
     Helper.LibCall(com, "Decimal", "fromString", t, [makeStrConst str], isConstructor=true, ?loc=r)
 
 let makeRef (value: Expr) =
-    Operation(Unary(UnaryAddressOf, value), value.Type, None)
+    Operation(Unary(UnaryAddressOf, value), Tags.empty, value.Type, None)
 
 let getRefCell com r t (expr: Expr) =
     Helper.InstanceCall(expr, "get", t, [], ?loc=r)
     |> nativeCall
 
 let setRefCell com r (expr: Expr) (value: Expr) =
-    Fable.Set(expr, Fable.ValueSet, value.Type, value, r)
+    Set(expr, ValueSet, value.Type, value, r)
 
 let makeRefCell com r typ (value: Expr) =
     Helper.LibCall(com, "Native", "refCell", typ, [value], ?loc=r)
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
-    Operation(Unary(UnaryAddressOf, value), t, r)
+    Operation(Unary(UnaryAddressOf, value), Tags.empty, t, r)
 
 let makeRefFromMutableField com ctx r t callee key =
     let value = Get(callee, FieldInfo.Create(key), t, r)
-    Operation(Unary(UnaryAddressOf, value), t, r)
+    Operation(Unary(UnaryAddressOf, value), Tags.empty, t, r)
 
 // Mutable and public module values are compiled as functions
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
@@ -377,16 +377,16 @@ let getMut expr =
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
-        Operation(Unary(operator, operand), t, r)
+        Operation(Unary(operator, operand), Tags.empty, t, r)
     let binOp op left right =
-        Operation(Binary(op, left, right), t, r)
+        Operation(Binary(op, left, right), Tags.empty, t, r)
     let truncateUnsigned operation = // see #1550
         match t with
         // | Number(UInt32,_) ->
         //     Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), t, r)
         | _ -> operation
     let logicOp op left right =
-        Operation(Logical(op, left, right), Boolean, r)
+        Operation(Logical(op, left, right), Tags.empty, Boolean, r)
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
@@ -1868,11 +1868,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsPositiveInfinity", [arg] when isFloat ->
         let op1 = makeInstanceCall r t i arg "is_sign_positive" []
         let op2 = makeInstanceCall r t i arg "is_infinite" []
-        Operation(Logical(LogicalAnd, op1, op2), t, None) |> Some
+        Operation(Logical(LogicalAnd, op1, op2), Tags.empty, t, None) |> Some
     | "IsNegativeInfinity", [arg] when isFloat ->
         let op1 = makeInstanceCall r t i arg "is_sign_negative" []
         let op2 = makeInstanceCall r t i arg "is_infinite" []
-        Operation(Logical(LogicalAnd, op1, op2), t, None) |> Some
+        Operation(Logical(LogicalAnd, op1, op2), Tags.empty, t, None) |> Some
     | "IsInfinity", [arg] when isFloat ->
         makeInstanceCall r t i arg "is_infinite" [] |> Some
     | ("Parse" | "TryParse") as meth,
@@ -2361,7 +2361,7 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [Value(BoolConstant false,_)] -> makeDebugger r |> Some
         | arg::_ ->
             // emit i "if (!$0) { debugger; }" i.args |> Some
-            let cond = Operation(Unary(UnaryNot, arg), Boolean, r)
+            let cond = Operation(Unary(UnaryNot, arg), Tags.empty, Boolean, r)
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
@@ -2473,10 +2473,10 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> addError com ctx.InlinePath r
             None
     // | "Zero" etc. -> // for static fields, see tryField
-    | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), t, r) |> Some
-    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value,  args.Head), t, r) |> Some
-    | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value,  args.Head), t, r) |> Some
-    | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value,  args.Head), t, r) |> Some
+    | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
+    | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
+    | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
@@ -2598,7 +2598,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Value" ->
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), t, r) |> Some
+        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r) |> Some
         else propInt 0 thisArg.Value |> Some
     | "get_Length" ->
         if isGroup
@@ -2628,7 +2628,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let groups = propStr "groups" thisArg.Value
             let getItem = getExpr r t groups args.Head
 
-            Operation(Logical(LogicalAnd, groups, getItem), t, None)
+            Operation(Logical(LogicalAnd, groups, getItem), Tags.empty, t, None)
             |> Some
         | _ ->
             // index

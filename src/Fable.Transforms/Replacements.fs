@@ -318,23 +318,23 @@ let stringToCharArray e =
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
-        Operation(Unary(operator, operand), t, r)
+        Operation(Unary(operator, operand), Tags.empty, t, r)
     let binOp op left right =
-        Operation(Binary(op, left, right), t, r)
+        Operation(Binary(op, left, right), Tags.empty, t, r)
     let truncateUnsigned operation = // see #1550
         match t with
         | Number(UInt32,_) ->
-            Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), t, r)
+            Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
     let logicOp op left right =
-        Operation(Logical(op, left, right), Boolean, r)
+        Operation(Logical(op, left, right), Tags.empty, Boolean, r)
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] ->
             match argTypes with
             | Char::_ ->
                 let toUInt16 e = toInt com ctx None (Number(UInt16, NumberInfo.Empty)) [e]
-                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Number(UInt16, NumberInfo.Empty), r) |> toChar
+                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Tags.empty, Number(UInt16, NumberInfo.Empty), r) |> toChar
             | _ -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
@@ -2284,7 +2284,7 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [Value(BoolConstant false,_)] -> makeDebugger r |> Some
         | arg::_ ->
             // emit i "if (!$0) { debugger; }" i.args |> Some
-            let cond = Operation(Unary(UnaryNot, arg), Boolean, r)
+            let cond = Operation(Unary(UnaryNot, arg), Tags.empty, Boolean, r)
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
@@ -2538,7 +2538,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Value" ->
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), t, r) |> Some
+        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r) |> Some
         else propInt 0 thisArg.Value |> Some
     | "get_Length" ->
         if isGroup
@@ -2568,7 +2568,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let groups = propStr "groups" thisArg.Value
             let getItem = getExpr r t groups args.Head
 
-            Operation(Logical(LogicalAnd, groups, getItem), t, None)
+            Operation(Logical(LogicalAnd, groups, getItem), Tags.empty, t, None)
             |> Some
         | _ ->
             // index

@@ -506,7 +506,7 @@ module Helpers =
         if fields.Length < 1 then
             false
         else
-            match fields.[0].Type with
+            match fields[0].Type with
             | Fable.GenericParam _ -> true
             | Fable.Option _ -> true
             | Fable.Unit -> true
@@ -933,7 +933,7 @@ module Annotation =
                     | _ -> ()
                 makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
             else
-                match Lib.tryPyConstructor com ctx ent with
+                match tryPyConstructor com ctx ent with
                 | Some (entRef, stmts) ->
                     match entRef with
                     (*
@@ -1408,8 +1408,8 @@ module Util =
                 args
             else
                 { args with
-                    VarArg = Some { args.Args.[len - 1] with Annotation = None }
-                    Args = args.Args.[.. len - 2] }
+                    VarArg = Some { args.Args[len - 1] with Annotation = None }
+                    Args = args.Args[.. len - 2] }
 
         args, body, returnType
 
@@ -2557,7 +2557,7 @@ module Util =
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) =
             function
-            | Fable.Operation (Fable.Binary (BinaryEqual, expr, right), _, _) ->
+            | Fable.Operation (Fable.Binary (BinaryEqual, expr, right), _, _, _) ->
                 match expr with
                 | Fable.Value ((Fable.CharConstant _
                                | Fable.StringConstant _
@@ -2882,7 +2882,7 @@ module Util =
 
         | Fable.CurriedApply (callee, args, _, range) -> transformCurriedApply com ctx range callee args
 
-        | Fable.Operation (kind, _, range) -> transformOperation com ctx range kind
+        | Fable.Operation (kind, _, _, range) -> transformOperation com ctx range kind
 
         | Fable.Get (expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
@@ -3084,7 +3084,7 @@ module Util =
             else
                 stmts @ resolveExpr ctx t returnStrategy e
 
-        | Fable.Operation (kind, t, range) ->
+        | Fable.Operation (kind, _, t, range) ->
             let expr, stmts = transformOperation com ctx range kind
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
@@ -3787,7 +3787,7 @@ module Util =
                    |> List.collecti (fun i field ->
                        let left = get com ctx None thisExpr (Naming.toSnakeCase field.Name) false
 
-                       let right = args.[i] |> wrapIntExpression field.FieldType
+                       let right = args[i] |> wrapIntExpression field.FieldType
                        assign None left right |> exprAsStatement ctx)) ]
 
         let args =

@@ -41,7 +41,7 @@ let getSubExpressions = function
     | CurriedApply(callee, args, _, _) -> callee::args
     | Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ info.Args
     | Emit(info, _, _) -> (Option.toList info.CallInfo.ThisArg) @ info.CallInfo.Args
-    | Operation(kind, _, _) ->
+    | Operation(kind, _, _, _) ->
         match kind with
         | Unary(_, operand) -> [operand]
         | Binary(_, left, right) -> [left; right]
@@ -203,7 +203,7 @@ let noSideEffectBeforeIdent identName expr =
             | _ ->
                 e1 :: (Option.toList info.ThisArg) @ info.Args
                 |> findIdentOrSideEffectInList |> orSideEffect
-        | Operation(kind, _, _) ->
+        | Operation(kind, _, _, _) ->
             match kind with
             | Unary(_, operand) -> findIdentOrSideEffect operand
             | Binary(_, left, right)
@@ -313,7 +313,7 @@ module private Transforms =
                 bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
         match e with
         // TODO: Other binary operations and numeric types
-        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _) ->
+        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _, _) ->
             match v1, v2 with
             | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
                 Value(StringConstant(v1 + v2), addRanges [r1; r2])
@@ -368,7 +368,7 @@ module private Transforms =
     let operationReduction (_com: Compiler) e =
         match e with
         // TODO: Other binary operations and numeric types
-        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _) ->
+        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _, _) ->
             match v1, v2 with
             | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
                 Value(StringConstant(v1 + v2), addRanges [r1; r2])
@@ -377,10 +377,10 @@ module private Transforms =
                 Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
             | _ -> e
 
-        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), _, _) -> if b then v2 else v1
-        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), _, _) -> if b then v1 else v2
-        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), _, _) -> if b then v1 else v2
-        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), _, _) -> if b then v2 else v1
+        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), _, _, _) -> if b then v2 else v1
+        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), _, _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), _, _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), _, _, _) -> if b then v2 else v1
 
         | IfThenElse(Value(BoolConstant b, _), thenExpr, elseExpr, _) -> if b then thenExpr else elseExpr
 
@@ -578,11 +578,11 @@ module private Transforms =
             elif uncurriedArity < argsLen then
                 let appliedArgs, restArgs = List.splitAt uncurriedArity args
                 let info = makeCallInfo None appliedArgs []
-                let intermetiateType =
+                let intermediateType =
                     match List.rev restArgs with
                     | [] -> Any
                     | arg::args -> (LambdaType(arg.Type, t), args) ||> List.fold (fun t a -> LambdaType(a.Type, t))
-                let applied = makeCall None intermetiateType info applied
+                let applied = makeCall None intermediateType info applied
                 CurriedApply(applied, restArgs, t, r) |> Some
             else
                 Replacements.Api.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some

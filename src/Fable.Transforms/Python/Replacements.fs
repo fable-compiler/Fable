@@ -351,18 +351,18 @@ let toSeq t (e: Expr) =
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
-        Operation(Unary(operator, operand), t, r)
+        Operation(Unary(operator, operand), Tags.empty, t, r)
 
     let binOp op left right =
-        Operation(Binary(op, left, right), t, r)
+        Operation(Binary(op, left, right), Tags.empty, t, r)
 
     let truncateUnsigned operation = // see #1550
         match t with
-        | Number (UInt32, _) -> Operation(Binary(BinaryShiftRightZeroFill, operation, makeIntConst 0), t, r)
+        | Number (UInt32, _) -> Operation(Binary(BinaryShiftRightZeroFill, operation, makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
 
     let logicOp op left right =
-        Operation(Logical(op, left, right), Boolean, r)
+        Operation(Logical(op, left, right), Tags.empty, Boolean, r)
 
     let nativeOp opName argTypes args =
         match opName, args with
@@ -2979,7 +2979,7 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [ Value (BoolConstant false, _) ] -> makeDebugger r |> Some
         | arg :: _ ->
             // emit i "if (!$0) { debugger; }" i.args |> Some
-            let cond = Operation(Unary(UnaryNot, arg), Boolean, r)
+            let cond = Operation(Unary(UnaryNot, arg), Tags.empty, Boolean, r)
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
@@ -3295,7 +3295,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
         then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), t, r)
+            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
             |> Some
         else
             propInt 0 thisArg.Value |> Some
