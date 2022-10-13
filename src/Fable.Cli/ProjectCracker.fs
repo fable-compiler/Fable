@@ -323,7 +323,7 @@ let private isUsefulOption (opt : string) =
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
     match opts.Exclude with
-    | Some e when projRef.Contains(e) ->
+    | Some e when String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase) ->
         try
             opts.BuildDll(dllRefs.[projName])
         with e ->
