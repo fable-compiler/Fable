@@ -500,11 +500,11 @@ let ``interpolated string with consecutive holes work`` () =
 [<Fact>]
 let ``String slicing works`` () =
     let s = "cat and dog"
-    s.[2..8] |> equal "t and d"
-    s.[2..] |> equal "t and dog"
-    s.[..8] |> equal "cat and d"
-    s.[0..-1] |> equal ""
-    s.[-50..50] |> equal "cat and dog"
+    s[2..8] |> equal "t and d"
+    s[2..] |> equal "t and dog"
+    s[..8] |> equal "cat and d"
+    s[0..-1] |> equal ""
+    s[-50..50] |> equal "cat and dog"
 
 [<Fact>]
 let ``String.Format works without args`` () =
@@ -890,7 +890,7 @@ let ``String.Replace works`` () =
 
 [<Fact>]
 let ``Access char by index works`` () =
-    let c = "abcd".[2]
+    let c = "abcd"[2]
     equal 'c' c
     equal 'd' (char ((int c) + 1))
 
@@ -1083,7 +1083,7 @@ let ``String.Length works`` () =
 
 [<Fact>]
 let ``String.Item works`` () =
-    "AbC".[1] |> equal 'b'
+    "AbC"[1] |> equal 'b'
 
 [<Fact>]
 let ``String.ToCharArray works`` () =

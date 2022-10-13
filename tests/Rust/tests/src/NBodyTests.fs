@@ -73,10 +73,10 @@ let advance (bodies: Planet[], dt: float) =
     let len = bodies.Length
 
     for i in 0 .. (len - 1) do
-        let bi = bodies.[i]
+        let bi = bodies[i]
 
         for j in (i + 1) .. (len - 1) do
-            let bj = bodies.[j]
+            let bj = bodies[j]
 
             let dx = bi.x - bj.x
             let dy = bi.y - bj.y
@@ -104,11 +104,11 @@ let energy (bodies: Planet[]) =
     let len = bodies.Length
 
     for i in 0..(len - 1) do
-        let bi = bodies.[i]
+        let bi = bodies[i]
         e <- e + (bi.vx * bi.vx + bi.vy * bi.vy + bi.vz * bi.vz) * bi.mass / 2.0
 
         for j in (i + 1)..(len - 1) do
-            let bj = bodies.[j]
+            let bj = bodies[j]
             let dx = bi.x - bj.x
             let dy = bi.y - bj.y
             let dz = bi.z - bj.z
@@ -126,7 +126,7 @@ let offset_momentum (bodies: Planet[]) =
         py <- py + bi.vy * bi.mass
         pz <- pz + bi.vz * bi.mass
 
-    let sun = bodies.[0]
+    let sun = bodies[0]
     sun.vx <- -px / SOLAR_MASS
     sun.vy <- -py / SOLAR_MASS
     sun.vz <- -pz / SOLAR_MASS

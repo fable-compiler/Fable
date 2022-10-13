@@ -809,15 +809,15 @@ let ``Seq.toArray works`` () =
     let xs = [1.; 2.; 3.]
     let ys = xs |> Seq.toArray
     ys.Length |> equal 3
-    ys.[0] + ys.[1] |> equal 3.
+    ys[0] + ys[1] |> equal 3.
 
 [<Fact>]
 let ``Seq.toArray works II`` () =
     let xs = [|1.; 2.; 3.|]
     let ys = xs |> Seq.toArray
-    xs.[0] <- 2.
+    xs[0] <- 2.
     ys.Length |> equal 3
-    ys.[0] + ys.[1] |> equal 3.
+    ys[0] + ys[1] |> equal 3.
 
 [<Fact>]
 let ``Seq.toList works`` () =

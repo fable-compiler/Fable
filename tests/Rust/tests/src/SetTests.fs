@@ -344,7 +344,7 @@ let ``Set.toList works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let ys = Set.ofList xs
     let zs = Set.toList ys
-    xs.[2] = zs.[2]
+    xs[2] = zs[2]
     |> equal true
 
 [<Fact>]
@@ -352,7 +352,7 @@ let ``Set.toArray works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     let ys = Set.ofArray xs
     let zs = Set.toArray ys
-    xs.[2] = zs.[2]
+    xs[2] = zs[2]
     |> equal true
 
 [<Fact>]

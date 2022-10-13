@@ -39,6 +39,6 @@ let measureTime (f: 'a -> 'b) x =
     let startTime = JS.process.hrtime()
     let res = f x
     let elapsed = JS.process.hrtime(startTime)
-    res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+    res, int64 (elapsed[0] * 1e3 + elapsed[1] / 1e6)
 
 #endif

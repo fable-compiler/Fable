@@ -184,7 +184,7 @@ let ``Char.IsWhitespace works with two args`` () =
 // [<Fact>]
 // let ``Char.IsHighSurrogate works`` () =
 //     Char.IsHighSurrogate('a') |> equal false
-//     Char.IsHighSurrogate("\U00010F00".[0]) |> equal true
+//     Char.IsHighSurrogate("\U00010F00"[0]) |> equal true
 
 // [<Fact>]
 // let ``Char.IsHighSurrogate with two args works`` () =
@@ -197,7 +197,7 @@ let ``Char.IsWhitespace works with two args`` () =
 // [<Fact>]
 // let ``Char.IsLowSurrogate works`` () =
 //     Char.IsLowSurrogate('a') |> equal false
-//     Char.IsLowSurrogate("\U00010F00".[1]) |> equal true
+//     Char.IsLowSurrogate("\U00010F00"[1]) |> equal true
 
 // [<Fact>]
 // let ``Char.IsLowSurrogate with two args works`` () =
@@ -210,7 +210,7 @@ let ``Char.IsWhitespace works with two args`` () =
 // [<Fact>]
 // let ``Char.IsSurrogate works`` () =
 //     Char.IsSurrogate('a') |> equal false
-//     Char.IsSurrogate("\U00010F00".[1]) |> equal true
+//     Char.IsSurrogate("\U00010F00"[1]) |> equal true
 
 // [<Fact>]
 // let ``Char.IsSurrogate with two args works`` () =
@@ -223,7 +223,7 @@ let ``Char.IsWhitespace works with two args`` () =
 // [<Fact>]
 // let ``Char.IsSurrogatePair works`` () =
 //     Char.IsSurrogatePair('a', 'b') |> equal false
-//     Char.IsSurrogatePair("\U00010F00".[0], "\U00010F00".[1]) |> equal true
+//     Char.IsSurrogatePair("\U00010F00"[0], "\U00010F00"[1]) |> equal true
 
 // [<Fact>]
 // let ``Char.IsSurrogatePair with two args works`` () =
@@ -265,7 +265,7 @@ let ``Char.IsWhitespace works with two args`` () =
 //         for i in 0..number.Length-1 do
 //             if i > 0 && i % 3 = 0 then
 //                 s <- "." + s
-//             let char = number.[number.Length-1-i]
+//             let char = number[number.Length-1-i]
 //             s <- char.ToString() + s
 //         if negative then "-" + s else s
 //     formatAmountNumber 50.M |> equal "50,00"

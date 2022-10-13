@@ -1123,7 +1123,7 @@ module Util =
         match memberName with
         | "ToString" -> (mkGenericPathExpr ["ToString"] None), false
         // | n when n.StartsWith("Symbol.") ->
-        //     Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
+        //     Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n[7..]), false), true
         // | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
         | n -> (mkGenericPathExpr [n] None), false
 
@@ -1192,8 +1192,8 @@ module Util =
             if not hasSpread || len = 0 then args
             else [|
                 if len > 1 then
-                    yield! args.[..len-2]
-                yield restElement args.[len-1]
+                    yield! args[..len-2]
+                yield restElement args[len-1]
             |]
 
         args, body, returnType, typeParamDecl
@@ -3878,8 +3878,8 @@ module Util =
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIdents = getUnionFieldsAsIdents com ctx ent
         let args =
-            [| typedIdent com ctx fieldIds.[0] |> Pattern.Identifier
-               typedIdent com ctx fieldIds.[1] |> Pattern.Identifier |> restElement |]
+            [| typedIdent com ctx fieldIds[0] |> Pattern.Identifier
+               typedIdent com ctx fieldIds[1] |> Pattern.Identifier |> restElement |]
         let body =
             BlockStatement([|
                 yield callSuperAsStatement []
@@ -3922,7 +3922,7 @@ module Util =
                     yield callSuperAsStatement []
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
-                    let right = wrapIntExpression field.FieldType args.[i]
+                    let right = wrapIntExpression field.FieldType args[i]
                     assign None left right |> ExpressionStatement)
                 |> Seq.toArray
             |])

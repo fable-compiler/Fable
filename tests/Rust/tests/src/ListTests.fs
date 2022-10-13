@@ -88,8 +88,8 @@ let ``List.Cons works II`` () =
 //     let li3 = [8;9;11] @ li2
 //     let li3b = [20;16] @ li3.Tail
 //     let li4 = 14 :: li3b
-//     li4.[1] |> equal 20
-//     li4.[3] |> equal 9
+//     li4[1] |> equal 20
+//     li4[3] |> equal 9
 //     List.length li4 |> equal 9
 //     List.sum li4 |> equal 84
 
@@ -183,7 +183,7 @@ let ``List.compareWith works`` () =
 [<Fact>]
 let ``List.Item works`` () =
     let xs = [1; 2; 3; 4]
-    equal 4 xs.[3]
+    equal 4 xs[3]
 
 [<Fact>]
 let ``List.item works`` () =
@@ -232,8 +232,8 @@ let ``List.append works II`` () =
     let li3 = [8;9;11] @ li2
     let li3b = [20;16] @ li3.Tail
     let li4 = li3b @ li2
-    li4.[1] |> equal 16
-    li4.[9] |> equal 3
+    li4[1] |> equal 16
+    li4[9] |> equal 3
     List.length li4 |> equal 12
     // List.sum li4 |> equal 84
 
@@ -487,7 +487,7 @@ let ``List.rev works`` () =
 let ``List.scan works`` () =
     let xs = [1; 2; 3; 4]
     let ys = (0, xs) ||> List.scan (fun acc x -> acc - x)
-    ys.[3] + ys.[4]
+    ys[3] + ys[4]
     |> equal -16
 
 [<Fact>]
@@ -646,10 +646,10 @@ let ``List.toArray works`` () =
 [<Fact>]
 let ``List.toArray works II`` () =
     let ys = List.toArray [1; 2]
-    ys.[0] + ys.[1] |> equal 3
+    ys[0] + ys[1] |> equal 3
     let xs = [1; 1]
     let ys2 = List.toArray (2::xs)
-    ys2.[0] + ys2.[1] + ys2.[2] |> equal 4
+    ys2[0] + ys2[1] + ys2[2] |> equal 4
 
 [<Fact>]
 let ``List.toSeq works`` () =
@@ -693,7 +693,7 @@ let ``List.unzip works`` () =
 let ``List.unzip3 works`` () =
     let xs = [(1, 2, 3); (4, 5, 6)]
     let ys, zs, ks = xs |> List.unzip3
-    ys.[1] + zs.[1] + ks.[1]
+    ys[1] + zs[1] + ks[1]
     |> equal 15
 
 [<Fact>]
@@ -726,11 +726,11 @@ let ``List snail to append works`` () =
 [<Fact>]
 let ``List slice works`` () =
     let xs = [1; 2; 3; 4]
-    xs.[..2] |> List.toArray |> equal [|1; 2; 3|]
-    xs.[2..] |> List.toArray |> equal [|3; 4|]
-    xs.[1..2] |> List.toArray |> equal [|2; 3|]
-    xs.[0..-1] |> List.toArray |> equal [||]
-    xs.[-50..50] |> List.toArray |> equal [|1; 2; 3; 4|]
+    xs[..2] |> List.toArray |> equal [|1; 2; 3|]
+    xs[2..] |> List.toArray |> equal [|3; 4|]
+    xs[1..2] |> List.toArray |> equal [|2; 3|]
+    xs[0..-1] |> List.toArray |> equal [||]
+    xs[-50..50] |> List.toArray |> equal [|1; 2; 3; 4|]
 
 [<Fact>]
 let ``List.truncate works`` () =
@@ -868,8 +868,8 @@ let ``List.tryFindIndexBack works`` () =
 let ``List.indexed works`` () =
     let xs = ["a"; "b"; "c"] |> List.indexed
     xs.Length |> equal 3
-    fst xs.[2] |> equal 2
-    snd xs.[2] |> equal "c"
+    fst xs[2] |> equal 2
+    snd xs[2] |> equal "c"
 
 [<Fact>]
 let ``List.map3 works`` () =

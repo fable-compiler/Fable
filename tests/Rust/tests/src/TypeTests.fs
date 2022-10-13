@@ -70,7 +70,7 @@ type TestType3() =
 
 // type TestType7(a1, a2, a3) =
 //     let arr = [|a1; a2; a3|]
-//     member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
+//     member __.Value with get(i) = arr[i] and set(i) (v) = arr[i] <- v
 
 // type A  = { thing: int } with
 //     member x.show() = string x.thing
@@ -355,7 +355,7 @@ type TestType3() =
 //             let x = f 2.
 //             let y = f 8.
 //             this.DoSomething(x + y)
-//         member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
+//         member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
 //         member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
 
 // [<AbstractClass>]
@@ -376,7 +376,7 @@ type TestType3() =
 //             let x = f 4.5
 //             let y = f 7.
 //             this.DoSomething(x - y)
-//         member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
+//         member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
 //         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
 //         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
 
@@ -955,14 +955,14 @@ let ``Type testing with primitive types works`` () =
 //     let foo = { new FooInterface with
 //                     member _.Foo with get() = foo and set x = foo <- x
 //                     member _.DoSomething(f, x) = let f = f 1. in f x * f 0.2
-//                     member _.Item with get(i) = foo.[i] and set i c = foo <- FooClass.ChangeChar(foo, i - 1, c)
+//                     member _.Item with get(i) = foo[i] and set i c = foo <- FooClass.ChangeChar(foo, i - 1, c)
 //                     member _.Sum(items) = Array.reduce (+) items }
 
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 
-//     foo.[3] <- 'W'
-//     foo.Foo <- foo.Foo + foo.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + foo.[2].ToString()
+//     foo[3] <- 'W'
+//     foo.Foo <- foo.Foo + foo.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + foo[2].ToString()
 //     foo.Foo <- foo.Foo + foo.Sum("a", "bc", "d")
 
 //     foo.Foo |> equal "FoW19.20Wabcd"
@@ -974,15 +974,15 @@ let ``Type testing with primitive types works`` () =
 //     let bar = { new BarInterface with
 //                     member _.Bar with get() = bar and set x = bar <- x
 //                     member _.DoSomething(f, x) = let f = f 4.3 in f x + f x
-//                     member _.Item with get(i) = bar.[i] and set _ c = bar <- FooClass.ChangeChar(bar, 0, c)
+//                     member _.Item with get(i) = bar[i] and set _ c = bar <- FooClass.ChangeChar(bar, 0, c)
 //                     member _.Item with get(c) = bar.ToCharArray() |> Array.exists ((=) c)
 //                     member _.Sum(items) = Array.rev items |> Array.reduce (+)  }
 
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 
-//     bar.[3] <- 'Z'
-//     bar.Bar <- bar.Bar + bar.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(",", ".") + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
+//     bar[3] <- 'Z'
+//     bar.Bar <- bar.Bar + bar.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(",", ".") + bar[2].ToString() + (sprintf "%b%b" bar['B'] bar['x'])
 //     bar.Bar <- bar.Bar + bar.Sum("a", "bc", "d")
 
 //     bar.Bar |> equal "Zar77.40rfalsefalsedbca"
@@ -993,8 +993,8 @@ let ``Type testing with primitive types works`` () =
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 //     let foo2 = FooClass("Foo") :> FooInterface
-//     foo2.[0] <- 'W'
-//     foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(',', '.') + foo2.[2].ToString()
+//     foo2[0] <- 'W'
+//     foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(',', '.') + foo2[2].ToString()
 //     foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
 //     foo2.Foo |> equal "Woo1020.00oabcabcdabcabcd"
 
@@ -1004,8 +1004,8 @@ let ``Type testing with primitive types works`` () =
 //     let addPlus2 x y = x + y + 2.
 //     let multiplyTwice x y = x * y * y
 //     let bar2 = BarClass("Bar") :> BarInterface
-//     bar2.[0] <- 'Z'
-//     bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
+//     bar2[0] <- 'Z'
+//     bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2[2].ToString() + (sprintf "%b%b" bar2['B'] bar2['x'])
 //     bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
 //     bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
 

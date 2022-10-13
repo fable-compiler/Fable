@@ -42,17 +42,17 @@ type Stack<'T> private (initialContents, initialCount) =
 
     member _.Pop() =
         count <- count - 1
-        contents.[count]
+        contents[count]
 
     member _.Peek() =
-        contents.[count - 1]
+        contents[count - 1]
 
     member _.Contains(x : 'T) =
         let mutable found = false
         let mutable i = 0
 
         while i < count && not found do
-            if Object.Equals(x, contents.[i]) then
+            if Object.Equals(x, contents[i]) then
                 found <- true
             else
                 i <- i + 1
@@ -77,7 +77,7 @@ type Stack<'T> private (initialContents, initialCount) =
 
     member this.Push(x) =
         this.Ensure(count + 1)
-        contents.[count] <- x
+        contents[count] <- x
         count <- count + 1
 
     member _.Clear() =
@@ -90,7 +90,7 @@ type Stack<'T> private (initialContents, initialCount) =
             this.Ensure(count)
 
     member _.ToArray() =
-        Array.init count (fun i -> contents.[count - 1 - i])
+        Array.init count (fun i -> contents[count - 1 - i])
 
     interface IEnumerable<'T> with
         member _.GetEnumerator() =
@@ -98,7 +98,7 @@ type Stack<'T> private (initialContents, initialCount) =
                 let mutable index = count - 1
 
                 while index >= 0 do
-                    yield contents.[index]
+                    yield contents[index]
                     index <- index - 1
             }).GetEnumerator()
 
@@ -133,7 +133,7 @@ type Queue<'T> private (initialContents, initialCount) =
         seq {
             let mutable i = 0
             while i < count do
-                yield contents.[i |> toIndex]
+                yield contents[i |> toIndex]
                 i <- i + 1 }
 
     new (initialCapacity: int) =
@@ -152,21 +152,21 @@ type Queue<'T> private (initialContents, initialCount) =
         if count = size() then
             ensure(count + 1)
 
-        contents.[tail] <- value
+        contents[tail] <- value
         tail <- (tail + 1) % size()
         count <- count + 1
 
     member _.Dequeue () : 'T =
         if count = 0 then invalidOp "Queue is empty"
 
-        let value = contents.[head]
+        let value = contents[head]
         head <- (head + 1) % size()
         count <- count - 1
         value
 
     member _.Peek () : 'T =
         if count = 0 then invalidOp "Queue is empty"
-        contents.[head]
+        contents[head]
 
     member this.TryDequeue (result : 'T byref) : bool =
         if count = 0 then
@@ -186,7 +186,7 @@ type Queue<'T> private (initialContents, initialCount) =
         let mutable found = false
         let mutable i = 0
         while i < count && not found do
-            if Object.Equals(x, contents.[i |> toIndex]) then
+            if Object.Equals(x, contents[i |> toIndex]) then
                 found <- true
             else
                 i <- i + 1
@@ -209,7 +209,7 @@ type Queue<'T> private (initialContents, initialCount) =
     member _.CopyTo( target : 'T array, start : int ) =
         let mutable i = start
         for item in toSeq() do
-            target.[i] <- item
+            target[i] <- item
             i <- i + 1
 
     interface IEnumerable<'T> with
