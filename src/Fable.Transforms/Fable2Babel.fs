@@ -864,7 +864,7 @@ module Util =
         ClassMember.classMethod(ClassPrimaryConstructor, Expression.identifier("constructor"), args, body)
 
     let callFunction com ctx r funcExpr genArgs (args: Expression list) =
-        let genArgs = Annotation.makeTypeParamInstantiationIfTypeScript com ctx genArgs
+        let genArgs = makeTypeParamInstantiationIfTypeScript com ctx genArgs
         Expression.callExpression(funcExpr, List.toArray args, ?typeParameters=genArgs, ?loc=r)
 
     let callFunctionWithThisContext r funcExpr (args: Expression list) =
@@ -1644,7 +1644,7 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _, _) ->
                 match expr with
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
                 | _ -> None
@@ -1839,7 +1839,7 @@ module Util =
         | Fable.CurriedApply(callee, args, _, range) ->
             transformCurriedApply com ctx range callee args
 
-        | Fable.Operation(kind, _, range) ->
+        | Fable.Operation(kind, _, _, range) ->
             transformOperation com ctx range kind
 
         | Fable.Get(expr, kind, typ, range) ->
@@ -1942,7 +1942,7 @@ module Util =
                 [|ExpressionStatement(e)|] // Ignore the return strategy
             else [|resolveExpr t returnStrategy e|]
 
-        | Fable.Operation(kind, t, range) ->
+        | Fable.Operation(kind, _, t, range) ->
             [|transformOperation com ctx range kind |> resolveExpr t returnStrategy|]
 
         | Fable.Get(expr, kind, t, range) ->

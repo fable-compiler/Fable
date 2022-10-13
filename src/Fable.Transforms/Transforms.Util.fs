@@ -479,16 +479,16 @@ module AST =
         ForLoop (ident, start, limit, body, isUp, range)
 
     let makeBinOp range typ left right op =
-        Operation(Binary(op, left, right), typ, range)
+        Operation(Binary(op, left, right), Tags.empty, typ, range)
 
     let makeUnOp range typ arg op =
-        Operation(Unary(op, arg), typ, range)
+        Operation(Unary(op, arg), Tags.empty, typ, range)
 
     let makeLogOp range left right op =
-        Operation(Logical(op, left, right), Boolean, range)
+        Operation(Logical(op, left, right), Tags.empty, Boolean, range)
 
     let makeEqOp range left right op =
-        Operation(Binary(op, left, right), Boolean, range)
+        Operation(Binary(op, left, right), Tags.empty, Boolean, range)
 
     let makeNullTyped t =
         Value(Null t, None)
@@ -928,14 +928,14 @@ module AST =
                 { info.CallInfo with ThisArg = Option.map f info.CallInfo.ThisArg
                                      Args = List.map f info.CallInfo.Args }
             Emit({ info with CallInfo = callInfo }, t, r)
-        | Operation(kind, t, r) ->
+        | Operation(kind, tags, t, r) ->
             match kind with
             | Unary(operator, operand) ->
-                Operation(Unary(operator, f operand), t, r)
+                Operation(Unary(operator, f operand), tags, t, r)
             | Binary(op, left, right) ->
-                Operation(Binary(op, f left, f right), t, r)
+                Operation(Binary(op, f left, f right), tags, t, r)
             | Logical(op, left, right) ->
-                Operation(Logical(op, f left, f right), t, r)
+                Operation(Logical(op, f left, f right), tags, t, r)
         | Get(e, kind, t, r) ->
             match kind with
             | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag

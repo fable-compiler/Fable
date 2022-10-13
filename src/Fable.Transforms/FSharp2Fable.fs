@@ -1595,15 +1595,15 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         let args = List.map (resolveInlineExpr com ctx info) args
         Fable.CurriedApply(resolveInlineExpr com ctx info callee, args, resolveInlineType ctx typ, r)
 
-    | Fable.Operation(kind, t, r) ->
+    | Fable.Operation(kind, tags, t, r) ->
         let t = resolveInlineType ctx t
         match kind with
         | Fable.Unary(operator, operand) ->
-            Fable.Operation(Fable.Unary(operator, resolveInlineExpr com ctx info operand), t, r)
+            Fable.Operation(Fable.Unary(operator, resolveInlineExpr com ctx info operand), tags, t, r)
         | Fable.Binary(op, left, right) ->
-            Fable.Operation(Fable.Binary(op, resolveInlineExpr com ctx info left, resolveInlineExpr com ctx info right), t, r)
+            Fable.Operation(Fable.Binary(op, resolveInlineExpr com ctx info left, resolveInlineExpr com ctx info right), tags, t, r)
         | Fable.Logical(op, left, right) ->
-            Fable.Operation(Fable.Logical(op, resolveInlineExpr com ctx info left, resolveInlineExpr com ctx info right), t, r)
+            Fable.Operation(Fable.Logical(op, resolveInlineExpr com ctx info left, resolveInlineExpr com ctx info right), tags, t, r)
 
     | Fable.Get(e, kind, t, r) ->
         let kind =

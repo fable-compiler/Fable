@@ -106,20 +106,20 @@ let objExpr kvs =
     typedObjExpr Any kvs
 
 let add left right =
-    Operation(Binary(BinaryPlus, left, right), left.Type, None)
+    Operation(Binary(BinaryPlus, left, right), Tags.empty, left.Type, None)
 
 let sub left right =
-    Operation(Binary(BinaryMinus, left, right), left.Type, None)
+    Operation(Binary(BinaryMinus, left, right), Tags.empty, left.Type, None)
 
 let eq left right =
-    Operation(Binary(BinaryEqual, left, right), Boolean, None)
+    Operation(Binary(BinaryEqual, left, right), Tags.empty, Boolean, None)
 
 let neq left right =
-    Operation(Binary(BinaryUnequal, left, right), Boolean, None)
+    Operation(Binary(BinaryUnequal, left, right), Tags.empty, Boolean, None)
 
 let nullCheck r isNull expr =
     let op = if isNull then BinaryEqual else BinaryUnequal
-    Operation(Binary(op, expr, Value(Null expr.Type, None)), Boolean, r)
+    Operation(Binary(op, expr, Value(Null expr.Type, None)), Tags.empty, Boolean, r)
 
 let str txt = Value(StringConstant txt, None)
 
@@ -485,7 +485,7 @@ let rec (|MaybeInScopeStringConst|_|) ctx = function
     | MaybeInScope ctx expr ->
         match expr with
         | StringConst s -> Some s
-        | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _) -> Some(s1 + s2)
+        | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _, _) -> Some(s1 + s2)
         | Value(StringTemplate(None, start::parts, values),_) ->
             (Some [], values) ||> List.fold (fun acc value ->
                 match acc, value with
@@ -538,7 +538,7 @@ let (|RegexFlags|_|) e =
             | 16 -> Some [RegexSingleline]
             | 256 -> Some [] // ECMAScript flag (ignored)
             | _ -> None
-        | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_) ->
+        | Operation(Binary(BinaryOrBitwise, flags1, flags2),_,_,_) ->
             match getFlags flags1, getFlags flags2 with
             | Some flags1, Some flags2 -> Some(flags1 @ flags2)
             | _ -> None
