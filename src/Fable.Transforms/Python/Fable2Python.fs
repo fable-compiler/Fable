@@ -1333,11 +1333,6 @@ module Util =
             match txt with
             | "$0.join('')" -> "''.join($0)"
             | "throw $0" -> "raise $0"
-            | "$0 is $1" ->
-                match args with
-                | [Constant(_); _]
-                | [_; Constant(_)] -> "$0 == $1"
-                | _ -> "$0 is $1"
             | Naming.StartsWith "void " value
             | Naming.StartsWith "new " value -> value
             | _ -> txt
@@ -1958,7 +1953,7 @@ module Util =
         | Some (Assign left) -> exprAsStatement ctx (assign None left pyExpr)
         | Some (Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
-    let transformOperation com ctx range opKind : Expression * Statement list =
+    let transformOperation com ctx range opKind tags : Expression * Statement list =
         match opKind with
         // | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
         // | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
@@ -1992,8 +1987,19 @@ module Util =
                 | Name { Id = Identifier "None" } -> Some ()
                 | _ -> None
 
-            match op with
-            | BinaryEqual ->
+            let strict =
+                match tags with
+                | Fable.Tags.Contains "strict" -> true
+                | _ -> false
+
+            match op, strict with
+            | BinaryEqual, true ->
+                match left, right with
+                // Use == with literals
+                | Constant _, _ -> compare Eq
+                | _, Constant _ -> compare Eq
+                | _ -> compare Is
+            | BinaryEqual, false ->
                 match left, right with
                 // Use == with literals
                 | Constant _, _ -> compare Eq
@@ -2003,7 +2009,13 @@ module Util =
                 | IsNone, _ -> compare Is
                 // Use == for the rest
                 | _ -> compare Eq
-            | BinaryUnequal ->
+            | BinaryUnequal, true ->
+                match left, right with
+                // Use == with literals
+                | Constant _, _ -> compare NotEq
+                | _, Constant _ -> compare NotEq
+                | _ -> compare IsNot
+            | BinaryUnequal, false ->
                 match left, right with
                 // Use != with literals
                 | Constant _, _ -> compare NotEq
@@ -2013,10 +2025,10 @@ module Util =
                 | IsNone, _ -> compare IsNot
                 // Use != for the rest
                 | _ -> compare NotEq
-            | BinaryLess -> compare Lt
-            | BinaryLessOrEqual -> compare LtE
-            | BinaryGreater -> compare Gt
-            | BinaryGreaterOrEqual -> compare GtE
+            | BinaryLess, _ -> compare Lt
+            | BinaryLessOrEqual, _ -> compare LtE
+            | BinaryGreater, _ -> compare Gt
+            | BinaryGreaterOrEqual, _ -> compare GtE
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2882,7 +2894,7 @@ module Util =
 
         | Fable.CurriedApply (callee, args, _, range) -> transformCurriedApply com ctx range callee args
 
-        | Fable.Operation (kind, _, _, range) -> transformOperation com ctx range kind
+        | Fable.Operation (kind, tags, _, range) -> transformOperation com ctx range kind tags
 
         | Fable.Get (expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
@@ -3084,8 +3096,8 @@ module Util =
             else
                 stmts @ resolveExpr ctx t returnStrategy e
 
-        | Fable.Operation (kind, _, t, range) ->
-            let expr, stmts = transformOperation com ctx range kind
+        | Fable.Operation (kind, tags, t, range) ->
+            let expr, stmts = transformOperation com ctx range kind tags
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Get (expr, kind, t, range) ->
