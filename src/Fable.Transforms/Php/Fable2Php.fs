@@ -518,7 +518,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // this is a value (number / record instanciation ...)
         convertValue com value range
 
-    | Fable.Operation(Fable.Binary(op, left,right), t, _) ->
+    | Fable.Operation(Fable.Binary(op, left,right), _, t, _) ->
         // the result of a binary operation
         let opstr =
             match op with
@@ -544,7 +544,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | BinaryOperator.BinaryShiftRightSignPropagating -> ">>"
             | BinaryOperator.BinaryShiftRightZeroFill -> ">>>"
         PhpBinaryOp(opstr, convertExpr com left, convertExpr com right)
-    | Fable.Operation(Fable.Unary(op, expr),_,_) ->
+    | Fable.Operation(Fable.Unary(op, expr),_,_,_) ->
         let opStr =
             match op with
             | UnaryOperator.UnaryNot -> "!"
@@ -554,7 +554,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | UnaryOperator.UnaryAddressOf -> failwith "UnaryAddressOf not supported"
 
         PhpUnaryOp(opStr, convertExpr com expr)
-    | Fable.Operation(Fable.Logical(op, left, right),_,_) ->
+    | Fable.Operation(Fable.Logical(op, left, right),_,_,_) ->
         // this is a binary logical operation
         let opstr =
             match op with
