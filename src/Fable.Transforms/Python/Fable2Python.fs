@@ -1953,7 +1953,7 @@ module Util =
         | Some (Assign left) -> exprAsStatement ctx (assign None left pyExpr)
         | Some (Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
-    let transformOperation com ctx range opKind : Expression * Statement list =
+    let transformOperation com ctx range opKind tags : Expression * Statement list =
         match opKind with
         // | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
         // | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
@@ -1983,27 +1983,52 @@ module Util =
             let compare op =
                 Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
 
-            match op with
-            | BinaryEqual ->
+            let (|IsNone|_|) = function
+                | Name { Id = Identifier "None" } -> Some ()
+                | _ -> None
+
+            let strict =
+                match tags with
+                | Fable.Tags.Contains "strict" -> true
+                | _ -> false
+
+            match op, strict with
+            | BinaryEqual, true ->
                 match left, right with
                 // Use == with literals
-                | Constant _, Name { Id = Identifier "None" } -> compare Eq
+                | Constant _, _ -> compare Eq
+                | _, Constant _ -> compare Eq
+                | _ -> compare Is
+            | BinaryEqual, false ->
+                match left, right with
+                // Use == with literals
+                | Constant _, _ -> compare Eq
+                | _, Constant _ -> compare Eq
                 // Use `is` with None (except literals)
-                | _, Name { Id = Identifier "None" } -> compare Is
+                | _, IsNone -> compare Is
+                | IsNone, _ -> compare Is
                 // Use == for the rest
                 | _ -> compare Eq
-            | BinaryUnequal ->
+            | BinaryUnequal, true ->
+                match left, right with
+                // Use == with literals
+                | Constant _, _ -> compare NotEq
+                | _, Constant _ -> compare NotEq
+                | _ -> compare IsNot
+            | BinaryUnequal, false ->
                 match left, right with
                 // Use != with literals
-                | Constant _, Name { Id = Identifier "None" } -> compare NotEq
+                | Constant _, _ -> compare NotEq
+                | _, Constant _ -> compare NotEq
                 // Use `is not` with None (except literals)
-                | _, Name { Id = Identifier "None" } -> compare IsNot
+                | _, IsNone -> compare IsNot
+                | IsNone, _ -> compare IsNot
                 // Use != for the rest
                 | _ -> compare NotEq
-            | BinaryLess -> compare Lt
-            | BinaryLessOrEqual -> compare LtE
-            | BinaryGreater -> compare Gt
-            | BinaryGreaterOrEqual -> compare GtE
+            | BinaryLess, _ -> compare Lt
+            | BinaryLessOrEqual, _ -> compare LtE
+            | BinaryGreater, _ -> compare Gt
+            | BinaryGreaterOrEqual, _ -> compare GtE
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2869,7 +2894,7 @@ module Util =
 
         | Fable.CurriedApply (callee, args, _, range) -> transformCurriedApply com ctx range callee args
 
-        | Fable.Operation (kind, _, _, range) -> transformOperation com ctx range kind
+        | Fable.Operation (kind, tags, _, range) -> transformOperation com ctx range kind tags
 
         | Fable.Get (expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
@@ -3071,8 +3096,8 @@ module Util =
             else
                 stmts @ resolveExpr ctx t returnStrategy e
 
-        | Fable.Operation (kind, _, t, range) ->
-            let expr, stmts = transformOperation com ctx range kind
+        | Fable.Operation (kind, tags, t, range) ->
+            let expr, stmts = transformOperation com ctx range kind tags
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Get (expr, kind, t, range) ->

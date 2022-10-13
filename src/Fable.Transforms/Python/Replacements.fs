@@ -111,6 +111,9 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
     Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
 
+let makeEqOpStrict range left right op =
+    Operation(Binary(op, left, right), ["strict"], Boolean, range)
+
 let toChar (arg: Expr) =
     match arg.Type with
     | Char
@@ -2802,8 +2805,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", _, [ left; right ] ->
-        //makeEqOp r left right BinaryEqual |> Some
-        emitExpr None t [ left; right ] "$0 is $1" |> Some
+        makeEqOpStrict r left right BinaryEqual |> Some
     | "Equals", Some arg1, [ arg2 ]
     | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
