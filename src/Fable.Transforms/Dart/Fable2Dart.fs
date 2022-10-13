@@ -1228,7 +1228,7 @@ module Util =
 
     let canTransformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _) ->
+            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _, _) ->
                 match expr with
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
                 | _ -> None
@@ -1551,7 +1551,7 @@ module Util =
         | Fable.Emit(info, t, _range) ->
             transformEmit com ctx t returnStrategy info
 
-        | Fable.Operation(kind, t, r) ->
+        | Fable.Operation(kind, _, t, r) ->
             transformOperation com ctx r t returnStrategy kind
 
         | Fable.Get(expr, kind, t, range) ->

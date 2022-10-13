@@ -619,7 +619,7 @@ type Expr =
     /// Application to local lambdas, function arguments will NOT be uncurried
     | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
     /// Operations that can be defined with native operators
-    | Operation of kind: OperationKind * typ: Type * range: SourceLocation option
+    | Operation of kind: OperationKind * tags: string list * typ: Type * range: SourceLocation option
 
     // Imports and code emissions
     | Import of info: ImportInfo * typ: Type * range: SourceLocation option
@@ -657,7 +657,7 @@ type Expr =
         | TypeCast (_, t)
         | Import (_, t, _)
         | ObjectExpr (_, t, _)
-        | Operation (_, t, _)
+        | Operation (_, _, t, _)
         | Get (_, _, t, _)
         | Emit (_,t,_)
         | DecisionTreeSuccess (_, _, t) -> t
@@ -695,7 +695,7 @@ type Expr =
         | IfThenElse (_, _, _, r)
         | TryCatch (_, _, _, r)
         | Test (_, _, r)
-        | Operation (_, _, r)
+        | Operation (_, _, _, r)
         | Get (_, _, _, r)
         | Set (_, _, _, _, r)
         | ForLoop (_,_,_,_,_,r)
