@@ -30,6 +30,7 @@
     <Compile Include="Python/Python.fs" />
     <Compile Include="Python/Fable2Python.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
+    <Compile Include="Python/CythonPrinter.fs" />
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />

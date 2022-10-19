@@ -113,6 +113,14 @@ type Statement =
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
 
+    | CythonFunctionDef of FunctionDef
+    | CythonAssign of AnnAssign
+    | CythonClassDef of ClassDef
+    | CythonImport of Import
+    //| Ctypedef of Ctypedef
+
+
+
 type Module = { Body: Statement list }
 
 /// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
@@ -798,6 +806,15 @@ module PythonExtensions =
               TypeComment = typeComment }
             |> FunctionDef
 
+        static member cythonFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { FunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> CythonFunctionDef
+
         static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
             { AsyncFunctionDef.Name = name
               Args = args
@@ -819,6 +836,13 @@ module PythonExtensions =
               Annotation = annotation
               Simple = defaultArg simple true }
             |> AnnAssign
+
+        static member cythonAssign(target, annotation, ?value, ?simple) : Statement =
+            { Target = target
+              Value = value
+              Annotation = annotation
+              Simple = defaultArg simple true }
+            |> CythonAssign
 
         static member return'(?value) : Statement = Return { Value = value }
 

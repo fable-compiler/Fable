@@ -50,3 +50,10 @@ module Py =
     /// https://code.visualstudio.com/docs/python/jupyter-support-py
     [<Emit("# %%", isStatement=true)>]
     let NEW_CELL: unit = nativeOnly
+
+
+module Cy =
+    type CythonAttribute (kind: string) =
+        inherit Attribute()
+
+        new () = CythonAttribute ""

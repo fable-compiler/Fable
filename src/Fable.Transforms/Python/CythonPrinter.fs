@@ -1,5 +1,5 @@
 // fsharplint:disable InterfaceNames
-module Fable.Transforms.PythonPrinter
+module Fable.Transforms.CythonPrinter
 
 open System
 
@@ -10,7 +10,6 @@ open Fable.Transforms.Printer
 
 module PrinterExtensions =
     type Printer with
-
         member printer.Print(stmt: Statement) =
             match stmt with
             | AsyncFunctionDef def -> printer.Print(def)
@@ -35,10 +34,10 @@ module PrinterExtensions =
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
 
-            | CythonImport im -> printer.Print(im)
-            | CythonAssign st -> printer.Print(st)
-            | CythonClassDef st -> printer.Print(st)
-            | CythonFunctionDef def -> printer.Print(def)
+            | CythonImport im -> printer.PrintCythonImport(im)
+            | CythonAssign st -> printer.PrintCythonAssign(st)
+            | CythonClassDef st -> printer.PrintCythonClassDef(st)
+            | CythonFunctionDef def -> printer.PrintCythonFunctionDef(def)
 
         member printer.Print(node: Try) =
             printer.Print("try: ", ?loc = node.Loc)
@@ -57,13 +56,12 @@ module PrinterExtensions =
 
         member printer.Print(arg: Arg) =
             let (Identifier name) = arg.Arg
-            printer.Print(name)
-
             match arg.Annotation with
             | Some ann ->
-                printer.Print(": ")
                 printer.Print(ann)
+                printer.Print(" ")
             | _ -> ()
+            printer.Print(name)
 
         member printer.Print(kw: Keyword) =
             let (Identifier name) = kw.Arg
@@ -712,8 +710,11 @@ module PrinterExtensions =
                 returnType: Expression option,
                 decoratorList: Expression list,
                 ?isDeclaration,
+                ?isCython,
                 ?isAsync
             ) =
+            let isCython = defaultArg isCython false
+
             for deco in decoratorList do
                 printer.Print("@")
                 printer.Print(deco)
@@ -724,15 +725,24 @@ module PrinterExtensions =
                 printer.Print("async ")
             | _ -> ()
 
-            printer.Print("def ")
+            match isCython with
+            | true ->
+                printer.Print("cdef ")
+                printer.PrintOptional(returnType)
+                printer.Print(" ")
+            | _ ->
+                printer.Print("def ")
+
             printer.PrintOptional(id)
             printer.Print("(")
             printer.Print(args)
             printer.Print(")")
 
-            if returnType.IsSome then
+            match returnType, isCython with
+            | Some returnType, false ->
                 printer.Print(" -> ")
-                printer.PrintOptional(returnType)
+                printer.Print(returnType)
+            | _ -> ()
 
             printer.Print(":")
             printer.PrintBlock(body, skipNewLineAtEnd = true)
@@ -758,6 +768,59 @@ module PrinterExtensions =
             printer.ComplexExpressionWithParens(left)
             printer.Print(operator)
             printer.ComplexExpressionWithParens(right)
+
+        member printer.PrintCythonClassDef(cd: ClassDef) =
+            for deco in cd.DecoratorList do
+                printer.Print("@")
+                printer.Print(deco)
+                printer.PrintNewLine()
+
+            let (Identifier name) = cd.Name
+            printer.Print("class ", ?loc = cd.Loc)
+            printer.Print(name)
+
+            match cd.Bases with
+            | [] -> ()
+            | xs ->
+                printer.Print("(")
+                printer.PrintCommaSeparatedList(xs)
+                printer.Print(")")
+
+            printer.Print(":")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            match cd.Body with
+            | [] -> printer.PrintStatements([ Statement.ellipsis ])
+            | body -> printer.PrintStatements(body)
+            printer.PopIndentation()
+
+        member printer.PrintCythonAssign(assign: AnnAssign) =
+            printer.Print("cdef ")
+            printer.Print(assign.Annotation)
+            printer.Print(" ")
+            printer.Print(assign.Target)
+
+            match assign.Value with
+            | Some value ->
+                printer.Print(" = ")
+                printer.Print(value)
+            | _ -> ()
+
+        member printer.PrintCythonImport(im: Import) =
+            if not (List.isEmpty im.Names) then
+                printer.Print("import ")
+
+                if List.length im.Names > 1 then
+                    printer.Print("(")
+
+                printer.PrintCommaSeparatedList(im.Names)
+
+                if List.length im.Names > 1 then
+                    printer.Print(")")
+
+        member printer.PrintCythonFunctionDef(func: FunctionDef) =
+            printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true, isCython = true)
+            printer.PrintNewLine()
 
 open PrinterExtensions
 

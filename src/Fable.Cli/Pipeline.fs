@@ -243,7 +243,9 @@ module Python =
             let outPath = getTargetPath cliArgs outPath
 
             let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)
-            do! PythonPrinter.run writer python
+            match com.Options.Language with
+            | Language.Cython -> do! CythonPrinter.run writer python
+            | _ -> do! PythonPrinter.run writer python
 
             match com.OutputType with
             | OutputType.Library ->

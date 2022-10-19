@@ -562,8 +562,8 @@ module Helpers =
                 Some stmt
         | _ -> Some stmt
 
-    let hasAttribute fullName (ent: Fable.Entity) =
-        ent.Attributes
+    let hasAttribute fullName (atts: Fable.Attribute seq) =
+        atts
         |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
     let hasInterface fullName (ent: Fable.Entity) =
@@ -660,8 +660,11 @@ module Annotation =
         (genArgs: Fable.Type list)
         (repeatedGenerics: Set<string> option)
         =
-        stdlibModuleAnnotation com ctx "__future__" "annotations" []
-        |> ignore
+        match com.Options.Language with
+        | Language.Python ->
+            stdlibModuleAnnotation com ctx "__future__" "annotations" []
+            |> ignore
+        | _ -> ()
 
         let typeParamInst = makeGenTypeParamInst com ctx genArgs repeatedGenerics
 
@@ -1283,14 +1286,15 @@ module Util =
 
         [ Statement.assign ([ ids ], values) ]
 
-    let varDeclaration (ctx: Context) (var: Expression) (typ: Expression option) value =
+    let varDeclaration (ctx: Context) (var: Expression) (typ: Expression option) value isCython =
         // printfn "varDeclaration: %A" (var, value, typ)
         match var with
         | Name { Id = id } -> do ctx.BoundVars.Bind([ id ])
         | _ -> ()
 
-        [ match typ with
-          | Some typ -> Statement.assign (var, annotation = typ, value = value)
+        [ match typ, isCython with
+          | Some typ, true -> Statement.cythonAssign (var, annotation = typ, value = value)
+          | Some typ, _ -> Statement.assign (var, annotation = typ, value = value)
           | _ -> Statement.assign ([ var ], value) ]
 
     let restElement (var: Identifier) =
@@ -1472,10 +1476,10 @@ module Util =
                 |> Option.map Identifier
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-            let func = createFunction ident args body [] returnType
+            let func = createFunction ident args body [] returnType false
             Expression.name ident, [ func ]
 
-    let createFunction name args body decoratorList returnType =
+    let createFunction name args body decoratorList returnType isCython =
         let (|Awaitable|_|) expr =
             match expr with
             | Expression.Call { Func=Expression.Attribute {Value=Expression.Name {Id=Identifier "_builder"}; Attr=Identifier "Run" }} ->
@@ -1507,16 +1511,18 @@ module Util =
                 | Statement.If { Test=test; Body=body; Else=orElse } -> Statement.if'(test, replace body, orelse=replace orElse)
                 | stmt -> stmt)
 
-        match isAsync, returnType with
-        | true, Subscript {Slice=returnType} ->
+        match isCython, isAsync, returnType with
+        | _, true, Subscript {Slice=returnType} ->
             let body' = replace body
             Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
+        | true, _, _ ->
+            Statement.cythonFunctionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
         | _ -> Statement.functionDef (name = name, args = args, body = body, decoratorList = decoratorList, returns = returnType)
 
     let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        createFunction name args body decoratorList returnType
+        createFunction name args body decoratorList returnType false
 
     let makeFunctionExpression
         (com: IPythonCompiler)
@@ -1572,7 +1578,7 @@ module Util =
         [
           // First declare temp variables
           for KeyValue (argId, tempVar) in tempVars do
-              yield! varDeclaration ctx (com.GetIdentifierAsExpr(ctx, tempVar)) None (com.GetIdentifierAsExpr(ctx, argId))
+              yield! varDeclaration ctx (com.GetIdentifierAsExpr(ctx, tempVar)) None (com.GetIdentifierAsExpr(ctx, argId)) false
           // Then assign argument expressions to the original argument identifiers
           // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
           for argId, arg in zippedArgs do
@@ -2360,7 +2366,7 @@ module Util =
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = com.GetIdentifierAsExpr(ctx, var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
-            let decl = varDeclaration ctx varName (Some ta) value
+            let decl = varDeclaration ctx varName (Some ta) value false
             stmts @ stmts' @ decl
 
     let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
@@ -3393,13 +3399,13 @@ module Util =
 
         Statement.if' (test, main)
 
-    let declareModuleMember (com: IPythonCompiler) ctx isPublic (membName: Identifier) typ (expr: Expression) =
+    let declareModuleMember (com: IPythonCompiler) ctx (isCython: bool) (membName: Identifier) typ (expr: Expression) =
         let (Identifier name) = membName
         if com.OutputType = OutputType.Library then
             com.AddExport name |> ignore
 
         let name = Expression.name membName
-        varDeclaration ctx name typ expr
+        varDeclaration ctx name typ expr isCython
 
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent
@@ -3584,9 +3590,10 @@ module Util =
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
+            let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" ent.Attributes
 
             expr
-            |> declareModuleMember com ctx ent.IsPublic name None,
+            |> declareModuleMember com ctx isCython name None,
             stmts @ stmts'
 
         stmts
@@ -3596,8 +3603,10 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
+        let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" info.Attributes
+
         let name = com.GetIdentifier(ctx, membName)
-        let stmt = createFunction name args body' [] returnType
+        let stmt = createFunction name args body' [] returnType isCython
         let expr = Expression.name name
 
         info.Attributes
@@ -3971,9 +3980,10 @@ module Util =
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
+                        let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" info.Attributes
 
                         stmts
-                        @ declareModuleMember com ctx info.IsPublic name (Some ta) value
+                        @ declareModuleMember com ctx isCython name (Some ta) value
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
@@ -4228,7 +4238,7 @@ module Compiler =
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
 
-        //printfn "file: %A" file.Declarations
+        printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com

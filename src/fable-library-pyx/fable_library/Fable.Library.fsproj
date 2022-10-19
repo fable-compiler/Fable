@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Timer.fs" />
+
+    <Compile Include="../../fable-library/Global.fs" Link="Global.fs" />
+    <Compile Include="../../fable-library/System.Text.fs" Link="System.Text.fs" />
+    <Compile Include="../../fable-library/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
+    <Compile Include="../../fable-library/FSharp.Collections.fs" Link="FSharp.Collections.fs" />
+    <Compile Include="../../fable-library/FSharp.Core.fs" Link="FSharp.Core.fs" />
+    <Compile Include="Native.fs" />
+    <Compile Include="../../fable-library/MutableMap.fs" Link="MutableMap.fs" />
+    <Compile Include="../../fable-library/MutableSet.fs" Link="MutableSet.fs" />
+    <Compile Include="../../fable-library/Choice.fs" Link="Choice.fs" />
+    <Compile Include="../../fable-library/Array.fs" Link="Array.fs" />
+    <Compile Include="../../fable-library/List.fs" Link="List.fs" />
+    <Compile Include="../../fable-library/Seq.fs" Link="Seq.fs" />
+    <Compile Include="../../fable-library/Seq2.fs" Link="Seq2.fs" />
+    <Compile Include="../../fable-library/Range.fs" Link="Range.fs" />
+    <Compile Include="../../fable-library/Set.fs" Link="Set.fs" />
+    <Compile Include="../../fable-library/Map.fs" Link="Map.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

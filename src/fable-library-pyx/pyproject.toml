@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "fable-library"
+version = "0.8.0"
+description = "Fable library for Python"
+authors = ["Dag Brattli <dag@brattli.net>"]
+license = "MIT License"
+readme = "README.md"
+homepage = "https://fable.io"
+
+[tool.poetry.dependencies]
+python = ">= 3.9, < 4.0"
+python-dateutil = "^2.8.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
