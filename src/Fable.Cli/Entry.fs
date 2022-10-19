@@ -148,6 +148,7 @@ let argLanguage (args: CliArgs) =
     | "js" | "javascript" -> JavaScript
     | "ts" | "typescript" -> TypeScript
     | "py" | "python" -> Python
+    | "pyx" | "cython" -> Cython
     | "php" -> Php
     | "dart" -> Dart
     | "rs" | "rust" -> Rust
@@ -234,6 +235,7 @@ type Runner =
             | Rust -> "FABLE_COMPILER_RUST"
             | Dart -> "FABLE_COMPILER_DART"
             | Python -> "FABLE_COMPILER_PYTHON"
+            | Cython -> "FABLE_COMPILER_CYTHON"
             | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
             | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
         ]
@@ -363,6 +365,7 @@ let getStatus = function
     | Dart -> "beta"
     | TypeScript -> "alpha"
     | Php -> "experimental"
+    | Cython -> "experimental"
 
 [<EntryPoint>]
 let main argv =

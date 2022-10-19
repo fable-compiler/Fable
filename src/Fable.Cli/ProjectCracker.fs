@@ -544,6 +544,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
     | None ->
         let buildDir, libDir =
             match opts.FableOptions.Language with
+            | Cython -> "fable-library-pyx/fable_library", "fable_library"
             | Python ->
                 match opts.FableLib with
                 | Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
@@ -733,7 +734,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
-            | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
+            | Cython | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
             | _ -> copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
         let pkgRefs =

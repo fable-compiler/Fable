@@ -488,7 +488,7 @@ module Helpers =
         let name, part = (entityName |> cleanNameAsJsIdentifier, Naming.NoMemberPart)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+            | Python | Cython -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> entityName |> cleanNameAsRustIdentifier
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName
@@ -541,7 +541,7 @@ module Helpers =
 
         let sanitizedName =
             match com.Options.Language with
-            | Python ->
+            | Python | Cython ->
                 let name =
                     // Don't snake_case if member has compiled name attribute
                     match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
@@ -682,7 +682,7 @@ module Helpers =
     // Mutable public values must be called as functions in JS (see #986)
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
-        | Python | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
+        | Python | Cython | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
         | Rust | Php | Dart -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
@@ -1583,7 +1583,7 @@ module Identifiers =
 
         let sanitizedName =
             match com.Options.Language with
-            | Python ->
+            | Python | Cython ->
                 let name = Fable.Py.Naming.toSnakeCase name
                 Fable.Py.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.Py.Naming.pyBuiltins.Contains name) name part
             | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part

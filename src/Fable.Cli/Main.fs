@@ -121,7 +121,7 @@ module private Util =
         match cliArgs.CompilerOptions.Language with
         // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
         // set we set `outDir` to the directory of the project file being compiled.
-        | Python ->
+        | Cython | Python ->
             let fileExt = cliArgs.CompilerOptions.FileExtension
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
             let outDir =
@@ -702,7 +702,7 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
 
         let exeFile, args =
             match cliArgs.CompilerOptions.Language, runProc.ExeFile with
-            | Python, Naming.placeholder ->
+            | (Python | Cython), Naming.placeholder ->
                 let lastFilePath = findLastFileRelativePath()
                 "python", lastFilePath::runProc.Args
             | Rust, Naming.placeholder ->

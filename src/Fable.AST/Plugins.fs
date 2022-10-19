@@ -13,6 +13,7 @@ type Language =
     | JavaScript
     | TypeScript
     | Python
+    | Cython
     | Php
     | Dart
     | Rust
@@ -22,6 +23,7 @@ type Language =
         | JavaScript -> "JavaScript"
         | TypeScript -> "TypeScript"
         | Python -> "Python"
+        | Cython -> "Cython"
         | Php -> "PHP"
         | Dart -> "Dart"
         | Rust -> "Rust"

@@ -198,17 +198,18 @@ let buildLibraryTsIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then
         buildLibraryTs()
 
-let buildLibraryPy() =
-    let libraryDir = "src/fable-library-py"
+let buildLibraryPy cython =
+    let x = if cython then "x" else "python"
+    let libraryDir = $"src/fable-library-py{x}"
     let projectDir = libraryDir </> "fable_library"
-    let buildDirPy = "build/fable-library-py"
+    let buildDirPy = $"build/fable-library-py{x}"
 
     cleanDirs [buildDirPy]
 
     runFableWithArgs projectDir [
         "--outDir " + buildDirPy </> "fable_library"
         "--fableLib " + buildDirPy </> "fable_library"
-        "--lang Python"
+        if cython then "--lang Cython" else "--lang Python"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
     ]
@@ -221,10 +222,12 @@ let buildLibraryPy() =
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
-let buildLibraryPyIfNotExists() =
+let buildLibraryPyIfNotExists cython =
+    let x = if cython then "x" else "python"
     let baseDir = __SOURCE_DIRECTORY__
-    if not (pathExists (baseDir </> "build/fable-library-py")) then
-        buildLibraryPy()
+    if not (pathExists (baseDir </> $"build/fable-library-py{x}")) then
+        buildLibraryPy cython
+
 
 let buildLibraryRust() =
     let libraryDir = "src/fable-library-rust"
@@ -521,7 +524,7 @@ let testTypeScript() =
     runMocha (buildDir2 </> "build/tests/TypeScript/")
 
 let testPython() =
-    buildLibraryPyIfNotExists() // NOTE: fable-library-py needs to be built separately.
+    buildLibraryPyIfNotExists false // NOTE: fable-library-py needs to be built separately.
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
@@ -722,7 +725,7 @@ let packages =
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
         buildLibraryJs()
         buildLibraryTs()
-        buildLibraryPy()
+        buildLibraryPy false
         buildLibraryRust()
         buildLibraryDart true)
      "Fable.PublishUtils", doNothing
@@ -785,8 +788,11 @@ match BUILD_ARGS_LOWER with
         writeFile outPath ""
     let runCmd = $"npx concurrently \"tsc -w -p {srcDir} --outDir {dirname outPath}\" \"nodemon -w {outPath} {outPath}\""
     watchFableWithArgs srcDir ["--lang ts --watch --exclude Fable.Core --noCache --run"; runCmd]
+| ("quicktest-pyx"|"quicktest-cython")::_ ->
+    buildLibraryPyIfNotExists true
+    watchFableWithArgs "src/quicktest-pyx" ["--lang pyx --watch --exclude Fable.Core --noCache"]
 | ("quicktest-py"|"quicktest-python")::_ ->
-    buildLibraryPyIfNotExists()
+    buildLibraryPyIfNotExists false
     watchFableWithArgs "src/quicktest-py" ["--lang py --watch --exclude Fable.Core --noCache --runScript"]
 | "quicktest-dart"::_ ->
     buildLibraryDartIfNotExists()
@@ -810,7 +816,8 @@ match BUILD_ARGS_LOWER with
 | ("watch-library")::_ -> watchLibraryJs()
 | ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
-| ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
+| ("fable-library-py"|"library-py")::_ -> buildLibraryPy false
+| ("fable-library-pyx"|"library-pyx")::_ -> buildLibraryPy true
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
 | ("fable-library-dart" | "library-dart")::_ ->
     let clean = hasFlag "--no-clean" |> not
