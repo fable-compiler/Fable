@@ -199,7 +199,7 @@ let buildLibraryTsIfNotExists() =
         buildLibraryTs()
 
 let buildLibraryPy cython =
-    let x = if cython then "x" else "python"
+    let x = if cython then "x" else ""
     let libraryDir = $"src/fable-library-py{x}"
     let projectDir = libraryDir </> "fable_library"
     let buildDirPy = $"build/fable-library-py{x}"
@@ -223,7 +223,7 @@ let buildLibraryPy cython =
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
 let buildLibraryPyIfNotExists cython =
-    let x = if cython then "x" else "python"
+    let x = if cython then "x" else ""
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> $"build/fable-library-py{x}")) then
         buildLibraryPy cython

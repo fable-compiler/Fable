@@ -566,6 +566,9 @@ module Helpers =
         atts
         |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let isCython (atts: Fable.Attribute seq) =
+        hasAttribute "Fable.Core.Cy.CythonAttribute" atts
+
     let hasInterface fullName (ent: Fable.Entity) =
         ent |> FSharp2Fable.Util.hasInterface fullName
 
@@ -3590,7 +3593,7 @@ module Util =
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
-            let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" ent.Attributes
+            let isCython = Helpers.isCython ent.Attributes
 
             expr
             |> declareModuleMember com ctx isCython name None,
@@ -3603,7 +3606,7 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" info.Attributes
+        let isCython = Helpers.isCython info.Attributes
 
         let name = com.GetIdentifier(ctx, membName)
         let stmt = createFunction name args body' [] returnType isCython
@@ -3980,7 +3983,7 @@ module Util =
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
-                        let isCython = Helpers.hasAttribute "Fable.Core.Pyx.CythonAttribute" info.Attributes
+                        let isCython = Helpers.isCython info.Attributes
 
                         stmts
                         @ declareModuleMember com ctx isCython name (Some ta) value
