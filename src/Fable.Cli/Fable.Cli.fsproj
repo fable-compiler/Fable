@@ -1,16 +1,16 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-theta-011</PackageVersion>
-    <PackageReleaseNotes>* Python, add read/write files
-* Python, fix URI and number types
-* JS, allow imports in emit expressions and JSX
-* JS, improve import path resolution (interpolation, inlined functions)
-* TypeScript, fix arithmetic tests</PackageReleaseNotes>
+    <PackageVersion>4.0.0-theta-012</PackageVersion>
+    <PackageReleaseNotes>* Python, option fixes
+* Python, fixes for reference equals with literals
+* Python, reduce the number of generated arrow functions
+* Rust, Added bigint support
+* Use Buildalyzer for parsing .fsproj</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

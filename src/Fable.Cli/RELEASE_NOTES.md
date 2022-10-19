@@ -1,3 +1,11 @@
+### 4.0.0-theta-012
+
+* Python, option fixes
+* Python, fixes for reference equals with literals
+* Python, reduce the number of generated arrow functions
+* Rust, Added bigint support
+* Use Buildalyzer for parsing .fsproj
+
 ### 4.0.0-theta-011
 
 * Python, add read/write files

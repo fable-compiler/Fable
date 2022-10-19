@@ -1,3 +1,7 @@
+### 4.0.0-theta-006
+
+* Python fixes for decorator attribute
+
 ### 4.0.0-theta-005
 
 * Add JSX.jsx function
