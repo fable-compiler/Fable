@@ -1617,8 +1617,10 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray r t arg |> Some
-    | "OfList", [arg] ->
-        Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "OfList", args ->
+        Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
+        |> withTag "array"
+        |> Some
     | "ToList", args ->
         Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Length" | "Count"), [arg] -> getFieldWith r t arg "length" |> Some
@@ -1672,6 +1674,10 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> TypeCast(x, t) |> Some
+    | "ToArray", args ->
+        Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r)
+        |> withTag "array"
+        |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
