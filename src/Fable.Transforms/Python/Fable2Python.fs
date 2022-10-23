@@ -3273,8 +3273,8 @@ module Util =
                             match arg.Annotation with
                             | Some (Expression.Name {Id = Identifier name}) -> arg.Annotation
                             | Some (Expression.Subscript {Value=value; Slice=Expression.Name {Id = Identifier name}}) when name.StartsWith("_") ->
-                                Expression.subscript(value, Expression.any) |> Some
-                            | _ -> Some (Expression.any)
+                                Expression.subscript(value, stdlibModuleAnnotation com ctx "typing" "Any" []) |> Some
+                            | _ -> Some (stdlibModuleAnnotation com ctx "typing" "Any" [])
                         (Arg.arg (name, ?annotation = annotation), Expression.name (name)) |> Some)
                 |> List.unzip
             | _ -> [], []

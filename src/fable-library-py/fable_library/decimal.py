@@ -70,10 +70,6 @@ def equals(a: Decimal, b: Decimal) -> bool:
     return a == b
 
 
-def abs(a: Decimal) -> Decimal:
-    return builtins.abs(a)
-
-
 __all__ = [
     "equals",
     "try_parse",
@@ -83,5 +79,4 @@ __all__ = [
     "op_addition",
     "from_parts",
     "op_division",
-    "abs",
 ]
