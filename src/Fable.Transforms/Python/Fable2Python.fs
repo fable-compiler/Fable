@@ -3354,12 +3354,9 @@ module Util =
         let arguments =
             match args, isUnit with
             | [], _ ->
-                let ta =
-                    stdlibModuleAnnotation com ctx "typing" "Literal" [ Expression.name "None" ]
-
                 Arguments.arguments (
                     args =
-                        Arg.arg (Identifier("__unit"), annotation = ta)
+                        Arg.arg (Identifier("__unit"), annotation = Expression.name "None")
                         :: tcArgs,
                     defaults = Expression.none :: tcDefaults
                 )
