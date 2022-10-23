@@ -1246,6 +1246,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | Char -> "Range", "rangeChar", args
             | Number(Decimal,_) -> "Range", "rangeDecimal", addStep args
             | Number(BigInt,_) -> "Range", "rangeBigInt", addStep args
+            | Number(Int,_) -> "Range", "rangeBigInt", addStep args
             | _ -> "Range", "rangeDouble", addStep args
 
         Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc = r)
