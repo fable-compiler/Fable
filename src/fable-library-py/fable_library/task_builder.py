@@ -75,7 +75,7 @@ class TaskBuilder:
     def Return(self, value: _T) -> Awaitable[_T]:
         ...
 
-    def Return(self, value: Optional[_T] = None) -> Awaitable[Optional[_T]]:
+    def Return(self, value: Any = None) -> Awaitable[Any]:
         return from_result(value)
 
     def ReturnFrom(self, computation: Awaitable[_T]) -> Awaitable[_T]:
