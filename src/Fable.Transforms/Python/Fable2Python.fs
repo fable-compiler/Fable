@@ -982,7 +982,7 @@ module Annotation =
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
         let repeatedGenerics =
             Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
-        // printfn "repeatedGenerics: %A" (repeatedGenerics, argTypes, body.Type)
+        // printfn "repeatedGenerics: %A" (name, repeatedGenerics, argTypes, body.Type)
 
         let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
         let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
@@ -3268,7 +3268,14 @@ module Util =
                     match name with
                     | "tupled_arg_m" -> None // Remove these arguments (not sure why)
                     | _ ->
-                        (Arg.arg (name, ?annotation = arg.Annotation), Expression.name (name)) |> Some)
+                        let annotation =
+                            // Cleanup type annotations to avoid non-repeated generics
+                            match arg.Annotation with
+                            | Some (Expression.Name {Id = Identifier name}) -> arg.Annotation
+                            | Some (Expression.Subscript {Value=value; Slice=Expression.Name {Id = Identifier name}}) when name.StartsWith("_") ->
+                                Expression.subscript(value, Expression.any) |> Some
+                            | _ -> Some (Expression.any)
+                        (Arg.arg (name, ?annotation = annotation), Expression.name (name)) |> Some)
                 |> List.unzip
             | _ -> [], []
 
