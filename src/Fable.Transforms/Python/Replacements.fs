@@ -1245,7 +1245,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match genArg with
             | Char -> "Range", "rangeChar", args
             | Number(Decimal,_) -> "Range", "rangeDecimal", addStep args
-            | Number(BigInt,_) -> "Range", "rangeBigInt", addStep args
+            | Number(BigInt,_)
+            | Number(Int32,_)
+            | Number(UInt32,_) -> "Range", "range_big_int", addStep args
+            | Number(Int64,_)
+            | Number(UInt64,_) -> "Range", "range_int64", addStep args
             | _ -> "Range", "rangeDouble", addStep args
 
         Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc = r)
@@ -1332,16 +1336,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeBinOp r t dividend divisor BinaryDivide
         |> Some
     | "Abs", _ ->
-        match args with
-        | ExprType(Number (Int64|Decimal as kind,_))::_ ->
-            let modName =
-                match kind with
-                | Decimal -> "decimal"
-                | _ -> "long"
-            Helper.LibCall(com, modName, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ ->
-            Helper.GlobalCall("abs", t, args, [ t ], ?loc = r)
-            |> Some
+        Helper.GlobalCall("abs", t, args, [ t ], ?loc = r)
+        |> Some
     | "Acos", _
     | "Asin", _
     | "Atan", _
@@ -4047,7 +4043,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
+    | Types.exception_ -> Some(makeIdentExpr("Exception"), args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =

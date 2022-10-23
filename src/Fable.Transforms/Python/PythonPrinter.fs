@@ -269,6 +269,7 @@ module PrinterExtensions =
             printer.Print("[")
 
             match node.Slice with
+            | Tuple { Elements = [] } -> printer.Print("()")
             | Tuple { Elements = elems } -> printer.PrintCommaSeparatedList(elems)
             | _ -> printer.Print(node.Slice)
 
