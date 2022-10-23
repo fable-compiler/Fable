@@ -57,10 +57,14 @@ module PrinterExtensions =
         member printer.Print(arg: Arg) =
             let (Identifier name) = arg.Arg
             match arg.Annotation with
-            | Some ann ->
+            // Only print simple annotations (not e.g generic ones)
+            | Some (Expression.Name { Id=Identifier ann }) ->
                 printer.Print(ann)
-                printer.Print(" ")
-            | _ -> ()
+            | _ ->
+                // Everything else are objects
+                printer.Print("object")
+
+            printer.Print(" ")
             printer.Print(name)
 
         member printer.Print(kw: Keyword) =

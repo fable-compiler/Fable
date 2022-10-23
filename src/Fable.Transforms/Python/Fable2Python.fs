@@ -656,6 +656,13 @@ module Annotation =
             |> List.map (typeAnnotation com ctx repeatedGenerics)
             |> List.map fst
 
+    let importFutureAnnotations (com: IPythonCompiler) ctx =
+        match com.Options.Language with
+        | Language.Python ->
+            stdlibModuleAnnotation com ctx "__future__" "annotations" []
+            |> ignore
+        | _ -> ()
+
     let makeGenericTypeAnnotation
         (com: IPythonCompiler)
         ctx
@@ -663,11 +670,7 @@ module Annotation =
         (genArgs: Fable.Type list)
         (repeatedGenerics: Set<string> option)
         =
-        match com.Options.Language with
-        | Language.Python ->
-            stdlibModuleAnnotation com ctx "__future__" "annotations" []
-            |> ignore
-        | _ -> ()
+        do importFutureAnnotations com ctx
 
         let typeParamInst = makeGenTypeParamInst com ctx genArgs repeatedGenerics
 
@@ -679,8 +682,7 @@ module Annotation =
             Expression.subscript (name, Expression.tuple typeParamInst)
 
     let makeGenericTypeAnnotation' (com: IPythonCompiler) ctx (id: string) (genArgs: string list) (repeatedGenerics: Set<string> option) =
-        stdlibModuleAnnotation com ctx "__future__" "annotations" []
-        |> ignore
+        do importFutureAnnotations com ctx
 
         let name = Expression.name id
 
@@ -770,6 +772,30 @@ module Annotation =
             stmts
         | Fable.DeclaredType (entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+
+    let cythonTypeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
+        let numberInfo kind =
+            let name =
+                match kind with
+                | Int8 -> "char"
+                | UInt8 -> "unsigned char"
+                | Int16 -> "short"
+                | UInt16 -> "unsigned short"
+                | UInt32 -> "unsigned int"
+                | Int64 -> "long long"
+                | UInt64 -> "unsigned long long"
+                | Int32
+                | BigInt
+                | NativeInt
+                | UNativeInt -> "int"
+                | Float32 -> "float"
+                | Float64 -> "double"
+                | _ -> failwith $"Unsupported number type: {kind}"
+            Expression.name name
+
+        match t with
+        | Fable.Number (kind, info) -> numberInfo kind, []
+        | _ -> typeAnnotation com ctx repeatedGenerics t
 
     let makeNumberTypeAnnotation com ctx kind info =
         let numberInfo kind =
@@ -1626,9 +1652,13 @@ module Util =
 
 
     let makeNumber (com: IPythonCompiler) (ctx: Context) r t intName x =
-        let cons = libValue com ctx "types" intName
-        let value = Expression.constant (x, ?loc = r)
-        Expression.call (cons, [ value ], ?loc = r), []
+        match com.Options.Language with
+        | Language.Cython ->
+            Expression.constant (x, ?loc = r), []
+        | _ ->
+            let cons = libValue com ctx "types" intName
+            let value = Expression.constant (x, ?loc = r)
+            Expression.call (cons, [ value ], ?loc = r), []
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
@@ -3603,10 +3633,11 @@ module Util =
         @ typeDeclaration @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body =
+        let isCython = Helpers.isCython info.Attributes
+        let returnAttributes = Helpers.isCython info.ReturnParameter.Attributes
+
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
-
-        let isCython = Helpers.isCython info.Attributes
 
         let name = com.GetIdentifier(ctx, membName)
         let stmt = createFunction name args body' [] returnType isCython
@@ -3982,8 +4013,12 @@ module Util =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
-                        let ta, _ = typeAnnotation com ctx None decl.Body.Type
+
                         let isCython = Helpers.isCython info.Attributes
+                        let ta, _ =
+                            match isCython with
+                            | true -> cythonTypeAnnotation com ctx None decl.Body.Type
+                            | _ -> typeAnnotation com ctx None decl.Body.Type
 
                         stmts
                         @ declareModuleMember com ctx isCython name (Some ta) value
