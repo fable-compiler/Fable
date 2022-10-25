@@ -44,7 +44,7 @@ type Context =
 type IBabelCompiler =
     inherit Compiler
     abstract GetAllImports: unit -> seq<Import>
-    abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Expression
+    abstract GetImportExpr: Context * selector: string * path: string * range: SourceLocation option * ?noMangle: bool -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string -> Expression
@@ -630,13 +630,13 @@ module Util =
             | Naming.Regex IMPORT_REGEX (_::selector::path::_) ->
                 if selector.StartsWith("{") then
                     for selector in selector.TrimStart('{').TrimEnd('}').Split(',') do
-                        com.GetImportExpr(ctx, selector, path, r) |> ignore
+                        com.GetImportExpr(ctx, selector, path, r, noMangle=true) |> ignore
                     true
                 else
                     let selector =
                         if selector.StartsWith("*") then selector
                         else $"default as {selector}"
-                    com.GetImportExpr(ctx, selector, path, r) |> ignore
+                    com.GetImportExpr(ctx, selector, path, r, noMangle=true) |> ignore
                     true
             | _ -> false)
         |> String.concat "\n"
@@ -1336,7 +1336,13 @@ module Util =
         | None -> Expression.nullLiteral()
         | Some(props, children) ->
             let componentOrTag = transformAsExpr com ctx componentOrTag
-            let children = children |> List.map (transformAsExpr com ctx)
+            let children =
+                children
+                |> List.map (transformAsExpr com ctx)
+                |> function
+                    // Because of call optimizations, it may happen a list has been transformed to an array in JS
+                    | [ArrayExpression(children, _)] -> Array.toList children
+                    | children -> children
             let props = props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
             Expression.jsxElement(componentOrTag, props, children)
 
@@ -1352,10 +1358,18 @@ module Util =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.Tags, callInfo.Args with
-            | Fable.Tags.Contains "array" , [Replacements.Util.ArrayOrListLiteral(vals,_)] ->
-                Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
-                |> transformAsExpr com ctx
-                |> Some
+            | Fable.Tags.Contains "array", [maybeList] ->
+                match maybeList with
+                | Replacements.Util.ArrayOrListLiteral(vals,_) ->
+                    Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
+                    |> transformAsExpr com ctx
+                    |> Some
+                | Fable.Call(Fable.Import({Selector = "toList"; Path = Naming.EndsWith "/Seq.js" _; Kind = Fable.LibraryImport _},_,_), callInfo, _,_) ->
+                    List.head callInfo.Args
+                    |> Replacements.Util.toArray range typ
+                    |> transformAsExpr com ctx
+                    |> Some
+                | _ -> None
             | Fable.Tags.Contains "pojo", keyValueList::caseRule::_ ->
                 JS.Replacements.makePojo com (Some caseRule) keyValueList
                 |> Option.map (transformAsExpr com ctx)
@@ -2495,7 +2509,7 @@ module Util =
             yield! statefulImports
         ]
 
-    let getIdentForImport (ctx: Context) (path: string) (selector: string) =
+    let getIdentForImport (com: IBabelCompiler) (ctx: Context) noMangle (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then selector, None
         else
             let selector, alias =
@@ -2509,7 +2523,16 @@ module Util =
                         else alias
                     selector, alias
                 | _ -> selector, selector
-            selector, alias |> getUniqueNameInRootScope ctx |> Some
+
+            let alias =
+                if noMangle then
+                    let noConflict = ctx.UsedNames.RootScope.Add(alias)
+                    if not noConflict then
+                        com.WarnOnlyOnce($"Import {alias} conflicts with existing identifier in root scope")
+                    alias
+                else
+                    getUniqueNameInRootScope ctx alias
+            selector, Some alias
 
 module Compiler =
     open Util
@@ -2523,7 +2546,8 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, selector, path, r) =
+            member com.GetImportExpr(ctx, selector, path, r, noMangle) =
+                let noMangle = defaultArg noMangle false
                 let selector = selector.Trim()
                 let path = path.Trim()
                 let cachedName = path + "::" + selector
@@ -2533,7 +2557,7 @@ module Compiler =
                     | Some localIdent -> Expression.identifier(localIdent)
                     | None -> Expression.nullLiteral()
                 | false, _ ->
-                    let selector, localId = getIdentForImport ctx path selector
+                    let selector, localId = getIdentForImport com ctx noMangle path selector
                     if selector = Naming.placeholder then
                         "`importMember` must be assigned to a variable"
                         |> addError com [] r

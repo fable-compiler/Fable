@@ -248,23 +248,6 @@ def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
     return str(x)
 
 
-class Exception(Exception):
-    def __init__(self, msg: str = "") -> None:
-        self.msg = msg
-
-    def __eq__(self, other: Any) -> bool:
-        if self is other:
-            return True
-
-        if other is None:
-            return False
-
-        return self.msg == other.msg
-
-    def __str__(self) -> str:
-        return self.msg
-
-
 class FSharpException(Exception, IComparable):
     def __init__(self) -> None:
         self.Data0: Any = None
@@ -397,7 +380,6 @@ def is_exception(x: Any):
 __all__ = [
     "Attribute",
     "Array",
-    "Exception",
     "is_exception",
     "char",
     "int8",

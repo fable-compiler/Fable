@@ -5,15 +5,15 @@ from collections import deque
 from threading import Lock, RLock, Timer
 from typing import (
     Any,
-    Awaitable,
     Callable,
     Dict,
     Generic,
     Iterable,
     Optional,
     Protocol,
+    Tuple,
     TypeVar,
-    cast,
+    overload,
 )
 
 from .util import IDisposable
@@ -27,6 +27,13 @@ _D = TypeVar("_D", bound=IDisposable)
 class OperationCanceledError(Exception):
     def __init__(self, msg: Optional[str] = None) -> None:
         super().__init__(msg or "The operation was canceled")
+
+
+Continuations = Tuple[
+    Callable[[_T], None],
+    Callable[[Exception], None],
+    Callable[[OperationCanceledError], None],
+]
 
 
 class _Listener(Protocol):
@@ -88,7 +95,7 @@ class IAsyncContext(Generic[_T]):
     __slots__ = ()
 
     @abstractmethod
-    def on_success(self, value: Optional[_T] = None) -> None:
+    def on_success(self, value: _T) -> None:
         ...
 
     @abstractmethod
@@ -121,7 +128,7 @@ class IAsyncContext(Generic[_T]):
 
     @staticmethod
     def create(
-        on_success: Optional[Callable[[Optional[_T]], None]],
+        on_success: Optional[Callable[[_T], None]],
         on_error: Optional[Callable[[Exception], None]],
         on_cancel: Optional[Callable[[OperationCanceledError], None]],
         trampoline: Optional[Trampoline],
@@ -145,15 +152,13 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
 
     def __init__(
         self,
-        on_success: Optional[Callable[[Optional[_T]], None]] = None,
+        on_success: Optional[Callable[[_T], None]] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
         on_cancel: Optional[Callable[[OperationCanceledError], None]] = None,
         trampoline: Optional[Trampoline] = None,
         cancel_token: Optional[CancellationToken] = None,
     ):
-        self._on_success: Callable[[Optional[_T]], None] = (
-            on_success or empty_continuation
-        )
+        self._on_success: Callable[[_T], None] = on_success or empty_continuation
         self._on_error: Callable[[Exception], None] = on_error or empty_continuation
         self._on_cancel: Callable[[OperationCanceledError], None] = (
             on_cancel or empty_continuation
@@ -162,7 +167,7 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
         self._cancel_token = cancel_token
         self._trampoline = trampoline
 
-    def on_success(self, value: Optional[_T] = None) -> None:
+    def on_success(self, value: _T) -> None:
         return self._on_success(value)
 
     def on_error(self, error: Exception) -> None:
@@ -254,9 +259,9 @@ def protected_bind(
     binder: Callable[[_T], Async[_U]],
 ) -> Async[_U]:
     def cont(ctx: IAsyncContext[_T]):
-        def on_success(x: Optional[_T] = None) -> None:
+        def on_success(x: _T) -> None:
             try:
-                binder(cast(_T, x))(ctx)
+                binder(x)(ctx)
             except Exception as err:
                 # print("Exception: ", err)
                 ctx.on_error(err)
@@ -269,7 +274,7 @@ def protected_bind(
     return protected_cont(cont)
 
 
-def protected_return(value: Optional[_T] = None) -> Async[_T]:
+def protected_return(value: _T) -> Async[_T]:
     f: Callable[[IAsyncContext[_T]], None] = lambda ctx: ctx.on_success(value)
     return protected_cont(f)
 
@@ -283,7 +288,7 @@ class AsyncBuilder:
         return protected_bind(computation, binder)
 
     def Combine(self, computation1: Async[Any], computation2: Async[_T]) -> Async[_T]:
-        binder: Callable[[Optional[_T]], Async[_T]] = lambda _: computation2
+        binder: Callable[[_T], Async[_T]] = lambda _: computation2
         return self.Bind(computation1, binder)
 
     def Delay(self, generator: Callable[[], Async[_T]]) -> Async[_T]:
@@ -308,7 +313,15 @@ class AsyncBuilder:
 
         return self.While(lambda: not done, self.Delay(delay))
 
-    def Return(self, value: Optional[_T] = None) -> Async[_T]:
+    @overload
+    def Return(self) -> Async[None]:
+        ...
+
+    @overload
+    def Return(self, value: _T) -> Async[_T]:
+        ...
+
+    def Return(self, value: Any = None) -> Async[Any]:
         return protected_return(value)
 
     def ReturnFrom(self, computation: Async[_T]) -> Async[_T]:
@@ -318,7 +331,7 @@ class AsyncBuilder:
         self, computation: Async[_T], compensation: Callable[[], None]
     ) -> Async[_T]:
         def cont(ctx: IAsyncContext[_T]) -> None:
-            def on_success(x: Optional[_T] = None) -> None:
+            def on_success(x: _T) -> None:
                 compensation()
                 ctx.on_success(x)
 
@@ -363,17 +376,25 @@ class AsyncBuilder:
         compensation: Callable[[], None] = lambda: resource.Dispose()
         return self.TryFinally(binder(resource), compensation)
 
+    @overload
+    def While(self, guard: Callable[[], bool], computation: Async[None]) -> Async[None]:
+        ...
+
+    @overload
     def While(self, guard: Callable[[], bool], computation: Async[_T]) -> Async[_T]:
+        ...
+
+    def While(self, guard: Callable[[], bool], computation: Async[Any]) -> Async[Any]:
         if guard():
-            binder: Callable[[Optional[_T]], Async[_T]] = lambda _: self.While(
+            binder: Callable[[Any], Async[Any]] = lambda _: self.While(
                 guard, computation
             )
             return self.Bind(computation, binder)
         else:
             return self.Return()
 
-    def Zero(self) -> Async[Any]:
-        return protected_cont(lambda ctx: ctx.on_success())
+    def Zero(self) -> Async[None]:
+        return protected_cont(lambda ctx: ctx.on_success(None))
 
 
 singleton = AsyncBuilder()

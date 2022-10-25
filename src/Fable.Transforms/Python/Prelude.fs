@@ -93,7 +93,8 @@ module Naming =
 
     // Other global builtins we should avoid https://docs.python.org/3/library/functions.html
     let pyBuiltins =
-        System.Collections.Generic.HashSet [ "len"
+        System.Collections.Generic.HashSet [ "abs"
+                                             "len"
                                              "str"
                                              "int"
                                              "float"

@@ -16,6 +16,7 @@ from typing import (
 )
 
 from .async_builder import (
+    Continuations,
     Async,
     CancellationToken,
     IAsyncContext,
@@ -58,7 +59,7 @@ def create_cancellation_token(arg: Union[int, bool, None] = None) -> Cancellatio
     cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
     if isinstance(arg, int):
-        timer = Timer(arg / 1000.0, token.cancel)  # type: ignore
+        timer = Timer(arg / 1000.0, token.cancel)
         timer.start()
 
     return token
@@ -77,8 +78,8 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
     return token and token.is_cancelled
 
 
-def sleep(millisecondsDueTime: int) -> Async[_T]:
-    def cont(ctx: IAsyncContext[_T]):
+def sleep(millisecondsDueTime: int) -> Async[None]:
+    def cont(ctx: IAsyncContext[None]):
         def cancel():
             timer.cancel()
             ctx.on_cancel(OperationCanceledError())
@@ -87,7 +88,7 @@ def sleep(millisecondsDueTime: int) -> Async[_T]:
 
         def timeout():
             ctx.cancel_token.remove_listener(token_id)
-            ctx.on_success()
+            ctx.on_success(None)
 
         timer = Timer(millisecondsDueTime / 1000.0, timeout)
         timer.start()
@@ -95,9 +96,9 @@ def sleep(millisecondsDueTime: int) -> Async[_T]:
     return protected_cont(cont)
 
 
-def ignore(computation: Async[_T]) -> Async[None]:
-    def binder(_: Optional[_T] = None) -> Async[None]:
-        return protected_return()
+def ignore(computation: Async[Any]) -> Async[None]:
+    def binder(_: Optional[Any] = None) -> Async[None]:
+        return protected_return(None)
 
     return protected_bind(computation, binder)
 
@@ -119,7 +120,7 @@ def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
         def _arrow20(_arg: Async[_T]) -> Async[None]:
             cmp: Async[_T] = _arg
 
-            def _arrow19(_arg_1: Optional[_T] = None) -> Async[None]:
+            def _arrow19(_arg_1: _T) -> Async[None]:
                 result: _T = _arg_1
                 (results.append(result))
                 return singleton.Zero()
@@ -138,7 +139,7 @@ def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
 
 def catch_async(work: Async[_T]) -> Async[_T]:
     def cont(ctx: IAsyncContext[_T]) -> None:
-        def on_success(x: Optional[_T] = None):
+        def on_success(x: _T):
             ctx.on_success(Choice_makeChoice1Of2(x))  # type: ignore
 
         def on_error(err: Exception):
@@ -153,10 +154,13 @@ def catch_async(work: Async[_T]) -> Async[_T]:
 
 
 def from_continuations(
-    f: Callable[[List[Callable[[Any], None]]], None]
-) -> Callable[[IAsyncContext[Any]], None]:
-    def cont(ctx: IAsyncContext[Any]) -> None:
-        f([ctx.on_success, ctx.on_error, ctx.on_cancel])
+    f: Callable[
+        [Continuations[_T]],
+        None,
+    ]
+) -> Callable[[IAsyncContext[_T]], None]:
+    def cont(ctx: IAsyncContext[_T]) -> None:
+        f((ctx.on_success, ctx.on_error, ctx.on_cancel))
 
     return protected_cont(cont)
 
@@ -165,7 +169,11 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
     """Return an asynchronous computation that will wait for the given
     task to complete and return its result.
     """
-    continuation: List[Callable[[Any], None]] = []
+    continuation: Continuations[_T] = (
+        empty_continuation,
+        empty_continuation,
+        empty_continuation,
+    )
     task = ensure_future(task)
 
     def done(tsk: Future[_T]) -> None:
@@ -176,17 +184,17 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
         else:
             continuation[0](value)
 
-    def callback(conts: List[Callable[[Any], None]]) -> None:
+    def callback(conts: Continuations[_T]) -> None:
         nonlocal continuation
         continuation = conts
 
     task.add_done_callback(done)
-    return from_continuations(callback)
+    return from_continuations(callback)  # type: ignore
 
 
 def start_with_continuations(
-    computation: Callable[[IAsyncContext[_T]], None],
-    continuation: Optional[Callable[[Optional[_T]], None]] = None,
+    computation: Async[_T],
+    continuation: Optional[Callable[[_T], None]] = None,
     exception_continuation: Optional[Callable[[Exception], None]] = None,
     cancellation_continuation: Optional[
         Callable[[OperationCanceledError], None]
@@ -216,15 +224,15 @@ def start_with_continuations(
 
 def start_as_task(
     computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
-) -> Awaitable[Optional[_T]]:
+) -> Awaitable[_T]:
     """Executes a computation in the thread pool.
 
     If no cancellation token is provided then the default cancellation
     token is used.
     """
-    tcs: TaskCompletionSource[Optional[_T]] = TaskCompletionSource()
+    tcs: TaskCompletionSource[_T] = TaskCompletionSource()
 
-    def resolve(value: Optional[_T] = None) -> None:
+    def resolve(value: _T) -> None:
         tcs.SetResult(value)
 
     def reject(error: Exception) -> None:
