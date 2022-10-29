@@ -53,7 +53,7 @@ module Py =
 
 
 module Cy =
-    type CythonAttribute (kind: string) =
+    type PythonAttribute (kind: string) =
         inherit Attribute()
 
-        new () = CythonAttribute ""
+        new () = PythonAttribute ""

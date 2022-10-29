@@ -82,7 +82,8 @@ type Context =
       TailCallOpportunity: ITailCallOpportunity option
       OptimizeTailCall: unit -> unit
       ScopedTypeParams: Set<string>
-      TypeParamsScope: int }
+      TypeParamsScope: int
+      IsCython: bool }
 
 type IPythonCompiler =
     inherit Compiler
@@ -566,8 +567,11 @@ module Helpers =
         atts
         |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
-    let isCython (atts: Fable.Attribute seq) =
-        hasAttribute "Fable.Core.Cy.CythonAttribute" atts
+    let isCython (com: IPythonCompiler)(atts: Fable.Attribute seq) =
+        match com.Options.Language with
+        | Language.Cython ->
+            hasAttribute "Fable.Core.Cy.PythonAttribute" atts |> not
+        | _ -> false
 
     let hasInterface fullName (ent: Fable.Entity) =
         ent |> FSharp2Fable.Util.hasInterface fullName
@@ -714,7 +718,7 @@ module Annotation =
         |> List.map (typeAnnotation com ctx repeatedGenerics)
         |> Helpers.unzipArgs
 
-    let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
+    let pythonTypeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
         // printfn "typeAnnotation: %A" t
         match t with
         | Fable.Measure _
@@ -736,7 +740,10 @@ module Annotation =
 
                 let name = Helpers.clean name
                 com.AddTypeVar(ctx, name), []
-        | Fable.Unit -> Expression.none, []
+        | Fable.Unit ->
+            match com.Options.Language with
+            | Language.Python -> Expression.none, []
+            | _ -> Expression.name "", []
         | Fable.Boolean -> Expression.name "bool", []
         | Fable.Char -> Expression.name "str", []
         | Fable.String -> Expression.name "str", []
@@ -749,7 +756,7 @@ module Annotation =
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array (genArg, _) ->
             match genArg with
-            | Fable.Type.Number (UInt8, _) -> stdlibModuleTypeHint com ctx "typing" "ByteString" []
+            | Fable.Type.Number (UInt8, _) -> Expression.name "bytearray", []
             | Fable.Type.Number (Int8, _)
             | Fable.Type.Number (Int16, _)
             | Fable.Type.Number (UInt16, _)
@@ -784,7 +791,7 @@ module Annotation =
                 | UInt32 -> "unsigned int"
                 | Int64 -> "long long"
                 | UInt64 -> "unsigned long long"
-                | Int32
+                | Int32 -> "long"
                 | BigInt
                 | NativeInt
                 | UNativeInt -> "int"
@@ -795,7 +802,12 @@ module Annotation =
 
         match t with
         | Fable.Number (kind, info) -> numberInfo kind, []
-        | _ -> typeAnnotation com ctx repeatedGenerics t
+        | _ -> Expression.name "object", []
+
+    let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
+        match ctx.IsCython with
+        | true -> cythonTypeAnnotation com ctx repeatedGenerics t
+        | _ -> pythonTypeAnnotation com ctx repeatedGenerics t
 
     let makeNumberTypeAnnotation com ctx kind info =
         let numberInfo kind =
@@ -1466,6 +1478,21 @@ module Util =
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' e ]
 
+    let (|ImmediatelyApplied|_|) (args: Arguments) = function
+        | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length ->
+            // To be sure we're not running side effects when deleting the function check the callee is an identifier
+            match callee with
+            | Expression.Name(_) ->
+                let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
+                List.zip parameters appliedArgs
+                |> List.forall (function
+                    | Expression.Name({Id=Identifier name1}),
+                        Expression.Name( { Id=Identifier name2}) -> name1 = name2
+                    | _ -> false)
+                |> function true -> Some callee | false -> None
+            | _ -> None
+        | _ -> None
+
     let makeArrowFunctionExpression
         com
         ctx
@@ -1482,23 +1509,8 @@ module Util =
                 Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
             | _ -> args
 
-        let (|ImmediatelyApplied|_|) = function
-            | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length ->
-                // To be sure we're not running side effects when deleting the function check the callee is an identifier
-                match callee with
-                | Expression.Name(_) ->
-                    let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
-                    List.zip parameters appliedArgs
-                    |> List.forall (function
-                        | Expression.Name({Id=Identifier name1}),
-                            Expression.Name( { Id=Identifier name2}) -> name1 = name2
-                        | _ -> false)
-                    |> function true -> Some callee | false -> None
-                | _ -> None
-            | _ -> None
-
         match body with
-        | [Statement.Return { Value=Some (ImmediatelyApplied(callExpr))}] -> callExpr, []
+        | [Statement.Return { Value=Some (ImmediatelyApplied args callExpr)}] -> callExpr, []
         | _ ->
             let ident =
                 name
@@ -1652,9 +1664,8 @@ module Util =
 
 
     let makeNumber (com: IPythonCompiler) (ctx: Context) r t intName x =
-        match com.Options.Language with
-        | Language.Cython ->
-            Expression.constant (x, ?loc = r), []
+        match ctx.IsCython with
+        | true -> Expression.constant (x, ?loc = r), []
         | _ ->
             let cons = libValue com ctx "types" intName
             let value = Expression.constant (x, ?loc = r)
@@ -3400,10 +3411,9 @@ module Util =
         let arguments =
             match args, isUnit with
             | [], _ ->
+                let ta, stmts = typeAnnotation com ctx (Some repeatedGenerics) Fable.Unit
                 Arguments.arguments (
-                    args =
-                        Arg.arg (Identifier("__unit"), annotation = Expression.name "None")
-                        :: tcArgs,
+                    args = Arg.arg (Identifier("__unit"), annotation = ta) :: tcArgs,
                     defaults = Expression.none :: tcDefaults
                 )
             // So we can also receive unit
@@ -3627,7 +3637,7 @@ module Util =
             let body, stmts = transformReflectionInfo com ctx None ent generics
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
-            let isCython = Helpers.isCython ent.Attributes
+            let isCython = Helpers.isCython com ent.Attributes
 
             expr
             |> declareModuleMember com ctx isCython name None,
@@ -3637,14 +3647,14 @@ module Util =
         @ typeDeclaration @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body =
-        let isCython = Helpers.isCython info.Attributes
-        let returnAttributes = Helpers.isCython info.ReturnParameter.Attributes
+        let returnAttributes = Helpers.isCython com info.ReturnParameter.Attributes
 
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
+        let isCython = Helpers.isCython com info.Attributes
         let name = com.GetIdentifier(ctx, membName)
-        let stmt = createFunction name args body' [] returnType isCython
+        let stmt = createFunction name args body' [] returnType ctx.IsCython
         let expr = Expression.name name
 
         info.Attributes
@@ -4012,21 +4022,23 @@ module Util =
             withCurrentScope ctx decl.UsedNames
             <| fun ctx ->
                 let info = com.GetMember(decl.MemberRef)
+                let isCython = Helpers.isCython com info.Attributes
+                let ctx = { ctx with IsCython = isCython }
 
                 let decls =
-                    if info.IsValue then
+                    match info.IsValue, decl.Body with
+                    | true, Fable.Delegate(args, body, name, tags) ->
+                        let name = name |> Option.defaultValue decl.Name
+                        let ctx = { ctx with IsCython = false }
+                        transformModuleFunction com ctx info name args body
+                    | true, _ ->
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
-
-                        let isCython = Helpers.isCython info.Attributes
-                        let ta, _ =
-                            match isCython with
-                            | true -> cythonTypeAnnotation com ctx None decl.Body.Type
-                            | _ -> typeAnnotation com ctx None decl.Body.Type
+                        let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts
                         @ declareModuleMember com ctx isCython name (Some ta) value
-                    else
+                    | _ ->
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
 
                 decls
@@ -4260,7 +4272,6 @@ module Compiler =
 
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
-
             hs
 
         let ctx =
@@ -4278,9 +4289,10 @@ module Compiler =
               TailCallOpportunity = None
               OptimizeTailCall = fun () -> ()
               ScopedTypeParams = Set.empty
-              TypeParamsScope = 0 }
+              TypeParamsScope = 0
+              IsCython = com.Options.Language = Language.Cython }
 
-        printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
