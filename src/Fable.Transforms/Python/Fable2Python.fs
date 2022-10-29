@@ -741,7 +741,7 @@ module Annotation =
         | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array (genArg, _) ->
             match genArg with
-            | Fable.Type.Number (UInt8, _) -> stdlibModuleTypeHint com ctx "typing" "ByteString" []
+            | Fable.Type.Number (UInt8, _) -> Expression.name "bytearray", []
             | Fable.Type.Number (Int8, _)
             | Fable.Type.Number (Int16, _)
             | Fable.Type.Number (UInt16, _)
