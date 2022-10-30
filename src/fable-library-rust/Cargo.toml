@@ -5,14 +5,15 @@ edition = "2021"
 
 [features]
 atomic = []
-no_std = ["dep:hashbrown"]
-threaded = ["atomic", "dep:futures"]
-guid = ["dep:uuid"]
-date = ["dep:chrono"]
 bigint = ["dep:num-bigint", "dep:num-integer", "dep:num-traits"]
+date = ["dep:chrono"]
 decimal = ["dep:rust_decimal"]
 default = ["guid", "date", "decimal", "bigint"]
+guid = ["dep:uuid"]
+no_std = ["dep:hashbrown"]
+small_string = []
 static_do_bindings = ["dep:startup"]
+threaded = ["atomic", "dep:futures"]
 
 [dependencies]
 startup = { version = "0.1.1", path = "vendored/startup", optional = true }

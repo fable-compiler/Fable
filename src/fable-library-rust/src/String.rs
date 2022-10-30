@@ -6,63 +6,118 @@ pub mod String_ {
 
     use crate::Native_::{arrayFrom, Array, Lrc, String, ToString, Vec};
 
+    use core::cmp::Ordering;
     use core::fmt::Debug;
-    use core::hash::Hash;
+    use core::hash::{Hash, Hasher};
 
-    #[repr(transparent)]
-    #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-    pub struct LrcStr(Lrc<str>);
+    // -----------------------------------------------------------
+    // Simple heap-allocated string type
+    // -----------------------------------------------------------
 
-    pub type string = LrcStr;
+    mod HeapString {
+        use crate::Native_::Lrc;
 
-    impl string {
-        pub fn as_str(&self) -> &str {
-            self.as_ref()
+        #[repr(transparent)]
+        #[derive(Clone, Debug)]
+        pub struct LrcStr(Lrc<str>);
+
+        pub type string = LrcStr;
+
+        impl string {
+            pub fn as_str(&self) -> &str {
+                self.0.as_ref()
+            }
+        }
+
+        pub fn string(s: &'static str) -> string {
+            LrcStr(Lrc::from(s))
+        }
+
+        pub fn fromStr(s: &str) -> string {
+            LrcStr(Lrc::from(s))
+        }
+
+        pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
+            let s = iter.collect::<String>();
+            LrcStr(Lrc::from(&*s))
         }
     }
 
-    pub fn string(s: &'static str) -> string {
-        LrcStr(Lrc::from(s))
-    }
-
-    pub fn stringFrom(s: String) -> string {
-        LrcStr(Lrc::from(&*s))
-    }
-
+    // -----------------------------------------------------------
+    // Enum string type: enum of static/small/alloc string.
+    // -----------------------------------------------------------
     // TODO: maybe intern strings, maybe add length in chars.
-    // Alternative string type: enum of static/small/alloc strings.
 
-    // const INLINE_MAX = 22;
+    mod EnumString {
+        use crate::Native_::Lrc;
 
-    // #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-    // pub enum LrcStr {
-    //     Static(&'static str),
-    //     Inline({ len: u8, buf: [u8; INLINE_MAX] }),
-    //     Shared(Lrc<String>),
-    // }
+        const INLINE_MAX: usize = 22;
 
-    // pub type string = LrcStr;
+        #[derive(Clone, Debug)]
+        pub enum LrcStr {
+            Static(&'static str),
+            Inline { len: u8, buf: [u8; INLINE_MAX] },
+            Shared(Lrc<str>),
+        }
 
-    // impl string {
-    //     pub fn as_str(&self) -> &str {
-    //         match self {
-    //             LrcStr::Static(str) => str,
-    //             LrcStr::Shared(rc) => rc.as_ref(),
-    //         }
-    //     }
-    // }
+        pub type string = LrcStr;
 
-    // pub fn string(s: &'static str) -> string {
-    //     LrcStr::Static(s)
-    // }
+        impl string {
+            pub fn as_str(&self) -> &str {
+                match self {
+                    LrcStr::Static(str) => str,
+                    LrcStr::Shared(rc) => rc.as_ref(),
+                    LrcStr::Inline { len, buf } => unsafe {
+                        core::str::from_utf8_unchecked(&buf[0..*len as usize])
+                    }
+                }
+            }
+        }
 
-    // pub fn stringFrom(s: String) -> string {
-    //     LrcStr::Shared(Lrc::from(s))
-    // }
+        pub fn string(s: &'static str) -> string {
+            LrcStr::Static(s)
+        }
+
+        pub fn fromStr(s: &str) -> string {
+            let len = s.len();
+            if len <= INLINE_MAX {
+                let mut buf = [0u8; INLINE_MAX];
+                buf[0..len].copy_from_slice(s.as_bytes());
+                LrcStr::Inline { len: len as u8, buf: buf }
+            } else {
+                LrcStr::Shared(Lrc::from(s))
+            }
+        }
+
+        pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
+            let len: usize = iter.clone().take(INLINE_MAX + 1).map(|c| c.len_utf8()).sum();
+            if len <= INLINE_MAX {
+                let mut buf = [0u8; INLINE_MAX];
+                let mut pos: usize = 0;
+                for c in iter {
+                    let s = c.encode_utf8(&mut buf[pos..]);
+                    pos = pos + s.len();
+                }
+                LrcStr::Inline { len: len as u8, buf: buf }
+            } else {
+                let s = iter.collect::<String>();
+                LrcStr::Shared(Lrc::from(&*s))
+            }
+        }
+    }
+
+    #[cfg(not(feature = "small_string"))]
+    pub use HeapString::*;
+    #[cfg(feature = "small_string")]
+    pub use EnumString::*;
+
+    // -----------------------------------------------------------
+    // traits
+    // -----------------------------------------------------------
 
     impl core::convert::AsRef<str> for string {
         fn as_ref(&self) -> &str {
-            &self.0.as_ref()
+            self.as_str()
         }
     }
 
@@ -75,7 +130,7 @@ pub mod String_ {
     impl core::ops::Deref for string {
         type Target = str;
         fn deref(&self) -> &Self::Target {
-            &self.0.as_ref()
+            self.as_str()
         }
     }
 
@@ -95,6 +150,70 @@ pub mod String_ {
         fn from(s: String) -> Self {
             stringFrom(s)
         }
+    }
+
+    impl From<&[char]> for string {
+        fn from(a: &[char]) -> Self {
+            fromIter(a.iter().copied())
+        }
+    }
+
+    impl Hash for string {
+        #[inline]
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.as_str().hash(state);
+        }
+    }
+
+    impl PartialEq for string {
+        #[inline]
+        fn eq(&self, other: &Self) -> bool {
+            self.as_str().eq(other.as_str())
+        }
+    }
+
+    impl Eq for string {}
+
+    impl PartialOrd for string {
+        #[inline]
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            self.as_str().partial_cmp(other.as_str())
+        }
+
+        #[inline]
+        fn lt(&self, other: &Self) -> bool {
+            self.as_str() < other.as_str()
+        }
+
+        #[inline]
+        fn le(&self, other: &Self) -> bool {
+            self.as_str() <= other.as_str()
+        }
+
+        #[inline]
+        fn gt(&self, other: &Self) -> bool {
+            self.as_str() > other.as_str()
+        }
+
+        #[inline]
+        fn ge(&self, other: &Self) -> bool {
+            self.as_str() >= other.as_str()
+        }
+    }
+
+    impl Ord for string {
+        #[inline]
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.as_str().cmp(other.as_str())
+        }
+    }
+
+    // -----------------------------------------------------------
+    // string implementation
+    // -----------------------------------------------------------
+
+    pub fn stringFrom(s: String) -> string {
+        fromStr(&*s)
     }
 
     pub fn toString<T: ToString>(o: T) -> string {
@@ -130,8 +249,7 @@ pub mod String_ {
     }
 
     pub fn ofChar(c: char) -> string {
-        let s = [c].iter().collect::<String>();
-        stringFrom(s)
+        fromIter([c].into_iter())
     }
 
     // O(n) because Rust strings are UTF-8
@@ -145,16 +263,15 @@ pub mod String_ {
     }
 
     pub fn fromChar(c: char, count: i32) -> string {
-        let s = [c].iter().collect::<String>();
-        stringFrom(s.repeat(count as usize))
+        fromIter(core::iter::repeat(c).take(count as usize))
     }
 
     pub fn fromChars(a: Array<char>) -> string {
-        stringFrom(a.iter().collect::<String>())
+        fromIter(a.iter().copied())
     }
 
     pub fn fromChars2(a: Array<char>, i: i32, count: i32) -> string {
-        stringFrom(a.iter().skip(i as usize).take(count as usize).collect::<String>())
+        fromIter(a.iter().copied().skip(i as usize).take(count as usize))
     }
 
     pub fn containsChar(s: string, c: char) -> bool {
@@ -190,39 +307,39 @@ pub mod String_ {
     }
 
     pub fn trim(s: string) -> string {
-        stringFrom(s.trim().to_string())
+        fromStr(s.trim())
     }
 
     pub fn trimChar(s: string, c: char) -> string {
-        stringFrom(s.trim_matches(c).to_string())
+        fromStr(s.trim_matches(c))
     }
 
     pub fn trimChars(s: string, a: Array<char>) -> string {
-        stringFrom(s.trim_matches(a.as_slice()).to_string())
+        fromStr(s.trim_matches(a.as_slice()))
     }
 
     pub fn trimEnd(s: string) -> string {
-        stringFrom(s.trim_end().to_string())
+        fromStr(s.trim_end())
     }
 
     pub fn trimEndChar(s: string, c: char) -> string {
-        stringFrom(s.trim_end_matches(c).to_string())
+        fromStr(s.trim_end_matches(c))
     }
 
     pub fn trimEndChars(s: string, a: Array<char>) -> string {
-        stringFrom(s.trim_end_matches(a.as_slice()).to_string())
+        fromStr(s.trim_end_matches(a.as_slice()))
     }
 
     pub fn trimStart(s: string) -> string {
-        stringFrom(s.trim_start().to_string())
+        fromStr(s.trim_start())
     }
 
     pub fn trimStartChar(s: string, c: char) -> string {
-        stringFrom(s.trim_start_matches(c).to_string())
+        fromStr(s.trim_start_matches(c))
     }
 
     pub fn trimStartChars(s: string, a: Array<char>) -> string {
-        stringFrom(s.trim_start_matches(a.as_slice()).to_string())
+        fromStr(s.trim_start_matches(a.as_slice()))
     }
 
     pub fn toLower(s: string) -> string {
@@ -234,8 +351,7 @@ pub mod String_ {
     }
 
     pub fn concat(a: Array<string>) -> string {
-        let v: Vec<&str> = a.iter().map(|s| s.as_str()).collect();
-        stringFrom(v.concat())
+        fromIter(a.iter().flat_map(|s| s.chars()))
     }
 
     pub fn join(sep: string, a: Array<string>) -> string {
@@ -249,12 +365,12 @@ pub mod String_ {
 
     pub fn substring(s: string, i: i32) -> string {
         if (i < 0) { panic!("Argument out of range") }
-        stringFrom(s.chars().skip(i as usize).collect::<String>())
+        fromIter(s.chars().skip(i as usize))
     }
 
     pub fn substring2(s: string, i: i32, count: i32) -> string {
         if (i < 0) || (count < 0) { panic!("Argument out of range") }
-        stringFrom(s.chars().skip(i as usize).take(count as usize).collect::<String>())
+        fromIter(s.chars().skip(i as usize).take(count as usize))
     }
 
     pub fn getSlice(s: string, lower: Option<i32>, upper: Option<i32>) -> string {
@@ -280,13 +396,13 @@ pub mod String_ {
     }
 
     pub fn append(s1: string, s2: string) -> string {
-        stringFrom([s1.as_str(), s2.as_str()].concat())
+        fromIter([s1, s2].iter().flat_map(|s| s.chars()))
     }
 
     pub fn insert(s: string, i: i32, v: string) -> string {
         let left = substring2(s.clone(), 0, i);
         let right = substring(s, i);
-        stringFrom([left.as_str(), v.as_str(), right.as_str()].concat())
+        fromIter([left, v, right].iter().flat_map(|s| s.chars()))
     }
 
     pub fn remove(s: string, i: i32) -> string {
@@ -296,7 +412,7 @@ pub mod String_ {
     pub fn remove2(s: string, i: i32, count: i32) -> string {
         let left = substring2(s.clone(), 0, i);
         let right = substring(s, i + count);
-        stringFrom([left.as_str(), right.as_str()].concat())
+        fromIter([left, right].iter().flat_map(|s| s.chars()))
     }
 
     fn toIndex(offset: i32, opt: Option<(&str, &str)>) -> i32 {
@@ -381,9 +497,8 @@ pub mod String_ {
     pub fn padLeft(s: string, count: i32, c: char) -> string {
         let n = s.chars().count();
         if count as usize > n {
-            let p = [c].iter().collect::<String>();
-            let pad = p.repeat(count as usize - n);
-            stringFrom([pad.as_str(), s.as_str()].concat())
+            let pad = core::iter::repeat(c).take(count as usize - n);
+            fromIter(pad.chain(s.chars()))
         } else {
             s.clone()
         }
@@ -392,9 +507,8 @@ pub mod String_ {
     pub fn padRight(s: string, count: i32, c: char) -> string {
         let n = s.chars().count();
         if count as usize > n {
-            let p = [c].iter().collect::<String>();
-            let pad = p.repeat(count as usize - n);
-            stringFrom([s.as_str(), pad.as_str()].concat())
+            let pad = core::iter::repeat(c).take(count as usize - n);
+            fromIter(s.chars().chain(pad))
         } else {
             s.clone()
         }
@@ -411,7 +525,7 @@ pub mod String_ {
         if (count >= 0) {
             a = a.into_iter().take(count as usize).collect()
         }
-        let a = a.into_iter().map(|s| stringFrom(s.to_string())).collect();
+        let a = a.into_iter().map(|s| fromStr(s)).collect();
         arrayFrom(a)
     }
 
@@ -465,8 +579,7 @@ pub mod String_ {
 
     pub fn collect(mapping: Lrc<impl Fn(char) -> string>, s: string) -> string {
         let v: Vec<string> = s.chars().map(|c| mapping(c)).collect();
-        let v: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
-        stringFrom(v.concat())
+        fromIter(v.iter().flat_map(|s| s.chars()))
     }
 
     pub fn exists(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> bool {
@@ -474,7 +587,7 @@ pub mod String_ {
     }
 
     pub fn filter(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> string {
-        stringFrom(s.chars().filter(|c| predicate(*c)).collect::<String>())
+        fromIter(s.chars().filter(|c| predicate(*c)))
     }
 
     pub fn forAll(predicate: Lrc<impl Fn(char) -> bool>, s: string) -> bool {
@@ -483,8 +596,7 @@ pub mod String_ {
 
     pub fn init(count: i32, initializer: Lrc<impl Fn(i32) -> string>) -> string {
         let v: Vec<string> = (0..count).map(|i| initializer(i)).collect();
-        let v: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
-        stringFrom(v.concat())
+        fromIter(v.iter().flat_map(|s| s.chars()))
     }
 
     pub fn iter(action: Lrc<impl Fn(char) -> ()>, s: string) -> () {
@@ -497,15 +609,15 @@ pub mod String_ {
     }
 
     pub fn map(mapping: Lrc<impl Fn(char) -> char>, s: string) -> string {
-        stringFrom(s.chars().map(|c| mapping(c)).collect::<String>())
+        fromIter(s.chars().map(|c| mapping(c)))
     }
 
     pub fn mapi(mapping: Lrc<impl Fn(i32, char) -> char>, s: string) -> string {
-        let mut i: i32 = -1;
-        stringFrom(s.chars().map(|c| { i += 1; mapping(i, c) }).collect::<String>())
+        fromIter(s.chars().enumerate().map(|(i, c)| mapping(i as i32, c)))
     }
 
     pub fn replicate(count: i32, s: string) -> string {
-        stringFrom(s.repeat(count as usize))
+        // stringFrom(s.repeat(count as usize))
+        fromIter(core::iter::repeat(&s).take(count as usize).flat_map(|s| s.chars()))
     }
 }

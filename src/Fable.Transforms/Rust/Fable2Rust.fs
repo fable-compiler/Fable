@@ -1834,6 +1834,7 @@ module Util =
         if members |> List.isEmpty then
             mkUnitExpr () // object constructors sometimes generate this
         else
+            // TODO: add captured idents to object expression struct
             let makeEntRef fullName assemblyName: Fable.EntityRef =
                 { FullName = fullName; Path = Fable.CoreAssemblyName assemblyName }
             let entRef, genArgs =
@@ -2291,19 +2292,21 @@ module Util =
             List.collect flattenSequential exprs
         | _ -> [expr]
 
+    let hasFuncOrAnyType typ =
+        match typ with
+        | Fable.Any
+        | Fable.LambdaType _
+        | Fable.DelegateType _
+            -> true
+        | t -> t.Generics |> List.exists hasFuncOrAnyType
+
     let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
         // TODO: traverse body and follow references to decide if this should be wrapped or not
         // For Box/Rc it's not needed cause the Rust compiler will optimize the allocation away
         let isBox = false //(match value with Function _ -> true | _ -> false)
         let tyOpt =
-            match ident.Type with
-            | Fable.Any
-            | Fable.LambdaType _
-            | Fable.DelegateType _
-                -> None
-            | _ ->
-                transformType com ctx ident.Type
-                |> Some
+            if hasFuncOrAnyType ident.Type then None
+            else transformType com ctx ident.Type |> Some
         let tyOpt =
             tyOpt |> Option.map (fun ty ->
                 if ident.IsMutable && isCaptured
