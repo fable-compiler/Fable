@@ -43,6 +43,9 @@ type CompilerOptions =
 type PluginHelper =
     abstract LibraryDir: string
     abstract CurrentFile: string
+    abstract OutputDir: string option
+    abstract ProjectFile: string
+    abstract SourceFiles: string seq
     abstract Options: CompilerOptions
     abstract LogWarning: string * ?range: SourceLocation -> unit
     abstract LogError: string * ?range: SourceLocation -> unit
@@ -50,6 +53,7 @@ type PluginHelper =
     abstract GetEntity: EntityRef -> Entity
     abstract GetMember: MemberRef -> MemberFunctionOrValue
     abstract GetOutputPath: unit -> string
+    abstract GetOutputPath: file: string -> string
 
 [<System.AttributeUsage(System.AttributeTargets.Assembly)>]
 type ScanForPluginsAttribute() =

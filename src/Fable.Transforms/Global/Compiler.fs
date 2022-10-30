@@ -140,14 +140,17 @@ module CompilerExt =
             { new PluginHelper with
                 member _.LibraryDir = com.LibraryDir
                 member _.CurrentFile = com.CurrentFile
+                member _.OutputDir = com.OutputDir
+                member _.ProjectFile = com.ProjectFile
+                member _.SourceFiles = com.SourceFiles
                 member _.Options = com.Options
                 member _.GetRootModule(fileName) = com.GetRootModule(fileName)
                 member _.GetEntity(ref) = com.GetEntity(ref)
                 member _.GetMember(ref) = com.GetMember(ref)
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
-                member _.GetOutputPath() =
-                    let file = Path.ChangeExtension(com.CurrentFile, com.Options.FileExtension)
+                member _.GetOutputPath(file) =
+                    let file = Path.ChangeExtension(file, com.Options.FileExtension)
                     match com.OutputDir with
                     | None -> file
                     | Some outDir ->
@@ -156,6 +159,7 @@ module CompilerExt =
                         let relPath = Path.getRelativeFileOrDirPath true projDir false file
                         let relPath = if relPath.StartsWith("./") then relPath[2..] else relPath
                         Path.Combine(outDir, relPath)
+                member this.GetOutputPath() = this.GetOutputPath(com.CurrentFile)
              }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
