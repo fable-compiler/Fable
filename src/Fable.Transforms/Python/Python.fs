@@ -113,10 +113,12 @@ type Statement =
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
 
+    // Cython extensions
     | CythonFunctionDef of FunctionDef
     | CythonAssign of AnnAssign
     | CythonClassDef of ClassDef
     | CythonImport of Import
+    | CythonImportFrom of ImportFrom
     //| Ctypedef of Ctypedef
 
 
@@ -867,6 +869,10 @@ module PythonExtensions =
         static member importFrom(``module``, names, ?level) =
             ImportFrom.importFrom (``module``, names, ?level = level)
             |> ImportFrom
+
+        static member cimportFrom(``module``, names, ?level) =
+            ImportFrom.importFrom (``module``, names, ?level = level)
+            |> CythonImportFrom
 
         static member nonLocal(ids) =
             NonLocal.Create ids |> Statement.NonLocal

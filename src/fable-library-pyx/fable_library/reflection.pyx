@@ -5,9 +5,9 @@ import functools
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
-from .types import FSharpRef, Record
-from .types import Union as FsUnion
-from .util import Array, combine_hash_codes, equal_arrays_with
+from .types cimport FSharpRef, Record
+from .types cimport Union as FsUnion
+from .util cimport Array, combine_hash_codes, equal_arrays_with
 
 
 Constructor = Callable[..., Any]

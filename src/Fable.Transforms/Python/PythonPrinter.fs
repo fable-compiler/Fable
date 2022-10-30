@@ -36,6 +36,7 @@ module PrinterExtensions =
             | Continue -> printer.Print("continue")
 
             | CythonImport im -> printer.Print(im)
+            | CythonImportFrom im -> printer.Print(im)
             | CythonAssign st -> printer.Print(st)
             | CythonClassDef st -> printer.Print(st)
             | CythonFunctionDef def -> printer.Print(def)

@@ -16,7 +16,7 @@ from typing import (
 from typing import Union as Union_
 from typing import cast
 
-from .util import Array, IComparable, compare
+from .util cimport Array, IComparable, compare
 
 
 _T = TypeVar("_T")

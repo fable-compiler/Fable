@@ -216,7 +216,8 @@ let buildLibraryPy cython =
 
     // Copy python related files from projectDir to buildDir
     copyFiles libraryDir "*" buildDirPy
-    copyFiles projectDir "*.py" (buildDirPy </> "fable_library")
+    // Copy python source files including Cython .pyx and .pxd files
+    copyFiles projectDir "*.p*" (buildDirPy </> "fable_library")
 
     // Fix issues with Fable .fsproj not supporting links
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")

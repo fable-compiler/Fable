@@ -797,7 +797,7 @@ module Annotation =
                 | UNativeInt -> "int"
                 | Float32 -> "float"
                 | Float64 -> "double"
-                | _ -> failwith $"Unsupported number type: {kind}"
+                | _ -> "object"
             Expression.name name
 
         match t with
@@ -3617,9 +3617,9 @@ module Util =
         let slotMembers = createSlotsForRecordType com ctx ent
 
         let typeDeclaration =
-            match ent.IsFSharpRecord with
-            | true -> declareDataClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
-            | false -> declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
+            match ent.IsFSharpRecord, com.Options.Language with
+            | true, Language.Python -> declareDataClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
+            | _ -> declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
 
         let reflectionDeclaration, stmts =
             let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
@@ -4124,9 +4124,12 @@ module Util =
                 | _ -> "B" + name)
 
         [ for moduleName, aliases in imports do
-              match moduleName with
-              | Some name -> Statement.importFrom (Some(Identifier(name)), aliases)
-              | None ->
+              match moduleName, com.Options.Language with
+              | Some name, Language.Cython when Naming.isInFableModules name ->
+                  Statement.cimportFrom (Some(Identifier(name)), aliases)
+              | Some name, _ ->
+                  Statement.importFrom (Some(Identifier(name)), aliases)
+              | None, _ ->
                   // Do not put multiple imports on a single line. flake8(E401)
                   for alias in aliases do
                       Statement.import [ alias ] ]

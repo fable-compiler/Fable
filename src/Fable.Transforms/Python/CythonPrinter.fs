@@ -35,6 +35,7 @@ module PrinterExtensions =
             | Continue -> printer.Print("continue")
 
             | CythonImport im -> printer.PrintCythonImport(im)
+            | CythonImportFrom im -> printer.PrintCythonImportFrom(im)
             | CythonAssign st -> printer.PrintCythonAssign(st)
             | CythonClassDef st -> printer.PrintCythonClassDef(st)
             | CythonFunctionDef def -> printer.PrintCythonFunctionDef(def)
@@ -342,7 +343,7 @@ module PrinterExtensions =
                 node.Value
                 |> replace @"\$(\d+)\.\.\." (fun m ->
                     let rep = ResizeArray()
-                    let i = int m.Groups.[1].Value
+                    let i = int m.Groups[1].Value
 
                     for j = i to node.Args.Length - 1 do
                         rep.Add("$" + string j)
@@ -365,7 +366,7 @@ module PrinterExtensions =
 
                 // If placeholder is followed by !, emit string literals as JS: "let $0! = $1"
                 |> replace @"\$(\d+)!" (fun m ->
-                    let i = int m.Groups.[1].Value
+                    let i = int m.Groups[1].Value
 
                     match List.tryItem i node.Args with
                     | Some (Constant (:? string as value, _)) -> value
@@ -380,12 +381,12 @@ module PrinterExtensions =
                     let isSurroundedWithParens =
                         m.Index > 0
                         && m.Index + m.Length < value.Length
-                        && value.[m.Index - 1] = '('
-                        && value.[m.Index + m.Length] = ')'
+                        && value[m.Index - 1] = '('
+                        && value[m.Index + m.Length] = ')'
 
                     let segmentStart =
                         if i > 0 then
-                            matches[i - 1].Index + matches.[i - 1].Length
+                            matches[i - 1].Index + matches[i - 1].Length
                         else
                             0
 
@@ -398,7 +399,7 @@ module PrinterExtensions =
                     | Some e -> printer.ComplexExpressionWithParens(e)
                     | None -> printer.Print("None")
 
-                let lastMatch = matches.[matches.Count - 1]
+                let lastMatch = matches[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
                 printSegment printer value 0 value.Length
@@ -822,6 +823,22 @@ module PrinterExtensions =
                 if List.length im.Names > 1 then
                     printer.Print(")")
 
+        member printer.PrintCythonImportFrom(im: ImportFrom) =
+            let (Identifier path) = im.Module |> Option.defaultValue (Identifier ".")
+
+            printer.Print("from ")
+            printer.Print(path)
+            printer.Print(" cimport ")
+
+            if not (List.isEmpty im.Names) then
+                if List.length im.Names > 1 then
+                    printer.Print("(")
+
+                printer.PrintCommaSeparatedList(im.Names)
+
+                if List.length im.Names > 1 then
+                    printer.Print(")")
+
         member printer.PrintCythonFunctionDef(func: FunctionDef) =
             printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true, isCython = true)
             printer.PrintNewLine()
@@ -851,12 +868,17 @@ let run writer (program: Module) : Async<unit> =
             program.Body
             |> List.splitWhile (function
                 | Import _
-                | ImportFrom _ -> true
+                | ImportFrom _
+                | CythonImport _
+                | CythonImportFrom _ -> true
                 | Expr { Value = Expression.Emit _ } -> true
                 | _ -> false)
 
         for decl in imports do
             match decl with
+            | CythonImportFrom ({ Module = Some (Identifier path) } as info) ->
+                let path = printer.MakeImportPath(path)
+                CythonImportFrom { info with Module = Some(Identifier path) }
             | ImportFrom ({ Module = Some (Identifier path) } as info) ->
                 let path = printer.MakeImportPath(path)
                 ImportFrom { info with Module = Some(Identifier path) }
