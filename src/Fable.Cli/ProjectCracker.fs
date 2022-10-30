@@ -32,7 +32,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: string option
-        Exclude: string option
+        Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
     }
@@ -72,7 +72,7 @@ type CrackerOptions(cliArgs: CliArgs) =
     member _.FableLib: string option = cliArgs.FableLibraryPath
     member _.OutDir: string option = cliArgs.OutDir
     member _.Configuration: string = cliArgs.Configuration
-    member _.Exclude: string option = cliArgs.Exclude
+    member _.Exclude: string list = cliArgs.Exclude
     member _.Replace: Map<string, string> = cliArgs.Replace
     member _.PrecompiledLib: string option = cliArgs.PrecompiledLib
     member _.NoRestore: bool = cliArgs.NoRestore
@@ -322,14 +322,17 @@ let private isUsefulOption (opt : string) =
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
-    match opts.Exclude with
-    | Some e when String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase) ->
+    let isExcluded =
+        opts.Exclude
+        |> List.exists (fun e ->
+            String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase))
+    if isExcluded then
         try
             opts.BuildDll(dllRefs.[projName])
         with e ->
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
-    | _ ->
+    else
         let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
