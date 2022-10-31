@@ -14,22 +14,28 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
-    // Let's use emit for simplicity
+let partialApplyAtRuntime (_com: Compiler) t arity (expr: Expr) (argExprs: Expr list) =
+    // TODO: convert to Fable.AST instead of emit
     let argIdents = List.init arity (fun i -> $"arg{i}")
-    let curriedArgs = argIdents |> List.map (fun a -> $"Lrc::new(move |{a}|") |> String.concat " "
-    let curriedEnds = argIdents |> List.map (fun a -> $")") |> String.concat ""
     let args = argIdents |> String.concat ", "
-    $"%s{curriedArgs} $0(%s{args}){curriedEnds}"
-    |> emitExpr None expr.Type [expr]
+    let makeArg a = $"Lrc::new(move |{a}| "
+    let makeEnd a = $")"
+    let curriedArgs = argIdents |> List.map makeArg |> String.concat ""
+    let curriedEnds = argIdents |> List.map makeEnd |> String.concat ""
+    let appliedArgs = argExprs |> List.mapi (fun i _a -> $"${i + 1}, ") |> String.concat ""
+    let fmt = $"%s{curriedArgs}$0(%s{appliedArgs}%s{args}){curriedEnds}"
+    fmt |> emitExpr None t (expr::argExprs)
+
+let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
+    partialApplyAtRuntime com expr.Type arity expr []
 
 let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     let uncurry expr =
         let argIdents = List.init arity (fun i -> $"arg{i}")
         let args = argIdents |> String.concat ", "
         let appliedArgs = argIdents |> String.concat ")("
-        $"Lrc::new(move |%s{args}| $0(%s{appliedArgs}))"
-        |> emitExpr None t [expr]
+        let fmt = $"Lrc::new(move |%s{args}| $0(%s{appliedArgs}))"
+        fmt |> emitExpr None t [expr]
     match expr with
     | Value(Null _, _) -> expr
     | Value(NewOption(value, t, isStruct), r) ->
@@ -43,18 +49,9 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
         Helper.LibCall(com, "Option", "map", t, [fn; expr])
     | expr -> uncurry expr
 
-let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
-    let argIdents = List.init arity (fun i -> $"arg{i}")
-    let args = argIdents |> String.concat ", "
-    let curriedArgs = argIdents |> List.map (fun a -> $"Lrc::new(move |{a}|") |> String.concat " "
-    let curriedEnds = argIdents |> List.map (fun a -> $")") |> String.concat ""
-    let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
-    $"%s{curriedArgs} $0(%s{appliedArgs}, %s{args}){curriedEnds}"
-    |> emitExpr None t (fn::argExprs)
-
 let checkArity (_com: Compiler) t arity expr =
     //TODO: implement this
-    makeIntConst arity
+    expr
     // Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
 
 let error (msg: Expr) = msg

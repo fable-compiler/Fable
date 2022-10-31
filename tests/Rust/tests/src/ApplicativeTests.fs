@@ -1476,7 +1476,7 @@ module FSharpPlus =
             | Some f, Some x -> Some (f x)
             | _              -> None
 
-    module Array =
+    module Array_ =
         let apply f x =
             let lenf, lenx = Array.length f, Array.length x
             Array.init (lenf * lenx) (fun i -> f[i / lenx] x[i % lenx])
@@ -1499,7 +1499,7 @@ module FSharpPlus =
 
     type Apply =
         static member ``<*>`` (f: option<_>, x: option<'T>, _output: option<'U>, _mthd: Apply) = Option.apply f x : option<'U>
-        static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array.apply  f x  : 'U []
+        static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array_.apply f x  : 'U []
 
         static member inline Invoke (f: '``Applicative<'T -> 'U>``) (x: '``Applicative<'T>``) : '``Applicative<'U>`` =
             let inline call (mthd : ^M, input1: ^I1, input2: ^I2, output: ^R) =
