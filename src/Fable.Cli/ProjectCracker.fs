@@ -413,12 +413,14 @@ let getProjectOptionsFromProjectFile =
 
         let analyzer = manager.GetProject(projFile)
         // If the project targets multiple frameworks, multiple results will be returned
-        // For now we just take the first one
+        // For now we just take the first one with non-empty command
         let result =
-            match analyzer.Build() |> Seq.toList with
-            | result::_ -> result
-            // TODO: Get Buildalyzer errors from the log
-            | [] -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
+            analyzer.Build()
+            |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
+            |> function
+                | Some result -> result
+                // TODO: Get Buildalyzer errors from the log
+                | None -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
         let projDir = IO.Path.GetDirectoryName(projFile)
         let projOpts =
             // result.CompilerArguments doesn't seem to work well in Linux
@@ -431,13 +433,13 @@ let getProjectOptionsFromProjectFile =
 /// As we'll merge this later with other projects we'll only take the sources and
 /// the references, checking if some .dlls correspond to Fable libraries
 let fullCrack (opts: CrackerOptions): CrackedFsproj =
-    // if not opts.NoRestore then
-    //     Process.runSync (IO.Path.GetDirectoryName projFile) "dotnet" [
-    //         "restore"
-    //         IO.Path.GetFileName projFile
-    //         for constant in opts.FableOptions.Define do
-    //             $"-p:{constant}=true"
-    //     ] |> ignore
+    if not opts.NoRestore then
+        Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
+            "restore"
+            IO.Path.GetFileName opts.ProjFile
+            for constant in opts.FableOptions.Define do
+                $"-p:{constant}=true"
+        ] |> ignore
 
     let projOpts, projRefs, msbuildProps =
         getProjectOptionsFromProjectFile opts opts.ProjFile
