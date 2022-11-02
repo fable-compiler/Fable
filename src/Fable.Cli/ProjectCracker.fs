@@ -32,7 +32,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: string option
-        Exclude: string option
+        Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
     }
@@ -72,7 +72,7 @@ type CrackerOptions(cliArgs: CliArgs) =
     member _.FableLib: string option = cliArgs.FableLibraryPath
     member _.OutDir: string option = cliArgs.OutDir
     member _.Configuration: string = cliArgs.Configuration
-    member _.Exclude: string option = cliArgs.Exclude
+    member _.Exclude: string list = cliArgs.Exclude
     member _.Replace: Map<string, string> = cliArgs.Replace
     member _.PrecompiledLib: string option = cliArgs.PrecompiledLib
     member _.NoRestore: bool = cliArgs.NoRestore
@@ -322,14 +322,17 @@ let private isUsefulOption (opt : string) =
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
-    match opts.Exclude with
-    | Some e when String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase) ->
+    let isExcluded =
+        opts.Exclude
+        |> List.exists (fun e ->
+            String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase))
+    if isExcluded then
         try
             opts.BuildDll(dllRefs.[projName])
         with e ->
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
-    | _ ->
+    else
         let _removed = dllRefs.Remove(projName)
         // if not removed then
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
@@ -410,12 +413,14 @@ let getProjectOptionsFromProjectFile =
 
         let analyzer = manager.GetProject(projFile)
         // If the project targets multiple frameworks, multiple results will be returned
-        // For now we just take the first one
+        // For now we just take the first one with non-empty command
         let result =
-            match analyzer.Build() |> Seq.toList with
-            | result::_ -> result
-            // TODO: Get Buildalyzer errors from the log
-            | [] -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
+            analyzer.Build()
+            |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
+            |> function
+                | Some result -> result
+                // TODO: Get Buildalyzer errors from the log
+                | None -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
         let projDir = IO.Path.GetDirectoryName(projFile)
         let projOpts =
             // result.CompilerArguments doesn't seem to work well in Linux
@@ -428,13 +433,13 @@ let getProjectOptionsFromProjectFile =
 /// As we'll merge this later with other projects we'll only take the sources and
 /// the references, checking if some .dlls correspond to Fable libraries
 let fullCrack (opts: CrackerOptions): CrackedFsproj =
-    // if not opts.NoRestore then
-    //     Process.runSync (IO.Path.GetDirectoryName projFile) "dotnet" [
-    //         "restore"
-    //         IO.Path.GetFileName projFile
-    //         for constant in opts.FableOptions.Define do
-    //             $"-p:{constant}=true"
-    //     ] |> ignore
+    if not opts.NoRestore then
+        Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
+            "restore"
+            IO.Path.GetFileName opts.ProjFile
+            for constant in opts.FableOptions.Define do
+                $"-p:{constant}=true"
+        ] |> ignore
 
     let projOpts, projRefs, msbuildProps =
         getProjectOptionsFromProjectFile opts opts.ProjFile

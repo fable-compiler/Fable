@@ -1,3 +1,7 @@
+### 4.2.1
+
+* Get sources from PluginHelper
+
 ### 4.2.0
 
 * Add Entity.DeclaringEntity

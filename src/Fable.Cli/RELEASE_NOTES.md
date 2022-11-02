@@ -1,3 +1,11 @@
+### 4.0.0-theta-014
+
+* Try to fix #3244 (cannot parse .fsproj)
+* Rust, added small string type
+* Python, fix byte array tying issue
+* JS, don't mangle idents from imports in emitted code
+* JS, optimize some array transforms
+
 ### 4.0.0-theta-012
 
 * Python, option fixes

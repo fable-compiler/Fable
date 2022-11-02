@@ -273,7 +273,7 @@ type Runner =
           NoCache = args.FlagEnabled "--noCache"
           // TODO: If we select optimize we cannot have F#/Fable parallelization
           NoParallelTypeCheck = args.FlagEnabled "--noParallelTypeCheck"
-          Exclude = args.Value "--exclude"
+          Exclude = args.Values "--exclude"
           Replace =
             args.Values "--replace"
             |> List.map (fun v ->

@@ -25,7 +25,7 @@ type CliArgs =
       NoParallelTypeCheck: bool
       SourceMaps: bool
       SourceMapsRoot: string option
-      Exclude: string option
+      Exclude: string list
       Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
