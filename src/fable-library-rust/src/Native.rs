@@ -179,7 +179,7 @@ pub mod Native_ {
     pub fn iter_to_seq<T, I>(iter: I) -> seq<T>
     where
         T: Clone + 'static,
-        I: Iterator<Item = T> + Clone + 'static,
+        I: Iterator<Item = T> + 'static,
     {
         let iter = mkMut(iter);
         let f = Func0::new(move || iter.get_mut().next());
