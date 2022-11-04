@@ -18,7 +18,7 @@ let partialApplyAtRuntime (_com: Compiler) t arity (expr: Expr) (argExprs: Expr 
     // TODO: convert to Fable.AST instead of emit
     let argIdents = List.init arity (fun i -> $"arg{i}")
     let args = argIdents |> String.concat ", "
-    let makeArg a = $"Lrc::new(move |{a}| "
+    let makeArg a = $"Func1::new(move |{a}| "
     let makeEnd a = $")"
     let curriedArgs = argIdents |> List.map makeArg |> String.concat ""
     let curriedEnds = argIdents |> List.map makeEnd |> String.concat ""
@@ -34,7 +34,7 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
         let argIdents = List.init arity (fun i -> $"arg{i}")
         let args = argIdents |> String.concat ", "
         let appliedArgs = argIdents |> String.concat ")("
-        let fmt = $"Lrc::new(move |%s{args}| $0(%s{appliedArgs}))"
+        let fmt = $"Func{arity}::new(move |%s{args}| $0(%s{appliedArgs}))"
         fmt |> emitExpr None t [expr]
     match expr with
     | Value(Null _, _) -> expr

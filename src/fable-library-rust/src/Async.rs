@@ -76,9 +76,10 @@ pub mod AsyncBuilder_ {
     use futures::lock::Mutex;
 
     use super::Async_::Async;
+    use crate::Native_::{Func0, Func1};
 
-    pub fn delay<T: Send + Sync>(
-        binder: Arc<impl Fn() -> Arc<Async<T>> + 'static>,
+    pub fn delay<T: Send + Sync + 'static>(
+        binder: Func0<Arc<Async<T>>>,
     ) -> Arc<Async<T>> {
         let pr = binder();
         Arc::from(Async {
@@ -88,7 +89,7 @@ pub mod AsyncBuilder_ {
 
     pub fn bind<T: Clone + Send + Sync + 'static, U: Clone + Send + Sync + 'static>(
         opt: Arc<Async<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Async<U>> + Send + Sync + 'static>,
+        binder: Func1<T, Arc<Async<U>>>,
     ) -> Arc<Async<U>> {
         let next = async move {
             let mut m = opt.future.lock().await;
@@ -144,7 +145,7 @@ pub mod Monitor_ {
     use std::thread;
     use std::time::Duration;
 
-    use crate::Native_::Lrc;
+    use crate::Native_::{Func0, Lrc};
 
     static mut LOCKS: Option<RwLock<HashSet<usize>>> = None;
     fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
@@ -180,7 +181,7 @@ pub mod Monitor_ {
     }
 
     // Not technically part of monitor, but it needs to be behind a feature switch, so cannot just dump this in Native
-    pub fn lock<T: Clone + Send + Sync, U>(toLock: Arc<T>, f: Lrc<impl Fn() -> U>) -> U {
+    pub fn lock<T: Clone + Send + Sync, U: 'static>(toLock: Arc<T>, f: Func0<U>) -> U {
         enter(&toLock);
         let returnVal = f();
         // panics will bypass this - need some finally mechanism
@@ -200,6 +201,7 @@ pub mod Task_ {
     use futures::{Future, FutureExt};
 
     use super::ThreadPool::try_init_and_get_pool;
+    use crate::Native_::{Func0, Func1};
 
     pub enum TaskState<T: Sized + Clone + Send> {
         New(Pin<Box<dyn Future<Output = T> + Send + Sync>>),
@@ -340,7 +342,7 @@ pub mod Task_ {
 
     pub fn bind<T: Clone + Send + Sync + 'static, U: Clone + Send + Sync + 'static>(
         opt: Arc<Task<T>>,
-        binder: Arc<impl Fn(T) -> Arc<Task<U>> + Send + Sync + 'static>,
+        binder: Func1<T, Arc<Task<U>>>,
     ) -> Arc<Task<U>> {
         let next = async move {
             //eprintln!("{:?} begin await source fut", thread::current().id());
@@ -359,8 +361,8 @@ pub mod Task_ {
         Arc::from(task)
     }
 
-    pub fn delay<T: Clone + Send + Sync>(
-        binder: Arc<impl Fn() -> Arc<Task<T>> + 'static>,
+    pub fn delay<T: Clone + Send + Sync + 'static>(
+        binder: Func0<Arc<Task<T>>>,
     ) -> Arc<Task<T>> {
         let pr = binder();
         pr
@@ -408,10 +410,10 @@ pub mod Thread_ {
     use std::thread;
     use std::time::Duration;
 
-    use crate::Native_::{Lrc, MutCell};
+    use crate::Native_::{Func0, Lrc, MutCell};
 
     enum ThreadInt {
-        New(Lrc<dyn Fn() -> () + Send + Sync + 'static>),
+        New(Func0<()>),
         //Building(thread::Builder),
         Running(thread::JoinHandle<()>),
         Empty
@@ -423,7 +425,7 @@ pub mod Thread_ {
     }
     pub struct Thread (MutCell<ThreadInt>);
 
-    pub fn new(f: Lrc<impl Fn() -> () + Send + Sync + 'static>) -> Lrc<Thread> {
+    pub fn new(f: Func0<()>) -> Lrc<Thread> {
         Lrc::from(Thread (MutCell::from(ThreadInt::New(f))))
     }
 

@@ -160,12 +160,14 @@ impl<T> MutCell<T> {
 }
 
 impl<T: Default> MutCell<T> {
+    #[inline]
     pub fn take(&self) -> T {
         self.replace(Default::default())
     }
 }
 
 impl<T: Clone> MutCell<Option<T>> {
+    #[inline]
     pub fn get_or_init<F>(&self, f: F) -> T
     where F: FnOnce() -> T {
         match self.get() {
