@@ -259,4 +259,100 @@ pub mod Func_ {
                     t1, t2, t3, t4, t5, t6, t7, t8, t9)
     }
 
+    // fixed-point combinator for Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10) -> R
+    trait Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R> {
+        fn apply(&self, f:
+            &dyn Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10) -> R;
+    }
+    impl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R, F>
+    Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R> for F where F: Fn(
+            &dyn Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>,
+            &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10) -> R {
+        fn apply(&self, f:
+            &dyn Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10) -> R {
+            self(f, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)
+        }
+    }
+    pub fn fix10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>(f: impl Fn(
+        &dyn Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10) -> R,
+                &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10) -> R) ->
+        impl Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10) -> R {
+        move |t1, t2, t3, t4, t5, t6, t7, t8, t9, t10|
+            (&| x: &dyn Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10 |
+                x.apply(x, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10))
+            (&| x: &dyn Apply10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10 |
+                f(&|z1, z2, z3, z4, z5, z6, z7, z8, z9, z10| x.apply(x,
+                    z1, z2, z3, z4, z5, z6, z7, z8, z9, z10),
+                    y1, y2, y3, y4, y5, y6, y7, y8, y9, y10),
+                    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)
+    }
+
+    // fixed-point combinator for Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11) -> R
+    trait Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R> {
+        fn apply(&self, f:
+            &dyn Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10, t11: &T11) -> R;
+    }
+    impl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R, F>
+    Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R> for F where F: Fn(
+            &dyn Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>,
+            &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11) -> R {
+        fn apply(&self, f:
+            &dyn Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10, t11: &T11) -> R {
+            self(f, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+        }
+    }
+    pub fn fix11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>(f: impl Fn(
+        &dyn Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11) -> R,
+                &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11) -> R) ->
+        impl Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11) -> R {
+        move |t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11|
+            (&| x: &dyn Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10, y11: &T11 |
+                x.apply(x, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11))
+            (&| x: &dyn Apply11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10, y11: &T11 |
+                f(&|z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11| x.apply(x,
+                    z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11),
+                    y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11),
+                    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+    }
+
+    // fixed-point combinator for Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11, &T12) -> R
+    trait Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R> {
+        fn apply(&self, f:
+            &dyn Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10, t11: &T11, t12: &T12) -> R;
+    }
+    impl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R, F>
+    Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R> for F where F: Fn(
+            &dyn Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>,
+            &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11, &T12) -> R {
+        fn apply(&self, f:
+            &dyn Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>,
+            t1: &T1, t2: &T2, t3: &T3, t4: &T4, t5: &T5, t6: &T6, t7: &T7, t8: &T8, t9: &T9, t10: &T10, t11: &T11, t12: &T12) -> R {
+            self(f, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)
+        }
+    }
+    pub fn fix12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>(f: impl Fn(
+        &dyn Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11, &T12) -> R,
+                &T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11, &T12) -> R) ->
+        impl Fn(&T1, &T2, &T3, &T4, &T5, &T6, &T7, &T8, &T9, &T10, &T11, &T12) -> R {
+        move |t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12|
+            (&| x: &dyn Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10, y11: &T11, y12: &T12 |
+                x.apply(x, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12))
+            (&| x: &dyn Apply12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, R>,
+                y1: &T1, y2: &T2, y3: &T3, y4: &T4, y5: &T5, y6: &T6, y7: &T7, y8: &T8, y9: &T9, y10: &T10, y11: &T11, y12: &T12 |
+                f(&|z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12| x.apply(x,
+                    z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12),
+                    y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12),
+                    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)
+    }
+
 }
