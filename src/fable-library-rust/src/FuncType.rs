@@ -4,6 +4,12 @@ use crate::Native_::Lrc;
 macro_rules! func {
     ($f:ident $(,$i:ident)*) => {
 
+        #[cfg(not(feature = "func_type_enum"))]
+        #[derive(Clone)]
+        #[repr(transparent)]
+        pub struct $f<$($i, )*R>(Lrc<dyn Fn($($i), *) -> R>);
+
+        #[cfg(feature = "func_type_enum")]
         #[derive(Clone)]
         pub enum $f<$($i, )*R> {
             Static(fn($($i), *) -> R),
@@ -22,6 +28,19 @@ macro_rules! func {
             }
         }
 
+        #[cfg(not(feature = "func_type_enum"))]
+        impl<$($i, )*R> core::ops::Deref for $f<$($i, )*R>
+        where
+            $($i: 'static, )*
+            R: 'static,
+        {
+            type Target = dyn Fn($($i), *) -> R;
+            fn deref(&self) -> &Self::Target {
+                self.0.as_ref()
+            }
+        }
+
+        #[cfg(feature = "func_type_enum")]
         impl<$($i, )*R> core::ops::Deref for $f<$($i, )*R>
         where
             $($i: 'static, )*
@@ -36,7 +55,26 @@ macro_rules! func {
             }
         }
 
-        impl<$($i, )*R> $f<$($i, )*R> {
+        #[cfg(not(feature = "func_type_enum"))]
+        impl<$($i, )*R> $f<$($i, )*R>
+        where
+            $($i: 'static, )*
+            R: 'static,
+        {
+            pub fn from(f: fn($($i), *) -> R) -> Self {
+                $f(Lrc::new(f))
+            }
+            pub fn new<F: Fn($($i), *) -> R + 'static>(f: F) -> Self {
+                $f(Lrc::new(f))
+            }
+        }
+
+        #[cfg(feature = "func_type_enum")]
+        impl<$($i, )*R> $f<$($i, )*R>
+        where
+            $($i: 'static, )*
+            R: 'static,
+        {
             pub fn from(f: fn($($i), *) -> R) -> Self {
                 $f::Static(f)
             }
