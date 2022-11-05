@@ -796,69 +796,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, "op_ErasedCast" -> List.tryHead args
-    | _, ".ctor" -> typedObjExpr t [] |> Some
-    | _, ("jsNative"|"nativeOnly") ->
-        // TODO: Fail at compile time?
-        addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
-        let runtimeMsg =
-            "A function supposed to be replaced by native code has been called, please check."
-            |> StringConstant |> makeValue None
-        makeThrow r t (error runtimeMsg) |> Some
-    | _, ("nameof"|"nameof2" as meth) ->
-        match args with
-        | [Nameof com ctx name as arg] ->
-            if meth = "nameof2"
-            then makeTuple r true [makeStrConst name; arg] |> Some
-            else makeStrConst name |> Some
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r
-               makeStrConst Naming.unknown |> Some
-    | _, ("nameofLambda"|"namesofLambda" as meth) ->
-        match args with
-        | [MaybeInScope ctx (Lambda(_, (Namesof com ctx names), _))] -> Some names
-        | _ -> None
-        |> Option.defaultWith (fun () ->
-            "Cannot infer name of expression"
-            |> addError com ctx.InlinePath r
-            [Naming.unknown])
-        |> fun names ->
-            if meth = "namesofLambda" then List.map makeStrConst names |> makeArray String |> Some
-            else List.tryHead names |> Option.map makeStrConst
-
-    | _, ("casenameWithFieldCount"|"casenameWithFieldIndex" as meth) ->
-        let rec inferCasename = function
-            | Lambda(arg, IfThenElse(Test(IdentExpr arg2, UnionCaseTest tag,_),thenExpr,_,_),_) when arg.Name = arg2.Name ->
-                match arg.Type with
-                | DeclaredType(e,_) ->
-                    let e = com.GetEntity(e)
-                    if e.IsFSharpUnion then
-                        let c = e.UnionCases[tag]
-                        let caseName = defaultArg c.CompiledName c.Name
-                        if meth = "casenameWithFieldCount" then
-                            Some(caseName, c.UnionCaseFields.Length)
-                        else
-                            match thenExpr with
-                            | NestedRevLets(bindings, IdentExpr i) ->
-                                bindings |> List.tryPick (fun (i2, v) ->
-                                    match v with
-                                    | Get(_, UnionField unionInfo,_,_) when i.Name = i2.Name -> Some unionInfo.FieldIndex
-                                    | _ -> None)
-                                |> Option.map (fun fieldIdx -> caseName, fieldIdx)
-                            | _ -> None
-                    else None
-                | _ -> None
-            | _ -> None
-
-        match args with
-        | [MaybeInScope ctx e] -> inferCasename e
-        | _ -> None
-        |> Option.orElseWith (fun () ->
-            "Cannot infer case name of expression"
-            |> addError com ctx.InlinePath r
-            Some(Naming.unknown, -1))
-        |> Option.map (fun (s, i) ->
-            makeTuple r true [makeStrConst s; makeIntConst i])
+    | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
@@ -899,7 +837,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let path = fixDynamicImportPath path
             Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
         | "importValueDynamic", [MaybeInScope ctx arg] ->
-            let dynamicImport selector path =
+            let dynamicImport selector path apply =
                 let path = fixDynamicImportPath path
                 let import = Helper.GlobalCall("import", t, [path], ?loc=r)
                 match selector with
@@ -907,15 +845,17 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | selector ->
                     let selector =
                         let m = makeIdent "m"
-                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), None, Tags.empty)
+                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None) |> apply, None, Tags.empty)
                     Helper.InstanceCall(import, "then", t, [selector])
             match arg with
             // TODO: Check this is not a fable-library import?
             | Import(info,_,_) ->
-                dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) |> Some
+                dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) id |> Some
             | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), None)
                 when argEquals args callInfo.Args ->
-                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) |> Some
+                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) id |> Some
+            | Call(Import(importInfo,_,_),callInfo,t,r) ->
+                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) (makeCall r t callInfo) |> Some
             | _ ->
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some

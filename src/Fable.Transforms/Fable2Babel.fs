@@ -903,7 +903,7 @@ module Util =
             | Attached(isStatic=false), (thisArg::args) ->
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
-                    if FableTransforms.isIdentUsed thisArg.Name body then
+                    if isIdentUsed thisArg.Name body then
                         let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
                         Fable.Let(thisArg, thisKeyword, body)
                     else body
@@ -970,7 +970,7 @@ module Util =
         let rec checkCrossRefs tempVars allArgs = function
             | [] -> tempVars
             | (argId, _arg)::rest ->
-                let found = allArgs |> List.exists (FableTransforms.deepExists (function
+                let found = allArgs |> List.exists (deepExists (function
                     | Fable.IdentExpr i -> argId = i.Name
                     | _ -> false))
                 let tempVars =
@@ -1738,7 +1738,7 @@ module Util =
                     let targetRefs = Map.add idx (count + 1) targetRefs
                     findSuccess targetRefs exprs
                 | expr ->
-                    let exprs2 = FableTransforms.getSubExpressions expr
+                    let exprs2 = getSubExpressions expr
                     findSuccess targetRefs (exprs @ exprs2)
         findSuccess Map.empty [expr] |> Seq.choose (fun kv ->
             if kv.Value > 1 then Some kv.Key else None) |> Seq.toList
@@ -1795,7 +1795,7 @@ module Util =
             let targets =
                 targets |> List.map (fun (idents, expr) ->
                     idents
-                    |> List.exists (fun i -> FableTransforms.isIdentUsed i.Name expr)
+                    |> List.exists (fun i -> isIdentUsed i.Name expr)
                     |> function
                         | true -> idents, expr
                         | false -> [], expr)

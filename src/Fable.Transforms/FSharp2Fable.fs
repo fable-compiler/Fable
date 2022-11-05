@@ -165,7 +165,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
                     |> Option.orElseWith (fun () ->
                         resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args)
                 else resolveMemberCall entity entGenArgs traitName isInstance argTypes thisArg args
-            | Fable.AnonymousRecordType(sortedFieldNames, entGenArgs, isStruct)
+            | Fable.AnonymousRecordType(sortedFieldNames, entGenArgs, _isStruct)
                     when isInstance && List.isEmpty args && Option.isSome thisArg ->
                 let fieldName = Naming.removeGetSetPrefix traitName
                 Seq.zip sortedFieldNames entGenArgs
@@ -1816,11 +1816,11 @@ type FableCompiler(com: Compiler) =
                 foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, argIdent.Type, false), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
 
-        let info: InlineExprInfo = {
-            FileName = inExpr.FileName
-            ScopeIdents = inExpr.ScopeIdents
-            ResolvedIdents = Dictionary()
-        }
+        let info: InlineExprInfo =
+            { FileName = inExpr.FileName
+              ScopeIdents = inExpr.ScopeIdents
+              ResolvedIdents = Dictionary() }
+
         let ctx, bindings =
             ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
                 let argId = resolveInlineIdent ctx info argId
@@ -1830,8 +1830,28 @@ type FableCompiler(com: Compiler) =
                 let ctx = { ctx with Scope = (None, argId, Some arg)::ctx.Scope }
                 ctx, (argId, arg)::bindings)
 
-        let ctx = { ctx with ScopeInlineArgs = ctx.ScopeInlineArgs @ bindings }
-        bindings, resolveInlineExpr this ctx info inExpr.Body
+        let ctx =
+            { ctx with CapturedBindings =
+                       if isNull ctx.CapturedBindings then HashSet()
+                       else ctx.CapturedBindings }
+
+        let resolved = resolveInlineExpr this ctx info inExpr.Body
+
+        // Some patterns depend on inlined arguments being captured by "magic" Fable.Core functions like
+        // importValueDynamic. If the value can have side effects, it won't be removed by beta binding
+        // reduction, so we try to eliminate it here.
+        match com.Options.Language with
+        | Rust -> bindings, resolved
+        | _ ->
+            bindings |> List.filter (fun (i, v) ->
+                if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects v then
+                    if isIdentUsed i.Name resolved then
+                        "Inlined argument {i.Name} is being captured but is also used somewhere else. " +
+                        "There's a risk of double evaluation."
+                        |> addWarning com [] i.Range
+                        true
+                    else false
+                else false), resolved
 
     interface IFableCompiler with
         member _.WarnOnlyOnce(msg, ?range) =

@@ -729,94 +729,8 @@ let tryCoreOp com r t coreModule coreMember args =
     tryOp com r t op args
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let fixDynamicImportPath = function
-        | Value(StringConstant path, r) when path.EndsWith(".fs") ->
-            // In imports *.ts extensions have to be converted to *.js extensions instead
-            let fileExt = com.Options.FileExtension
-            let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
-            Value(StringConstant(Path.ChangeExtension(path, fileExt)), r)
-        | path -> path
-
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, "op_ErasedCast" -> List.tryHead args
-    | _, ".ctor" -> typedObjExpr t [] |> Some
-    | _, ("jsNative"|"nativeOnly") ->
-        // TODO: Fail at compile time?
-        addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
-        let runtimeMsg =
-            "A function supposed to be replaced by JS native code has been called, please check."
-            |> StringConstant |> makeValue None
-        makeThrow r t (error runtimeMsg) |> Some
-    | _, ("nameof"|"nameof2" as meth) ->
-        match args with
-        | [Nameof com ctx name as arg] ->
-            if meth = "nameof2"
-            then makeTuple r true [makeStrConst name; arg] |> Some
-            else makeStrConst name |> Some
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r
-               makeStrConst Naming.unknown |> Some
-    | _, ("nameofLambda"|"namesofLambda" as meth) ->
-        match args with
-        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
-        | [MaybeCasted(IdentExpr ident)] ->
-            match tryFindInScope ctx ident.Name with
-            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
-            | _ -> None
-        | _ -> None
-        |> Option.defaultWith (fun () ->
-            "Cannot infer name of expression"
-            |> addError com ctx.InlinePath r
-            [Naming.unknown])
-        |> fun names ->
-            if meth = "namesofLambda" then List.map makeStrConst names |> makeArray String |> Some
-            else List.tryHead names |> Option.map makeStrConst
-
-    | _, ("casenameWithFieldCount"|"casenameWithFieldIndex" as meth) ->
-        let rec inferCasename = function
-            | Lambda(arg, IfThenElse(Test(IdentExpr arg2, UnionCaseTest tag,_),thenExpr,_,_),_) when arg.Name = arg2.Name ->
-                match arg.Type with
-                | DeclaredType(e,_) ->
-                    let e = com.GetEntity(e)
-                    if e.IsFSharpUnion then
-                        let c = e.UnionCases[tag]
-                        let caseName = defaultArg c.CompiledName c.Name
-                        if meth = "casenameWithFieldCount" then
-                            Some(caseName, c.UnionCaseFields.Length)
-                        else
-                            match thenExpr with
-                            | NestedRevLets(bindings, IdentExpr i) ->
-                                bindings |> List.tryPick (fun (i2, v) ->
-                                    match v with
-                                    | Get(_, UnionField unionInfo,_,_) when i.Name = i2.Name -> Some unionInfo.FieldIndex
-                                    | _ -> None)
-                                |> Option.map (fun fieldIdx -> caseName, fieldIdx)
-                            | _ -> None
-                    else None
-                | _ -> None
-            | _ -> None
-
-        match args with
-        | [MaybeCasted(IdentExpr ident)] -> tryFindInScope ctx ident.Name |> Option.bind inferCasename
-        | [e] -> inferCasename e
-        | _ -> None
-        |> Option.orElseWith (fun () ->
-            "Cannot infer case name of expression"
-            |> addError com ctx.InlinePath r
-            Some(Naming.unknown, -1))
-        |> Option.map (fun (s, i) ->
-            makeTuple r true [makeStrConst s; makeIntConst i])
-
-    // Extensions
-    | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
-    | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
-    | _, "FormattableString.GetStrings" -> getFieldWith r t thisArg.Value "strs" |> Some
-
-    | "Fable.Core.Testing.Assert", _ ->
-        match i.CompiledName with
-        | "AreEqual" -> Helper.LibCall(com, "Util", "assertEqual", t, args, ?loc=r) |> Some
-        | "NotEqual" -> Helper.LibCall(com, "Util", "assertNotEqual", t, args, ?loc=r) |> Some
-        | _ -> None
+    | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
     | "Fable.Core.Reflection", meth ->
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | "Fable.Core.Compiler", meth ->
@@ -833,65 +747,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
-    | "Fable.Core.JsInterop", _ ->
-        match i.CompiledName, args with
-        | "importDynamic", [path] ->
-            let path = fixDynamicImportPath path
-            Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
-        | "importValueDynamic", [arg] ->
-            let dynamicImport selector path =
-                let path = fixDynamicImportPath path
-                let import = Helper.GlobalCall("import", t, [path], ?loc=r)
-                match selector with
-                | StringConst "*" -> import
-                | selector ->
-                    let selector =
-                        let m = makeIdent "m"
-                        Delegate([m], Get(IdentExpr m, ExprGet selector, Any, None), None, Tags.empty)
-                    makeInstanceCall r t i import "then" [selector]
-            let arg =
-                match arg with
-                | IdentExpr ident ->
-                    tryFindInScope ctx ident.Name
-                    |> Option.defaultValue arg
-                | arg -> arg
-            match arg with
-            // TODO: Check this is not a fable-library import?
-            | Import(info,_,_) ->
-                dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) |> Some
-            | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), None)
-                when argEquals args callInfo.Args ->
-                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) |> Some
-            | _ ->
-                "The imported value is not coming from a different file"
-                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
-        | Naming.StartsWith "import" suffix, _ ->
-            match suffix, args with
-            | "Member", [RequireStringConst com ctx r path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
-            | "Default", [RequireStringConst com ctx r path]     -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [RequireStringConst com ctx r path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
-            | _ -> None
-        // Dynamic casting, erase
-        | "op_BangHat", [arg] -> Some arg
-        | "op_BangBang", [arg] ->
-            match arg, i.GenericArgs with
-            | IsNewAnonymousRecord(_, exprs, fieldNames, _, _, _),
-              [_; DeclaredType(ent, [])] ->
-                let ent = com.GetEntity(ent)
-                if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
-                    |> function
-                       | Error errors ->
-                            errors
-                            |> List.iter (fun (range, error) -> addWarning com ctx.InlinePath range error)
-                            Some arg
-                       | Ok () ->
-                            Some arg
-                else Some arg
-            | _ -> Some arg
-        | _ -> None
+    | "Fable.Core.JsInterop", "op_BangHat"-> List.tryHead args
     | "Fable.Core.Rust", _ ->
         match i.CompiledName, args with
         | "import", [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] ->
