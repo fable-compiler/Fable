@@ -2069,6 +2069,8 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     // Just use Emit to change the type of the arg, Fable will automatically uncurry the function
     | "Adapt", _ -> emitExpr r t args "$0" |> Some
+    // Use emit so auto-uncurrying is applied
+    | "DynamicInvoke", Some callee -> emitExpr r t (callee::args) "$0(...$1)" |> Some
     | "Invoke", Some callee ->
         Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -3038,6 +3040,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Tuple" _
     | Naming.StartsWith "System.ValueTuple" _ -> tuples com ctx r t info thisArg args
+    | "System.Delegate"
     | Naming.StartsWith "System.Action" _
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
