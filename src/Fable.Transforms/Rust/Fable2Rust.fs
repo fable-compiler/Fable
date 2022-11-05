@@ -1147,7 +1147,7 @@ module Util =
                 let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
-                    if FableTransforms.isIdentUsed thisArg.Name body then
+                    if isIdentUsed thisArg.Name body then
                         let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
                         Fable.Let(thisArg, thisKeyword, body)
                     else body
@@ -2655,7 +2655,7 @@ module Util =
                         makeUnionCasePatOpt evalType evalName info.CaseIndex
                     | _ ->
                         //need to recurse or this only works for trivial expressions
-                        let subExprs = FableTransforms.getSubExpressions expr
+                        let subExprs = getSubExpressions expr
                         subExprs |> List.tryPick getUnionPat
                 getUnionPat bodyExpr
             let pat = patOpt |> Option.defaultValue WILD_PAT
@@ -3118,7 +3118,7 @@ module Util =
         let isClosedOver expr =
             tryFindClosedOverIdent com ctx ignoredNames expr
             |> Option.isSome
-        FableTransforms.deepExists isClosedOver body
+        deepExists isClosedOver body
 
     let getCapturedIdents com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let ignoredNames = HashSet(getIgnoredNames name args)
@@ -3130,7 +3130,7 @@ module Util =
             )
             false
         // collect all closed over names that are not arguments
-        FableTransforms.deepExists addClosedOver body |> ignore
+        deepExists addClosedOver body |> ignore
         capturedIdents
 
     let getFunctionCtx com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) isTailRec =
