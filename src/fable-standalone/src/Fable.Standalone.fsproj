@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <OtherFlags>$(OtherFlags) --nowarn:3536 --nowarn:1182</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>
