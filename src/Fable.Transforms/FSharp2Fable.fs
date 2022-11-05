@@ -1840,18 +1840,18 @@ type FableCompiler(com: Compiler) =
         // Some patterns depend on inlined arguments being captured by "magic" Fable.Core functions like
         // importValueDynamic. If the value can have side effects, it won't be removed by beta binding
         // reduction, so we try to eliminate it here.
-        match com.Options.Language with
-        | Rust -> bindings, resolved
-        | _ ->
-            bindings |> List.filter (fun (i, v) ->
-                if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects v then
-                    if isIdentUsed i.Name resolved then
-                        "Inlined argument {i.Name} is being captured but is also used somewhere else. " +
-                        "There's a risk of double evaluation."
-                        |> addWarning com [] i.Range
-                        true
-                    else false
-                else false), resolved
+        // match com.Options.Language with
+        // | Rust -> bindings, resolved
+        // | _ ->
+        bindings |> List.filter (fun (i, v) ->
+            if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects v then
+                if isIdentUsed i.Name resolved then
+                    $"Inlined argument {i.Name} is being captured but is also used somewhere else. " +
+                    "There's a risk of double evaluation."
+                    |> addWarning com [] i.Range
+                    true
+                else false
+            else true), resolved
 
     interface IFableCompiler with
         member _.WarnOnlyOnce(msg, ?range) =
