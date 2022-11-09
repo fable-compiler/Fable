@@ -3,7 +3,7 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <Version>4.0.0</Version>
     <PackageVersion>4.0.0-theta-015</PackageVersion>
     <PackageReleaseNotes>* JS, enable calls with `importValueDynamic`
@@ -17,6 +17,7 @@
     <AssemblyName>fable</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <Description>F# to JS compiler</Description>
+    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
     <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <DefineConstants>FABLE_COMPILER;FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
