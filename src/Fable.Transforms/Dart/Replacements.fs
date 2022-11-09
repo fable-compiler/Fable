@@ -1565,6 +1565,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> addWarning com ctx.InlinePath r
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
+    | "Pow", _ ->
+        Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, memb="pow", ?loc=r) |> Some
     | "ToString", [ExprTypeAs(String, format)] ->
         let format = emitExpr r String [format] "'{0:' + $0 + '}'"
         Helper.LibCall(com, "String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
