@@ -119,8 +119,6 @@ type Statement =
     | CythonClassDef of ClassDef
     | CythonImport of Import
     | CythonImportFrom of ImportFrom
-    //| Ctypedef of Ctypedef
-
 
 
 type Module = { Body: Statement list }

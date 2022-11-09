@@ -36,6 +36,7 @@ reportInconsistentConstructor = true
 reportImplicitStringConcatenation = true
 pythonVersion = "3.10"
 typeCheckingMode = "strict"
+ignore = ["**/*.pyx", "**/*.pxd"]
 
 [tool.isort]
 profile = "black"
