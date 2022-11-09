@@ -5,12 +5,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-theta-014</PackageVersion>
-    <PackageReleaseNotes>* Try to fix #3244 (cannot parse .fsproj)
-* Rust, added small string type
-* Python, fix byte array tying issue
-* JS, don't mangle idents from imports in emitted code
-* JS, optimize some array transforms</PackageReleaseNotes>
+    <PackageVersion>4.0.0-theta-015</PackageVersion>
+    <PackageReleaseNotes>* JS, enable calls with `importValueDynamic`
+* JS, Support System.Delegate.DynamicInvoke
+* Rust, Added feature for func_type_enum
+* Rust, Added Func type wrappers (#3250)</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

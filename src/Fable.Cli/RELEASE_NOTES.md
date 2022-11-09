@@ -1,3 +1,10 @@
+### 4.0.0-theta-015
+
+* JS, enable calls with `importValueDynamic`
+* JS, Support System.Delegate.DynamicInvoke
+* Rust, Added feature for func_type_enum
+* Rust, Added Func type wrappers (#3250)
+
 ### 4.0.0-theta-014
 
 * Try to fix #3244 (cannot parse .fsproj)

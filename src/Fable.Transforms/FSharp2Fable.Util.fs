@@ -379,9 +379,9 @@ type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr op
 type Context =
     { Scope: Scope
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
-      ScopeInlineArgs: (Fable.Ident * Fable.Expr) list
       UsedNamesInRootScope: Set<string>
       UsedNamesInDeclarationScope: HashSet<string>
+      CapturedBindings: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
@@ -392,13 +392,12 @@ type Context =
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
       Witnesses: Fable.Witness list
     }
-
     static member Create(?usedRootNames) =
         { Scope = []
           ScopeInlineValues = []
-          ScopeInlineArgs = []
           UsedNamesInRootScope = defaultArg usedRootNames Set.empty
           UsedNamesInDeclarationScope = Unchecked.defaultof<_>
+          CapturedBindings = Unchecked.defaultof<_>
           GenericArgs = Map.empty
           EnclosingMember = None
           PrecompilingInlineFunction = None
