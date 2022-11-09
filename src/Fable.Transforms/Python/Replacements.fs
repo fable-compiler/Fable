@@ -2186,6 +2186,9 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
+    | "Pow", _ ->
+        Helper.ImportedCall("math", "pow", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ToString", [ ExprTypeAs (String, format) ] ->
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
 
