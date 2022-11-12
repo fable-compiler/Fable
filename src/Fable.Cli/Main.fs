@@ -343,6 +343,9 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
         // We display "parsed" because "cracked" may not be understood by users
         Log.always $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
         Log.verbose(lazy $"""F# PROJECT: %s{cliArgs.ProjectFileAsRelativePath}
+FABLE LIBRARY: {result.FableLibDir}
+OUTPUT TYPE: {result.OutputType}
+
     %s{result.ProjectOptions.OtherOptions |> String.concat $"{Log.newLine}    "}
     %s{result.ProjectOptions.SourceFiles |> String.concat $"{Log.newLine}    "}{Log.newLine}""")
 
