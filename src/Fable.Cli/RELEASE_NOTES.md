@@ -1,3 +1,8 @@
+### 4.0.0-theta-016
+
+* Attempt to improve project parsing
+* Added Double.Pow static
+
 ### 4.0.0-theta-015
 
 * JS, enable calls with `importValueDynamic`
