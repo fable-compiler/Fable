@@ -3,6 +3,7 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Babel.fs" />

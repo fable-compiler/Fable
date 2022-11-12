@@ -248,6 +248,11 @@ module File =
     let isDirectoryEmpty dir =
         not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
+    let safeDelete path =
+        try
+            File.Delete(path)
+        with _ -> ()
+
     let withLock (dir: string) (action: unit -> 'T) =
         let mutable fileCreated = false
         let lockFile = Path.Join(dir, "fable.lock")

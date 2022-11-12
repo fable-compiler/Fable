@@ -12,6 +12,8 @@ open Fable.AST
 open Globbing.Operators
 open Buildalyzer
 
+let [<Literal>] TARGET_FRAMEWORK = "net6.0"
+
 type FablePackage =
     { Id: string
       Version: string
@@ -311,14 +313,19 @@ let getSourcesFromFablePkg (projFile: string) =
         | path -> [ path ]
         |> List.map Path.normalizeFullPath)
 
-let private isUsefulOption (opt : string) =
-    [ "--define"
-      "--nowarn"
-      "--warnon"
+let private extractUsefulOptionsAndSources (line: string) (accSources: string list, accOptions: string list) =
+    if line.StartsWith("-") then
     //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
     //   "--langversion" // See getBasicCompilerArgs
-    ]
-    |> List.exists opt.StartsWith
+        if line.StartsWith("--nowarn") || line.StartsWith("--warnon") then
+            accSources, line::accOptions
+        elif line.StartsWith("--define:") then
+            let defines = line.Substring(9).Split(';') |> Array.mapToList (fun d -> "--define:" + d)
+            accSources, defines @ accOptions
+        else
+            accSources, accOptions
+    else
+        (Path.normalizeFullPath line)::accSources, accOptions
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
@@ -351,12 +358,8 @@ let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[]) (projRefs: stri
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
                 src, otherOpts
-            elif isUsefulOption line then
-                src, line::otherOpts
-            elif line.StartsWith("-") then
-                src, otherOpts
             else
-                (Path.normalizeFullPath line)::src, otherOpts)
+                extractUsefulOptionsAndSources line (src, otherOpts))
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -397,7 +400,7 @@ let getProjectOptionsFromProjectFile =
             if Path.IsPathRooted f then f else Path.Combine(projDir, f)
         else
             f
-    fun (opts: CrackerOptions) projFile ->
+    fun (opts: CrackerOptions) (projFile: string) ->
         let manager =
             match manager with
             | Some m -> m
@@ -406,25 +409,63 @@ let getProjectOptionsFromProjectFile =
                 let options = AnalyzerManagerOptions(LogWriter = log)
                 let m = AnalyzerManager(options)
                 m.SetGlobalProperty("Configuration", opts.Configuration)
+                m.SetGlobalProperty("TargetFramework", TARGET_FRAMEWORK)
                 for define in opts.FableOptions.Define do
                     m.SetGlobalProperty(define, "true")
                 manager <- Some m
                 m
 
-        let analyzer = manager.GetProject(projFile)
-        // If the project targets multiple frameworks, multiple results will be returned
-        // For now we just take the first one with non-empty command
-        let result =
-            analyzer.Build()
+        let tryGetResult (getCompilerArgs: IAnalyzerResult -> string[]) (projFile: string) =
+            let analyzer = manager.GetProject(projFile)
+            let env = analyzer.EnvironmentFactory.GetBuildEnvironment(Environment.EnvironmentOptions(DesignTime=true,Restore=false))
+            // If the project targets multiple frameworks, multiple results will be returned
+            // For now we just take the first one with non-empty command
+            let results = analyzer.Build(env)
+            results
             |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
+            |> Option.map (fun result ->
+                {| CompilerArguments = getCompilerArgs result
+                   ProjectReferences = result.ProjectReferences
+                   Properties = result.Properties |})
+
+        let csprojResult =
+            let csprojFile = projFile.Replace(".fsproj", ".csproj")
+            if IO.File.Exists(csprojFile) then
+                None
+            else
+                try
+                    System.IO.File.Copy(projFile, csprojFile)
+                    projFile.Replace(".fsproj", ".csproj")
+                    |> tryGetResult (fun r ->
+                        // Careful, options for .csproj start with / but so do root paths in unix
+                        let reg = System.Text.RegularExpressions.Regex(@"^\/[^\/]+?(:?:|$)")
+                        let comArgs =
+                            r.CompilerArguments
+                            |> Array.map (fun line ->
+                                if reg.IsMatch(line) then
+                                    if line.StartsWith("/reference") then "-r" + line.Substring(10)
+                                    else "--" + line.Substring(1)
+                                else line)
+                        match r.Properties.TryGetValue("OtherFlags") with
+                        | false, _ -> comArgs
+                        | true, otherFlags ->
+                            let otherFlags = otherFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                            Array.append otherFlags comArgs)
+                finally
+                    File.safeDelete csprojFile
+
+        let result =
+            csprojResult
+            |> Option.orElseWith (fun () -> projFile |> tryGetResult (fun r ->
+                // result.CompilerArguments doesn't seem to work well in Linux
+                System.Text.RegularExpressions.Regex.Split(r.Command, @"\r?\n")))
             |> function
                 | Some result -> result
                 // TODO: Get Buildalyzer errors from the log
                 | None -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
         let projDir = IO.Path.GetDirectoryName(projFile)
         let projOpts =
-            // result.CompilerArguments doesn't seem to work well in Linux
-            System.Text.RegularExpressions.Regex.Split(result.Command, @"\r?\n")
+            result.CompilerArguments
             |> Array.skipWhile (fun line -> not(line.StartsWith("-")))
             |> Array.map (compileFilesToAbsolutePath projDir)
         projOpts, Seq.toArray result.ProjectReferences, result.Properties
@@ -437,6 +478,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
         Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
             "restore"
             IO.Path.GetFileName opts.ProjFile
+            $"-p:TargetFramework={TARGET_FRAMEWORK}"
             for constant in opts.FableOptions.Define do
                 $"-p:{constant}=true"
         ] |> ignore
@@ -459,15 +501,7 @@ let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
         getProjectOptionsFromProjectFile opts projFile
 
     let outputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
-    let sourceFiles, otherOpts =
-        (projOpts, ([], []))
-        ||> Array.foldBack (fun line (src, otherOpts) ->
-            if isUsefulOption line then
-                src, line::otherOpts
-            elif line.StartsWith("-") then
-                src, otherOpts
-            else
-                (Path.normalizeFullPath line)::src, otherOpts)
+    let sourceFiles, otherOpts = Array.foldBack extractUsefulOptionsAndSources projOpts ([], [])
 
     { ProjectFile = projFile
       SourceFiles = sourceFiles
