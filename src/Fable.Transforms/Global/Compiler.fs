@@ -36,8 +36,6 @@ type Severity =
 type OutputType =
     | Library
     | Exe
-    | Module
-    | Winexe
 
 open FSharp.Compiler.Symbols
 open Fable.AST

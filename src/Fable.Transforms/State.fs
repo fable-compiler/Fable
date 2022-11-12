@@ -176,17 +176,12 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS.
 /// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string, ?outType: string,
+type CompilerImpl(currentFile, project: Project, options, fableLibDir: string, ?outType: OutputType, ?outDir: string,
                         ?watchDependencies: HashSet<string>, ?logs: ResizeArray<Log>, ?isPrecompilingInlineFunction: bool) =
 
+    let outType = defaultArg outType OutputType.Exe
     let logs = Option.defaultWith ResizeArray logs
-    let fableLibraryDir = fableLibraryDir.TrimEnd('/')
-    let outputType =
-        match outType with
-        | Some "Exe" -> OutputType.Exe
-        | Some "Module" -> OutputType.Module
-        | Some "Winexe" -> OutputType.Winexe
-        | _ -> OutputType.Library
+    let fableLibraryDir = fableLibDir.TrimEnd('/')
 
     member _.Logs = logs.ToArray()
     member _.WatchDependencies =
@@ -198,7 +193,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
         member _.OutputDir = outDir
-        member _.OutputType = outputType
+        member _.OutputType = outType
         member _.ProjectFile = project.ProjectFile
         member _.SourceFiles =  project.SourceFiles
 
@@ -211,7 +206,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                     Path.Combine(Path.GetDirectoryName(currentFile), fableLibraryDir)
                 else fableLibraryDir
                 |> Path.getRelativeFileOrDirPath false file true
-            CompilerImpl(file, project, options, fableLibraryDir, ?outDir=outDir, ?outType=outType,
+            CompilerImpl(file, project, options, fableLibraryDir, outType, ?outDir=outDir,
                 ?watchDependencies=watchDependencies, logs=logs, isPrecompilingInlineFunction=true)
 
         member _.GetImplementationFile(fileName) =

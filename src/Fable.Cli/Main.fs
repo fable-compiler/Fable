@@ -320,16 +320,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
         let watchDependencies = if cliArgs.IsWatch then Some(HashSet()) else None
 
-        let common = Path.getCommonBaseDir([currentFile; crackerResponse.FableLibDir])
-        let outputType =
-            // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
-            // compiled as part of the main project which might be a program (Exe) or library (Library).
-            if common.EndsWith(Naming.fableModules) then
-                Some "Library"
-            else
-                crackerResponse.OutputType
-
-        CompilerImpl(currentFile, project, opts, fableLibDir, ?watchDependencies=watchDependencies, ?outDir=cliArgs.OutDir, ?outType=outputType)
+        CompilerImpl(currentFile, project, opts, fableLibDir, crackerResponse.OutputType,
+                     ?outDir=cliArgs.OutDir, ?watchDependencies=watchDependencies)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
@@ -343,8 +335,18 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
         // We display "parsed" because "cracked" may not be understood by users
         Log.always $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
         Log.verbose(lazy $"""F# PROJECT: %s{cliArgs.ProjectFileAsRelativePath}
+FABLE LIBRARY: {result.FableLibDir}
+OUTPUT TYPE: {result.OutputType}
+
     %s{result.ProjectOptions.OtherOptions |> String.concat $"{Log.newLine}    "}
     %s{result.ProjectOptions.SourceFiles |> String.concat $"{Log.newLine}    "}{Log.newLine}""")
+
+        // If targeting Python, make sure users are not compiling the project as library by mistake
+        // (imports won't work when running the code)
+        match cliArgs.CompilerOptions.Language, result.OutputType with
+        | Python, OutputType.Library ->
+            Log.always "Compiling project as Library. If you intend to run the code directly, please set OutputType to Exe."
+        | _ -> ()
 
         let sourceFiles = result.ProjectOptions.SourceFiles |> Array.map File
         ProjectCracked(cliArgs, result, sourceFiles)

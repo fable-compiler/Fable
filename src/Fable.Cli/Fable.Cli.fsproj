@@ -17,6 +17,7 @@
     <AssemblyName>fable</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <Description>F# to JS compiler</Description>
+    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
     <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
@@ -36,6 +37,7 @@
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
     <Content Include="RELEASE_NOTES.md" />
+    <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
@@ -44,7 +46,7 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="4.1.5" />
+    <PackageReference Include="Buildalyzer" Version="4.1.6" />
     <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
   </ItemGroup>

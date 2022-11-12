@@ -153,7 +153,8 @@ module Python =
             | Some Py.Naming.sitePackages -> true
             | _ -> false
 
-
+        // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
+        // compiled as part of the main project which might be a program (Exe) or library (Library).
         let isLibrary = com.OutputType = OutputType.Library || Naming.isInFableModules com.CurrentFile
         let isFableLibrary = isLibrary && List.contains "FABLE_LIBRARY" com.Options.Define
 
