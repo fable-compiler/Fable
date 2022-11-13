@@ -59,18 +59,20 @@ pub mod DateTime_ {
     }
 
     pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(0, 0, 0);
+        let l = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap()
+                    .and_hms_opt(0, 0, 0).unwrap();
         DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
     pub fn new_ymdhms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
+        let l = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap()
+                    .and_hms_opt(h as u32, min as u32, s as u32).unwrap();
         DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
     pub fn new_ymdhmsms(y: i32, m: i32, d: i32, h: i32, min: i32, s: i32, ms: i32) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32)
-            .and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
+        let l = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap()
+                    .and_hms_milli_opt(h as u32, min as u32, s as u32, ms as u32).unwrap();
         DateTime(LocalUtcWrap::CUnspecified(l))
     }
 
@@ -83,7 +85,8 @@ pub mod DateTime_ {
         s: i32,
         kind: i32,
     ) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms(h as u32, min as u32, s as u32);
+        let l = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap()
+                    .and_hms_opt(h as u32, min as u32, s as u32).unwrap();
         let dt =
             match kind {
                 1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
@@ -104,7 +107,8 @@ pub mod DateTime_ {
         ms: i32,
         kind: i32,
     ) -> DateTime {
-        let l = NaiveDate::from_ymd(y, m as u32, d as u32).and_hms_milli(h as u32, min as u32, s as u32, ms as u32);
+        let l = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap()
+                    .and_hms_milli_opt(h as u32, min as u32, s as u32, ms as u32).unwrap();
         let dt =
             match kind {
                 1 => LocalUtcWrap::CUtc(l.and_local_timezone(Utc).unwrap()),
@@ -120,18 +124,20 @@ pub mod DateTime_ {
     }
 
     pub fn min_value() -> DateTime {
-        let dt = NaiveDate::from_ymd(1, 1, 1).and_hms(0, 0, 0);
+        let dt = NaiveDate::from_ymd_opt(1, 1, 1).unwrap()
+                            .and_hms_opt(0, 0, 0).unwrap();
         DateTime(LocalUtcWrap::CUtc(CDT::from_utc(dt, offset::Utc)))
     }
 
     pub fn max_value() -> DateTime {
         let ns = Duration::nanoseconds(100);
-        let dt = NaiveDate::from_ymd(10000, 1, 1).and_hms(0, 0, 0) - ns;
+        let dt = NaiveDate::from_ymd_opt(10000, 1, 1).unwrap()
+                            .and_hms_opt(0, 0, 0).unwrap() - ns;
         DateTime(LocalUtcWrap::CUtc(CDT::from_utc(dt, offset::Utc)))
     }
 
     pub fn unix_epoch() -> DateTime {
-        DateTime(LocalUtcWrap::CUtc(Utc.timestamp_millis(0)))
+        DateTime(LocalUtcWrap::CUtc(Utc.timestamp_millis_opt(0).unwrap()))
     }
 
     pub fn compare(x: DateTime, y: DateTime) -> i32 {
@@ -428,7 +434,7 @@ pub mod DateTime_ {
             match &self.0 {
                 LocalUtcWrap::CUnspecified(dt) => Utc.from_utc_datetime(&dt).into(),
                 LocalUtcWrap::CLocal(dt) => dt.with_timezone(&dt.offset().fix()),
-                LocalUtcWrap::CUtc(dt) => dt.with_timezone(&FixedOffset::west(0)),
+                LocalUtcWrap::CUtc(dt) => dt.with_timezone(&FixedOffset::west_opt(0).unwrap()),
             }
         }
     }
