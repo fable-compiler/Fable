@@ -456,6 +456,13 @@ let sideEffect() = ()
 
 type Union_TestUnionTag = Union_TestUnionTag of int
 
+[<AttachMembers>]
+type FooWithAttachedMembers () =
+    member x.Bar = 42
+
+    static member Foo = FooWithAttachedMembers()
+
+
 #if FABLE_COMPILER
 
 [<Fact>]
@@ -1358,3 +1365,10 @@ let ``test Module mutable option values work`` () =
     Util.mutableValueOpt.Value |> equal 3
     Util.mutableValueOpt <- None
     Util.mutableValueOpt.IsNone |> equal true
+
+
+[<Fact>]
+let ``test attached static getters works`` () =
+
+    let result = FooWithAttachedMembers.Foo.Bar
+    result |> equal 42

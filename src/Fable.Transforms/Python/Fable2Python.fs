@@ -3660,18 +3660,9 @@ module Util =
                 let self = Arg.arg "self"
                 { args with Args = self :: args.Args }
 
-        // Python do not support static getters.
-        if isStatic && isGetter then
-            match body with
-            | [ Statement.Return { Value = Some x } ] ->
-                let ta, stmts = typeAnnotation com ctx None memb.Body.Type
-
-                stmts
-                @ [ Statement.assign (Expression.name key, ta, x) ]
-            | _ -> failwith "Statements not supported for static class properties"
-        else
-            Statement.functionDef (key, arguments, body = body, decoratorList = decorators, returns = returnType)
-            |> List.singleton
+        // Python do not support static getters, so make it a function instead
+        Statement.functionDef (key, arguments, body = body, decoratorList = decorators, returns = returnType)
+        |> List.singleton
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         // printfn "transformAttachedMethod: %A" memb

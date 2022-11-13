@@ -2046,7 +2046,10 @@ module Util =
                 $"Unexpected static interface/override call: %s{memb.FullName}"
                 |> attachRange r |> failwith
         let info = getAbstractMemberInfo com entity memb
-        if not info.isMangled && info.isGetter then
+
+        // Python do not support static getters, so we need to call the getter function
+        let pythonStaticGetter = com.Options.Language = Python && not memb.IsInstanceMember
+        if not info.isMangled && info.isGetter && not pythonStaticGetter then
             // Set the field as maybe calculated so it's not displaced by beta reduction
             let kind = Fable.FieldInfo.Create(
                 info.name,
