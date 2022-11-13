@@ -3655,7 +3655,7 @@ module Util =
 
         let arguments =
             if isStatic then
-                args
+                { args with Args = [] }
             else
                 let self = Arg.arg "self"
                 { args with Args = self :: args.Args }
