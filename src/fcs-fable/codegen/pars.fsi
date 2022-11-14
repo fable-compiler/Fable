@@ -501,7 +501,6 @@ type nonTerminalId =
     | NONTERM_atomicPatternLongIdent
     | NONTERM_opt_access
     | NONTERM_access
-    | NONTERM_opt_declVisibility
     | NONTERM_opt_interfaceImplDefn
     | NONTERM_opt_classDefn
     | NONTERM_inheritsDefn

@@ -602,7 +602,7 @@ module internal MapAutoOpens =
 
         static member Empty: Map<'Key, 'Value> when 'Key: comparison
 
-#if USE_SHIPPED_FSCORE || FABLE_COMPILER
+#if FSHARPCORE_USE_PACKAGE || FABLE_COMPILER
         member Values: 'Value list
 #endif
 
