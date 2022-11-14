@@ -4261,7 +4261,7 @@
  <code lang="fsharp">
  let input = [1; 2; 3]
 
- input |> List.tryPick (fun n -> if n > 3 = 0 then Some (string n) else None)
+ input |> List.tryPick (fun n -> if n > 3 then Some (string n) else None)
  </code>
  Evaluates to <c>None</c>.
  </example>
@@ -4858,7 +4858,7 @@
  <code lang="fsharp">
  let input = [1; 2; 3]
 
- input |> List.pick (fun n -> if n > 3 = 0 then Some (string n) else None)
+ input |> List.pick (fun n -> if n > 3 then Some (string n) else None)
  </code>
  Throws <c>KeyNotFoundException</c>.
  </example>
@@ -19811,6 +19811,16 @@
 
  <category index="6">Basic Types with Units of Measure</category>
 </member>
+<member name="M:Microsoft.FSharp.Core.NoCompilerInliningAttribute.#ctor">
+ <summary>Creates an instance of the attribute</summary>
+ <returns>NoCompilerInliningAttribute</returns>
+</member>
+<member name="T:Microsoft.FSharp.Core.NoCompilerInliningAttribute">
+ <summary>Indicates a value or a function that must not be inlined by the F# compiler,
+ but may be inlined by the JIT compiler.</summary>
+
+ <category>Attributes</category>
+</member>
 <member name="P:Microsoft.FSharp.Core.AutoOpenAttribute.Path">
  <summary>Indicates the namespace or module to be automatically opened when an assembly is referenced
  or an enclosing module opened.</summary>
@@ -27106,6 +27116,16 @@
 <member name="M:Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig.SystemRuntimeContainsType(System.String)">
 <summary>
  Checks if given type exists in target system runtime library
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig.#ctor(Microsoft.FSharp.Core.FSharpFunc{System.String,System.Boolean},Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.String[]})">
+<summary>
+ Create a configuration which calls the given functions for the corresponding operation.
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig.#ctor(Microsoft.FSharp.Core.FSharpFunc{System.String,System.Boolean})">
+<summary>
+ Create a configuration which calls the given function for the corresponding operation.
 </summary>
 </member>
 <member name="T:Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig">

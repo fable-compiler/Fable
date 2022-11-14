@@ -14,9 +14,9 @@
           "Microsoft.Build.Framework": "17.4.0-preview-22469-04",
           "Microsoft.Build.Tasks.Core": "17.4.0-preview-22469-04",
           "Microsoft.Build.Utilities.Core": "17.4.0-preview-22469-04",
-          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22462.1",
-          "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22472-01",
-          "Microsoft.SourceLink.GitHub": "1.2.0-beta-22472-01",
+          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22513.1",
+          "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22518-02",
+          "Microsoft.SourceLink.GitHub": "1.2.0-beta-22518-02",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
           "System.Collections.Immutable": "6.0.0",
@@ -92,7 +92,7 @@
           "System.Threading.Tasks.Dataflow": "6.0.0"
         }
       },
-      "Microsoft.Build.Tasks.Git/1.2.0-beta-22472-01": {},
+      "Microsoft.Build.Tasks.Git/1.2.0-beta-22518-02": {},
       "Microsoft.Build.Utilities.Core/17.4.0-preview-22469-04": {
         "dependencies": {
           "Microsoft.Build.Framework": "17.4.0-preview-22469-04",
@@ -104,7 +104,7 @@
           "System.Text.Encoding.CodePages": "6.0.0"
         }
       },
-      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22462.1": {},
+      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {},
       "Microsoft.NET.StringTools/17.4.0-preview-22469-04": {
         "dependencies": {
           "System.Memory": "4.5.5",
@@ -112,17 +112,17 @@
         }
       },
       "Microsoft.NETCore.Platforms/1.1.0": {},
-      "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22472-01": {
+      "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22518-02": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22472-01",
-          "Microsoft.SourceLink.Common": "1.2.0-beta-22472-01"
+          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22518-02",
+          "Microsoft.SourceLink.Common": "1.2.0-beta-22518-02"
         }
       },
-      "Microsoft.SourceLink.Common/1.2.0-beta-22472-01": {},
-      "Microsoft.SourceLink.GitHub/1.2.0-beta-22472-01": {
+      "Microsoft.SourceLink.Common/1.2.0-beta-22518-02": {},
+      "Microsoft.SourceLink.GitHub/1.2.0-beta-22518-02": {
         "dependencies": {
-          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22472-01",
-          "Microsoft.SourceLink.Common": "1.2.0-beta-22472-01"
+          "Microsoft.Build.Tasks.Git": "1.2.0-beta-22518-02",
+          "Microsoft.SourceLink.Common": "1.2.0-beta-22518-02"
         }
       },
       "Microsoft.Win32.Registry/5.0.0": {
@@ -483,12 +483,12 @@
       "path": "microsoft.build.tasks.core/17.4.0-preview-22469-04",
       "hashPath": "microsoft.build.tasks.core.17.4.0-preview-22469-04.nupkg.sha512"
     },
-    "Microsoft.Build.Tasks.Git/1.2.0-beta-22472-01": {
+    "Microsoft.Build.Tasks.Git/1.2.0-beta-22518-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-n6qoyF0+RQ9b6Pk2NcjNQd43/Q80/fehGp0PngB+QKKdspRa5Xu4m/1vHA8mIyoU87r69P0xsKmoA3mH8ESoxg==",
-      "path": "microsoft.build.tasks.git/1.2.0-beta-22472-01",
-      "hashPath": "microsoft.build.tasks.git.1.2.0-beta-22472-01.nupkg.sha512"
+      "sha512": "sha512-+eQBlD52h/xiCbmWCeeLTnw599RqTkWJ/WKadRolvYoo3Vxz8/egIqdOaHLAu3dvccSYTcltqagBYrYnnwAwqg==",
+      "path": "microsoft.build.tasks.git/1.2.0-beta-22518-02",
+      "hashPath": "microsoft.build.tasks.git.1.2.0-beta-22518-02.nupkg.sha512"
     },
     "Microsoft.Build.Utilities.Core/17.4.0-preview-22469-04": {
       "type": "package",
@@ -497,12 +497,12 @@
       "path": "microsoft.build.utilities.core/17.4.0-preview-22469-04",
       "hashPath": "microsoft.build.utilities.core.17.4.0-preview-22469-04.nupkg.sha512"
     },
-    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22462.1": {
+    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-/HL+58Rw7IzmdEBrCw02GjLcd3gD/AcnpHUBX8aQ/+J6J60AvBalQGdvyi/h52CRAXDEptHtaNhkY9gx9sZvSQ==",
-      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22462.1",
-      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22462.1.nupkg.sha512"
+      "sha512": "sha512-7MfwZXG878da4m05oge5Gi9zgTwAUW5NINDDkOBflkZf4rCZXyrPP57BvKpuRW765UzJ/C6gx6J4wVJc3vbvhg==",
+      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22513.1",
+      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22513.1.nupkg.sha512"
     },
     "Microsoft.NET.StringTools/17.4.0-preview-22469-04": {
       "type": "package",
@@ -518,26 +518,26 @@
       "path": "microsoft.netcore.platforms/1.1.0",
       "hashPath": "microsoft.netcore.platforms.1.1.0.nupkg.sha512"
     },
-    "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22472-01": {
+    "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22518-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-W23+OnO8Wb2T4eE8+3BzvRmJfBX/0pfAX7Le+PlygrbxVBW2KIh8WOR/H+sa8XlfiHfzFkspb96cSJ7/YiMQwg==",
-      "path": "microsoft.sourcelink.azurerepos.git/1.2.0-beta-22472-01",
-      "hashPath": "microsoft.sourcelink.azurerepos.git.1.2.0-beta-22472-01.nupkg.sha512"
+      "sha512": "sha512-zD1v/X3AWm9K+AWskLCdR2aXZ3h4jcKPUoxQWTiJt+uGkOUNXVOEB+OGcBTkzE+shqrhpQKHkHeAqr943sVlKw==",
+      "path": "microsoft.sourcelink.azurerepos.git/1.2.0-beta-22518-02",
+      "hashPath": "microsoft.sourcelink.azurerepos.git.1.2.0-beta-22518-02.nupkg.sha512"
     },
-    "Microsoft.SourceLink.Common/1.2.0-beta-22472-01": {
+    "Microsoft.SourceLink.Common/1.2.0-beta-22518-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-RqRJz6/tPJUuYys9wbIfUKTTF/4mWhrmwbH43HtEdDoMmaR7PLE/HlCXbX0WlovDrcJ85PSOHfX/usYKEWxvfA==",
-      "path": "microsoft.sourcelink.common/1.2.0-beta-22472-01",
-      "hashPath": "microsoft.sourcelink.common.1.2.0-beta-22472-01.nupkg.sha512"
+      "sha512": "sha512-FHujdrmp5iLqkxRGXho2HB6GAgmwwGeWZshL6ev0lA1OQx0M3GB26BuZEq38wXMyP30Bn1OYGIlL2LJQzUbbow==",
+      "path": "microsoft.sourcelink.common/1.2.0-beta-22518-02",
+      "hashPath": "microsoft.sourcelink.common.1.2.0-beta-22518-02.nupkg.sha512"
     },
-    "Microsoft.SourceLink.GitHub/1.2.0-beta-22472-01": {
+    "Microsoft.SourceLink.GitHub/1.2.0-beta-22518-02": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-gIXAgbyiexv4fIB2lxjsS8eaVUkkWr9IkoT69cfEHVVjHyFw/BpJGKFCzI4VgEJF4djC8F3aejwZ9Zufc6LwQA==",
-      "path": "microsoft.sourcelink.github/1.2.0-beta-22472-01",
-      "hashPath": "microsoft.sourcelink.github.1.2.0-beta-22472-01.nupkg.sha512"
+      "sha512": "sha512-zOA29A2i/9W4UBFQu4y8ZovKwb0l+0qN8eEj9WrlHg1djBhMUuBes0ddS71q6s9O/MGarUDM+/XfsZRJ94hKbg==",
+      "path": "microsoft.sourcelink.github/1.2.0-beta-22518-02",
+      "hashPath": "microsoft.sourcelink.github.1.2.0-beta-22518-02.nupkg.sha512"
     },
     "Microsoft.Win32.Registry/5.0.0": {
       "type": "package",
