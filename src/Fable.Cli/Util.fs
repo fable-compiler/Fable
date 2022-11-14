@@ -341,7 +341,8 @@ module Process =
 
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
-        Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
+        if not redirectOutput then
+            Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
         for arg in args do
