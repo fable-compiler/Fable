@@ -7,13 +7,10 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <!-- <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants> -->
-    <!-- <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants> -->
-    <!-- <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants> -->
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_TYPEPROVIDERS</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
-    <DefineConstants>$(DefineConstants);USE_SHIPPED_FSCORE</DefineConstants>
+    <DefineConstants>$(DefineConstants);FSHARPCORE_USE_PACKAGE</DefineConstants>
     <OtherFlags>$(OtherFlags) --warnon:1182 --nowarn:57</OtherFlags>
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
@@ -335,6 +332,8 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceStructure.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceAnalysis.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceAnalysis.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/FSharpInteractiveServer.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/FSharpInteractiveServer.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/ControlledExecution.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fs" /> -->

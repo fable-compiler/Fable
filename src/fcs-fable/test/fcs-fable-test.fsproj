@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="6.0.5" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="7.0.0" /> -->
     <!-- <Reference Include="../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
-    <PackageReference Include="Fable.Core" Version="3.7.1" />
+    <PackageReference Include="Fable.Core" Version="4.0.0-*" />
   </ItemGroup>
 
 </Project>

@@ -2692,5 +2692,6 @@ type TraitConstraintInfo with
 val (|EmptyModuleOrNamespaces|_|):
     moduleOrNamespaceContents: ModuleOrNamespaceContents -> (ModuleOrNamespace list) option
 
-/// Captures an application type with a multi-dimensional array as postfix.
-val (|TTypeMultiDimensionalArrayAsGeneric|_|): t: TType -> (TyconRef * TType * int) option
+/// Add an System.Runtime.CompilerServices.ExtensionAttribute to the Entity if found via predicate and not already present.
+val tryAddExtensionAttributeIfNotAlreadyPresent:
+    tryFindExtensionAttributeIn: ((Attrib list -> Attrib option) -> Attrib option) -> entity: Entity -> Entity
