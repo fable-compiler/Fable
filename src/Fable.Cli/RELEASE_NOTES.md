@@ -1,3 +1,10 @@
+### 4.0.0-theta-017
+
+* Use TargetFramework from .fsproj and ask users to upgrade from netstandard2.0 if necessary
+* Update FCS (F# 7)
+* Python, handling static getters
+* Rust, fix deprecated API
+
 ### 4.0.0-theta-016
 
 * Attempt to improve project parsing
