@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
   </PropertyGroup>

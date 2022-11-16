@@ -32,6 +32,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
+        TargetFramework: string
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -60,10 +61,6 @@ type CacheInfo =
 
 type CrackerOptions(cliArgs: CliArgs) =
     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-    let targetFramework =
-        match Process.runSyncWithOutput projDir "dotnet" ["--version"] with
-        | Naming.StartsWith "7" _ -> "net7.0"
-        | _ -> "net6.0"
     let fableModulesDir = CrackerOptions.GetFableModulesFromProject(projDir, cliArgs.OutDir, cliArgs.NoCache)
     let builtDlls = HashSet()
     let cacheInfo =
@@ -77,7 +74,6 @@ type CrackerOptions(cliArgs: CliArgs) =
     member _.FableLib: string option = cliArgs.FableLibraryPath
     member _.OutDir: string option = cliArgs.OutDir
     member _.Configuration: string = cliArgs.Configuration
-    member _.TargetFramework = targetFramework
     member _.Exclude: string list = cliArgs.Exclude
     member _.Replace: Map<string, string> = cliArgs.Replace
     member _.PrecompiledLib: string option = cliArgs.PrecompiledLib
@@ -125,6 +121,7 @@ type CrackerResponse =
       References: string list
       ProjectOptions: FSharpProjectOptions
       OutputType: OutputType
+      TargetFramework: string
       PrecompiledInfo: PrecompiledInfoImpl option
       CanReuseCompiledFiles: bool }
 
@@ -143,7 +140,8 @@ type CrackedFsproj =
       DllReferences: IDictionary<string, string>
       PackageReferences: FablePackage list
       OtherCompilerOptions: string list
-      OutputType: string option }
+      OutputType: string option
+      TargetFramework: string }
 
 let makeProjectOptions (opts: CrackerOptions) otherOptions sources: FSharpProjectOptions =
     let otherOptions = [|
@@ -170,7 +168,7 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
             let files = IO.Directory.GetFiles(dir, pattern)
             match files.Length with
             | 0 -> None
-            | 1 -> Some files.[0]
+            | 1 -> Some files[0]
             | _ -> Log.always("More than one file found in " + dir + " with pattern " + pattern)
                    None
         with _ -> None
@@ -248,7 +246,7 @@ let sortFablePackages (pkgs: FablePackage list) =
 
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
-    dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
+    dllFullPath[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
 let (|Regex|_|) (pattern: string) (input: string) =
     let m = Text.RegularExpressions.Regex.Match(input, pattern)
@@ -341,7 +339,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
             String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase))
     if isExcluded then
         try
-            opts.BuildDll(dllRefs.[projName])
+            opts.BuildDll(dllRefs[projName])
         with e ->
             Log.always("Couldn't build " + projName + ": " + e.Message)
         None
@@ -351,7 +349,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[]) (projRefs: string[]) outputType =
+let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[], projRefs, msbuildProps, targetFramework) =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
@@ -360,7 +358,7 @@ let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[]) (projRefs: stri
         (projOpts, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
             if line.StartsWith("-r:") then
-                let line = Path.normalizePath (line.[3..])
+                let line = Path.normalizePath (line[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
                 src, otherOpts
@@ -380,11 +378,12 @@ let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[]) (projRefs: stri
 
     { ProjectFile = opts.ProjFile
       SourceFiles = sourceFiles
-      ProjectReferences = Array.choose (excludeProjRef opts dllRefs) projRefs |> Array.toList
+      ProjectReferences = projRefs |> Array.choose (excludeProjRef opts dllRefs) |> Array.toList
       DllReferences = dllRefs
       PackageReferences = fablePkgs
       OtherCompilerOptions = otherOpts
-      OutputType = outputType }
+      OutputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
+      TargetFramework = targetFramework }
 
 let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
     let projectFilePath = opts.ProjFile
@@ -396,7 +395,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
         |> Async.RunSynchronously
 
     let projOpts = Array.append projOpts.OtherOptions projOpts.SourceFiles
-    getCrackedFsproj opts projOpts [||] (Some "Exe")
+    getCrackedFsproj opts (projOpts, [||], Dictionary(), "")
 
 let getProjectOptionsFromProjectFile =
     let mutable manager = None
@@ -415,14 +414,14 @@ let getProjectOptionsFromProjectFile =
                 let options = AnalyzerManagerOptions(LogWriter = log)
                 let m = AnalyzerManager(options)
                 m.SetGlobalProperty("Configuration", opts.Configuration)
-                m.SetGlobalProperty("TargetFramework", opts.TargetFramework)
+                // m.SetGlobalProperty("TargetFramework", opts.TargetFramework)
                 for define in opts.FableOptions.Define do
                     m.SetGlobalProperty(define, "true")
                 manager <- Some m
                 m
 
-        let tryGetResult (getCompilerArgs: IAnalyzerResult -> string[]) (projFile: string) =
-            let analyzer = manager.GetProject(projFile)
+        let tryGetResult (getCompilerArgs: IAnalyzerResult -> string[]) (maybeCsprojFile: string) =
+            let analyzer = manager.GetProject(maybeCsprojFile)
             let env = analyzer.EnvironmentFactory.GetBuildEnvironment(Environment.EnvironmentOptions(DesignTime=true,Restore=false))
             // If the project targets multiple frameworks, multiple results will be returned
             // For now we just take the first one with non-empty command
@@ -432,6 +431,7 @@ let getProjectOptionsFromProjectFile =
             |> Option.map (fun result ->
                 {| CompilerArguments = getCompilerArgs result
                    ProjectReferences = result.ProjectReferences
+                   TargetFramework = result.TargetFramework
                    Properties = result.Properties |})
 
         // Because Buildalyzer works better with .csproj, we first "dress up" the project as if it were a C# one
@@ -476,49 +476,43 @@ let getProjectOptionsFromProjectFile =
             result.CompilerArguments
             |> Array.skipWhile (fun line -> not(line.StartsWith("-")))
             |> Array.map (compileFilesToAbsolutePath projDir)
-        projOpts, Seq.toArray result.ProjectReferences, result.Properties
+        projOpts, Seq.toArray result.ProjectReferences, result.Properties, result.TargetFramework
 
 /// Use Buildalyzer to invoke MSBuild and get F# compiler args from an .fsproj file.
 /// As we'll merge this later with other projects we'll only take the sources and
 /// the references, checking if some .dlls correspond to Fable libraries
-let fullCrack (opts: CrackerOptions): CrackedFsproj =
+let crackMainProject (opts: CrackerOptions): CrackedFsproj =
     if not opts.NoRestore then
         Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
             "restore"
             IO.Path.GetFileName opts.ProjFile
-            $"-p:TargetFramework={opts.TargetFramework}"
+            // $"-p:TargetFramework={opts.TargetFramework}"
             for constant in opts.FableOptions.Define do
                 $"-p:{constant}=true"
         ] |> ignore
 
-    let projOpts, projRefs, msbuildProps =
-        getProjectOptionsFromProjectFile opts opts.ProjFile
-
-    ReadOnlyDictionary.tryFind "OutputType" msbuildProps
-    |> getCrackedFsproj opts projOpts projRefs
+    getProjectOptionsFromProjectFile opts opts.ProjFile
+    |> getCrackedFsproj opts
 
 /// For project references of main project, ignore dll and package references
-let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projOpts, projRefs, msbuildProps =
-        getProjectOptionsFromProjectFile opts projFile
-
-    let outputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
+let crackReferenceProject (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
+    let projOpts, projRefs, msbuildProps, targetFramework = getProjectOptionsFromProjectFile opts projFile
     let sourceFiles, otherOpts = Array.foldBack extractUsefulOptionsAndSources projOpts ([], [])
-
     { ProjectFile = projFile
       SourceFiles = sourceFiles
-      ProjectReferences = Array.choose (excludeProjRef opts dllRefs) projRefs |> Array.toList
+      ProjectReferences = projRefs |> Array.choose (excludeProjRef opts dllRefs) |> Array.toList
       DllReferences = Dictionary()
       PackageReferences = []
       OtherCompilerOptions = otherOpts
-      OutputType = outputType}
+      OutputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
+      TargetFramework = targetFramework }
 
 let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
-    let mainProj = fullCrack opts
+    let mainProj = crackMainProject opts
     let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
         let crackedFsproj =
             match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
-            | None -> easyCrack opts mainProj.DllReferences projFile
+            | None -> crackReferenceProject opts mainProj.DllReferences projFile
             | Some crackedFsproj -> crackedFsproj
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
@@ -534,7 +528,7 @@ let getCrackedProjects (opts: CrackerOptions) =
         [], getProjectOptionsFromScript opts
     | ".fsproj" ->
         getCrackedProjectsFromMainFsproj opts
-    | s -> failwithf "Unsupported project type: %s" s
+    | s -> failwith $"Unsupported project type: %s{s}"
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
@@ -551,7 +545,7 @@ let retryGetCrackedProjects opts =
                 System.Threading.Thread.Sleep 500
                 retry()
             else
-                failwithf "IO Error trying read project options: %s " ioex.Message
+                failwith $"IO Error trying read project options: %s{ioex.Message} "
         | _ -> reraise()
     retry()
 
@@ -644,7 +638,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
     // TODO: Check if this holds true also for Python which may not include the version number in the path
     let normalizePath (path: string) =
         let i = path.IndexOf(Naming.fableModules)
-        if i >= 0 then path.[i..] else path
+        if i >= 0 then path[i..] else path
 
     match opts.PrecompiledLib with
     | Some precompiledLib ->
@@ -765,6 +759,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> cacheInfo.FableLibDir
           FableModulesDir = opts.FableModulesDir
           OutputType = cacheInfo.OutputType
+          TargetFramework = cacheInfo.TargetFramework
           PrecompiledInfo = precompiledInfo
           CanReuseCompiledFiles = canReuseCompiledFiles }
 
@@ -839,6 +834,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 SourcePaths = sourcePaths
                 References = projRefs
                 OutputType = outputType
+                TargetFramework = mainProj.TargetFramework
                 Exclude = opts.Exclude
                 SourceMaps = opts.SourceMaps
                 SourceMapsRoot = opts.SourceMapsRoot
@@ -855,5 +851,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
           FableLibDir = match precompiledInfo with Some i -> i.FableLibDir | None -> fableLibDir
           FableModulesDir = opts.FableModulesDir
           OutputType = outputType
+          TargetFramework = mainProj.TargetFramework
           PrecompiledInfo = precompiledInfo
           CanReuseCompiledFiles = false }

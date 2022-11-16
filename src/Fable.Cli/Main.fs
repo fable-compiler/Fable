@@ -54,7 +54,7 @@ module private Util =
             | Some t ->
                 $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
                 |> Log.always; t
-            | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
+            | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
 
     let splitVersion (version: string) =
         match Version.TryParse(version) with
@@ -294,7 +294,7 @@ type File(normalizedFullPath: string) =
         let fileDic =
             files
             |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
-        let sourceReader f = fileDic.[f].ReadSource()
+        let sourceReader f = fileDic[f].ReadSource()
         files |> Array.map (fun file -> file.NormalizedFullPath), sourceReader
 
 type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: File array) =
@@ -332,10 +332,17 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             CrackerOptions(cliArgs)
             |> getFullProjectOpts
 
+        // Buildalyzer doesn't include the proper System dlls when the main project targets netstandard2.0,
+        // so just ask the user to upgrade. Note we don't simply override the TargetFramework property
+        // because we do not want discrepancies with dotnet restore command. See #3271.
+        if result.TargetFramework = "netstandard2.0" then
+            Fable.FableError "netstandard2.0 is not supported, please use netstandard2.1, net6.0 or higher" |> raise
+
         // We display "parsed" because "cracked" may not be understood by users
         Log.always $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
         Log.verbose(lazy $"""F# PROJECT: %s{cliArgs.ProjectFileAsRelativePath}
 FABLE LIBRARY: {result.FableLibDir}
+TARGET FRAMEWORK: {result.TargetFramework}
 OUTPUT TYPE: {result.OutputType}
 
     %s{result.ProjectOptions.OtherOptions |> String.concat $"{Log.newLine}    "}
