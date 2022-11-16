@@ -332,8 +332,11 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             CrackerOptions(cliArgs)
             |> getFullProjectOpts
 
+        // Buildalyzer doesn't include the proper System dlls when the main project targets netstandard2.0,
+        // so just ask the user to upgrade. Note we don't simply override the TargetFramework property
+        // because we do not want discrepancies with dotnet restore command. See #3271.
         if result.TargetFramework = "netstandard2.0" then
-            Fable.FableError "netstandard2.0 is not supported, please use netstandard2.1 or higher" |> raise
+            Fable.FableError "netstandard2.0 is not supported, please use netstandard2.1, net6.0 or higher" |> raise
 
         // We display "parsed" because "cracked" may not be understood by users
         Log.always $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
