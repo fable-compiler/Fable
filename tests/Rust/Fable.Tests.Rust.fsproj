@@ -52,7 +52,7 @@
     <Compile Include="tests/src/NBodyTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
-    <!-- <Compile Include="tests/src/QueueTests.fs" /> -->
+    <Compile Include="tests/src/QueueTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
     <!-- <Compile Include="tests/src/ReflectionTests.fs" /> -->
     <!-- <Compile Include="tests/src/RegexTests.fs" /> -->
@@ -61,7 +61,7 @@
     <!-- <Compile Include="tests/src/SeqExpressionTests.fs" /> -->
     <Compile Include="tests/src/SeqTests.fs" />
     <Compile Include="tests/src/SetTests.fs" />
-    <!-- <Compile Include="tests/src/StackTests.fs" /> -->
+    <Compile Include="tests/src/StackTests.fs" />
     <Compile Include="tests/src/StringTests.fs" />
     <Compile Include="tests/src/SudokuTest.fs" />
     <Compile Include="tests/src/TailCallTests.fs" />

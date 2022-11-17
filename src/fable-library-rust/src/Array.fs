@@ -762,7 +762,7 @@ let transpose (arrays: 'T[][]): 'T[][] =
         if not (arrays |> forAll (fun a -> a.Length = innerLen)) then
             differentLengths()
         let res = ResizeArray<_>(innerLen)
-        for i= 0 to innerLen - 1 do
+        for i = 0 to innerLen - 1 do
             let res2 = ResizeArray<_>(len)
             for j = 0 to len - 1 do
                 res2.Add (arrays[j][i])

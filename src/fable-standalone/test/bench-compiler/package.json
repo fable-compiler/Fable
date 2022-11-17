@@ -18,6 +18,7 @@
 
     "prebuild": "npm run clean && npm run build-lib",
     "build": "dotnet run -c Release bench-compiler.fsproj out-node --fableLib out-lib",
+    "build-rust": "dotnet run -c Release bench-compiler.fsproj out-rust --fableLib out-lib --lang Rust",
     "build-opt": "npm run build --optimize",
     "postbuild": "npm run rollup-bundle",
 

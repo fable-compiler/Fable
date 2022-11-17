@@ -865,7 +865,7 @@ module Annotation =
         | Types.icomparerGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
-        | Types.equalityComparer, _ ->
+        | Types.iequalityComparer, _ ->
             libValue com ctx "util" "IEqualityComparer", []
         | Types.iequalityComparerGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
