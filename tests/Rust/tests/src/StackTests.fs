@@ -47,20 +47,13 @@ let ``Stack Contains works as expected`` () =
 [<Fact>]
 let ``Stack ToArray works as expected`` () =
     let stack = Stack<string>()
-
     stack.ToArray() |> equal [||]
-
     stack.Push("a")
-
     stack.ToArray() |> equal [| "a" |]
-
     stack.Push("b")
     stack.Push("c")
-
     stack.ToArray() |> equal [| "c"; "b"; "a" |]
-
     stack.Pop() |> ignore
-
     stack.ToArray() |> equal [| "b"; "a" |]
 
 [<Fact>]
@@ -131,32 +124,23 @@ let ``Stack can be created with an initial size`` () =
 [<Fact>]
 let ``Stack can be created from an IEnumerable<_>`` () =
     let xs = [ "a"; "b"; "c" ] :> IEnumerable<_>
-
     let stack = Stack<string>(xs)
-
     stack.ToArray() |> equal [| "c"; "b"; "a" |]
-
     stack.Pop() |> equal "c"
     stack.Pop() |> equal "b"
     stack.Pop() |> equal "a"
-
     stack.Count |> equal 0
 
 [<Fact>]
 let ``Stack implements IEnumerable<_>`` () =
     let stack = Stack<string>()
-
     List.ofSeq stack |> equal []
-
     stack.Push("a")
     stack.Push("b")
     stack.Push("c")
     stack.Push("d")
     stack.Push("e")
-
     List.ofSeq stack |> equal [ "e"; "d"; "c"; "b"; "a" ]
-
     stack.Pop() |> ignore
     stack.Pop() |> ignore
-
     List.ofSeq stack |> equal [ "c"; "b"; "a" ]

@@ -1,19 +1,62 @@
 module Interfaces_
 
 module System =
+
     type IDisposable =
         abstract Dispose: unit -> unit
 
+    type IEquatable<'T> =
+        abstract Equals: 'T -> bool
+
+    type IComparable =
+        abstract CompareTo: obj -> int
+
+    type IComparable<'T> =
+        abstract CompareTo: 'T -> int
+
     module Collections =
 
+        type IComparer =
+            abstract Compare: obj * obj -> int
+
+        type IEqualityComparer =
+            abstract Equals: obj * obj -> bool
+            abstract GetHashCode: obj -> int
+
+        type IEnumerator =
+            inherit System.IDisposable
+            abstract Current: obj
+            abstract MoveNext: unit -> bool
+            abstract Reset: unit -> unit
+
+        type IEnumerable =
+            abstract GetEnumerator: unit -> IEnumerator
+
+        type IStructuralComparable =
+            abstract CompareTo: obj * IComparer -> int
+
+        type IStructuralEquatable =
+            abstract Equals: obj * IEqualityComparer -> bool
+            abstract GetHashCode: IEqualityComparer -> int
+
         module Generic =
+
+            type IComparer<'T> =
+                abstract Compare: 'T * 'T -> int
+
+            type IEqualityComparer<'T> =
+                abstract Equals: 'T * 'T -> bool
+                abstract GetHashCode: 'T -> int
+
             type IEnumerator<'T> =
                 inherit System.IDisposable
+                // inherit System.Collections.IEnumerator
                 abstract Current: 'T
                 abstract MoveNext: unit -> bool
                 abstract Reset: unit -> unit
 
             type IEnumerable<'T> =
+                // inherit System.Collections.IEnumerable
                 abstract GetEnumerator: unit -> IEnumerator<'T>
 
             type ICollection<'T> =

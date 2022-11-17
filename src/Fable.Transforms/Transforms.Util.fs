@@ -121,6 +121,7 @@ module Types =
     let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] icomparer = "System.Collections.IComparer"
+    let [<Literal>] iequalityComparer = "System.Collections.IEqualityComparer"
     let [<Literal>] iStructuralEquatable = "System.Collections.IStructuralEquatable"
     let [<Literal>] iStructuralComparable = "System.Collections.IStructuralComparable"
     let [<Literal>] idisposable = "System.IDisposable"
@@ -132,7 +133,6 @@ module Types =
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
     let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
-    let [<Literal>] equalityComparer = "System.Collections.IEqualityComparer"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"

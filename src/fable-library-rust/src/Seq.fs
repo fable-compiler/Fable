@@ -33,7 +33,7 @@ module Enumerable =
         //     let maxCount = 4
         //     let mutable i = 0
         //     let mutable str = "seq ["
-        //     use e = (xs :> IEnumerable<'T>).GetEnumerator()
+        //     use e: IEnumerator<'T> = f() // (xs :> IEnumerable<'T>).GetEnumerator()
         //     while (i < maxCount && e.MoveNext()) do
         //         if i > 0 then str <- str + "; "
         //         str <- str + (string e.Current)
@@ -52,19 +52,17 @@ module Enumerable =
                 curr <- next()
                 curr.IsSome
             member _.Reset() = ()
-            member _.Dispose() =
-                dispose()
+            member _.Dispose() = dispose()
         // interface System.Collections.IEnumerator with
         //     member _.Current =
         //         curr.Value
         //     member _.MoveNext() =
         //         curr <- next()
         //         curr.IsSome
-        //     member _.Reset() =
-        //         ()
+        //     member _.Reset() = ()
+        //     member _.Dispose() = dispose()
         // interface System.IDisposable with
-        //     member _.Dispose() =
-        //         dispose()
+        //     member _.Dispose() = dispose()
 
     let fromFunction next: IEnumerator<'T> =
         let dispose() = ()

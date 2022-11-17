@@ -699,7 +699,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
 //             match injectType with
 //             | Types.icomparerGeneric ->
 //                 args @ [makeComparer com ctx genArg]
-//             | Types.equalityComparer ->
+//             | Types.iequalityComparer ->
 //                 args @ [makeEqualityComparer com ctx genArg]
 //             | Types.arrayCons ->
 //                 match genArg with
@@ -1328,7 +1328,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
     | "CompareTo", Some c, [ExprType String] ->
         Helper.LibCall(com, "Util", "compare", t, c::args, ?loc=r) |> Some
-    | "Compare", None, [ExprType String; ExprType String] ->
+    | "Compare", None, (ExprType String :: ExprType String :: _) ->
+        $"String.Compare will be compiled as String.CompareOrdinal"
+        |> addWarning com ctx.InlinePath r
         Helper.LibCall(com, "Util", "compare", t, args, ?loc=r) |> Some
     | "CompareOrdinal", None, [ExprType String; ExprType String] ->
         Helper.LibCall(com, "Util", "compare", t, args, ?loc=r) |> Some
