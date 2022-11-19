@@ -400,12 +400,25 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
 let getProjectOptionsFromProjectFile =
     let mutable manager = None
 
-    let compileFilesToAbsolutePath projDir (f: string) =
-        if f.EndsWith(".fs") || f.EndsWith(".fsi") then
-            if Path.IsPathRooted f then f else Path.Combine(projDir, f)
-        else
-            f
-    fun (opts: CrackerOptions) (projFile: string) ->
+    let tryGetResult (isMain: bool) (opts: CrackerOptions) (manager: AnalyzerManager) (maybeCsprojFile: string) =
+        if isMain && not opts.NoRestore then
+            Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
+                "restore"
+                IO.Path.GetFileName maybeCsprojFile
+                // $"-p:TargetFramework={opts.TargetFramework}"
+                for constant in opts.FableOptions.Define do
+                    $"-p:{constant}=true"
+            ] |> ignore
+
+        let analyzer = manager.GetProject(maybeCsprojFile)
+        let env = analyzer.EnvironmentFactory.GetBuildEnvironment(Environment.EnvironmentOptions(DesignTime=true,Restore=false))
+        // If the project targets multiple frameworks, multiple results will be returned
+        // For now we just take the first one with non-empty command
+        let results = analyzer.Build(env)
+        results
+        |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
+
+    fun (isMain: bool) (opts: CrackerOptions) (projFile: string) ->
         let manager =
             match manager with
             | Some m -> m
@@ -420,20 +433,6 @@ let getProjectOptionsFromProjectFile =
                 manager <- Some m
                 m
 
-        let tryGetResult (getCompilerArgs: IAnalyzerResult -> string[]) (maybeCsprojFile: string) =
-            let analyzer = manager.GetProject(maybeCsprojFile)
-            let env = analyzer.EnvironmentFactory.GetBuildEnvironment(Environment.EnvironmentOptions(DesignTime=true,Restore=false))
-            // If the project targets multiple frameworks, multiple results will be returned
-            // For now we just take the first one with non-empty command
-            let results = analyzer.Build(env)
-            results
-            |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
-            |> Option.map (fun result ->
-                {| CompilerArguments = getCompilerArgs result
-                   ProjectReferences = result.ProjectReferences
-                   TargetFramework = result.TargetFramework
-                   Properties = result.Properties |})
-
         // Because Buildalyzer works better with .csproj, we first "dress up" the project as if it were a C# one
         // and try to adapt the results. If it doesn't work, we try again to analyze the .fsproj directly
         let csprojResult =
@@ -442,9 +441,9 @@ let getProjectOptionsFromProjectFile =
                 None
             else
                 try
-                    System.IO.File.Copy(projFile, csprojFile)
-                    csprojFile
-                    |> tryGetResult (fun r ->
+                    IO.File.Copy(projFile, csprojFile)
+                    tryGetResult isMain opts manager csprojFile
+                    |> Option.map (fun (r: IAnalyzerResult) ->
                         // Careful, options for .csproj start with / but so do root paths in unix
                         let reg = System.Text.RegularExpressions.Regex(@"^\/[^\/]+?(:?:|$)")
                         let comArgs =
@@ -454,49 +453,51 @@ let getProjectOptionsFromProjectFile =
                                     if line.StartsWith("/reference") then "-r" + line.Substring(10)
                                     else "--" + line.Substring(1)
                                 else line)
-                        match r.Properties.TryGetValue("OtherFlags") with
-                        | false, _ -> comArgs
-                        | true, otherFlags ->
-                            let otherFlags = otherFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                            Array.append otherFlags comArgs)
+                        let comArgs =
+                            match r.Properties.TryGetValue("OtherFlags") with
+                            | false, _ -> comArgs
+                            | true, otherFlags ->
+                                let otherFlags = otherFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                Array.append otherFlags comArgs
+                        comArgs, r)
                 finally
                     File.safeDelete csprojFile
 
-        let result =
+        let compilerArgs, result =
             csprojResult
-            |> Option.orElseWith (fun () -> projFile |> tryGetResult (fun r ->
-                // result.CompilerArguments doesn't seem to work well in Linux
-                System.Text.RegularExpressions.Regex.Split(r.Command, @"\r?\n")))
+            |> Option.orElseWith (fun () ->
+                tryGetResult isMain opts manager projFile
+                |> Option.map (fun r ->
+                    // result.CompilerArguments doesn't seem to work well in Linux
+                    let comArgs = Text.RegularExpressions.Regex.Split(r.Command, @"\r?\n")
+                    comArgs, r))
             |> function
                 | Some result -> result
                 // TODO: Get Buildalyzer errors from the log
                 | None -> $"Cannot parse {projFile}" |> Fable.FableError |> raise
         let projDir = IO.Path.GetDirectoryName(projFile)
         let projOpts =
-            result.CompilerArguments
+            compilerArgs
             |> Array.skipWhile (fun line -> not(line.StartsWith("-")))
-            |> Array.map (compileFilesToAbsolutePath projDir)
-        projOpts, Seq.toArray result.ProjectReferences, result.Properties, result.TargetFramework
+            |> Array.map (fun f ->
+                if f.EndsWith(".fs") || f.EndsWith(".fsi") then
+                    if Path.IsPathRooted f then f else Path.Combine(projDir, f)
+                else f)
+        projOpts,
+        Seq.toArray result.ProjectReferences,
+        result.Properties,
+        result.TargetFramework
 
 /// Use Buildalyzer to invoke MSBuild and get F# compiler args from an .fsproj file.
 /// As we'll merge this later with other projects we'll only take the sources and
 /// the references, checking if some .dlls correspond to Fable libraries
 let crackMainProject (opts: CrackerOptions): CrackedFsproj =
-    if not opts.NoRestore then
-        Process.runSync (IO.Path.GetDirectoryName opts.ProjFile) "dotnet" [
-            "restore"
-            IO.Path.GetFileName opts.ProjFile
-            // $"-p:TargetFramework={opts.TargetFramework}"
-            for constant in opts.FableOptions.Define do
-                $"-p:{constant}=true"
-        ] |> ignore
-
-    getProjectOptionsFromProjectFile opts opts.ProjFile
+    getProjectOptionsFromProjectFile true opts opts.ProjFile
     |> getCrackedFsproj opts
 
 /// For project references of main project, ignore dll and package references
 let crackReferenceProject (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
-    let projOpts, projRefs, msbuildProps, targetFramework = getProjectOptionsFromProjectFile opts projFile
+    let projOpts, projRefs, msbuildProps, targetFramework = getProjectOptionsFromProjectFile false opts projFile
     let sourceFiles, otherOpts = Array.foldBack extractUsefulOptionsAndSources projOpts ([], [])
     { ProjectFile = projFile
       SourceFiles = sourceFiles
@@ -589,9 +590,10 @@ let getFableLibraryPath (opts: CrackerOptions) =
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
         let fableLibrarySource =
-            AppContext.BaseDirectory
+            let baseDir = AppContext.BaseDirectory
+            baseDir
             |> File.tryFindNonEmptyDirectoryUpwards {| matches = [buildDir; "build/" + buildDir]; exclude = ["src"] |}
-            |> Option.defaultWith (fun () -> Fable.FableError "Cannot find fable-library" |> raise)
+            |> Option.defaultWith (fun () -> Fable.FableError $"Cannot find [build/]{buildDir} from {baseDir}" |> raise)
 
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
         // Always overwrite fable-library in case it has been updated, see #3208
@@ -799,6 +801,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             // TODO: Not sure if we still need this
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
+                "FSharp.Core"
                 "WindowsBase"
                 "Microsoft.Win32.Primitives"
                 "Microsoft.VisualBasic"
@@ -813,10 +816,15 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 if ignoredRefs.Contains(name) ||
                     (name.StartsWith("System.") && not(coreRefs.Contains(name))) then None
                 else Some("-r:" + r))
-            |> Seq.toArray
 
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
-        let otherOptions = Array.append otherOptions dllRefs
+        let otherOptions = [|
+            yield! otherOptions
+            yield! dllRefs
+            // For some reason, in my tests it seems to work without the FSharp.Core reference
+            // but we add it just in case
+            yield "-r:" + typeof<FSharp.Collections.List<obj>>.Assembly.Location
+        |]
         let outputType =
             match mainProj.OutputType with
             | Some "Library" -> OutputType.Library
