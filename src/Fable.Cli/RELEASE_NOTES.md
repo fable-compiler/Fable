@@ -1,3 +1,8 @@
+### 4.0.0-theta-018
+
+* When using a .csproj, make sure the project is restored before parsing
+* Rust, added Stack, Queue
+
 ### 4.0.0-theta-017
 
 * Use TargetFramework from .fsproj and ask users to upgrade from netstandard2.0 if necessary
