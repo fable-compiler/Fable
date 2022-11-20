@@ -1106,12 +1106,20 @@ module Util =
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Language = TypeScript && (ent.FullName = Types.refCell)
-                then makeTypeParamInstantiation com ctx genArgs |> Some
-                else None
-            Expression.newExpression(consRef, values, ?typeParameters=typeParamInst, ?loc=r)
+            if hasAttribute Atts.erase ent.Attributes then
+                Seq.zip ent.FSharpFields values
+                |> Seq.map (fun (fi, v) ->
+                    let prop, computed = memberFromName fi.Name
+                    ObjectMember.objectProperty(prop, v, computed_=computed))
+                |> Seq.toArray
+                |> Expression.objectExpression
+            else
+                let consRef = ent |> jsConstructor com ctx
+                let typeParamInst =
+                    if com.Options.Language = TypeScript && (ent.FullName = Types.refCell)
+                    then makeTypeParamInstantiation com ctx genArgs |> Some
+                    else None
+                Expression.newExpression(consRef, values, ?typeParameters=typeParamInst, ?loc=r)
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
@@ -1203,7 +1211,7 @@ module Util =
             )
 
         if not compileAsClass then
-            Expression.objectExpression(List.toArray  members)
+            Expression.objectExpression(List.toArray members)
         else
             let classMembers =
                 members |> List.choose (function
