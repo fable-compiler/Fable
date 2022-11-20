@@ -171,7 +171,7 @@ module Error =
       let fieldName = fieldName |> orNameRegex
       let expectedType = expectedType |> orNameRegex
       let actualType = actualType |> orNameRegex
-      $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected type '{expectedType}' for field '{fieldName}' because of indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
     static member UnexpectedIndexerTypeMulti (?interfaceName: string, ?indexerName: string, ?fieldName: string, ?expectedTypes: string list, ?actualType: string) =
       let interfaceName = interfaceName |> orNameRegex
@@ -179,7 +179,7 @@ module Error =
       let fieldName = fieldName |> orNameRegex
       let expectedTypes = expectedTypes |> orNamesRegex
       let actualType = actualType |> orNameRegex
-      $"Expected any type of {expectedTypes} for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+      $"Expected any type of {expectedTypes} for field '{fieldName}' because of indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
       |> Rx
 
 module private Ty =
@@ -352,18 +352,19 @@ let tests =
           ]
           |> compile
           |> Assert.Is.strictSuccess
-        testCase "Ideally: error because of missmatching type U3" <| fun _ ->
-          // Erased Union is reduced to type `Any` -> cannot distinguish between correct U2<string,int> and other Erased Unions (or even just `obj`)
+        testCase "error because of mismatching type U3" <| fun _ ->
           interfaceAndAssignments i [
             assign "a" "U3<string,int,float>" "U3.Case3 3.14"
             assignAnonRecord i [("Value", "a")]
           ]
           |> compile
-          |> Assert.Is.strictSuccess
-        testCase "Ideally: error because of missmatching type obj" <| fun _ ->
+          |> Assert.Is.Single.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
+        testCase "error because of mismatching type obj" <| fun _ ->
           interfaceAndAnonRecordAssignment i [("Value", "obj()")]
           |> compile
-          |> Assert.Is.strictSuccess
+          |> Assert.Is.Single.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
         testCase "Probably: no error because of double-bangs" <| fun _ ->
           interfaceAndAnonRecordAssignment i [("Value", "!!3.14")]
           |> compile
@@ -433,8 +434,7 @@ let tests =
           |> compile
           |> Assert.Is.strictSuccess
 
-        testCase "Ideally: error for existing field with wrong int type" <| fun _ ->
-          // Erased Union gets reduced to `Any` -> `Any` accepts everything
+        testCase "error for existing field with wrong int type" <| fun _ ->
           [
             yield! du |> DiscriminatedUnion.format
             yield! i |> Interface.format
@@ -443,11 +443,10 @@ let tests =
           ]
           |> concat
           |> compile
-          // |> Assert.Is.Single.errorOrWarning
-          // |> Assert.Exists.errorOrWarningWith (Error.incorrectType "Tmp.ErasedUnion1" "Value")
-          |> Assert.Is.strictSuccess
+          |> Assert.Is.Single.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedType (interfaceName = i.Name, fieldName = "Value"))
 
-        testCase "Ideally: error for existing field with wrong obj type" <| fun _ ->
+        testCase "error for existing field with wrong obj type" <| fun _ ->
           [
             yield! du |> DiscriminatedUnion.format
             yield! i |> Interface.format
@@ -456,7 +455,8 @@ let tests =
           ]
           |> concat
           |> compile
-          |> Assert.Is.strictSuccess
+          |> Assert.Is.Single.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedType (interfaceName = i.Name, fieldName = "Value"))
       ]
 
       testList "interface with field with option type" [
@@ -592,7 +592,7 @@ let tests =
           |> concat
           |> compile
           |> Assert.Is.strictSuccess
-        testCase "Ideally: error for missmatching type U3" <| fun _ ->
+        testCase "error for mismatching type U3" <| fun _ ->
           [
             yield! i |> Interface.format
             yield assign "a" "U3<string,int,float>" "U3.Case3 3.14"
@@ -601,7 +601,8 @@ let tests =
           ]
           |> concat
           |> compile
-          |> Assert.Is.strictSuccess
+          |> Assert.Is.Single.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedIndexerTypeMulti (interfaceName = i.Name, indexerName = "Item", fieldName = "Value"))
       ]
       testList "interface with two indexers U<string,int> and int" [
         // in TS: number indexer must be subset of string indexer

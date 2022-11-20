@@ -44,12 +44,12 @@ module Subs =
         let sin (x: float): float = nativeOnly
 
 module Performance =
-    [<Erase; Emit("std::time::Duration")>]
+    [<Emit("std::time::Duration")>]
     type Duration =
         abstract as_millis: unit -> uint64 // actually u128
         abstract as_secs_f64: unit -> float
 
-    [<Erase; Emit("std::time::Instant")>]
+    [<Emit("std::time::Instant")>]
     type Instant =
         abstract duration_since: Instant -> Duration
         abstract elapsed: unit -> Duration

@@ -87,7 +87,10 @@ module Lib =
 module Reflection =
     open Lib
 
-    let private libReflectionCall (com: IBabelCompiler) ctx r memberName args =
+    let private primitiveTypeInfo com ctx name =
+        libValue com ctx "Reflection" (name + "_type")
+
+    let private declaredTypeInfo (com: IBabelCompiler) ctx r memberName args =
         libCall com ctx r "Reflection" (memberName + "_type") [] args
 
     let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -104,7 +107,7 @@ module Reflection =
             |> Seq.toArray
         let fields = Expression.arrowFunctionExpression([||], Expression.arrayExpression(fields))
         [fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; fields]
-        |> libReflectionCall com ctx None "record"
+        |> declaredTypeInfo com ctx None "record"
 
     let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
         let fullname = ent.FullName
@@ -123,30 +126,28 @@ module Reflection =
             ) |> Seq.toArray
         let cases = Expression.arrowFunctionExpression([||], Expression.arrayExpression(cases))
         [fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases]
-        |> libReflectionCall com ctx None "union"
+        |> declaredTypeInfo com ctx None "union"
 
     let transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression> option) t: Expression =
-        let primitiveTypeInfo name =
-           libValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
             getNumberKindName kind
-            |> primitiveTypeInfo
+            |> primitiveTypeInfo com ctx
         let nonGenericTypeInfo fullname =
             [Expression.stringLiteral(fullname)]
-            |> libReflectionCall com ctx None "class"
+            |> declaredTypeInfo com ctx None "class"
         let resolveGenerics generics: Expression list =
             generics |> List.map (transformTypeInfo com ctx r genMap)
         let genericTypeInfo name genArgs =
             let resolved = resolveGenerics genArgs
-            libReflectionCall com ctx None name resolved
+            declaredTypeInfo com ctx None name resolved
         let genericEntity (fullname: string) generics =
-            libReflectionCall com ctx None "class" [
+            declaredTypeInfo com ctx None "class" [
                 Expression.stringLiteral(fullname)
                 if not(Array.isEmpty generics) then
                     Expression.arrayExpression(generics)
             ]
         let genericGlobalOrImportedEntity generics (ent: Fable.Entity) =
-            libReflectionCall com ctx None "class" [
+            declaredTypeInfo com ctx None "class" [
                 yield Expression.stringLiteral(ent.FullName)
                 match generics with
                 | [||] -> yield Util.undefined None
@@ -157,20 +158,20 @@ module Reflection =
             ]
         match t with
         | Fable.Measure _
-        | Fable.Any -> primitiveTypeInfo "obj"
+        | Fable.Any -> primitiveTypeInfo com ctx "obj"
         | Fable.GenericParam(name=name) ->
             match genMap with
-            | None -> [Expression.stringLiteral(name)] |> libReflectionCall com ctx None "generic"
+            | None -> [Expression.stringLiteral(name)] |> declaredTypeInfo com ctx None "generic"
             | Some genMap ->
                 match Map.tryFind name genMap with
                 | Some t -> t
                 | None ->
                     Replacements.Util.genericTypeInfoError name |> addError com [] r
                     Expression.nullLiteral()
-        | Fable.Unit    -> primitiveTypeInfo "unit"
-        | Fable.Boolean -> primitiveTypeInfo "bool"
-        | Fable.Char    -> primitiveTypeInfo "char"
-        | Fable.String  -> primitiveTypeInfo "string"
+        | Fable.Unit    -> primitiveTypeInfo com ctx "unit"
+        | Fable.Boolean -> primitiveTypeInfo com ctx "bool"
+        | Fable.Char    -> primitiveTypeInfo com ctx "char"
+        | Fable.String  -> primitiveTypeInfo com ctx "string"
         | Fable.Number(kind, info) ->
             match info with
             | Fable.NumberInfo.IsEnum entRef ->
@@ -185,7 +186,7 @@ module Reflection =
                     |> Seq.toArray
                     |> Expression.arrayExpression
                 [Expression.stringLiteral(entRef.FullName); numberInfo kind; cases ]
-                |> libReflectionCall com ctx None "enum"
+                |> declaredTypeInfo com ctx None "enum"
             | _ ->
                 numberInfo kind
         | Fable.LambdaType(argType, returnType) ->
@@ -202,7 +203,7 @@ module Reflection =
             let genArgs = resolveGenerics genArgs
             List.zip (fieldNames |> Array.toList) genArgs
             |> List.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
-            |> libReflectionCall com ctx None "anonRecord"
+            |> declaredTypeInfo com ctx None "anonRecord"
         | Fable.DeclaredType(entRef, genArgs) ->
             let fullName = entRef.FullName
             match fullName, genArgs with
@@ -243,9 +244,9 @@ module Reflection =
                 let ent = com.GetEntity(entRef)
                 let generics = genArgs |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 // Check if the entity is actually declared in JS code
-                // TODO: Interfaces should be declared when generating Typescript
                 if FSharp2Fable.Util.isGlobalOrImportedEntity ent then
                     genericGlobalOrImportedEntity generics ent
+                // TODO: Interfaces (and probably erased unions too) should be declared when generating Typescript
                 elif ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isReplacementCandidate entRef then
@@ -254,7 +255,7 @@ module Reflection =
                 // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
                 elif ent.IsMeasure then
                     [Expression.stringLiteral(ent.FullName)]
-                    |> libReflectionCall com ctx None "measure"
+                    |> declaredTypeInfo com ctx None "measure"
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
@@ -286,7 +287,7 @@ module Reflection =
                           |> transformTypeInfo com ctx r genMap
                 | None -> ()
             ]
-            |> libReflectionCall com ctx r "class"
+            |> declaredTypeInfo com ctx r "class"
 
     let private ofString s = Expression.stringLiteral(s)
     let private ofArray babelExprs = Expression.arrayExpression(List.toArray babelExprs)
@@ -1003,6 +1004,8 @@ module Util =
         com.GetImportExpr(ctx, selector, path, r)
         |> getParts parts
 
+    // If we decide to make casts explicit in Typescript we need to check the target type is not a base type
+    // already of the expression type (as we do in Dart) and also whether the target type is erased
     let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
         match t with
         // Optimization for (numeric) array or list literals casted to seq

@@ -46,19 +46,21 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         makeTuple r false argExprs
-    // TODO: Wrap erased unions in type cast so type info is not lost
-    | ErasedUnion(tdef, _genArgs, rule, tag) ->
-        if tag then
-            (transformStringEnum rule unionCase)::argExprs |> makeTuple r false
-        else
-            match argExprs with
-            | [] -> transformStringEnum rule unionCase
-            | [argExpr] -> argExpr
-            | _ when tdef.UnionCases.Count > 1 ->
-                $"Erased unions with multiple fields must have one single case: {getFsTypeFullName fsType}. " +
-                "To allow multiple cases pass tag argument, e.g.: [<Erase(tag=true)>]"
-                |> addErrorAndReturnNull com ctx.InlinePath r
-            | argExprs -> makeTuple r false argExprs
+    | ErasedUnion(tdef, genArgs, rule, tag) ->
+        let unionExpr =
+            if tag then
+                (transformStringEnum rule unionCase)::argExprs |> makeTuple r false
+            else
+                match argExprs with
+                | [] -> transformStringEnum rule unionCase
+                | [argExpr] -> argExpr
+                | _ when tdef.UnionCases.Count > 1 ->
+                    $"Erased unions with multiple fields must have one single case: {getFsTypeFullName fsType}. " +
+                    "To allow multiple cases pass tag argument, e.g.: [<Erase(tag=true)>]"
+                    |> addErrorAndReturnNull com ctx.InlinePath r
+                | argExprs -> makeTuple r false argExprs
+        let genArgs = makeTypeGenArgs ctx.GenericArgs genArgs
+        Fable.TypeCast(unionExpr, Fable.DeclaredType(FsEnt.Ref tdef, genArgs))
     | TypeScriptTaggedUnion _  ->
         match argExprs with
         | [argExpr] -> argExpr

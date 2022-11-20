@@ -1156,20 +1156,15 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | _ ->
-                let mkDeclType () =
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs)
-                // Emit attribute
-                if tdef.Attributes |> hasAttribute Atts.emitAttr then
-                    mkDeclType ()
-                else
-                    // other special attributes
-                    tdef.Attributes |> tryPickAttribute [
-                        Atts.stringEnum, Fable.String
-                        Atts.erase, Fable.Any
-                        Atts.tsTaggedUnion, Fable.Any
-                    ]
-                    // Rest of declared types
-                    |> Option.defaultWith mkDeclType
+                let transformAttrs =
+                    match Compiler.Language with
+                    | Language.JavaScript | Language.TypeScript -> [ Atts.stringEnum, Fable.String ]
+                    // Other languages can type erased unions too after fixing tests
+                    | _ -> [ Atts.stringEnum, Fable.String; Atts.erase, Fable.Any ]
+                tdef.Attributes
+                |> tryPickAttribute transformAttrs
+                |> Option.defaultWith (fun () ->
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs))
 
     let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -1262,22 +1257,10 @@ module TypeHelpers =
           /// Enums in F# are uint32
           /// -> Allow into all int & uint
         | EnumIntoInt   = 0b0001
-          /// Erased Unions are reduced to `Any`
-          /// -> Cannot distinguish between 'normal' Any (like `obj`) and Erased Union (like Erased Union with string field)
-          ///
-          /// For interface members the FSharp Type is available
-          /// -> `Ux<...>` receive special treatment and its types are extracted
-          /// -> `abstract Value: U2<int,string>` -> extract `int` & `string`
-          /// BUT: for Expressions in Anon Records that's not possible, and `U2<int,string>` is only recognized as `Any`
-          /// -> `{| Value = v |}`: `v: int` and `v: string` are recognized as matching,
-          ///    but `v: U2<int,string>` isn't: only `Any`/`obj` as Type available
-          /// To recognize as matching, we must allow all `Any` expressions for `U2` in interface place.
-          ///
-          /// Note: Only `Ux<...>` are currently handled (on interface side), not other Erased Unions!
-        | AnyIntoErased = 0b0010
-          /// Unlike `AnyIntoErased`, this allows all expressions of type `Any` in all interface properties.
-          /// (The other way is always allow: Expression of all Types fits into `Any`)
-        | AlwaysAny     = 0b0100
+
+    // We could try to identify all erased unions (without tag) instead of only handling Fable.Core.Ux ones
+    // but it's more complex because we cannot simply extra the alternative types from the generics
+    let ERASED_UNION = Regex(@"^Fable\.Core\.U\d+`\d+$")
 
     let fitsAnonRecordInInterface
         (_com: IFableCompiler)
@@ -1293,60 +1276,20 @@ module TypeHelpers =
                 getAllInterfaceMembers interface_
                 |> Seq.toList
 
-            let makeType = makeType Map.empty
             /// Returns for:
             /// * `Ux<...>`: extracted types from `<....>`: `U2<string,int>` -> `[String; Int]`
             /// * `Option<Ux<...>>`: extracted types from `<...>`, then made Optional: `Option<U2<string,int>>` -> `[Option String; Option Int]`
             /// * 'normal' type: `makeType`ed type: `string` -> `[String]`
-            ///     Note: Erased Unions (except handled `Ux<...>`) are reduced to `Any`
-            ///
-            /// Extracting necessary: Erased Unions are reduced to `Any` -> special handling for `Ux<...>`
             ///
             /// Note: nested types aren't handled: `U2<string, U<int, float>>` -> `[Int; Any]`
             let rec collectTypes (ty: FSharpType) : Fable.Type list =
                 // Special treatment for Ux<...> and Option<Ux<...>>: extract types in Ux
-                // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
-                //
                 // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
-                match ty with
-                | UType tys ->
-                    tys
-                    |> List.map makeType
-                    |> List.distinct
-                | OptionType (UType tys, isStruct) ->
-                    tys
-                    |> List.map (fun t -> Fable.Option(makeType t, isStruct))
-                    |> List.distinct
-                | _ ->
-                    makeType ty
-                    |> List.singleton
-            and (|OptionType|_|) (ty: FSharpType) =
-                match ty with
-                | TypeDefinition tdef ->
-                    match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments[0], true)
-                    | Types.option -> Some(ty.GenericArguments[0], false)
-                    | _ -> None
-                | _ -> None
-            and (|UType|_|) (ty: FSharpType) =
-                let (|UName|_|) (tdef: FSharpEntity) =
-                    if
-                        tdef.Namespace = Some "Fable.Core"
-                        &&
-                        (
-                            let name = tdef.DisplayName
-                            name.Length = 2 && name[0] = 'U' && Char.IsDigit name[1]
-                        )
-                    then
-                        Some ()
-                    else
-                        None
-                match ty with
-                | TypeDefinition UName ->
-                    ty.GenericArguments
-                    |> Seq.toList
-                    |> Some
-                | _ -> None
+                match makeType Map.empty ty with
+                | Fable.DeclaredType({ FullName = Naming.Regex ERASED_UNION _ }, genArgs) -> genArgs
+                | Fable.Option(Fable.DeclaredType({ FullName = Naming.Regex ERASED_UNION _ }, genArgs), isStruct) ->
+                    genArgs |> List.map (fun t -> Fable.Option(t, isStruct))
+                | t -> [t]
 
             /// Special Rules mostly for Indexers:
             ///     For direct interface member implementation we want to be precise (-> exact_ish match)
@@ -1358,14 +1301,10 @@ module TypeHelpers =
                     function
                     | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32), _) -> Some ()
                     | _ -> None
+
                 let fitsIntoSingle (rules: Allow) (expected: Fable.Type) (actual: Fable.Type) =
                     match expected, actual with
                     | Fable.Any, _ -> true
-                    | _, Fable.Any when rules.HasFlag Allow.AlwaysAny ->
-                        // Erased Unions are reduced to `Any`
-                        // -> cannot distinguish between 'normal' Any (like 'obj')
-                        // and Erased Union (like Erased Union with string field)
-                        true
                     | IntNumber, Fable.Number(_, Fable.NumberInfo.IsEnum _) when rules.HasFlag Allow.EnumIntoInt ->
                         // the underlying type of enum in F# is uint32
                         // For practicality: allow in all uint & int fields
@@ -1374,22 +1313,14 @@ module TypeHelpers =
                     | Fable.Option(t1,_), t2
                     | t1, t2 ->
                         typeEquals false t1 t2
+
                 let fitsIntoMulti (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
                     expected |> List.contains Fable.Any
-                    ||
-                    (
-                        // special treatment for actual=Any & multiple expected:
-                        // multiple expected -> `Ux<...>` -> extracted types
-                        // BUT: in actual that's not possible -> in actual `Ux<...>` = `Any`
-                        //      -> no way to distinguish Ux (or other Erased Unions) from 'normal` Any (like obj)
-                        rules.HasFlag Allow.AnyIntoErased
-                        &&
-                        expected |> List.isMultiple
-                        &&
-                        actual = Fable.Any
-                    )
-                    ||
-                    expected |> List.exists (fun expected -> fitsIntoSingle rules expected actual)
+                    || (match actual with
+                        | Fable.DeclaredType({ FullName = Naming.Regex ERASED_UNION _ }, actual) when List.sameLength expected actual ->
+                            List.zip expected actual |> List.forall (fun (expected, actual) -> fitsIntoSingle rules expected actual)
+                        | _ -> false)
+                    || expected |> List.exists (fun expected -> fitsIntoSingle rules expected actual)
 
                 fitsIntoMulti rules expected actual
 
@@ -1460,10 +1391,10 @@ module TypeHelpers =
                             | [] -> unreachable ()
                             | [expectedType] ->
                                 let expectedType = expectedType |> formatType
-                                $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                                $"Expected type '{expectedType}' for field '{fieldName}' because of indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
                             | _ ->
                                 let expectedTypes = expectedTypes |> formatTypes
-                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
                         | _ ->
                             let indexerNames =
                                 indexers
@@ -1473,10 +1404,10 @@ module TypeHelpers =
                             | [] -> unreachable ()
                             | [expectedType] ->
                                 let expectedType = expectedType |> formatType
-                                $"Expected type '{expectedType}' for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                                $"Expected type '{expectedType}' for field '{fieldName}' because of indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
                             | _ ->
                                 let expectedTypes = expectedTypes |> formatTypes
-                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
 
                 let r = r |> Option.orElse range // fall back to anon record range
 
@@ -1504,7 +1435,7 @@ module TypeHelpers =
                            | Some i ->
                                 let expr = List.item i argExprs
                                 let ty = expr.Type
-                                if ty |> fitsInto (Allow.TheUsual ||| Allow.AnyIntoErased) expectedTypes then
+                                if ty |> fitsInto Allow.TheUsual expectedTypes then
                                     None
                                 else
                                     formatUnexpectedTypeError None m.DisplayName expectedTypes ty expr.Range
@@ -1537,7 +1468,7 @@ module TypeHelpers =
                     |> List.filter (fun (fieldName, _) -> fieldsToIgnore |> Set.contains fieldName |> not )
                     |> List.choose (fun (name, expr) ->
                         let ty = expr.Type
-                        if fitsInto (Allow.TheUsual ||| Allow.EnumIntoInt ||| Allow.AnyIntoErased) validTypes ty then
+                        if fitsInto (Allow.TheUsual ||| Allow.EnumIntoInt) validTypes ty then
                             None
                         else
                             formatUnexpectedTypeError (Some indexers) name validTypes ty expr.Range
@@ -1804,13 +1735,13 @@ module Util =
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.Entity.FullName with
-            | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion -> true
+            | Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion | Atts.emit -> true
             | _ -> false)
 
     let isErasedOrStringEnumFSharpEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
-            | Some(Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion) -> true
+            | Some(Atts.erase | Atts.stringEnum | Atts.tsTaggedUnion | Atts.emit) -> true
             | _ -> false)
 
     let isGlobalOrImportedEntity (ent: Fable.Entity) =
