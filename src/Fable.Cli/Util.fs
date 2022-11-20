@@ -470,7 +470,7 @@ module Imports =
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir, for example package sources in fable_modules folder.
         // (Case insensitive comparison because in some Windows build servers paths can start with C:/ or c:/)
-        if importPath.StartsWith(outDir, StringComparison.OrdinalIgnoreCase) then importPath
+        if importPath.StartsWith(outDir + "/", StringComparison.OrdinalIgnoreCase) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
             let targetDir = pathResolver.GetOrAddDeduplicateTargetDir(importDir, fun currentTargetDirs ->
