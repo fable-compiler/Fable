@@ -46,14 +46,19 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         makeTuple r false argExprs
-    | ErasedUnion(tdef, _genArgs, rule) ->
-        match argExprs with
-        | [] -> transformStringEnum rule unionCase
-        | [argExpr] -> argExpr
-        | _ when tdef.UnionCases.Count > 1 ->
-            "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.InlinePath r
-        | argExprs -> makeTuple r false argExprs
+    // TODO: Wrap erased unions in type cast so type info is not lost
+    | ErasedUnion(tdef, _genArgs, rule, tag) ->
+        if tag then
+            (transformStringEnum rule unionCase)::argExprs |> makeTuple r false
+        else
+            match argExprs with
+            | [] -> transformStringEnum rule unionCase
+            | [argExpr] -> argExpr
+            | _ when tdef.UnionCases.Count > 1 ->
+                $"Erased unions with multiple fields must have one single case: {getFsTypeFullName fsType}. " +
+                "To allow multiple cases pass tag argument, e.g.: [<Erase(tag=true)>]"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+            | argExprs -> makeTuple r false argExprs
     | TypeScriptTaggedUnion _  ->
         match argExprs with
         | [argExpr] -> argExpr
@@ -326,10 +331,14 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
     | ErasedUnionCase ->
         return "Cannot test erased union cases"
         |> addErrorAndReturnNull com ctx.InlinePath r
-    | ErasedUnion(tdef, genArgs, rule) ->
-        match unionCase.Fields.Count with
-        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
-        | 1 ->
+    | ErasedUnion(tdef, genArgs, rule, tag) ->
+        match tag, unionCase.Fields.Count with
+        | true, _ ->
+            let tagName = transformStringEnum rule unionCase
+            let tagExpr = Fable.Get(unionExpr, Fable.TupleIndex 0, Fable.String, None)
+            return makeEqOp r tagExpr tagName BinaryEqual
+        | false, 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
+        | false, 1 ->
             let fi = unionCase.Fields[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
@@ -341,7 +350,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 else fi.FieldType
             let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
-        | _ ->
+        | false, _ ->
             return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
     | TypeScriptTaggedUnion (_, _, tagName, rule) ->
@@ -863,16 +872,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
     | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
+        let getIndex() = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
         match getUnionPattern fsType unionCase with
         | ErasedUnionCase ->
-            let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
-            return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
-        | ErasedUnion _  ->
-            if unionCase.Fields.Count = 1 then return unionExpr
+            return Fable.Get(unionExpr, Fable.TupleIndex(getIndex()), makeType ctx.GenericArgs fsType, r)
+        | ErasedUnion(_tdef, _genArgs, _rule, tag) ->
+            if not tag && unionCase.Fields.Count = 1 then return unionExpr
             else
-                let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
+                let index = if tag then getIndex() + 1 else getIndex()
                 return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
         | TypeScriptTaggedUnion _ ->
             if unionCase.Fields.Count = 1 then return unionExpr

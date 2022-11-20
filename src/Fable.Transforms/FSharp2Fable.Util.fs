@@ -733,7 +733,7 @@ module Helpers =
     type UnionPattern =
         | OptionUnion of FSharpType * isStruct: bool
         | ListUnion of FSharpType
-        | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules
+        | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules * tag: bool
         | ErasedUnionCase
         | TypeScriptTaggedUnion of FSharpEntity * IList<FSharpType> * tagName:string * CaseRules
         | StringEnum of FSharpEntity * CaseRules
@@ -741,11 +741,6 @@ module Helpers =
 
     let getUnionPattern (typ: FSharpType) (unionCase: FSharpUnionCase) : UnionPattern =
         let typ = nonAbbreviatedType typ
-        let getCaseRule (att: FSharpAttribute) =
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
-            | _ -> CaseRules.LowerFirst
-
         unionCase.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some Atts.erase -> Some ErasedUnionCase
@@ -761,8 +756,20 @@ module Helpers =
                 | _ ->
                     tdef.Attributes |> Seq.tryPick (fun att ->
                         match att.AttributeType.TryFullName with
-                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
+                        | Some Atts.erase ->
+                            let caseRule, tag =
+                                match Seq.tryHead att.ConstructorArguments with
+                                | Some(_, (:? int as rule)) -> enum<CaseRules>(rule), false
+                                | Some(_, (:? bool as tag)) ->
+                                    if tag then CaseRules.None, true else CaseRules.LowerFirst, false
+                                | _ -> CaseRules.LowerFirst, false
+                            Some (ErasedUnion(tdef, typ.GenericArguments, caseRule, tag))
+                        | Some Atts.stringEnum ->
+                            let caseRule =
+                                match Seq.tryHead att.ConstructorArguments with
+                                | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
+                                | _ -> CaseRules.LowerFirst
+                            Some (StringEnum(tdef, caseRule))
                         | Some Atts.tsTaggedUnion ->
                             match Seq.tryItem 0 att.ConstructorArguments, Seq.tryItem 1 att.ConstructorArguments with
                             | Some (_, (:? string as name)), None ->

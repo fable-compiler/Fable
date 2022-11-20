@@ -29,6 +29,7 @@ type AttachMembersAttribute() =
 type EraseAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = EraseAttribute()
+    new (tag: bool) = EraseAttribute()
 
 /// Used for "tagged" union types, which is commonly used in TypeScript.
 type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
