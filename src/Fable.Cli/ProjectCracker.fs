@@ -4,6 +4,7 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
+open System.Text.RegularExpressions
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
@@ -248,11 +249,6 @@ let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
-let (|Regex|_|) (pattern: string) (input: string) =
-    let m = Text.RegularExpressions.Regex.Match(input, pattern)
-    if m.Success then Some [for x in m.Groups -> x.Value]
-    else None
-
 let getBasicCompilerArgs () =
     [|
         // "--debug"
@@ -271,11 +267,31 @@ let getBasicCompilerArgs () =
         // yield "--target:library"
     |]
 
+let MSBUILD_CONDITION = Regex(@"^\s*'\$\((\w+)\)'\s*([!=]=)\s*'(true|false)'\s*$", RegexOptions.IgnoreCase)
+
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
-let getSourcesFromFablePkg (projFile: string) =
+let getSourcesFromFablePkg (opts: CrackerOptions) (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
+
+    let checkCondition (el: XElement) =
+        match el.Attribute(XName.Get "Condition") with
+        | null -> true
+        | attr ->
+            match attr.Value with
+            | Naming.Regex MSBUILD_CONDITION [_; prop; op; bval] ->
+                let bval = Boolean.Parse bval
+                let isTrue = (op = "==") = bval // (op = "==" && bval) || (op = "!=" && not bval)
+                let isDefined =
+                    opts.FableOptions.Define
+                    |> List.exists (fun d -> String.Equals(d, prop, StringComparison.InvariantCultureIgnoreCase))
+                // printfn $"CONDITION: {prop} ({isDefined}) {op} {bval} ({isTrue})"
+                isTrue = isDefined
+            | _ -> false
+
+    let withNameAndCondition s (xs: XElement seq) =
+        xs |> Seq.filter (fun el -> el.Name.LocalName = s && checkCondition el)
 
     let xmlDoc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile)
@@ -290,11 +306,11 @@ let getSourcesFromFablePkg (projFile: string) =
             |> not))
 
     xmlDoc.Root.Elements()
-    |> withName "ItemGroup"
+    |> withNameAndCondition "ItemGroup"
     |> Seq.map (fun item ->
         (item.Elements(), [])
         ||> Seq.foldBack (fun el src ->
-            if el.Name.LocalName = "Compile" then
+            if el.Name.LocalName = "Compile" && checkCondition el then
                 el.Elements() |> withName "Link"
                 |> Seq.tryHead |> function
                 | Some link when Path.isRelativePath link.Value ->
@@ -445,7 +461,7 @@ let getProjectOptionsFromProjectFile =
                     tryGetResult isMain opts manager csprojFile
                     |> Option.map (fun (r: IAnalyzerResult) ->
                         // Careful, options for .csproj start with / but so do root paths in unix
-                        let reg = System.Text.RegularExpressions.Regex(@"^\/[^\/]+?(:?:|$)")
+                        let reg = Regex(@"^\/[^\/]+?(:?:|$)")
                         let comArgs =
                             r.CompilerArguments
                             |> Array.map (fun line ->
@@ -469,7 +485,7 @@ let getProjectOptionsFromProjectFile =
                 tryGetResult isMain opts manager projFile
                 |> Option.map (fun r ->
                     // result.CompilerArguments doesn't seem to work well in Linux
-                    let comArgs = Text.RegularExpressions.Regex.Split(r.Command, @"\r?\n")
+                    let comArgs = Regex.Split(r.Command, @"\r?\n")
                     comArgs, r))
             |> function
                 | Some result -> result
@@ -631,7 +647,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder sourceFiles =
-    let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
+    let reg = Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
 let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
@@ -775,7 +791,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let pkgRefs =
             pkgRefs |> List.map (fun pkg ->
-                { pkg with SourcePaths = getSourcesFromFablePkg pkg.FsprojPath })
+                { pkg with SourcePaths = getSourcesFromFablePkg opts pkg.FsprojPath })
 
         let sourcePaths =
             let pkgSources = pkgRefs |> List.collect (fun x -> x.SourcePaths)
