@@ -912,7 +912,7 @@ module AST =
                 NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
         | Test(e, kind, r) -> Test(f e, kind, r)
         | Lambda(arg, body, name) -> Lambda(arg, f body, name)
-        | Delegate(args, body, name, tag) -> Delegate(args, f body, name, tag)
+        | Delegate(args, body, name, tags) -> Delegate(args, f body, name, tags)
         | ObjectExpr(members, t, baseCall) ->
             let baseCall = Option.map f baseCall
             let members = members |> List.map (fun m -> { m with Body = f m.Body })

@@ -910,7 +910,7 @@ module TypeInfo =
             | Fable.MetaType -> transformMetaType com ctx
             | Fable.Number(kind, _) -> transformNumberType com ctx kind
             | Fable.LambdaType(argType, returnType) ->
-                let argTypes, returnType = [argType], returnType
+                let argTypes, returnType = ([argType], returnType) // ||> FableTransforms.uncurryLambdaType
                 transformClosureType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) ->
                 transformClosureType com ctx argTypes returnType
@@ -1327,8 +1327,6 @@ module Util =
             | _ -> com.TransformExpr(ctx, e)
         | _ -> com.TransformExpr(ctx, e)
 *)
-    let transformCurry (com: IRustCompiler) (ctx: Context) arity expr: Rust.Expr =
-        com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     /// This guarantees a new owned Rc<T>
     let makeClone expr = mkMethodCallExprOnce "clone" None expr []
@@ -1340,25 +1338,31 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
+    let makeNewValue com ctx moduleName typeName (value: Rust.Expr) =
+        let importName = getLibraryImportName com ctx moduleName typeName
+        makeCall [importName; "new"] None [value]
+
     let makeLrcValue com ctx (value: Rust.Expr) =
-        let name = getLibraryImportName com ctx "Native" "Lrc"
-        makeCall [name; "new"] None [value]
+        value |> makeNewValue com ctx "Native" "Lrc"
 
     let makeRcValue com ctx (value: Rust.Expr) =
-        let name = getLibraryImportName com ctx "Native" "Rc"
-        makeCall [name; "new"] None [value]
+        value |> makeNewValue com ctx "Native" "Rc"
 
     let makeArcValue com ctx (value: Rust.Expr) =
-        let name = getLibraryImportName com ctx "Native" "Arc"
-        makeCall [name; "new"] None [value]
+        value |> makeNewValue com ctx "Native" "Arc"
 
     let makeBoxValue com ctx (value: Rust.Expr) =
-        let name = getLibraryImportName com ctx "Native" "Box"
-        makeCall [name; "new"] None [value]
+        value |> makeNewValue com ctx "Native" "Box"
+
+    let makeMutValue com ctx (value: Rust.Expr) =
+        value |> makeNewValue com ctx "Native" "MutCell"
+
+    let makeLazyValue com ctx (value: Rust.Expr) =
+        value |> makeNewValue com ctx "Native" "Lazy"
 
     let makeFuncValue com ctx (ident: Fable.Ident) =
         let argTypes =
-            match ident.Type with
+            match FableTransforms.uncurryType ident.Type with
             | Fable.LambdaType(argType, returnType) -> [argType]
             | Fable.DelegateType(argTypes, returnType) -> argTypes
             | _ -> []
@@ -1387,12 +1391,6 @@ module Util =
                 expr |> makeArcValue com ctx
             | _ ->
                 expr |> makeLrcValue com ctx
-
-    let makeMutValue (value: Rust.Expr) =
-        makeCall ["MutCell";"new"] None [value]
-
-    let makeLazyValue (value: Rust.Expr) =
-        makeCall ["Lazy";"new"] None [value]
 
     let parameterIsByRefPreferred idx (parameters: Fable.Parameter list) =
         parameters
@@ -1623,7 +1621,7 @@ module Util =
                 let expr = transformLeaveContext com ctx None value
                 let expr =
                     if ident.IsMutable
-                    then expr |> makeMutValue
+                    then expr |> makeMutValue com ctx
                     else expr
                 let attrs = []
                 let fieldName = ident.Name |> sanitizeMember
@@ -2350,9 +2348,9 @@ module Util =
         let initOpt =
             initOpt |> Option.map (fun init ->
                 if ident.IsMutable && isCaptured
-                then init |> makeMutValue |> makeLrcValue com ctx
+                then init |> makeMutValue com ctx |> makeLrcValue com ctx
                 elif ident.IsMutable
-                then init |> makeMutValue
+                then init |> makeMutValue com ctx
                 else init)
         makeLocalStmt com ctx ident tyOpt initOpt usages
 
@@ -2447,6 +2445,13 @@ module Util =
         |> transformExpr com ctx
         // |> mkTryBlockExpr // TODO: nightly only, enable when stable
 
+    let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr): Rust.Expr =
+        // match FableTransforms.tryUncurryType expr.Type with
+        // | Some(arity2, uncurriedType) when arity2 = arity ->
+        //     com.TransformExpr(ctx, expr)
+        // | _ ->
+            com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
+
     let transformCurriedApply (com: IRustCompiler) ctx range calleeExpr args =
         match ctx.TailCallOpportunity with
         | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
@@ -2455,7 +2460,12 @@ module Util =
             let callee = transformCallee com ctx calleeExpr
             match args with
             | [] -> callFunction com ctx range callee args
-            | args -> (callee, args) ||> List.fold (fun c arg -> callFunction com ctx range c [arg])
+            | args ->
+                // match FableTransforms.tryUncurryType calleeExpr.Type with
+                // | Some(arity, _) when arity = List.length args ->
+                //     callFunction com ctx range callee args
+                // | _ ->
+                    (callee, args) ||> List.fold (fun c arg -> callFunction com ctx range c [arg])
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then
@@ -3265,7 +3275,7 @@ module Util =
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
                 | IFormattable ->
-                    [ makeGenBound ["core";"fmt";"Debug"] [] ]
+                    [ makeGenBound ["core";"fmt";"Display"] [] ]
                 | IEquatable _ ->
                     [ makeRawBound "Eq"
                     ; makeGenBound ["core";"hash";"Hash"] [] ]
@@ -3431,11 +3441,11 @@ module Util =
         let typ = decl.Body.Type
         let initNone =
             mkGenericPathExpr [rawIdent "None"] None
-            |> makeMutValue
+            |> makeMutValue com ctx
         let value = transformLeaveContext com ctx None decl.Body
         let value =
             if memb.IsMutable
-            then value |> makeMutValue |> makeLrcValue com ctx
+            then value |> makeMutValue com ctx |> makeLrcValue com ctx
             else value
         let ty = transformType com ctx typ
         let ty =
@@ -3689,7 +3699,7 @@ module Util =
         let traitItem = mkTraitItem [] entName assocItems [] generics
         [traitItem |> mkPublicItem]
 
-    let makeDisplayTraitImpl com ctx self_ty genArgs =
+    let makeDisplayTraitImpls com ctx self_ty genArgs hasToString =
         // expected output:
         // impl core::fmt::Display for {self_ty} {
         //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -3697,7 +3707,9 @@ module Util =
         //     }
         // }
         let bodyStmt =
-            "write!(f, \"{}\", self.ToString_())"
+            if hasToString
+            then "write!(f, \"{}\", self.ToString_())"
+            else "write!(f, \"{}\", core::any::type_name::<Self>())"
             |> mkEmitExprStmt
         let fnBody = [bodyStmt] |> mkBlock |> Some
         let fnDecl =
@@ -3712,12 +3724,15 @@ module Util =
             mkFnDecl inputs output
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnAssocItem [] "fmt" fnKind
-        let implItem =
-            let generics = genArgs |> makeGenerics com ctx
-            let path = mkGenericPath ["core";"fmt";"Display"] None
+        let generics = genArgs |> makeGenerics com ctx
+        let implItemFor traitName =
+            let path = mkGenericPath ["core";"fmt";traitName] None
             let ofTrait = mkTraitRef path |> Some
             mkImplItem [] "" self_ty generics [fnItem] ofTrait
-        [implItem]
+        [
+            // implItemFor "Debug"
+            implItemFor "Display"
+        ]
 
     let withCurrentScope ctx (usedNames: Set<string>) f =
         let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -3732,6 +3747,32 @@ module Util =
             if withVis
             then memberItem |> memberAssocItemWithVis com ctx memb
             else memberItem
+
+    let makeMemberTraitImpls (com: IRustCompiler) ctx entName genArgs tEntRef memberItems =
+        let tEnt = com.GetEntity(tEntRef)
+        let ty =
+            let genArgTys = genArgs |> transformGenArgs com ctx
+            let bounds = mkTypeTraitGenericBound [entName] genArgTys
+            let ty = mkTraitTy [bounds]
+            ty
+        let ty =
+            if tEnt.IsValueType
+            then ty
+            else ty |> makeLrcTy com ctx
+        let tGenArgs = FSharp2Fable.Util.getEntityGenArgs tEnt
+        let generics = genArgs |> makeGenerics com ctx
+        let implItem =
+            let nameParts =
+                if tEnt.IsInterface
+                then getInterfaceEntityName com ctx tEntRef
+                else entName + "Methods"
+                |> splitNameParts
+            let path =
+                let genArgsOpt = transformGenArgs com ctx tGenArgs
+                mkGenericPath nameParts genArgsOpt
+            let ofTrait = mkTraitRef path |> Some
+            mkImplItem [] "" ty generics memberItems ofTrait
+        [implItem]
 
     let objectMethodsSet =
         set ["Equals"; "GetHashCode"; "GetType"; "ToString"] //MemberwiseClone, ReferenceEquals
@@ -3825,9 +3866,8 @@ module Util =
             Set.difference allOtherMembersSet allInterfaceMembersSet
 
         let displayTraitImpls =
-            if Set.contains "ToString" allCtorOrStaticOrObjectMembersSet
-            then makeDisplayTraitImpl com ctx self_ty genArgs
-            else []
+            let hasToString = Set.contains "ToString" allCtorOrStaticOrObjectMembersSet
+            makeDisplayTraitImpls com ctx self_ty genArgs hasToString
 
         let nonInterfaceMembersTrait =
             let assocItems =
@@ -3854,37 +3894,13 @@ module Util =
         let memberTraitImpls =
             traitsToRender
             |> List.collect (fun (tEntRef, tMethods) ->
-                let tEnt = com.GetEntity(tEntRef)
                 let memberItems =
                     decl.AttachedMembers
                     |> List.filter (fun m -> Set.contains m.Name tMethods)
                     |> List.map (makeMemberItem com ctx false)
-                if List.isEmpty memberItems then
-                    []
-                else
-                    let ty =
-                        let genArgTys = genArgs |> transformGenArgs com ctx
-                        let bounds = mkTypeTraitGenericBound [entName] genArgTys
-                        let ty = mkTraitTy [bounds]
-                        ty
-                    let ty =
-                        if tEnt.IsValueType
-                        then ty
-                        else ty |> makeLrcTy com ctx
-                    let tGenArgs = FSharp2Fable.Util.getEntityGenArgs tEnt
-                    let generics = genArgs |> makeGenerics com ctx
-                    let implItem =
-                        let nameParts =
-                            if tEnt.IsInterface
-                            then getInterfaceEntityName com ctx tEntRef
-                            else entName + "Methods"
-                            |> splitNameParts
-                        let path =
-                            let genArgsOpt = transformGenArgs com ctx tGenArgs
-                            mkGenericPath nameParts genArgsOpt
-                        let ofTrait = mkTraitRef path |> Some
-                        mkImplItem [] "" ty generics memberItems ofTrait
-                    [implItem]
+                if List.isEmpty memberItems
+                then []
+                else makeMemberTraitImpls com ctx entName genArgs tEntRef memberItems
             )
 
         ctorOrStaticOrObjectImpls

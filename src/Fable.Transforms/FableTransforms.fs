@@ -276,7 +276,7 @@ module private Transforms =
                     match value with
                     // Ident becomes the name of the function (mainly used for tail call optimizations)
                     | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
-                    | Delegate(args, funBody, _, tag) -> Delegate(args, funBody, Some ident.Name, tag)
+                    | Delegate(args, funBody, _, tags) -> Delegate(args, funBody, Some ident.Name, tags)
                     | value -> value
                 replaceValues (Map [ident.Name, value]) letBody
             else e
@@ -419,9 +419,9 @@ module private Transforms =
         match e with
         // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
         // | Lambda(arg, body, name)
-        | Delegate(args, body, name, tag) ->
+        | Delegate(args, body, name, tags) ->
             let args, body = curryArgIdentsAndReplaceInBody args body
-            Delegate(args, body, name, tag)
+            Delegate(args, body, name, tags)
         // Uncurry also values received from getters
         | GetField com (callee, fieldType, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
