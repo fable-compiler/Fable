@@ -46,6 +46,7 @@
 
     "prebuild-test": "npm run clean && npm run build-lib",
     "build-test": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --sourceMaps",
+    "build-test-ast": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --printAst",
     "build-test-ts": "npm run build-test -- --fableLib out-lib-ts --typescript",
     "build-test-opt": "npm run build-test -- --optimize",
     "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --sourceMaps",

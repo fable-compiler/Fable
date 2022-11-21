@@ -20,6 +20,11 @@ type MeasureTest() =
 //     static member (+) (v1: Vector3D<'u>, v2: Vector3D<'u>) =
 //         { x = v1.x + v2.x; y = v1.y + v2.y; z = v1.z + v2.z }
 
+type MyRecord<'a> =
+    { Value: 'a }
+    // Check that F# is not automatically assigning 'a name to the argument's generic parameter
+    static member Stringify v = v
+
 type TestUnion =
     | UncurryUnion of add: (int -> int -> int)
 
@@ -92,6 +97,11 @@ let ``Functions in class fields are uncurried`` () =
     let adder = TestClass((+))
     let res = adder.Add(2, 3)
     res |> equal 5
+
+[<Fact>]
+let ``automatically generated generic names don't conflict`` () =
+    MyRecord<string>.Stringify 456
+    |> equal 456
 
 #if FABLE_COMPILER_RUST
 open Fable.Core.Rust

@@ -14,28 +14,30 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-let partialApplyAtRuntime (_com: Compiler) t arity (expr: Expr) (argExprs: Expr list) =
+let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (argExprs: Expr list) =
     // TODO: convert to Fable.AST instead of emit
+    let funcType = Helper.LibValue(com, "Native", "Func1", Any)
     let argIdents = List.init arity (fun i -> $"arg{i}")
     let args = argIdents |> String.concat ", "
-    let makeArg a = $"Func1::new(move |{a}| "
+    let makeArg a = $"$0::new(move |{a}| "
     let makeEnd a = $")"
     let curriedArgs = argIdents |> List.map makeArg |> String.concat ""
     let curriedEnds = argIdents |> List.map makeEnd |> String.concat ""
-    let appliedArgs = argExprs |> List.mapi (fun i _a -> $"${i + 1}, ") |> String.concat ""
-    let fmt = $"%s{curriedArgs}$0(%s{appliedArgs}%s{args}){curriedEnds}"
-    fmt |> emitExpr None t (expr::argExprs)
+    let appliedArgs = argExprs |> List.mapi (fun i _a -> $"${i + 2}, ") |> String.concat ""
+    let fmt = $"%s{curriedArgs}$1(%s{appliedArgs}%s{args}){curriedEnds}"
+    fmt |> emitExpr None t (funcType::expr::argExprs)
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     partialApplyAtRuntime com expr.Type arity expr []
 
 let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     let uncurry expr =
+        let funcType = Helper.LibValue(com, "Native", $"Func{arity}", Any)
         let argIdents = List.init arity (fun i -> $"arg{i}")
         let args = argIdents |> String.concat ", "
         let appliedArgs = argIdents |> String.concat ")("
-        let fmt = $"Func{arity}::new(move |%s{args}| $0(%s{appliedArgs}))"
-        fmt |> emitExpr None t [expr]
+        let fmt = $"$0::new(move |%s{args}| $1(%s{appliedArgs}))"
+        fmt |> emitExpr None t [funcType; expr]
     match expr with
     | Value(Null _, _) -> expr
     | Value(NewOption(value, t, isStruct), r) ->

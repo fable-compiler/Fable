@@ -16,17 +16,12 @@ module Collections =
     module Generic =
 
         // type Comparer<'T when 'T: comparison>() =
-        //     static member Default =
-        //         { new IComparer<'T> with
-        //             member _.Compare(x, y) = LanguagePrimitives.GenericComparison x y }
+        //     static member Default = Comparer<'T>()
         //     interface IComparer<'T> with
         //         member _.Compare(x, y) = LanguagePrimitives.GenericComparison x y
 
         // type EqualityComparer<'T when 'T: equality>() =
-        //     static member Default =
-        //         { new IEqualityComparer<'T> with
-        //             member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-        //             member _.GetHashCode(x) = LanguagePrimitives.GenericHash x }
+        //     static member Default = EqualityComparer<'T>()
         //     interface IEqualityComparer<'T> with
         //         member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
         //         member _.GetHashCode(x) = LanguagePrimitives.GenericHash x
@@ -69,13 +64,11 @@ module Collections =
             member _.Contains(x: 'T) =
                 let mutable found = false
                 let mutable i = 0
-
                 while i < count && not found do
                     if x = contents[i] then
                         found <- true
                     else
                         i <- i + 1
-
                 found
 
             member this.TryPeek(result: 'T byref) =
@@ -167,14 +160,12 @@ module Collections =
             member _.Enqueue (value: 'T) =
                 if count = size() then
                     ensure(count + 1)
-
                 contents[tail] <- value
                 tail <- (tail + 1) % size()
                 count <- count + 1
 
             member _.Dequeue (): 'T =
                 if count = 0 then invalidOp "Queue is empty"
-
                 let value = contents[head]
                 head <- (head + 1) % size()
                 count <- count - 1
@@ -215,8 +206,7 @@ module Collections =
                 Array.fill contents 0 (size()) Unchecked.defaultof<_>
 
             member _.TrimExcess() =
-                if float count / float contents.Length > 0.9
-                then
+                if float count / float contents.Length > 0.9 then
                     ensure(count)
 
             member _.ToArray(): 'T[] =

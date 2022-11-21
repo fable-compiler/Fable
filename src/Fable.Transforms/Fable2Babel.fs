@@ -1031,10 +1031,10 @@ module Util =
         | Fable.BaseValue(None,_) -> Super(None)
         | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent
         | Fable.ThisValue _ -> Expression.thisExpression()
-        | Fable.TypeInfo(t, tag) ->
+        | Fable.TypeInfo(t, tags) ->
             if com.Options.NoReflection then addErrorAndReturnNull com r "Reflection is disabled"
             else
-                let genMap = if List.contains "allow-generics" tag then None else Some Map.empty
+                let genMap = if List.contains "allow-generics" tags then None else Some Map.empty
                 transformTypeInfo com ctx r genMap t
         | Fable.Null _t ->
             // if com.Options.Language = TypeScript
@@ -1835,8 +1835,8 @@ module Util =
             transformFunctionWithAnnotations com ctx name None [arg] body
             |> makeArrowFunctionExpression name
 
-        | Fable.Delegate(args, body, name, tag) ->
-            if List.contains "not-arrow" tag then
+        | Fable.Delegate(args, body, name, tags) ->
+            if List.contains "not-arrow" tags then
                 let id = name |> Option.map Identifier.identifier
                 let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name None args body
                 Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
