@@ -1486,8 +1486,8 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
 
 let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
+    | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "get_Value", Some c -> getOptionValue r t c |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
@@ -2894,7 +2894,10 @@ let tryType = function
         Some(getNumberFullName false kind info, f, [])
     | String -> Some(Types.string, strings, [])
     | Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option(genArg, isStruct) -> Some(Types.option, options isStruct, [genArg])
+    | Option(genArg, isStruct) ->
+        if isStruct
+        then Some(Types.valueOption, options true, [genArg])
+        else Some(Types.option, options false, [genArg])
     | Array(genArg,_) -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->

@@ -43,7 +43,8 @@ module Imports =
         let outDir = normalizePath outDir
         // It may happen the importPath is already in outDir,
         // for example package sources in fable_modules folder
-        if importPath.StartsWith(outDir) then importPath
+        if importPath.StartsWith(outDir + "/") then importPath
+        // if importPath.StartsWith(outDir + "/", StringComparison.OrdinalIgnoreCase) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
             let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->

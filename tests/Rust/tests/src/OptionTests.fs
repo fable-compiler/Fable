@@ -131,7 +131,7 @@ let ``Option.orElseWith works`` () =
     None |> Option.orElseWith (fun () -> Some "foo") |> equal (Some "foo")
 
 [<Fact>]
-let ``Option.isSome, isNone works`` () =
+let ``Option.isSome,isNone works`` () =
     let o1: int option = None //TODO: handle generic option None
     let o2 = Some 5
     Option.isNone o1 |> equal true
@@ -140,8 +140,26 @@ let ``Option.isSome, isNone works`` () =
     Option.isSome o2 |> equal true
 
 [<Fact>]
-let ``Option.IsSome, IsNone works`` () =
+let ``Option.IsSome,IsNone works`` () =
     let o1: int option = None //TODO: handle generic option None
+    let o2 = Some 5
+    o1.IsNone |> equal true
+    o1.IsSome |> equal false
+    o2.IsNone |> equal false
+    o2.IsSome |> equal true
+
+[<Fact>]
+let ``ValueOption.isSome,isNone works`` () =
+    let o1: int voption = ValueNone
+    let o2 = ValueSome 5
+    ValueOption.isNone o1 |> equal true
+    ValueOption.isSome o1 |> equal false
+    ValueOption.isNone o2 |> equal false
+    ValueOption.isSome o2 |> equal true
+
+[<Fact>]
+let ``ValueOption.IsSome,IsNone works`` () =
+    let o1: int voption = ValueNone
     let o2 = Some 5
     o1.IsNone |> equal true
     o1.IsSome |> equal false

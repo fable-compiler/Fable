@@ -2027,8 +2027,10 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
-let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
+    | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
+    | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "get_Value", Some c ->
         Helper.LibCall(com, "option", "value", t, [ c ], ?loc = r)
         |> Some
@@ -2036,12 +2038,12 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
-let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let toArray r t arg =
         Helper.LibCall(com, "option", "toArray", Array(t, MutableArray), [ arg ], ?loc = r)
 
     match i.CompiledName, args with
-    | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
+    | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
     | "GetValue", [ c ] ->
         Helper.LibCall(com, "option", "value", t, args, ?loc = r)
         |> Some
@@ -3760,10 +3762,11 @@ let private replacedModules =
            Types.stack, bclType
            Types.queue, bclType
            Types.iset, hashSets
-           Types.option, options
-           Types.valueOption, options
+           Types.option, options false
+           Types.valueOption, options true
            "System.Nullable`1", nullables
-           "Microsoft.FSharp.Core.OptionModule", optionModule
+           "Microsoft.FSharp.Core.OptionModule", optionModule false
+           "Microsoft.FSharp.Core.ValueOption", optionModule true
            "Microsoft.FSharp.Core.ResultModule", results
            Types.bigint, bigints
            "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
@@ -3954,7 +3957,10 @@ let tryType =
         Some(getNumberFullName false kind info, f, [])
     | String -> Some(Types.string, strings, [])
     | Tuple (genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option (genArg, _) -> Some(Types.option, options, [ genArg ])
+    | Option(genArg, isStruct) ->
+        if isStruct
+        then Some(Types.valueOption, options true, [ genArg ])
+        else Some(Types.option, options false, [ genArg ])
     | Array(genArg,_) -> Some(Types.array, arrays, [ genArg ])
     | List genArg -> Some(Types.list, lists, [ genArg ])
     | Builtin kind ->
