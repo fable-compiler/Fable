@@ -39,12 +39,44 @@ module Testing =
 
 
 module Reflection =
-    let isUnion (x: obj): bool = nativeOnly
-    let isRecord (x: obj): bool = nativeOnly
+    open FSharp.Reflection
 
-    let getCaseTag (x: obj): int = nativeOnly
-    let getCaseName (x: obj): string = nativeOnly
-    let getCaseFields (x: obj): obj[] = nativeOnly
+    let isUnion (x: obj): bool =
+#if FABLE_COMPILER
+        nativeOnly
+#else
+        FSharpType.IsUnion(x.GetType())
+#endif
+
+    let isRecord (x: obj): bool =
+#if FABLE_COMPILER
+        nativeOnly
+#else
+        FSharpType.IsRecord(x.GetType())
+#endif
+
+    let getCaseTag (x: obj): int =
+#if FABLE_COMPILER
+        nativeOnly
+#else
+        let uci, _ = FSharpValue.GetUnionFields(x, x.GetType())
+        uci.Tag
+#endif
+
+    let getCaseName (x: obj): string =
+#if FABLE_COMPILER
+        nativeOnly
+#else
+        let uci, _ = FSharpValue.GetUnionFields(x, x.GetType())
+        uci.Name
+#endif
+
+    let getCaseFields (x: obj): obj[] =
+#if FABLE_COMPILER
+        nativeOnly
+#else
+        FSharpValue.GetUnionFields(x, x.GetType()) |> snd
+#endif
 
 module Compiler =
     /// Compiler full version as string

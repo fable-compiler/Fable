@@ -20,7 +20,19 @@ type CustomPow =
     { Ok: bool }
     static member Pow(x: CustomPow, n: int) = { Ok = true }
 
+[<Fable.Core.Erase>]
+type WrappedNum = Num of int with
+    static member ( + ) (Num x, Num y) = 2 * (x + y) |> Num
+
+let addWrapped1 (x: WrappedNum) y = x + y
+
+let addWrapped2 (x: WrappedNum) y = x + Num y
+
 let typeOperators = [
+    testCase "Can resolve custom operators on erased types" <| fun () -> // See #2915
+        addWrapped1 (Num 4) (Num 5) |> equal (Num 18)
+        addWrapped2 (Num 4) 5 |> equal (Num 18)
+
     testCase "Custom operators with types work" <| fun () ->
         let p1 = { x=5.; y=10. }
         let p2 = { x=2.; y=1. }

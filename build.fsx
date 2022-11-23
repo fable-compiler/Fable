@@ -534,9 +534,8 @@ let testPython() =
         "--lang Python"
     ]
 
-    runInDir buildDir "poetry run pytest -x"
-    // Testing in Windows
-    // runInDir buildDir "python -m pytest -x"
+    if isWindows then runInDir buildDir "python3 -m pytest -x"
+    else runInDir buildDir "poetry run pytest -x"
 
 type RustTestMode =
     | SingleThreaded
@@ -764,7 +763,7 @@ match BUILD_ARGS_LOWER with
 | "test-integration"::_ -> testIntegration()
 | "test-repos"::_ -> testRepos()
 | ("test-ts"|"test-typescript")::_ -> testTypeScript()
-| "test-py"::_ -> testPython()
+| ("test-py"|"test-python")::_ -> testPython()
 | "test-rust"::_ -> testRust SingleThreaded
 | "test-rust-default"::_ -> testRust SingleThreaded
 | "test-rust-threaded"::_ -> testRust MultiThreaded

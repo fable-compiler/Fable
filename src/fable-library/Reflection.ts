@@ -18,6 +18,11 @@ export class CaseInfo {
   }
 }
 
+export const enum ErasedUnion {
+  Default,
+  WithTag
+}
+
 export type EnumCase = [string, number];
 
 export class MethodInfo {
@@ -32,13 +37,21 @@ export class MethodInfo {
 export class TypeInfo implements IEquatable<TypeInfo> {
   constructor(
     public fullname: string,
-    public generics?: TypeInfo[],
-    public construct?: Constructor,
-    public parent?: TypeInfo,
-    public fields?: () => FieldInfo[],
-    public cases?: () => CaseInfo[],
-    public enumCases?: EnumCase[]) {
-  }
+    private info?: {
+      generics?: TypeInfo[],
+      construct?: Constructor,
+      parent?: TypeInfo,
+      fields?: () => FieldInfo[],
+      cases?: () => CaseInfo[],
+      enumCases?: EnumCase[],
+    }
+  ) { }
+  public get generics() { return this.info?.generics; }
+  public get construct() { return this.info?.construct; }
+  public get parent() { return this.info?.parent; }
+  public get fields() { return this.info?.fields; }
+  public get cases() { return this.info?.cases; }
+  public get enumCases() { return this.info?.enumCases; }
   public toString() {
     return fullName(this);
   }
@@ -83,7 +96,7 @@ export function class_type(
   generics?: TypeInfo[],
   construct?: Constructor,
   parent?: TypeInfo): TypeInfo {
-  return new TypeInfo(fullname, generics, construct, parent);
+  return new TypeInfo(fullname, { generics, construct, parent });
 }
 
 export function record_type(
@@ -91,11 +104,11 @@ export function record_type(
   generics: TypeInfo[],
   construct: Constructor,
   fields: () => FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, construct, undefined, fields);
+  return new TypeInfo(fullname, { generics, construct, fields });
 }
 
 export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo("", undefined, undefined, undefined, () => fields);
+  return new TypeInfo("", { fields: () => fields });
 }
 
 export function union_type(
@@ -103,39 +116,54 @@ export function union_type(
   generics: TypeInfo[],
   construct: Constructor,
   cases: () => FieldInfo[][]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, undefined, () => {
-    const caseNames = construct.prototype.cases() as string[];
-    return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i], fields))
+  const t: TypeInfo = new TypeInfo(fullname, {
+    generics,
+    construct,
+    cases() {
+      const caseNames = construct.prototype.cases() as string[];
+      return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i], fields))
+    }
   });
   return t;
 }
 
 export function tuple_type(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Tuple`" + generics.length, generics);
+  return new TypeInfo("System.Tuple`" + generics.length, { generics });
 }
 
 export function delegate_type(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Func`" + generics.length, generics);
+  return new TypeInfo("System.Func`" + generics.length, { generics });
 }
 
 export function lambda_type(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", {
+    generics: [argType, returnType]
+  });
 }
 
 export function option_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", {
+    generics: [generic]
+  });
 }
 
 export function list_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
+  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", {
+    generics: [generic]
+  });
 }
 
 export function array_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("[]", [generic]);
+  return new TypeInfo("[]", {
+    generics: [generic]
+  });
 }
 
 export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
-  return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, undefined, enumCases);
+  return new TypeInfo(fullname, {
+    generics: [underlyingType],
+    enumCases
+  });
 }
 
 export function measure_type(fullname: string): TypeInfo {
@@ -262,7 +290,9 @@ export function isInstanceOfType(t: TypeInfo, o: any) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj_type));
+  return t.generics == null ? t : new TypeInfo(t.fullname, {
+    generics: t.generics.map(() => obj_type)
+  });
 }
 
 export function getEnumUnderlyingType(t: TypeInfo) {
@@ -452,12 +482,13 @@ export function makeTuple(values: any[], _t: TypeInfo): any {
 
 export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
   return new TypeInfo(
-    t.fullname,
-    generics,
-    t.construct,
-    t.parent,
-    t.fields,
-    t.cases);
+    t.fullname, {
+      generics,
+      construct: t.construct,
+      parent: t.parent,
+      fields: t.fields,
+      cases: t.cases
+    });
 }
 
 export function createInstance(t: TypeInfo, consArgs?: any[]): any {
