@@ -79,9 +79,12 @@ let measureTime (f: unit -> unit): unit = emitJsStatement () """
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
-[<Erase>]
+// [<Erase>]
 type MyRecord =
     { Foo: int }
+
+type MyRecord2 =
+    { Bar: MyRecord }
 
 let testMyRecord (r: MyRecord) =
     r.Foo
@@ -99,6 +102,18 @@ let test = function
 
 Zas 5.67890 |> test |> printfn "%s"
 Foo("oh", 3) |> test |> printfn "%s"
+
+[<Erase>]
+type WrappedNum = Num of int with
+    static member ( + ) (Num x, Num y) = 2 * (x + y) |> Num
+
+let add1 (x: WrappedNum) y = x + y
+
+let add2 (x: WrappedNum) y = x + Num y
+
+testCase "Can resolve custom operators on erased types" <| fun () -> // See #2915
+    add1 (Num 4) (Num 5) |> equal (Num 18)
+    add2 (Num 4) 5 |> equal (Num 18)
 
 (*
 module TaggedUnion =

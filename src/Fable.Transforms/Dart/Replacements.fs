@@ -1484,17 +1484,18 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | "get_HasValue", Some c -> makeEqOp r c (makeNull()) BinaryUnequal |> Some
     | _ -> None
 
-// See fable-library/Option.ts for more info on how options behave in Fable runtime
-let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
+    | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
+    | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "get_Value", Some c -> getOptionValue r t c |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
-let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
+    | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
     | "GetValue", [c] -> getOptionValue r t c |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
@@ -2708,10 +2709,11 @@ let private replacedModules =
     Types.queue, bclType
     Types.iset, hashSets
     Types.idisposable, disposables
-    Types.option, options
-    Types.valueOption, options
+    Types.option, options false
+    Types.valueOption, options true
     "System.Nullable`1", nullables
-    "Microsoft.FSharp.Core.OptionModule", optionModule
+    "Microsoft.FSharp.Core.OptionModule", optionModule false
+    "Microsoft.FSharp.Core.ValueOption", optionModule true
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
@@ -2892,7 +2894,7 @@ let tryType = function
         Some(getNumberFullName false kind info, f, [])
     | String -> Some(Types.string, strings, [])
     | Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
-    | Option(genArg, _) -> Some(Types.option, options, [genArg])
+    | Option(genArg, isStruct) -> Some(Types.option, options isStruct, [genArg])
     | Array(genArg,_) -> Some(Types.array, arrays, [genArg])
     | List genArg -> Some(Types.list, lists, [genArg])
     | Builtin kind ->
