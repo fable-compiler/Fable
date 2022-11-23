@@ -90,6 +90,24 @@ let ``test Option.IsSome/IsNone works II`` () =
     o2.IsSome |> equal true
 
 [<Fact>]
+let ``test ValueOption.isSome/isNone works`` () =
+    let o1: int voption = ValueNone
+    let o2 = ValueSome 5
+    ValueOption.isNone o1 |> equal true
+    ValueOption.isSome o1 |> equal false
+    ValueOption.isNone o2 |> equal false
+    ValueOption.isSome o2 |> equal true
+
+[<Fact>]
+let ``test ValueOption.IsSome/IsNone works II`` () =
+    let o1: int voption = ValueNone
+    let o2 = Some 5
+    o1.IsNone |> equal true
+    o1.IsSome |> equal false
+    o2.IsNone |> equal false
+    o2.IsSome |> equal true
+
+[<Fact>]
 let ``test Option.iter works`` () =
     let mutable res = false
     let getOnlyOnce =
