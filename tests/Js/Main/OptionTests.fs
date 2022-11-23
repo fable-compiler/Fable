@@ -80,8 +80,24 @@ let tests =
         Option.isNone o2 |> equal false
         Option.isSome o2 |> equal true
 
+    testCase "ValueOption.isSome/isNone works" <| fun () ->
+        let o1: int voption = ValueNone
+        let o2 = ValueSome 5
+        ValueOption.isNone o1 |> equal true
+        ValueOption.isSome o1 |> equal false
+        ValueOption.isNone o2 |> equal false
+        ValueOption.isSome o2 |> equal true
+
     testCase "Option.IsSome/IsNone works" <| fun () ->
         let o1 = None
+        let o2 = Some 5
+        o1.IsNone |> equal true
+        o1.IsSome |> equal false
+        o2.IsNone |> equal false
+        o2.IsSome |> equal true
+
+    testCase "ValueOption.IsSome/IsNone works" <| fun () ->
+        let o1: int voption = ValueNone
         let o2 = Some 5
         o1.IsNone |> equal true
         o1.IsSome |> equal false

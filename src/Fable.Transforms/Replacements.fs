@@ -1687,11 +1687,11 @@ let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (th
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
-let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let toArray r t arg =
         Helper.LibCall(com, "Option", "toArray", Array(t, MutableArray), [arg], ?loc=r)
     match i.CompiledName, args with
-    | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
+    | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
     | "GetValue", [c] ->
         Helper.LibCall(com, "Option", "value", t, args, ?loc=r) |> Some
     | ("OfObj" | "OfNullable"), _ ->
@@ -2900,7 +2900,8 @@ let private replacedModules =
     Types.option, options false
     Types.valueOption, options true
     "System.Nullable`1", nullables
-    "Microsoft.FSharp.Core.OptionModule", optionModule
+    "Microsoft.FSharp.Core.OptionModule", optionModule false
+    "Microsoft.FSharp.Core.ValueOption", optionModule true
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
