@@ -7,19 +7,17 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/42.7.100-dev": {
+      "FSharp.Compiler.Service/43.7.102-dev": {
         "dependencies": {
           "FSharp.Core": "7.0.0-dev",
           "FSharp.DependencyManager.Nuget": "7.0.0-dev",
-          "Microsoft.Build.Framework": "17.4.0-preview-22469-04",
-          "Microsoft.Build.Tasks.Core": "17.4.0-preview-22469-04",
-          "Microsoft.Build.Utilities.Core": "17.4.0-preview-22469-04",
-          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22513.1",
+          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22555.1",
           "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22518-02",
           "Microsoft.SourceLink.GitHub": "1.2.0-beta-22518-02",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
           "System.Collections.Immutable": "6.0.0",
+          "System.Diagnostics.DiagnosticSource": "6.0.0",
           "System.Memory": "4.5.5",
           "System.Reflection.Emit": "4.7.0",
           "System.Reflection.Metadata": "6.0.0",
@@ -70,47 +68,8 @@
           }
         }
       },
-      "Microsoft.Build.Framework/17.4.0-preview-22469-04": {
-        "dependencies": {
-          "Microsoft.Win32.Registry": "5.0.0",
-          "System.Security.Permissions": "6.0.0"
-        }
-      },
-      "Microsoft.Build.Tasks.Core/17.4.0-preview-22469-04": {
-        "dependencies": {
-          "Microsoft.Build.Framework": "17.4.0-preview-22469-04",
-          "Microsoft.Build.Utilities.Core": "17.4.0-preview-22469-04",
-          "Microsoft.NET.StringTools": "17.4.0-preview-22469-04",
-          "Microsoft.Win32.Registry": "5.0.0",
-          "System.CodeDom": "6.0.0",
-          "System.Collections.Immutable": "6.0.0",
-          "System.Reflection.Metadata": "6.0.0",
-          "System.Resources.Extensions": "6.0.0",
-          "System.Security.Cryptography.Pkcs": "6.0.1",
-          "System.Security.Cryptography.Xml": "6.0.0",
-          "System.Security.Permissions": "6.0.0",
-          "System.Threading.Tasks.Dataflow": "6.0.0"
-        }
-      },
       "Microsoft.Build.Tasks.Git/1.2.0-beta-22518-02": {},
-      "Microsoft.Build.Utilities.Core/17.4.0-preview-22469-04": {
-        "dependencies": {
-          "Microsoft.Build.Framework": "17.4.0-preview-22469-04",
-          "Microsoft.NET.StringTools": "17.4.0-preview-22469-04",
-          "Microsoft.Win32.Registry": "5.0.0",
-          "System.Collections.Immutable": "6.0.0",
-          "System.Configuration.ConfigurationManager": "6.0.0",
-          "System.Security.Permissions": "6.0.0",
-          "System.Text.Encoding.CodePages": "6.0.0"
-        }
-      },
-      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {},
-      "Microsoft.NET.StringTools/17.4.0-preview-22469-04": {
-        "dependencies": {
-          "System.Memory": "4.5.5",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
-        }
-      },
+      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22555.1": {},
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22518-02": {
         "dependencies": {
@@ -123,20 +82,6 @@
         "dependencies": {
           "Microsoft.Build.Tasks.Git": "1.2.0-beta-22518-02",
           "Microsoft.SourceLink.Common": "1.2.0-beta-22518-02"
-        }
-      },
-      "Microsoft.Win32.Registry/5.0.0": {
-        "dependencies": {
-          "System.Buffers": "4.5.1",
-          "System.Memory": "4.5.5",
-          "System.Security.AccessControl": "6.0.0",
-          "System.Security.Principal.Windows": "5.0.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/Microsoft.Win32.Registry.dll": {
-            "assemblyVersion": "5.0.0.0",
-            "fileVersion": "5.0.20.51904"
-          }
         }
       },
       "NETStandard.Library/2.0.3": {
@@ -152,14 +97,6 @@
           }
         }
       },
-      "System.CodeDom/6.0.0": {
-        "runtime": {
-          "lib/netstandard2.0/System.CodeDom.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
       "System.Collections.Immutable/6.0.0": {
         "dependencies": {
           "System.Memory": "4.5.5",
@@ -172,25 +109,13 @@
           }
         }
       },
-      "System.Configuration.ConfigurationManager/6.0.0": {
+      "System.Diagnostics.DiagnosticSource/6.0.0": {
         "dependencies": {
-          "System.Security.Cryptography.ProtectedData": "6.0.0",
-          "System.Security.Permissions": "6.0.0"
+          "System.Memory": "4.5.5",
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "runtime": {
-          "lib/netstandard2.0/System.Configuration.ConfigurationManager.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Formats.Asn1/6.0.0": {
-        "dependencies": {
-          "System.Buffers": "4.5.1",
-          "System.Memory": "4.5.5"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Formats.Asn1.dll": {
+          "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.0.21.52210"
           }
@@ -247,116 +172,9 @@
           }
         }
       },
-      "System.Resources.Extensions/6.0.0": {
-        "dependencies": {
-          "System.Memory": "4.5.5"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Resources.Extensions.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
       "System.Runtime.CompilerServices.Unsafe/6.0.0": {
         "runtime": {
           "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Security.AccessControl/6.0.0": {
-        "dependencies": {
-          "System.Security.Principal.Windows": "5.0.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Security.AccessControl.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Security.Cryptography.Cng/5.0.0": {
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Cryptography.Cng.dll": {
-            "assemblyVersion": "4.3.0.0",
-            "fileVersion": "4.700.19.51609"
-          }
-        }
-      },
-      "System.Security.Cryptography.Pkcs/6.0.1": {
-        "dependencies": {
-          "System.Buffers": "4.5.1",
-          "System.Formats.Asn1": "6.0.0",
-          "System.Memory": "4.5.5",
-          "System.Security.Cryptography.Cng": "5.0.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Cryptography.Pkcs.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.522.21309"
-          }
-        }
-      },
-      "System.Security.Cryptography.ProtectedData/6.0.0": {
-        "dependencies": {
-          "System.Memory": "4.5.5"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Cryptography.ProtectedData.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Security.Cryptography.Xml/6.0.0": {
-        "dependencies": {
-          "System.Memory": "4.5.5",
-          "System.Security.AccessControl": "6.0.0",
-          "System.Security.Cryptography.Pkcs": "6.0.1"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Cryptography.Xml.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Security.Permissions/6.0.0": {
-        "dependencies": {
-          "System.Security.AccessControl": "6.0.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Permissions.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Security.Principal.Windows/5.0.0": {
-        "runtime": {
-          "lib/netstandard2.0/System.Security.Principal.Windows.dll": {
-            "assemblyVersion": "5.0.0.0",
-            "fileVersion": "5.0.20.51904"
-          }
-        }
-      },
-      "System.Text.Encoding.CodePages/6.0.0": {
-        "dependencies": {
-          "System.Memory": "4.5.5",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/System.Text.Encoding.CodePages.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
-      "System.Threading.Tasks.Dataflow/6.0.0": {
-        "runtime": {
-          "lib/netstandard2.0/System.Threading.Tasks.Dataflow.dll": {
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.0.21.52210"
           }
@@ -464,24 +282,10 @@
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/42.7.100-dev": {
+    "FSharp.Compiler.Service/43.7.102-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "Microsoft.Build.Framework/17.4.0-preview-22469-04": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-NCOy0Z1b0N0RABP6Yi/pECchh/+JweTV1tKPNQvXF2yyS6vzrRfk26UKqJ3uUAQas9vS3UvTVrQLvqSV94sh+w==",
-      "path": "microsoft.build.framework/17.4.0-preview-22469-04",
-      "hashPath": "microsoft.build.framework.17.4.0-preview-22469-04.nupkg.sha512"
-    },
-    "Microsoft.Build.Tasks.Core/17.4.0-preview-22469-04": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-DR+ama2itqHHXwLBAH2Lww8g9T6wIhTRBkIniT6SGE74FSyZlN2CwnaRkof7zilXxptQNVNFJ7ZRmQ2Uv2Kfiw==",
-      "path": "microsoft.build.tasks.core/17.4.0-preview-22469-04",
-      "hashPath": "microsoft.build.tasks.core.17.4.0-preview-22469-04.nupkg.sha512"
     },
     "Microsoft.Build.Tasks.Git/1.2.0-beta-22518-02": {
       "type": "package",
@@ -490,26 +294,12 @@
       "path": "microsoft.build.tasks.git/1.2.0-beta-22518-02",
       "hashPath": "microsoft.build.tasks.git.1.2.0-beta-22518-02.nupkg.sha512"
     },
-    "Microsoft.Build.Utilities.Core/17.4.0-preview-22469-04": {
+    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22555.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-YV8asIp+nHbmBI8EmqX0GWoUND3bmO5+Wod6k0usRIR+TAOEvIf+GZA6DqkX/R2nSeqqA0xYfhF02do9dwME8A==",
-      "path": "microsoft.build.utilities.core/17.4.0-preview-22469-04",
-      "hashPath": "microsoft.build.utilities.core.17.4.0-preview-22469-04.nupkg.sha512"
-    },
-    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-7MfwZXG878da4m05oge5Gi9zgTwAUW5NINDDkOBflkZf4rCZXyrPP57BvKpuRW765UzJ/C6gx6J4wVJc3vbvhg==",
-      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22513.1",
-      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22513.1.nupkg.sha512"
-    },
-    "Microsoft.NET.StringTools/17.4.0-preview-22469-04": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-nNDmVeX5lB7ngZppc02iRAHErzkD5CTxI/yGQl08KsOSpRrBCUVwhEBPWz8e2qCFe54pBYIB32peDd8nBd4F9Q==",
-      "path": "microsoft.net.stringtools/17.4.0-preview-22469-04",
-      "hashPath": "microsoft.net.stringtools.17.4.0-preview-22469-04.nupkg.sha512"
+      "sha512": "sha512-qeJQ4svCJbfSYfXLMLSkbE781vY6Fi3LkaCjX1dHsY0HmInvQLUk4ptXmXu0aof3q43FA9qSjgGtxS6Lsy1l1Q==",
+      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22555.1",
+      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22555.1.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",
@@ -539,13 +329,6 @@
       "path": "microsoft.sourcelink.github/1.2.0-beta-22518-02",
       "hashPath": "microsoft.sourcelink.github.1.2.0-beta-22518-02.nupkg.sha512"
     },
-    "Microsoft.Win32.Registry/5.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg==",
-      "path": "microsoft.win32.registry/5.0.0",
-      "hashPath": "microsoft.win32.registry.5.0.0.nupkg.sha512"
-    },
     "NETStandard.Library/2.0.3": {
       "type": "package",
       "serviceable": true,
@@ -560,13 +343,6 @@
       "path": "system.buffers/4.5.1",
       "hashPath": "system.buffers.4.5.1.nupkg.sha512"
     },
-    "System.CodeDom/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-CPc6tWO1LAer3IzfZufDBRL+UZQcj5uS207NHALQzP84Vp/z6wF0Aa0YZImOQY8iStY0A2zI/e3ihKNPfUm8XA==",
-      "path": "system.codedom/6.0.0",
-      "hashPath": "system.codedom.6.0.0.nupkg.sha512"
-    },
     "System.Collections.Immutable/6.0.0": {
       "type": "package",
       "serviceable": true,
@@ -574,19 +350,12 @@
       "path": "system.collections.immutable/6.0.0",
       "hashPath": "system.collections.immutable.6.0.0.nupkg.sha512"
     },
-    "System.Configuration.ConfigurationManager/6.0.0": {
+    "System.Diagnostics.DiagnosticSource/6.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-7T+m0kDSlIPTHIkPMIu6m6tV6qsMqJpvQWW2jIc2qi7sn40qxFo0q+7mEQAhMPXZHMKnWrnv47ntGlM/ejvw3g==",
-      "path": "system.configuration.configurationmanager/6.0.0",
-      "hashPath": "system.configuration.configurationmanager.6.0.0.nupkg.sha512"
-    },
-    "System.Formats.Asn1/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-T6fD00dQ3NTbPDy31m4eQUwKW84s03z0N2C8HpOklyeaDgaJPa/TexP4/SkORMSOwc7WhKifnA6Ya33AkzmafA==",
-      "path": "system.formats.asn1/6.0.0",
-      "hashPath": "system.formats.asn1.6.0.0.nupkg.sha512"
+      "sha512": "sha512-frQDfv0rl209cKm1lnwTgFPzNigy2EKk1BS3uAvHvlBVKe5cymGyHO+Sj+NLv5VF/AhHsqPIUUwya5oV4CHMUw==",
+      "path": "system.diagnostics.diagnosticsource/6.0.0",
+      "hashPath": "system.diagnostics.diagnosticsource.6.0.0.nupkg.sha512"
     },
     "System.Memory/4.5.5": {
       "type": "package",
@@ -623,82 +392,12 @@
       "path": "system.reflection.metadata/6.0.0",
       "hashPath": "system.reflection.metadata.6.0.0.nupkg.sha512"
     },
-    "System.Resources.Extensions/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-pBnVzNQYd0OHqh0VLu/hi0zFOTtyF8QwtziQBmzX/ZtVOea4+JEVOGu29DHeSOA0a9SFrYjQorBrOLuKLhcMNQ==",
-      "path": "system.resources.extensions/6.0.0",
-      "hashPath": "system.resources.extensions.6.0.0.nupkg.sha512"
-    },
     "System.Runtime.CompilerServices.Unsafe/6.0.0": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg==",
       "path": "system.runtime.compilerservices.unsafe/6.0.0",
       "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
-    },
-    "System.Security.AccessControl/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-AUADIc0LIEQe7MzC+I0cl0rAT8RrTAKFHl53yHjEUzNVIaUlhFY11vc2ebiVJzVBuOzun6F7FBA+8KAbGTTedQ==",
-      "path": "system.security.accesscontrol/6.0.0",
-      "hashPath": "system.security.accesscontrol.6.0.0.nupkg.sha512"
-    },
-    "System.Security.Cryptography.Cng/5.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-jIMXsKn94T9JY7PvPq/tMfqa6GAaHpElRDpmG+SuL+D3+sTw2M8VhnibKnN8Tq+4JqbPJ/f+BwtLeDMEnzAvRg==",
-      "path": "system.security.cryptography.cng/5.0.0",
-      "hashPath": "system.security.cryptography.cng.5.0.0.nupkg.sha512"
-    },
-    "System.Security.Cryptography.Pkcs/6.0.1": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-ynmbW2GjIGg9K1wXmVIRs4IlyDolf0JXNpzFQ8JCVgwM+myUC2JeUggl2PwQig2PNVMegKmN1aAx7WPQ8tI3vA==",
-      "path": "system.security.cryptography.pkcs/6.0.1",
-      "hashPath": "system.security.cryptography.pkcs.6.0.1.nupkg.sha512"
-    },
-    "System.Security.Cryptography.ProtectedData/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-rp1gMNEZpvx9vP0JW0oHLxlf8oSiQgtno77Y4PLUBjSiDYoD77Y8uXHr1Ea5XG4/pIKhqAdxZ8v8OTUtqo9PeQ==",
-      "path": "system.security.cryptography.protecteddata/6.0.0",
-      "hashPath": "system.security.cryptography.protecteddata.6.0.0.nupkg.sha512"
-    },
-    "System.Security.Cryptography.Xml/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-puJ4UCh9JVRwOCyCIcq71JY6Axr8Sp8E2GjTIU1Fj8hm4+oX6NEoyGFGa/+pBG8SrVxbQPSj7hvtaREyTHHsmw==",
-      "path": "system.security.cryptography.xml/6.0.0",
-      "hashPath": "system.security.cryptography.xml.6.0.0.nupkg.sha512"
-    },
-    "System.Security.Permissions/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-T/uuc7AklkDoxmcJ7LGkyX1CcSviZuLCa4jg3PekfJ7SU0niF0IVTXwUiNVP9DSpzou2PpxJ+eNY2IfDM90ZCg==",
-      "path": "system.security.permissions/6.0.0",
-      "hashPath": "system.security.permissions.6.0.0.nupkg.sha512"
-    },
-    "System.Security.Principal.Windows/5.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-t0MGLukB5WAVU9bO3MGzvlGnyJPgUlcwerXn1kzBRjwLKixT96XV0Uza41W49gVd8zEMFu9vQEFlv0IOrytICA==",
-      "path": "system.security.principal.windows/5.0.0",
-      "hashPath": "system.security.principal.windows.5.0.0.nupkg.sha512"
-    },
-    "System.Text.Encoding.CodePages/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-ZFCILZuOvtKPauZ/j/swhvw68ZRi9ATCfvGbk1QfydmcXBkIWecWKn/250UH7rahZ5OoDBaiAudJtPvLwzw85A==",
-      "path": "system.text.encoding.codepages/6.0.0",
-      "hashPath": "system.text.encoding.codepages.6.0.0.nupkg.sha512"
-    },
-    "System.Threading.Tasks.Dataflow/6.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-+tyDCU3/B1lDdOOAJywHQoFwyXIUghIaP2BxG79uvhfTnO+D9qIgjVlL/JV2NTliYbMHpd6eKDmHp2VHpij7MA==",
-      "path": "system.threading.tasks.dataflow/6.0.0",
-      "hashPath": "system.threading.tasks.dataflow.6.0.0.nupkg.sha512"
     },
     "FSharp.Core/7.0.0-dev": {
       "type": "project",
