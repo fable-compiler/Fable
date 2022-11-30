@@ -26,6 +26,8 @@
     <Compile Include="$(FsYaccOutputFolder)/FSComp.fs" />
     <Compile Include="$(FsYaccOutputFolder)/FSIstrings.fs" />
     <!-- <EmbeddedResource Include="$(FSharpSourcesRoot)/fsharp/FSStrings.resx" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/sformat.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/sformat.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/sr.fsi" /> -->
@@ -66,8 +68,6 @@
     <Compile Include="$(FSharpSourcesRoot)/Utilities/range.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/range.fs" />
     <!-- <EmbeddedText Include="$(FSharpSourcesRoot)/Facilities/UtilsStrings.txt" /> -->
-    <Compile Include="$(FSharpSourcesRoot)/Facilities/Logger.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Facilities/Logger.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/LanguageFeatures.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/LanguageFeatures.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticOptions.fsi" />

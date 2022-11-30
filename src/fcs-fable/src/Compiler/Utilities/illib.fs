@@ -1004,7 +1004,7 @@ type CancellableBuilder() =
                 | Choice2Of2 err -> Cancellable.run ct (handler err)
             | ValueOrCancelled.Cancelled err1 -> ValueOrCancelled.Cancelled err1)
 
-    member inline _.Using(resource, [<InlineIfLambda>] comp) =
+    member inline _.Using(resource: #IDisposable, [<InlineIfLambda>] comp) =
         Cancellable(fun ct ->
 #if !FSHARPCORE_USE_PACKAGE
             __debugPoint ""
@@ -1021,7 +1021,13 @@ type CancellableBuilder() =
 
             match compRes with
             | ValueOrCancelled.Value res ->
-                (resource :> IDisposable).Dispose()
+#if FABLE_COMPILER
+                match box resource with
+                | null -> ()
+                | _ -> resource.Dispose()
+#else
+                Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.Dispose resource
+#endif
 
                 match res with
                 | Choice1Of2 r -> ValueOrCancelled.Value r

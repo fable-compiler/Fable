@@ -12,6 +12,9 @@ module Diagnostics =
     type Trace() =
         static member TraceInformation(_s) = () //TODO: proper implementation
 
+    type ActivitySource(_name: string, ?_version: string) =
+        member _.StartActivity(?_name, ?_kind) = null
+
 module Reflection =
     type AssemblyName(assemblyName: string) =
         member x.Name = assemblyName //TODO: proper implementation
