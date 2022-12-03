@@ -150,6 +150,7 @@ module File =
             | Fable.Dart -> ".dart"
             | Fable.Rust -> ".rs"
             | Fable.JavaScript -> ".js"
+            | Fable.C -> ".c"
 
         match language, usesOutDir with
         | Fable.Python, _ -> fileExt // Extension will always be .py for Python

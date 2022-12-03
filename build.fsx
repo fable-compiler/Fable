@@ -251,6 +251,31 @@ let buildLibraryRust() =
     runInDir buildDir ("cargo fmt")
     runInDir buildDir ("cargo build")
 
+let buildLibraryC() =
+    let libraryDir = "src/fable-library-c"
+    let projectDir = libraryDir + "/fable"
+    let buildDirC = "build/fable-library-c"
+
+    cleanDirs [buildDirC]
+
+    // runFableWithArgs projectDir [
+    //     "--outDir " + buildDirC </> "fable"
+    //     "--fableLib " + buildDirC </> "fable"
+    //     "--lang C"
+    //     "--exclude Fable.Core"
+    //     "--define FABLE_LIBRARY"
+    // ]
+    // Copy *.lua from projectDir to buildDir
+    copyDirRecursive libraryDir buildDirC
+
+    runInDir buildDirC ("gcc -v")
+    //runInDir buildDirLua ("lua ./setup.lua develop")
+
+let buildCLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-c")) then
+        buildLibraryC()
+
 let buildLibraryRustIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust")) then
         buildLibraryRust()
@@ -590,6 +615,26 @@ let testRust testMode =
         runInDir buildDir "cargo test"
         runInDir buildDir "cargo test --features threaded"
 
+let testC() =
+    buildCLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
+
+    let projectDir = "tests/C"
+    let buildDir = "build/tests/C"
+
+    cleanDirs [buildDir]
+    // copyDirRecursive ("build" </> "fable-library-c" </> "fable") (buildDir </> "fable-lib")
+    runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang C"
+        "--fableLib " + buildDir </> "fable-lib"
+    ]
+
+    // copyFile (projectDir </> "cunit.c") (buildDir </> "cunit.c")
+    // copyFile (projectDir </> "runtests.c") (buildDir </> "runtests.c")
+    runInDir buildDir "gcc runtests.c"
+
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
         buildLibraryDart(true)
@@ -769,6 +814,7 @@ match BUILD_ARGS_LOWER with
 | "test-rust-default"::_ -> testRust SingleThreaded
 | "test-rust-threaded"::_ -> testRust MultiThreaded
 | "test-rust-all"::_ -> testRust Everything
+| "test-c"::_ -> testC()
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
 

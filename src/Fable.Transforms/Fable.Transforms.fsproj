@@ -39,6 +39,10 @@
     <Compile Include="Dart/DartPrinter.fs" />
     <Compile Include="Rust/RustPrinter.fs" />
     <Compile Include="Rust/Fable2Rust.fs" />
+    <Compile Include="C/C.fs" />
+    <Compile Include="C/Compiler.fs" />
+    <Compile Include="C/CPrinter.fs" />
+    <Compile Include="C/Fable2C.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>

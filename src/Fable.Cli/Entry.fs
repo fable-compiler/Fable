@@ -151,6 +151,7 @@ let argLanguage (args: CliArgs) =
     | "php" -> Php
     | "dart" -> Dart
     | "rs" | "rust" -> Rust
+    | "C" | "c" -> C
     | _ -> JavaScript)
 
 type Runner =
@@ -236,6 +237,7 @@ type Runner =
             | Python -> "FABLE_COMPILER_PYTHON"
             | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
             | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
+            | C -> "FABLE_COMPILER_C"
         ]
         |> List.distinct
 
@@ -363,6 +365,7 @@ let getStatus = function
     | Dart -> "beta"
     | TypeScript -> "alpha"
     | Php -> "experimental"
+    | C -> "experimental"
 
 [<EntryPoint>]
 let main argv =
