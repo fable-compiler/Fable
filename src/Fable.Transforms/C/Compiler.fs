@@ -6,6 +6,7 @@ open Fable.AST.Fable
 type CCompiler(com: Fable.Compiler) =
     let mutable types = Map.empty
     let mutable decisionTreeTargets = []
+    let mutable additionalDeclarations = []
     member this.Com = com
     member this.AddClassDecl (c: ClassDecl) =
         types <- types |> Map.add c.Entity c
@@ -15,3 +16,6 @@ type CCompiler(com: Fable.Compiler) =
         decisionTreeTargets <- exprs
     member this.GetDecisionTreeTargets (idx: int) = decisionTreeTargets.[idx]
     member this.GetEntity entRef= com.TryGetEntity(entRef).Value
+    member this.CreateAdditionalDeclaration (declaration: Declaration) =
+        additionalDeclarations <- declaration::additionalDeclarations
+    member this.GetAdditionalDeclarations() = additionalDeclarations

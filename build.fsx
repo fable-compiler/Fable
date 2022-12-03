@@ -579,7 +579,7 @@ let testRust testMode =
     // limited cleanup to reduce IO churn, speed up rebuilds,
     // and save the ssd (target folder can get huge)
     cleanDirs [buildDir </> "src"]
-    cleanDirs [buildDir </> "tests"]
+    cleanDirs [buildDir </> "/"]
     cleanDirs [buildDir </> ".fable"]
 
     // copy rust only tests files (these must be present when running dotnet test as import expr tests for file presence)
@@ -621,9 +621,9 @@ let testC() =
     let projectDir = "tests/C"
     let buildDir = "build/tests/C"
 
-    cleanDirs [buildDir]
+    cleanDirs [buildDir </> "tests"]
     // copyDirRecursive ("build" </> "fable-library-c" </> "fable") (buildDir </> "fable-lib")
-    runInDir projectDir "dotnet test"
+    // runInDir projectDir "dotnet test"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
@@ -633,7 +633,7 @@ let testC() =
 
     // copyFile (projectDir </> "cunit.c") (buildDir </> "cunit.c")
     // copyFile (projectDir </> "runtests.c") (buildDir </> "runtests.c")
-    runInDir buildDir "gcc runtests.c"
+    runInDir buildDir "gcc ./tests/src/runtests.c"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then

@@ -16,6 +16,6 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="RunTests.fs" />
+    <Compile Include="./tests/src/RunTests.fs" />
   </ItemGroup>
 </Project>
