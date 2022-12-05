@@ -91,15 +91,19 @@ module Output =
             writeType ctx t
             write ctx " "
             write ctx "array[]"
-        | _ -> write ctx "todo"
+        | CStruct name ->
+            write ctx "struct "
+            write ctx name
+        | x -> sprintf "%A" x |> write ctx
 
     let rec writeExpr ctx = function
         | Ident i ->
             write ctx i.Name
         | Const c ->
             match c with
-            | ConstString s -> s |> sprintf "'%s'" |> write ctx
-            | ConstNumber n -> n |> sprintf "%f" |> write ctx
+            | ConstString s -> s |> sprintf "\"%s\"" |> write ctx
+            | ConstInt16 n -> n |> sprintf "%i" |> write ctx
+            | ConstInt32 n -> n |> sprintf "%i" |> write ctx
             | ConstBool b -> b |> sprintf "%b" |> write ctx
             | ConstNull -> write ctx "NULL"
 
@@ -144,7 +148,6 @@ module Output =
             writeExpr ctx expr
             write ctx " = "
             writeExpr ctx value
-
         | SetExpr(expr, a, value) ->
             writeExpr ctx expr
             write ctx " = "
@@ -206,18 +209,18 @@ module Output =
             body |> List.iter (writeStatement ctxI)
             writei ctx "end"
 
-        | NewObj(args) ->
-            write ctx "{"
-            let ctxI = indent ctx
-            writeln ctxI ""
-            for idx, (name, expr) in args |> List.mapi (fun i x -> i, x) do
-                writei ctxI name
-                write ctxI " = "
-                writeExpr ctxI expr
-                if idx < args.Length - 1 then
-                    writeln ctxI ","
-            writeln ctx ""
-            writei ctx "}"
+        // | NewStructInst(args) ->
+        //     write ctx "{"
+        //     let ctxI = indent ctx
+        //     writeln ctxI ""
+        //     for idx, (name, expr) in args |> List.mapi (fun i x -> i, x) do
+        //         writei ctxI name
+        //         write ctxI " = "
+        //         writeExpr ctxI expr
+        //         if idx < args.Length - 1 then
+        //             writeln ctxI ","
+        //     writeln ctx ""
+        //     writei ctx "}"
 
         | NewArr(args) ->
             write ctx "{"
@@ -264,7 +267,12 @@ module Output =
 
 
     and writeStatement ctx = function
-
+        | DeclareIdent(name, assignType) ->
+            writei ctx ""
+            writeType ctx assignType
+            write ctx " "
+            write ctx name
+            writeln ctx ";"
         | Assignment(names, expr, assignType) ->
             let names = names |> Helper.separateWithCommas
             writei ctx ""
@@ -332,7 +340,7 @@ module Output =
         | SNoOp -> ()
 
 
-    let writeDeclaration ctx declaration =
+    let rec writeDeclaration ctx declaration =
         match declaration with
         | FunctionDeclaration(name, args, body, returnType) ->
             writei ctx ""
@@ -341,12 +349,35 @@ module Output =
             write ctx name
             write ctx "("
             // let args = if exportToMod then "self"::args else args
-            args |> Helper.separateWithCommas |> write ctx
+            let mutable first = true
+            for (arg, t) in args do
+                if not first then
+                    write ctx ", "
+                first <- false
+                writeType ctx t
+                write ctx " "
+                write ctx arg
+            // args |> Helper.separateWithCommas |> write ctx
             write ctx ") {"
             let ctxI = indent ctx
             writeln ctxI ""
             body |> List.iter (writeStatement ctxI)
             writeln ctx "}"
+        | StructDeclaration(name, fields) ->
+            writei ctx ""
+            write ctx "struct "
+            write ctx name
+            write ctx " {"
+            let ctxI = indent ctx
+            writeln ctxI ""
+            for (name, t) in fields do
+                writei ctxI ""
+                writeType ctxI t
+                write ctxI " "
+                write ctxI name
+                writeln ctxI ";"
+            writeln ctx "};"
+        | NothingDeclared _ -> ()
 
     let writeFile ctx (file: File) =
         writeln ctx "#include <stdio.h>"

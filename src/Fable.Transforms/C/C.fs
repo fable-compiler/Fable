@@ -15,18 +15,19 @@ type CType =
     | Void
     | Array of CType
     | Pointer of CType
+    | CStruct of string
 
 
 type Const =
-    | ConstNumber of float
+    | ConstInt16 of int16
+    | ConstInt32 of int32
     | ConstString of string
     | ConstBool of bool
     | ConstNull
 
 
 type CIdent =
-    { Namespace: string option
-      Name: string }
+    { Name: string }
 
 type UnaryOp =
     | Not
@@ -68,7 +69,7 @@ type Expr =
     | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
     | Function of args: string list * body: Statement list
-    | NewObj of values: (string * Expr) list
+    // | NewStructInst of name: string * values: (string * Expr) list
     | NewArr of values: Expr list
 
 
@@ -76,6 +77,7 @@ type Expr =
 
 type Statement =
     // | FunctionDeclaration of name: string * args: string list * body: Statement list * returnType: CType
+    | DeclareIdent of name: string* assignType: CType
     | Assignment of names: string list * Expr * assignType: CType
     | Return of Expr
     | Do of Expr
@@ -88,8 +90,8 @@ type Include =
     | Named of string
 
 type Declaration =
-    | FunctionDeclaration of name: string * args: string list * body: Statement list * returnType: CType
-    | StructDeclaration of name: string * params: (string * CType list)
+    | FunctionDeclaration of name: string * args: (string * CType) list * body: Statement list * returnType: CType
+    | StructDeclaration of name: string * params: (string * CType) list
     | NothingDeclared
 
 type File =
