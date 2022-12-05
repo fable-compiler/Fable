@@ -253,22 +253,26 @@ let buildLibraryRust() =
 
 let buildLibraryC() =
     let libraryDir = "src/fable-library-c"
-    let projectDir = libraryDir + "/fable"
-    let buildDirC = "build/fable-library-c"
+    let sourceDir = libraryDir </> "src"
+    let buildDir = "build/fable-library-c"
+    let fableLib = "."
 
-    cleanDirs [buildDirC]
+    let outDir = buildDir </> "src"
 
-    // runFableWithArgs projectDir [
-    //     "--outDir " + buildDirC </> "fable"
-    //     "--fableLib " + buildDirC </> "fable"
-    //     "--lang C"
-    //     "--exclude Fable.Core"
-    //     "--define FABLE_LIBRARY"
-    // ]
+    cleanDirs [buildDir]
+
+    runFableWithArgs sourceDir [
+        "--outDir " + resolveDir outDir
+        "--fableLib " + fableLib
+        "--lang C"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+    ]
     // Copy *.lua from projectDir to buildDir
-    copyDirRecursive libraryDir buildDirC
+    copyFiles sourceDir "*.c" outDir
+    copyDirRecursive libraryDir buildDir
 
-    runInDir buildDirC ("gcc -v")
+    runInDir buildDir ("gcc -v")
     //runInDir buildDirLua ("lua ./setup.lua develop")
 
 let buildCLibraryIfNotExists() =
@@ -622,7 +626,7 @@ let testC() =
     let buildDir = "build/tests/C"
 
     cleanDirs [buildDir </> "tests"]
-    // copyDirRecursive ("build" </> "fable-library-c" </> "fable") (buildDir </> "fable-lib")
+    copyDirRecursive ("build" </> "fable-library-c" </> "src") (buildDir </> "fable-lib")
     // runInDir projectDir "dotnet test"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
@@ -858,6 +862,7 @@ match BUILD_ARGS_LOWER with
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
+| ("fable-library-c" | "library-c")::_ -> buildLibraryC()
 | ("fable-library-dart" | "library-dart")::_ ->
     let clean = hasFlag "--no-clean" |> not
     buildLibraryDart(clean)
