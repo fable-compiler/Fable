@@ -3,35 +3,35 @@ module Fable.Core.LuaInterop
 open System
 open Fable.Core
 
-/// Has same effect as `unbox` (dynamic casting erased in compiled Python code).
-/// The casted type can be defined on the call site: `!!myObj?bar(5): float`
-let (!!) x: 'T = nativeOnly
+// /// Has same effect as `unbox` (dynamic casting erased in compiled Lua code).
+// /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
+// let (!!) x: 'T = nativeOnly
 
-/// Implicit cast for erased unions (U2, U3...)
-let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
+// /// Implicit cast for erased unions (U2, U3...)
+// let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
 
-/// Dynamically access a property of an arbitrary object.
-/// `myObj?propA` in Python becomes `myObj.propA`
-/// `myObj?(propA)` in Python becomes `myObj[propA]`
-let (?) (o: obj) (prop: obj): 'a = nativeOnly
+// /// Dynamically access a property of an arbitrary object.
+// /// `myObj?propA` in Lua becomes `myObj.propA`
+// /// `myObj?(propA)` in Lua becomes `myObj[propA]`
+// let (?) (o: obj) (prop: obj): 'a = nativeOnly
 
-/// Dynamically assign a value to a property of an arbitrary object.
-/// `myObj?propA <- 5` in Python becomes `myObj.propA = 5`
-/// `myObj?(propA) <- 5` in Python becomes `myObj[propA] = 5`
-let (?<-) (o: obj) (prop: obj) (v: obj): unit = nativeOnly
+// /// Dynamically assign a value to a property of an arbitrary object.
+// /// `myObj?propA <- 5` in Lua becomes `myObj.propA = 5`
+// /// `myObj?(propA) <- 5` in Lua becomes `myObj[propA] = 5`
+// let (?<-) (o: obj) (prop: obj) (v: obj): unit = nativeOnly
 
-/// Works like `ImportAttribute` (same semantics as ES6 imports).
-/// You can use "*" or "default" selectors.
-let import<'T> (selector: string) (path: string):'T = nativeOnly
+// /// Works like `ImportAttribute` (same semantics as ES6 imports).
+// /// You can use "*" or "default" selectors.
+// let import<'T> (selector: string) (path: string):'T = nativeOnly
 
-/// F#: let myMember = importMember<string> "myModule"
-/// Py: from my_module import my_member
-/// Note the import must be immediately assigned to a value in a let binding
-let importMember<'T> (path: string):'T = nativeOnly
+// /// F#: let myMember = importMember<string> "myModule"
+// /// Py: from my_module import my_member
+// /// Note the import must be immediately assigned to a value in a let binding
+// let importMember<'T> (path: string):'T = nativeOnly
 
-/// F#: let myLib = importAll<obj> "myLib"
-/// Py: from my_lib import *
-let importAll<'T> (path: string):'T = nativeOnly
+// /// F#: let myLib = importAll<obj> "myLib"
+// /// Py: from my_lib import *
+// let importAll<'T> (path: string):'T = nativeOnly
 
 [<RequireQualifiedAccess>]
 module Lua =

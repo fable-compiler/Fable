@@ -238,7 +238,7 @@ let buildLibraryLua() =
     // Copy *.lua from projectDir to buildDir
     copyDirRecursive libraryDir buildDirLua
 
-    runInDir buildDirLua ("lua52 -v")
+    runInDir buildDirLua ("lua -v")
     //runInDir buildDirLua ("lua ./setup.lua develop")
 
 
@@ -584,7 +584,7 @@ let testLua() =
 
     copyFile (projectDir </> "luaunit.lua") (buildDir </> "luaunit.lua")
     copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
-    runInDir buildDir "lua52 runtests.lua"
+    runInDir buildDir "lua runtests.lua"
 type RustTestMode =
     | SingleThreaded
     | MultiThreaded

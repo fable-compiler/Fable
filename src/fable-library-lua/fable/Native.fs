@@ -5,8 +5,8 @@ module Native
 
 open System.Collections.Generic
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Core.LuaInterop
-
 [<AllowNullLiteral>]
 type Cons<'T> =
     [<Emit("{}")>]
