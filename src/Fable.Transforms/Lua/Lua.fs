@@ -9,8 +9,9 @@ type Const =
     | ConstNull
 
 type LuaIdentity =
-    { Namespace: string option
-      Name: string
+    {
+        Namespace: string option
+        Name: string
     }
 
 type UnaryOp =
@@ -63,6 +64,8 @@ type Statement =
     | IfThenElse of guard: Expr * thenSt: Statement list * elseSt: Statement list
 
 type File =
-    { Filename: string
-      Statements: (Statement) list
-      ASTDebug: string }
+    {
+        Filename: string
+        Statements: (Statement) list
+        ASTDebug: string
+    }

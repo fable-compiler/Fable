@@ -344,18 +344,33 @@ module Rust =
 module Lua =
     open Fable.Transforms
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+    type LuaWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let stream = new IO.StreamWriter(targetPath)
+        interface Printer.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+                if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
+            member _.AddSourceMapping _ = ()
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let program =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Lua.transformFile com
 
-        use w = new IO.StreamWriter(outPath)
-        let ctx = LuaPrinter.Output.Writer.create w
-        LuaPrinter.Output.writeFile ctx program
-        //use writer = new LuaWriter(com, cliArgs, dedupTargetDir, outPath)
-        //do! (writer :> LuaPrinter.Writer).Write(sprintf "AST: %A" fable.Declarations)
-        //do! run writer program
+        //
+        if not (isSilent) then
+            use writer = new LuaWriter(com, cliArgs, pathResolver, outPath)
+            do! LuaPrinter.run writer crate
+
     }
 
 
@@ -366,4 +381,4 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath
-    | Lua -> Lua.compileFile com cliArgs dedupTargetDir outPath
+    | Lua -> Lua.compileFile com cliArgs pathResolver isSilent outPath

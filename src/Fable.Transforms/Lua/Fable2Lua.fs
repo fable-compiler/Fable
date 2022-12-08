@@ -13,8 +13,6 @@ open Fable.Compilers.Lua
 open Fable.Naming
 open Fable.Core
 
-// type ILuaCompiler =
-//     inherit Compiler
 
 // type LuaCompiler(com: Fable.Compiler) =
 //     interface ILuaCompiler // with
@@ -58,7 +56,7 @@ module Transforms =
                 NewObj(equality::pairs)
             else sprintf "Names and values do not match %A %A" names values |> Unknown
     let transformValueKind (com: LuaCompiler) = function
-        | Fable.NumberConstant(v,_,_) ->
+        | Fable.NumberConstant(:? float as v,kind,_) ->
             Const(ConstNumber v)
         | Fable.StringConstant(s) ->
             Const(ConstString s)
@@ -77,7 +75,7 @@ module Transforms =
                 let values = values |> List.map (transformExpr com)
                 Helpers.tryNewObj names values
             else sprintf "unknown ety %A %A %A %A" values ref args entity |> Unknown
-        | Fable.NewAnonymousRecord(values, names, _) ->
+        | Fable.NewAnonymousRecord(values, names, _, _) ->
             let transformedValues = values |> List.map (transformExpr com)
             Helpers.tryNewObj (Array.toList names) transformedValues
         | Fable.NewUnion(values, tag, _, _) ->
@@ -89,8 +87,10 @@ module Transforms =
             // let fields = values |> List.mapi(fun i x -> sprintf "p_%i" i, transformExpr com x)
             // NewObj(fields)
             NewArr(values |> List.map (transformExpr com))
-        | Fable.NewArray(values, t) ->
-            NewArr(values |> List.map (transformExpr com))
+        | Fable.NewArray(kind, t, _) ->
+            match kind with
+            | Fable.ArrayValues values -> NewArr(values |> List.map (transformExpr com))
+            | _ -> NewArr([])
         | Fable.Null _ ->
             Const(ConstNull)
         | x -> sprintf "unknown %A" x |> ConstString |> Const
@@ -98,9 +98,10 @@ module Transforms =
         let transformExpr = transformExpr com
         function
         | Fable.OperationKind.Binary(BinaryModulus, left, right) ->
-             GetField(Helpers.ident "math", "fmod") |> Helpers.fcall [transformExpr left; transformExpr right]
+            GetField(Helpers.ident "math", "fmod") |> Helpers.fcall [transformExpr left; transformExpr right]
         | Fable.OperationKind.Binary (op, left, right) ->
-            let op = match op with
+            let op =
+                match op with
                 | BinaryMultiply -> Multiply
                 | BinaryDivide -> Divide
                 | BinaryEqual -> Equals
@@ -125,8 +126,7 @@ module Transforms =
     let asSingleExprIife (exprs: Expr list): Expr= //function
         match exprs with
         | [] -> NoOp
-        | [h] ->
-            h
+        | [h] -> h
         | exprs ->
             let statements =
                 Helpers.transformStatements
@@ -157,17 +157,16 @@ module Transforms =
     let transformExpr (com: LuaCompiler) expr=
         let transformExpr = transformExpr com
         let transformOp = transformOp com
-
         match expr with
         | Fable.Expr.Value(value, _) -> transformValueKind com value
         | Fable.Expr.Call(expr, callInfo, t, r) ->
             let lhs =
                 match expr with
-                | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fieldName, isMut), t, _) ->
+                | Fable.Expr.Get(expr, Fable.GetKind.FieldGet info, t, _) ->
                     match t with
                     | Fable.DeclaredType(_, _)
-                    | Fable.AnonymousRecordType(_, _) ->
-                        GetObjMethod(transformExpr expr, fieldName)
+                    | Fable.AnonymousRecordType(_, _, _) ->
+                        GetObjMethod(transformExpr expr, info.Name)
                     | _ -> transformExpr expr
                 | Fable.Expr.Delegate _ ->
                     transformExpr expr |> Brackets
@@ -190,12 +189,12 @@ module Transforms =
             | s -> GetObjMethod(rcall, s)
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
             Ident {Namespace = None; Name = i.Name }
-        | Fable.Expr.Operation (kind, _, _) ->
+        | Fable.Expr.Operation (kind, _, _, _) ->
             transformOp kind
-        | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fieldName, isMut), t, _) ->
-            GetField(transformExpr expr, fieldName)
-        | Fable.Expr.Get(expr, Fable.GetKind.UnionField(caseIdx, fieldIdx), _, _) ->
-            GetField(transformExpr expr, sprintf "p_%i" fieldIdx)
+        | Fable.Expr.Get(expr, Fable.GetKind.FieldGet info, t, _) ->
+            GetField(transformExpr expr, info.Name)
+        | Fable.Expr.Get(expr, Fable.GetKind.UnionField info , _, _) ->
+            GetField(transformExpr expr, sprintf "p_%i" info.FieldIndex)
         | Fable.Expr.Get(expr, Fable.GetKind.ExprGet(e), _, _) ->
             GetAtIndex(transformExpr expr, transformExpr e)
         | Fable.Expr.Get(expr, Fable.GetKind.TupleIndex(i), _, _) ->
@@ -266,7 +265,7 @@ module Transforms =
             FunctionCall(Helpers.ident "error", [errorExpr])
         | Fable.Extended(Fable.ExtendedSet.Curry(expr, d), _) ->
             transformExpr expr |> sprintf "todo curry %A" |> Unknown
-        | Fable.Delegate(idents, body, _) ->
+        | Fable.Delegate(idents, body, _, _) ->
             Function(idents |> List.map(fun i -> i.Name), [transformExpr body |> Return |> flattenReturnIifes]) //can be flattened
         | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
             Helpers.maybeIife [
@@ -274,7 +273,7 @@ module Transforms =
                 ]
         | Fable.TypeCast(expr, t) ->
             transformExpr expr //typecasts are meaningless
-        | Fable.WhileLoop(guard, body, label, range) ->
+        | Fable.WhileLoop(guard, body, label) ->
             Helpers.maybeIife [
                 WhileLoop(transformExpr guard, [transformExpr body |> Do])
             ]
@@ -308,13 +307,13 @@ module Transforms =
             if m.Args.Length = 0 then
                 Assignment([m.Name], transformExpr com m.Body, true)
             else
-
+                let info = com.Com.GetMember(m.MemberRef)
                 let unwrapSelfExStatements =
                     match transformExpr com m.Body |> Return |> flattenReturnIifes with
                     | Return (FunctionCall(AnonymousFunc([], statements), [])) ->
                         statements
                     | s -> [s]
-                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), unwrapSelfExStatements, m.Info.IsPublic)
+                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), unwrapSelfExStatements, info.IsPublic)
         | Fable.ClassDeclaration(d) ->
             com.AddClassDecl d
             //todo - build prototype members out

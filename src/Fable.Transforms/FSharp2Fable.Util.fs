@@ -310,8 +310,10 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
                     Path.normalizePath asmPath |> Fable.AssemblyPath
             | None ->
                 FsEnt.SourcePath ent |> Fable.SourcePath
-        { FullName = FsEnt.FullName ent
-          Path = path }
+        {
+            FullName = FsEnt.FullName ent
+            Path = path
+        }
 
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
@@ -377,36 +379,38 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
 type Scope = (FSharpMemberOrFunctionOrValue option * Fable.Ident * Fable.Expr option) list
 
 type Context =
-    { Scope: Scope
-      ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
-      UsedNamesInRootScope: Set<string>
-      UsedNamesInDeclarationScope: HashSet<string>
-      CapturedBindings: HashSet<string>
-      GenericArgs: Map<string, Fable.Type>
-      EnclosingMember: FSharpMemberOrFunctionOrValue option
-      PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
-      CaughtException: Fable.Ident option
-      BoundConstructorThis: Fable.Ident option
-      BoundMemberThis: Fable.Ident option
-      InlinePath: Log.InlinePath list
-      CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
-      Witnesses: Fable.Witness list
+    {
+        Scope: Scope
+        ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+        UsedNamesInRootScope: Set<string>
+        UsedNamesInDeclarationScope: HashSet<string>
+        CapturedBindings: HashSet<string>
+        GenericArgs: Map<string, Fable.Type>
+        EnclosingMember: FSharpMemberOrFunctionOrValue option
+        PrecompilingInlineFunction: FSharpMemberOrFunctionOrValue option
+        CaughtException: Fable.Ident option
+        BoundConstructorThis: Fable.Ident option
+        BoundMemberThis: Fable.Ident option
+        InlinePath: Log.InlinePath list
+        CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
+        Witnesses: Fable.Witness list
     }
     static member Create(?usedRootNames) =
-        { Scope = []
-          ScopeInlineValues = []
-          UsedNamesInRootScope = defaultArg usedRootNames Set.empty
-          UsedNamesInDeclarationScope = Unchecked.defaultof<_>
-          CapturedBindings = Unchecked.defaultof<_>
-          GenericArgs = Map.empty
-          EnclosingMember = None
-          PrecompilingInlineFunction = None
-          CaughtException = None
-          BoundConstructorThis = None
-          BoundMemberThis = None
-          InlinePath = []
-          CaptureBaseConsCall = None
-          Witnesses = []
+        {
+            Scope = []
+            ScopeInlineValues = []
+            UsedNamesInRootScope = defaultArg usedRootNames Set.empty
+            UsedNamesInDeclarationScope = Unchecked.defaultof<_>
+            CapturedBindings = Unchecked.defaultof<_>
+            GenericArgs = Map.empty
+            EnclosingMember = None
+            PrecompilingInlineFunction = None
+            CaughtException = None
+            BoundConstructorThis = None
+            BoundMemberThis = None
+            InlinePath = []
+            CaptureBaseConsCall = None
+            Witnesses = []
         }
 
 type IFableCompiler =
@@ -645,9 +649,11 @@ module Helpers =
         else memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
-        { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn }
-          identifierName = None }
+        {
+            start = { line = r.StartLine; column = r.StartColumn }
+            ``end``= { line = r.EndLine; column = r.EndColumn }
+            identifierName = None
+        }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -681,7 +687,7 @@ module Helpers =
     // Mutable public values must be called as functions in JS (see #986)
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
-        | Python | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
+        | Python | JavaScript | TypeScript | Lua -> memb.IsMutable && isNotPrivate memb
         | Rust | Php | Dart -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
@@ -705,7 +711,7 @@ module Helpers =
             if interfaceFullname = fullname2
             then true
             else e.DeclaredInterfaces
-                 |> Seq.exists (testInterfaceHierarchy interfaceFullname)
+                |> Seq.exists (testInterfaceHierarchy interfaceFullname)
         | _ -> false
 
     let isOptionalParam (p: FSharpParameter) =
@@ -1097,14 +1103,18 @@ module TypeHelpers =
     let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
         let genArgs = [getMeasureFullName genArgs |> Fable.Measure]
         let r: Fable.EntityRef =
-            { FullName = fullName
-              Path = Fable.CoreAssemblyName "System.Runtime" }
+            {
+                FullName = fullName
+                Path = Fable.CoreAssemblyName "System.Runtime"
+            }
         Fable.DeclaredType(r, genArgs)
 
     let private makeFSharpCoreType fullName =
             let r: Fable.EntityRef =
-                { FullName = fullName
-                  Path = Fable.CoreAssemblyName "FSharp.Core" }
+                {
+                    FullName = fullName
+                    Path = Fable.CoreAssemblyName "FSharp.Core"
+                }
             Fable.DeclaredType(r, [])
 
     let makeTypeFromDef withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
@@ -1488,13 +1498,13 @@ module TypeHelpers =
                         fieldNames
                         |> Array.tryFindIndex ((=) m.DisplayName)
                         |> function
-                           | None ->
+                            | None ->
                                 if expectedTypes |> List.forall (function | Fable.Option _ -> true | _ -> false) then
                                     None    // Optional fields can be missing
                                 else
                                     formatMissingFieldError m.DisplayName expectedTypes
                                     |> Some
-                           | Some i ->
+                            | Some i ->
                                 let expr = List.item i argExprs
                                 let ty = expr.Type
                                 if ty |> fitsInto (Allow.TheUsual ||| Allow.AnyIntoErased) expectedTypes then
@@ -1557,8 +1567,8 @@ module TypeHelpers =
                // sort errors by their appearance in code
             |> List.sortBy fst
             |> function
-               | [] -> Ok ()
-               | errors -> Error errors
+                | [] -> Ok ()
+                | errors -> Error errors
         | _ ->
             Ok () // TODO: Error instead if we cannot check the interface?
 
@@ -1596,13 +1606,15 @@ module Identifiers =
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
 
-        { Name = sanitizedName
-          Type = makeType ctx.GenericArgs fsRef.FullType
-          IsThisArgument = fsRef.IsMemberThisValue
-          IsCompilerGenerated = fsRef.IsCompilerGenerated
-          IsMutable = isMutable
-          Range = { makeRange fsRef.DeclarationLocation
-                    with identifierName = Some fsRef.DisplayName } |> Some }
+        {
+            Name = sanitizedName
+            Type = makeType ctx.GenericArgs fsRef.FullType
+            IsThisArgument = fsRef.IsMemberThisValue
+            IsCompilerGenerated = fsRef.IsCompilerGenerated
+            IsMutable = isMutable
+            Range = { makeRange fsRef.DeclarationLocation
+                    with identifierName = Some fsRef.DisplayName } |> Some
+        }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
@@ -1929,11 +1941,11 @@ module Util =
         // We cannot retrieve compiler generated members from the entity
         | Some ent when not memb.IsCompilerGenerated ->
             let nonCurriedArgTypes =
-                 if memb.CurriedParameterGroups.Count = 1 then
-                     memb.CurriedParameterGroups[0]
-                     |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
-                     |> Some
-                 else None
+                    if memb.CurriedParameterGroups.Count = 1 then
+                        memb.CurriedParameterGroups[0]
+                        |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
+                        |> Some
+                    else None
             Fable.MemberRef(FsEnt.Ref(ent), {
                 CompiledName = memb.CompiledName
                 IsInstance = memb.IsInstanceMember
@@ -1942,9 +1954,9 @@ module Util =
         | ent ->
             let entRef = ent |> Option.map FsEnt.Ref
             let argTypes =
-                 memb.CurriedParameterGroups
-                 |> Seq.concat
-                 |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
+                    memb.CurriedParameterGroups
+                    |> Seq.concat
+                    |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
             let returnType = makeType Map.empty memb.ReturnParameter.Type
             Fable.GeneratedMember.Function(memb.CompiledName, argTypes, returnType, isInstance=memb.IsInstanceMember, hasSpread=hasParamArray memb, ?entRef=entRef)
 
@@ -2084,16 +2096,18 @@ module Util =
         match entity with
         | Some ent when isReplacementCandidateFrom ent ->
             let info: Fable.ReplaceCallInfo =
-              { SignatureArgTypes = callInfo.SignatureArgTypes
-                DeclaringEntityFullName = ent.FullName
-                HasSpread = hasParamArray memb
-                IsModuleValue = isModuleValueForCalls com ent memb
-                IsInterface = ent.IsInterface
-                CompiledName = memb.CompiledName
-                OverloadSuffix =
-                    if ent.IsFSharpModule then ""
-                    else getOverloadSuffixFrom ent memb
-                GenericArgs = callInfo.GenericArgs }
+                {
+                    SignatureArgTypes = callInfo.SignatureArgTypes
+                    DeclaringEntityFullName = ent.FullName
+                    HasSpread = hasParamArray memb
+                    IsModuleValue = isModuleValueForCalls com ent memb
+                    IsInterface = ent.IsInterface
+                    CompiledName = memb.CompiledName
+                    OverloadSuffix =
+                        if ent.IsFSharpModule then ""
+                        else getOverloadSuffixFrom ent memb
+                    GenericArgs = callInfo.GenericArgs
+                }
             match ctx.PrecompilingInlineFunction with
             | Some _ ->
                 // Deal with reraise so we don't need to save caught exception every time
@@ -2143,9 +2157,11 @@ module Util =
                     | Atts.emitProperty -> "$0." + macro + "{{=$1}}"
                     | _ -> macro
                 let emitInfo: Fable.EmitInfo =
-                    { Macro = macro
-                      IsStatement = isStatement
-                      CallInfo = callInfo }
+                    {
+                        Macro = macro
+                        IsStatement = isStatement
+                        CallInfo = callInfo
+                    }
                 Fable.Emit(emitInfo, typ, r) |> Some
             | _ -> None)
 
