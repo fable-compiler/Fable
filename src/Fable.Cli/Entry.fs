@@ -237,6 +237,7 @@ type Runner =
             | Python -> "FABLE_COMPILER_PYTHON"
             | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
             | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
+            | Lua -> "FABLE_COMPILER_LUA"
         ]
         |> List.distinct
 
@@ -364,6 +365,7 @@ let getStatus = function
     | Dart -> "beta"
     | TypeScript -> "alpha"
     | Php -> "experimental"
+    | Lua -> "experimental"
 
 [<EntryPoint>]
 let main argv =
