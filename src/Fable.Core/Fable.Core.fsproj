@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -15,6 +15,7 @@
     <Compile Include="Fable.Core.JS.fs" />
     <Compile Include="Fable.Core.Py.fs" />
     <Compile Include="Fable.Core.Dart.fs" />
+    <Compile Include="Fable.Core.LuaInterop.fs" />
     <Compile Include="Fable.Core.Rust.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.PhpInterop.fs" />

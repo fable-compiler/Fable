@@ -603,7 +603,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
             | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
             | TypeScript -> "fable-library-ts", "fable-library-ts"
-            | Lua -> "fable-library-lua", "fable-library"
+            | Lua -> "fable-library-lua", "fable-library-lua"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
         let fableLibrarySource =

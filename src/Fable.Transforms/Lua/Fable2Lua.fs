@@ -102,25 +102,22 @@ module Transforms =
         | Fable.OperationKind.Binary (op, left, right) ->
             let op =
                 match op with
-                | BinaryMultiply -> Multiply
-                | BinaryDivide -> Divide
-                | BinaryEqual -> Equals
-                | BinaryPlus -> Plus
-                | BinaryMinus -> Minus
-                | BinaryEqualStrict -> Equals
-                | BinaryUnequal -> Unequal
-                | BinaryUnequalStrict -> Unequal
-                | BinaryLess -> Less
-                | BinaryGreater -> Greater
-                | BinaryLessOrEqual -> LessOrEqual
-                | BinaryGreaterOrEqual -> GreaterOrEqual
+                | BinaryOperator.BinaryMultiply -> Multiply
+                | BinaryOperator.BinaryDivide -> Divide
+                | BinaryOperator.BinaryEqual -> Equals
+                | BinaryOperator.BinaryPlus -> Plus
+                | BinaryOperator.BinaryMinus -> Minus
+                | BinaryOperator.BinaryUnequal -> Unequal
+                | BinaryOperator.BinaryLess -> Less
+                | BinaryOperator.BinaryGreater -> Greater
+                | BinaryOperator.BinaryLessOrEqual -> LessOrEqual
+                | BinaryOperator.BinaryGreaterOrEqual -> GreaterOrEqual
                 | x -> sprintf "%A" x |> BinaryTodo
             Binary(op, transformExpr left, transformExpr right )
         | Fable.OperationKind.Unary (op, expr) ->
             match op with
-            | UnaryNotBitwise -> transformExpr expr //not sure why this is being added
-            | UnaryNot -> Unary(Not, transformExpr expr)
-            | UnaryVoid -> NoOp
+            | UnaryOperator.UnaryNotBitwise -> transformExpr expr //not sure why this is being added
+            | UnaryOperator.UnaryNot -> Unary(Not, transformExpr expr)
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
     let asSingleExprIife (exprs: Expr list): Expr= //function

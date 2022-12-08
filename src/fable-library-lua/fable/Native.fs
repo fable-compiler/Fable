@@ -5,8 +5,7 @@ module Native
 
 open System.Collections.Generic
 open Fable.Core
-open Fable.Core.PyInterop
-open Fable.Import
+open Fable.Core.LuaInterop
 
 [<AllowNullLiteral>]
 type Cons<'T> =
@@ -25,10 +24,10 @@ module Helpers =
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
         if isNull cons then
-            PY.Constructors.Array.Create(len)
+            Lua.Array.Create(len)
         else
             cons.Allocate(len)
-    let inline isDynamicArrayImpl arr = PY.Constructors.Array.isArray arr
+    let inline isDynamicArrayImpl arr = Lua.Array.isArray arr
 
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)
